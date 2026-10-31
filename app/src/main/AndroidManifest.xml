@@ -21,6 +21,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Swipe down on the header opens the notification shade. -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <!-- Lets the default launcher see the Android 15+ private space profile. -->
@@ -137,6 +138,14 @@
         <receiver
             android:name=".script.ScriptAlarmReceiver"
             android:exported="false" />
+        <!-- Remove cached update APKs after the new version is installed. -->
+<receiver
+    android:name=".terminal.UpdateCleanupReceiver"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+    </intent-filter>
+</receiver>
 
         <!-- A script's run at its daily time, in the foreground for its few seconds: Android lets a
              launcher pause the work profile only in front. In :script, with the other runs. -->
@@ -157,5 +166,15 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+        <!-- Shares downloaded update APKs with Android's package installer. -->
+<provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.fileprovider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/update_paths" />
+</provider>
     </application>
 </manifest>

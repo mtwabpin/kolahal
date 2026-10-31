@@ -24,7 +24,7 @@ between versions, keep a [[https://mtwabpin.github.io/kolahal/guides/backup/][ba
 
 - *APK*: the [[https://github.com/mtwabpin/kolahal/releases/latest][latest release]] on GitHub has the full build, with everything in it, and the
   Play build, the version for Google Play. The [[https://mtwabpin.github.io/kolahal/getting-started/install/][install guide]] says how
-  to sideload them.
+  to sideload them. (it support self-update)
 Important: Google Play Protect blocks sideloaded apps (installed from a browser, a messaging app or a file manager) that declare an accessibility service or notification access, in India and some other countries. Both builds declare notification access, which shows your notifications in the log, and the full build also has an accessibility service, which only locks the screen.
 
 Install with scanning turned off: Play Store → profile → Play Protect → ⚙︎ → Scan apps with Play Protect while installing (and back on after), or with adb install. Once Kolahal is on Google Play, installing it from there avoids the block.

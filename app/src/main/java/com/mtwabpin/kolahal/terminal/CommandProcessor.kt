@@ -51,6 +51,20 @@ class CommandProcessor(private val context: Context, private val ui: TerminalUi)
     private val people = PeopleCommands(context, ui)
     private val appCommands = AppCommands(context, ::background)
     private val feedCommands = FeedCommands(context, appCommands, ui)
+    private val updateCommands = UpdateCommands(
+    context,
+    ::background,
+    { text, ctx -> out(text, ctx) },
+    { text, ctx -> info(text, ctx) },
+) { message, url ->
+    logs.add(
+        LogKind.ERROR,
+        message,
+        ctx = LogContext.of(
+            LogContext.URL to (url ?: "https://github.com/mtwabpin/kolahal/releases/latest")
+        ),
+    )
+    }
 
     private fun background(label: String, block: () -> Unit) {
         backgroundScope.launch {
@@ -121,6 +135,11 @@ class CommandProcessor(private val context: Context, private val ui: TerminalUi)
                 "script" -> scriptCommands.script(args)
                 "lua" -> eval(ScriptLang.LUA, rest)
                 "js" -> eval(ScriptLang.JS, rest)
+                "update" -> if (com.mtwabpin.kolahal.BuildConfig.SELF_UPDATE) {
+    updateCommands.run(args)
+} else {
+    error("Self-updates aren't available in the Play build")
+                }
                 "rss" -> feedCommands.rss(rest)
                 "feeds" -> if (args.isEmpty()) ui.openScreen(Screen.FEEDS) else feedCommands.feeds(args).also { runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) } }
                 // A feed added, removed, switched or given a new interval changes the schedule.
@@ -732,6 +751,7 @@ class CommandProcessor(private val context: Context, private val ui: TerminalUi)
             CommandSpec("alarm", "alarm <HH:MM> [<label>]", "Set an alarm in the clock app"),
             CommandSpec("alarms", "alarms", "Show the clock app's alarms"),
             CommandSpec("stopwatch", "stopwatch", "Open the clock app"),
+            CommandSpec("update", "update [install]", "Check for updates; install only when asked"),
             CommandSpec("agenda", "agenda [<days>|--allow|--settings]", "Upcoming calendar events (tap opens one)"),
         )
 
@@ -772,7 +792,7 @@ class CommandProcessor(private val context: Context, private val ui: TerminalUi)
             "profiles" to listOf("work", "private"),
             "productivity" to listOf("todo", "note", "notes", "remind", "reminders", "timer", "alarm", "alarms", "stopwatch", "agenda"),
             "scripts" to listOf("scripts", "script", "lua", "js", "=", "status"),
-            "terminal" to listOf("help", "history", "clear", "fresh", "restart", "alias", "unalias", "config", "theme", "font", "backup", "echo", "date", "cal"),
+            "terminal" to listOf("help", "history", "clear", "fresh", "restart", "alias", "unalias", "config", "theme", "font", "backup", "echo", "date", "cal", "update"),
             "widgets" to listOf("widgets", "widget"),
             "device" to listOf("settings", "setup", "tour", "source", "wallpaper", "unlocks", "notifications", "usage-access", "local-network", "crashes", "battery", "home", "lock", "shade", "accessibility", "system"),
         )

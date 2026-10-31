@@ -46,6 +46,7 @@ android {
         buildConfigField("boolean", "LOCK_SERVICE", "true")
         buildConfigField("boolean", "CALL_LOG", "true")
         buildConfigField("boolean", "CONTACTS", "true")
+buildConfigField("boolean", "SELF_UPDATE", "true")
     }
 
     signingConfigs {
@@ -105,6 +106,7 @@ android {
             buildConfigField("boolean", "LOCK_SERVICE", "false")
             buildConfigField("boolean", "CALL_LOG", "false")
             buildConfigField("boolean", "CONTACTS", "false")
+buildConfigField("boolean", "SELF_UPDATE", "false")
         }
     }
 
