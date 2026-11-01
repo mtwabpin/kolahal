@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   build:
+    # Not on forks: they have no Pages, so the run could only fail. Deploying needs this job, so it goes too.
+    if: github.repository == 'mtwabpin/kolahal'
     runs-on: ubuntu-latest
     env:
       ASTRO_TELEMETRY_DISABLED: 1
