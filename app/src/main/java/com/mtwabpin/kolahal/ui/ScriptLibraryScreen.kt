@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
@@ -122,8 +123,8 @@ private fun LibraryRow(r: LibRow, index: Int, count: Int, onInstall: () -> Unit)
         } else null,
         trailingContent = {
             when (r.state) {
-                ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(onClick = onInstall) { Text("Install") }
-                ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(onClick = onInstall) { Text("Update") }
+                ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Install") }
+                ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Update") }
                 // Replacing your edited copy is in its sheet (Scripts), behind a confirmation.
                 ScriptLibrary.State.MODIFIED -> Text("Edited", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 ScriptLibrary.State.INSTALLED -> Text("Installed", color = MaterialTheme.colorScheme.onSurfaceVariant)

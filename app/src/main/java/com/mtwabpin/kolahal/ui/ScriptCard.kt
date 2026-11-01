@@ -23,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -116,8 +117,8 @@ internal fun ScriptCard(
                         maxLines = 1,
                     )
                 }
-                if (info.isCommand && s.enabled) TextButton(onClick = onRun) { Text("Run") }
-                IconButton(onClick = onExpand) {
+                if (info.isCommand && s.enabled) TextButton(shapes = ButtonDefaults.shapes(), onClick = onRun) { Text("Run") }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onExpand) {
                     Icon(
                         painterResource(R.drawable.ic_expand_more),
                         contentDescription = if (expanded) "Hide details" else "Show details",

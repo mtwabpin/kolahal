@@ -217,6 +217,22 @@ A backup (=Settings → Export everything=) bundles all of the above into one JS
 - Log line behaviour :: the tap and long-press logic is in =LogLineActions.onTap= / =actionsFor=,
   keyed on =LogContext= values. Rendering is in =ui/LogView.kt=, and the line's text in =ui/LogLineText.kt=.
 - New action on the script screens :: it goes in =ScriptActions=, not the view model.
+- New control on a Material screen :: Material 3 Expressive only (Settings and everything else that
+  isn't the terminal; the terminal draws its own). Read =@material3expressive= in the library's sources
+  and samples first.
+  | Instead of                                     | Use                                                            |
+  |------------------------------------------------+----------------------------------------------------------------|
+  | =Button=, =TextButton=, =FilledTonalButton=    | the same with =shapes = ButtonDefaults.shapes()=               |
+  | =IconButton=, =OutlinedIconButton=             | the same with =shapes = IconButtonDefaults.shapes()=           |
+  | =IconToggleButton=                             | the same with =shapes = IconButtonDefaults.toggleableShapes()= |
+  | =OutlinedTextField=                            | =TextField= with =TextFieldDefaults.roundedShape=, =fieldColors()= |
+  | =SegmentedButton=                              | =ConnectedChoices=, or =ToggleButton= in a connected group     |
+  | =TopAppBar=                                    | =LargeFlexibleTopAppBar= or =MediumFlexibleTopAppBar=          |
+  | =AssistChip=, =SuggestionChip=                 | a button                                                       |
+  | =ExtendedFloatingActionButton=                 | =SmallExtendedFloatingActionButton=                            |
+  | =DropdownMenu=, =ExposedDropdownMenuBox=       | =DropdownMenuPopup= and =DropdownMenuGroup=                    |
+  | a row of your own                              | =SegmentedListItem=                                            |
+  =ExpressiveOnlyTest= fails on these.
 
 ** Keeping a pull request out of others' way
 

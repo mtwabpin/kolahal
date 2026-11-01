@@ -23,8 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
@@ -87,7 +87,7 @@ fun OnboardingScreen(vm: TerminalViewModel) {
             containerColor = MaterialTheme.colorScheme.surface,
             topBar = {
                 Box(Modifier.fillMaxWidth().padding(top = 32.dp, end = 8.dp).heightIn(min = 48.dp), contentAlignment = Alignment.CenterEnd) {
-                    if (!last) TextButton(onClick = vm::closeScreen, modifier = Modifier.testTag("tour-skip")) { Text("Skip") }
+                    if (!last) TextButton(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen, modifier = Modifier.testTag("tour-skip")) { Text("Skip") }
                 }
             },
             bottomBar = {
@@ -96,11 +96,12 @@ fun OnboardingScreen(vm: TerminalViewModel) {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
                 ) {
                     Box(Modifier.weight(1f)) {
-                        if (pager.currentPage > 0) TextButton(onClick = { go(pager.currentPage - 1) }, modifier = Modifier.testTag("tour-back")) { Text("Back") }
+                        if (pager.currentPage > 0) TextButton(shapes = ButtonDefaults.shapes(), onClick = { go(pager.currentPage - 1) }, modifier = Modifier.testTag("tour-back")) { Text("Back") }
                     }
                     PageDots(pager.currentPage, pages.size)
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                         Button(
+                            shapes = ButtonDefaults.shapes(),
                             onClick = { if (last) vm.closeScreen() else go(pager.currentPage + 1) },
                             modifier = Modifier.testTag("tour-next"),
                         ) { Text(if (last) "Start" else "Next") }
@@ -341,7 +342,7 @@ private fun Access(vm: TerminalViewModel) = Page("Permissions") {
                     }
                 },
                 trailingContent = if (!c.ok) {
-                    { FilledTonalButton(onClick = { vm.fixSetup(c) }) { Text(if (c.fix == "home") "Set" else "Allow") } }
+                    { FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.fixSetup(c) }) { Text(if (c.fix == "home") "Set" else "Allow") } }
                 } else null,
             ) { Text(c.title) }
         }
@@ -354,15 +355,15 @@ private fun Done(vm: TerminalViewModel) = Page("You're all set") {
     Text("Try one on the home screen:", style = MaterialTheme.typography.titleMedium)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf("fetch", "cal", "date tokyo", "help").forEach { cmd ->
-            AssistChip(
+            FilledTonalButton(
+                shapes = ButtonDefaults.shapes(),
                 onClick = {
                     // Home, then the command, as if typed there.
                     vm.openScreen(Screen.TERMINAL)
                     vm.runCommand(cmd)
                 },
-                label = { Text(cmd, fontFamily = FontFamily.Monospace) },
                 modifier = Modifier.testTag("tour-try $cmd"),
-            )
+            ) { Text(cmd, fontFamily = FontFamily.Monospace) }
         }
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,7 +58,7 @@ internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDism
         Surface(color = colors.surface, modifier = Modifier.fillMaxSize().testTag("compare")) {
             Column(Modifier.safeDrawingPadding()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 16.dp)) {
-                    IconButton(onClick = onDismiss) { Icon(painterResource(R.drawable.ic_close), contentDescription = "Close") }
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDismiss) { Icon(painterResource(R.drawable.ic_close), contentDescription = "Close") }
                     Text(
                         "${s.name}.${s.lang.ext}",
                         style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace),

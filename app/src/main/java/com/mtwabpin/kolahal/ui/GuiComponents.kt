@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +49,7 @@ import com.mtwabpin.kolahal.terminal.CommandParsing
 
 /** Single-select connected button group (Material 3 Expressive). */
 @Composable
-fun ConnectedChoices(choices: List<String>, selected: String, onPick: (String) -> Unit) {
+fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String = "choice ", onPick: (String) -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         modifier = Modifier.fillMaxWidth(),
@@ -61,7 +63,7 @@ fun ConnectedChoices(choices: List<String>, selected: String, onPick: (String) -
                     choices.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(tagPrefix + choice),
             ) {
                 Text(choice, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -102,7 +104,7 @@ fun GroupHeader(title: String) {
 
 @Composable
 fun BackButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick) { Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Back") }
+    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClick) { Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Back") }
 }
 
 /** "5 minutes ago"; [short] gives "5 min. ago" for one-line rows. */

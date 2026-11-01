@@ -20,13 +20,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -251,17 +253,18 @@ fun SettingsScreen(
                 item(key = "tabs") { PeekFade(peek) { FeatureTabs(vm, Screen.SETTINGS) } }
                 item(key = "search") {
                   PeekFade(peek) {
-                    OutlinedTextField(
+                    TextField(
+                        shape = TextFieldDefaults.roundedShape,
+                        colors = fieldColors(),
                         value = query,
                         onValueChange = { query = it },
                         singleLine = true,
                         placeholder = { Text("Search settings") },
                         leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                         trailingIcon = if (query.isNotEmpty()) {
-                            { IconButton(onClick = { query = "" }) { Icon(painterResource(R.drawable.ic_close), "Clear") } }
+                            { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { query = "" }) { Icon(painterResource(R.drawable.ic_close), "Clear") } }
                         } else null,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        shape = MaterialTheme.shapes.extraLarge,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                     )
                   }

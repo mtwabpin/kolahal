@@ -30,23 +30,25 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -269,13 +271,13 @@ private fun FeedListPage(
                 },
                 navigationIcon = { BackButton(onBack) },
                 actions = {
-                    IconButton(onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty()) {
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty()) {
                         Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh all")
                     }
-                    IconButton(onClick = onImport) {
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onImport) {
                         Icon(painterResource(R.drawable.ic_upload), contentDescription = "Import OPML")
                     }
-                    IconButton(onClick = onExport, enabled = !feeds.isNullOrEmpty()) {
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onExport, enabled = !feeds.isNullOrEmpty()) {
                         Icon(painterResource(R.drawable.ic_download), contentDescription = "Export OPML")
                     }
                 },
@@ -283,7 +285,7 @@ private fun FeedListPage(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            SmallExtendedFloatingActionButton(
                 onClick = onAdd,
                 icon = { Icon(painterResource(R.drawable.ic_add), null) },
                 text = { Text("Add feed") },
@@ -382,7 +384,7 @@ private fun FeedRow(f: FeedInfo, index: Int, count: Int, onClick: () -> Unit, on
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 UnreadBadge(f.unread, f.total)
-                IconButton(onClick = onMenu) {
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onMenu) {
                     Icon(painterResource(R.drawable.ic_more_vert), contentDescription = "Feed options")
                 }
             }
@@ -457,12 +459,12 @@ private fun FeedSheet(
 
             Spacer(Modifier.height(16.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRefresh) {
+                Button(shapes = ButtonDefaults.shapes(), onClick = onRefresh) {
                     Icon(painterResource(R.drawable.ic_refresh), null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text("Refresh now")
                 }
-                FilledTonalButton(onClick = onMarkAllRead, enabled = feed.unread > 0) {
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
                     Icon(painterResource(R.drawable.ic_done_all), null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text("Mark all read")
@@ -478,6 +480,7 @@ private fun FeedSheet(
 
             Spacer(Modifier.height(16.dp))
             TextButton(
+                shapes = ButtonDefaults.shapes(),
                 onClick = { confirmRemove = true },
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
@@ -496,11 +499,12 @@ private fun FeedSheet(
             text = { Text("Unsubscribes and deletes its ${feed.total} stored items. Export OPML first to keep your list.") },
             confirmButton = {
                 TextButton(
+                    shapes = ButtonDefaults.shapes(),
                     onClick = { confirmRemove = false; onRemove() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text("Remove") }
             },
-            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmRemove = false }) { Text("Cancel") } },
         )
     }
 }
@@ -540,7 +544,9 @@ private fun AddFeedDialog(repo: FeedRepository, onDismiss: () -> Unit, onAdded: 
         icon = { Icon(painterResource(R.drawable.ic_rss), null) },
         title = { Text("Add feed") },
         text = {
-            OutlinedTextField(
+            TextField(
+                shape = TextFieldDefaults.roundedShape,
+                colors = fieldColors(),
                 value = url,
                 onValueChange = { url = it; error = null },
                 label = { Text("Feed URL") },
@@ -562,8 +568,8 @@ private fun AddFeedDialog(repo: FeedRepository, onDismiss: () -> Unit, onAdded: 
                 modifier = Modifier.fillMaxWidth(),
             )
         },
-        confirmButton = { TextButton(enabled = normalized != null && !busy, onClick = ::submit) { Text("Subscribe") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = normalized != null && !busy, onClick = ::submit) { Text("Subscribe") } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -594,10 +600,10 @@ private fun FeedItemsPage(
                 subtitle = { Text("${feed.unread} unread · ${hostOf(feed.url)}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { BackButton(onBack) },
                 actions = {
-                    IconButton(onClick = onRefresh) {
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefresh) {
                         Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh feed")
                     }
-                    IconButton(onClick = onMarkAllRead, enabled = feed.unread > 0) {
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
                         Icon(painterResource(R.drawable.ic_done_all), contentDescription = "Mark all read")
                     }
                 },

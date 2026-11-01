@@ -17,6 +17,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,9 +59,9 @@ internal fun ResetDialog(lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit
         title = { Text("Reset ${lib.entry.file}?") },
         text = { Text("Your copy differs from the library version. Its code is replaced by the library version and your changes are lost; its timers and switches are kept. Export it first to keep a copy.") },
         confirmButton = {
-            TextButton(onClick = onReset, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = onReset, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -83,8 +84,8 @@ internal fun AccessDialog(title: String, items: List<String>, confirm: String, o
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(choices.toMap()) }) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onConfirm(choices.toMap()) }) { Text(confirm) } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -117,7 +118,7 @@ internal fun SecretDialog(script: String, secret: ScriptMeta.Secret, isSet: Bool
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                     trailingIcon = {
-                        IconButton(onClick = { visible = !visible }) {
+                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { visible = !visible }) {
                             Icon(
                                 painterResource(R.drawable.ic_visibility),
                                 contentDescription = if (visible) "Hide it" else "Show it",
@@ -129,11 +130,11 @@ internal fun SecretDialog(script: String, secret: ScriptMeta.Secret, isSet: Bool
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(value.trim()) }, enabled = value.trim().length >= SecretStore.MIN_LENGTH) { Text("Save") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onSave(value.trim()) }, enabled = value.trim().length >= SecretStore.MIN_LENGTH) { Text("Save") } },
         dismissButton = {
             Row {
-                if (isSet) TextButton(onClick = { onSave(null) }) { Text("Clear") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                if (isSet) TextButton(shapes = ButtonDefaults.shapes(), onClick = { onSave(null) }) { Text("Clear") }
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") }
             }
         },
     )
@@ -176,11 +177,11 @@ internal fun OptionDialog(script: String, option: ScriptMeta.Option, current: St
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(value.text.trim()) }) { Text("Save") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onSave(value.text.trim()) }) { Text("Save") } },
         dismissButton = {
             Row {
-                if (changed) TextButton(onClick = { onSave(null) }) { Text("Reset") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                if (changed) TextButton(shapes = ButtonDefaults.shapes(), onClick = { onSave(null) }) { Text("Reset") }
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") }
             }
         },
     )
@@ -216,8 +217,8 @@ internal fun RenameDialog(s: Script, existing: Set<String>, onDismiss: () -> Uni
                 modifier = Modifier.fillMaxWidth(),
             )
         },
-        confirmButton = { TextButton(enabled = valid, onClick = { onRename(clean) }) { Text("Rename") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = valid, onClick = { onRename(clean) }) { Text("Rename") } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -273,7 +274,7 @@ internal fun NewScriptDialog(existing: Set<String>, onDismiss: () -> Unit, onCre
                 }
             }
         },
-        confirmButton = { TextButton(enabled = valid, onClick = { onCreate(name, lang, command) }) { Text("Create") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = valid, onClick = { onCreate(name, lang, command) }) { Text("Create") } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }

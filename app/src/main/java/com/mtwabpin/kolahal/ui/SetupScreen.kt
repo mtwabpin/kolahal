@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -58,7 +59,7 @@ fun SetupScreen(vm: TerminalViewModel) {
             },
             bottomBar = {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
-                    Button(onClick = vm::closeScreen) { Text(if (done == checks.size) "Done" else "Continue to terminal") }
+                    Button(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen) { Text(if (done == checks.size) "Done" else "Continue to terminal") }
                 }
             },
         ) { padding ->
@@ -80,7 +81,7 @@ fun SetupScreen(vm: TerminalViewModel) {
                         leadingContent = { StatusDot(c.ok, c.fix == null) },
                         supportingContent = { Text(c.detail) },
                         trailingContent = if (fixable) {
-                            { FilledTonalButton(onClick = { vm.fixSetup(c) }) { Text("Fix") } }
+                            { FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.fixSetup(c) }) { Text("Fix") } }
                         } else null,
                     ) { Text(c.title) }
                 }

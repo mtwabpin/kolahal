@@ -25,12 +25,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SheetValue
@@ -39,6 +39,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -107,7 +109,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
                     subtitle = { Text("Shared in ${ScriptCatalog.SOURCE} on GitHub") },
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
-                        IconButton(onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading) {
+                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading) {
                             Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh the list")
                         }
                     },
@@ -124,7 +126,9 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
                 modifier = Modifier.fillMaxSize(),
             ) {
                 item(key = "search") {
-                    OutlinedTextField(
+                    TextField(
+                        shape = TextFieldDefaults.roundedShape,
+                        colors = fieldColors(),
                         value = query,
                         onValueChange = { query = it },
                         placeholder = { Text("Search by name, author or tag") },
@@ -138,7 +142,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
                     item(key = "error") {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             Text("Can't read the list: $error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }) { Text("Try again") }
+                            TextButton(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }) { Text("Try again") }
                         }
                     }
                 }
@@ -264,6 +268,7 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (state) {
                     ScriptCatalog.State.NOT_INSTALLED, null -> Button(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = { if (uses.isEmpty()) vm.scriptActions.installSharedScript(e) else asking = true },
                         enabled = code?.isSuccess == true,
                     ) {
@@ -271,15 +276,16 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
                         Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                         Text("Install")
                     }
-                    ScriptCatalog.State.UPDATE_AVAILABLE -> Button(onClick = { vm.scriptActions.installSharedScript(e) }, enabled = code?.isSuccess == true) {
+                    ScriptCatalog.State.UPDATE_AVAILABLE -> Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.installSharedScript(e) }, enabled = code?.isSuccess == true) {
                         Text("Update to ${e.version}")
                     }
                     ScriptCatalog.State.MODIFIED -> TextButton(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = { confirmReplace = true },
                         enabled = code?.isSuccess == true,
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text("Replace your edited copy") }
-                    ScriptCatalog.State.INSTALLED -> FilledTonalButton(onClick = {}, enabled = false) { Text("Installed") }
+                    ScriptCatalog.State.INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {}, enabled = false) { Text("Installed") }
                     ScriptCatalog.State.NAME_TAKEN -> Text(
                         "One of your scripts, a command or an app already has the name ${e.name}.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -325,11 +331,12 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
             text = { Text("Your copy differs from the shared one. Its code is replaced and your changes are lost. Export it first to keep a copy.") },
             confirmButton = {
                 TextButton(
+                    shapes = ButtonDefaults.shapes(),
                     onClick = { confirmReplace = false; vm.scriptActions.installSharedScript(e, replace = true) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text("Replace") }
             },
-            dismissButton = { TextButton(onClick = { confirmReplace = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmReplace = false }) { Text("Cancel") } },
         )
     }
 }
