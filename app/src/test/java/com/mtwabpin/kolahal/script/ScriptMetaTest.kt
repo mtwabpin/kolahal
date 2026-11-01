@@ -37,6 +37,7 @@ class ScriptMetaTest {
         assertEquals("hello world", ScriptMeta.description(code))
         assertEquals(listOf("boot"), ScriptMeta.events(code))
         assertFalse(ScriptMeta.isCommand("-- @on boot"))
+        assertTrue("below the first line", ScriptMeta.isCommand("-- @desc d\n-- @command"))
     }
 
     @Test fun anEmptyDescTakesNothingFromTheNextLine() {

@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -55,14 +56,14 @@ class ApiDocsTest {
 
     @Test fun luaApiIsDocumented() {
         val bound = luaBindings()
-        assert(bound.size > 20) { "parser found too few bindings: $bound" }
+        assertTrue("parser found too few bindings: $bound", bound.size > 20)
         // print is defined by the Lua prelude, not a Kotlin binding.
         assertEquals(bound, documented(ScriptLang.LUA, setOf("print")))
     }
 
     @Test fun jsApiIsDocumented() {
         val bound = jsBindings()
-        assert(bound.size > 20) { "parser found too few bindings: $bound" }
+        assertTrue("parser found too few bindings: $bound", bound.size > 20)
         assertEquals(bound, documented(ScriptLang.JS))
     }
 
@@ -70,7 +71,7 @@ class ApiDocsTest {
         for (lang in ScriptLang.entries) {
             for (d in ApiDocs.forLang(lang)) {
                 val q = d.qualifier ?: continue
-                assert(ApiDocs.isNamespace(q, lang)) { "$q missing as a namespace for $lang" }
+                assertTrue("$q missing as a namespace for $lang", ApiDocs.isNamespace(q, lang))
             }
         }
     }

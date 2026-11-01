@@ -271,12 +271,17 @@ class ScriptEngineTest {
     }
 
     @Test fun jsInfiniteLoopTimesOut() {
+        val started = System.currentTimeMillis()
         try {
             js("while (true) {}", repl = false, timeout = 1_000)
             fail("expected timeout")
         } catch (e: Exception) {
-            // QuickJsInterruptedException or a TimeoutCancellation, either is fine
+            // Its interrupt or a cancellation, not an error in the script.
+            assertTrue(e.toString(), e is com.dokar.quickjs.QuickJsInterruptedException || e is kotlinx.coroutines.TimeoutCancellationException)
         }
+        // It ran until the limit, and no longer.
+        val took = System.currentTimeMillis() - started
+        assertTrue("took $took ms", took in 900 until 5_000)
     }
 
     /** End to end: snippet goes through WorkManager into the :script process and back via the DB. */
@@ -297,5 +302,7 @@ class ScriptEngineTest {
         assertTrue("lua snippet never logged", luaSeen)
         assertTrue("js snippet never logged", jsSeen)
         assertNotNull(logs.recent(50).firstOrNull { it.text == marker }?.source)
+        val manager = context.getSystemService(android.app.ActivityManager::class.java)
+        assertTrue("no :script process", manager.runningAppProcesses.any { it.processName == "${context.packageName}:script" })
     }
 }
