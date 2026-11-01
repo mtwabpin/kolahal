@@ -201,8 +201,10 @@ fun SettingsScreen(
                         }
                     }
                     for ((title, all) in open.groups) {
-                        val keys = all.filter { it in applicableKeys }
-                        if (keys.isEmpty()) continue
+                        // The header's items share a table; search still finds them one by one.
+                        val keys = all.filter { it in applicableKeys && it !in HEADER_ITEM_KEYS }
+                        val table = all.any { it in applicableKeys && it in HEADER_ITEM_KEYS }
+                        if (keys.isEmpty() && !table) continue
                         item(key = "h:${open.id}:$title") {
                             PeekFade(peek, modifier = Modifier.animateItem()) { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
                         }
@@ -212,6 +214,9 @@ fun SettingsScreen(
                                     SettingItem(vm, config, key, version, index, keys.size, onImportFont)
                                 }
                             }
+                        }
+                        if (table) item(key = "header-items") {
+                            PeekFade(peek, modifier = Modifier.animateItem()) { HeaderItemsTable(vm, config, version) }
                         }
                     }
                     if (open.id == "look") {

@@ -38,6 +38,9 @@ The `theme` and `font` commands are unchanged.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `header.show` | bool | `on` | show the header; off: the log fills the screen (open settings with `settings`) |
+| `header.media-always` | bool | `off` | with the header off, still show what's playing at the top of home, with a progress bar: tap plays / pauses, long-press skips (needs notification access) |
+| `header.clock` | bool | `on` | show the clock |
+| `header.settings` | bool | `on` | show the settings button (`settings` opens Settings too) |
 | `header.device` | bool | `off` | show `name@device` in the header (`kolahal@device` until you set `user.name`) |
 | `user.name` | text | `kolahal` | your name in `name@device`, in the header and in `fetch`: up to 32 characters, no spaces or `@` |
 | `header.date` | bool | `on` | show the date next to the clock |
@@ -52,6 +55,18 @@ The `theme` and `font` commands are unchanged.
 | `header.icons` | bool | `on` | icons for battery, network, unlocks, alarm and profiles in the header (off: text labels) |
 | `clock.24h` | bool | `off` | use 24-hour time in the header and log |
 | `header.profiles` | bool | `on` | show work/private profile state |
+| `header.compact.clock` | bool | `on` | show the clock in the one-line header |
+| `header.compact.date` | bool | `off` | show the date in the one-line header |
+| `header.compact.device` | bool | `off` | show `name@device` in the one-line header |
+| `header.compact.unlocks` | bool | `off` | show today's unlock count in the one-line header |
+| `header.compact.battery` | bool | `on` | show battery level in the one-line header |
+| `header.compact.network` | bool | `off` | show network type in the one-line header |
+| `header.compact.alarm` | bool | `off` | show the next alarm in the one-line header |
+| `header.compact.media` | bool | `on` | show a music note while something plays in the one-line header |
+| `header.compact.todo` | bool | `off` | show the open todo count in the one-line header |
+| `header.compact.status` | bool | `on` | show how many status lines scripts have pinned in the one-line header |
+| `header.compact.settings` | bool | `off` | show the settings button in the one-line header |
+| `header.compact.profiles` | bool | `off` | show work/private profile state in the one-line header |
 
 ## Appearance
 

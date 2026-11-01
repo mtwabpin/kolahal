@@ -235,16 +235,52 @@ class SettingsScreenTest {
         compose.onNodeWithText(Keys.KEYBAR.key, useUnmergedTree = true).assertExists()
     }
 
-    /** Without the header its settings go, but the 24-hour clock stays: the log's times use it. */
+    /**
+     * Without the header its settings go, but the 24-hour clock stays, as the log's times use it. Now
+     * playing with the header off shows only then.
+     */
     @Test fun headerOffHidesItsSettings() {
         show("home")
-        scrollTo(Keys.HEADER_DATE)
-        compose.onNodeWithText(Keys.HEADER_DATE.key, useUnmergedTree = true).assertExists()
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("header-items")
+        compose.onNodeWithTag(Keys.HEADER_DATE.key).assertExists()
+        compose.onNodeWithTag(Keys.COMPACT_DATE.key).assertExists()
+        scrollTo(Keys.HEADER_SHOW)
+        compose.onNodeWithText(Keys.HEADER_MEDIA_ALWAYS.key, useUnmergedTree = true).assertDoesNotExist()
+
         compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
+        scrollTo(Keys.HEADER_MEDIA_ALWAYS)
+        compose.onNodeWithText(Keys.HEADER_MEDIA_ALWAYS.key, useUnmergedTree = true).assertExists()
         scrollTo(Keys.CLOCK_24H)
         compose.onNodeWithText(Keys.CLOCK_24H.key, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText(Keys.HEADER_DATE.key, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(Keys.HEADER_DATE.key).assertDoesNotExist()
+        compose.onNodeWithTag(Keys.COMPACT_DATE.key).assertDoesNotExist()
+        compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText(Keys.HEADER_AUTOHIDE.key, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    /** One tap each, and a stage's box changes only that stage. */
+    @Test fun theHeaderTableChangesOneStage() {
+        show("home")
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("header-items")
+        compose.onNodeWithTag(Keys.COMPACT_DATE.key).performClick()
+        compose.runOnIdle {
+            assertEquals(true, config[Keys.COMPACT_DATE])
+            assertEquals(Keys.HEADER_DATE.default, config[Keys.HEADER_DATE])
+        }
+        compose.onNodeWithTag(Keys.HEADER_BATTERY.key).performClick()
+        compose.runOnIdle {
+            assertEquals(false, config[Keys.HEADER_BATTERY])
+            assertEquals(Keys.COMPACT_BATTERY.default, config[Keys.COMPACT_BATTERY])
+        }
+    }
+
+    /** With no item that has an icon, the switch between icons and labels has nothing to change. */
+    @Test fun iconsGoWithNoItemToShowThem() {
+        show("home")
+        scrollTo(Keys.HEADER_ICONS)
+        compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertExists()
+        compose.runOnIdle { HEADER_ITEMS.forEach { config.set(it.full, "off"); config.set(it.oneLine, "off") } }
+        compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertDoesNotExist()
     }
 
     /** Your name, on the Home screen page: a name with a space turns the field red and isn't saved. */

@@ -141,6 +141,28 @@ class HomeScreenTest {
         compose.onNodeWithTag("header-compact").assertExists()
     }
 
+    /** The one-line header has its own choices: the full header's don't change it. */
+    @Test fun theOneLineHeaderHasItsOwnChoices() {
+        val date = java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault()).format(Date())
+        val vm = show(360.dp, 700.dp)
+        type(vm, "s")
+        compose.onNodeWithTag("header-compact").assertExists()
+        compose.onNodeWithText(date).assertDoesNotExist()
+        compose.runOnIdle { config.set(Keys.COMPACT_DATE, "on") }
+        compose.onNodeWithText(date).assertExists()
+        compose.runOnIdle { config.set(Keys.HEADER_DATE, "off") }
+        compose.onNodeWithText(date).assertExists()
+    }
+
+    /** On the one-line header, the settings button opens Settings, not the full header. */
+    @Test fun theOneLineSettingsButtonOpensSettings() {
+        config.set(Keys.COMPACT_SETTINGS, "on")
+        val vm = show(360.dp, 700.dp)
+        type(vm, "s")
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.SETTINGS }
+    }
+
     /** log.taller-taps: a line you can tap is taller than plain output, unless it's turned off. */
     @Test fun tappableLinesAreTallerUnlessTurnedOff() {
         val logs = LogRepository.get(app)

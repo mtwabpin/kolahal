@@ -50,6 +50,21 @@ class ConfigNamesTest {
         }
     }
 
+    /** What was off before the one-line header had its own choices stays off there, unless it has a choice already. */
+    @Test fun theOneLineHeaderKeepsWhatWasOff() {
+        fun compact(vararg saved: Pair<String, String>) = (Keys.carryCompact(saved.toMap()) - saved.toMap().keys).toSortedMap().toMap()
+        assertEquals(emptyMap<String, String>(), compact())
+        assertEquals(emptyMap<String, String>(), compact("header.date" to "off", "header.battery" to "on"))
+        assertEquals(mapOf("header.compact.battery" to "off"), compact("header.battery" to "off"))
+        assertEquals(
+            mapOf("header.compact.battery" to "off", "header.compact.media" to "off", "header.compact.status" to "off"),
+            compact("header.battery" to "off", "header.media" to "off", "header.status" to "off"),
+        )
+        // A backup edited by hand can say it another way.
+        assertEquals(mapOf("header.compact.media" to "off"), compact("header.media" to "false"))
+        assertEquals(emptyMap<String, String>(), compact("header.battery" to "off", "header.compact.battery" to "on"))
+    }
+
     @Test fun noNameIsBothASettingAndAGroup() {
         val names = Keys.ALL.map { it.key }
         for (name in names) assertTrue("$name is also a group", names.none { it.startsWith("$name.") })

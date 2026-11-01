@@ -39,6 +39,9 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
 
 object Keys {
     val HEADER_SHOW = ConfigKey.Bool("header.show", true, "Show the header: clock, header items and script status lines (off: the log fills the screen; open settings with the settings command)")
+    val HEADER_MEDIA_ALWAYS = ConfigKey.Bool("header.media-always", false, "With the header off, still show what's playing at the top of home, with a progress bar (tap: play/pause, long-press: next; needs notification access)")
+    val HEADER_CLOCK = ConfigKey.Bool("header.clock", true, "Show the clock")
+    val HEADER_SETTINGS = ConfigKey.Bool("header.settings", true, "Show the settings button (the command settings opens Settings too)")
     val HEADER_DEVICE = ConfigKey.Bool("header.device", false, "Show name@device in the header (the name is user.name)")
     // A name in name@device: no @ of its own, and no spaces, as usernames go.
     val USER_NAME = ConfigKey.Text(
@@ -56,6 +59,19 @@ object Keys {
     val HEADER_TODO = ConfigKey.Bool("header.todo", true, "Show the open todo count (tap to run todo)")
     val HEADER_AUTOHIDE = ConfigKey.Bool("header.autohide", true, "Scrolling back hides the header, scrolling forward or a command shows it as one line; Home or a tap restores it")
     val HEADER_ICONS = ConfigKey.Bool("header.icons", true, "Icons for battery, network, unlocks, alarm and profiles in the header (off: text labels)")
+    // What the one-line header shows: while typing, and with header.autohide while using the log.
+    val COMPACT_CLOCK = ConfigKey.Bool("header.compact.clock", true, "Show the clock in the one-line header")
+    val COMPACT_DATE = ConfigKey.Bool("header.compact.date", false, "Show the date in the one-line header")
+    val COMPACT_DEVICE = ConfigKey.Bool("header.compact.device", false, "Show name@device in the one-line header")
+    val COMPACT_UNLOCKS = ConfigKey.Bool("header.compact.unlocks", false, "Show today's unlock count in the one-line header")
+    val COMPACT_BATTERY = ConfigKey.Bool("header.compact.battery", true, "Show battery level in the one-line header")
+    val COMPACT_NETWORK = ConfigKey.Bool("header.compact.network", false, "Show network type in the one-line header")
+    val COMPACT_ALARM = ConfigKey.Bool("header.compact.alarm", false, "Show the next alarm in the one-line header")
+    val COMPACT_MEDIA = ConfigKey.Bool("header.compact.media", true, "Show a music note in the one-line header while something plays")
+    val COMPACT_TODO = ConfigKey.Bool("header.compact.todo", false, "Show the open todo count in the one-line header")
+    val COMPACT_STATUS = ConfigKey.Bool("header.compact.status", true, "Show how many status lines scripts have pinned in the one-line header")
+    val COMPACT_SETTINGS = ConfigKey.Bool("header.compact.settings", false, "Show the settings button in the one-line header")
+    val COMPACT_PROFILES = ConfigKey.Bool("header.compact.profiles", false, "Show work/private profile state in the one-line header")
     val CLOCK_24H = ConfigKey.Bool("clock.24h", false, "Use 24-hour time in the header and log")
     val KEYBAR = ConfigKey.Text(
         "keybar.row1", DEFAULT_KEYBAR,
@@ -155,6 +171,9 @@ object Keys {
 
     val ALL: List<ConfigKey<*>> = listOf(
         HEADER_SHOW,
+        HEADER_MEDIA_ALWAYS,
+        HEADER_CLOCK,
+        HEADER_SETTINGS,
         HEADER_DEVICE,
         USER_NAME,
         HEADER_DATE,
@@ -167,6 +186,18 @@ object Keys {
         HEADER_MEDIA,
         HEADER_AUTOHIDE,
         HEADER_ICONS,
+        COMPACT_CLOCK,
+        COMPACT_DATE,
+        COMPACT_DEVICE,
+        COMPACT_UNLOCKS,
+        COMPACT_BATTERY,
+        COMPACT_NETWORK,
+        COMPACT_ALARM,
+        COMPACT_MEDIA,
+        COMPACT_TODO,
+        COMPACT_STATUS,
+        COMPACT_SETTINGS,
+        COMPACT_PROFILES,
         CLOCK_24H,
         KEYBAR_SHOW,
         KEYBAR_AUTO,
@@ -305,6 +336,19 @@ object Keys {
         }
         return out
     }
+
+    /** Saved once settings hold the one-line header's choices: [carryCompact] has run on this phone. */
+    const val COMPACT_CARRIED = "header.compact-carried"
+
+    /**
+     * Saved settings from before the one-line header had its own choices (up to 0.4.10), with what
+     * was off there still off. It showed the battery whatever `header.battery` said; that counts
+     * as off too, as whoever turned it off didn't want it.
+     */
+    fun carryCompact(saved: Map<String, String>): Map<String, String> =
+        saved + listOf(HEADER_BATTERY to COMPACT_BATTERY, HEADER_MEDIA to COMPACT_MEDIA, HEADER_STATUS to COMPACT_STATUS)
+            .filter { (full, compact) -> compact.key !in saved && saved[full.key]?.let(full::parse) == false }
+            .associate { (_, compact) -> compact.key to compact.format(false) }
 }
 
 // What a keyboard's letters page doesn't have: the rest (`.`, backspace, Enter) sits right below the bar.

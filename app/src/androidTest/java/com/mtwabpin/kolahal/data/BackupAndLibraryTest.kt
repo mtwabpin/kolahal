@@ -65,6 +65,43 @@ class BackupAndLibraryTest {
     }
 
     /** A backup from before 0.3.0 has the old setting names; they land on today's settings. */
+    /** Once on a phone: turning an item off in the full header later leaves the one-line header alone. */
+    @Test fun theOneLineHeaderKeepsWhatWasOffOnce() {
+        val saved = context.getSharedPreferences("config", android.content.Context.MODE_PRIVATE)
+        try {
+            saved.edit().remove(Keys.COMPACT_CARRIED).putString(Keys.HEADER_BATTERY.key, "off").commit()
+            config.migrate()
+            assertEquals(false, config[Keys.COMPACT_BATTERY])
+
+            config.set(Keys.COMPACT_BATTERY, "on")
+            config.set(Keys.HEADER_MEDIA, "off")
+            config.migrate()
+            assertEquals(true, config[Keys.COMPACT_BATTERY])
+            assertEquals(true, config[Keys.COMPACT_MEDIA])
+        } finally {
+            listOf(Keys.HEADER_BATTERY, Keys.HEADER_MEDIA, Keys.COMPACT_BATTERY).forEach(config::reset)
+        }
+    }
+
+    /** A backup from before the choices keeps what was off; a newer one is taken as it is. */
+    @Test fun aBackupKeepsTheOneLineHeaderAsItHadIt() {
+        val file = File(context.cacheDir, "kolahal-backup-one-line.json")
+        fun restore(version: Int) {
+            file.writeText("""{"kolahal":$version,"config":{"header.battery":"off"}}""")
+            Backup(context).import(Uri.fromFile(file))
+        }
+        try {
+            restore(2)
+            assertEquals(false, config[Keys.COMPACT_BATTERY])
+            config.reset(Keys.COMPACT_BATTERY)
+            restore(Backup.VERSION)
+            assertEquals(true, config[Keys.COMPACT_BATTERY])
+        } finally {
+            file.delete()
+            listOf(Keys.HEADER_BATTERY, Keys.COMPACT_BATTERY).forEach(config::reset)
+        }
+    }
+
     @Test fun oldBackupNamesImport() {
         val file = File(context.cacheDir, "kolahal-backup-old-names.json")
         file.writeText("""{"kolahal":1,"config":{"theme":"amber","keybar2":"TAB","log.lineheight":"30","gesture.swipeup.on":"on"}}""")
