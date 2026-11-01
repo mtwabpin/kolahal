@@ -23,13 +23,13 @@ account, you can be one of them.
 
 ## What you get
 
-The Play build: everything in Kolahal except the screen lock and calls in the log. It finds people with Android's contact picker
+The Play build: everything in Kolahal except the screen lock, calls in the log and `update`. It finds people with Android's contact picker
 ([the Play build](/getting-started/install/#the-play-build)). Updates come through the Play Store
 like any app's. [First run & setup](/getting-started/setup/) walks you through the rest.
 
 Kolahal from GitHub and from Google Play are the same app, signed with the same key, so one
 installs over the other and your data is kept. An update from Google Play installs the Play build;
-install the full APK from GitHub again to get the screen lock and calls in the log back.
+install the full APK from GitHub again to get the screen lock, calls in the log and `update` back.
 
 ## Tell us what you find
 

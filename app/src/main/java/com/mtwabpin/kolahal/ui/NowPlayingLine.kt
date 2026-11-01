@@ -139,19 +139,25 @@ internal fun NowPlayingLine(
         }
 
         // Playback progress track.
+        ProgressTrack(progress)
+    }
+}
+
+/** A thin bar, filled as far as [fraction] (0 to 1). */
+@Composable
+internal fun ProgressTrack(fraction: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Term.dim.copy(alpha = 0.25f))
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Term.dim.copy(alpha = 0.25f))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .fillMaxHeight()
-                    .background(Term.prompt)
-            )
-        }
+                .fillMaxWidth(fraction)
+                .fillMaxHeight()
+                .background(Term.prompt)
+        )
     }
 }

@@ -50,6 +50,7 @@ object CommandCatalog {
         CommandSpec("log", "log [only <name|kind>|all]", "Show only one script's, feed's or app's lines, or one kind of line"),
         CommandSpec("fresh", "fresh", "Start a clean screen now, like log.fresh; earlier lines are one tap away (not logged)"),
         CommandSpec("restart", "restart [scripts]", "Restart the launcher, or stop running scripts"),
+        CommandSpec("update", "update [install]", "Check for updates (install: download and install the latest)"),
         CommandSpec("status", "status [clear <name|all>]", "Header lines pinned by scripts"),
         CommandSpec("setup", "setup [text]", "Setup checklist page (text: print it in the log)"),
         CommandSpec("tour", "tour", "How Kolahal works, a page at a time, with a few initial settings"),
@@ -96,12 +97,13 @@ object CommandCatalog {
     val RESERVED_NAMES: Set<String> = COMMAND_NAMES + InstantRun.SYNONYMS.keys
 
     /**
-     * The commands of each feature the Play build leaves out (screen lock, call log), with whether
+     * The commands of each feature the Play build leaves out (screen lock, call log, self-update), with whether
      * this build has it.
      */
     internal val FEATURE_COMMANDS = listOf(
         com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE to setOf("lock", "accessibility"),
         com.mtwabpin.kolahal.BuildConfig.CALL_LOG to setOf("calls"),
+        com.mtwabpin.kolahal.BuildConfig.SELF_UPDATE to setOf("update"),
     )
 
     /**
@@ -194,6 +196,7 @@ object CommandCatalog {
             "clear",
             "fresh",
             "restart",
+            "update",
             "alias",
             "unalias",
             "config",

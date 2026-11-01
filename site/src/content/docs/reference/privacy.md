@@ -10,7 +10,7 @@ settings, scripts, feeds and notifications are stored in the app's private stora
 
 ## What leaves the device
 
-Kolahal itself makes network requests in exactly four cases:
+Kolahal itself makes network requests in exactly five cases:
 
 1. **Scripts** you write or install, through `http.*` and `rss.*`, and any image a log line links to (`image`), which the home screen downloads when the line appears. They connect only to the URLs in their code. The [library scripts](/scripting/library/) use wttr.in, Open-Meteo,
    CoinGecko, open.er-api.com, api.ipify.org, Wikipedia, xkcd.com, ZenQuotes, Reddit, GitHub
@@ -24,6 +24,8 @@ Kolahal itself makes network requests in exactly four cases:
 4. **Getting scripts**: when you open Get more scripts, refresh it or run `script get`, the list of
    shared scripts from mtwabpin.github.io (kept for an hour), and the file of a script you look at
    or install.
+5. **Updates**, in the full build only, and only when you run them: `update` asks GitHub for the
+   latest release, and `update install` downloads its APK from GitHub. Nothing checks in the background.
 
 Commands like `search`, `yt`, `wiki`, `maps`, `play` and `url` don't make requests themselves. They
 hand a link to your browser or the matching app.
@@ -54,11 +56,12 @@ may include Kolahal's data in it, as it does for other apps. Kolahal's own
 
 ## Permissions
 
-The Play build (the Google Play version, also an APK on GitHub) leaves three of these out:
-`READ_CALL_LOG`, `READ_CONTACTS` and the accessibility service. The calls in the log and the screen
-lock are only in the full build. Instead of reading your contacts, the Play build opens Android's
-contact picker, which shows Kolahal only the person you pick; it keeps their name and numbers on
-the phone, out of Android's cloud backup, until `contacts --forget` ([People](/guides/people/#in-the-play-build)).
+The Play build (the Google Play version, also an APK on GitHub) leaves four of these out:
+`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. The calls
+in the log, `update` and the screen lock are only in the full build. Instead of reading your contacts,
+the Play build opens Android's contact picker, which shows Kolahal only the person you pick; it keeps
+their name and numbers on the phone, out of Android's cloud backup, until `contacts --forget`
+([People](/guides/people/#in-the-play-build)).
 
 Declared in the manifest:
 
@@ -68,6 +71,7 @@ Declared in the manifest:
 | `ACCESS_NETWORK_STATE` | the `net` item in the header and `device.network()` |
 | `READ_CONTACTS` | `call`, `sms` and `contacts` name matching. Asked for on first use; optional. Not in the Play build |
 | `READ_CALL_LOG` | calls in the log, and `calls`. Asked for on first use; optional. Not in the Play build |
+| `REQUEST_INSTALL_PACKAGES` | `update install` hands the new version to Android's installer. Android asks you to allow it the first time, and the installer asks before it installs; optional. Not in the Play build |
 | `READ_CALENDAR` | `agenda` lists upcoming events. Asked for on first use; optional; nothing leaves the device |
 | `SET_ALARM` | `timer` and `alarm` hand the timer or alarm to your clock app |
 | `SCHEDULE_EXACT_ALARM` | `remind` and scripts' daily times fire on time (Android 12+ lets you turn it off; they may then be up to an hour late) |

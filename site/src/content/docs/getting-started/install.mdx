@@ -35,6 +35,13 @@ and the full build also has an accessibility service, which only locks the scree
 To install, turn off **Play Store → profile → Play Protect → ⚙︎ → Scan apps with Play Protect**, then turn it back on. Or use `adb install`. Once Kolahal is on Google
 Play, installing it from there avoids the block.
 
+### Updating
+
+With the full build, `update` says whether a newer release is out, and `update install` downloads it,
+checks it's signed with Kolahal's key and opens Android's installer. The first time, Android asks you
+to let Kolahal install apps. The Play build updates through Google Play; its APK from GitHub has no
+`update`, so install a new one by hand.
+
 ### Upgrading from 0.3.0 or earlier
 
 Versions up to 0.3.0 were signed with a different key, so later ones can't install over them.
@@ -47,7 +54,7 @@ Run `setup` to grant the permissions again, and add your widgets again: a backup
 The Play build is the version for Google Play, where Kolahal will be available soon. Every release includes its APK. Play's policy doesn't let a launcher read the call log, and asks for a declaration and a
 video for an accessibility service, so the Play build leaves those two out: no `lock` or
 double-tap lock, and no calls in the log or `calls`. It doesn't read your contacts either, because Play requires apps to use Android's contact picker when that's enough: `call`, `sms` and `contacts` open the picker and
-remember who you pick ([People](/guides/people/#in-the-play-build)). Everything else is the same,
+remember who you pick ([People](/guides/people/#in-the-play-build)). It has no `update`, as apps on Play update only through Play. Everything else is the same,
 notification access included: before Android's Notification access screen opens, Kolahal explains what it reads and asks for permission, as Play requires of apps that read notifications.
 
 ## Build from source

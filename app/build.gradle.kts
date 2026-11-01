@@ -41,11 +41,12 @@ android {
         versionCode = 20
         versionName = "0.4.11-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // The accessibility service (double-tap / `lock`), the call log and READ_CONTACTS are in the
-        // manifest; the play build leaves them out.
+        // The accessibility service (double-tap / `lock`), the call log, READ_CONTACTS and
+        // REQUEST_INSTALL_PACKAGES (`update`) are in the manifest; the play build leaves them out.
         buildConfigField("boolean", "LOCK_SERVICE", "true")
         buildConfigField("boolean", "CALL_LOG", "true")
         buildConfigField("boolean", "CONTACTS", "true")
+        buildConfigField("boolean", "SELF_UPDATE", "true")
     }
 
     signingConfigs {
@@ -89,7 +90,8 @@ android {
         // Google Play (`bundlePlay`): the release build without the accessibility service and the call
         // log (src/play removes them), which Play's policy rules out or wants a declaration and a video
         // for. No `lock` or double-tap lock, no calls in the log. No READ_CONTACTS either (Play's
-        // Contacts policy): call, sms and contacts use Android's contact picker. Notification access stays: `notifs
+        // Contacts policy): call, sms and contacts use Android's contact picker. No `update`: an app on Play updates
+        // only through Play (src/play removes what it declares, R8 its code). Notification access stays: `notifs
         // enable` says what it reads and asks first, as Play's User Data policy wants. The bundle is signed with the
         // upload key; without one it stays unsigned, never debug-signed (Play refuses those).
         // `-PplayApk` signs with the release key instead, as the full build: the Play build's APK on
@@ -105,6 +107,7 @@ android {
             buildConfigField("boolean", "LOCK_SERVICE", "false")
             buildConfigField("boolean", "CALL_LOG", "false")
             buildConfigField("boolean", "CONTACTS", "false")
+            buildConfigField("boolean", "SELF_UPDATE", "false")
         }
     }
 

@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.script.ScriptMeta
@@ -468,6 +469,8 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         }
         // [/selector]
         }
+        // Behind the build's switch, so R8 leaves the updater out of the Play build.
+        if (BuildConfig.SELF_UPDATE && preview == null) UpdateProgressLine()
         search?.let { LogSearchSummary(it) } ?: filter?.let { LogFilterBar(it, filterCount, onClear = { vm.filterLog(null) }) }
         // suggestions.auto: hidden on an idle home; shown while typing, or whenever there is input
         // (so hardware-keyboard typing still gets them).

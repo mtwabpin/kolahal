@@ -15,13 +15,14 @@ before day 14 don't count.
 
 * On Play: the Play build, and why it has less
 
-Google Play gets the Play build, the full app without three things, packaged as a bundle:
+Google Play gets the Play build, the full app without four things, packaged as a bundle:
 =./gradlew :app:bundlePlay= (the Release workflow too). What it leaves out:
 
 | Left out                                  | What goes with it                                  | Play's rule                                                                                                                                            |
 |-------------------------------------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =READ_CALL_LOG=                           | calls in the log, =calls=                          | not allowed: Play's SMS and Call Log policy names "calls appearing in wallpaper, launcher, and other tools" as invalid, and launchers get no exception |
 | the accessibility service (=LockService=) | double-tap to lock, =lock=                         | Play says launchers are not accessibility tools, so it would need a declaration, an in-app disclosure with consent, and a video of it                  |
+| =REQUEST_INSTALL_PACKAGES=                | =update= and its code                              | Device and Network Abuse: an app updates only through Play                                                                                             |
 | =READ_CONTACTS=                           | contacts read by name; the picker instead (below)  | Play's Contacts policy (apps targeting Android 17, from 27 January 2027): broad access only where Android's contact picker can't do the job, with a declaration |
 
 The maintainer chose (26 October 2026) to leave the call log and the accessibility service out
@@ -65,7 +66,7 @@ seconds, started by an exact alarm the user allowed.
 
 =tools/check-play-build.sh= checks the Play APK: it fails if any of these appear: the
 call log, SMS or contacts permissions, =QUERY_ALL_PACKAGES=, =USE_EXACT_ALARM=, =REQUEST_INSTALL_PACKAGES=,
-=MANAGE_EXTERNAL_STORAGE=, =ACCESS_BACKGROUND_LOCATION=, =ACCESS_LOCAL_NETWORK= or an accessibility service. Both
+=MANAGE_EXTERNAL_STORAGE=, =ACCESS_BACKGROUND_LOCATION=, =ACCESS_LOCAL_NETWORK=, an accessibility service, or the self-updater (its address in the code, its file provider or its receiver). Both
 workflows run it, so a library that adds one is caught.
 
 Policy pages (opened 22 October 2026):

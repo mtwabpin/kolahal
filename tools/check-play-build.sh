@@ -40,5 +40,23 @@ for s in BIND_ACCESSIBILITY_SERVICE; do
     fi
 done
 
+# An app on Play may update itself only through Play: the updater's code must be gone, not just switched off.
+for c in androidx.core.content.FileProvider com.mtwabpin.kolahal.terminal.UpdateCleanupReceiver; do
+    if grep -qF "\"$c\"" <<<"$manifest"; then
+        echo "$(basename "$apk") declares $c, part of the self-updater."
+        problems=1
+    fi
+done
+dex=$(mktemp)
+trap 'rm -f "$dex"' EXIT
+unzip -p "$apk" 'classes*.dex' > "$dex"
+if [ ! -s "$dex" ]; then
+    echo "$(basename "$apk") has no code to check."
+    problems=1
+elif grep -aq 'repos/mtwabpin/kolahal/releases' "$dex"; then
+    echo "$(basename "$apk") has the self-updater's code in it."
+    problems=1
+fi
+
 if [ "$problems" = 0 ]; then echo "$(basename "$apk") leaves out every restricted permission and service."; fi
 exit "$problems"

@@ -21,6 +21,7 @@ object InstantRun {
         "private",
         "clear",
         "restart",
+        "update",
         "lock",
         "script",
         "alias",

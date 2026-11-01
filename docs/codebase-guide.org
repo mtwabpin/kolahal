@@ -405,9 +405,9 @@ So it receives a =TerminalUi=, and =TerminalViewModel= implements it. In the on-
 all. That is the payoff of depending on an interface rather than on the ViewModel itself.
 
 =CommandProcessor= delegates further, one class per command family: =AppCommands=,
-=ScriptCommands=, =FeedCommands=, =ConfigCommands=, =PeopleCommands=, =ProductivityCommands=
-(all in =terminal/=), and =ControlCommands= (in =control/=). Each is a =CommandGroup=, which holds
-what they share: printing to the log and starting other screens.
+=ScriptCommands=, =FeedCommands=, =ConfigCommands=, =PeopleCommands=, =ProductivityCommands=,
+=UpdateCommands= (all in =terminal/=), and =ControlCommands= (in =control/=). Each is a
+=CommandGroup=, which holds what they share: printing to the log and starting other screens.
 
 ** View layer: Compose screens
 
@@ -699,7 +699,7 @@ From the repository root:
 ./gradlew assembleDebug                 # debug APK (package com.mtwabpin.kolahal.debug)
 ./gradlew installDebug                  # build and install on the connected device
 ./gradlew assembleRelease               # R8-minified release, signed with the release key (the debug key without one)
-./gradlew bundlePlay                    # Google Play: release without accessibility service, call log, reading contacts
+./gradlew bundlePlay                    # Google Play: release without accessibility service, call log, reading contacts, update
 ./gradlew :app:testDebugUnitTest        # the JVM unit tests (fast)
 ANDROID_SERIAL=emulator-5554 ./gradlew connectedDebugAndroidTest   # on-device tests
 ./gradlew :app:lintRelease              # Android lint
@@ -809,4 +809,4 @@ functions is the quickest way to learn what they promise.
 | =@on=, =@uses= | script directives: run on a device event; declare access to private data                                 |
 | fresh screen   | =log.fresh=: home hides old output after a while away (hidden, not deleted)                              |
 | instant run    | =launch.instant=: run without Enter once the input can only mean one thing                               |
-| Play build     | the build for Google Play, without the accessibility service, the call log and reading contacts                            |
+| Play build     | the build for Google Play, without the accessibility service, the call log, reading contacts and =update= |
