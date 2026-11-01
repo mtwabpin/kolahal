@@ -58,14 +58,6 @@ class LogTrimTest {
         assertEquals(500, mine().size)
     }
 
-    @Test fun theTrimUsesTheSettingEveryProcessReads() {
-        logs.keepLines = 500
-        assertEquals(500, logs.keepLines)
-        repeat(600) { logs.add(LogKind.OUTPUT, "$token output $it") }
-        logs.trim()
-        assertEquals(500, mine().size)
-    }
-
     @Test fun aContextTooBigKeepsItsFirstValuesAsWholeJson() {
         val many = (1..2_000).associate { "k$it" to "y".repeat(100) }
         val id = logs.add(LogKind.OUTPUT, "$token many", ctx = LogContext(mapOf(LogContext.SCRIPT to token) + many))

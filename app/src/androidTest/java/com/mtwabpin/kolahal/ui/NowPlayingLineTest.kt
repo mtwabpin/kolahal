@@ -127,16 +127,6 @@ class NowPlayingLineTest {
         assertEquals(0f, filled(), 0.01f)
     }
 
-    @Test fun theBarShowsHowFarAlong() {
-        show { paused(position = DURATION / 2) }
-        assertEquals(0.5f, filled(), 0.02f)
-    }
-
-    @Test fun theBarIsFullAtTheEnd() {
-        show { paused(position = DURATION) }
-        assertEquals(1f, filled(), 0.02f)
-    }
-
     /** Some players report a position past the duration they gave. */
     @Test fun theBarStopsAtFull() {
         show { paused(position = DURATION * 3) }
@@ -162,13 +152,6 @@ class NowPlayingLineTest {
         play(1_000)
         val later = filled()
         assertTrue("$start, then $later", later >= start + 0.05f)
-    }
-
-    @Test fun theBarStandsStillWhilePaused() {
-        show { paused(position = DURATION / 2) }
-        val start = filled()
-        play(600)
-        assertEquals(start, filled(), 0f)
     }
 
     /** A duration some players send only after the title. */

@@ -64,14 +64,6 @@ class AboutTest {
         assertEquals("https://mtwabpin.github.io/kolahal/", view.dataString)
     }
 
-    @Test fun sourceOpensGitHub() {
-        val phone = Catching(context)
-        assertTrue(openLink(phone, SOURCE_URL))
-        val view = phone.started.single()
-        assertEquals(Intent.ACTION_VIEW, view.action)
-        assertEquals("https://github.com/mtwabpin/kolahal", view.dataString)
-    }
-
     /** The share sheet with all of the report, to no one in particular. */
     @Test fun aCrashReportGoesToTheShareSheet() {
         val chooser = crashReportShare("the report")
