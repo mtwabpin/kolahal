@@ -19,12 +19,13 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import androidx.core.content.edit
-import kotlinx.coroutines.flow.MutableSharedFlow
+import com.mtwabpin.kolahal.data.LogContext
+import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.data.LogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -71,15 +72,25 @@ class WidgetHost private constructor(context: Context) {
     /** Bumps when installed providers change, so the picker reloads. */
     val providersVersion: StateFlow<Int> = _providersVersion.asStateFlow()
 
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
-    /** Short results ("added Clock", errors) for the Widgets page snackbar. */
-    val messages: SharedFlow<String> = _messages.asSharedFlow()
+    private val _messages = MutableStateFlow<List<String>>(emptyList())
+    /**
+     * Short results ("Added Clock", errors) the Widgets screen or the picker hasn't shown yet. They
+     * wait for one: adding from the picker moves to the Widgets screen just as "Added" comes.
+     */
+    val messages: StateFlow<List<String>> = _messages.asStateFlow()
 
     /** Ids allocated by a bind/configure flow that is still running; [prune] leaves them alone. */
     private val inFlight = HashSet<Int>()
     private var listening = false
 
-    fun message(text: String) { _messages.tryEmit(text) }
+    fun message(text: String) = _messages.update { (it + text).takeLast(4) }
+
+    /** The oldest message not shown yet, taken off the list by the screen that shows it. */
+    fun takeMessage(): String? {
+        var taken: String? = null
+        _messages.update { taken = it.firstOrNull(); it.drop(1) }
+        return taken
+    }
 
     fun startListening() {
         if (listening) return
@@ -270,8 +281,16 @@ class WidgetHost private constructor(context: Context) {
             val goneKeys = gone.map { it.key }.toSet()
             val lostKeys = lost.map { it.key }.toSet()
             update { all -> all.filterNot { it.key in goneKeys }.map { if (it.key in lostKeys) it.copy(id = null) else it } }
-            if (gone.isNotEmpty()) message("Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was removed")
-            if (lost.isNotEmpty()) message("${lost.size} widget${if (lost.size == 1) " needs" else "s need"} adding again: Settings → Widgets → Arrange widgets")
+            // In the log: this runs as Kolahal starts (after a restore on a new phone), on home, where no widget screen would show it.
+            val logs = LogRepository.get(app)
+            if (gone.isNotEmpty()) logs.add(LogKind.INFO, "Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was removed")
+            if (lost.isNotEmpty()) {
+                logs.add(
+                    LogKind.INFO,
+                    "${lost.size} widget${if (lost.size == 1) " needs" else "s need"} adding again — tap to open Settings → Widgets → Arrange widgets",
+                    ctx = LogContext.of(LogContext.RUN to "widgets"),
+                )
+            }
         }
         val used = _widgets.value.mapNotNull { it.id }.toSet() + synchronized(inFlight) { inFlight.toSet() }
         runCatching { host.appWidgetIds }.getOrNull()?.filter { it !in used }?.forEach { runCatching { host.deleteAppWidgetId(it) } }

@@ -104,7 +104,8 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf<PlacedWidget?>(null) }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(Unit) { widgets.messages.collect { snackbar.showSnackbar(it) } }
+    // Each waiting message once, oldest first, whichever widget screen is open.
+    LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
     BackHandler { if (editing || selected != null) { editing = false; selected = null } else vm.closeScreen() }
 
     val panel = remember(all) { WidgetOrder.inLocation(all, WidgetLocation.PANEL) }

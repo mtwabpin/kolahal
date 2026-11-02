@@ -126,7 +126,8 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     }
     var query by rememberSaveable { mutableStateOf("") }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(Unit) { widgets.messages.collect { snackbar.showSnackbar(it) } }
+    // Each waiting message once, oldest first, whichever widget screen is open.
+    LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
     BackHandler { vm.closeScreen() }
 
     GuiTheme {

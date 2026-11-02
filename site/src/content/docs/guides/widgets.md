@@ -61,7 +61,7 @@ from the page automatically.
 A [backup](/guides/backup/) records which widgets you placed, their size and order. Widgets
 themselves can't be moved between installs, so after an import they show under **Restored from
 backup** in Settings → Widgets → Arrange widgets; tap **Add again** on each to add it back (and run its setup if it has one). It keeps its size and position. The same happens when Android restores Kolahal on a new phone
-from its own backup.
+from its own backup, and a line in the log says how many need adding again: tap it to open that page.
 
 ## From the terminal
 
