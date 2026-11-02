@@ -467,6 +467,23 @@ class BackupAndLibraryTest {
         }
     }
 
+    /** The boot `@on boot` last fired for is this phone's: restored, an older one would read as a new boot. */
+    @Test fun theLastBootStaysOutOfBackups() {
+        val triggers = context.getSharedPreferences("triggers", android.content.Context.MODE_PRIVATE)
+        val was = triggers.getString("boot", null)
+        triggers.edit().putString("boot", "count:7").commit()
+        try {
+            assertFalse("triggers" in (FullBackup.export(context)["prefs"] as Map<*, *>))
+            // A backup from before this version has it: it stays out of the restore.
+            @Suppress("UNCHECKED_CAST") val data = FullBackup.export(context).toMutableMap()
+            data["prefs"] = (data["prefs"] as Map<String, Any?>) + ("triggers" to mapOf("boot" to mapOf("s" to "count:6")))
+            FullBackup.importRaw(context, data)
+            assertEquals("count:7", triggers.getString("boot", null))
+        } finally {
+            triggers.edit().putString("boot", was).commit()
+        }
+    }
+
     @Test fun thisPhonesRecordsStayOutOfBackups() {
         val packages = KvStore(context, "packages")
         packages.set("bk-device", "this phone")

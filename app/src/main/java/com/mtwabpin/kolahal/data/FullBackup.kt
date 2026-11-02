@@ -19,12 +19,14 @@ import com.mtwabpin.kolahal.script.SecretStore
  *
  * The readable sections of [Backup] (config, aliases, apps, scripts) are applied after this, so
  * hand edits to them win. Things that can't move between devices are left out: the picked script
- * folder (a storage permission) and WorkManager's own schedule state (rebuilt on restore).
+ * folder (a storage permission), WorkManager's own schedule state (rebuilt on restore) and the
+ * phone's boot `@on boot` last fired for ("triggers"): an older one, restored, would read as a new
+ * boot and run those scripts. One in a backup from before is left out of the restore too.
  */
 object FullBackup {
     /** SharedPreferences files that hold user data. */
     private val PREFS = listOf(
-        "config", "aliases", "apps", "app_usage", "notif_prefs", "script_library", "script_catalog", "unlocks", "triggers", "launcher", "logs",
+        "config", "aliases", "apps", "app_usage", "notif_prefs", "script_library", "script_catalog", "unlocks", "launcher", "logs",
     )
 
     private class Table(val db: (Context) -> SQLiteDatabase, val name: String)
