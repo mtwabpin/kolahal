@@ -151,6 +151,22 @@ class LibraryScriptsTest {
         assertEquals(Triple("Usage: releases [add|rm owner/repo | list]", null, StyledText.Colour.MUTED), only())
     }
 
+    /** A first check cut short isn't one done: the next run shows each repo's latest release again, and notifies none of the old ones. */
+    @Test fun releasesFirstCheckCutShortIsntOneDone() {
+        // Every repo has three releases, and a notification says so in the log.
+        val feed = "rss = { fresh = function(url) return { items = { { title = 'v3', link = url }, { title = 'v2', link = url }, { title = 'v1', link = url } } } end }\n" +
+            "notify = function(title, body) log('notified ' .. title .. ' ' .. body) end\n"
+        // The run stops at its second line, as a timeout or Android would stop it.
+        val cut = runCatching {
+            run("releases.lua", before = feed + "local shown, logged = 0, log\nlog = function(...) shown = shown + 1; if shown == 2 then error('cut short') end; return logged(...) end\n")
+        }
+        assertEquals(true, cut.exceptionOrNull()?.message?.contains("cut short"))
+
+        run("releases.lua", before = feed)
+        assertEquals(listOf("mtwabpin/kolahal", "neovim/neovim", "termux/termux-app"), lines().map { it.text })
+        assertEquals(listOf("Latest: v3"), lines().map { it.ctx.body?.let(StyledText::plain) }.distinct())
+    }
+
     @Test fun chargeReminderSumsUpASession() {
         run("charge-reminder.lua")
         assertEquals(Triple("No charging session yet: plug in the charger", null, StyledText.Colour.MUTED), only())

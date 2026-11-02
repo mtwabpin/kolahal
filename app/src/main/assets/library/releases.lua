@@ -84,6 +84,9 @@ if #repos == 0 then
 end
 
 local total = 0
+-- Repos checked for the first time, noted once the run has got through them all: rss.fresh keeps
+-- what it has seen only when the run ends well, so one cut short checks them for the first time again.
+local firstChecked = {}
 for _, repo in ipairs(repos) do
   local url = "https://github.com/" .. repo .. "/releases.atom"
   local ok, feed = pcall(rss.fresh, url)
@@ -94,7 +97,7 @@ for _, repo in ipairs(repos) do
     local firstKey = "init:" .. repo
     if store.get(firstKey) == nil then
       -- First check: show the latest release, but don't notify.
-      store.set(firstKey, "1")
+      firstChecked[#firstChecked + 1] = firstKey
       if #items > 0 then
         log(repo, fmt.color("muted", "Latest: ") .. (items[1].title or "?"), { url = items[1].link })
       end
@@ -109,6 +112,8 @@ for _, repo in ipairs(repos) do
     end
   end
 end
+
+for _, key in ipairs(firstChecked) do store.set(key, "1") end
 
 if total > 0 then
   status("Releases: " .. total .. " new")
