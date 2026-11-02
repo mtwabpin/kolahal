@@ -32,12 +32,17 @@ class ScriptFolderTest {
         dir.mkdirs()
     }
 
+    /** What this phone's last export wrote, as Kolahal keeps it: put back after a test exports. */
+    private val folderPrefs = context.getSharedPreferences("script_folder", android.content.Context.MODE_PRIVATE)
+    private val exportedWas = folderPrefs.getStringSet("exported", null)
+
     @After fun tearDown() {
         scripts.byName("foldtest")?.let {
             ScriptScheduler.cancel(context, it.id)
             scripts.delete(it.id)
         }
         dir.deleteRecursively()
+        folderPrefs.edit().putStringSet("exported", exportedWas).commit()
     }
 
     /** The script as you left it: switched on, with your timers and notifications off. */
@@ -112,6 +117,31 @@ class ScriptFolderTest {
         assertTrue(s.notify)
         // Its code still waits for a look, whatever they say.
         assertFalse(s.enabled)
+    }
+
+    /** The same code and settings again aren't an update; changed code is. */
+    @Test fun onlyAChangedScriptCountsAsUpdated() {
+        yours(lines + "return 1", every = 120, at = listOf("09:00"))
+        File(dir, "foldtest.lua").writeText(lines + "return 1")
+        assertEquals(0, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
+        File(dir, "foldtest.lua").writeText(lines + "return 2")
+        assertEquals(1, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
+    }
+
+    /** Another phone's script stays in the folder, and so do its settings; one whose file is gone doesn't. */
+    @Test fun exportKeepsTheSettingsOfScriptsItKeeps() {
+        yours("return 1", every = 120, at = emptyList())
+        File(dir, "otherphone.lua").writeText("return 1")
+        File(dir, "kolahal.json").writeText(
+            """{"version":1,"scripts":[{"name":"otherphone","lang":"lua","every":30,"at":["10:00"],"notify":true,"enabled":true},""" +
+                """{"name":"gone","lang":"lua","every":60,"at":[],"notify":false,"enabled":true}]}"""
+        )
+        ScriptFolder(context).export(DocumentFile.fromFile(dir))
+        val entries = ((Json.parse(File(dir, "kolahal.json").readText()) as Map<*, *>)["scripts"] as List<*>).map { it as Map<*, *> }.associateBy { it["name"] }
+        assertEquals(30, (entries.getValue("otherphone")["every"] as Number).toInt())
+        assertEquals(listOf("10:00"), entries.getValue("otherphone")["at"])
+        assertEquals(120, (entries.getValue("foldtest")["every"] as Number).toInt())
+        assertFalse("gone" in entries)
     }
 
     @Test fun anUnchangedScriptIsLeftAsItIs() {

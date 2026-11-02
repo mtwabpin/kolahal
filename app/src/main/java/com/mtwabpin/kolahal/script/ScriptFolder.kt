@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.edit
 import androidx.documentfile.provider.DocumentFile
+import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 
@@ -36,15 +37,24 @@ class ScriptFolder(private val context: Context) {
     }
 
     /** Writes every script plus the manifest. Returns the number of scripts written. */
-    fun export(): Int {
-        val dir = folder()
+    fun export(): Int = export(folder())
+
+    internal fun export(dir: DocumentFile): Int {
         val all = scripts.all()
         // One listing instead of a provider round-trip per findFile() call.
         val files = dir.listFiles().associateBy { it.name }
         // Remove the files of scripts deleted on this phone since its last export. Only those: the
         // folder can hold scripts another phone exported that this one doesn't have.
         val current = all.map { "${it.name}.${it.lang.ext}" }.toSet()
-        prefs.getStringSet(KEY_EXPORTED, emptySet()).orEmpty().filter { it !in current }.forEach { files[it]?.delete() }
+        val deleted = prefs.getStringSet(KEY_EXPORTED, emptySet()).orEmpty().filterTo(HashSet()) { it !in current }
+        deleted.forEach { files[it]?.delete() }
+        // Those other phones' scripts keep their entries too, or a phone importing them later would
+        // give them the timers their code suggests, not the ones set for them.
+        val mine = all.mapTo(HashSet()) { it.name }
+        val others = files[MANIFEST]?.let { readManifest(it.uri) }.orEmpty().values.filter { entry ->
+            val file = "${entry["name"]}.${entry["lang"]}"
+            entry["name"]?.toString()?.lowercase() !in mine && file in files && file !in deleted
+        }
         for ((_, name, lang, code) in all) {
             val fileName = "$name.${lang.ext}"
             val file = files[fileName] ?: dir.createFile(MIME_TEXT, fileName)
@@ -62,7 +72,7 @@ class ScriptFolder(private val context: Context) {
                     "notify" to it.notify,
                     "enabled" to it.enabled,
                 )
-            },
+            } + others,
         )
         val manifestFile = files[MANIFEST] ?: dir.createFile("application/json", MANIFEST)
             ?: throw IllegalStateException("can't create $MANIFEST")
@@ -84,6 +94,7 @@ class ScriptFolder(private val context: Context) {
         val settings = files.firstOrNull { it.name == MANIFEST }?.let { readManifest(it.uri) }.orEmpty()
 
         var created = 0
+        // Only scripts the import changed: the same code and settings again aren't an update.
         var updated = 0
         val skipped = ArrayList<String>()
         for (file in files) {
@@ -117,7 +128,6 @@ class ScriptFolder(private val context: Context) {
                     scripts.replaceCode(existing.id, code)
                     isNew = true
                 }
-                updated++
                 existing
             }
             settings[name]?.let { m ->
@@ -147,10 +157,16 @@ class ScriptFolder(private val context: Context) {
             // New scripts from a folder arrive switched off, like from a backup: review them before
             // they run on a timer.
             if (isNew) scripts.setEnabled(script.id, false)
+            if (existing != null && scripts.byId(script.id)?.let { changed(existing, it) } == true) updated++
             runCatching { scripts.byId(script.id)?.let { ScriptScheduler.sync(context, it) } }
         }
         return ImportResult(created, updated, skipped)
     }
+
+    /** What an import can change of a script: its code, timers, notifications and switch. */
+    private fun changed(before: Script, after: Script) =
+        before.code != after.code || before.intervalMin != after.intervalMin || before.atTimes != after.atTimes ||
+            before.notify != after.notify || before.enabled != after.enabled
 
     /** Manifest entries keyed by script name. */
     private fun readManifest(uri: Uri): Map<String?, Map<*, *>> =
