@@ -32,7 +32,7 @@ class ScriptEditorTest {
     private var lastRun by mutableStateOf<Long?>(null)
     private var ran: Pair<List<String>, Map<String, Any?>?>? = null
 
-    private fun show(code: String = script.code, changed: String? = null) {
+    private fun show(code: String = script.code, changed: String? = null, saveFails: Throwable? = null) {
         compose.setContent {
             KolahalTheme {
                 ScriptEditor(
@@ -43,8 +43,12 @@ class ScriptEditorTest {
                     onSave = { _, done -> done(null, changed) },
                     onRun = { _, args, event, done ->
                         ran = args to event
-                        done(null, null)
-                        lastRun = System.currentTimeMillis() + 1_000
+                        if (saveFails != null) {
+                            done(saveFails, null)
+                        } else {
+                            done(null, null)
+                            lastRun = System.currentTimeMillis() + 1_000
+                        }
                     },
                     runLines = { listOf(line(LogKind.SCRIPT, "first"), line(LogKind.ERROR, "edtest: oops")) },
                     onClose = {},
@@ -96,6 +100,19 @@ class ScriptEditorTest {
         compose.onNodeWithText("edtest: oops").assertExists()
         compose.onNodeWithText("Ran in 12ms · 2 lines below").assertExists()
         compose.onNodeWithText("✕").performClick()
+        compose.onNodeWithTag("run-output").assertDoesNotExist()
+    }
+
+    /** Run whose save failed: the script didn't run, so its next run (its timer's, old code) isn't shown as this one's. */
+    @Test fun aRunWhoseSaveFailedTakesNoLaterRun() {
+        show(saveFails = java.io.IOException("disk full"))
+        fun shown() = compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
+        compose.onNodeWithText("[run]").performClick()
+        compose.waitForIdle()
+        assertEquals("Couldn't save: disk full", shown())
+        compose.runOnIdle { lastRun = System.currentTimeMillis() + 1_000 }
+        compose.waitForIdle()
+        assertEquals("Couldn't save: disk full", shown())
         compose.onNodeWithTag("run-output").assertDoesNotExist()
     }
 

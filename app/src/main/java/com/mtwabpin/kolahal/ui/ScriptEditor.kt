@@ -216,6 +216,8 @@ fun ScriptEditor(
                 saved = text
                 message = EditorMessage(listOfNotNull("Saved", changed, "running…").joinToString(" · "), EditorMessage.Kind.BUSY)
             } else {
+                // It didn't run: a later run (its timer's) isn't this one's result.
+                runSince = null
                 message = EditorMessage("Couldn't save: ${failure.message ?: failure.javaClass.simpleName}", EditorMessage.Kind.ERROR)
             }
         }
