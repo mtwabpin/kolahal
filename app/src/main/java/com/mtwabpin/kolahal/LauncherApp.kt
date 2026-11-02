@@ -101,6 +101,10 @@ class LauncherApp : Application(), Configuration.Provider {
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 scope.launch { runCatching { ScriptScheduler.syncAll(this@LauncherApp) } }
+                // Repeating reminders keep the time they were asked for, in the new zone.
+                if (intent.action == Intent.ACTION_TIMEZONE_CHANGED) {
+                    scope.launch { runCatching { com.mtwabpin.kolahal.productivity.ReminderScheduler.followZone(this@LauncherApp) } }
+                }
             }
         }, IntentFilter().apply {
             addAction(Intent.ACTION_TIMEZONE_CHANGED)

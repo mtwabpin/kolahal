@@ -6,8 +6,11 @@ import com.mtwabpin.kolahal.data.Db
 
 data class Todo(val id: Long, val text: String, val done: Boolean)
 data class Note(val id: Long, val text: String, val created: Long)
-/** [repeat]: a [Repeat] rule, or null for a reminder that fires once. */
-data class Reminder(val id: Long, val at: Long, val text: String, val repeat: String? = null)
+/**
+ * [repeat]: a [Repeat] rule, or null for a reminder that fires once. [time]: the wall-clock time a
+ * repeating one was asked for (`02:30`); null for one set before 0.4.12 until it next fires.
+ */
+data class Reminder(val id: Long, val at: Long, val text: String, val repeat: String? = null, val time: String? = null)
 
 /**
  * Picks an item by what the user typed: `#12` is a database id (used by tap actions, stable
@@ -100,27 +103,32 @@ class ReminderStore private constructor(context: Context) {
 
     fun all(): List<Reminder> {
         val out = ArrayList<Reminder>()
-        db.readableDatabase.rawQuery("SELECT id, at, text, repeat_rule FROM reminders ORDER BY at, id", null).use { c ->
-            while (c.moveToNext()) out += Reminder(c.getLong(0), c.getLong(1), c.getString(2), c.getString(3))
+        db.readableDatabase.rawQuery("SELECT id, at, text, repeat_rule, repeat_time FROM reminders ORDER BY at, id", null).use { c ->
+            while (c.moveToNext()) out += Reminder(c.getLong(0), c.getLong(1), c.getString(2), c.getString(3), c.getString(4))
         }
         return out
     }
 
     fun byId(id: Long): Reminder? = all().firstOrNull { it.id == id }
 
-    fun add(at: Long, text: String, repeat: String? = null): Reminder {
+    fun add(at: Long, text: String, repeat: String? = null, time: String? = null): Reminder {
         val id = db.writableDatabase.insertOrThrow("reminders", null, ContentValues().apply {
             put("at", at)
             put("text", text)
             put("created", System.currentTimeMillis())
             put("repeat_rule", repeat)
+            put("repeat_time", time)
         })
-        return Reminder(id, at, text, repeat)
+        return Reminder(id, at, text, repeat, time)
     }
 
-    /** A repeating reminder's next time. */
-    fun setAt(id: Long, at: Long) {
-        db.writableDatabase.update("reminders", ContentValues().apply { put("at", at) }, "id = ?", arrayOf(id.toString()))
+    /** A repeating reminder's next time, and the time of day it repeats at when [time] is given. */
+    fun setAt(id: Long, at: Long, time: String? = null) {
+        val values = ContentValues().apply {
+            put("at", at)
+            if (time != null) put("repeat_time", time)
+        }
+        db.writableDatabase.update("reminders", values, "id = ?", arrayOf(id.toString()))
     }
 
     fun remove(id: Long) = db.writableDatabase.delete("reminders", "id = ?", arrayOf(id.toString()))

@@ -190,6 +190,7 @@ class CommandFamiliesTest {
             assertTrue(run("remind every day 8:00 cptest pills").first().contains("then every day: cptest pills"))
             val r = mine().single()
             assertEquals("day", r.repeat)
+            assertEquals("08:00", r.time)
             assertTrue(run("reminders").toString(), logs.recent(20).any { it.ctx.values[com.mtwabpin.kolahal.data.LogContext.DESC]?.endsWith("every day") == true })
 
             context.sendBroadcast(

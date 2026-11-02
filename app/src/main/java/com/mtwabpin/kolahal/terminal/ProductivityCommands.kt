@@ -236,7 +236,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         val at = relative?.let { System.currentTimeMillis() + it * 1000 } ?: parsed.at.atZone(zone).toInstant().toEpochMilli()
         // The question can be tapped twice.
         if (confirmed && reminders.all().any { it.at == at && it.text == text && it.repeat == repeating?.rule }) return info("Already set: $text")
-        val r = reminders.add(at, text, repeating?.rule)
+        val r = reminders.add(at, text, repeating?.rule, repeating?.at?.toLocalTime()?.toString())
         ReminderScheduler.schedule(context, r)
         val then = repeating?.let { ", then ${Repeat.label(it.rule)}" }.orEmpty()
         info(

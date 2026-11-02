@@ -88,7 +88,8 @@ class Db private constructor(context: Context) :
                 at INTEGER NOT NULL,
                 text TEXT NOT NULL,
                 created INTEGER NOT NULL,
-                repeat_rule TEXT
+                repeat_rule TEXT,
+                repeat_time TEXT
             )
             """.trimIndent()
         )
@@ -102,6 +103,8 @@ class Db private constructor(context: Context) :
         if (oldVersion < 5) dropRunHeaders(db)
         // Repeating reminders (version 6): how one repeats, null for once.
         if (oldVersion < 6 && !hasColumn(db, "reminders", "repeat_rule")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
+        // The time a repeating reminder was asked for (version 7), so a daylight-saving gap or a trip doesn't move it for good.
+        if (oldVersion < 7 && !hasColumn(db, "reminders", "repeat_time")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_time TEXT")
     }
 
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
@@ -128,7 +131,7 @@ class Db private constructor(context: Context) :
 
     companion object {
         private const val NAME = "kolahal.db"
-        private const val VERSION = 6
+        private const val VERSION = 7
 
         /** Run headers (`── hn · 22:40 ──`) are gone (version 5): every line shows its time and its script. */
         internal fun dropRunHeaders(db: SQLiteDatabase): Int =

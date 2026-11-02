@@ -69,7 +69,7 @@ remind every month 1st rent           # the last day in shorter months for the 2
 remind every year mar 14 Alice's birthday
 ```
 
-A repeating reminder fires at the same time on each of its days (9:00 if you give no time), and stays listed in `reminders` with its schedule. `every year feb 29` is the 28th in other years. `remind rm` cancels it.
+A repeating reminder fires at the same time on each of its days (9:00 if you give no time), and stays listed in `reminders` with its schedule. It keeps that time in another time zone, and after the clocks change: on the night a time is skipped (2:30 when clocks go from 2:00 to 3:00), it fires an hour later, that night only. `every year feb 29` is the 28th in other years. `remind rm` cancels it.
 
 - A reminder posts a notification on the **Reminders** channel and adds a line to the log. The
   notification's **Snooze 10 min** and **Snooze 1 hour** remind you once more (a repeating one also keeps its schedule), and **Done** dismisses it. Tapping the log line puts a 10-minute snooze command in the prompt.

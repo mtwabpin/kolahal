@@ -12,6 +12,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.notify.Notifier
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 /** Schedules `remind` alarms with AlarmManager (exact when allowed, otherwise inexact while idle). */
@@ -59,6 +60,37 @@ object ReminderScheduler {
 
     /** Well under Android's limit of 500 alarms per app. */
     const val MAX_ALARMS = 400
+
+    /**
+     * The time a repeating reminder fires at: the one asked for. Without one (set before 0.4.12, or
+     * unreadable), the time it fired at, [fired].
+     */
+    fun timeOf(r: Reminder, fired: LocalDateTime): LocalTime =
+        r.time?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: fired.toLocalTime()
+
+    /**
+     * A new time zone: each repeating reminder still ahead moves to the time it was asked for, in
+     * this zone (a 9:00 reminder set in Delhi fires at 9:00 in London). One that's due already, or
+     * has no time of its own, stays.
+     */
+    fun followZone(context: Context) {
+        val store = ReminderStore.get(context)
+        val zone = ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        var moved = false
+        for (r in store.all()) {
+            val rule = r.repeat ?: continue
+            val time = r.time?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: continue
+            if (r.at <= now) continue
+            val next = runCatching {
+                Repeat.next(rule, time, LocalDateTime.ofInstant(Instant.ofEpochMilli(now), zone)).atZone(zone).toInstant().toEpochMilli()
+            }.getOrNull() ?: continue
+            if (next == r.at) continue
+            store.setAt(r.id, next)
+            moved = true
+        }
+        if (moved) rescheduleAll(context)
+    }
 }
 
 /** Fires one reminder: notification plus a log line, then the reminder is gone, or set for its next time. */
@@ -72,18 +104,20 @@ class ReminderReceiver : BroadcastReceiver() {
                 val store = ReminderStore.get(context)
                 val r = store.byId(id) ?: return@Thread // cancelled meanwhile
                 val rule = r.repeat
-                // The same wall-clock time on its next day; a phone off for days skips to the next one ahead.
+                val zone = ZoneId.systemDefault()
+                val fired = Instant.ofEpochMilli(r.at).atZone(zone).toLocalDateTime()
+                val time = ReminderScheduler.timeOf(r, fired)
+                // The time it was asked for, on its next day; a phone off for days skips to the next one ahead.
                 val next = rule?.let {
-                    val zone = ZoneId.systemDefault()
-                    val fired = Instant.ofEpochMilli(r.at).atZone(zone).toLocalDateTime()
                     // A rule it can't read fires this once: thrown from here, it would stop the app at every start.
-                    runCatching { Repeat.next(it, fired.toLocalTime(), maxOf(fired, LocalDateTime.now(zone))).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
+                    runCatching { Repeat.next(it, time, maxOf(fired, LocalDateTime.now(zone))).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
                 }
                 if (next == null) {
                     store.remove(id)
                     if (rule != null) LogRepository.get(context).add(LogKind.ERROR, "Reminder '${r.text}' had an invalid repeat rule, so it won't repeat")
                 } else {
-                    store.setAt(id, next)
+                    // One set before 0.4.12 keeps the time it fired at from now on, as if asked for.
+                    store.setAt(id, next, if (r.time == null) time.toString() else null)
                     ReminderScheduler.schedule(context, r.copy(at = next))
                 }
                 // More reminders than alarms: the next one waiting gets its alarm now.
