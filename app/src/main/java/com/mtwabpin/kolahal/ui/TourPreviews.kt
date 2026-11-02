@@ -57,7 +57,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.data.Keys
@@ -220,7 +223,8 @@ internal fun TypingPreview(vm: TerminalViewModel) {
         return (commandRows + appRows).take(4)
     }
 
-    LaunchedEffect(mode, app, minLetters) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(mode, app, minLetters, lifecycle) {
         lines.clear()
         val demo = app ?: return@LaunchedEffect
         val appWord = (minLetters..demo.label.length).firstOrNull { k ->
@@ -241,24 +245,31 @@ internal fun TypingPreview(vm: TerminalViewModel) {
             return false
         }
 
-        while (isActive) {
-            typed = ""
-            delay(900.milliseconds)
-            type(appWord)
-            typed = ""
-            opened = demo
-            lines += "Launched ${demo.label}" to false
-            delay(1500.milliseconds)
-            opened = null
-            delay(500.milliseconds)
-            // fetch takes no arguments, so it can run by itself (`all`); its first lines, as it prints them.
-            type("fetch")
-            typed = ""
-            lines += "fetch" to true
-            lines += "${vm.config[Keys.USER_NAME]}@${android.os.Build.DEVICE}" to false
-            lines += "OS  Android ${android.os.Build.VERSION.RELEASE} · API ${android.os.Build.VERSION.SDK_INT}" to false
-            delay(2200.milliseconds)
+        // Only while the tour shows: left open behind another app, it would wake twice a second and search the apps.
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // Back on screen: from the start, not from where it stopped.
             lines.clear()
+            opened = null
+            enter = false
+            while (isActive) {
+                typed = ""
+                delay(900.milliseconds)
+                type(appWord)
+                typed = ""
+                opened = demo
+                lines += "Launched ${demo.label}" to false
+                delay(1500.milliseconds)
+                opened = null
+                delay(500.milliseconds)
+                // fetch takes no arguments, so it can run by itself (`all`); its first lines, as it prints them.
+                type("fetch")
+                typed = ""
+                lines += "fetch" to true
+                lines += "${vm.config[Keys.USER_NAME]}@${android.os.Build.DEVICE}" to false
+                lines += "OS  Android ${android.os.Build.VERSION.RELEASE} · API ${android.os.Build.VERSION.SDK_INT}" to false
+                delay(2200.milliseconds)
+                lines.clear()
+            }
         }
     }
 
