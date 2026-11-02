@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -95,10 +96,10 @@ fun ScriptEditor(
     runLines: suspend (since: Long) -> List<com.mtwabpin.kolahal.data.LogEntry>,
     onClose: (unsaved: String?) -> Unit,
 ) {
-    var value by rememberSaveable(script.id, stateSaver = TextFieldValue.Saver) {
+    var value by rememberSaveable(script.id, stateSaver = keptText(script.code)) {
         mutableStateOf(TextFieldValue(script.code, selectionAtLine(script.code, jumpToLine)))
     }
-    var saved by rememberSaveable(script.id) { mutableStateOf(script.code) }
+    var saved by rememberSaveable(script.id, stateSaver = keptSaved(script.code)) { mutableStateOf(script.code) }
     val dirty = value.text != saved
     val focus = remember { FocusRequester() }
     val findFocus = remember { FocusRequester() }
@@ -697,6 +698,33 @@ private fun RunOutput(lines: List<com.mtwabpin.kolahal.data.LogEntry>, maxHeight
         }
     }
 }
+
+/**
+ * The most of a script's text Android keeps for the editor while Kolahal is in the background. A
+ * screen's kept state must fit in about 1 MB, two bytes a character, or the app stops as it goes,
+ * and the editor keeps its text twice: as typed, and as last saved.
+ */
+internal const val KEPT_TEXT_MAX = 100_000
+
+/**
+ * The editor's text as Android keeps it in the background: past [KEPT_TEXT_MAX] only the cursor,
+ * and [stored], the script as saved, comes back instead. The editor saves as it goes to the
+ * background, so that's the text as it was.
+ */
+internal fun keptText(stored: String) = Saver<TextFieldValue, Any>(
+    save = { arrayListOf(it.text.takeIf { text -> text.length <= KEPT_TEXT_MAX } ?: false, it.selection.start, it.selection.end) },
+    restore = { kept ->
+        val (text, start, end) = kept as List<*>
+        val back = text as? String ?: stored
+        TextFieldValue(back, TextRange((start as Int).coerceIn(0, back.length), (end as Int).coerceIn(0, back.length)))
+    },
+)
+
+/** The last saved copy, kept the same way: past [KEPT_TEXT_MAX], [stored] comes back. */
+internal fun keptSaved(stored: String) = Saver<String, Any>(
+    save = { it.takeIf { text -> text.length <= KEPT_TEXT_MAX } ?: false },
+    restore = { it as? String ?: stored },
+)
 
 /** Cursor at the start of [line] (1-based), or at the end of the text. */
 internal fun selectionAtLine(text: String, line: Int?): TextRange =
