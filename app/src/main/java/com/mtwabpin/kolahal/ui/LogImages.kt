@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -151,12 +154,13 @@ fun LogImage(url: String, modifier: Modifier = Modifier) {
     val maxHeightPx = LocalWindowInfo.current.containerSize.height * 0.75f
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val widthPx = constraints.maxWidth.coerceAtLeast(1)
-        // null while loading; Result.failure once it can't be had.
-        val state by produceState(LogImages.cached(url, widthPx)?.let { Result.success(it) }, url, widthPx) {
-            if (value == null) {
-                value = withContext(LogImages.loader) { LogImages.load(context.applicationContext, url, widthPx) }
-                    ?.let { Result.success(it) } ?: Result.failure(IllegalStateException())
-            }
+        // null while loading; Result.failure once it can't be had. A new width (the phone turned) keeps
+        // the image decoded for the old one until it's decoded again; a new address starts over.
+        var state by remember(url) { mutableStateOf(LogImages.cached(url, widthPx)?.let { Result.success(it) }) }
+        LaunchedEffect(url, widthPx) {
+            val image = LogImages.cached(url, widthPx)
+                ?: withContext(LogImages.loader) { LogImages.load(context.applicationContext, url, widthPx) }
+            state = image?.let { Result.success(it) } ?: state?.takeIf { it.isSuccess } ?: Result.failure(IllegalStateException())
         }
         val image = state?.getOrNull()
         if (image == null) {
