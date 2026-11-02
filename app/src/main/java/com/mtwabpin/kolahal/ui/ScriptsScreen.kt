@@ -15,15 +15,17 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -211,10 +213,10 @@ fun ScriptsScreen(
                     },
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
-                        IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
+                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { searching = !searching; if (!searching) query = "" }) {
                             Icon(painterResource(R.drawable.ic_search), contentDescription = "Search scripts")
                         }
-                        IconButton(onClick = { expandAll = !expandAll; flipped = emptyList() }) {
+                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { expandAll = !expandAll; flipped = emptyList() }) {
                             Icon(
                                 painterResource(R.drawable.ic_expand_more),
                                 contentDescription = if (expandAll) "Hide details" else "Show details",
@@ -226,7 +228,7 @@ fun ScriptsScreen(
                 )
             },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
+                SmallExtendedFloatingActionButton(
                     onClick = { adding = true },
                     icon = { Icon(painterResource(R.drawable.ic_add), null) },
                     text = { Text("Add script") },
@@ -287,7 +289,7 @@ fun ScriptsScreen(
                     shown.isEmpty() -> item(key = "nomatch") {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("No script matches", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { filters = emptyList(); query = "" }) { Text("Show all") }
+                            TextButton(shapes = ButtonDefaults.shapes(), onClick = { filters = emptyList(); query = "" }) { Text("Show all") }
                         }
                     }
                     else -> items(shown, key = { it.script.id }) { info ->

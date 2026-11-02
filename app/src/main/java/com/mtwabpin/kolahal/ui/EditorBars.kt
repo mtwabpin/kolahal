@@ -18,12 +18,14 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,7 +88,9 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
         containerColor = Term.surface,
         text = {
             Column {
-                OutlinedTextField(
+                TextField(
+                    shape = TextFieldDefaults.roundedShape,
+                    colors = fieldColors(),
                     value = words,
                     onValueChange = { words = it },
                     singleLine = true,
@@ -113,12 +117,12 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                 val args = com.mtwabpin.kolahal.terminal.CommandParsing.tokenize(words.text)
                 onRun(args, chosen?.let { com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(it.first, it.second) })
             }) { Text("run", style = Term.code.copy(color = Term.prompt)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("cancel", style = Term.code.copy(color = Term.fg)) } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("cancel", style = Term.code.copy(color = Term.fg)) } },
     )
 }
 
@@ -248,7 +252,9 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
         onDismissRequest = onDismiss,
         title = { Text("Go to line") },
         text = {
-            OutlinedTextField(
+            TextField(
+                shape = TextFieldDefaults.roundedShape,
+                colors = fieldColors(),
                 value = text,
                 onValueChange = { text = it.filter(Char::isDigit).take(9) },
                 label = { Text("Line (1–$lineCount)") },
@@ -266,8 +272,8 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
                     },
             )
         },
-        confirmButton = { TextButton(onClick = { line?.let(onGo) }, enabled = line != null) { Text("Go") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { line?.let(onGo) }, enabled = line != null) { Text("Go") } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     ) }
 }
 

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -26,9 +28,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
@@ -198,7 +200,9 @@ internal fun SettingItem(
                             Spacer(Modifier.height(8.dp))
                             // Red while it can't be a value (a name with a space), and no Apply then.
                             val valid = key.parse(text) != null
-                            OutlinedTextField(
+                            TextField(
+                                shape = TextFieldDefaults.roundedShape,
+                                colors = fieldColors(),
                                 value = text,
                                 onValueChange = { text = it },
                                 singleLine = true,
@@ -211,7 +215,7 @@ internal fun SettingItem(
                                 ),
                                 keyboardActions = KeyboardActions(onDone = { vm.setConfig(key, text) }),
                                 trailingIcon = if (text != value && valid) {
-                                    { IconButton(onClick = { vm.setConfig(key, text) }) { Icon(painterResource(R.drawable.ic_check), "Apply") } }
+                                    { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.setConfig(key, text) }) { Icon(painterResource(R.drawable.ic_check), "Apply") } }
                                 } else null,
                                 modifier = Modifier.fillMaxWidth(),
                             )

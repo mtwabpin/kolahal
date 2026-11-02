@@ -24,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -133,7 +134,7 @@ internal fun ScriptSheet(
                     color = scriptColor(s.name),
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                IconButton(onClick = { renaming = true }) {
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { renaming = true }) {
                     Icon(painterResource(R.drawable.ic_edit), contentDescription = "Rename", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -155,17 +156,17 @@ internal fun ScriptSheet(
 
             Spacer(Modifier.height(16.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { vm.scriptActions.runScriptNow(s) }) {
+                Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.runScriptNow(s) }) {
                     Icon(painterResource(R.drawable.ic_play), null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text("Run")
                 }
-                FilledTonalButton(onClick = onEdit) {
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) {
                     Icon(painterResource(R.drawable.ic_edit), null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text("Edit")
                 }
-                OutlinedButton(onClick = onExport) {
+                OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = onExport) {
                     Icon(painterResource(R.drawable.ic_download), null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text("Export")
@@ -239,7 +240,7 @@ internal fun ScriptSheet(
                 placeholder = { Text("08:00, 18:30") },
                 // Or pick one on a clock: added to the times and set at once.
                 leadingIcon = {
-                    IconButton(onClick = { pickingTime = true }) { Icon(painterResource(R.drawable.ic_alarm), "Add a time") }
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = { pickingTime = true }) { Icon(painterResource(R.drawable.ic_alarm), "Add a time") }
                 },
                 singleLine = true,
                 isError = timesError,
@@ -254,7 +255,7 @@ internal fun ScriptSheet(
                 keyboardActions = KeyboardActions(onDone = { timesError = !vm.scriptActions.setScriptTimes(s, times) }),
                 trailingIcon = if (times != s.atTimes.joinToString(", ")) {
                     {
-                        IconButton(onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) }) {
+                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) }) {
                             Icon(painterResource(R.drawable.ic_check), "Set times")
                         }
                     }
@@ -268,7 +269,7 @@ internal fun ScriptSheet(
                     onDismissRequest = { pickingTime = false },
                     title = { Text("Daily at") },
                     confirmButton = {
-                        TextButton(onClick = {
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                             val picked = "%02d:%02d".format(clock.hour, clock.minute)
                             // With what the box holds now, saved or not.
                             times = (times.split(',', ' ').filter { it.isNotBlank() } + picked).distinct().sorted().joinToString(", ")
@@ -276,20 +277,21 @@ internal fun ScriptSheet(
                             pickingTime = false
                         }) { Text("Add") }
                     },
-                    dismissButton = { TextButton(onClick = { pickingTime = false }) { Text("Cancel") } },
+                    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { pickingTime = false }) { Text("Cancel") } },
                 ) { TimePicker(clock) }
             }
 
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 sharedUpdate?.let { e ->
-                    FilledTonalButton(onClick = { vm.scriptActions.installSharedScript(e) }) { Text("Update to ${e.version}") }
+                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.installSharedScript(e) }) { Text("Update to ${e.version}") }
                 }
                 if (lib != null && lib.state.differs()) {
                     CompareButton(ButtonDefaults.MinHeight) { comparing = true }
                     LibraryCopyButton(lib.state, ButtonDefaults.MinHeight) { resetFromLibrary(lib) }
                 }
                 TextButton(
+                    shapes = ButtonDefaults.shapes(),
                     onClick = { confirmDelete = true },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
@@ -339,11 +341,12 @@ internal fun ScriptSheet(
             text = { Text("Its timers, stored data and status line are removed too. Export it first to keep a copy.") },
             confirmButton = {
                 TextButton(
+                    shapes = ButtonDefaults.shapes(),
                     onClick = { confirmDelete = false; onDismiss(); vm.scriptActions.deleteScript(s) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text("Delete") }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
     }
 }

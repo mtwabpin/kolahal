@@ -25,16 +25,17 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -130,7 +131,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
                         if (panel.isNotEmpty()) {
-                            IconToggleButton(checked = editing, onCheckedChange = { editing = it; selected = null }) {
+                            IconToggleButton(shapes = IconButtonDefaults.toggleableShapes(), checked = editing, onCheckedChange = { editing = it; selected = null }) {
                                 Icon(painterResource(if (editing) R.drawable.ic_check else R.drawable.ic_edit), if (editing) "Done" else "Edit widgets")
                             }
                         }
@@ -167,7 +168,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
             },
             floatingActionButton = {
                 if (!editing && chosen == null) {
-                    ExtendedFloatingActionButton(
+                    SmallExtendedFloatingActionButton(
                         onClick = { vm.openScreen(Screen.WIDGET_PICKER) },
                         icon = { Icon(painterResource(R.drawable.ic_add), null) },
                         text = { Text("Add widget") },
@@ -255,11 +256,12 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                 text = { Text("The widget is deleted; add it again from the picker any time.") },
                 confirmButton = {
                     TextButton(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = { confirmRemove = null; selected = null; widgets.remove(w.key) },
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text("Remove") }
                 },
-                dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text("Cancel") } },
+                dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmRemove = null }) { Text("Cancel") } },
             )
         }
     }
@@ -290,7 +292,7 @@ private fun WidgetCard(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(why, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        TextButton(onClick = onSelect) { Text("Edit") }
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = onSelect) { Text("Edit") }
                     }
                 }
             }
@@ -325,8 +327,8 @@ private fun WidgetToolbar(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = onRemove) { Icon(painterResource(R.drawable.ic_delete), "Remove", tint = MaterialTheme.colorScheme.error) }
-                IconButton(onClick = onDone) { Icon(painterResource(R.drawable.ic_check), "Done") }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRemove) { Icon(painterResource(R.drawable.ic_delete), "Remove", tint = MaterialTheme.colorScheme.error) }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDone) { Icon(painterResource(R.drawable.ic_check), "Done") }
             }
             // Side by side where they fit, one under the other on a narrow screen or with large text.
             FlowRow(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -334,10 +336,10 @@ private fun WidgetToolbar(
                 Stepper("Height", "${w.heightDp}", w.heightDp > minHeight, w.heightDp < WidgetLayout.MAX_DP, onHeight)
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                IconButton(onClick = { onMove(-1) }, enabled = index > 0) { Icon(painterResource(R.drawable.ic_arrow_back), "Move earlier") }
-                IconButton(onClick = { onMove(1) }, enabled = index < count - 1) { Icon(painterResource(R.drawable.ic_arrow_forward), "Move later") }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(-1) }, enabled = index > 0) { Icon(painterResource(R.drawable.ic_arrow_back), "Move earlier") }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(1) }, enabled = index < count - 1) { Icon(painterResource(R.drawable.ic_arrow_forward), "Move later") }
                 Spacer(Modifier.weight(1f))
-                FilledTonalButton(onClick = onSquare) { Text("Square") }
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSquare) { Text("Square") }
             }
         }
     }
@@ -381,6 +383,7 @@ private fun RepeatingButton(icon: Int, description: String, enabled: Boolean, on
         }
     }
     IconButton(
+        shapes = IconButtonDefaults.shapes(),
         onClick = {
             if (heldSince == 0L || SystemClock.uptimeMillis() - heldSince < 400) step()
             heldSince = 0L
@@ -416,8 +419,8 @@ private fun PendingRow(
         supportingContent = { Text(if (found == null) "app not installed" else "${w.location} · ${w.heightDp}dp") },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                FilledTonalButton(onClick = { found?.let { onReAdd(it, w) } }, enabled = found != null) { Text("Add again") }
-                IconButton(onClick = onDismiss) { Icon(painterResource(R.drawable.ic_delete), "Forget") }
+                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { found?.let { onReAdd(it, w) } }, enabled = found != null) { Text("Add again") }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDismiss) { Icon(painterResource(R.drawable.ic_delete), "Forget") }
             }
         },
     ) { Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis) }

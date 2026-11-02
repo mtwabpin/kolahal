@@ -29,15 +29,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SheetValue
@@ -47,11 +48,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberBottomSheetState
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -145,20 +144,21 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             containerColor = MaterialTheme.colorScheme.surface,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                TopAppBar(
+                MediumFlexibleTopAppBar(
                     title = { Text(if (editing == null) "New theme" else "Edit theme") },
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
                         if (editing != null) {
                             // As saved: changes not saved yet stay out of the file.
-                            IconButton(onClick = { export.launch("$editing.json") }) { Icon(painterResource(R.drawable.ic_download), "Export theme") }
-                            IconButton(onClick = { confirmDelete = true }) { Icon(painterResource(R.drawable.ic_delete), "Delete theme") }
+                            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { export.launch("$editing.json") }) { Icon(painterResource(R.drawable.ic_download), "Export theme") }
+                            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Icon(painterResource(R.drawable.ic_delete), "Delete theme") }
                         }
                     },
                 )
             },
             bottomBar = {
                 Button(
+                    shapes = ButtonDefaults.shapes(),
                     onClick = {
                         CustomThemes.save(context, name, draft.toMap())
                         // Renamed: the old file goes, and the new name is used.
@@ -177,19 +177,14 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                     Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
                 )
                 // Every theme has a dark and a light version: the phone's dark mode picks one.
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    listOf(false to "Dark", true to "Light").forEachIndexed { i, (isLight, label) ->
-                        SegmentedButton(
-                            selected = light == isLight,
-                            onClick = { light = isLight },
-                            shape = SegmentedButtonDefaults.itemShape(i, 2),
-                            modifier = Modifier.testTag("version $label"),
-                        ) { Text(label) }
-                    }
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    ConnectedChoices(listOf("Dark", "Light"), if (light) "Light" else "Dark", tagPrefix = "version ") { light = it == "Light" }
                 }
                 LazyColumn(Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp)) {
                     item(key = "name") {
-                        OutlinedTextField(
+                        TextField(
+                            shape = TextFieldDefaults.roundedShape,
+                            colors = fieldColors(),
                             value = name,
                             onValueChange = { name = it.lowercase().replace(' ', '-') },
                             label = { Text("Name") },
@@ -206,12 +201,15 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             (Keys.BUILT_IN_THEMES + CustomThemes.names.filter { it != editing }).forEach { other ->
                                 val p = Palettes.named(other, dark = !light)
-                                AssistChip(
-                                    // Both versions: a theme's dark and light colours go together.
+                                // Both versions: a theme's dark and light colours go together.
+                                FilledTonalButton(
+                                    shapes = ButtonDefaults.shapes(),
                                     onClick = { draft.putAll(Palettes.themeColors(other)) },
-                                    label = { Text(other) },
-                                    leadingIcon = { Box(Modifier.size(16.dp).background(p.prompt, CircleShape).border(3.dp, p.bg, CircleShape)) },
-                                )
+                                ) {
+                                    Box(Modifier.size(16.dp).background(p.prompt, CircleShape).border(3.dp, p.bg, CircleShape))
+                                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                                    Text(other)
+                                }
                             }
                         }
                     }
@@ -259,6 +257,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                 text = { Text("If it is in use, Kolahal switches to the green theme.") },
                 confirmButton = {
                     TextButton(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = {
                             val inUse = vm.config[Keys.THEME] == editing
                             CustomThemes.delete(context, editing)
@@ -268,7 +267,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text("Delete") }
                 },
-                dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+                dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = false }) { Text("Cancel") } },
             )
         }
     }
@@ -382,7 +381,9 @@ private fun ColourSheet(role: String, colour: Int, swatches: List<Int>, onChange
             GradientSlider("Hue", h, 0f..360f, Brush.horizontalGradient((0..6).map { Color.hsl(it * 60f, 1f, 0.5f) })) { h = it; fromSliders() }
             GradientSlider("Saturation", s, 0f..1f, Brush.horizontalGradient(listOf(Color.hsl(h, 0f, l), Color.hsl(h, 1f, l)))) { s = it; fromSliders() }
             GradientSlider("Lightness", l, 0f..1f, Brush.horizontalGradient(listOf(Color.Black, Color.hsl(h, s, 0.5f), Color.White))) { l = it; fromSliders() }
-            OutlinedTextField(
+            TextField(
+                shape = TextFieldDefaults.roundedShape,
+                colors = fieldColors(),
                 value = hex,
                 onValueChange = { typed -> hex = typed; CustomThemes.parseHex(typed)?.let { take(it, typed = true) } },
                 label = { Text("Hex") },
@@ -399,7 +400,7 @@ private fun ColourSheet(role: String, colour: Int, swatches: List<Int>, onChange
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+            Button(shapes = ButtonDefaults.shapes(), onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
         }
     }
 }

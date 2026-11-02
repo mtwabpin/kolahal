@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,8 +46,8 @@ fun NotificationAccessDialog(onAllow: () -> Unit, onDismiss: () -> Unit) {
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = onAllow) { Text("Allow") } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } },
+            confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onAllow) { Text("Allow") } },
+            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Not now") } },
         )
     }
 }
