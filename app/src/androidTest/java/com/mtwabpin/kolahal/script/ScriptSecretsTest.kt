@@ -84,8 +84,8 @@ class ScriptSecretsTest {
         }
     }
 
-    /** Answers every request with [body], on this phone, for [block] to fetch. */
-    private fun serving(body: String, block: (String) -> Unit) {
+    /** Answers every request with [body], on this phone, for [block] to fetch; [answering] runs as each request is read. */
+    private fun serving(body: String, answering: () -> Unit = {}, block: (String) -> Unit) {
         val socket = java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"))
         kotlin.concurrent.thread(isDaemon = true) {
             while (!socket.isClosed) {
@@ -93,6 +93,7 @@ class ScriptSecretsTest {
                 client.use { c ->
                     val reader = c.getInputStream().bufferedReader()
                     while (reader.readLine()?.isNotEmpty() == true) Unit
+                    answering()
                     val bytes = body.toByteArray()
                     c.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray() + bytes)
                 }
@@ -120,6 +121,21 @@ class ScriptSecretsTest {
             val h = host()
             h.httpCached(url, 60)
             assertEquals(true, h.httpCached(url, 60)["cached"])
+        }
+    }
+
+    /** An answer that comes once the run has ended (JavaScript's http.cached, not awaited) isn't kept. */
+    @Test fun anAnswerAfterTheRunEndedIsntCached() {
+        val asked = java.util.concurrent.CountDownLatch(1)
+        val ended = java.util.concurrent.CountDownLatch(1)
+        serving("{\"late\":1}", answering = { asked.countDown(); ended.await(5, java.util.concurrent.TimeUnit.SECONDS) }) { url ->
+            val h = host()
+            val call = kotlin.concurrent.thread { runCatching { h.httpCached(url, 60) } }
+            assertTrue(asked.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            h.finish()
+            ended.countDown()
+            call.join(5_000)
+            assertNull(KvStore(context, "repl").get("http.cache:$url"))
         }
     }
 

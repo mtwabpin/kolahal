@@ -89,6 +89,8 @@ internal object ScriptRun {
             (if (script != null) mapOf(LogContext.SCRIPT to script.name) else emptyMap()) +
                 (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
         )
+        // Ended, however it ends: whatever is still in flight (a request, a timer) changes nothing after it,
+        // also when Android stops the run and this leaves at once.
         val status = try {
             val result = withTimeout((ScriptWorker.TIMEOUT_MS + 2_000).milliseconds) {
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
@@ -137,9 +139,9 @@ internal object ScriptRun {
                 logs.add(LogKind.ERROR, "$name: $msg" + (line?.let { " (tap to edit line $it)" } ?: ""), name, errorCtx + extra)
                 "error: $msg" + (line?.let { " (line $it)" } ?: "")
             }
+        } finally {
+            host.finish()
         }
-        // Whatever is still in flight (a request, a timer) changes nothing now.
-        host.finish()
         // A run you started that asked for what nobody allowed yet got empty answers: offer to allow it.
         if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
             ScriptAccess.askToAllow(ctx, name, host.undecided.toList(), "needs permission for")

@@ -688,7 +688,8 @@ class HostApi(
         // A body near the store's value cap isn't cached; it would be refused anyway.
         val body = resp["body"] as? String
         // A site can send a key back, and a store goes into backups: a body holding one isn't kept.
-        if (resp["ok"] == true && (body?.length ?: 0) < KvStore.MAX_VALUE / 2 && (body == null || redact(body) == body)) {
+        // An answer that came after the run ended (a JavaScript call not awaited) isn't kept: the run changes nothing then.
+        if (!over && resp["ok"] == true && (body?.length ?: 0) < KvStore.MAX_VALUE / 2 && (body == null || redact(body) == body)) {
             val entry = Json.stringify(mapOf("at" to System.currentTimeMillis(), "body" to body))
             // Cached responses count toward the store's limits. Full, the other ones make room: they
             // are only a cache, and a store left full would refuse the script's own values.
