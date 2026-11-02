@@ -6,6 +6,16 @@ import org.junit.Test
 class AutoBackupTest {
     private fun day(n: Int) = "kolahal-backup-2026-10-%02d.json".format(n)
 
+    /** A folder Kolahal can't use gets a tap to pick one; a backup too big doesn't, as no folder fixes that. */
+    @Test fun onlyAFolderProblemOffersTheFolderPicker() {
+        val (folder, folderTap) = AutoBackup.failure(IllegalStateException("the backup folder can't be written: run 'backup dir'"))
+        assertEquals("Automatic backup failed: the backup folder can't be written: run 'backup dir' · tap to pick the folder", folder)
+        assertEquals("backup dir", folderTap.values[LogContext.RUN])
+        val (big, bigTap) = AutoBackup.failure(Backup.TooBig("the backup would be 70 MB, more than the 64 MB import limit"))
+        assertEquals("Automatic backup failed: the backup would be 70 MB, more than the 64 MB import limit", big)
+        assertEquals(null, bigTap.values[LogContext.RUN])
+    }
+
     /** The oldest automatic backups go past the newest few; a backup you exported by hand, or anything else, stays. */
     @Test fun onlyOldAutomaticBackupsGo() {
         val sizes = (listOf(day(25), day(27), day(26), "kolahal-backup.json", "notes.txt", day(24), "kolahal-backup-2026-10-28.tmp.json")).associateWith { 100L }

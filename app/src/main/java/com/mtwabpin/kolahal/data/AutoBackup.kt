@@ -41,6 +41,16 @@ object AutoBackup {
         old?.takeIf { it != tree }?.let { com.mtwabpin.kolahal.script.Files.releaseFolder(context, it) }
     }
 
+    /**
+     * The log line for a backup that failed, and its tap: picking the folder again, for a folder
+     * Kolahal can't use. A backup too big says what to make smaller instead, with no tap.
+     */
+    internal fun failure(e: Throwable): Pair<String, LogContext> {
+        val text = "Automatic backup failed: ${e.message ?: e.javaClass.simpleName}"
+        return if (e is Backup.TooBig) text to LogContext.EMPTY
+        else "$text · tap to pick the folder" to LogContext.of(LogContext.RUN to "backup dir")
+    }
+
     /** When the last backup was written, or null. */
     fun last(context: Context): Long? = prefs(context).getLong(KEY_LAST, 0L).takeIf { it > 0 }
 
@@ -123,10 +133,8 @@ object AutoBackup {
 class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         runCatching { AutoBackup.backUp(applicationContext) }.onFailure {
-            LogRepository.get(applicationContext).add(
-                LogKind.ERROR, "Automatic backup failed: ${it.message ?: it.javaClass.simpleName} · tap to pick the folder",
-                ctx = LogContext.of(LogContext.RUN to "backup dir"),
-            )
+            val (text, ctx) = AutoBackup.failure(it)
+            LogRepository.get(applicationContext).add(LogKind.ERROR, text, ctx = ctx)
         }
         return Result.success()
     }

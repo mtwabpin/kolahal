@@ -70,12 +70,15 @@ class Backup(private val context: Context) {
         )
         val text = Json.stringify(data)
         val mb = text.toByteArray().size / (1024 * 1024)
-        check(mb < Files.MAX_BACKUP_BYTES / (1024 * 1024)) {
+        if (mb >= Files.MAX_BACKUP_BYTES / (1024 * 1024)) throw TooBig(
             "the backup would be $mb MB, more than the ${Files.MAX_BACKUP_BYTES / (1024 * 1024)} MB import limit: " +
                 "lower log.keep-lines or clear the log (clear all), then export again"
-        }
+        )
         return text
     }
+
+    /** A backup bigger than an import takes: a smaller log fixes it, not another folder. */
+    class TooBig(message: String) : IllegalStateException(message)
 
     data class Result(
         val settings: Int, val aliases: Int, val scripts: Int, val disabled: Int, val skipped: List<String>,
