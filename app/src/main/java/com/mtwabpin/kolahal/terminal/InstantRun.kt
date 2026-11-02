@@ -95,6 +95,7 @@ object InstantRun {
         "map" to "maps",
         "store" to "play",
         "screentime" to "usage",
+        "updates" to "installs",
         "dial" to "call",
         "text" to "sms",
         "contact" to "contacts",

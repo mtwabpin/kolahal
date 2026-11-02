@@ -52,7 +52,7 @@ class TerminalFixesTest {
 
     @After fun tearDown() {
         Keys.ALL.forEach(config::reset)
-        AppPrefs.get(app).setAlias("text", null)
+        listOf("text", "pins", "updates").forEach { AppPrefs.get(app).setAlias(it, null) }
         listOf("tfcat", "tftag").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
         AppPrefs.get(app).setAlias("tfhf", null)
         com.mtwabpin.kolahal.productivity.TodoStore.get(app).let { t -> t.all().filter { it.text.startsWith("tf ") || it.text.startsWith("clear out") || it.text.startsWith("all hands") }.forEach { t.remove(it.id) } }
@@ -172,6 +172,16 @@ class TerminalFixesTest {
     @Test fun aCommandsOtherNamesCantBeAliases() {
         assertTrue(run("alias text = echo x").single().text.contains("built-in command"))
         assertNull(AppPrefs.get(app).aliases()["text"])
+    }
+
+    /** `pins` and `updates` are built-ins too: not aliases, and `help` knows them. */
+    @Test fun pinsAndUpdatesAreBuiltIns() {
+        for (name in listOf("pins", "updates")) {
+            assertTrue(run("alias $name = echo x").single().text.contains("built-in command"))
+            assertNull(AppPrefs.get(app).aliases()[name])
+        }
+        assertEquals("pins", run("help pins").first().text)
+        assertTrue(run("help updates").any { it.text == "Also known as updates" })
     }
 
     @Test fun unmuteTakesThePackageThatMutedLists() {
