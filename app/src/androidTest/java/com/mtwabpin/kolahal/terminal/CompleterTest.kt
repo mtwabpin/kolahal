@@ -166,9 +166,12 @@ class CompleterTest {
     @Test fun emptyPromptFollowsSuggestionsIdle() {
         assertTrue(completer.suggestions("").isEmpty())
         config.set(Keys.SUGGEST_IDLE, "on")
-        // Most-used apps (none yet on a fresh install), never more than `suggestions`.
+        // Most-used apps, never more than `suggestions`.
+        val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL }
+        com.mtwabpin.kolahal.apps.AppPrefs.get(context).recordLaunch(app.key)
         val idle = completer.suggestions("")
         assertTrue(idle.toString(), idle.size <= config[Keys.SUGGESTIONS] && idle.all { it is Suggestion.App })
+        assertTrue(idle.toString(), idle.any { (it as Suggestion.App).app.key == app.key })
     }
 }
 

@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,7 +74,7 @@ class ScriptReviewTest {
     /** A copy equal to the line's link stays, though the link was normalised (a / added). */
     @Test fun copyEqualToTheLinkStays() {
         lua("""log("Open", { url = "https://example.com", copy = "https://example.com" })""")
-        assertNotNull(lines().single().ctx.copy)
+        assertEquals("https://example.com", lines().single().ctx.copy)
     }
 
     /** A quoted word is found in a line's body, where the raw JSON escapes the quotes. */

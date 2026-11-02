@@ -44,7 +44,8 @@ class FeedLinkTest {
 
     @Test
     fun notificationIdIsStablePerFeed() {
-        assertEquals(FeedWorker.notificationId(7), FeedWorker.notificationId(7))
+        // The same id on every run, so a feed's new notification replaces its last one.
+        assertEquals("feed:7".hashCode(), FeedWorker.notificationId(7))
         assertNotEquals(FeedWorker.notificationId(7), FeedWorker.notificationId(8))
     }
 

@@ -148,6 +148,7 @@ class AppSelectorTest {
     }
 
     @Test fun noLettersByDefault() {
+        assertEquals(false, Keys.SELECTOR_LETTERS.default)
         show(left = false, position = "bottom")
         assertEquals(0, lettersShown().size)
     }
@@ -163,6 +164,7 @@ class AppSelectorTest {
     }
 
     @Test fun rowsShowNoIconsByDefault() {
+        assertEquals(false, Keys.SELECTOR_ICONS.default)
         show(left = false, position = "bottom")
         compose.onNodeWithTag("app-selector").performTouchInput { down(center) }
         compose.waitForIdle()
