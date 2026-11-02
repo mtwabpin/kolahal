@@ -35,6 +35,15 @@ class FullBackupTest {
         assertEquals(994L, id(back, "hidden_up_to"))
     }
 
+    /** An edited file can give an id as text, or as anything: the log reads only numbers, so it gets one or none. */
+    @Test fun anIdThatIsntANumberIsReadAsOneOrLeftOut() {
+        val back = FullBackup.logIdsWithin(
+            mapOf("hidden_up_to" to mapOf("s" to "300"), "cleared_up_to" to mapOf("s" to "lots"), "seen_up_to" to mapOf("b" to true), "purge_up_to" to "5"),
+            newest = 994,
+        )
+        assertEquals(mapOf("hidden_up_to" to mapOf("l" to 300L)), back)
+    }
+
     /** A time and a filter aren't ids; an id never saved stays unsaved (none seen yet means nothing is unread). */
     @Test fun whatIsntASavedIdIsLeftAlone() {
         val others = mapOf("trimmed_at" to mapOf("l" to 1_790_000_000_000L), "filter" to mapOf("s" to "only feeds"))

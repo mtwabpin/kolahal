@@ -136,11 +136,15 @@ object FullBackup {
      * They can be past it: the lines up to them stayed behind (notification and call lines) or are
      * gone (cleared, trimmed, swiped), and new lines, numbered on from [newest], would stay out of
      * view until their ids got there. Restored lines stay hidden or shown just as they were.
+     * The log reads them as numbers, and anything else stops it: one an edited file gives as text
+     * (`{"s": "5"}`) comes back as that number, and one that isn't a number stays out.
      */
-    internal fun logIdsWithin(entries: Map<*, *>, newest: Long): Map<*, *> = entries.mapValues { (key, tagged) ->
-        val id = (tagged as? Map<*, *>)?.get("l") as? Number
-        if (key in LogRepository.ID_KEYS && id != null && id.toLong() > newest) mapOf("l" to newest) else tagged
-    }
+    internal fun logIdsWithin(entries: Map<*, *>, newest: Long): Map<*, *> = entries.mapNotNull { (key, tagged) ->
+        if (key !in LogRepository.ID_KEYS) return@mapNotNull key to tagged
+        val value = (tagged as? Map<*, *>)?.values?.singleOrNull()
+        val id = (value as? Number)?.toLong() ?: (value as? String)?.trim()?.toLongOrNull() ?: return@mapNotNull null
+        key to mapOf("l" to minOf(id, newest))
+    }.toMap()
 
     /** After scripts exist (by name), puts each script's store back under its new id. */
     fun importScriptStores(context: Context, data: Map<*, *>) {
