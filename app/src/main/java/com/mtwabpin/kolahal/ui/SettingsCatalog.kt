@@ -79,7 +79,7 @@ internal val TITLES = mapOf(
     "keybar.height" to "Row height (dp)",
     "keybar.row1" to "Row 1 keys",
     "keybar.row2" to "Row 2 keys",
-    "prompt.height" to "Prompt height while typing (dp)",
+    "prompt.height" to "Prompt height (dp)",
     "keyboard.suggestions" to "Keyboard autocorrect & suggestions",
     "keyboard.on-home" to "Open the keyboard on Home",
     "backup.auto" to "Automatic backups",
