@@ -638,7 +638,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun onWindowFocused() {
         if (!focusOnWindowFocus) return
         focusOnWindowFocus = false
-        if (config[Keys.FOCUS_ON_HOME] && _screen.value == Screen.TERMINAL && _editing.value == null) _events.tryEmit(UiEvent.FocusPrompt)
+        if (config[Keys.FOCUS_ON_HOME] && (logShown || !widgetsFirst()) && _screen.value == Screen.TERMINAL && _editing.value == null) _events.tryEmit(UiEvent.FocusPrompt)
     }
 
     // ---- prompt ---------------------------------------------------------------------------
@@ -1439,6 +1439,31 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         openScreen(Screen.THEME_BUILDER)
     }
 
+    /**
+     * Where the log's app selector is, in the window: the log's area between the header and the
+     * prompt. The widgets page puts its selector in the same place, so selector.position and the
+     * selector's height come out the same on both pages.
+     */
+    var selectorArea by mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
+
+    /** widgets.start: home opens on the widgets page, and Home and Back return to it. */
+    private fun widgetsFirst() = config[Keys.WIDGETS_START] && config[Keys.WIDGETS_PAGE] != "off"
+
+    /** Whether home's page showing is the log's (the widgets page can be first, [widgetsFirst]). */
+    @Volatile private var logShown = !widgetsFirst()
+
+    /**
+     * Home's pager settled on a page. With the widgets page first, keyboard.on-home opens the
+     * keyboard on reaching the log, where the prompt is, and the widgets page puts it away.
+     * [opened]: a page turned to, not only told again.
+     */
+    fun onHomePageShown(log: Boolean, opened: Boolean = true) {
+        logShown = log
+        if (!opened || _screen.value != Screen.TERMINAL || _editing.value != null) return
+        if (!log) _events.tryEmit(UiEvent.HideKeyboard)
+        else if (config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
+    }
+
     /** Pressing Home while already home: reset the prompt. */
     fun onHomePressed() {
         settingsCategory.value = null
@@ -1448,13 +1473,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val fromOtherScreen = _screen.value != Screen.TERMINAL
         openScreen(Screen.TERMINAL) // Home always lands on the terminal and forgets the page stack
         escape()
+        // With the widgets page first, Home goes there: no prompt to open the keyboard for.
+        val focus = config[Keys.FOCUS_ON_HOME] && !widgetsFirst()
         if (fromOtherScreen) {
             // The terminal isn't composed yet, so an event now would have no collector: it picks
             // these up when it appears (consumeArrival).
-            arrival = Arrival(focus = config[Keys.FOCUS_ON_HOME])
+            arrival = Arrival(focus = focus)
         } else {
             _events.tryEmit(UiEvent.ScrollToBottom)
-            if (config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
+            if (focus) _events.tryEmit(UiEvent.FocusPrompt)
         }
     }
 

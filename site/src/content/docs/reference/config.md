@@ -152,6 +152,7 @@ See [Widgets](/guides/widgets/).
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `widgets.page` | choice: `left` `right` `off` | `left` | a widgets page beside the terminal: swipe sideways on the home screen to reach it |
+| `widgets.start` | bool | `off` | start on the widgets page: home opens on it, and Home and Back return to it; swipe sideways for the log |
 | `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent: `0` is none; higher shows less of the theme's colour |
 
 ## Keyboard and key bar

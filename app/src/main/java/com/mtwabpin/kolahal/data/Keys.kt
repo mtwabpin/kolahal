@@ -163,6 +163,7 @@ object Keys {
     )
 
     val WIDGETS_PAGE = ConfigKey.Choice("widgets.page", "left", listOf("left", "right", "off"), "A widgets page beside the terminal: swipe sideways on the home screen to reach it")
+    val WIDGETS_START = ConfigKey.Bool("widgets.start", false, "Start on the widgets page: home opens on it, and Home and Back return to it; swipe sideways for the log")
     val WIDGETS_WALLPAPER = ConfigKey.Num("widgets.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's colour")
 
     val GESTURE_DOUBLE_TAP = ConfigKey.Text("gesture.double-tap", if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "lock" else "none", "Double-tap empty log space: $GESTURE_ACTIONS, quick (quick actions) or none")
@@ -266,6 +267,7 @@ object Keys {
         FEEDS_WIFI,
         HEADER_TODO,
         WIDGETS_PAGE,
+        WIDGETS_START,
         WIDGETS_WALLPAPER,
     )
 

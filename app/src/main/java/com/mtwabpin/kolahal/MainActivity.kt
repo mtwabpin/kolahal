@@ -326,7 +326,8 @@ class MainActivity : ComponentActivity() {
  * `widgets.page`: the terminal with a widgets page beside it (left or right). Swipe sideways on
  * home to reach it; Back or Home returns to the terminal. A swipe that starts on a log line still
  * belongs to the line (copy / delete), so the page swipe works from the header, empty space or
- * the prompt.
+ * the prompt. With `widgets.start` the widgets page is home's first page instead: home opens on it,
+ * Back and Home return to it, and a key typed there brings the log up with it.
  */
 @androidx.compose.runtime.Composable
 private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime.Composable () -> Unit) {
@@ -337,14 +338,30 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
         return
     }
     val terminalPage = if (side == "left") 1 else 0
-    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = terminalPage) { 2 }
+    val widgetsFirst = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_START] }
+    // The page home opens on, and Home and Back return to.
+    val homePage = if (widgetsFirst) 1 - terminalPage else terminalPage
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = homePage) { 2 }
     val homePresses by vm.homePresses.collectAsStateWithLifecycle()
-    androidx.compose.runtime.LaunchedEffect(homePresses, side) {
-        if (pager.currentPage != terminalPage) pager.animateScrollToPage(terminalPage)
+    androidx.compose.runtime.LaunchedEffect(homePresses, side, widgetsFirst) {
+        if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    BackHandler(enabled = pager.currentPage != terminalPage) {
-        scope.launch { pager.animateScrollToPage(terminalPage) }
+    BackHandler(enabled = pager.currentPage != homePage) {
+        scope.launch { pager.animateScrollToPage(homePage) }
+    }
+    if (widgetsFirst) {
+        androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
+            androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { page -> vm.onHomePageShown(log = page == terminalPage) }
+        }
+        // The prompt keeps the focus on the widgets page, so a key typed there lands in it: the log comes to show it.
+        androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
+            androidx.compose.runtime.snapshotFlow { vm.input.text.isNotEmpty() }.collect { typed ->
+                if (typed && pager.currentPage != terminalPage) pager.animateScrollToPage(terminalPage)
+            }
+        }
+    } else {
+        androidx.compose.runtime.SideEffect { vm.onHomePageShown(log = true, opened = false) }
     }
     // The pager's own scrolling grabs touches before its children, which starved the app selector.
     // Our detector runs after the children instead: a swipe the selector or a log line already

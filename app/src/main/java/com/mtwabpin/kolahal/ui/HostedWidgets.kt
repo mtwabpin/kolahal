@@ -16,6 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -24,6 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,6 +52,9 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
 import com.mtwabpin.kolahal.widgets.WidgetLayout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 
@@ -135,14 +148,51 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
+    // Home opens here (widgets.start): the app selector is here too, as on the log.
+    val first = remember(version) { vm.config[Keys.WIDGETS_START] }
+    var menu by remember { mutableStateOf<ActionMenu?>(null) }
+    val menuScope = rememberCoroutineScope()
+    Box(Modifier.fillMaxSize().page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] }).testTag("widgets-page")) {
+        // As home's first page it has no title row: a widget's long-press arranges them.
+        WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
+        if (first) {
+            // Where the log has its selector, between its header and prompt: the same edges and height,
+            // so selector.position and the selector's height put it in the same place on both pages.
+            var top by remember { mutableFloatStateOf(0f) }
+            val area = vm.selectorArea
+            Box(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().onGloballyPositioned { top = it.positionInWindow().y }) {
+                Box(
+                    if (area == null) Modifier.fillMaxSize()
+                    else Modifier.fillMaxWidth().offset { IntOffset(0, (area.top - top).roundToInt()) }.height(with(density) { area.height.toDp() })
+                ) {
+                    HomeAppSelector(vm, onLongPress = { app ->
+                        // An app's shortcuts come from the system: built off the main thread, shown when ready.
+                        menuScope.launch { menu = ActionMenu(app.label, withContext(Dispatchers.IO) { vm.appActions(app) }, null) }
+                    })
+                }
+            }
+            menu?.let { ActionSheet(it, onDismiss = { menu = null }) }
+        }
+    }
+}
+
+/** The widgets page's own content: its title row ([titleRow]) and the widgets, or what to do with none. */
+@Composable
+private fun WidgetPanelContent(
+    vm: TerminalViewModel,
+    widgets: WidgetHost,
+    panel: List<PlacedWidget>,
+    profiles: List<Profile>,
+    density: androidx.compose.ui.unit.Density,
+    titleRow: Boolean,
+) {
     Column(
         Modifier
             .fillMaxSize()
-            .page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] })
             .cutoutSafePadding()
             .navigationBarsPadding(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        if (titleRow) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             Text("Widgets", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
             Text(
                 "+ Add",
@@ -164,11 +214,24 @@ fun WidgetPanel(vm: TerminalViewModel) {
             )
         }
         if (panel.isEmpty()) {
-            Text(
-                "No widgets here yet · tap + Add",
-                style = Term.text.copy(color = Term.dim),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
-            )
+            if (titleRow) {
+                Text(
+                    "No widgets here yet · tap + Add",
+                    style = Term.text.copy(color = Term.dim),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
+                )
+            } else {
+                // No + Add above it: the line itself adds one.
+                Text(
+                    "No widgets here yet · tap to add one",
+                    style = Term.text.copy(color = Term.dim),
+                    modifier = Modifier
+                        .clickable { vm.openScreen(Screen.WIDGET_PICKER) }
+                        .heightIn(min = 48.dp)
+                        .wrapContentHeight()
+                        .padding(horizontal = 12.dp, vertical = 16.dp),
+                )
+            }
             return@Column
         }
         WidgetFlow(

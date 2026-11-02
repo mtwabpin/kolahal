@@ -49,7 +49,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -72,6 +75,44 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /** What the prompt shows when home is seen from Settings as if typing: one letter matches plenty. */
 private const val PREVIEW_INPUT = "s"
+
+/**
+ * selector.rail: the fluid full-list app selector on an edge of home, keyboard down only: over the
+ * log, and over the widgets page when home opens on it (widgets.start). [showList]: open, to see its rows.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit, showList: Boolean = false) {
+    val configVersion by vm.config.version.collectAsStateWithLifecycle()
+    val config = vm.config
+    val railOn = remember(configVersion) { config[Keys.SELECTOR_RAIL] }
+    if (!railOn) return
+    val apps by vm.apps.collectAsStateWithLifecycle()
+    val prefsVersion by vm.appPrefsVersion.collectAsStateWithLifecycle()
+    val pinnedKeys = remember(apps, prefsVersion) { vm.pinnedKeys() }
+    AppSelector(
+        apps = apps,
+        pinned = pinnedKeys,
+        // Kept while the keyboard is up, only hidden: its list stays built for when it goes down.
+        active = !WindowInsets.isImeVisible,
+        onLaunch = vm::launchApp,
+        onLongPress = onLongPress,
+        heightDp = remember(configVersion) { config[Keys.SELECTOR_HEIGHT] },
+        showHandle = remember(configVersion) { config[Keys.SELECTOR_HANDLE] },
+        letters = remember(configVersion) { config[Keys.SELECTOR_LETTERS] },
+        left = remember(configVersion) { config[Keys.SELECTOR_SIDE] == "left" },
+        position = remember(configVersion) { config[Keys.SELECTOR_POSITION] },
+        actions = remember(configVersion) { config[Keys.SELECTOR_ACTIONS] },
+        icons = remember(configVersion) { config[Keys.SELECTOR_ICONS] },
+        rowHeightDp = remember(configVersion) { config[Keys.SELECTOR_ROW_HEIGHT] },
+        showList = showList,
+        aimDp = remember(configVersion) { config[Keys.SELECTOR_AIM] },
+        aimSpeed = remember(configVersion) { config[Keys.SELECTOR_AIM_SPEED] },
+        browse = remember(configVersion) { config[Keys.SELECTOR_BROWSE] },
+        filter = remember(configVersion) { config[Keys.SELECTOR_FILTER] },
+        systemFont = remember(configVersion) { config[Keys.SELECTOR_SYSTEM_FONT] },
+    )
+}
 
 /** Whether the terminal is the page showing (false while the widgets page beside it is). */
 val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
@@ -191,6 +232,13 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     // Keyboard-first: grab focus straight away when a physical keyboard is attached.
     if (preview == null) LaunchedEffect(hasHardwareKeyboard) {
         if (hasHardwareKeyboard) runCatching { focus.requestFocus() }
+    }
+    // The widgets page beside it has no prompt: the on-screen keyboard doesn't stay over it. The prompt
+    // keeps the focus, so a hardware keyboard still types into it.
+    val terminalShown = LocalTerminalShown.current
+    val imeUp = WindowInsets.isImeVisible
+    if (preview == null) LaunchedEffect(terminalShown, imeUp) {
+        if (!terminalShown && imeUp) currentKeyboard?.hide()
     }
 
     val maxSuggestions = remember(configVersion) { config[Keys.SUGGESTIONS] }
@@ -339,7 +387,13 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         // The log and the suggestions share what the header, key bar and prompt leave. Those are
         // measured first, so a long suggestion list can't push the prompt off the screen.
         Column(Modifier.weight(1f).fillMaxWidth()) {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(
+            Modifier.weight(1f).fillMaxWidth().then(
+                // The selector's place, for the widgets page's to match.
+                if (preview == null) Modifier.onGloballyPositioned { vm.selectorArea = androidx.compose.ui.geometry.Rect(it.positionInWindow(), it.size.toSize()) }
+                else Modifier
+            )
+        ) {
         val results = search?.takeIf { !it.isEmpty && preview == null }
         if (results != null) LogSearchResults(
             search = results,
@@ -448,33 +502,12 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             }
         }
         // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
-        val railOn = remember(configVersion) { config[Keys.SELECTOR_RAIL] }
-        if (railOn) {
-            val pinnedKeys = remember(apps, prefsVersion) { vm.pinnedKeys() }
-            AppSelector(
-                apps = apps,
-                pinned = pinnedKeys,
-                // Kept while the keyboard is up, only hidden: its list stays built for when it goes down.
-                active = !WindowInsets.isImeVisible,
-                onLaunch = vm::launchApp,
-                onLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
-                heightDp = remember(configVersion) { config[Keys.SELECTOR_HEIGHT] },
-                showHandle = remember(configVersion) { config[Keys.SELECTOR_HANDLE] },
-                letters = remember(configVersion) { config[Keys.SELECTOR_LETTERS] },
-                left = remember(configVersion) { config[Keys.SELECTOR_SIDE] == "left" },
-                position = remember(configVersion) { config[Keys.SELECTOR_POSITION] },
-                actions = remember(configVersion) { config[Keys.SELECTOR_ACTIONS] },
-                icons = remember(configVersion) { config[Keys.SELECTOR_ICONS] },
-                rowHeightDp = remember(configVersion) { config[Keys.SELECTOR_ROW_HEIGHT] },
-                // Its Settings slider dragged: the list open, to see its rows.
-                showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
-                aimDp = remember(configVersion) { config[Keys.SELECTOR_AIM] },
-                aimSpeed = remember(configVersion) { config[Keys.SELECTOR_AIM_SPEED] },
-                browse = remember(configVersion) { config[Keys.SELECTOR_BROWSE] },
-                filter = remember(configVersion) { config[Keys.SELECTOR_FILTER] },
-                systemFont = remember(configVersion) { config[Keys.SELECTOR_SYSTEM_FONT] },
-            )
-        }
+        HomeAppSelector(
+            vm,
+            onLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
+            // Its Settings slider dragged: the list open, to see its rows.
+            showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
+        )
         // [/selector]
         }
         // Behind the build's switch, so R8 leaves the updater out of the Play build.

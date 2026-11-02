@@ -45,6 +45,7 @@ internal val TITLES = mapOf(
     "header.compact.profiles" to "Work / private state on one line",
     "header.autohide" to "Shrink while using the log",
     "widgets.page" to "Widgets page (swipe sideways)",
+    "widgets.start" to "Start on the widgets page",
     "widgets.wallpaper" to "Transparency (%)",
     "log.time" to "Times",
     "log.dim" to "Dim older output",
@@ -151,6 +152,7 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.SELECTOR_BROWSE to on(Keys.SELECTOR_RAIL),
         Keys.SELECTOR_FILTER to { c: Config -> c[Keys.SELECTOR_RAIL] && c[Keys.SELECTOR_BROWSE] == "letters" },
         Keys.WIDGETS_WALLPAPER to { c: Config -> c[Keys.WIDGETS_PAGE] != "off" },
+        Keys.WIDGETS_START to { c: Config -> c[Keys.WIDGETS_PAGE] != "off" },
         Keys.SELECTOR_SIDE to on(Keys.SELECTOR_RAIL),
         Keys.SELECTOR_POSITION to on(Keys.SELECTOR_RAIL),
         Keys.SELECTOR_HANDLE to on(Keys.SELECTOR_RAIL),
@@ -223,6 +225,7 @@ private val CATEGORIES = listOf(
         listOf(
             null to listOf(
                 Keys.WIDGETS_PAGE,
+                Keys.WIDGETS_START,
                 Keys.WIDGETS_WALLPAPER,
             ),
         ),

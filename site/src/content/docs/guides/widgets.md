@@ -13,6 +13,12 @@ line copies or deletes that line instead) to reach the widgets page. **+ Add** a
 the top. Back or Home returns to the terminal. `widgets.page` picks the side (`left`, the default,
 `right`) or turns the page `off`.
 
+To have home open on the widgets page, turn on **Settings → Widgets → Start on the widgets page**
+(`widgets.start`). Back and Home then return to it, and you swipe sideways for the log. The
+[app selector](/getting-started/parts/#app-selector) is on the widgets page too, in the same place and with the same
+settings as on the log, and a key typed on a keyboard brings up the log with it. **Open the keyboard on Home** opens it when you reach the log. The page has no
+**+ Add** and **Edit** row then: long-press a widget to arrange them, or use `widget add`.
+
 ![The widgets page with a clock widget, + Add and Edit at the top](../../../assets/parts/widgets-page.png)
 
 The page can show the phone's wallpaper (the one you set in Android) behind the widgets:
