@@ -48,6 +48,9 @@ internal const val DEVELOPER_EMAIL = "mtwabpin@gmail.com"
 /** The page id (in [com.mtwabpin.kolahal.terminal.TerminalViewModel.settingsCategory]) of the crash list. */
 internal const val CRASHES_PAGE = "crashes"
 
+/** The page id of About, the links and the version. */
+internal const val ABOUT_PAGE = "about"
+
 internal const val VERSION_TEXT = "Kolahal ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
 
 /** A crash report as the list shows it; the full text is read only when it is sent. */

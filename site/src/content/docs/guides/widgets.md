@@ -16,13 +16,13 @@ the top. Back or Home returns to the terminal. `widgets.page` picks the side (`l
 ![The widgets page with a clock widget, + Add and Edit at the top](../../../assets/parts/widgets-page.png)
 
 The page can show the phone's wallpaper (the one you set in Android) behind the widgets:
-**Settings → Home screen → Transparency** (`widgets.wallpaper`) sets how much of it shows, from
+**Settings → Widgets → Transparency** (`widgets.wallpaper`) sets how much of it shows, from
 0 (none, the default) to 100 (all of it, with none of the theme's colour over it). The log has its own setting for this (`log.wallpaper`, under **Settings → Log**), so each page can show
 more or less of it.
 
 ## Add a widget
 
-Tap **+ Add** on the widgets page, open **Settings → Widgets** (or `widgets`) and tap **Add
+Tap **+ Add** on the widgets page, open **Settings → Widgets → Arrange widgets** (or `widgets`) and tap **Add
 widget**, or go straight to the picker from the prompt with `widget add`.
 
 The picker lists every installed widget, grouped by app, with its preview and default size
@@ -38,7 +38,7 @@ Each widget has a width and a height. The page is twelve columns wide, so a widg
 sixth, a quarter, a third, half, two thirds or more of it, a twelfth at a time. Narrower widgets sit side by side in
 page order, and the next one starts a new row when it doesn't fit beside them.
 
-In **Settings → Widgets**, long-press a widget, or tap the edit button in the top bar and then a
+In **Settings → Widgets → Arrange widgets**, long-press a widget, or tap the edit button in the top bar and then a
 widget, for its toolbar at the bottom:
 
 | Button | Action |
@@ -60,13 +60,13 @@ from the page automatically.
 
 A [backup](/guides/backup/) records which widgets you placed, their size and order. Widgets
 themselves can't be moved between installs, so after an import they show under **Restored from
-backup** in Settings → Widgets; tap **Add again** on each to add it back (and run its setup if it has one). It keeps its size and position. The same happens when Android restores Kolahal on a new phone
+backup** in Settings → Widgets → Arrange widgets; tap **Add again** on each to add it back (and run its setup if it has one). It keeps its size and position. The same happens when Android restores Kolahal on a new phone
 from its own backup.
 
 ## From the terminal
 
 ```sh
-widgets        # open Settings → Widgets
+widgets        # open Settings → Widgets → Arrange widgets
 widgets ls     # list placed widgets (tap a line to open them)
 widget add     # open the picker
 ```

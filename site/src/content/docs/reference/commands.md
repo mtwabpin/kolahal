@@ -187,7 +187,7 @@ See [Widgets](/guides/widgets/).
 
 | Usage | Aliases | Description |
 | --- | --- | --- |
-| `widgets` | | Settings → Widgets: placed widgets; add, resize and arrange them |
+| `widgets` | | Settings → Widgets → Arrange widgets: placed widgets; add, resize and arrange them |
 | `widgets ls` | `widget ls` | placed widgets as text lines (tap one to open the page) |
 | `widget add` | | open the widget picker; the widget goes on the widgets page |
 

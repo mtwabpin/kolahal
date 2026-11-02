@@ -101,9 +101,9 @@ fun SettingsOverHome(
 }
 
 /**
- * Material 3 Expressive settings. The main page has a search box, the setting categories, the
- * manager pages and backup; each category opens its own page with grouped rows. Each row observes
- * only its own value, so a change redraws one row.
+ * Material 3 Expressive settings. The main page has a search box and leads to the setting
+ * categories, Setup, Backup and About; each category opens its own page with grouped rows. Each row
+ * observes only its own value, so a change redraws one row.
  */
 @Composable
 fun SettingsScreen(
@@ -120,6 +120,14 @@ fun SettingsScreen(
     var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     val open = allCategories().firstOrNull { it.id == openId }
     val crashPage = openId == CRASHES_PAGE
+    val aboutPage = openId == ABOUT_PAGE
+    // Crash reports open from About, and go back there.
+    val closePage = { openId = if (crashPage) ABOUT_PAGE else null }
+    val pageSubtitle = open?.subtitle ?: when {
+        crashPage -> "Kept on this phone"
+        aboutPage -> "Kolahal"
+        else -> null
+    }
     // Look & feel → Your themes.
     val ownThemes = CustomThemes.themes.collectAsStateWithLifecycle().value.keys.sorted()
     val themeInUse by remember { derivedStateOf { version.value; config[Keys.THEME] } }
@@ -147,7 +155,7 @@ fun SettingsScreen(
     // Back closes a category page first, then the search, then Settings.
     BackHandler {
         when {
-            open != null || crashPage -> openId = null
+            open != null || aboutPage || crashPage -> closePage()
             query.isNotEmpty() -> query = ""
             else -> vm.closeScreen()
         }
@@ -165,9 +173,9 @@ fun SettingsScreen(
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 LargeFlexibleTopAppBar(
-                    title = { Text(open?.title ?: if (crashPage) "Crash reports" else "Settings") },
-                    subtitle = { Text(open?.subtitle ?: if (crashPage) "Kept on this phone" else "Kolahal") },
-                    navigationIcon = { BackButton { if (open != null || crashPage) openId = null else vm.closeScreen() } },
+                    title = { Text(open?.title ?: if (crashPage) "Crash reports" else if (aboutPage) "About" else "Settings") },
+                    subtitle = if (pageSubtitle != null) { { Text(pageSubtitle) } } else null,
+                    navigationIcon = { BackButton { if (open != null || aboutPage || crashPage) closePage() else vm.closeScreen() } },
                     actions = {
                         PEEK_PAGES[open?.id]?.let { typing ->
                             PeekButton(
@@ -221,6 +229,21 @@ fun SettingsScreen(
                             PeekFade(peek, modifier = Modifier.animateItem()) { HeaderItemsTable(vm, config, version) }
                         }
                     }
+                    if (open.id == BACKUP_CATEGORY) {
+                        item(key = "h:backup-files") { Spacer(Modifier.height(16.dp)) }
+                        item(key = "backup") {
+                            val backupVersion by vm.backupActions.backupVersion.collectAsStateWithLifecycle()
+                            val folder by produceState<String?>(null, backupVersion) { value = withContext(Dispatchers.IO) { vm.backupActions.backupFolderLine() } }
+                            ActionGroup(
+                                listOf(
+                                    Action(R.drawable.ic_folder, "Backup folder", folder ?: "Not chosen yet: automatic backups and Back up now write there") { vm.askBackupFolder(false) },
+                                    Action(R.drawable.ic_download, "Back up now", "Today's backup file, in the backup folder", onClick = { vm.backupActions.backUpNow() }),
+                                    Action(R.drawable.ic_download, "Export everything", "Settings, apps, scripts, todos, notes, reminders, feeds and the log in one file (notification and call lines stay on the phone)", onClick = onExportBackup),
+                                    Action(R.drawable.ic_upload, "Import a backup", "Restores everything (replaces todos, notes, feeds and the log)", onClick = onImportBackup),
+                                )
+                            )
+                        }
+                    }
                     if (open.id == "look") {
                         item(key = "h:own-themes") { PeekFade(peek) { GroupHeader("Your themes") } }
                         item(key = "own-themes") {
@@ -238,6 +261,45 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
+                    return@LazyColumn
+                }
+
+                if (aboutPage) {
+                    item(key = "h:about") { Spacer(Modifier.height(8.dp)) }
+                    item(key = "about") {
+                        val kept = when (val n = crashList?.size) {
+                            null -> "Reports kept on this phone"
+                            0 -> "None so far"
+                            1 -> "1 report kept on this phone"
+                            else -> "$n reports kept on this phone"
+                        }
+                        ActionGroup(
+                            listOf(
+                                Action(R.drawable.ic_book, "Guide", "How everything works, on the Kolahal website") {
+                                    if (!openGuide(context)) tapScope.launch { snackbar.showSnackbar("No browser to open $GUIDE_URL") }
+                                },
+                                Action(R.drawable.ic_info, "Tour", "How Kolahal works, and a few initial settings", chevron = true) { vm.openScreen(Screen.ONBOARDING) },
+                                Action(R.drawable.ic_forum, "Discord", "Questions, ideas and help from other people using Kolahal") {
+                                    if (!openLink(context, DISCORD_URL)) tapScope.launch { snackbar.showSnackbar("No app to open $DISCORD_URL") }
+                                },
+                                Action(R.drawable.ic_code, "Source code", "Kolahal on GitHub") {
+                                    if (!openLink(context, SOURCE_URL)) tapScope.launch { snackbar.showSnackbar("No browser to open $SOURCE_URL") }
+                                },
+                                Action(R.drawable.ic_bug, "Crash reports", kept, chevron = true) { openId = CRASHES_PAGE },
+                                Action(R.drawable.ic_mail, "Email us", DEVELOPER_EMAIL) {
+                                    if (!emailDeveloper(context, VERSION_TEXT, aboutThisPhone())) {
+                                        tapScope.launch { snackbar.showSnackbar("No app on this phone can send email") }
+                                    }
+                                },
+                                Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
+                                    context.getSystemService(android.content.ClipboardManager::class.java)
+                                        ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
+                                    // Android 13 and later confirm a copy themselves.
+                                    if (android.os.Build.VERSION.SDK_INT < 33) tapScope.launch { snackbar.showSnackbar("Copied") }
+                                },
+                            )
+                        )
                     }
                     return@LazyColumn
                 }
@@ -295,67 +357,19 @@ fun SettingsScreen(
                     return@LazyColumn
                 }
 
-                item(key = "h:settings") { GroupHeader("Settings") }
+                item(key = "h:settings") { Spacer(Modifier.height(12.dp)) }
                 item(key = "categories") {
                     // Feed settings live in the Feeds tab; search still finds them here.
                     ActionGroup(allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY }.map { c -> Action(c.icon, c.title, c.subtitle, chevron = true) { openId = c.id } })
                 }
-                item(key = "h:manage") { GroupHeader("Manage") }
-                item(key = "manage") {
+                item(key = "h:more") { Spacer(Modifier.height(16.dp)) }
+                item(key = "more") {
+                    val backup = allCategories().first { it.id == BACKUP_CATEGORY }
                     ActionGroup(
                         listOf(
-                            Action(R.drawable.ic_widgets, "Widgets", "Add, resize and arrange widgets", chevron = true) { vm.openScreen(Screen.WIDGETS) },
                             Action(R.drawable.ic_check, "Setup checklist", "Default launcher, permissions, battery", chevron = true) { vm.openScreen(Screen.SETUP) },
-                            Action(R.drawable.ic_info, "Tour", "How Kolahal works, and a few initial settings", chevron = true) { vm.openScreen(Screen.ONBOARDING) },
-                        )
-                    )
-                }
-                item(key = "h:backup") { GroupHeader("Backup") }
-                // backup.auto: picking daily or weekly with no folder yet asks for one.
-                item(key = "backup-auto") { SettingItem(vm, config, Keys.BACKUP_AUTO, version, 0, 1) }
-                item(key = "backup") {
-                    val backupVersion by vm.backupActions.backupVersion.collectAsStateWithLifecycle()
-                    val folder by produceState<String?>(null, backupVersion) { value = withContext(Dispatchers.IO) { vm.backupActions.backupFolderLine() } }
-                    ActionGroup(
-                        listOf(
-                            Action(R.drawable.ic_folder, "Backup folder", folder ?: "Not chosen yet: automatic backups and Back up now write there") { vm.askBackupFolder(false) },
-                            Action(R.drawable.ic_download, "Back up now", "Today's backup file, in the backup folder", onClick = { vm.backupActions.backUpNow() }),
-                            Action(R.drawable.ic_download, "Export everything", "Settings, apps, scripts, todos, notes, reminders, feeds and the log in one file (notification and call lines stay on the phone)", onClick = onExportBackup),
-                            Action(R.drawable.ic_upload, "Import a backup", "Restores everything (replaces todos, notes, feeds and the log)", onClick = onImportBackup),
-                        )
-                    )
-                }
-                item(key = "h:about") { GroupHeader("About") }
-                item(key = "about") {
-                    val kept = when (val n = crashList?.size) {
-                        null -> "Reports kept on this phone"
-                        0 -> "None so far"
-                        1 -> "1 report kept on this phone"
-                        else -> "$n reports kept on this phone"
-                    }
-                    ActionGroup(
-                        listOf(
-                            Action(R.drawable.ic_book, "Guide", "How everything works, on the Kolahal website") {
-                                if (!openGuide(context)) tapScope.launch { snackbar.showSnackbar("No browser to open $GUIDE_URL") }
-                            },
-                            Action(R.drawable.ic_forum, "Discord", "Questions, ideas and help from other people using Kolahal") {
-                                if (!openLink(context, DISCORD_URL)) tapScope.launch { snackbar.showSnackbar("No app to open $DISCORD_URL") }
-                            },
-                            Action(R.drawable.ic_code, "Source code", "Kolahal on GitHub") {
-                                if (!openLink(context, SOURCE_URL)) tapScope.launch { snackbar.showSnackbar("No browser to open $SOURCE_URL") }
-                            },
-                            Action(R.drawable.ic_bug, "Crash reports", kept, chevron = true) { openId = CRASHES_PAGE },
-                            Action(R.drawable.ic_mail, "Email us", DEVELOPER_EMAIL) {
-                                if (!emailDeveloper(context, VERSION_TEXT, aboutThisPhone())) {
-                                    tapScope.launch { snackbar.showSnackbar("No app on this phone can send email") }
-                                }
-                            },
-                            Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
-                                context.getSystemService(android.content.ClipboardManager::class.java)
-                                    ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
-                                // Android 13 and later confirm a copy themselves.
-                                if (android.os.Build.VERSION.SDK_INT < 33) tapScope.launch { snackbar.showSnackbar("Copied") }
-                            },
+                            Action(backup.icon, backup.title, backup.subtitle, chevron = true) { openId = BACKUP_CATEGORY },
+                            Action(R.drawable.ic_info, "About", "Guide, tour, crash reports, version", chevron = true) { openId = ABOUT_PAGE },
                         )
                     )
                 }
