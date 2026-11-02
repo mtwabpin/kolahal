@@ -39,10 +39,12 @@ object ScriptMeta {
 
     /** Known names from every `@uses` line; unknown ones are ignored. */
     fun uses(code: String): Set<String> {
-        val named = usesLine.findAll(code).flatMap { m -> m.groupValues[2].split(',', ' ', '\t') }
-            .map { it.trim().lowercase() }.toSet()
+        val named = usesLine.findAll(code).flatMap { m -> usesNames(m.groupValues[2]) }.toSet()
         return USES.filterTo(LinkedHashSet()) { it in named }
     }
+
+    /** The names on one `@uses` line, after `@uses`: commas, spaces or tabs between them, in any case. */
+    fun usesNames(rest: String): List<String> = rest.split(',', ' ', '\t').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
 
     /** Events a script can subscribe to with `@on`. */
     val EVENTS = listOf("unlock", "charger", "unplug", "wifi", "offline", "notification", "boot", "headset")

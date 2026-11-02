@@ -47,7 +47,8 @@ object ScriptCheck {
                     ?.let { out += Issue(i + 1, "@at $it isn't a time: HH:mm, such as 07:30") }
                 "on" -> ScriptMeta.unknownEvents(line).firstOrNull()
                     ?.let { out += Issue(i + 1, "@on $it isn't an event: ${ScriptMeta.EVENTS.joinToString(", ")}") }
-                "uses" -> rest.split(',', ' ').map { it.trim() }.firstOrNull { it.isNotEmpty() && it !in ScriptMeta.USES }
+                // Read as a run reads it: a name in capitals, or after a tab, is one.
+                "uses" -> ScriptMeta.usesNames(rest).firstOrNull { it !in ScriptMeta.USES }
                     ?.let { out += Issue(i + 1, "@uses $it isn't valid: ${ScriptMeta.USES.joinToString(", ")}") }
             }
         }

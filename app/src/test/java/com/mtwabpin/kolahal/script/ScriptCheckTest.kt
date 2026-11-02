@@ -25,6 +25,12 @@ class ScriptCheckTest {
         assertEquals("launcher.run needs a `// @uses commands` line", ScriptCheck.check("launcher.run('torch')", ScriptLang.JS).single().text)
     }
 
+    /** A run reads `@uses` in any case, with tabs too: so does the check. */
+    @Test fun usesInCapitalsOrAfterATab() {
+        assertTrue(lua("-- @uses Clipboard\tapps\nlog(clipboard.get(), apps.list())").isEmpty())
+        assertEquals(setOf("clipboard", "apps"), ScriptMeta.uses("-- @uses Clipboard\tapps"))
+    }
+
     @Test fun headerLinesItCantRead() {
         val issues = lua("""
             -- @evrey 1h
