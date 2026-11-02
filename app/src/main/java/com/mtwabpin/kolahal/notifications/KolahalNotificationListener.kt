@@ -7,6 +7,7 @@ import android.os.UserManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -37,6 +38,8 @@ class KolahalNotificationListener : NotificationListenerService() {
         NotificationStore.replaceAll(accepted.map { (sbn, n) -> n to sbn.notification.contentIntent })
         scope.launch { accepted.forEach { (sbn, n) -> saveIcon(n, sbn) } }
         mirror()
+        // Access turned off and on again: now playing listens to media sessions again.
+        MediaRepository.get(this).reconnect()
     }
 
     private var mirrorJob: kotlinx.coroutines.Job? = null

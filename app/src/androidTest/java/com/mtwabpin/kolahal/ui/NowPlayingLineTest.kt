@@ -329,6 +329,35 @@ class NowPlayingLineTest {
         }
     }
 
+    /** Notification access turned off and on again while Kolahal runs: it follows sessions again, with no restart. */
+    @Test fun nowPlayingComesBackWhenAccessIsTurnedBackOn() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
+        val had = NotificationActions.isEnabled(context)
+        shell("cmd notification allow_listener $listener")
+        val session = MediaSession(context, "NowPlayingLineTest")
+        fun title(title: String) = session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, title).build())
+        try {
+            compose.waitUntil(5_000) { NotificationActions.isEnabled(context) }
+            title("Before")
+            session.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 0, 1f, SystemClock.elapsedRealtime()).build())
+            session.isActive = true
+            val repository = MediaRepository.get(context)
+            repository.start()
+            compose.waitUntil(5_000) { repository.nowPlaying.value?.title == "Before" }
+
+            shell("cmd notification disallow_listener $listener")
+            compose.waitUntil(5_000) { !NotificationActions.isEnabled(context) }
+            shell("cmd notification allow_listener $listener")
+            compose.waitUntil(5_000) { NotificationActions.isEnabled(context) }
+            title("After")
+            compose.waitUntil(10_000) { repository.nowPlaying.value?.title == "After" }
+        } finally {
+            session.release()
+            if (!had) shell("cmd notification disallow_listener $listener")
+        }
+    }
+
     private fun header(np: NowPlaying) = compose.setContent {
         KolahalTheme {
             Header(

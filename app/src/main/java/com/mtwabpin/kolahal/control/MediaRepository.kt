@@ -85,7 +85,7 @@ internal class LastPlaying {
  * Follows the most relevant media session (a playing one first, else the most recent) through
  * [MediaSessionManager]. Needs notification access, since our listener's component is the key
  * to [MediaSessionManager.getActiveSessions]. UI process only; [start] is idempotent and cheap
- * to call again (e.g. on resume, once access was granted).
+ * to call again (e.g. on resume, once access was granted), and stops listening without access.
  */
 class MediaRepository private constructor(private val context: Context) {
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
@@ -112,24 +112,51 @@ class MediaRepository private constructor(private val context: Context) {
     fun hasAccess(): Boolean = NotificationActions.isEnabled(context)
 
     fun start() {
-        if (listening || !hasAccess()) return
-        main.post {
-            if (listening) return@post
-            runCatching {
-                manager.addOnActiveSessionsChangedListener(sessionsListener, component, main)
-                listening = true
-                refresh()
-            }
+        if (!hasAccess()) {
+            if (listening) main.post { stop() }
+            return
         }
+        if (listening) return
+        main.post { listen() }
+    }
+
+    /** Main thread. Android refuses without access, and then it isn't listening. */
+    private fun listen() {
+        if (listening) return
+        runCatching {
+            manager.addOnActiveSessionsChangedListener(sessionsListener, component, main)
+            listening = true
+            refresh()
+        }
+    }
+
+    /**
+     * Listens again, if it was listening. Turning notification access off drops our listener on
+     * Android's side, so [start] alone would go on as if it still listened once access is back.
+     * The notification listener calls this when it connects, which it does when access comes back:
+     * [hasAccess] can still say no at that moment, so this doesn't ask it.
+     */
+    fun reconnect() {
+        main.post {
+            if (!listening) return@post
+            runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
+            listening = false
+            listen()
+        }
+    }
+
+    /** Main thread. Access was turned off: nothing to follow, and nothing playing. */
+    private fun stop() {
+        listening = false
+        runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
+        onSessions(emptyList())
     }
 
     private fun refresh() {
         val list = runCatching { manager.getActiveSessions(component) }.getOrNull()
         if (list == null) {
             // Access was revoked.
-            listening = false
-            runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
-            onSessions(emptyList())
+            stop()
             return
         }
         onSessions(list)
