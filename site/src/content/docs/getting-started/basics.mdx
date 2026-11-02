@@ -241,9 +241,14 @@ text labels (`bat`, `net`, …). Every item is tappable:
 | Script status lines | runs that script | `header.status` |
 | `work` / `private` | resumes a paused profile; pausing asks for a second tap | `header.profiles` |
 
+Choose what shows in **Settings → Home screen → Header items**: each item has a box for the full
+header and one for the one-line header described below. The clock (`header.clock`) and ⚙︎
+(`header.settings`) can go too, and `settings` still opens Settings. If nothing is left to show,
+the header takes no room.
+
 **Auto-hide** (`header.autohide`, on by default): while you scroll back through older output the header
 disappears entirely; scrolling toward the newest lines (or running a command) brings it back as one
-line with the time, battery and the number of hidden status lines. Tap it or swipe down on it to expand it; pressing Home, coming back from an app or `clear`
+line, by default with the time, battery, a music note while something plays and the number of hidden status lines. Tap it or swipe down on it to expand it; pressing Home, coming back from an app or `clear`
 also brings it back.
 
 While you type (the keyboard is open, or there is text in the prompt), the header shrinks to one line, so the suggestions have more room. It returns to full size when you finish.
@@ -252,7 +257,7 @@ While you type (the keyboard is open, or there is text in the prompt), the heade
 (`user.name`) beside it in Settings. Swipe down on the header to pull down the
 notification shade (a [gesture](/guides/gestures/) you can change).
 
-To hide the header, turn off **Show the header** (`header.show`). The log then fills the screen, you open Settings with `settings`, and script status lines aren't shown.
+To hide the header, turn off **Show the header** (`header.show`). The log then fills the screen, you open Settings with `settings`, and script status lines aren't shown. To keep what's playing on screen anyway, turn on **Now playing with the header off** (`header.media-always`).
 
 ## The key bar
 

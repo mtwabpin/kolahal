@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,13 +105,57 @@ private fun rememberNow(): Pair<Date, Int> {
     return now to zone
 }
 
-/** One-line header while the log is in use: time, battery and how many status lines are hidden. */
+/**
+ * One-line header while the log is in use, with what `header.compact.*` chooses. What doesn't fit on
+ * the line is left out, and with nothing to show it takes no room.
+ */
 @Composable
-internal fun CompactHeader(status: Status, statusCount: Int, config: Config, version: Int, onExpand: () -> Unit, mediaPlaying: Boolean = false) {
+internal fun CompactHeader(
+    status: Status,
+    statusCount: Int,
+    config: Config,
+    version: Int,
+    onExpand: () -> Unit,
+    mediaPlaying: Boolean = false,
+    unlocks: Int = 0,
+    profiles: List<Profile> = emptyList(),
+    todoCount: Int = 0,
+    onOpenSettings: () -> Unit = {},
+) {
     val (now, zone) = rememberNow()
     val is24h = remember(version) { config[Keys.CLOCK_24H] }
     val timeFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm a", Locale.getDefault()) }
+    val dateFmt = remember(zone) { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
+    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "EEE HH:mm" else "EEE h:mm a", Locale.getDefault()) }
     val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
+    val useIcons = config[Keys.HEADER_ICONS]
+    val iconSize = (Term.fontSize + 2).dp
+
+    val clock = config[Keys.COMPACT_CLOCK]
+    val date = config[Keys.COMPACT_DATE]
+    val device = config[Keys.COMPACT_DEVICE]
+    val showUnlocks = config[Keys.COMPACT_UNLOCKS]
+    val pct = status.batteryPct?.takeIf { config[Keys.COMPACT_BATTERY] }
+    val network = config[Keys.COMPACT_NETWORK]
+    val alarm = status.nextAlarm?.takeIf { config[Keys.COMPACT_ALARM] }
+    val todos = config[Keys.COMPACT_TODO] && todoCount > 0
+    val gear = config[Keys.COMPACT_SETTINGS]
+    val shownProfiles = if (config[Keys.COMPACT_PROFILES]) profiles.filter(::hasHeaderItem) else emptyList()
+    if (
+        !clock && !date && !device && !showUnlocks && pct == null && !network && alarm == null && !todos && !mediaPlaying &&
+        statusCount == 0 && !gear && shownProfiles.isEmpty()
+    ) return
+
+    /** An item: its icon (header.icons) or a text label, then its value. */
+    @Composable
+    fun Part(label: String, value: String, color: Color = Term.dim, icon: @Composable () -> Unit) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (useIcons) icon()
+            val text = if (!useIcons) "$label $value" else if (value.isEmpty()) "" else " $value"
+            if (text.isNotEmpty()) Text(text, style = small.copy(color = color), maxLines = 1)
+        }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -126,34 +172,86 @@ internal fun CompactHeader(status: Status, statusCount: Int, config: Config, ver
             .heightIn(min = HEADER_ROW)
             .padding(horizontal = 12.dp),
     ) {
-        Text(timeFmt.format(now), style = small.copy(color = Term.fg, fontWeight = FontWeight.Bold))
-        status.batteryPct?.let { pct ->
-            val color = when {
-                status.charging -> Term.prompt
-                pct <= 15 -> Term.error
-                else -> Term.dim
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        ) {
+            if (clock) Text(timeFmt.format(now), style = small.copy(color = Term.fg, fontWeight = FontWeight.Bold))
+            if (date) Text(dateFmt.format(now), style = small.copy(color = Term.dim), maxLines = 1)
+            if (showUnlocks) Part("unlocks", unlocks.toString()) { TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize) }
+            pct?.let {
+                val color = when {
+                    status.charging -> Term.prompt
+                    it <= 15 -> Term.error
+                    else -> Term.dim
+                }
+                Part("bat", "$it%" + if (status.charging && !useIcons) "+" else "", color) { BatteryGlyph(it, status.charging, color, iconSize) }
             }
-            if (config[Keys.HEADER_ICONS]) {
-                Spacer(Modifier.width(10.dp))
-                BatteryGlyph(pct, status.charging, color, (Term.fontSize + 2).dp)
-                Text(" $pct%", style = small.copy(color = color))
-            } else {
-                Text("  bat $pct%" + if (status.charging) "+" else "", style = small.copy(color = color))
+            if (network) {
+                val color = if (status.network == "offline") Term.error else Term.dim
+                val res = networkIcon(status.network)
+                Part("net", if (useIcons && res != null) "" else status.network, color) { res?.let { TintedIcon(it, color, iconSize) } }
+            }
+            alarm?.let { Part("alarm", alarmFmt.format(Date(it))) { TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize) } }
+            if (todos) Part("todo", todoCount.toString()) { TintedIcon(R.drawable.ic_check, Term.dim, iconSize) }
+            if (mediaPlaying) {
+                if (useIcons) TintedIcon(R.drawable.ic_music_note, Term.prompt, iconSize) else Text("♪", style = small.copy(color = Term.prompt))
+            }
+            if (statusCount > 0) Text("· $statusCount status", style = small.copy(color = Term.dim), maxLines = 1)
+            shownProfiles.forEach { p ->
+                val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
+                val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
+                Part(p.kind.label, if (p.quiet) "off" else "on", color) { TintedIcon(res, color, iconSize) }
+            }
+            if (device) DeviceName(config, small)
+            // Its own tap: Settings, where the rest of the line expands the header.
+            if (gear) Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.clickable(onClick = onOpenSettings).heightIn(min = HEADER_ROW).widthIn(min = 44.dp),
+            ) {
+                if (useIcons) TintedIcon(R.drawable.ic_settings, Term.dim, iconSize, "Settings") else Text("⚙", style = small.copy(color = Term.dim))
             }
         }
-        if (mediaPlaying) {
-            if (config[Keys.HEADER_ICONS]) {
-                Spacer(Modifier.width(10.dp))
-                TintedIcon(R.drawable.ic_music_note, Term.prompt, (Term.fontSize + 2).dp)
-            } else {
-                Text("  ♪", style = small.copy(color = Term.prompt))
-            }
-        }
-        if (statusCount > 0) Text("  · $statusCount status", style = small.copy(color = Term.dim))
-        Spacer(Modifier.weight(1f))
         TintedIcon(R.drawable.ic_expand_more, Term.dim, (Term.fontSize + 6).dp)
     }
 }
+
+/** `header.media-always`: with the header off, its now playing line where the header would be, under the same rule. */
+@Composable
+internal fun NowPlayingBar(nowPlaying: com.mtwabpin.kolahal.control.NowPlaying, config: Config, version: Int, onToggle: () -> Unit, onNext: () -> Unit) {
+    // `now` ticks each minute, so a paused session drops out after 30 minutes.
+    val (now, _) = rememberNow()
+    val always = remember(version) { config[Keys.HEADER_MEDIA_ALWAYS] }
+    if (always && nowPlaying.showInHeader(now.time)) Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+        NowPlayingLine(nowPlaying, onToggle, onNext)
+    }
+}
+
+/** name@device. */
+@Composable
+private fun DeviceName(config: Config, style: TextStyle, modifier: Modifier = Modifier) {
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append(config[Keys.USER_NAME]) }
+            withStyle(SpanStyle(color = Term.dim)) { append("@" + Build.MODEL.lowercase().replace(' ', '-')) }
+        },
+        style = style,
+        maxLines = 1,
+        modifier = modifier,
+    )
+}
+
+private fun networkIcon(network: String): Int? = when (network) {
+    "wifi" -> R.drawable.ic_wifi
+    "cell" -> R.drawable.ic_signal
+    "offline" -> R.drawable.ic_cloud_off
+    else -> null
+}
+
+/** Whether the header has an item for this profile. */
+private fun hasHeaderItem(profile: Profile) = profile.kind != ProfileKind.PERSONAL && profile.kind != ProfileKind.CLONE
 
 /**
  * A Material icon from res/drawable, tinted. Icons are drawn rather than typed: symbols like ⚙, ♪
@@ -251,6 +349,18 @@ internal fun Header(
         )
     }
 
+    val clock = config[Keys.HEADER_CLOCK]
+    val date = config[Keys.HEADER_DATE]
+    val pct = status.batteryPct
+    val shownProfiles = if (config[Keys.HEADER_PROFILES]) profiles.filter(::hasHeaderItem) else emptyList()
+    val playing = nowPlaying != null && nowPlaying.showInHeader(now.time)
+    // With nothing to show, it takes no room.
+    if (
+        !clock && !date && !config[Keys.HEADER_DEVICE] && !config[Keys.HEADER_UNLOCKS] && !(config[Keys.HEADER_BATTERY] && pct != null) &&
+        !config[Keys.HEADER_NETWORK] && !(config[Keys.HEADER_ALARM] && status.nextAlarm != null) && !(config[Keys.HEADER_TODO] && todoCount > 0) &&
+        !config[Keys.HEADER_SETTINGS] && shownProfiles.isEmpty() && !playing && !(config[Keys.HEADER_STATUS] && statuses.isNotEmpty())
+    ) return
+
     Column(
         Modifier
             .fillMaxWidth()
@@ -271,17 +381,19 @@ internal fun Header(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-        Row(
+        if (clock || date) Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.clickable { onTarget(HeaderTarget.CLOCK) }.heightIn(min = HEADER_ROW).padding(end = 6.dp),
         ) {
-            Text(
-                timeFmt.format(now),
-                style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize + 6).sp),
-            )
-            if (config[Keys.HEADER_DATE]) {
+            if (clock) {
                 Text(
-                    "  " + dateFmt.format(now),
+                    timeFmt.format(now),
+                    style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize + 6).sp),
+                )
+            }
+            if (date) {
+                Text(
+                    (if (clock) "  " else "") + dateFmt.format(now),
                     style = small.copy(color = Term.dim),
                 )
             }
@@ -289,7 +401,6 @@ internal fun Header(
             if (config[Keys.HEADER_UNLOCKS]) {
                 Item("unlocks", unlocks.toString(), icon = { Glyph(R.drawable.ic_lock_open) }) { onTarget(HeaderTarget.UNLOCKS) }
             }
-            val pct = status.batteryPct
             if (config[Keys.HEADER_BATTERY] && pct != null) {
                 val color = when {
                     status.charging -> Term.prompt
@@ -303,12 +414,7 @@ internal fun Header(
             }
             if (config[Keys.HEADER_NETWORK]) {
                 val offline = status.network == "offline"
-                val netIcon = when (status.network) {
-                    "wifi" -> R.drawable.ic_wifi
-                    "cell" -> R.drawable.ic_signal
-                    "offline" -> R.drawable.ic_cloud_off
-                    else -> null
-                }
+                val netIcon = networkIcon(status.network)
                 // With an icon the kind is obvious; only unusual kinds (eth, vpn…) keep their name.
                 Item(
                     "net", if (useIcons && netIcon != null) "" else status.network, if (offline) Term.error else Term.fg,
@@ -322,30 +428,20 @@ internal fun Header(
             if (config[Keys.HEADER_TODO] && todoCount > 0) {
                 Item("todo", todoCount.toString(), icon = { Glyph(R.drawable.ic_check) }) { onTarget(HeaderTarget.TODO) }
             }
-            Item("", if (useIcons) "" else "⚙", Term.dim, icon = { Glyph(R.drawable.ic_settings) }, description = "Settings") { onTarget(HeaderTarget.SETTINGS) }
-            if (config[Keys.HEADER_PROFILES]) {
-                profiles.filter { it.kind != ProfileKind.PERSONAL && it.kind != ProfileKind.CLONE }.forEach { p ->
-                    val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
-                    val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
-                    Item(p.kind.label, if (p.quiet) "off" else "on", color, icon = { Glyph(res, color) }) {
-                        onProfileTap(p)
-                    }
+            if (config[Keys.HEADER_SETTINGS]) {
+                Item("", if (useIcons) "" else "⚙", Term.dim, icon = { Glyph(R.drawable.ic_settings) }, description = "Settings") { onTarget(HeaderTarget.SETTINGS) }
+            }
+            shownProfiles.forEach { p ->
+                val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
+                val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
+                Item(p.kind.label, if (p.quiet) "off" else "on", color, icon = { Glyph(res, color) }) {
+                    onProfileTap(p)
                 }
             }
-            if (config[Keys.HEADER_DEVICE]) {
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append(config[Keys.USER_NAME]) }
-                        withStyle(SpanStyle(color = Term.dim)) { append("@" + Build.MODEL.lowercase().replace(' ', '-')) }
-                    },
-                    style = small,
-                    maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 6.dp),
-                )
-            }
+            if (config[Keys.HEADER_DEVICE]) DeviceName(config, small, Modifier.padding(horizontal = 6.dp))
         }
         // `now` ticks each minute, so a paused session drops out after 30 minutes.
-        if (nowPlaying != null && nowPlaying.showInHeader(now.time)) NowPlayingLine(nowPlaying, onMediaToggle, onMediaNext)
+        if (playing) NowPlayingLine(nowPlaying, onMediaToggle, onMediaNext)
         if (config[Keys.HEADER_STATUS]) {
             statuses.forEach { (name, text) ->
                 Text(

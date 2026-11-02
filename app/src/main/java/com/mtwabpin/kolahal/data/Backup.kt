@@ -13,7 +13,7 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
  * be kept on a computer, edited there, and imported again.
  *
  * ```
- * { "kolahal": 2,
+ * { "kolahal": 3,
  *   "config":  { "theme.name": "gruvbox", ... },          // only changed settings
  *   "aliases": { "m": "open maps" },
  *   "apps":    { "hidden": ["<component>#<user>"], "labels": { "<component>#<user>": "Name" }, "pinned": [...] },
@@ -108,9 +108,10 @@ class Backup(private val context: Context) {
         }
 
         var settings = 0
-        // Older backups use the names settings had before 0.3.0.
+        // Older backups use the names settings had before 0.3.0, and have no choices for the one-line header.
+        val carry = ((root["kolahal"] as? Number)?.toInt() ?: 0) < 3
         val savedConfig = (root["config"] as? Map<*, *>)?.entries?.mapNotNull { (k, v) -> if (k != null && v != null) k.toString().lowercase() to v.toString() else null }?.toMap()
-        savedConfig?.let(Keys::migrate)?.forEach { (k, v) ->
+        savedConfig?.let(Keys::migrate)?.let { if (carry) Keys.carryCompact(it) else it }?.forEach { (k, v) ->
             val key = Keys.byName(k)
             if (key != null && config.set(key, v)) settings++ else skipped += "config $k"
         }
@@ -206,7 +207,7 @@ class Backup(private val context: Context) {
     }
 
     companion object {
-        const val VERSION = 2
+        const val VERSION = 3
         const val FILE_NAME = "kolahal-backup.json"
         private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
     }

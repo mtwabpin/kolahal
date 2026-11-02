@@ -34,6 +34,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
 import com.mtwabpin.kolahal.status.Status
@@ -343,6 +344,27 @@ class NowPlayingLineTest {
                 onProfileTap = {},
                 nowPlaying = np,
             )
+        }
+    }
+
+    /** header.media-always: with the header off, only when asked, and under the header's rule. */
+    @Test fun theBarWithTheHeaderOffShowsWhenAsked() {
+        val config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
+        var version by mutableStateOf(0)
+        var np by mutableStateOf(track())
+        compose.setContent { KolahalTheme { NowPlayingBar(np, config, version, {}, {}) } }
+        try {
+            compose.onNodeWithTag("header-media").assertDoesNotExist()
+            compose.runOnIdle {
+                config.set(Keys.HEADER_MEDIA_ALWAYS, "on")
+                version++
+            }
+            compose.onNodeWithTag("header-media").assertExists()
+
+            compose.runOnIdle { np = paused(position = DURATION / 2).copy(idleSince = System.currentTimeMillis() - NowPlaying.HIDE_AFTER_MS - 1_000) }
+            compose.onNodeWithTag("header-media").assertDoesNotExist()
+        } finally {
+            config.reset(Keys.HEADER_MEDIA_ALWAYS)
         }
     }
 

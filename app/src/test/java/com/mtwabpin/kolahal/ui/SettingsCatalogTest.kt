@@ -28,6 +28,13 @@ class SettingsCatalogTest {
         }
     }
 
+    /** Every one-line choice has a row in the table, and every row a setting of its own for each stage. */
+    @Test fun theHeaderTableHasEveryOneLineChoice() {
+        assertEquals(Keys.ALL.filter { it.key.startsWith("header.compact.") }.toSet(), HEADER_ITEMS.map { it.oneLine }.toSet())
+        assertEquals(HEADER_ITEM_KEYS.size, HEADER_ITEM_KEYS.toSet().size)
+        assertTrue(HEADER_ITEM_KEYS.all { it in Keys.ALL && it.key in TITLES })
+    }
+
     @Test fun everySettingIsOnAPageButConfigOnlyOnes() {
         val shown = allCategories().flatMap { it.keys }
         assertEquals(Keys.ALL.toSet() - Keys.CONFIG_ONLY, shown.toSet())

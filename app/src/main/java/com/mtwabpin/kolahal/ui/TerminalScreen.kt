@@ -303,11 +303,15 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             ) { collapsed ->
                 if (collapsed) CompactHeader(
                     status = status,
-                    statusCount = if (config[Keys.HEADER_STATUS]) statuses.size else 0,
+                    statusCount = if (config[Keys.COMPACT_STATUS]) statuses.size else 0,
                     config = config,
                     version = configVersion,
                     onExpand = vm::expandHeader,
-                    mediaPlaying = config[Keys.HEADER_MEDIA] && nowPlaying?.playing == true,
+                    mediaPlaying = config[Keys.COMPACT_MEDIA] && nowPlaying?.playing == true,
+                    unlocks = unlocks,
+                    profiles = profiles,
+                    todoCount = vm.todoCount.collectAsStateWithLifecycle().value,
+                    onOpenSettings = { vm.onHeaderTap(HeaderTarget.SETTINGS) },
                 ) else Header(
                     unlocks = unlocks,
                     profiles = profiles,
@@ -327,6 +331,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 )
             }
         }
+        if (!showHeader) nowPlaying?.let { NowPlayingBar(it, config, configVersion, vm::mediaToggle, vm::mediaNext) }
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
         // The log and the suggestions share what the header, key bar and prompt leave. Those are
         // measured first, so a long suggestion list can't push the prompt off the screen.

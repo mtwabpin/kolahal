@@ -32,8 +32,11 @@ stays empty.
 - **Long-press** it, or tap **⏭**, to skip to the next track.
 
 The line disappears 30 minutes after playback was paused. When the header is collapsed, a small
-`♪` next to the time shows that something is playing. Turn the line off with
+`♪` next to the time shows that something is playing (`header.compact.media`). Turn the line off with
 `config header.media off`.
+
+With the header off (`header.show off`), the line goes with it. To keep it, turn on `header.media-always`:
+the same line, at the top of home, under the same rule. It stays while you type or scroll back.
 
 ## Toggles
 
