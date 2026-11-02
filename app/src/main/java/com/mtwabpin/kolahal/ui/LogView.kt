@@ -67,12 +67,12 @@ import java.util.Date
 /** How a line shows its time, from `log.time`: `groups` on a group's first line and when the minute changes. */
 enum class TimeMode { OFF, COMMANDS, GROUPS, ALL }
 
+/** [today]: [rememberToday], so "Yesterday" moves at midnight under a launcher that stays on screen for days. */
 @Composable
-fun DayDivider(row: LogRow.Day) {
-    // Made each time, not remembered: "Yesterday" is the day before today, which moves at midnight
-    // under a launcher that stays composed for days; and the dividers follow a change of language.
+fun DayDivider(row: LogRow.Day, today: LocalDate) {
+    // Made each time, not remembered: the dividers follow a change of language.
     val label =
-        if (row.day == LocalDate.now().minusDays(1)) "Yesterday"
+        if (row.day == today.minusDays(1)) "Yesterday"
         else row.day.format(DateTimeFormatter.ofPattern("EEE d MMM", LocalConfiguration.current.locales[0]))
     Text(
         "── $label ──",

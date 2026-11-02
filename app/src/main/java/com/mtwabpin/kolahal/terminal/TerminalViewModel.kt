@@ -470,6 +470,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         rowsZone = now
     }
 
+    private var rowsDay: java.time.LocalDate? = null
+
+    /** A new day, at midnight with the log on screen: the rows are built again for their day dividers. */
+    fun onDayChanged(today: java.time.LocalDate) {
+        if (rowsDay != null && today != rowsDay) logs.touch()
+        rowsDay = today
+    }
+
     /** Script lines in (seenUpTo, unreadUntil] arrived while the user was away; later ones were seen live. */
     @Volatile private var seenUpTo = Long.MAX_VALUE
     @Volatile private var unreadUntil = Long.MAX_VALUE

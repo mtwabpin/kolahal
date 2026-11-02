@@ -64,6 +64,7 @@ fun LogSearchResults(
     modifier: Modifier = Modifier,
 ) {
     val reversed = remember(search.rows) { search.rows.asReversed() }
+    val today = rememberToday()
     val state = rememberLazyListState()
     // Other words start again at the newest match, beside the prompt.
     LaunchedEffect(search.words) { state.scrollToItem(0) }
@@ -75,7 +76,7 @@ fun LogSearchResults(
     ) {
         items(reversed, key = { it.key }, contentType = { if (it is LogRow.Entry) it.entry.kind else it.javaClass }) { row ->
             when (row) {
-                is LogRow.Day -> DayDivider(row)
+                is LogRow.Day -> DayDivider(row, today)
                 is LogRow.Unread -> Unit
                 is LogRow.Entry -> Column {
                     LogLine(

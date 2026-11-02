@@ -241,6 +241,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     }
     // The day dividers depend on the zone too: the rows are built again, also for a change while another screen was up.
     if (preview == null) LaunchedEffect(zone) { vm.onZoneChanged(told = zone > 0) }
+    // And on the day: at midnight today's first lines need a divider, and "Yesterday" moves.
+    val today = rememberToday()
+    if (preview == null) LaunchedEffect(today) { vm.onDayChanged(today) }
     val fontSizeToast = rememberFontSizeToast()
     val doubleTapOn = remember(configVersion) {
         config[Keys.GESTURE_DOUBLE_TAP].trim().let { it.isNotEmpty() && it != com.mtwabpin.kolahal.gesture.Gestures.NONE }
@@ -387,7 +390,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             }
             items(reversedRows, key = { it.key }, contentType = { if (it is LogRow.Entry) it.entry.kind else it.javaClass }) { row ->
                 when (row) {
-                    is LogRow.Day -> DayDivider(row)
+                    is LogRow.Day -> DayDivider(row, today)
                     is LogRow.Unread -> UnreadDivider(row)
                     is LogRow.Entry -> LogLine(
                         row = row,

@@ -73,6 +73,36 @@ internal fun rememberZoneChanges(): Int {
 }
 
 /**
+ * Today's date, new at midnight: checked at each minute's tick, when the clock or the time zone is
+ * set, and back on screen. Only a new day changes it, so what reads it is drawn again only then.
+ */
+@Composable
+internal fun rememberToday(): java.time.LocalDate {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var today by remember { androidx.compose.runtime.mutableStateOf(java.time.LocalDate.now()) }
+    androidx.compose.runtime.DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
+                today = java.time.LocalDate.now()
+            }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(android.content.Intent.ACTION_TIME_TICK)
+            addAction(android.content.Intent.ACTION_TIME_CHANGED)
+            addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        androidx.core.content.ContextCompat.registerReceiver(context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        today = java.time.LocalDate.now()
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        today = java.time.LocalDate.now()
+        onPauseOrDispose { }
+    }
+    return today
+}
+
+/**
  * The time, a minute at a time, as the system ticks it (on waking too, where a delay that slept
  * with the phone wouldn't), and at once when the clock or the time zone is set. The second value
  * counts time-zone changes ([rememberZoneChanges]).
