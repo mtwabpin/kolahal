@@ -1,7 +1,7 @@
 {
   "name": "kolahal-site",
   "type": "module",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "private": true,
   "packageManager": "pnpm@12.14.0",
   "scripts": {
