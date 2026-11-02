@@ -67,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.widgets.PlacedWidget
@@ -100,6 +101,9 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     val all by widgets.widgets.collectAsStateWithLifecycle()
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
+    val version by vm.config.version.collectAsStateWithLifecycle()
+    // widgets.page off: no page beside the terminal shows them, so the screen says so.
+    val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
     var editing by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf<PlacedWidget?>(null) }
@@ -127,7 +131,13 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                 LargeFlexibleTopAppBar(
                     title = { Text("Widgets") },
                     subtitle = {
-                        Text(if (panel.isEmpty()) "On the widgets page beside the terminal" else "${panel.size} on the widgets page")
+                        Text(
+                            when {
+                                pageOff -> "The widgets page is off"
+                                panel.isEmpty() -> "On the widgets page beside the terminal"
+                                else -> "${panel.size} on the widgets page"
+                            }
+                        )
                     },
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
@@ -188,9 +198,20 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     .padding(horizontal = WidgetLayout.GAP_DP.dp),
             ) {
                 val inset = Modifier.padding(horizontal = 16.dp - WidgetLayout.GAP_DP.dp)
+                if (pageOff) {
+                    Box(inset.padding(vertical = 8.dp)) {
+                        ActionGroup(
+                            listOf(
+                                Action(R.drawable.ic_visibility, "Turn on the widgets page", "Beside the terminal: swipe sideways on the home screen to reach it") {
+                                    vm.config.set(Keys.WIDGETS_PAGE, "left")
+                                },
+                            )
+                        )
+                    }
+                }
                 if (panel.isEmpty() && pending.isEmpty()) {
                     Text(
-                        "No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.",
+                        if (pageOff) "No widgets yet." else "No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,

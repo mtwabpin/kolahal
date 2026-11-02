@@ -71,6 +71,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -120,6 +121,8 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val widgets = remember { WidgetHost.get(context) }
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
+    val version by vm.config.version.collectAsStateWithLifecycle()
+    val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
     val iconPx = with(LocalDensity.current) { 40.dp.roundToPx() }
     val groups by produceState<List<ProviderGroup>?>(null, providersVersion, profiles) {
         value = withContext(Dispatchers.IO) { loadGroups(context, widgets, profiles, iconPx) }
@@ -139,7 +142,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             topBar = {
                 LargeFlexibleTopAppBar(
                     title = { Text("Add widget") },
-                    subtitle = { Text("Added to the widgets page") },
+                    subtitle = { Text(if (pageOff) "Added to the widgets page, which is off" else "Added to the widgets page") },
                     navigationIcon = { BackButton { vm.closeScreen() } },
                     scrollBehavior = scroll,
                 )
