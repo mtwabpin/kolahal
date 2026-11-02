@@ -62,6 +62,24 @@ class LogPagingTest {
         assertEquals("$token 450", vm.entries.value.last().text)
     }
 
+    /** Scrolled back to the log's start, then down again: the page shrinks, and scrolling back reads older lines again. */
+    @Test fun olderLinesLoadAgainAfterThePageShrinks() {
+        repeat(450) { add("$token $it") }
+        val total = logs.recent(5_000).size
+        assertTrue("$total lines", total < 5_000)
+        val vm = viewModel()
+        waitUntil("the newest page") { vm.entries.value.lastOrNull()?.text == "$token 449" }
+        while (vm.entries.value.size < total) {
+            val had = vm.entries.value.size
+            vm.loadOlder()
+            waitUntil("an older page") { vm.entries.value.size > had }
+        }
+        vm.atNewest()
+        waitUntil("the short page") { vm.entries.value.size == 400 }
+        vm.loadOlder()
+        waitUntil("older lines again") { vm.entries.value.any { it.text == "$token 0" } }
+    }
+
     @Test fun aMovedLaunchLineShowsOnceAtTheBottom() {
         val vm = viewModel()
         first = minOf(first, logs.addReplacing(LogKind.INFO, "$token launched"))

@@ -379,7 +379,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             val older = if (have >= limit || start || before == null) emptyList() else {
                 withContext(Dispatchers.IO) { logs.recent(limit - have, beforeId = before) }.also { if (it.size < limit - have) start = true }
             }
-            (older + kept + fresh).takeLast(limit)
+            val page = older + kept + fresh
+            // The page shrank ([atNewest]) or grew past its limit: what's cut is older than the page now.
+            if (page.size > limit) start = false
+            page.takeLast(limit)
         }
         val print = withContext(Dispatchers.IO) { scripts.fingerprint() }
         if (print != scriptsPrint) {
