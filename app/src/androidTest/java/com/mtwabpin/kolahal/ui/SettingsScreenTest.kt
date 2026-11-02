@@ -114,7 +114,7 @@ class SettingsScreenTest {
     }
 
     @Test fun aTapOnTheEyeSaysToHold() {
-        show("typing")
+        show("suggestions")
         compose.onNodeWithContentDescription("Hold to see the home screen").performClick()
         compose.onNodeWithText("Tap and hold the eye to see the home screen").assertIsDisplayed()
         assertNull(vm.peek.value)
@@ -126,7 +126,7 @@ class SettingsScreenTest {
      * at the height under the finger. The value is saved only when the finger lifts.
      */
     @Test fun draggingALookSliderShowsHomeAtThatValue() {
-        show("typing")
+        show("keyboard")
         scrollTo(Keys.PROMPT_HEIGHT_TYPING)
         val slider = compose.onNodeWithTag("slider ${Keys.PROMPT_HEIGHT_TYPING.key}")
         slider.performTouchInput {
@@ -176,7 +176,7 @@ class SettingsScreenTest {
         assertNull(vm.peek.value)
         assertEquals(100, config[Keys.LOG_WALLPAPER])
 
-        compose.runOnIdle { vm.settingsCategory.value = "home" }
+        compose.runOnIdle { vm.settingsCategory.value = "widgets" }
         scrollTo(Keys.WIDGETS_WALLPAPER)
         val widgets = compose.onNodeWithTag("slider ${Keys.WIDGETS_WALLPAPER.key}")
         widgets.performTouchInput {
@@ -212,9 +212,9 @@ class SettingsScreenTest {
         assertEquals(Keys.PROMPT_HEIGHT_TYPING.range.first, config[Keys.PROMPT_HEIGHT_TYPING])
     }
 
-    /** The app selector has a page of its own, apart from Typing; its settings show once it is on. */
+    /** The app selector has a page of its own; its settings show once it is on. */
     @Test fun theAppSelectorHasItsOwnPage() {
-        assertTrue(allCategories().first { it.id == "typing" }.keys.none { it.key.startsWith("selector.") })
+        assertTrue(allCategories().filter { it.id != "selector" }.none { c -> c.keys.any { it.key.startsWith("selector.") } })
         // All of them but the ones only `config set` changes (selector.aim, selector.aim-speed, selector.actions).
         assertTrue(Keys.ALL.filter { it.key.startsWith("selector.") && it !in Keys.CONFIG_ONLY }.all { it in allCategories().first { c -> c.id == "selector" }.keys })
         show("selector")
@@ -227,7 +227,7 @@ class SettingsScreenTest {
 
     /** A setting another one turns off (the key bar's rows while it is off) shows once it is on. */
     @Test fun settingsThatDontApplyStayHidden() {
-        show("typing")
+        show("keyboard")
         scrollTo(Keys.KEYBAR_SHOW)
         compose.onNodeWithText(Keys.KEYBAR.key, useUnmergedTree = true).assertDoesNotExist()
         compose.runOnIdle { config.set(Keys.KEYBAR_SHOW, "on") }
@@ -240,7 +240,7 @@ class SettingsScreenTest {
      * playing with the header off shows only then.
      */
     @Test fun headerOffHidesItsSettings() {
-        show("home")
+        show("header")
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("header-items")
         compose.onNodeWithTag(Keys.HEADER_DATE.key).assertExists()
         compose.onNodeWithTag(Keys.COMPACT_DATE.key).assertExists()
@@ -260,7 +260,7 @@ class SettingsScreenTest {
 
     /** One tap each, and a stage's box changes only that stage. */
     @Test fun theHeaderTableChangesOneStage() {
-        show("home")
+        show("header")
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("header-items")
         compose.onNodeWithTag(Keys.COMPACT_DATE.key).performClick()
         compose.runOnIdle {
@@ -276,16 +276,16 @@ class SettingsScreenTest {
 
     /** With no item that has an icon, the switch between icons and labels has nothing to change. */
     @Test fun iconsGoWithNoItemToShowThem() {
-        show("home")
+        show("header")
         scrollTo(Keys.HEADER_ICONS)
         compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertExists()
         compose.runOnIdle { HEADER_ITEMS.forEach { config.set(it.full, "off"); config.set(it.oneLine, "off") } }
         compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertDoesNotExist()
     }
 
-    /** Your name, on the Home screen page: a name with a space turns the field red and isn't saved. */
+    /** Your name, on the Header page: a name with a space turns the field red and isn't saved. */
     @Test fun yourNameIsSetInItsField() {
-        show("home")
+        show("header")
         scrollTo(Keys.USER_NAME)
         val field = hasSetTextAction() and hasText(Keys.USER_NAME.default)
         compose.onNode(field).performTextReplacement("alex k")
@@ -308,14 +308,16 @@ class SettingsScreenTest {
         compose.onNode(row, useUnmergedTree = true).assertExists()
     }
 
-    /** Backup: automatic backups, their folder and Back up now; search finds backup.auto though no page lists it. */
+    /** Backup has its own page: automatic backups, their folder and Back up now; search finds backup.auto from the main page. */
     @Test fun backupsOnTheirOwn() {
         show(null)
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("more")
+        compose.onNodeWithText("Backup").performClick()
+        compose.onNodeWithText("Automatic backups").assertExists()
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("backup")
         compose.onNodeWithText("Backup folder").assertExists()
         compose.onNodeWithText("Back up now").assertExists()
-        compose.onNode(hasScrollToKeyAction()).performScrollToKey("backup-auto")
-        compose.onNodeWithText("Automatic backups").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.onNode(hasScrollToKeyAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).performTextInput("backup")
         compose.onNode(hasText(Keys.BACKUP_AUTO.key) and !hasSetTextAction(), useUnmergedTree = true).assertExists()
@@ -326,8 +328,7 @@ class SettingsScreenTest {
         CrashReports.clear(app)
         crashReport("20261022-090000", "IllegalStateException: first sttest")
         crashReport("20261022-100000", "IllegalStateException: second sttest")
-        show(null)
-        compose.onNode(hasScrollToKeyAction()).performScrollToKey("about")
+        show(ABOUT_PAGE)
         compose.onNodeWithText(VERSION_TEXT, substring = true).assertExists()
         waitForText("2 reports kept on this phone")
         compose.onNode(hasText("Crash reports") and hasText("2 reports kept on this phone")).performClick()
@@ -339,6 +340,20 @@ class SettingsScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("second sttest", substring = true).fetchSemanticsNodes().isEmpty() }
         assertEquals(listOf("IllegalStateException: first sttest"), CrashReports.list(app).map { it.text().lines()[6] })
         compose.onNodeWithText("first sttest", substring = true).assertExists()
+    }
+
+    /** The main page leads to About and About to the crash reports; Back returns the same way. */
+    @Test fun crashReportsGoBackToAbout() {
+        show(null)
+        compose.onNode(hasScrollToKeyAction()).performScrollToKey("more")
+        compose.onNodeWithText("About").performClick()
+        compose.onNodeWithText("Source code").assertExists()
+        compose.onNodeWithText("Crash reports").performClick()
+        compose.onNodeWithText("Kept on this phone").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Source code").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Search settings").assertExists()
     }
 
     /** Catches the activities [action] would start, instead of opening them. */
@@ -360,8 +375,7 @@ class SettingsScreenTest {
 
     /** About: Source code opens Kolahal's page on GitHub. */
     @Test fun aboutOpensTheSourceCode() = catching(Intent.ACTION_VIEW) { browser ->
-        show(null)
-        compose.onNode(hasScrollToKeyAction()).performScrollToKey("about")
+        show(ABOUT_PAGE)
         compose.onNodeWithText("Source code").performClick()
         compose.waitUntil(5_000) { browser.intents.isNotEmpty() }
         assertEquals(SOURCE_URL, browser.intents.single().dataString)
@@ -371,8 +385,7 @@ class SettingsScreenTest {
     @Test fun aCrashReportCanBeShared() = catching(Intent.ACTION_CHOOSER) { sheet ->
         CrashReports.clear(app)
         crashReport("20261022-090000", "IllegalStateException: shared sttest")
-        show(null)
-        compose.onNode(hasScrollToKeyAction()).performScrollToKey("about")
+        show(ABOUT_PAGE)
         waitForText("1 report kept on this phone")
         compose.onNode(hasText("Crash reports") and hasText("1 report kept on this phone")).performClick()
         waitForText("shared sttest", substring = true)

@@ -174,7 +174,7 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
 internal fun applies(key: ConfigKey<*>, config: Config): Boolean = SHOWN_WHEN[key]?.invoke(config) ?: true
 
 /** Pages with an eye button that shows home while held (the same typing flag as above). */
-internal val PEEK_PAGES: Map<String, Boolean> = mapOf("look" to false, "home" to false, "selector" to false, "log" to false, "typing" to true)
+internal val PEEK_PAGES: Map<String, Boolean> = mapOf("look" to false, "header" to false, "selector" to false, "log" to false, "suggestions" to true, "keyboard" to true)
 
 /** A settings page: grouped keys (a null group title means no sub-header). */
 internal class Category(
@@ -204,45 +204,29 @@ private val CATEGORIES = listOf(
         ),
     ),
     Category(
-        "home", "Home screen", "Clock, header items, widgets", R.drawable.ic_home,
+        "header", "Header", "Header items, clock, your name", R.drawable.ic_home,
         listOf(
-            "Header" to listOf(
+            null to listOf(
                 Keys.HEADER_SHOW,
                 Keys.HEADER_MEDIA_ALWAYS,
+                Keys.HEADER_AUTOHIDE,
             ),
-            "Clock" to listOf(
+            "Header items" to listOf<ConfigKey<*>>(Keys.HEADER_ICONS) + HEADER_ITEM_KEYS,
+            "Clock and name" to listOf(
                 Keys.CLOCK_24H,
                 Keys.USER_NAME,
             ),
-            "Header items" to listOf<ConfigKey<*>>(Keys.HEADER_ICONS) + HEADER_ITEM_KEYS,
-            "Behaviour" to listOf(Keys.HEADER_AUTOHIDE),
-            "Widgets" to listOf(
+        ),
+    ),
+    Category(
+        "widgets", "Widgets", "Add, resize and arrange widgets", R.drawable.ic_widgets,
+        listOf(
+            null to listOf(
                 Keys.WIDGETS_PAGE,
                 Keys.WIDGETS_WALLPAPER,
             ),
         ),
         manage = Triple("Arrange widgets", "Add, resize and reorder widgets", Screen.WIDGETS),
-    ),
-    // The app selector is its own thing, apart from typing: it works while the keyboard is down.
-    Category(
-        "selector", "App selector", "Edge, letters, icons", R.drawable.ic_apps,
-        listOf(
-            null to listOf(Keys.SELECTOR_RAIL),
-            "On the edge" to listOf(
-                Keys.SELECTOR_BROWSE,
-                Keys.SELECTOR_SIDE,
-                Keys.SELECTOR_POSITION,
-                Keys.SELECTOR_HEIGHT,
-                Keys.SELECTOR_HANDLE,
-                Keys.SELECTOR_LETTERS,
-            ),
-            "The list" to listOf(
-                Keys.SELECTOR_FILTER,
-                Keys.SELECTOR_ROW_HEIGHT,
-                Keys.SELECTOR_ICONS,
-                Keys.SELECTOR_SYSTEM_FONT,
-            ),
-        ),
     ),
     Category(
         "log", "Log", "Times, spacing, line height, history", R.drawable.ic_stat_terminal,
@@ -282,9 +266,9 @@ private val CATEGORIES = listOf(
         ),
     ),
     Category(
-        "typing", "Typing", "Suggestions, key bar, prompt, keyboard", R.drawable.ic_keyboard,
+        "suggestions", "Suggestions", "Style, icons, when they show", R.drawable.ic_keyboard_tab,
         listOf(
-            "Suggestions" to listOf(
+            null to listOf(
                 Keys.SUGGESTIONS_STYLE,
                 Keys.SUGGEST_ICONS,
                 Keys.SUGGESTIONS_WRAP,
@@ -294,6 +278,11 @@ private val CATEGORIES = listOf(
                 Keys.SUGGESTIONS,
                 Keys.CHIP_HEIGHT,
             ),
+        ),
+    ),
+    Category(
+        "keyboard", "Keyboard", "Key bar, prompt, autocorrect", R.drawable.ic_keyboard,
+        listOf(
             "Key bar" to listOf(
                 Keys.KEYBAR_SHOW,
                 Keys.KEYBAR_AUTO,
@@ -305,6 +294,27 @@ private val CATEGORIES = listOf(
                 Keys.PROMPT_HEIGHT_TYPING,
                 Keys.IME_SUGGESTIONS,
                 Keys.FOCUS_ON_HOME,
+            ),
+        ),
+    ),
+    // The app selector is its own thing, apart from typing: it works while the keyboard is down.
+    Category(
+        "selector", "App selector", "Edge, letters, icons", R.drawable.ic_apps,
+        listOf(
+            null to listOf(Keys.SELECTOR_RAIL),
+            "On the edge" to listOf(
+                Keys.SELECTOR_BROWSE,
+                Keys.SELECTOR_SIDE,
+                Keys.SELECTOR_POSITION,
+                Keys.SELECTOR_HEIGHT,
+                Keys.SELECTOR_HANDLE,
+                Keys.SELECTOR_LETTERS,
+            ),
+            "The list" to listOf(
+                Keys.SELECTOR_FILTER,
+                Keys.SELECTOR_ROW_HEIGHT,
+                Keys.SELECTOR_ICONS,
+                Keys.SELECTOR_SYSTEM_FONT,
             ),
         ),
     ),
@@ -329,10 +339,10 @@ private val CATEGORIES = listOf(
     ),
 )
 
-/** Automatic backups: shown in the main page's Backup group, not as a page of its own; search still finds it. */
+/** Backup: its page has the automatic backups, then the backup folder and the file actions ([SettingsScreen]). */
 internal const val BACKUP_CATEGORY = "backup"
 
-private val BACKUP = Category(BACKUP_CATEGORY, "Backup", "Automatic backups", R.drawable.ic_download, listOf(null to listOf(Keys.BACKUP_AUTO)))
+private val BACKUP = Category(BACKUP_CATEGORY, "Backup", "Automatic backups, export, import", R.drawable.ic_download, listOf(null to listOf(Keys.BACKUP_AUTO)))
 
 /** Keys no page lists (e.g. added later) still get a home under "More"; [Keys.CONFIG_ONLY] ones don't. */
 private val OTHER: Category by lazy {

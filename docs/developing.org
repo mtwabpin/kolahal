@@ -194,7 +194,7 @@ directly. Scripts do it from the =:script= process; a broadcast tells the UI pro
 | Imported font                                        | =filesDir/fonts/custom.ttf= (=ui/TermFonts.kt=)                                               |
 | Images on log lines (a cache, not backed up)         | =cacheDir/log-images/=, trimmed to 50 MB (=ui/LogImages.kt=)                                  |
 
-A backup (=Settings → Export everything=) bundles all of the above into one JSON file
+A backup (=Settings → Backup → Export everything=) bundles all of the above into one JSON file
 (=data/Backup.kt= and =data/FullBackup.kt=).
 
 ** Common changes

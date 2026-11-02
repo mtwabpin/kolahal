@@ -68,7 +68,7 @@ internal enum class TourPage { WELCOME, TYPING, LOG, LOOK, KEYBOARD, SELECTOR, A
 internal val TOUR_CHECKS = listOf("home", "notifications", "notifs enable", "accessibility", "contacts --allow")
 
 /**
- * The tour (the first start, `tour`, or Settings → Tour): how Kolahal works, a page at a time,
+ * The tour (the first start, `tour`, or Settings → About → Tour): how Kolahal works, a page at a time,
  * and the first few settings and permissions on the way, each one tap. A page with settings shows
  * a small home screen above them that follows each choice (TourPreviews.kt). Everything it sets is
  * in Settings too, and the rest of the permissions are in the setup checklist.
