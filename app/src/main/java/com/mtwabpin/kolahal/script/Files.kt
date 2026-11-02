@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.script
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 
@@ -43,4 +44,19 @@ object Files {
             ?: throw IllegalStateException("can't write the file")
         stream.use { it.write(text.toByteArray()) }
     }
+
+    /**
+     * Gives up the grant to [old], a folder picked before, unless the backup or the script folder
+     * still uses it: one folder can be both, with one grant between them. Persisted grants are
+     * capped per app. Call it once the new folder is saved.
+     */
+    fun releaseFolder(context: Context, old: Uri) {
+        if (inUse(context, old)) return
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        runCatching { context.contentResolver.releasePersistableUriPermission(old, flags) }
+    }
+
+    /** Whether [folder] is the backup folder or the script folder. */
+    internal fun inUse(context: Context, folder: Uri): Boolean =
+        folder == com.mtwabpin.kolahal.data.AutoBackup.folder(context) || folder == ScriptFolder(context).uri
 }

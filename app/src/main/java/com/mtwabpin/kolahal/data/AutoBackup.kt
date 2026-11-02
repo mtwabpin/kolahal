@@ -35,9 +35,10 @@ object AutoBackup {
     fun setFolder(context: Context, tree: Uri) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         context.contentResolver.takePersistableUriPermission(tree, flags)
-        // Persisted grants are capped per app: let the previous folder's go.
-        folder(context)?.takeIf { it != tree }?.let { old -> runCatching { context.contentResolver.releasePersistableUriPermission(old, flags) } }
+        val old = folder(context)
         prefs(context).edit { putString(KEY_FOLDER, tree.toString()) }
+        // The previous folder's grant goes, unless the script folder is there too.
+        old?.takeIf { it != tree }?.let { com.mtwabpin.kolahal.script.Files.releaseFolder(context, it) }
     }
 
     /** When the last backup was written, or null. */

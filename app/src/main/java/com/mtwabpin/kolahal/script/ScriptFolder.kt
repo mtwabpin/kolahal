@@ -22,11 +22,10 @@ class ScriptFolder(private val context: Context) {
     fun setFolder(tree: Uri) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         context.contentResolver.takePersistableUriPermission(tree, flags)
-        // Persisted grants are capped per app; drop the previous folder's grant.
-        uri?.takeIf { it != tree }?.let { old ->
-            runCatching { context.contentResolver.releasePersistableUriPermission(old, flags) }
-        }
+        val old = uri
         prefs.edit { putString(KEY_URI, tree.toString()).remove(KEY_EXPORTED) }
+        // The previous folder's grant goes, unless backups go there too.
+        old?.takeIf { it != tree }?.let { Files.releaseFolder(context, it) }
     }
 
     private fun folder(): DocumentFile {
