@@ -214,21 +214,57 @@ object EditorLogic {
     }
 }
 
-/** Snapshot-based undo: a new step after a pause in typing or at a newline. */
-internal class UndoHistory(initial: String) {
-    private val undo = ArrayDeque<String>().apply { addLast(initial) }
-    private val redo = ArrayDeque<String>()
+/**
+ * Undo by steps: a new step after a pause in typing or at a newline, up to 200. Only the text now is
+ * kept whole; each step keeps what changed from the one before ([Edit]), so a big script's history
+ * isn't 200 copies of it.
+ */
+internal class UndoHistory(initial: String, private val clock: () -> Long = System::currentTimeMillis) {
+    /** At [at], [removed] became [inserted]; the rest of the text was the same before and after. */
+    private class Edit(val at: Int, val removed: String, val inserted: String) {
+        fun redo(text: String) = text.substring(0, at) + inserted + text.substring(at + removed.length)
+        fun undo(text: String) = text.substring(0, at) + removed + text.substring(at + inserted.length)
+
+        companion object {
+            fun between(before: String, after: String): Edit {
+                val most = minOf(before.length, after.length)
+                var start = 0
+                while (start < most && before[start] == after[start]) start++
+                var end = 0
+                while (end < most - start && before[before.length - 1 - end] == after[after.length - 1 - end]) end++
+                return Edit(start, before.substring(start, before.length - end), after.substring(start, after.length - end))
+            }
+        }
+    }
+
+    /** The text after the last step: what [undo] steps back from. */
+    private var top = initial
+    private var topNewlines = initial.count { it == '\n' }
+    /** The steps that led to [top], oldest first. */
+    private val undo = ArrayDeque<Edit>()
+    /** Steps undone, the last undone last. */
+    private val redo = ArrayDeque<Edit>()
     private var lastRecord = 0L
 
+    private fun setTop(text: String) {
+        top = text
+        topNewlines = text.count { it == '\n' }
+    }
+
     fun record(text: String) {
-        val now = System.currentTimeMillis()
-        val newline = text.length > undo.last().length && text.count { it == '\n' } != undo.last().count { it == '\n' }
-        if (now - lastRecord > 600 || newline || undo.size == 1) {
-            undo.addLast(text)
-            if (undo.size > 200) undo.removeFirst()
+        val now = clock()
+        val newlines = text.count { it == '\n' }
+        val newline = text.length > top.length && newlines != topNewlines
+        if (now - lastRecord > 600 || newline || undo.isEmpty()) {
+            undo.addLast(Edit.between(top, text))
+            if (undo.size + 1 > 200) undo.removeFirst()
         } else {
-            undo[undo.lastIndex] = text
+            // The same step goes on: it now leads from the text before it to this one.
+            val before = undo.removeLast().undo(top)
+            undo.addLast(Edit.between(before, text))
         }
+        top = text
+        topNewlines = newlines
         lastRecord = now
         redo.clear()
     }
@@ -238,20 +274,22 @@ internal class UndoHistory(initial: String) {
         lastRecord = 0
     }
 
-    val canUndo get() = undo.size > 1
+    val canUndo get() = undo.isNotEmpty()
     val canRedo get() = redo.isNotEmpty()
 
     fun undo(): String? {
-        if (undo.size <= 1) return null
-        redo.addLast(undo.removeLast())
+        val step = undo.removeLastOrNull() ?: return null
+        redo.addLast(step)
         lastRecord = 0
-        return undo.last()
+        setTop(step.undo(top))
+        return top
     }
 
     fun redo(): String? {
-        val text = redo.removeLastOrNull() ?: return null
-        undo.addLast(text)
+        val step = redo.removeLastOrNull() ?: return null
+        undo.addLast(step)
         lastRecord = 0
-        return text
+        setTop(step.redo(top))
+        return top
     }
 }
