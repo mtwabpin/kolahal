@@ -135,6 +135,8 @@ fun ScriptEditor(
 
     // What the last button did; a run waits for its recorded result.
     var message by remember(script.id) { mutableStateOf<EditorMessage?>(null) }
+    /** Saves made, so a slow check's result can't land after a later save's. */
+    var saves by remember(script.id) { androidx.compose.runtime.mutableIntStateOf(0) }
     var runSince by remember(script.id) { mutableStateOf<Long?>(null) }
     LaunchedEffect(message) {
         val m = message ?: return@LaunchedEffect
@@ -209,13 +211,14 @@ fun ScriptEditor(
         onSave(text) { failure, changed ->
             if (failure == null) {
                 saved = text
-                // The check reads the whole script: off the main thread. A message shown meanwhile
-                // came later, so it stays.
+                // The check reads the whole script: off the main thread. Only the latest save's result
+                // shows, and not over a message that came meanwhile (one gone, timed out or tapped, is no matter).
                 if (!quiet) {
                     val before = message
+                    val save = ++saves
                     scope.launch {
                         val saidSaved = withContext(Dispatchers.Default) { savedMessage(text, changed) }
-                        if (message === before) message = saidSaved
+                        if (save == saves && (message === before || message == null)) message = saidSaved
                     }
                 }
             } else {
