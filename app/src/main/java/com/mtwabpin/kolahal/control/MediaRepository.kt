@@ -28,7 +28,7 @@ data class NowPlaying(
     val positionAt: Long,
     val speed: Float,
     val duration: Long,
-    /** When playback last stopped being active (now for a playing session). */
+    /** When playback last stopped being active; for a playing session, when it was first seen playing. */
     val idleSince: Long,
 ) {
     val playing: Boolean get() = state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING
@@ -163,6 +163,9 @@ class MediaRepository private constructor(private val context: Context) {
             if (!listening) return@post
             runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
             listening = false
+            // Every session is asked again, as at the first start.
+            watches.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
+            watches = emptyList()
             listen()
         }
     }
@@ -185,8 +188,12 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     private fun onSessions(list: List<MediaController>) {
-        watches.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
-        watches = list.map { c -> Watch(c).also { w -> runCatching { c.registerCallback(w, main) }; w.read() } }
+        // A session followed already keeps its callback and what it last said: only new ones are asked.
+        val kept = watches.associateBy { it.controller.sessionToken }
+        val next = list.map { c -> kept[c.sessionToken] ?: Watch(c).also { w -> runCatching { c.registerCallback(w, main) }; w.read() } }
+        val still = next.toHashSet()
+        watches.filterNot { it in still }.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
+        watches = next
         recompute()
     }
 
@@ -218,10 +225,30 @@ class MediaRepository private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Wall-clock time at boot, as last worked out from the two clocks. Kept while a new reading agrees
+     * within a second (setting the clock moves it more), so an unchanged state gives an equal value.
+     */
+    @Volatile private var bootedAt = 0L
+
+    /** The wall-clock time of [elapsed], a time on the boot clock. */
+    private fun wallTime(elapsed: Long, now: Long): Long {
+        val booted = now - SystemClock.elapsedRealtime()
+        if (kotlin.math.abs(booted - bootedAt) > 1_000) bootedAt = booted
+        return bootedAt + elapsed
+    }
+
+    /**
+     * What [pkg]'s session says, for [nowPlaying]. An update that changes nothing shown gives a value
+     * equal to the last one, so home isn't built again for it: players repeat themselves.
+     */
     private fun snapshot(pkg: String, track: Track?, ps: PlaybackState?, now: Long): NowPlaying {
-        val elapsedNow = SystemClock.elapsedRealtime()
-        val updatedAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { now - (elapsedNow - it) } ?: now
-        val idleSince = if (ps.isActive()) now else lastPlaying[pkg] ?: updatedAt.coerceAtMost(now)
+        val updatedAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { wallTime(it, now) } ?: now
+        val idleSince = if (ps.isActive()) {
+            _nowPlaying.value?.takeIf { it.pkg == pkg && it.playing }?.idleSince ?: now
+        } else {
+            lastPlaying[pkg] ?: updatedAt.coerceAtMost(now)
+        }
         return NowPlaying(
             pkg = pkg,
             app = appLabel(pkg),
