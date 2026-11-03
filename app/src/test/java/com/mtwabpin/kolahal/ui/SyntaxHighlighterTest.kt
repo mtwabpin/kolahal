@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.text.AnnotatedString
 import com.mtwabpin.kolahal.data.ScriptLang
 import org.junit.Assert.assertEquals
@@ -84,6 +85,26 @@ class SyntaxHighlighterTest {
         assertTrue(tokens.keptChars <= LineTokens.KEPT_CHARS + LineTokens.KEPT_LONG_CHARS)
         // A line let go is tokenised again alike.
         assertTrue(LineTokens(ScriptLang.LUA).of(short[0]).contentEquals(tokens.of(short[0])))
+    }
+
+    /** A window colours its lines as the whole script would, and no others; matches and the flash show anywhere. */
+    @Test fun aWindowColoursOnlyItsLines() {
+        for ((lang, code) in listOf(ScriptLang.LUA to lua, ScriptLang.JS to "$js\nconst y = `x\ny`;\n// end")) {
+            val starts = listOf(0) + code.indices.filter { code[it] == '\n' }.map { it + 1 }
+            fun lineOf(offset: Int) = starts.indexOfLast { it <= offset }
+            val whole = SyntaxHighlighter(lang, null, null).filter(AnnotatedString(code)).text.spanStyles
+            for (window in listOf(0..0, 1..2, 2..100, 50..60)) {
+                val part = SyntaxHighlighter(lang, null, null, window = window).filter(AnnotatedString(code)).text.spanStyles
+                // Every colour in the window, as coloured whole; none outside it.
+                val expected = whole.filter { r -> (lineOf(r.start)..lineOf((r.end - 1).coerceAtLeast(r.start))).any { it in window } }
+                assertEquals("$lang $window", expected.map { Triple(it.start, it.end, it.item) }.toSet(), part.map { Triple(it.start, it.end, it.item) }.toSet())
+            }
+            val found = MatchHighlights(intArrayOf(code.length - 3), 3, code.length - 3)
+            val marked = SyntaxHighlighter(lang, 1, found, window = 0..0).filter(AnnotatedString(code)).text.spanStyles
+            assertTrue("$lang: the match far below the window", marked.any { it.start == code.length - 3 && it.item.background.isSpecified })
+            assertTrue("$lang: the flashed line", marked.any { it.start == 0 && it.item.background.isSpecified })
+        }
+        assertNotEquals(SyntaxHighlighter(ScriptLang.LUA, null, null, window = 0..10), SyntaxHighlighter(ScriptLang.LUA, null, null, window = 5..15))
     }
 
     @Test fun findMatchesAreEqualByWhatTheyMark() {

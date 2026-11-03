@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -82,6 +83,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
+
+/** Longer than this (about 550 lines), a script is coloured around the view only. */
+private const val WINDOW_FROM = 20_000
+
+/** Lines coloured above and below the view, and how near its edge the view comes before they move. */
+private const val WINDOW_SPAN = 150
+private const val WINDOW_MARGIN = 50
+
+/** The furthest a tab moves the text on: Android's tab stops are 20 pixels apart. */
+private const val TAB_PX = 20f
 
 /** The symbol bar's keys, under the code. */
 private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
@@ -437,9 +448,39 @@ fun ScriptEditor(
             MatchHighlights(matches.starts.copyOfRange(from, to), matches.length, if (current >= 0) matches.starts[c] else -1)
         }
     }
+    // A big script is coloured around the view only: its colours cost several times its text to lay
+    // out at every key. The coloured lines follow the view once scrolling stops, so a fling isn't
+    // laid out again on the way.
+    val big = value.text.length > WINDOW_FROM
+    var window by remember(script.id) {
+        mutableStateOf(((jumpToLine ?: 1) - 1).let { (it - WINDOW_SPAN).coerceAtLeast(0)..(it + WINDOW_SPAN) })
+    }
+    LaunchedEffect(script.id) {
+        val padTop = with(density) { 12.dp.toPx() }
+        androidx.compose.runtime.snapshotFlow { Triple(vScroll.isScrollInProgress, vScroll.value, layout) }.collect { (scrolling, y, l) ->
+            if (scrolling || l == null || l.lineCount == 0) return@collect
+            val first = l.getLineForVerticalPosition((y - padTop).coerceAtLeast(0f))
+            val last = l.getLineForVerticalPosition(y - padTop + viewportHeight)
+            val w = window
+            val nearTop = w.first > 0 && first < w.first + WINDOW_MARGIN
+            val nearBottom = w.last < l.lineCount - 1 && last > w.last - WINDOW_MARGIN
+            if (nearTop || nearBottom) window = (first - WINDOW_SPAN).coerceAtLeast(0)..(last + WINDOW_SPAN)
+        }
+    }
     // The tokens of each line stay across highlighters: find matches and a flashed line make new ones.
     val lineTokens = remember(script.lang) { LineTokens(script.lang) }
-    val highlighter = remember(script.lang, flashLine, Term.palette, highlights) { SyntaxHighlighter(script.lang, flashLine, highlights, lineTokens) }
+    val coloured = if (big) window else null
+    val highlighter = remember(script.lang, flashLine, Term.palette, highlights, coloured) { SyntaxHighlighter(script.lang, flashLine, highlights, lineTokens, coloured) }
+    // The field's width, worked out here from its widest line: in the sideways scroll the field would
+    // measure all of the text for it before laying it out, a second pass over the script at every key.
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer(cacheSize = 16)
+    val bold = Term.code.copy(fontWeight = FontWeight.Bold)
+    val cellPx = remember(bold, density) { listOf("W", "M", "@").maxOf { measurer.measure(it, bold).size.width }.toFloat() }
+    val textWidth = remember(value.text, bold, density) {
+        // Bold, the widest a line's letters are drawn: a keyword in bold doesn't wrap its line.
+        EditorLogic.widestLine(value.text, cellPx, maxOf(TAB_PX, cellPx)) { line -> measurer.measure(line, bold).size.width.toFloat() }
+    }
+    val fieldWidth = with(density) { maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp) }
     val lineCount = value.text.count { it == '\n' } + 1
     val numbers = remember(lineCount) { (1..lineCount).joinToString("\n") }
 
@@ -566,7 +607,7 @@ fun ScriptEditor(
                             keyboardType = KeyboardType.Text,
                         ),
                         modifier = Modifier
-                            .widthIn(min = 600.dp)
+                            .width(fieldWidth)
                             .padding(end = 12.dp)
                             .focusRequester(focus)
                             .onFocusChanged { editorFocused = it.isFocused }

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
@@ -19,6 +20,7 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,11 +61,20 @@ class ScriptEditorTest {
 
     private fun line(kind: LogKind, text: String) = LogEntry(1, System.currentTimeMillis(), kind, "edtest", text, LogContext.EMPTY)
 
-    /** The colours the editor drew its code in. */
-    private fun codeColours(): Set<androidx.compose.ui.graphics.Color> {
+    /** The editor's code as last laid out. */
+    private fun codeLayout(): androidx.compose.ui.text.TextLayoutResult {
         val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
         compose.onNodeWithTag("editor").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
-        return results.single().layoutInput.text.spanStyles.map { it.item.color }.toSet()
+        return results.single()
+    }
+
+    /** The colours the editor drew its code in. */
+    private fun codeColours(): Set<androidx.compose.ui.graphics.Color> = codeLayout().layoutInput.text.spanStyles.map { it.item.color }.toSet()
+
+    /** The lines (from 0) of [code] that have a colour. */
+    private fun colouredLines(code: String): Set<Int> {
+        val starts = listOf(0) + code.indices.filter { code[it] == '\n' }.map { it + 1 }
+        return codeLayout().layoutInput.text.spanStyles.map { r -> starts.indexOfLast { it <= r.start } }.toSet()
     }
 
     /** The phone turning dark with the editor open: the code changes colour along with everything else. */
@@ -127,5 +138,38 @@ class ScriptEditorTest {
         assertEquals(listOf("one", "two three"), ran!!.first)
         assertEquals("charger", ran!!.second?.get("name"))
         assertEquals(64, ran!!.second?.get("level"))
+    }
+
+    /**
+     * The field is as wide as its widest line, worked out by the editor: no line wraps, whether long,
+     * in wide letters, with tabs, or in bold keywords (a small script keeps its bold).
+     */
+    @Test fun noLineWrapsInASmallScript() = noLineWraps("$keywords\n$long\nlog(s)")
+
+    @Test fun noLineWrapsInABigScript() = noLineWraps(List(700) { "local x$it = $it -- some words" }.joinToString("\n") + "\n$long")
+
+    private val long = "local s = '" + "日本語🙂é".repeat(60) + "\t\tend'"
+    private val keywords = List(40) { "local function return end" }.joinToString(" ")
+
+    private fun noLineWraps(code: String) {
+        show(code)
+        compose.waitForIdle()
+        assertEquals(code.count { it == '\n' } + 1, codeLayout().lineCount)
+    }
+
+    /** A big script is coloured around the view, and the colours follow once it's scrolled elsewhere. */
+    @Test fun aBigScriptIsColouredAroundTheView() {
+        val code = List(1_500) { "local x$it = $it -- line" }.joinToString("\n")
+        show(code)
+        compose.waitForIdle()
+        val top = colouredLines(code)
+        assertTrue("top: ${top.min()}..${top.max()}", 0 in top && top.max() < 400)
+        // To the end of the script.
+        val height = codeLayout().size.height.toFloat()
+        compose.onAllNodes(androidx.compose.ui.test.hasScrollAction() and androidx.compose.ui.test.hasAnyDescendant(androidx.compose.ui.test.hasTestTag("editor")))[0]
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.ScrollBy) { it(0f, height) }
+        compose.waitUntil(5_000) { 1_499 in colouredLines(code) }
+        val below = colouredLines(code)
+        assertTrue("after scrolling: ${below.min()}..${below.max()}", 0 !in below)
     }
 }

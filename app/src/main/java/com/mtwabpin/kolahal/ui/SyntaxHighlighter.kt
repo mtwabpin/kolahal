@@ -101,12 +101,18 @@ internal class LineTokens(lang: ScriptLang) {
     }
 }
 
-/** Colours comments, strings, numbers and keywords; flashes one line (error jump); marks find matches. */
+/**
+ * Colours comments, strings, numbers and keywords; flashes one line (error jump); marks find matches.
+ * [window]: only these lines (counted from 0) are coloured, the ones around the view of a big script,
+ * whose colours cost several times its text to lay out at every key. The flash and the matches show
+ * wherever they are.
+ */
 internal class SyntaxHighlighter(
     lang: ScriptLang,
     private val flashLine: Int?,
     private val matches: MatchHighlights?,
     private val tokens: LineTokens = LineTokens(lang),
+    private val window: IntRange? = null,
 ) : VisualTransformation {
     private val keywords = tokens.keywords
     // The theme it was made for: a text field colours again only for a highlighter that isn't equal to the last.
@@ -145,19 +151,30 @@ internal class SyntaxHighlighter(
         val styled = buildAnnotatedString {
             append(src)
             var lineStart = 0
+            var line = 0
+            // Where the window's lines start and end in the text, for the template strings.
+            var from = if (window == null) 0 else -1
+            var to = src.length
             while (lineStart <= src.length) {
                 val lineEnd = src.indexOf('\n', lineStart).let { if (it < 0) src.length else it }
-                val t = tokensOf(src.substring(lineStart, lineEnd))
-                for (i in t.indices step 3) addStyle(styles[t[i + 2]], lineStart + t[i], lineStart + t[i + 1])
+                if (window == null || line in window) {
+                    if (from < 0) from = lineStart
+                    val t = tokensOf(src.substring(lineStart, lineEnd))
+                    for (i in t.indices step 3) addStyle(styles[t[i + 2]], lineStart + t[i], lineStart + t[i + 1])
+                    to = lineEnd
+                } else if (line > window.last) {
+                    break
+                }
                 lineStart = lineEnd + 1
+                line++
             }
-            if (js) {
+            if (js && from >= 0) {
                 // Template strings: pair up backticks with a plain scan (no escapes inside are honoured, as before).
                 var open = src.indexOf('`')
-                while (open >= 0) {
+                while (open in 0..to) {
                     val close = src.indexOf('`', open + 1)
                     if (close < 0) break
-                    addStyle(styles[STRING], open, close + 1)
+                    if (close >= from) addStyle(styles[STRING], open, close + 1)
                     open = src.indexOf('`', close + 1)
                 }
             }
@@ -187,7 +204,7 @@ internal class SyntaxHighlighter(
     }
 
     override fun equals(other: Any?) = other is SyntaxHighlighter && other.flashLine == flashLine &&
-        other.keywords == keywords && other.matches == matches && other.palette == palette
+        other.keywords == keywords && other.matches == matches && other.palette == palette && other.window == window
 
-    override fun hashCode() = 31 * (31 * (31 * keywords.hashCode() + (flashLine ?: 0)) + matches.hashCode()) + palette.hashCode()
+    override fun hashCode() = 31 * (31 * (31 * (31 * keywords.hashCode() + (flashLine ?: 0)) + matches.hashCode()) + palette.hashCode()) + window.hashCode()
 }

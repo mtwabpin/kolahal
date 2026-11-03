@@ -190,6 +190,42 @@ object EditorLogic {
         return offset
     }
 
+    /**
+     * The width of [text]'s widest line, as [measure] gives a line's width: what the editor's field is
+     * given, so it needn't measure the whole text for it before laying it out. [cellPx] is at least the
+     * width of any ASCII character and [tabPx] of a tab; any other character counts as two cells (no
+     * glyph is wider). Lines are measured from the widest guess down, until no other could be wider.
+     */
+    fun widestLine(text: String, cellPx: Float, tabPx: Float, measure: (String) -> Float): Float {
+        if (text.isEmpty()) return 0f
+        val starts = ArrayList<Int>()
+        val guesses = ArrayList<Float>()
+        var start = 0
+        var guess = 0f
+        for (i in 0..text.length) {
+            val c = if (i < text.length) text[i] else '\n'
+            if (c == '\n') {
+                starts += start
+                guesses += guess
+                start = i + 1
+                guess = 0f
+            } else {
+                guess += when {
+                    c == '\t' -> tabPx
+                    c in ' '..'~' -> cellPx
+                    else -> 2 * cellPx
+                }
+            }
+        }
+        var widest = 0f
+        for (line in guesses.indices.sortedByDescending { guesses[it] }) {
+            if (guesses[line] <= widest) break
+            val end = text.indexOf('\n', starts[line]).let { if (it < 0) text.length else it }
+            widest = maxOf(widest, measure(text.substring(starts[line], end)))
+        }
+        return widest
+    }
+
     /** A finished run as the editor shows it: what happened, whether it failed, and the failing line. */
     data class RunResult(val text: String, val failed: Boolean, val line: Int? = null)
 

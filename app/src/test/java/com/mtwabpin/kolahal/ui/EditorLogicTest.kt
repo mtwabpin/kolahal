@@ -182,4 +182,37 @@ class EditorLogicTest {
         // A status recorded before lines were kept, or one whose message mentions a line itself.
         assertEquals(EditorLogic.RunResult("Error: x (line 2) y", failed = true), EditorLogic.runResult("error: x (line 2) y", 60))
     }
+
+    // ---- the field's width ----
+
+    /** A made-up font: ASCII 6 to 10 px, a tab 12 at most, anything else up to 20; [cellPx] 10. */
+    private fun width(line: String) = line.sumOf { c ->
+        when {
+            c == '\t' -> 12
+            c in ' '..'~' -> 6 + c.code % 5
+            else -> 11 + c.code % 10
+        }
+    }.toFloat()
+
+    @Test fun theWidestLineIsTheWidestMeasured() {
+        val r = kotlin.random.Random(3)
+        val letters = "ab WM\t日é🙂"
+        repeat(2_000) {
+            val text = (0 until r.nextInt(0, 12)).joinToString("\n") { String(CharArray(r.nextInt(0, 30)) { letters[r.nextInt(letters.length)] }) }
+            val widest = text.split('\n').maxOf(::width)
+            assertEquals(text, widest, EditorLogic.widestLine(text, cellPx = 10f, tabPx = 12f, measure = ::width), 0f)
+        }
+    }
+
+    /** Most lines needn't be measured: none could be wider than the widest found. */
+    @Test fun fewLinesAreMeasured() {
+        val text = (List(500) { "short line $it" } + "a much longer line than the rest of them, by far" + List(500) { "x = $it" }).joinToString("\n")
+        var measured = 0
+        EditorLogic.widestLine(text, cellPx = 10f, tabPx = 12f) { measured++; width(it) }
+        assertTrue("$measured lines measured", measured <= 3)
+        assertEquals(0f, EditorLogic.widestLine("", 10f, 12f, ::width), 0f)
+        // An empty last line, or only line breaks.
+        assertEquals(width("abc"), EditorLogic.widestLine("abc\n", 10f, 12f, ::width), 0f)
+        assertEquals(0f, EditorLogic.widestLine("\n\n", 10f, 12f, ::width), 0f)
+    }
 }
