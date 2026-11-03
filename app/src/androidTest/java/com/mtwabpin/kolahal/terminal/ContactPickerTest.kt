@@ -195,6 +195,12 @@ class ContactPickerTest {
             while (dial.hits == 0 && System.currentTimeMillis() < deadline) Thread.sleep(100)
             assertEquals(1, dial.hits)
             assertEquals("", vm.input.text)
+            // Tab takes the first suggestion as typing does: the line waits for Enter.
+            instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue("call Kolahal Test Mu")) }
+            instrumentation.runOnMainSync { vm.complete() }
+            Thread.sleep(1_000)
+            assertEquals(1, dial.hits)
+            assertEquals("call ${mum.name}", vm.input.text)
         } finally {
             config.reset(Keys.LAUNCH_INSTANT)
         }

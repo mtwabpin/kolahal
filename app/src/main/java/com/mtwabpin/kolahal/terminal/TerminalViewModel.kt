@@ -795,19 +795,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun complete() {
         val first = suggestions(input.text).firstOrNull() ?: return
         when (first) {
-            is Suggestion.Completion -> pickCompletion(first.replacement)
+            is Suggestion.Completion -> pickCompletion(first.replacement, tapped = false)
             is Suggestion.App -> setText(first.app.label)
         }
     }
 
     /** A completion fills the prompt; in `launch.instant all` a line it leaves with nothing to choose runs (`torch on`). */
-    private fun pickCompletion(replacement: String) {
+    /** [tapped]: a suggestion tapped, not taken with Tab, which is typing. */
+    private fun pickCompletion(replacement: String, tapped: Boolean) {
         setText(replacement)
         if (searchWords(replacement) != null || !replacement.trim().contains(' ')) return
-        // A contact picked for `call` opens the dialer at once, as a tap in the log does: the
+        // A contact tapped for `call` opens the dialer at once, as a tap in the log does: the
         // dialer still waits for Call. Any other line runs only once it's complete (`torch on`).
         val line = replacement.trim()
-        if (InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && runsOnTap(line)) {
+        if (tapped && InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && runsOnTap(line)) {
             setText("")
             collapseHeader()
             _events.tryEmit(UiEvent.ScrollToBottom)
@@ -823,7 +824,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 setText("")
                 io { processor.launch(s.app) }
             }
-            is Suggestion.Completion -> pickCompletion(s.replacement)
+            is Suggestion.Completion -> pickCompletion(s.replacement, tapped = true)
         }
     }
 
