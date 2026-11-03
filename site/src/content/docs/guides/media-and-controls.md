@@ -45,7 +45,7 @@ the same line, at the top of home, under the same rule. It stays while you type 
 | `torch [on\|off]` | flashlight; no argument toggles | nothing |
 | `volume [0-100\|up\|down\|mute\|unmute]` | media volume; prints the new level | nothing |
 | `ring [normal\|vibrate\|silent]` | ringer mode; no argument shows it | Do Not Disturb access for `silent` (and to leave silent) |
-| `dnd [on\|off\|alarms\|none]` | Do Not Disturb: `on` is priority only, `alarms` alarms only, `none` total silence; no argument toggles; `dnd status` shows it | Do Not Disturb access |
+| `dnd [on\|off\|alarms\|none]` | Do Not Disturb: `on` is priority only, `alarms` alarms only, `none` total silence; no argument toggles; `dnd status` shows it. Since Android 15, `off` turns off only what Kolahal turned on, and says when one turned on elsewhere stays on | Do Not Disturb access |
 | `brightness [0-100\|up\|down\|auto]` | screen brightness; a level switches adaptive brightness off, `auto` turns it on | Modify system settings |
 | `rotate [on\|off]` | auto-rotate; no argument toggles | Modify system settings |
 | `screen-timeout <15s\|30s\|1m\|5m\|…>` | screen timeout; no argument shows it | Modify system settings |
