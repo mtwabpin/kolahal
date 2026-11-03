@@ -99,12 +99,15 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         WidgetHost.get(this).startListening()
         com.mtwabpin.kolahal.status.DeviceStatus.get(this).watchBattery(true)
+        // Current from the first frame back: home is built again after Settings and the like.
+        com.mtwabpin.kolahal.ui.HomeClock.acquire(this)
     }
 
     override fun onStop() {
         super.onStop()
         WidgetHost.get(this).stopListening()
         com.mtwabpin.kolahal.status.DeviceStatus.get(this).watchBattery(false)
+        com.mtwabpin.kolahal.ui.HomeClock.release(this)
     }
 
     @Deprecated("Needed for AppWidgetHost.startAppWidgetConfigureActivityForResult, which reports here")

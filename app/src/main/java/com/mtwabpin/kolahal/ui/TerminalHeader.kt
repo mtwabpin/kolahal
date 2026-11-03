@@ -54,22 +54,78 @@ import androidx.compose.ui.semantics.semantics
 /** What a tap on a header item does. */
 enum class HeaderTarget { CLOCK, UNLOCKS, BATTERY, NETWORK, ALARM, SETTINGS, TODO }
 
+/**
+ * The clock home shows, kept once for all of it: the time a minute at a time as the system ticks it
+ * (on waking too, where a delay that slept with the phone wouldn't), today's date, and a count of
+ * time-zone changes, all new at once when the clock or the time zone is set. One set of receivers
+ * while something on screen reads it ([use]); the headers swap as the keyboard opens and the log
+ * scrolls, and each used to register its own and remove them again. MainActivity holds it while
+ * started, so it is current whenever home is built.
+ */
+internal object HomeClock {
+    private var nowState by androidx.compose.runtime.mutableStateOf(Date())
+    private var todayState by androidx.compose.runtime.mutableStateOf(java.time.LocalDate.now())
+    private var zoneState by androidx.compose.runtime.mutableIntStateOf(0)
+    private var users = 0
+    private var receiver: android.content.BroadcastReceiver? = null
+
+    // With nothing holding it, its time may be old: what's read then is the time now.
+    val now: Date get() = nowState.let { if (users == 0) Date() else it }
+    val today: java.time.LocalDate get() = todayState.let { if (users == 0) java.time.LocalDate.now() else it }
+    val zone: Int get() = zoneState
+
+    /** Main thread. The time now, whether or not a tick came while away. */
+    fun refresh() {
+        nowState = Date()
+        todayState = java.time.LocalDate.now()
+    }
+
+    /** Main thread. The first holder registers for the system's ticks. */
+    fun acquire(context: android.content.Context) {
+        if (users++ > 0) return
+        val r = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
+                if (intent.action == android.content.Intent.ACTION_TIMEZONE_CHANGED) zoneState++
+                refresh()
+            }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(android.content.Intent.ACTION_TIME_TICK)
+            addAction(android.content.Intent.ACTION_TIME_CHANGED)
+            addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        androidx.core.content.ContextCompat.registerReceiver(context.applicationContext, r, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        receiver = r
+        refresh()
+    }
+
+    /** Main thread. The last holder unregisters. */
+    fun release(context: android.content.Context) {
+        if (users == 0 || --users > 0) return
+        receiver?.let { runCatching { context.applicationContext.unregisterReceiver(it) } }
+        receiver = null
+    }
+
+    /** Holds the clock while the screen reading it is started, and makes it current on return. */
+    @Composable
+    fun use() {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        androidx.lifecycle.compose.LifecycleStartEffect(context) {
+            acquire(context)
+            onStopOrDispose { release(context) }
+        }
+        androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+            refresh()
+            onPauseOrDispose { }
+        }
+    }
+}
+
 /** Counts the phone's time-zone changes, for formatters to be made again in the new zone. */
 @Composable
 internal fun rememberZoneChanges(): Int {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var zone by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    androidx.compose.runtime.DisposableEffect(context) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
-                zone++
-            }
-        }
-        val filter = android.content.IntentFilter(android.content.Intent.ACTION_TIMEZONE_CHANGED)
-        androidx.core.content.ContextCompat.registerReceiver(context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
-        onDispose { context.unregisterReceiver(receiver) }
-    }
-    return zone
+    HomeClock.use()
+    return HomeClock.zone
 }
 
 /**
@@ -78,61 +134,18 @@ internal fun rememberZoneChanges(): Int {
  */
 @Composable
 internal fun rememberToday(): java.time.LocalDate {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var today by remember { androidx.compose.runtime.mutableStateOf(java.time.LocalDate.now()) }
-    androidx.compose.runtime.DisposableEffect(context) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
-                today = java.time.LocalDate.now()
-            }
-        }
-        val filter = android.content.IntentFilter().apply {
-            addAction(android.content.Intent.ACTION_TIME_TICK)
-            addAction(android.content.Intent.ACTION_TIME_CHANGED)
-            addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
-        }
-        androidx.core.content.ContextCompat.registerReceiver(context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
-        today = java.time.LocalDate.now()
-        onDispose { context.unregisterReceiver(receiver) }
-    }
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
-        today = java.time.LocalDate.now()
-        onPauseOrDispose { }
-    }
-    return today
+    HomeClock.use()
+    return HomeClock.today
 }
 
 /**
- * The time, a minute at a time, as the system ticks it (on waking too, where a delay that slept
- * with the phone wouldn't), and at once when the clock or the time zone is set. The second value
- * counts time-zone changes ([rememberZoneChanges]).
+ * The time, a minute at a time ([HomeClock]). The second value counts time-zone changes
+ * ([rememberZoneChanges]).
  */
 @Composable
 private fun rememberNow(): Pair<Date, Int> {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var now by remember { androidx.compose.runtime.mutableStateOf(Date()) }
-    val zone = rememberZoneChanges()
-    androidx.compose.runtime.DisposableEffect(context) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
-                now = Date()
-            }
-        }
-        val filter = android.content.IntentFilter().apply {
-            addAction(android.content.Intent.ACTION_TIME_TICK)
-            addAction(android.content.Intent.ACTION_TIME_CHANGED)
-            addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
-        }
-        androidx.core.content.ContextCompat.registerReceiver(context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
-        now = Date()
-        onDispose { context.unregisterReceiver(receiver) }
-    }
-    // Back on screen: the time now, whether or not a tick came while away.
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
-        now = Date()
-        onPauseOrDispose { }
-    }
-    return now to zone
+    HomeClock.use()
+    return HomeClock.now to HomeClock.zone
 }
 
 /**
