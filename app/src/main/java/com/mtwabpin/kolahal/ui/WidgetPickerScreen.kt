@@ -96,7 +96,7 @@ private class ProviderGroup(
 private class CardText(val label: String, val description: String?)
 
 /** Previews and icons decoded while the picker is open: a card scrolled back shows them at once. */
-private val pickerImages = object : android.util.LruCache<String, ImageBitmap>(32 * 1024 * 1024) {
+private val pickerImages = object : android.util.LruCache<String, ImageBitmap>(16 * 1024 * 1024) {
     override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
 }
 
@@ -238,17 +238,17 @@ private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, 
     val label = text.label
     val description = text.description
     val maxPx = with(LocalDensity.current) { 280.dp.roundToPx() }
-    val previewKey = "${p.flat}#${p.serial}:preview:$maxPx"
-    val preview by produceState<ImageBitmap?>(pickerImages.get(previewKey), info) {
-        if (value == null) value = withContext(Dispatchers.IO) {
+    // Kept for this provider as loaded: an update (new details) reads its pictures again.
+    val loaded = "${p.flat}#${p.serial}:${System.identityHashCode(info)}:$maxPx"
+    val preview by produceState<ImageBitmap?>(pickerImages.get("$loaded:preview"), info) {
+        value = pickerImages.get("$loaded:preview") ?: withContext(Dispatchers.IO) {
             runCatching { info.loadPreviewImage(context, 0) }.getOrNull()?.toImage(maxPx)
-        }?.also { pickerImages.put(previewKey, it) }
+        }?.also { pickerImages.put("$loaded:preview", it) }
     }
-    val iconKey = "${p.flat}#${p.serial}:icon:$maxPx"
-    val icon by produceState<ImageBitmap?>(pickerImages.get(iconKey), info) {
-        if (value == null) value = withContext(Dispatchers.IO) {
+    val icon by produceState<ImageBitmap?>(pickerImages.get("$loaded:icon"), info) {
+        value = pickerImages.get("$loaded:icon") ?: withContext(Dispatchers.IO) {
             runCatching { info.loadIcon(context, 0) }.getOrNull()?.toImage(maxPx / 3)
-        }?.also { pickerImages.put(iconKey, it) }
+        }?.also { pickerImages.put("$loaded:icon", it) }
     }
     val canLayoutPreview = Build.VERSION.SDK_INT >= 31 && info.previewLayout != 0 && p.user == Process.myUserHandle()
     Card(
