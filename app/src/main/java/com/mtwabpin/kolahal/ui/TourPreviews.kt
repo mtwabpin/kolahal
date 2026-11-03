@@ -41,7 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -155,7 +155,8 @@ private fun PreviewPrompt(text: String, enter: Boolean = false) {
     ) {
         Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold))
         Text(text, style = Term.text.copy(color = Term.fg), maxLines = 1)
-        Box(Modifier.width(2.dp).height((Term.fontSize + 4).dp).alpha(caret).background(Term.prompt))
+        // Read as the layer is drawn: the blink doesn't build the prompt again on every frame.
+        Box(Modifier.width(2.dp).height((Term.fontSize + 4).dp).graphicsLayer { alpha = caret; clip = true }.background(Term.prompt))
         Spacer(Modifier.weight(1f))
         // Enter, pressed: what `launch.instant off` waits for.
         AnimatedVisibility(enter, enter = fadeIn() + scaleIn(), exit = fadeOut()) {
