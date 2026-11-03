@@ -287,7 +287,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H])
     }
     // The day dividers depend on the zone too: the rows are built again, also for a change while another screen was up.
-    if (preview == null) LaunchedEffect(zone) { vm.onZoneChanged(told = zone > 0) }
+    // Told of a change only since this screen was built: the count is the app's, not the screen's.
+    val firstZone = remember { zone }
+    if (preview == null) LaunchedEffect(zone) { vm.onZoneChanged(told = zone != firstZone) }
     // And on the day: at midnight today's first lines need a divider, and "Yesterday" moves.
     val today = rememberToday()
     if (preview == null) LaunchedEffect(today) { vm.onDayChanged(today) }

@@ -68,6 +68,8 @@ internal object HomeClock {
     private var zoneState by androidx.compose.runtime.mutableIntStateOf(0)
     private var users = 0
     private var receiver: android.content.BroadcastReceiver? = null
+    /** The zone last seen: one changed while nothing listened (home stopped) counts on return. */
+    private var lastZone = java.util.TimeZone.getDefault().id
 
     // With nothing holding it, its time may be old: what's read then is the time now.
     val now: Date get() = nowState.let { if (users == 0) Date() else it }
@@ -85,7 +87,7 @@ internal object HomeClock {
         if (users++ > 0) return
         val r = object : android.content.BroadcastReceiver() {
             override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
-                if (intent.action == android.content.Intent.ACTION_TIMEZONE_CHANGED) zoneState++
+                if (intent.action == android.content.Intent.ACTION_TIMEZONE_CHANGED) zoneChanged()
                 refresh()
             }
         }
@@ -96,7 +98,13 @@ internal object HomeClock {
         }
         androidx.core.content.ContextCompat.registerReceiver(context.applicationContext, r, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         receiver = r
+        if (java.util.TimeZone.getDefault().id != lastZone) zoneChanged()
         refresh()
+    }
+
+    private fun zoneChanged() {
+        lastZone = java.util.TimeZone.getDefault().id
+        zoneState++
     }
 
     /** Main thread. The last holder unregisters. */
