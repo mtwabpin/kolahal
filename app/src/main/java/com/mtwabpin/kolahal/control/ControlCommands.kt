@@ -259,8 +259,26 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         }
         if (needPolicyAccess("dnd")) return
         runCatching { notifications.setInterruptionFilter(filter) }
-            .onSuccess { info("Do Not Disturb ${dndLabel(filter)}", LogContext.of(LogContext.RUN to "dnd")) }
+            .onSuccess {
+                // Since Android 15, Kolahal turns off only its own Do Not Disturb: one turned on
+                // elsewhere (quick settings, a schedule, another app) stays on.
+                if (filter == NotificationManager.INTERRUPTION_FILTER_ALL && !turnsOff()) {
+                    error("Do Not Disturb is still on: it was turned on outside Kolahal, so turn it off there", LogContext.of(LogContext.RUN to "dnd"))
+                } else {
+                    info("Do Not Disturb ${dndLabel(filter)}", LogContext.of(LogContext.RUN to "dnd"))
+                }
+            }
             .onFailure { error("Do Not Disturb: ${it.message}") }
+    }
+
+    /** Whether Do Not Disturb is off within a second: Android applies a change a moment after it's asked. */
+    private fun turnsOff(): Boolean {
+        val until = System.currentTimeMillis() + DND_SETTLE_MS
+        while (notifications.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) {
+            if (System.currentTimeMillis() >= until) return false
+            Thread.sleep(50)
+        }
+        return true
     }
 
     // ---- system settings (WRITE_SETTINGS) -------------------------------------------------
@@ -392,6 +410,9 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     }
 
     companion object {
+        /** How long `dnd off` waits for Android to apply it before saying it stayed on. */
+        private const val DND_SETTLE_MS = 1_000L
+
         val SPECS = listOf(
             CommandSpec("media", "media [play|pause|toggle|next|prev|stop]", "Now playing, or control it (needs notification access)"),
             CommandSpec("mp", "mp", "Play / pause media"),

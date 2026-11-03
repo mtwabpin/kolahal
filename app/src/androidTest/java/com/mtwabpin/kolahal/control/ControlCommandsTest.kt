@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.control
 
 import android.app.NotificationManager
 import android.media.AudioManager
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,6 +18,7 @@ import com.mtwabpin.kolahal.terminal.TerminalUi
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,7 +54,6 @@ class ControlCommandsTest {
     private var muted = false
     private var ringer = 0
     private var policy = false
-    private var filter = 0
     private var brightness = 0
     private var brightnessMode = 0
     private var rotation = 0
@@ -65,7 +66,6 @@ class ControlCommandsTest {
         muted = audio.isStreamMute(AudioManager.STREAM_MUSIC)
         ringer = audio.ringerMode
         policy = notifications.isNotificationPolicyAccessGranted
-        filter = notifications.currentInterruptionFilter
         brightness = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 128)
         brightnessMode = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, 0)
         rotation = Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0)
@@ -83,7 +83,10 @@ class ControlCommandsTest {
         Settings.System.putLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT, timeout)
         shell("appops set $pkg WRITE_SETTINGS $writeMode")
         shell("cmd notification allow_dnd $pkg")
-        runCatching { notifications.setInterruptionFilter(filter) }
+        // Off, not as it was: one left on by an earlier run would become Kolahal's own, which
+        // the shell can't turn off.
+        shell("cmd notification set_dnd off")
+        runCatching { notifications.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL) }
         runCatching { audio.ringerMode = ringer }
         if (!policy) shell("cmd notification disallow_dnd $pkg")
         audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
@@ -99,6 +102,12 @@ class ControlCommandsTest {
     }
 
     private fun run(line: String) = lines(line).map { it.text }
+
+    private fun waitUntil(what: String, check: () -> Boolean) {
+        val until = System.currentTimeMillis() + 5_000
+        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
+        assertTrue(what, check())
+    }
 
     @Test fun volumeSetsAndSaysTheLevel() {
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -134,7 +143,7 @@ class ControlCommandsTest {
         shell("cmd notification disallow_dnd $pkg")
         assertEquals("dnd needs Do Not Disturb access — tap to allow it", run("dnd on").single())
         shell("cmd notification allow_dnd $pkg")
-        runCatching { notifications.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL) }
+        dndOff()
         assertEquals(listOf("Do Not Disturb off"), run("dnd status"))
         for ((arg, said) in listOf("on" to "on (priority only)", "alarms" to "on (alarms only)", "none" to "on (total silence)", "off" to "off")) {
             assertEquals(arg, listOf("Do Not Disturb $said"), run("dnd $arg"))
@@ -143,6 +152,31 @@ class ControlCommandsTest {
         assertEquals(listOf("Do Not Disturb on (priority only)"), run("dnd"))
         assertEquals(listOf("Do Not Disturb off"), run("dnd toggle"))
         assertTrue(run("dnd maybe").single().startsWith("Usage: dnd"))
+    }
+
+    /** Since Android 15, Do Not Disturb turned on outside Kolahal stays on: `dnd off` says so, not "off". */
+    @Test fun dndOffSaysWhenItStaysOn() {
+        assumeTrue("Android 15 and later keep the user's own", Build.VERSION.SDK_INT >= 35)
+        shell("cmd notification allow_dnd $pkg")
+        dndOff()
+        try {
+            shell("cmd notification set_dnd priority")
+            waitUntil("on from outside") { notifications.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_PRIORITY }
+            val said = lines("dnd off").single()
+            assertEquals(LogKind.ERROR, said.kind)
+            assertEquals("Do Not Disturb is still on: it was turned on outside Kolahal, so turn it off there", said.text)
+            // Toggling from on tries off, and says the same.
+            assertEquals(listOf(said.text), run("dnd"))
+        } finally {
+            dndOff()
+        }
+    }
+
+    /** Off both ways: the shell's (yours) and Kolahal's own, which since Android 15 is a mode of its own. */
+    private fun dndOff() {
+        shell("cmd notification set_dnd off")
+        runCatching { notifications.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL) }
+        waitUntil("Do Not Disturb off") { notifications.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL }
     }
 
     /** Brightness, auto-rotate and the screen timeout need "modify system settings", and say so without it. */
@@ -179,9 +213,10 @@ class ControlCommandsTest {
     /** Without notification access there's no media session to control: it says how to allow it. */
     @Test fun mediaNeedsNotificationAccess() {
         val listener = "$pkg/com.mtwabpin.kolahal.notifications.KolahalNotificationListener"
-        val had = shell("cmd notification list_listeners").contains(listener)
+        val had = com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context)
         try {
             shell("cmd notification disallow_listener $listener")
+            waitUntil("access off") { !com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context) }
             for (line in listOf("media", "mp", "next")) {
                 val asked = lines(line).single()
                 assertEquals(line, "Media control needs notification access — tap to allow it", asked.text)
