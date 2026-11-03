@@ -59,7 +59,7 @@ fun SetupScreen(vm: TerminalViewModel) {
             },
             bottomBar = {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
-                    Button(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen) { Text(if (done == checks.size) "Done" else "Continue to terminal") }
+                    Button(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen) { Text(if (checks.isNotEmpty() && done == checks.size) "Done" else "Continue to terminal") }
                 }
             },
         ) { padding ->
