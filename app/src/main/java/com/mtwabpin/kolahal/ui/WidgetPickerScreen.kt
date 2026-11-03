@@ -28,7 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,6 +44,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,7 +88,17 @@ private class ProviderGroup(
     val providers: List<ProviderEntry>,
     /** [providers]' labels in lowercase, loaded once for the search. */
     val names: List<String>,
+    /** What [providers]' cards say, loaded with them off the main thread. */
+    val texts: List<CardText>,
 )
+
+/** A widget's name and, from Android 12, its description. */
+private class CardText(val label: String, val description: String?)
+
+/** Previews and icons decoded while the picker is open: a card scrolled back shows them at once. */
+private val pickerImages = object : android.util.LruCache<String, ImageBitmap>(32 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
+}
 
 private fun Drawable.toImage(maxPx: Int): ImageBitmap? = runCatching {
     val w = intrinsicWidth.takeIf { it > 0 } ?: maxPx
@@ -106,8 +117,12 @@ private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Pro
         val label = ai?.let { pm.getApplicationLabel(it).toString() } ?: pkg
         val icon = ai?.let { runCatching { pm.getUserBadgedIcon(pm.getApplicationIcon(it), user) }.getOrNull() }?.toImage(iconPx)
         val kind = profiles.firstOrNull { it.serial == serial }?.kind?.takeIf { it != ProfileKind.PERSONAL }
-        val named = list.map { it to it.info.loadLabel(pm).toString().lowercase() }.sortedBy { it.second }
-        ProviderGroup("$pkg:$serial", label, icon, kind, named.map { it.first }, named.map { it.second })
+        val named = list.map { p ->
+            val name = p.info.loadLabel(pm).toString()
+            val description = if (Build.VERSION.SDK_INT >= 31) runCatching { p.info.loadDescription(context)?.toString() }.getOrNull() else null
+            Triple(p, name.lowercase(), CardText(name, description))
+        }.sortedBy { it.second }
+        ProviderGroup("$pkg:$serial", label, icon, kind, named.map { it.first }, named.map { it.second }, named.map { it.third })
     }.sortedWith(compareBy({ it.label.lowercase() }, { it.work?.ordinal ?: -1 }))
 }
 
@@ -132,6 +147,8 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     // Each waiting message once, oldest first, whichever widget screen is open.
     LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
     BackHandler { vm.closeScreen() }
+    // Its pictures are let go with it.
+    DisposableEffect(Unit) { onDispose { pickerImages.evictAll() } }
 
     GuiTheme {
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -154,7 +171,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                     if (q.isEmpty()) all else all.mapNotNull { g ->
                         if (g.label.lowercase().contains(q)) g
                         else g.providers.indices.filter { g.names[it].contains(q) }
-                            .takeIf { it.isNotEmpty() }?.let { found -> ProviderGroup(g.key, g.label, g.icon, g.work, found.map(g.providers::get), found.map(g.names::get)) }
+                            .takeIf { it.isNotEmpty() }?.let { found -> ProviderGroup(g.key, g.label, g.icon, g.work, found.map(g.providers::get), found.map(g.names::get), found.map(g.texts::get)) }
                     }
                 }
             }
@@ -191,7 +208,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                     }
                     else -> shown.forEach { g ->
                         item(key = "g:${g.key}") { AppHeader(g) }
-                        items(g.providers, key = { "p:${g.key}:${it.flat}" }) { p -> ProviderCard(p, widgets) { onPick(p) } }
+                        itemsIndexed(g.providers, key = { _, p -> "p:${g.key}:${p.flat}" }) { i, p -> ProviderCard(p, g.texts[i], widgets) { onPick(p) } }
                     }
                 }
             }
@@ -215,19 +232,23 @@ private fun AppHeader(g: ProviderGroup) {
 }
 
 @Composable
-private fun ProviderCard(p: ProviderEntry, widgets: WidgetHost, onClick: () -> Unit) {
+private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, onClick: () -> Unit) {
     val context = LocalContext.current
     val info = p.info
-    val label = remember(info) { info.loadLabel(context.packageManager) }
-    val description = remember(info) { if (Build.VERSION.SDK_INT >= 31) info.loadDescription(context)?.toString() else null }
+    val label = text.label
+    val description = text.description
     val maxPx = with(LocalDensity.current) { 280.dp.roundToPx() }
-    val preview by produceState<ImageBitmap?>(null, info) {
-        value = withContext(Dispatchers.IO) {
+    val previewKey = "${p.flat}#${p.serial}:preview:$maxPx"
+    val preview by produceState<ImageBitmap?>(pickerImages.get(previewKey), info) {
+        if (value == null) value = withContext(Dispatchers.IO) {
             runCatching { info.loadPreviewImage(context, 0) }.getOrNull()?.toImage(maxPx)
-        }
+        }?.also { pickerImages.put(previewKey, it) }
     }
-    val icon by produceState<ImageBitmap?>(null, info) {
-        value = withContext(Dispatchers.IO) { runCatching { info.loadIcon(context, 0) }.getOrNull()?.toImage(maxPx / 3) }
+    val iconKey = "${p.flat}#${p.serial}:icon:$maxPx"
+    val icon by produceState<ImageBitmap?>(pickerImages.get(iconKey), info) {
+        if (value == null) value = withContext(Dispatchers.IO) {
+            runCatching { info.loadIcon(context, 0) }.getOrNull()?.toImage(maxPx / 3)
+        }?.also { pickerImages.put(iconKey, it) }
     }
     val canLayoutPreview = Build.VERSION.SDK_INT >= 31 && info.previewLayout != 0 && p.user == Process.myUserHandle()
     Card(
