@@ -64,14 +64,21 @@ class WidgetHost private constructor(context: Context) {
      * What [cachedInfo] read for each id. Read again after each start ([startListening]: providers
      * may have changed while nothing listened), when providers change, and for an id placed or let go.
      */
-    private val infos = HashMap<Int, AppWidgetProviderInfo?>()
+    private val infos = HashMap<Int, AppWidgetProviderInfo>()
 
     /**
      * Views by id, kept for a return to home: home is built again after a full-screen page (Settings,
      * Widgets), and a kept view saves asking the widget's app for its content and inflating it again.
-     * Only a view made in the same activity, for the same details, is used again.
+     * Only a view made in the same activity, for the same details and the same configuration (dark
+     * mode, density, orientation, font size and language, which the activity handles itself), is used again.
      */
-    private val views = HashMap<Int, Pair<AppWidgetHostView, AppWidgetProviderInfo>>()
+    private val views = HashMap<Int, Kept>()
+
+    private class Kept(val view: AppWidgetHostView, val info: AppWidgetProviderInfo, val config: String)
+
+    private fun configOf(context: Context) = context.resources.configuration.let {
+        "${it.uiMode}:${it.densityDpi}:${it.orientation}:${it.fontScale}:${it.locales.toLanguageTags()}"
+    }
 
     private fun forgetInfos() = synchronized(infos) { infos.clear() }
 
@@ -210,7 +217,8 @@ class WidgetHost private constructor(context: Context) {
 
     /** [info] as last read for [id], since this start or the last change of providers: screens ask while they're built. */
     fun cachedInfo(id: Int): AppWidgetProviderInfo? = synchronized(infos) {
-        if (id in infos) infos[id] else info(id).also { infos[id] = it }
+        // A missing one isn't kept: it's asked for again, as an app being updated comes back.
+        infos[id] ?: info(id)?.also { infos[id] = it }
     }
 
     /**
@@ -218,19 +226,20 @@ class WidgetHost private constructor(context: Context) {
      * Widgets page showed it, or a new one from the host, which then gets the widget's updates.
      */
     fun view(context: Context, id: Int, info: AppWidgetProviderInfo): AppWidgetHostView = synchronized(views) {
-        views[id]?.let { (view, madeFor) ->
-            if (view.context === context && madeFor === info) {
+        val config = configOf(context)
+        views[id]?.let { kept ->
+            if (kept.view.context === context && kept.info === info && kept.config == config) {
                 // Still inside the holder of the screen that showed it last, which is gone.
-                (view.parent as? android.view.ViewGroup)?.removeView(view)
-                return view
+                (kept.view.parent as? android.view.ViewGroup)?.removeView(kept.view)
+                return kept.view
             }
         }
-        host.createView(context, id, info).also { views[id] = it to info }
+        host.createView(context, id, info).also { views[id] = Kept(it, info, config) }
     }
 
     /** Lets go of the views made in [context], an activity being destroyed. */
     fun releaseViews(context: Context) = synchronized(views) {
-        views.values.removeAll { (view, _) -> view.context === context }
+        views.values.removeAll { it.view.context === context }
     }
 
     fun serialOf(user: UserHandle): Long = userManager.getSerialNumberForUser(user)
