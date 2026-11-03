@@ -12,8 +12,21 @@ import kotlin.math.abs
  * `new york`, `sao paulo`), a zone id (`Asia/Tokyo`), `utc`, or an offset like `+5:30`.
  */
 object WorldClock {
-    /** A zone and how it is shown: `America/New_York` → "New York". */
-    data class Place(val name: String, val zone: ZoneId)
+    /**
+     * A zone and how it is shown: `America/New_York` → "New York". A zone named by its id is loaded
+     * when first used: loading every zone's rules for the list of places took a frame's worth of time
+     * many times over, on the first place typed.
+     */
+    class Place private constructor(val name: String, private val id: String?, private val fixed: ZoneId?) {
+        constructor(name: String, zone: ZoneId) : this(name, null, zone)
+        constructor(name: String, id: String) : this(name, id, null)
+
+        val zone: ZoneId by lazy { fixed ?: ZoneId.of(id) }
+
+        override fun equals(other: Any?) = other is Place && other.name == name && other.zone == zone
+        override fun hashCode() = 31 * name.hashCode() + zone.hashCode()
+        override fun toString() = "Place(name=$name, zone=$zone)"
+    }
 
     /** What one place prints: its name, and its time with how far ahead or behind it is. */
     data class Line(val place: String, val detail: String)
@@ -25,7 +38,7 @@ object WorldClock {
         ZoneId.getAvailableZoneIds().asSequence()
             .filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }
             .sortedWith(compareBy({ it.length }, { it }))
-            .map { Place(it.substringAfterLast('/').replace('_', ' '), ZoneId.of(it)) }
+            .map { Place(it.substringAfterLast('/').replace('_', ' '), id = it) }
             .distinctBy { key(it.name) }
             .sortedBy { it.name }
             .toList()
