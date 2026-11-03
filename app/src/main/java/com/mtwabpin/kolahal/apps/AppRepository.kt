@@ -257,22 +257,7 @@ class AppRepository private constructor(private val context: Context) {
         var frecency = 0.0
     }
 
-    private fun score(app: AppEntry, q: String): Int? = when {
-        app.lower == q -> 0
-        // Its package, or package/activity, names one app exactly: how two apps of one name are told apart.
-        app.lowerPkg == q || app.lowerComponent == q -> 0
-        app.lower.startsWith(q) -> 1
-        app.words.any { it.startsWith(q) } -> 2
-        app.lower.contains(q) -> 3
-        isSubsequence(q, app.lower) -> 4
-        else -> null
-    }
-
-    private fun isSubsequence(q: String, s: String): Boolean {
-        var i = 0
-        for (ch in s) if (i < q.length && ch == q[i]) i++
-        return i == q.length
-    }
+    private fun score(app: AppEntry, q: String): Int? = tierOf(app.lower, app.words, app.lowerPkg, app.lowerComponent, q)
 
     fun launch(app: AppEntry) {
         launcherApps.startMainActivity(app.component, app.profile.user, null, null)
@@ -330,6 +315,28 @@ class AppRepository private constructor(private val context: Context) {
     }
 
     companion object {
+        /**
+         * How [q] matches an app by its folded label ([lower]), the label's [words], its package and
+         * package/activity: 0 exact, 1 prefix, 2 word prefix, 3 substring, 4 subsequence, null not at
+         * all. A slip ([Fuzzy.slip], tier 5) is tried only when nothing matched this way.
+         */
+        internal fun tierOf(lower: String, words: List<String>, lowerPkg: String, lowerComponent: String, q: String): Int? = when {
+            lower == q -> 0
+            // Its package, or package/activity, names one app exactly: how two apps of one name are told apart.
+            lowerPkg == q || lowerComponent == q -> 0
+            lower.startsWith(q) -> 1
+            words.any { it.startsWith(q) } -> 2
+            lower.contains(q) -> 3
+            isSubsequence(q, lower) -> 4
+            else -> null
+        }
+
+        private fun isSubsequence(q: String, s: String): Boolean {
+            var i = 0
+            for (ch in s) if (i < q.length && ch == q[i]) i++
+            return i == q.length
+        }
+
         /** The tier of a match that is only a slip of the thumb ([Fuzzy.slip]). */
         private const val SLIP = 5
 

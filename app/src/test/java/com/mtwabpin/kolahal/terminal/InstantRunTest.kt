@@ -8,21 +8,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstantRunTest {
-    private val apps = listOf("Groww", "Grove", "Settings", "Calendar", "Camera", "YouTube", "youtube")
+    private val apps = listOf("Groww", "Grove", "Settings", "Calendar", "Camera", "YouTube", "youtube", "Google Maps")
     private val commands = mapOf(
         "settings" to "settings", "setup" to "setup [text]", "call" to "call <name|number>",
         "help" to "help", "history" to "history", "home" to "home", "theme" to "theme <name>", "system" to "system",
     )
 
-    /** Same tiers as AppRepository.score, enough for these cases. */
-    private fun ranked(q: String) = apps.mapNotNull { a ->
-        val l = a.lowercase()
-        when {
-            l == q -> a to 0
-            l.startsWith(q) -> a to 1
-            l.contains(q) -> a to 3
-            else -> null
+    /** As app search ranks them ([AppRepository.tierOf]), with slips only when nothing else matched. */
+    private fun ranked(q: String): List<Pair<String, Int>> {
+        fun words(l: String) = l.split(' ', '-', '_', '.')
+        val matched = apps.mapNotNull { a ->
+            val l = com.mtwabpin.kolahal.apps.Fuzzy.fold(a)
+            com.mtwabpin.kolahal.apps.AppRepository.tierOf(l, words(l), "", "", q)?.let { a to it }
         }
+        return matched.ifEmpty {
+            apps.filter { a -> com.mtwabpin.kolahal.apps.Fuzzy.fold(a).let { com.mtwabpin.kolahal.apps.Fuzzy.slip(q, listOf(it) + words(it)) } }.map { it to 5 }
+        }.sortedBy { it.second }
     }
 
     private fun target(text: String, mode: String = InstantRun.ALL, aliases: Map<String, String> = emptyMap()) =
@@ -208,5 +209,20 @@ class InstantRunTest {
         assertFalse(InstantRun.isSensitive("help", aliases))
         // A cycle deeper than the dispatcher expands is refused.
         assertTrue(InstantRun.isSensitive("a", mapOf("a" to "b", "b" to "a")))
+    }
+
+    /**
+     * Only prefix matches launch: a word of the name (`maps` for Google Maps) does, but a part of
+     * one (`ndar`), letters in order (`cmr`) or a slip (`cmaera`) only suggest.
+     */
+    @Test fun onlyPrefixMatchesLaunch() {
+        assertEquals(listOf("Google Maps" to 2), ranked("maps"))
+        assertEquals(Target.App("Google Maps"), target("maps"))
+        assertEquals(listOf("Calendar" to 3), ranked("ndar"))
+        assertNull(target("ndar"))
+        assertEquals(listOf("Camera" to 4), ranked("cmr"))
+        assertNull(target("cmr"))
+        assertEquals(listOf("Camera" to 5), ranked("cmaera"))
+        assertNull(target("cmaera"))
     }
 }
