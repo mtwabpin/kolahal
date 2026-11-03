@@ -114,17 +114,17 @@ internal object HomeClock {
         receiver = null
     }
 
-    /** Holds the clock while the screen reading it is started, and makes it current on return. */
+    /**
+     * Holds the clock while the screen reading it is started. The first holder makes it current
+     * ([acquire]); one coming while it's held finds it current, as ticks keep it: a header swapped in
+     * (the keyboard, the log scrolled) doesn't set the time again, which built both headers again.
+     */
     @Composable
     fun use() {
         val context = androidx.compose.ui.platform.LocalContext.current
         androidx.lifecycle.compose.LifecycleStartEffect(context) {
             acquire(context)
             onStopOrDispose { release(context) }
-        }
-        androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
-            refresh()
-            onPauseOrDispose { }
         }
     }
 }
