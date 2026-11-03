@@ -182,25 +182,48 @@ class ContactPickerTest {
         try {
             lateinit var vm: TerminalViewModel
             instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
-            val picked = Suggestion.Completion("call ${mum.name}", "call ${mum.name}")
+            // The rows the prompt shows for what's typed, as a tap or Tab takes them.
+            fun callRows(typed: String): List<Suggestion.Completion> {
+                instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue(typed)) }
+                // A contact's rows, not earlier lines from the history.
+                return vm.suggestions(typed).filterIsInstance<Suggestion.Completion>()
+                    .filter { it.replacement.startsWith("call ") && it.icon == com.mtwabpin.kolahal.R.drawable.ic_person }
+            }
+            fun tap(row: Suggestion.Completion) = instrumentation.runOnMainSync { vm.onSuggestion(row) }
+            fun waitForDials(n: Int) {
+                val deadline = System.currentTimeMillis() + 5_000
+                while (dial.hits < n && System.currentTimeMillis() < deadline) Thread.sleep(100)
+            }
             // With launch.instant off it waits for Enter, as before.
             config.set(Keys.LAUNCH_INSTANT, "off")
-            instrumentation.runOnMainSync { vm.onSuggestion(picked) }
+            val row = callRows("call Kolahal Test Mu").first()
+            assertEquals("call ${mum.name}", row.replacement)
+            tap(row)
             Thread.sleep(1_000)
             assertEquals(0, dial.hits)
             assertEquals("call ${mum.name}", vm.input.text)
+            // With launch.instant all a tap opens the dialer.
             config.set(Keys.LAUNCH_INSTANT, "all")
-            instrumentation.runOnMainSync { vm.onSuggestion(picked) }
-            val deadline = System.currentTimeMillis() + 5_000
-            while (dial.hits == 0 && System.currentTimeMillis() < deadline) Thread.sleep(100)
+            tap(callRows("call Kolahal Test Mu").first())
+            waitForDials(1)
             assertEquals(1, dial.hits)
             assertEquals("", vm.input.text)
-            // Tab takes the first suggestion as typing does: the line waits for Enter.
-            instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue("call Kolahal Test Mu")) }
+            // Tab takes the first row as typing does: the line waits for Enter.
+            callRows("call Kolahal Test Mu")
             instrumentation.runOnMainSync { vm.complete() }
             Thread.sleep(1_000)
             assertEquals(1, dial.hits)
             assertEquals("call ${mum.name}", vm.input.text)
+            // A name with two numbers: each row stands for a number, and dials that one.
+            val work = contact(mum.name, "+15550122")
+            contacts.remember(listOf(mum, work))
+            val rows = callRows("call Kolahal Test Mu")
+            assertEquals(setOf("call ${mum.number}", "call ${work.number}"), rows.map { it.replacement }.toSet())
+            val before = logs.maxId()
+            tap(rows.first { it.replacement == "call ${work.number}" })
+            waitForDials(2)
+            assertEquals(2, dial.hits)
+            assertTrue(logs.recent(20).any { it.id > before && it.text == "Dialing ${work.number}" })
         } finally {
             config.reset(Keys.LAUNCH_INSTANT)
         }
