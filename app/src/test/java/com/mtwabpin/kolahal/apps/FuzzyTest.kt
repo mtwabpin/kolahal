@@ -83,4 +83,16 @@ class FuzzyTest {
             assertEquals("$a / ${b.take(n)}", tableDistance(a, b.take(n)), Fuzzy.distance(a, b, n))
         }
     }
+
+    /** One table for every length of the name finds the slips a table for each length found. */
+    @Test fun slipAgreesWithATablePerLength() {
+        val r = kotlin.random.Random(11)
+        repeat(5_000) {
+            val q = String(CharArray(r.nextInt(4, 10)) { "abcd"[r.nextInt(4)] })
+            val name = String(CharArray(r.nextInt(0, 12)) { "abcd"[r.nextInt(4)] })
+            val max = if (q.length >= 8) 2 else 1
+            val before = (q.length - max..q.length + max).any { n -> n in 1..name.length && tableDistance(q, name.take(n)) <= max }
+            assertEquals("$q / $name", before, Fuzzy.slip(q, listOf(name)))
+        }
+    }
 }

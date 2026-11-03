@@ -57,6 +57,8 @@ data class AppEntry(
     /** For search, worked out once per list load instead of on every keystroke: lowercase, accents aside. */
     internal val lower: String = Fuzzy.fold(label)
     internal val words: List<String> = lower.split(' ', '-', '_', '.')
+    /** What a slip is checked against ([Fuzzy.slip]): the label, then its words. */
+    internal val names: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { listOf(lower) + words }
 
     /** Its package and package/activity in lowercase, which also name it in a search: worked out at the first. */
     internal val lowerPkg: String by lazy(LazyThreadSafetyMode.PUBLICATION) { pkg.lowercase() }
@@ -216,7 +218,7 @@ class AppRepository private constructor(private val context: Context) {
         // Slips only when nothing matches as typed: they never crowd out a real match, or stop
         // the only match from launching (launch.single).
         return (candidates.mapNotNull { app -> score(app, q)?.let { Ranked(app, it) } }.toList()
-            .ifEmpty { candidates.filter { Fuzzy.slip(q, listOf(it.lower) + it.words) }.map { Ranked(it, SLIP) }.toList() })
+            .ifEmpty { candidates.filter { Fuzzy.slip(q, it.names) }.map { Ranked(it, SLIP) }.toList() })
             // Frecency is read once per match, not on every comparison.
             .onEach { it.frecency = prefs.frecency(it.app.key, now) }
             .sortedWith(

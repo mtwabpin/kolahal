@@ -23,6 +23,9 @@ object WorldClock {
 
         val zone: ZoneId by lazy { fixed ?: ZoneId.of(id) }
 
+        /** Its name as typing matches it ([key]): worked out once, not for every place on every key. */
+        internal val folded: String by lazy(LazyThreadSafetyMode.PUBLICATION) { key(name) }
+
         override fun equals(other: Any?) = other is Place && other.name == name && other.zone == zone
         override fun hashCode() = 31 * name.hashCode() + zone.hashCode()
         override fun toString() = "Place(name=$name, zone=$zone)"
@@ -39,7 +42,7 @@ object WorldClock {
             .filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }
             .sortedWith(compareBy({ it.length }, { it }))
             .map { Place(it.substringAfterLast('/').replace('_', ' '), id = it) }
-            .distinctBy { key(it.name) }
+            .distinctBy { it.folded }
             .sortedBy { it.name }
             .toList()
     }
@@ -59,7 +62,7 @@ object WorldClock {
             val sign = if (m.groupValues[1] == "-") -1 else 1
             return Place("UTC$q", ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes))
         }
-        places.firstOrNull { key(it.name) == k }?.let { return it }
+        places.firstOrNull { it.folded == k }?.let { return it }
         if ('/' in q) {
             val id = q.replace(' ', '_')
             ZoneId.getAvailableZoneIds().firstOrNull { it.equals(id, ignoreCase = true) }
@@ -72,7 +75,7 @@ object WorldClock {
     fun suggest(prefix: String, limit: Int = 12): List<Place> {
         val p = key(prefix)
         if (p.isEmpty()) return emptyList()
-        return places.filter { key(it.name).startsWith(p) && key(it.name) != p }.take(limit)
+        return places.filter { it.folded.startsWith(p) && it.folded != p }.take(limit)
     }
 
     /**

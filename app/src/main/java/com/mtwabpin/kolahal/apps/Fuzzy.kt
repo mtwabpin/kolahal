@@ -18,16 +18,24 @@ internal object Fuzzy {
         if (q.length < 4) return false
         val max = if (q.length >= 8) 2 else 1
         return names.any { name ->
-            (q.length - max..q.length + max).any { n -> n in 1..name.length && distance(q, name, n) <= max }
+            // One table for every length: its last row holds the edits to each start of the name.
+            val longest = minOf(name.length, q.length + max)
+            longest >= 1 && lastRow(q, name, longest).let { last -> (maxOf(1, q.length - max)..longest).any { n -> last[n] <= max } }
         }
     }
 
     /**
      * Edits from [a] to the first [bLength] letters of [b], a swap of two neighbours counting as one
-     * (optimal string alignment). Three rows of the table at a time: app search asks for a slip
-     * against every name, a few times each, on a key that matches nothing.
+     * (optimal string alignment).
      */
-    fun distance(a: String, b: String, bLength: Int = b.length): Int {
+    fun distance(a: String, b: String, bLength: Int = b.length): Int = lastRow(a, b, bLength)[bLength]
+
+    /**
+     * The table's last row for [a] against the first [bLength] letters of [b]: at n, the edits from [a]
+     * to the first n letters. Three rows at a time: app search asks for a slip against every name on a
+     * key that matches nothing.
+     */
+    private fun lastRow(a: String, b: String, bLength: Int): IntArray {
         var older = IntArray(bLength + 1)
         var prev = IntArray(bLength + 1) { it }
         var row = IntArray(bLength + 1)
@@ -43,6 +51,6 @@ internal object Fuzzy {
             prev = row
             row = spare
         }
-        return prev[bLength]
+        return prev
     }
 }
