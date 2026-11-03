@@ -18,14 +18,20 @@ object TimeSpec {
     fun parseDuration(raw: String, bareMinutes: Boolean = false): Long? {
         val s = raw.trim().lowercase()
         if (s.isEmpty()) return null
-        if (s.all { it.isDigit() }) return if (bareMinutes) s.toLongOrNull()?.takeIf { it > 0 }?.times(60) else null
+        if (s.all { it.isDigit() }) return if (bareMinutes) s.toLongOrNull()?.takeIf { it in 1..MAX_DURATION_S / 60 }?.times(60) else null
         val m = DURATION.find(s) ?: return null
         val (d, h, min, sec) = m.destructured
         if (d.isEmpty() && h.isEmpty() && min.isEmpty() && sec.isEmpty()) return null
-        val total = (d.toLongOrNull() ?: 0) * 86_400 + (h.toLongOrNull() ?: 0) * 3_600 +
-            (min.toLongOrNull() ?: 0) * 60 + (sec.toLongOrNull() ?: 0)
-        return total.takeIf { it > 0 }
+        // Each part at most [MAX_DURATION_S]: bigger ones wrapped round to a few hours, or later
+        // made a time past what a date can hold.
+        fun part(digits: String, unit: Long) = if (digits.isEmpty()) 0L else digits.toLongOrNull()?.takeIf { it <= MAX_DURATION_S / unit }?.times(unit)
+        val total = (part(d, 86_400) ?: return null) + (part(h, 3_600) ?: return null) +
+            (part(min, 60) ?: return null) + (part(sec, 1) ?: return null)
+        return total.takeIf { it in 1..MAX_DURATION_S }
     }
+
+    /** The longest duration taken: a hundred years. */
+    const val MAX_DURATION_S = 100L * 366 * 86_400
 
     /** "18:30", "9:05", "6pm", "6:30pm"; a bare hour ("9") only when [allowBareHour]. */
     fun parseClock(raw: String, allowBareHour: Boolean = false): LocalTime? {
@@ -194,7 +200,8 @@ object TimeSpec {
                 if (day?.yearGiven == true || (day == null && looksLikeDate(tokens))) return null
                 if (day != null) j = 2 + day.used
                 val d = day?.date ?: today
-                "year:%02d-%02d".format(d.monthValue, d.dayOfMonth)
+                // In plain digits whatever the phone's language: the rule is stored and read back.
+                String.format(java.util.Locale.ROOT, "year:%02d-%02d", d.monthValue, d.dayOfMonth)
             }
             else -> head.split(',').map { weekday(it) ?: return null }.distinct().sorted()
                 .joinToString(",") { it.name.lowercase().take(3) }

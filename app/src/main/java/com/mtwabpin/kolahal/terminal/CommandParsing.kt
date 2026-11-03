@@ -38,8 +38,9 @@ object CommandParsing {
         if (s == null) return null
         if (s == "off" || s == "0" || s == "manual") return 0
         val m = Regex("^(\\d+)([mhd]?)$").find(s.lowercase()) ?: return null
-        // Long, then capped: `1500000d` must be rejected, not wrap to a negative "timer off".
-        val n = m.groupValues[1].toLongOrNull() ?: return null
+        // Capped before it's multiplied: `1500000d` must be rejected, not wrap to a negative
+        // "timer off", nor a number so big it wraps round to a few hours.
+        val n = m.groupValues[1].toLongOrNull()?.takeIf { it <= MAX_INTERVAL_MIN } ?: return null
         val minutes = when (m.groupValues[2]) {
             "h" -> n * 60
             "d" -> n * 60 * 24

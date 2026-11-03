@@ -37,4 +37,17 @@ class CommandParsingTest {
         assertEquals("2h", CommandParsing.formatInterval(120))
         assertEquals("1d", CommandParsing.formatInterval(1440))
     }
+
+    /** A week at most; a number too big to multiply is refused, not wrapped round to some other time. */
+    @Test fun anIntervalPastAWeekIsRefused() {
+        assertEquals(10_080, CommandParsing.parseInterval("7d"))
+        assertEquals(10_080, CommandParsing.parseInterval("10080"))
+        assertNull(CommandParsing.parseInterval("8d"))
+        assertNull(CommandParsing.parseInterval("10081"))
+        assertNull(CommandParsing.parseInterval("1500000d"))
+        // These used to wrap: to 352 minutes, and to a negative number read as "off".
+        assertNull(CommandParsing.parseInterval("6405119470038039d"))
+        assertNull(CommandParsing.parseInterval("10000000000000000d"))
+        assertNull(CommandParsing.parseInterval("99999999999999999999"))
+    }
 }

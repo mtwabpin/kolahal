@@ -67,4 +67,12 @@ class ControlArgsTest {
         assertEquals(listOf("play" to "media play", "pause" to "media pause", "prev" to "media prev"), ControlCommands.suggest("media", "p"))
         assertEquals(emptyList<Pair<String, String>>(), ControlCommands.suggest("torch", "on"))
     }
+
+    /** A number too big to multiply is refused, not wrapped round to a few minutes. */
+    @Test fun aHugeDurationIsRefused() {
+        assertEquals(366L * 86_400 * 1000, ControlArgs.duration("8784h"))
+        assertNull(ControlArgs.duration("8785h"))
+        assertNull(ControlArgs.duration("2562047788015216h"))
+        assertNull(ControlArgs.duration("99999999999999999999s"))
+    }
 }

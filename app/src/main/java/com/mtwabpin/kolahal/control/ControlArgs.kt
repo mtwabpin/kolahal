@@ -43,14 +43,18 @@ object ControlArgs {
     /** "30s", "1m", "2min", "1h", "90" (seconds) -> milliseconds; null when invalid or 0. */
     fun duration(arg: String?): Long? {
         val m = Regex("^(\\d+)\\s*(s|sec|secs|m|min|mins|h|hr|hrs)?$").find(arg?.trim()?.lowercase() ?: return null) ?: return null
-        val n = m.groupValues[1].toLongOrNull()?.takeIf { it > 0 } ?: return null
+        // Small enough to multiply: a huge number wrapped round to a few minutes.
+        val n = m.groupValues[1].toLongOrNull()?.takeIf { it in 1..MAX_DURATION_S } ?: return null
         val seconds = when (m.groupValues[2]) {
             "m", "min", "mins" -> n * 60
             "h", "hr", "hrs" -> n * 3600
             else -> n
         }
-        return seconds * 1000
+        return (seconds * 1000).takeIf { seconds <= MAX_DURATION_S }
     }
+
+    /** The longest duration taken, in seconds: a year. */
+    private const val MAX_DURATION_S = 366L * 86_400
 
     /** on/off/toggle words; null for anything else (the caller toggles on null input). */
     fun onOff(arg: String?): Boolean? = when (arg?.lowercase()) {

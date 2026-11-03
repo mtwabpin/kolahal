@@ -106,7 +106,7 @@ class TimeSpecTest {
     @Test fun aYearlyReminderWithoutADateIsToday() {
         for (line in listOf("every year march madness", "every year may 5k run")) {
             val r = every(line)!!
-            assertEquals(line, "year:%02d-%02d".format(now.monthValue, now.dayOfMonth), r.rule)
+            assertEquals(line, "year:10-17", r.rule)
             assertEquals(line, 2, r.consumed)
         }
     }
@@ -165,5 +165,31 @@ class TimeSpecTest {
         assertEquals(600L, TimeSpec.relativeSeconds(listOf("in", "10m", "x")))
         assertNull(TimeSpec.relativeSeconds(listOf("18:30", "x")))
         assertNull(TimeSpec.relativeSeconds(listOf("at", "6pm")))
+    }
+
+    /** A number too big for a time is refused: not wrapped round to a few hours, not an error from Java. */
+    @Test fun aHugeDurationIsRefused() {
+        assertEquals(36_500L * 86_400, TimeSpec.parseDuration("36500d"))
+        assertNull(TimeSpec.parseDuration("213503982334602d"))
+        assertNull(TimeSpec.parseDuration("1000000000000d"))
+        assertNull(TimeSpec.parseDuration("99999999999999999999m"))
+        assertNull(TimeSpec.parseDuration("1d99999999999999h"))
+        assertNull(TimeSpec.parseDuration("999999999999", bareMinutes = true))
+        assertNull(parse("1000000000000d x"))
+        assertNull(parse("in 213503982334602d x"))
+    }
+
+    /** A yearly rule is stored in plain digits, whatever the phone's language: it's read back later. */
+    @Test fun aYearlyRuleIsInPlainDigits() {
+        val before = java.util.Locale.getDefault()
+        for (tag in listOf("fa", "ar", "bn")) {
+            try {
+                java.util.Locale.setDefault(java.util.Locale.forLanguageTag(tag))
+                assertEquals(tag, "year:10-17", every("every year march madness")!!.rule)
+                assertEquals(tag, "year:03-14", every("every year mar 14 birthday")!!.rule)
+            } finally {
+                java.util.Locale.setDefault(before)
+            }
+        }
     }
 }
