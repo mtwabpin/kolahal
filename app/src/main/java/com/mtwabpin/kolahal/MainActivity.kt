@@ -318,15 +318,24 @@ class MainActivity : ComponentActivity() {
         // pages draw their colour over it, each as faintly as it says (Modifier.page).
         val wallpaper = vm.config[Keys.LOG_WALLPAPER] > 0 ||
             (vm.config[Keys.WIDGETS_PAGE] != "off" && vm.config[Keys.WIDGETS_WALLPAPER] > 0)
-        if (wallpaper) {
-            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-            window.setBackgroundDrawable(android.graphics.Color.TRANSPARENT.toDrawable())
-        } else {
-            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-            window.setBackgroundDrawable(Term.bg.toArgb().toDrawable())
+        // Only when it changes: each flag set lays the window out again, and dragging a slider in
+        // Settings previews (and comes here) on almost every frame.
+        val look = wallpaper to Term.bg.toArgb()
+        if (look != windowLook) {
+            windowLook = look
+            if (wallpaper) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+                window.setBackgroundDrawable(android.graphics.Color.TRANSPARENT.toDrawable())
+            } else {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+                window.setBackgroundDrawable(Term.bg.toArgb().toDrawable())
+            }
         }
         applyBars()
     }
+
+    /** The wallpaper flag and page colour the window was last given ([applyTheme]). */
+    private var windowLook: Pair<Boolean, Int>? = null
 
     private fun requestNotifications() {
         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)

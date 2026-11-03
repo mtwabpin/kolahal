@@ -43,6 +43,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -129,7 +131,8 @@ fun SettingsScreen(
         else -> null
     }
     // Look & feel → Your themes.
-    val ownThemes = CustomThemes.themes.collectAsStateWithLifecycle().value.keys.sorted()
+    val customThemes by CustomThemes.themes.collectAsStateWithLifecycle()
+    val ownThemes = remember(customThemes) { customThemes.keys.sorted() }
     val themeInUse by remember { derivedStateOf { version.value; config[Keys.THEME] } }
     val inUse = themeInUse
     // Settings another one turns off (the key bar's rows while the key bar is off) show once it is on.
@@ -147,7 +150,8 @@ fun SettingsScreen(
     val crashList = crashes
     // Showing home through Settings (a slider dragged, the eye held): all but that slider fades away.
     val peek by vm.peek.collectAsStateWithLifecycle()
-    val shown by androidx.compose.animation.core.animateFloatAsState(
+    // Read only as it draws: each frame of the fade then draws again, without building Settings again.
+    val shown = androidx.compose.animation.core.animateFloatAsState(
         if (peek == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek",
     )
     val tapScope = rememberCoroutineScope()
@@ -167,9 +171,11 @@ fun SettingsScreen(
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it.text) } }
 
+        val surface = MaterialTheme.colorScheme.surface
         Scaffold(
-            modifier = Modifier.imePadding().nestedScroll(scroll.nestedScrollConnection),
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = shown),
+            modifier = Modifier.imePadding().drawBehind { drawRect(surface.copy(alpha = shown.value)) }.nestedScroll(scroll.nestedScrollConnection),
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 LargeFlexibleTopAppBar(
@@ -190,7 +196,7 @@ fun SettingsScreen(
                         }
                     },
                     scrollBehavior = scroll,
-                    modifier = Modifier.graphicsLayer { alpha = shown },
+                    modifier = Modifier.graphicsLayer { alpha = shown.value },
                 )
             },
         ) { padding ->
