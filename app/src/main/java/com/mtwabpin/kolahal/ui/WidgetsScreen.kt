@@ -158,7 +158,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         index = panel.indexOf(chosen),
                         count = panel.size,
                         minHeight = remember(chosen.id, providersVersion) {
-                            chosen.id?.let { widgets.info(it) }?.let { widgets.minHeightDp(it) } ?: WidgetLayout.MIN_DP
+                            chosen.id?.let { widgets.cachedInfo(it) }?.let { widgets.minHeightDp(it) } ?: WidgetLayout.MIN_DP
                         },
                         onMove = { widgets.move(chosen.key, it) },
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },

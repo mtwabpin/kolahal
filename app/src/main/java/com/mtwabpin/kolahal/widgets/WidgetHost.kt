@@ -61,10 +61,19 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /**
-     * What [cachedInfo] read for each id. Read again after each start ([startListening]: providers
-     * may have changed while nothing listened), when providers change, and for an id placed or let go.
+     * What [cachedInfo] read for each id. Checked again at each start by [prune] (providers may have
+     * changed while nothing listened), read again when providers change and for an id placed or let go.
      */
     private val infos = HashMap<Int, AppWidgetProviderInfo>()
+
+    /**
+     * The same details as far as a widget's view goes: the provider, its profile, its first layout
+     * and the install it comes from (an update installs the app in a new folder). Before Android 12
+     * the install can't be told, and details read again count as new.
+     */
+    private fun sameAs(a: AppWidgetProviderInfo, b: AppWidgetProviderInfo) =
+        Build.VERSION.SDK_INT >= 31 && a.provider == b.provider && a.profile == b.profile && a.initialLayout == b.initialLayout &&
+            a.activityInfo?.applicationInfo?.sourceDir == b.activityInfo?.applicationInfo?.sourceDir
 
     /**
      * Views by id, kept for a return to home: home is built again after a full-screen page (Settings,
@@ -122,7 +131,6 @@ class WidgetHost private constructor(context: Context) {
 
     fun startListening() {
         if (listening) return
-        forgetInfos()
         listening = runCatching { host.startListening() }.isSuccess
         prune()
     }
@@ -206,7 +214,7 @@ class WidgetHost private constructor(context: Context) {
     }
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
-        val min = w.id?.let { info(it) }?.let { minHeightDp(it) } ?: WidgetLayout.MIN_DP
+        val min = w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.MIN_DP
         val h = WidgetLayout.resize(heightDp, 0, min)
         if (h != w.heightDp) update { all -> all.map { if (it.key == w.key) it.copy(heightDp = h) else it } }
     }
@@ -215,7 +223,7 @@ class WidgetHost private constructor(context: Context) {
 
     fun info(id: Int): AppWidgetProviderInfo? = runCatching { manager.getAppWidgetInfo(id) }.getOrNull()
 
-    /** [info] as last read for [id], since this start or the last change of providers: screens ask while they're built. */
+    /** [info] as last read for [id], checked at each start: screens ask while they're built. */
     fun cachedInfo(id: Int): AppWidgetProviderInfo? = synchronized(infos) {
         // A missing one isn't kept: it's asked for again, as an app being updated comes back.
         infos[id] ?: info(id)?.also { infos[id] = it }
@@ -318,12 +326,18 @@ class WidgetHost private constructor(context: Context) {
     /**
      * Drops widgets whose provider is gone (uninstalled, or its profile removed) and frees host
      * ids nothing uses any more (left over from a flow interrupted by process death).
-     * Widgets of a paused or locked profile are kept.
+     * Widgets of a paused or locked profile are kept. The details it reads are kept for [cachedInfo],
+     * unless they're the same as the kept ones: a view made for those is used again.
      */
     fun prune() {
         val dead = _widgets.value.filter { w ->
             val id = w.id ?: return@filter false
-            if (info(id) != null) return@filter false
+            val fresh = info(id)
+            synchronized(infos) {
+                val old = infos[id]
+                if (fresh == null) infos.remove(id) else if (old == null || !sameAs(old, fresh)) infos[id] = fresh
+            }
+            if (fresh != null) return@filter false
             val user = userFor(w.profileSerial) ?: return@filter true
             val available = runCatching {
                 userManager.isUserUnlocked(user) && (user == Process.myUserHandle() || !userManager.isQuietModeEnabled(user))
