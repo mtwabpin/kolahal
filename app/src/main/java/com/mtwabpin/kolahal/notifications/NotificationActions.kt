@@ -2,20 +2,21 @@ package com.mtwabpin.kolahal.notifications
 
 import android.app.ActivityOptions
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import androidx.core.app.NotificationManagerCompat
 
 /** What the terminal can do with a feed entry, plus listener-access plumbing. */
 object NotificationActions {
 
-    /** True when the user granted Kolahal notification access. */
+    /** True when the user granted Kolahal notification access. Asked of Android: the setting it's also kept in can lag a change. */
     fun isEnabled(context: Context): Boolean =
-        context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
+        context.getSystemService(NotificationManager::class.java)
+            .isNotificationListenerAccessGranted(ComponentName(context, KolahalNotificationListener::class.java))
 
     /** Opens the access screen; the per-app detail page on API 30+, falling back to the list. */
     fun settingsIntent(context: Context): Intent {
@@ -36,9 +37,11 @@ object NotificationActions {
      * are dismissed as the shade would. Returns false when it's gone or has no intent.
      */
     fun open(context: Context, key: String): Boolean {
-        val listener = KolahalNotificationListener.connected
-        val sbn = listener?.let { l -> runCatching { l.getActiveNotifications(arrayOf(key)) }.getOrNull()?.firstOrNull() }
-        if (listener != null && sbn == null) {
+        // Null when it couldn't ask: access just taken, the listener not unbound yet. The tap kept
+        // in the store still works then; only an answer without it means it's gone.
+        val asked = KolahalNotificationListener.connected?.let { l -> runCatching { l.getActiveNotifications(arrayOf(key)) }.getOrNull() }
+        val sbn = asked?.firstOrNull()
+        if (asked != null && sbn == null) {
             NotificationStore.markRemoved(key)
             return false
         }
