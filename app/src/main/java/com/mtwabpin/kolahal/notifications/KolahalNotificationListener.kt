@@ -2,7 +2,6 @@ package com.mtwabpin.kolahal.notifications
 
 import android.app.Notification
 import android.app.NotificationManager
-import android.content.pm.PackageManager
 import android.os.UserManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -44,6 +43,9 @@ class KolahalNotificationListener : NotificationListenerService() {
 
     private var mirrorJob: kotlinx.coroutines.Job? = null
 
+    /** No copy is on disk since this listener cleared it: nothing to delete again at the next notification. */
+    @Volatile private var mirrorCleared = false
+
     /** Scripts run in the :script process, so they read a snapshot of the feed from the shared database. */
     private fun mirror() {
         mirrorJob?.cancel()
@@ -51,9 +53,11 @@ class KolahalNotificationListener : NotificationListenerService() {
             kotlinx.coroutines.delay(400.milliseconds)
             // Only kept while a script may read it (`@uses notifications`); otherwise no copy at all.
             if (!com.mtwabpin.kolahal.script.TriggerDispatcher.get(this@KolahalNotificationListener).wantsNotifications()) {
-                runCatching { clearMirror(this@KolahalNotificationListener) }
+                // Only this listener writes the copy, so once cleared it stays cleared.
+                if (!mirrorCleared) mirrorCleared = clearMirror(this@KolahalNotificationListener)
                 return@launch
             }
+            mirrorCleared = false
             runCatching {
                 com.mtwabpin.kolahal.data.KvStore(this@KolahalNotificationListener, MIRROR_SCOPE)
                     .set(MIRROR_KEY, com.mtwabpin.kolahal.script.Json.stringify(NotificationStore.recent(50, skipProfile = ::isPrivateSerial)))
@@ -106,7 +110,8 @@ class KolahalNotificationListener : NotificationListenerService() {
     }
 
     private fun isPrivate(user: android.os.UserHandle): Boolean {
-        if (android.os.Build.VERSION.SDK_INT < 35) return false
+        // Your own profile never is: no need to ask the system on every notification from it.
+        if (android.os.Build.VERSION.SDK_INT < 35 || user == android.os.Process.myUserHandle()) return false
         val la = getSystemService(android.content.pm.LauncherApps::class.java)
         return runCatching { la.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_PRIVATE }.getOrDefault(false)
     }
@@ -164,7 +169,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         AppRepository.get(this).find(pkg, null, serial)?.label
             ?: AppRepository.get(this).find(pkg, null, null)?.label
             ?: runCatching {
-                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, PackageManager.GET_META_DATA)).toString()
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
             }.getOrDefault(pkg)
 
     private fun maybeLog(n: Notif, message: Boolean, iconSaved: kotlinx.coroutines.Job) {
@@ -197,12 +202,10 @@ class KolahalNotificationListener : NotificationListenerService() {
         const val MIRROR_KEY = "notifications"
         private const val RATE_LIMIT_MS = 30_000L
 
-        /** Removes the notification snapshot mirrored for scripts. Never throws. */
-        fun clearMirror(context: android.content.Context) {
-            runCatching {
-                com.mtwabpin.kolahal.data.KvStore(context.applicationContext, MIRROR_SCOPE).set(MIRROR_KEY, null)
-            }
-        }
+        /** Removes the notification snapshot mirrored for scripts; false if that failed. Never throws. */
+        fun clearMirror(context: android.content.Context): Boolean = runCatching {
+            com.mtwabpin.kolahal.data.KvStore(context.applicationContext, MIRROR_SCOPE).set(MIRROR_KEY, null)
+        }.isSuccess
 
         /**
          * Whether a post is an update of an already-shown notification that shouldn't be logged or
