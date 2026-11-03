@@ -77,7 +77,7 @@ internal object HomeClock {
     val zone: Int get() = zoneState
 
     /** Main thread. The time now, whether or not a tick came while away. */
-    fun refresh() {
+    private fun refresh() {
         nowState = Date()
         todayState = java.time.LocalDate.now()
     }

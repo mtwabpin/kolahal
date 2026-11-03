@@ -24,6 +24,9 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class KolahalNotificationListener : NotificationListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** For the clear that may follow a write still going as access goes: onDestroy doesn't cancel it. */
+    private val afterDestroy = CoroutineScope(SupervisorJob())
     private val userManager by lazy { getSystemService(UserManager::class.java) }
     private val ranking = Ranking()
 
@@ -80,7 +83,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         // A write already writing can't be cancelled and may land after that: cleared again once it
         // has, on the same queue, outside the scope onDestroy cancels.
         val app = applicationContext
-        CoroutineScope(mirrorWork).launch { clearMirror(app) }
+        afterDestroy.launch(mirrorWork) { clearMirror(app) }
     }
 
     override fun onDestroy() {

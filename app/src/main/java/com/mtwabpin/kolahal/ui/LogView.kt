@@ -313,15 +313,18 @@ fun gutterColor(gutter: Gutter): Color = when (gutter) {
     Gutter.ERROR -> Term.error
 }.copy(alpha = 0.45f)
 
-/** A dimmed line (log.dim): drawn whole into a buffer, then faded. */
-private val DIMMED = Modifier.alpha(0.62f)
+/** How much of a dimmed line (log.dim) shows. */
+private const val DIM_ALPHA = 0.62f
+
+/** A dimmed line: drawn whole into a buffer, then faded. */
+private val DIMMED = Modifier.alpha(DIM_ALPHA)
 
 /**
  * A dimmed line drawn faded part by part, with no buffer: the buffer is drawn again on every frame
  * the log moves, a couple of dozen times a frame with a screen of dimmed lines. Only for a line
  * whose parts don't overlap ([fadesByPart]), where both ways give the same pixels.
  */
-private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = 0.62f, clip = true, compositingStrategy = CompositingStrategy.ModulateAlpha)
+private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = DIM_ALPHA, clip = true, compositingStrategy = CompositingStrategy.ModulateAlpha)
 
 /** How long after a press, focus or pointer leaves a dimmed line it fades whole: its ripple's growing and fading. */
 private const val RIPPLE_DONE_MS = 450L

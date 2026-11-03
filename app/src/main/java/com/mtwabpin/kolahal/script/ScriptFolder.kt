@@ -39,6 +39,7 @@ class ScriptFolder(private val context: Context) {
     /** Writes every script plus the manifest. Returns the number of scripts written. */
     fun export(): Int = export(folder())
 
+    /** [export] into [dir]: the folder picked, or one a test made. */
     internal fun export(dir: DocumentFile): Int {
         val all = scripts.all()
         // One listing instead of a provider round-trip per findFile() call.

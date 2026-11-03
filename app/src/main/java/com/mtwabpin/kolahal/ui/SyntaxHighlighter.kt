@@ -48,6 +48,7 @@ internal class LineTokens(lang: ScriptLang) {
     /** Characters of the lines kept, for tests. */
     internal val keptChars: Long get() = lineTokens.chars + longLines.chars
 
+    /** [line]'s tokens, kept from the last time it was asked for or worked out now. */
     fun of(line: String): IntArray = (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
 
     /** Tokens by line, least recently used first, holding lines of [maxChars] characters at most together. */
@@ -93,6 +94,7 @@ internal class LineTokens(lang: ScriptLang) {
         const val LONG_LINE = 2_000
         /** Lines kept, in characters: a script of about 2 MB, or 4 MB of memory. */
         const val KEPT_CHARS = 2_000_000L
+        /** The same for [LONG_LINE]s, kept apart. */
         const val KEPT_LONG_CHARS = 1_000_000L
         const val COMMENT = 0
         const val STRING = 1
@@ -174,7 +176,7 @@ internal class SyntaxHighlighter(
                 while (open in 0..to) {
                     val close = src.indexOf('`', open + 1)
                     if (close < 0) break
-                    if (close >= from) addStyle(styles[STRING], open, close + 1)
+                    if (close >= from) addStyle(styles[LineTokens.STRING], open, close + 1)
                     open = src.indexOf('`', close + 1)
                 }
             }
@@ -197,8 +199,6 @@ internal class SyntaxHighlighter(
     }
 
     private companion object {
-        const val STRING = LineTokens.STRING
-
         /** Longer than this (about 200 lines), code is coloured only. */
         const val PLAIN_FROM = 8_000
     }

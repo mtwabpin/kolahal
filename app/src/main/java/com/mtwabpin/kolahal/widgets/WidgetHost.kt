@@ -369,7 +369,7 @@ class WidgetHost private constructor(context: Context) {
             update { all -> all.filterNot { it.key in goneKeys }.map { if (it.key in lostKeys) it.copy(id = null) else it } }
             // In the log: this runs as Kolahal starts (after a restore on a new phone), on home, where no widget screen would show it.
             val logs = LogRepository.get(app)
-            if (gone.isNotEmpty()) logs.add(LogKind.INFO, "Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was removed")
+            if (gone.isNotEmpty()) logs.add(LogKind.INFO, "Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was uninstalled")
             if (lost.isNotEmpty()) {
                 logs.add(
                     LogKind.INFO,
@@ -481,10 +481,9 @@ class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
         val d = resources.displayMetrics.density
         val wDp = w / d
         val hDp = h / d
-        // Settled sizes only: holding − or + changes the size every few frames.
         removeCallbacks(report)
         pending = wDp to hDp
-        postDelayed(report, 150)
+        postDelayed(report, SETTLE_MS)
     }
 
     /** A settled size not reported yet: a view kept for later ([WidgetHost.view]) reports it when shown again. */
@@ -493,7 +492,12 @@ class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (pending != null) postDelayed(report, 150)
+        if (pending != null) postDelayed(report, SETTLE_MS)
+    }
+
+    private companion object {
+        /** Settled sizes only, after this long: holding − or + changes the size every few frames. */
+        const val SETTLE_MS = 150L
     }
 
     private fun reportSize(wDp: Float, hDp: Float) {

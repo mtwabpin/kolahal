@@ -26,7 +26,7 @@ internal object Fuzzy {
 
     /**
      * Edits from [a] to the first [bLength] letters of [b], a swap of two neighbours counting as one
-     * (optimal string alignment).
+     * (optimal string alignment). For tests: [slip] reads every length from one table.
      */
     fun distance(a: String, b: String, bLength: Int = b.length): Int = lastRow(a, b, bLength)[bLength]
 

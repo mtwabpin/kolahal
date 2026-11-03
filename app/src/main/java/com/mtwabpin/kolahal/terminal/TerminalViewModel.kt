@@ -94,18 +94,22 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * Home is shown (from [onResume], once a fresh screen is decided, to MainActivity's onStop): the
      * log page is read again and a `/` search runs only then.
      */
-    private val started = MutableStateFlow(true)
+    private val reading = MutableStateFlow(true)
 
     /** Back after a stop: the one read of the page on return doesn't wait. */
     @Volatile private var back = false
 
     /** MainActivity's onStart to onStop. */
-    @Volatile private var visible = true
+    @Volatile private var activityStarted = true
 
+    /**
+     * MainActivity's onStart (true) and onStop (false). Stopped, the log page and a `/` search aren't
+     * read, and contacts wait to reload; back, [onResume] starts them again.
+     */
     fun onStarted(on: Boolean) {
-        visible = on
+        activityStarted = on
         // Back, [onResume] starts reading again.
-        if (!on) started.value = false
+        if (!on) reading.value = false
         com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).setActive(on)
     }
 
@@ -327,11 +331,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // Locking or unlocking the private space shows or hides its lines.
             launch { appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged().drop(1).collect { requestReload() } }
             // Away from home only the trim goes on, which keeps the log at its cap as lines come.
-            launch { logs.version.collect { if (!started.value) withContext(Dispatchers.IO) { runCatching { logs.trimIfOverdue() } } } }
+            launch { logs.version.collect { if (!reading.value) withContext(Dispatchers.IO) { runCatching { logs.trimIfOverdue() } } } }
             // Only while home is shown: nobody sees the page otherwise. Back, it reads what came
             // meanwhile at once, and once; bursts wait as before. So does the first read: started
             // here, it could otherwise run before the fields further down are set.
-            started.flatMapLatest { on -> if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow() }
+            reading.flatMapLatest { on -> if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow() }
                 .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
                 .collectLatest {
                 // A failed reload keeps the previous rows instead of crashing home. Not logged:
@@ -390,7 +394,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private suspend fun reload() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         // Home keeps the log at its cap as it grows: a trim every few hundred lines it wrote.
-        withContext(Dispatchers.IO) { logs.trimIfOverdue() }
+        logs.trimIfOverdue()
         val structure = logs.structure
         val trimmed = logs.trimmedUpTo
         // The removals up to this number are applied below; a later one may be seen twice, harmlessly.
@@ -404,7 +408,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val oldest = loaded.firstOrNull()?.id
         val incremental = newest != null && oldest != null && structure == loadedStructure && trimmed < oldest &&
             removed != null && now - fullAt < FULL_RELOAD_MS
-        val fresh = withContext(Dispatchers.IO) { if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit) }
+        val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
         var start = logStart
         val all = if (!incremental) {
             start = fresh.size < limit
@@ -415,25 +419,25 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // Scrolled back (or a search result shown): the lines before the page, up to the new limit.
             val before = (kept.firstOrNull() ?: fresh.firstOrNull())?.id
             val older = if (have >= limit || start || before == null) emptyList() else {
-                withContext(Dispatchers.IO) { logs.recent(limit - have, beforeId = before) }.also { if (it.size < limit - have) start = true }
+                logs.recent(limit - have, beforeId = before).also { if (it.size < limit - have) start = true }
             }
             val page = older + kept + fresh
             // The page shrank ([atNewest]) or grew past its limit: what's cut is older than the page now.
             if (page.size > limit) start = false
             page.takeLast(limit)
         }
-        val print = withContext(Dispatchers.IO) { scripts.fingerprint() }
+        val print = scripts.fingerprint()
         if (print != scriptsPrint) {
-            val latest = withContext(Dispatchers.IO) { scripts.all() }
+            val latest = scripts.all()
             scriptList.value = latest
             withContext(Dispatchers.Default) { setCommandScripts(latest) }
             scriptsPrint = print
         }
-        _statuses.value = withContext(Dispatchers.IO) { KvStore(context, HostApi.STATUS_SCOPE).all() }
-        if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = withContext(Dispatchers.IO) { logs.hiddenCount() }
-        if (!incremental || fresh.any { it.kind == LogKind.COMMAND }) history = withContext(Dispatchers.IO) { logs.commandHistory() }
+        _statuses.value = KvStore(context, HostApi.STATUS_SCOPE).all()
+        if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = logs.hiddenCount()
+        if (!incremental || fresh.any { it.kind == LogKind.COMMAND }) history = logs.commandHistory()
         if (!incremental || fresh.any(::touchesProductivity)) refreshProductivity()
-        if (!incremental || fresh.any { it.source != null && it.source !in logSources }) logSources = withContext(Dispatchers.IO) { logs.sources() }
+        if (!incremental || fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
         // A locked private space hides its apps; its lines (launches, notifications) hide with it.
         val locked = lockedPrivate(appsRepo.profiles.value)
         val list = if (locked.isEmpty()) all else all.filterNot { it.ctx.userSerial in locked }
@@ -451,12 +455,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             }
             else -> {
                 val job = currentCoroutineContext()[kotlinx.coroutines.Job]
-                val found = withContext(Dispatchers.IO) {
-                    logs.search(
-                        emptyList(), limit = limit, skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
-                        match = filter::matches, keepGoing = { job?.isActive != false },
-                    )
-                }
+                val found = logs.search(
+                    emptyList(), limit = limit, skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
+                    match = filter::matches, keepGoing = { job?.isActive != false },
+                )
                 count = found.total
                 found.entries.asReversed()
             }
@@ -549,7 +551,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // while home is shown: a search left in the prompt runs again once on return.
             // Locking the private space hides its lines from the results too, as from the log.
             val locks = appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged()
-            started.flatMapLatest { on ->
+            reading.flatMapLatest { on ->
                 if (!on) emptyFlow()
                 else combine(androidx.compose.runtime.snapshotFlow { searchWords(input.text) }.distinctUntilChanged(), logs.version, locks) { words, _, locked -> words to locked }
             }
@@ -647,8 +649,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             }
             // Back after a stop, the page is read here, once, with the fresh screen already in.
             when {
-                started.value -> requestReload()
-                visible -> { back = true; started.value = true }
+                reading.value -> requestReload()
+                activityStarted -> { back = true; reading.value = true }
             }
         }
         if (_screen.value == Screen.SETUP || _screen.value == Screen.ONBOARDING) refreshSetup()
@@ -827,8 +829,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** A completion fills the prompt; in `launch.instant all` a line it leaves with nothing to choose runs (`torch on`). */
-    /** [tapped]: a suggestion tapped, not taken with Tab, which is typing. */
+    /**
+     * A completion fills the prompt; in `launch.instant all` a line it leaves with nothing to choose
+     * runs (`torch on`). [tapped]: a suggestion tapped, not taken with Tab, which is typing.
+     */
     private fun pickCompletion(replacement: String, tapped: Boolean) {
         setText(replacement)
         if (searchWords(replacement) != null || !replacement.trim().contains(' ')) return

@@ -91,6 +91,9 @@ private const val WINDOW_FROM = 20_000
 private const val WINDOW_SPAN = 150
 private const val WINDOW_MARGIN = 50
 
+/** How long the caret shows, and then doesn't, as the text field's own did. */
+private val CARET_BLINK = 500.milliseconds
+
 /** The furthest a tab moves the text on: Android's tab stops are 20 pixels apart. */
 private const val TAB_PX = 20f
 
@@ -151,7 +154,7 @@ fun ScriptEditor(
     // What the last button did; a run waits for its recorded result.
     var message by remember(script.id) { mutableStateOf<EditorMessage?>(null) }
     /** Saves made, so a slow check's result can't land after a later save's. */
-    var saves by remember(script.id) { androidx.compose.runtime.mutableIntStateOf(0) }
+    var saves by remember(script.id) { mutableIntStateOf(0) }
     var runSince by remember(script.id) { mutableStateOf<Long?>(null) }
     LaunchedEffect(message) {
         val m = message ?: return@LaunchedEffect
@@ -831,9 +834,9 @@ private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, 
                 alpha = 1f
                 if (!blinks) awaitCancellation()
                 while (true) {
-                    delay(500)
+                    delay(CARET_BLINK)
                     alpha = 0f
-                    delay(500)
+                    delay(CARET_BLINK)
                     alpha = 1f
                 }
             } finally {

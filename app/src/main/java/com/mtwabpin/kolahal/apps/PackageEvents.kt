@@ -89,10 +89,6 @@ class PackageEvents private constructor(private val context: Context) {
     @Volatile private var removalPending = true
     @Volatile private var diffedAt = 0L
 
-    /**
-     * Installed apps, the serials of paused profiles (whose apps are hidden, not gone), and the
-     * serials of every profile the launcher can see, paused or not.
-     */
     /** What [current] last asked Android for one of this profile's apps, with the APK it read it for. */
     private class Asked(val apk: String, val time: Long, val version: String, val code: Long, val updated: Long)
 
@@ -102,6 +98,10 @@ class PackageEvents private constructor(private val context: Context) {
      */
     private val asked = HashMap<String, Asked>()
 
+    /**
+     * Installed apps, the serials of paused profiles (whose apps are hidden, not gone), and the
+     * serials of every profile the launcher can see, paused or not.
+     */
     private fun current(): Triple<Map<String, Pkg>, Set<Long>, Set<Long>> {
         val out = HashMap<String, Pkg>()
         val paused = HashSet<Long>()
@@ -134,7 +134,7 @@ class PackageEvents private constructor(private val context: Context) {
                     code = pi?.code ?: 0L,
                     // Other profiles: the app's install-time stamp is not readable; the APK's
                     // file time changes on every update, which is what we need.
-                    updated = pi?.updated ?: info.sourceDir?.let { apkTime } ?: 0L,
+                    updated = pi?.updated ?: apkTime,
                     profile = profile,
                 )
             }
