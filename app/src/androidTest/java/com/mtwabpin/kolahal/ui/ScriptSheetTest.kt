@@ -285,7 +285,8 @@ class ScriptSheetTest {
         waitFor("count 9") { value("count") == "9" }
         compose.waitUntil(5_000) { compose.onAllNodes(count and hasText("9")).fetchSemanticsNodes().isNotEmpty() }
 
-        compose.onNode(count).performClick()
+        compose.onNode(count).performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Reset") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
         inDialog("Reset").performClick()
         waitFor("count back to 5") { value("count") == "5" && "count" !in ScriptOptions(app).changed("sstest", declared) }
 

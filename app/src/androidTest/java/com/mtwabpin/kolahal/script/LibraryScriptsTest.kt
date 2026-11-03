@@ -224,6 +224,8 @@ class LibraryScriptsTest {
         val priority = android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
         val alarms = android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS
         try {
+            // Kolahal's own off too: one left on would keep it on, whatever the shell sets.
+            nm.setInterruptionFilter(all)
             youSet("off", all)
             run("night-dnd.lua", event = at("23:00"))
             dndIs(priority)
