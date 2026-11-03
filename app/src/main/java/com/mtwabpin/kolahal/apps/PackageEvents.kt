@@ -42,14 +42,22 @@ class PackageEvents private constructor(private val context: Context) {
 
     fun start() {
         launcherApps.registerCallback(object : LauncherApps.Callback() {
-            override fun onPackageRemoved(packageName: String, user: UserHandle) = schedule()
-            override fun onPackageAdded(packageName: String, user: UserHandle) = schedule()
-            override fun onPackageChanged(packageName: String, user: UserHandle) = schedule()
-            override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = schedule()
+            override fun onPackageRemoved(packageName: String, user: UserHandle) = told()
+            override fun onPackageAdded(packageName: String, user: UserHandle) = told()
+            override fun onPackageChanged(packageName: String, user: UserHandle) = told()
+            override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = told()
             override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = Unit
         }, main)
         // Catch up on anything that changed while the launcher was not running.
         schedule(delayMs = 2_000)
+    }
+
+    /** A callback came since the last diff: the app list reloaded for it already ([AppRepository.start]). */
+    @Volatile private var called = false
+
+    private fun told() {
+        called = true
+        schedule()
     }
 
     /**
@@ -131,6 +139,8 @@ class PackageEvents private constructor(private val context: Context) {
 
     @Synchronized
     private fun diff() {
+        val afterCallbacks = called
+        called = false
         val (now, paused, present) = current()
         // Every profile, even the personal one, missing at once is a glitch, not a removal.
         if (present.isEmpty()) return
@@ -152,7 +162,8 @@ class PackageEvents private constructor(private val context: Context) {
         plan.checkInMs?.let { main.post { schedule(it + 500, keepSooner = true) } }
         val events = plan.events
         // A change the callbacks missed (the process asleep), found here: the kept app list catches up.
-        if (events.isNotEmpty() || plan.seen != seen) AppRepository.get(context).refresh()
+        // Profiles coming or going are rare, and no callback may tell of them.
+        if (plan.seen != seen || (events.isNotEmpty() && !afterCallbacks)) AppRepository.get(context).refresh()
         if (events.isEmpty()) return
         val logs = LogRepository.get(context)
         val pending = events.map { (kind, key, p) ->
