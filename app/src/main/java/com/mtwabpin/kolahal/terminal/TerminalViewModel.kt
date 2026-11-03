@@ -60,9 +60,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.withIndex
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -79,13 +82,24 @@ private const val FULL_RELOAD_MS = 60_000L
 internal fun searchWords(text: String): List<String>? =
     if (!text.startsWith("/")) null else text.substring(1).split(Regex("\\s+")).filter { it.isNotEmpty() }
 
-@OptIn(kotlinx.coroutines.FlowPreview::class)
+@OptIn(kotlinx.coroutines.FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class TerminalViewModel(app: Application, private val state: SavedStateHandle) : AndroidViewModel(app), TerminalUi {
     private val context: Context get() = getApplication()
 
     /** Reload requests from anywhere (log changes, paging, resume) funnel into one latest-wins pipeline. */
     private val reloadRequests = MutableStateFlow(0L)
     private fun requestReload() = reloadRequests.update { it + 1 }
+
+    /** Home is started (MainActivity's onStart to onStop): the log page is read again only then. */
+    private val started = MutableStateFlow(true)
+
+    /** Started again after a stop: the next read of the page doesn't wait. */
+    @Volatile private var back = false
+
+    fun onStarted(on: Boolean) {
+        if (on && !started.value) back = true
+        started.value = on
+    }
 
     /** Serials of private spaces that are locked. */
     private fun lockedPrivate(profiles: List<Profile>): Set<Long> =
@@ -303,7 +317,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // Bursts of changes (a script logging many lines, another process) collapse into one reload.
             // Locking or unlocking the private space shows or hides its lines.
             launch { appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged().drop(1).collect { requestReload() } }
-            combine(logs.version, reloadRequests) { a, b -> a to b }.debounce(40.milliseconds).collectLatest {
+            // Away from home only the trim goes on, which keeps the log at its cap as lines come.
+            launch { logs.version.collect { if (!started.value) withContext(Dispatchers.IO) { runCatching { logs.trimIfOverdue() } } } }
+            // Only while home is started: nobody sees the page otherwise. Back, it reads what came
+            // meanwhile at once; bursts wait as before. So does the first read: started here, it
+            // could otherwise run before the fields further down are set.
+            started.flatMapLatest { on -> if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow() }
+                .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
+                .collectLatest {
                 // A failed reload keeps the previous rows instead of crashing home. Not logged:
                 // writing to the log would trigger the next reload.
                 try {
