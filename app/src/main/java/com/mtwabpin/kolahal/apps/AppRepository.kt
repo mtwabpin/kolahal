@@ -104,11 +104,14 @@ class AppRepository private constructor(private val context: Context) {
             addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE)
             addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE)
             addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
+            // Any profile coming or going (a clone too): from Android 14.
+            if (Build.VERSION.SDK_INT >= 34) {
+                addAction(Intent.ACTION_PROFILE_ADDED)
+                addAction(Intent.ACTION_PROFILE_REMOVED)
+            }
             if (Build.VERSION.SDK_INT >= 35) {
                 addAction(Intent.ACTION_PROFILE_AVAILABLE)
                 addAction(Intent.ACTION_PROFILE_UNAVAILABLE)
-                addAction(Intent.ACTION_PROFILE_ADDED)
-                addAction(Intent.ACTION_PROFILE_REMOVED)
             }
         }
         ContextCompat.registerReceiver(context, object : BroadcastReceiver() {

@@ -62,4 +62,30 @@ class ProfileKindTest {
         assumeTrue("this phone can't make a work profile", work != null)
         assertEquals(ProfileKind.WORK, AppRepository.kindOf(context, launcherApps, work!!, Process.myUserHandle()))
     }
+
+    /** The kept app list follows a profile coming and going (from Android 14 a clone too), with no return home to reload it. */
+    @Test fun theAppListFollowsAProfileComingAndGoing() {
+        val repo = AppRepository.get(context).also { it.start() }
+        val users = context.getSystemService(android.os.UserManager::class.java)
+        val id = Regex("created user id (\\d+)").find(shell("pm create-user --profileOf 0 --user-type android.os.usertype.profile.CLONE clone"))?.groupValues?.get(1)?.toInt()
+        assumeTrue("this phone can't make another clone profile", id != null)
+        created += id!!
+        shell("am start-user -w $id")
+        val user = (0 until 50).firstNotNullOfOrNull { launcherApps.profiles.firstOrNull { it.hashCode() == id } ?: run { Thread.sleep(200); null } }
+        assumeTrue("the launcher isn't shown this profile", user != null)
+        val serial = users.getSerialNumberForUser(user!!)
+        fun listed() = repo.apps.value.any { it.profile.serial == serial }
+        fun waitFor(shown: Boolean): Boolean {
+            val deadline = System.currentTimeMillis() + 15_000
+            while (System.currentTimeMillis() < deadline) {
+                if (listed() == shown) return true
+                Thread.sleep(200)
+            }
+            return false
+        }
+        assumeTrue("the clone has no apps to list", waitFor(shown = true))
+        shell("pm remove-user $id")
+        created -= id
+        assertEquals("its apps leave the list", true, waitFor(shown = false))
+    }
 }

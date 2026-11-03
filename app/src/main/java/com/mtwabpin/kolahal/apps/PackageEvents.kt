@@ -151,6 +151,8 @@ class PackageEvents private constructor(private val context: Context) {
         // Check again once the grace period is over, so a real uninstall is still logged.
         plan.checkInMs?.let { main.post { schedule(it + 500, keepSooner = true) } }
         val events = plan.events
+        // A change the callbacks missed (the process asleep), found here: the kept app list catches up.
+        if (events.isNotEmpty() || plan.seen != seen) AppRepository.get(context).refresh()
         if (events.isEmpty()) return
         val logs = LogRepository.get(context)
         val pending = events.map { (kind, key, p) ->
