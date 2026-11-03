@@ -19,27 +19,25 @@ object Notifier {
     const val CHANNEL_SCRIPTS = "scripts"
 
     fun createChannels(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_SCRIPTS,
-                context.getString(R.string.channel_scripts),
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply { description = context.getString(R.string.channel_scripts_desc) }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_REMINDERS,
-                context.getString(R.string.channel_reminders),
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = context.getString(R.string.channel_reminders_desc) }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_RUNNING,
-                context.getString(R.string.channel_running),
-                NotificationManager.IMPORTANCE_MIN,
-            ).apply { description = context.getString(R.string.channel_running_desc) }
+        // One call for all three, at every start of either process.
+        context.getSystemService(NotificationManager::class.java).createNotificationChannels(
+            listOf(
+                NotificationChannel(
+                    CHANNEL_SCRIPTS,
+                    context.getString(R.string.channel_scripts),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { description = context.getString(R.string.channel_scripts_desc) },
+                NotificationChannel(
+                    CHANNEL_REMINDERS,
+                    context.getString(R.string.channel_reminders),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply { description = context.getString(R.string.channel_reminders_desc) },
+                NotificationChannel(
+                    CHANNEL_RUNNING,
+                    context.getString(R.string.channel_running),
+                    NotificationManager.IMPORTANCE_MIN,
+                ).apply { description = context.getString(R.string.channel_running_desc) },
+            )
         )
     }
 
