@@ -346,7 +346,8 @@ class CommandFamiliesTest {
             assertTrue(lines.toString(), lines.all { it.source == com.mtwabpin.kolahal.calls.CallEvents.SOURCE })
         } finally {
             logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
-            shell("content delete --uri content://call_log/calls --where \"number='$older' OR number='$newer'\"")
+            // No shell runs these: no spaces or quotes round the condition, or it matches nothing.
+            for (number in listOf(older, newer)) shell("content delete --uri content://call_log/calls --where number='$number'")
         }
     }
 
