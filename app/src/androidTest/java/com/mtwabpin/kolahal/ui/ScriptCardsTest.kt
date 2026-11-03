@@ -1,6 +1,8 @@
 package com.mtwabpin.kolahal.ui
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -90,6 +92,36 @@ class ScriptCardsTest {
         val unlock = compose.onNodeWithText("unlock").getUnclippedBoundsInRoot()
         assertTrue("the Events label under the access pills: $access, $events", events.top >= access.bottom)
         assertTrue("the event's pill under its label: $events, $unlock", unlock.top >= events.bottom)
+    }
+
+    /**
+     * The page keeps what it read of each script while it's away (the editor takes its place): a
+     * script changed meanwhile shows what its code says now when the page is back.
+     */
+    @Test fun aScriptChangedWhileThePageWasAwayShowsItsNewCode() {
+        val s = scripts.create("scpills", ScriptLang.LUA, "-- @on unlock\nreturn 1")
+        lateinit var vm: TerminalViewModel
+        compose.runOnUiThread { vm = vms.terminal(app) }
+        var shown by androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent { if (shown) ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
+        fun details(event: String) {
+            compose.waitUntil(5_000) { vm.scriptList.value.any { it.name == "scpills" && event in it.code } }
+            compose.onAllNodesWithContentDescription("Show details")[0].performClick()
+            compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(event))
+        }
+        details("unlock")
+        compose.runOnIdle { shown = false }
+        scripts.saveCode(s.id, "-- @on charger\nreturn 1", byUser = true)
+        // A line logged: home reads the scripts again, as after a save.
+        val line = com.mtwabpin.kolahal.data.LogRepository.get(app).add(com.mtwabpin.kolahal.data.LogKind.INFO, "scpills saved")
+        try {
+            compose.runOnIdle { shown = true }
+            details("charger")
+            compose.onNodeWithText("charger").assertExists()
+            compose.onNodeWithText("unlock").assertDoesNotExist()
+        } finally {
+            com.mtwabpin.kolahal.data.LogRepository.get(app).delete(line)
+        }
     }
 
     /** Differs from the library keeps a library copy you edited, not a script of your own. */
