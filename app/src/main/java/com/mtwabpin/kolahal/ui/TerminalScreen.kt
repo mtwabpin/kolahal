@@ -123,7 +123,6 @@ val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: TerminalViewModel.Peek? = null) {
-    val apps by vm.apps.collectAsStateWithLifecycle()
     // An install or update may change icons: suggestions.icons loads them again.
     val packageChanges by com.mtwabpin.kolahal.apps.AppRepository.get(androidx.compose.ui.platform.LocalContext.current).packageChanges.collectAsStateWithLifecycle()
     if (preview == null) LaunchedEffect(packageChanges) { AppIcons.sync(packageChanges) }
@@ -240,14 +239,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         if (!terminalShown && imeUp) currentKeyboard?.hide()
     }
 
-    val maxSuggestions = remember(configVersion) { config[Keys.SUGGESTIONS] }
-    val commandNames by vm.commandNames.collectAsStateWithLifecycle()
-    val prefsVersion by vm.appPrefsVersion.collectAsStateWithLifecycle()
-    val contacts by vm.contacts.collectAsStateWithLifecycle()
-    val inputText = if (preview?.typing == true) PREVIEW_INPUT else vm.input.text
-    val suggestions = remember(inputText, apps, maxSuggestions, commandNames, prefsVersion, contacts) {
-        vm.suggestions(inputText).take(maxSuggestions)
-    }
+    // The prompt's text itself is read only where it shows ([PromptSuggestions], [Prompt]): read
+    // here, every key would build all of home again.
+    val hasInput by remember(preview?.typing) { derivedStateOf { preview?.typing == true || vm.input.text.isNotEmpty() } }
     val timeMode = remember(configVersion) {
         when (config[Keys.SHOW_TIMESTAMPS]) {
             "groups" -> TimeMode.GROUPS
@@ -294,6 +288,10 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val today = rememberToday()
     if (preview == null) LaunchedEffect(today) { vm.onDayChanged(today) }
     val fontSizeToast = rememberFontSizeToast()
+    // Made once: a new one each time home is built would leave the log's list unable to skip.
+    val pinch = remember(vm, fontSizeToast) {
+        Modifier.pinchToZoomFont(onChange = { Term.fontSize = it }, onEnd = { from, to -> vm.saveFontSize(to); fontSizeToast(from, to) })
+    }
     val doubleTapOn = remember(configVersion) {
         config[Keys.GESTURE_DOUBLE_TAP].trim().let { it.isNotEmpty() && it != com.mtwabpin.kolahal.gesture.Gestures.NONE }
     }
@@ -311,7 +309,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         val typing = preview?.typing ?: (promptFocused && WindowInsets.isImeVisible)
         // While searching, the header shrinks to one line: suggestions can't use the room it takes.
         // Only shown smaller; it returns as it was when the search ends.
-        val searching = typing || inputText.isNotEmpty()
+        val searching = typing || hasInput
         val headerHidden by vm.headerHidden.collectAsStateWithLifecycle()
         // header.show off: no header at all, and the log takes its room.
         val showHeader = remember(configVersion) { config[Keys.HEADER_SHOW] }
@@ -420,7 +418,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 .nestedScroll(headerScroll)
                 .onSizeChanged { vm.onLogWidth(it.width) }
                 .testTag("log")
-                .pinchToZoomFont(onChange = { Term.fontSize = it }, onEnd = { from, to -> vm.saveFontSize(to); fontSizeToast(from, to) })
+                .then(pinch)
                 // Taps that no log line consumed (empty space) bring up the keyboard. A double tap
                 // is watched for only when it does something: waiting for it delays every tap.
                 .pointerInput(doubleTapOn) {
@@ -532,21 +530,13 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             }
         }
         // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
-        val suggestionsStyle = remember(configVersion) { config[Keys.SUGGESTIONS_STYLE] }
-        val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] }
-        if (!suggestionsAuto || typing || inputText.isNotEmpty()) {
-            if (suggestionsStyle == "chips") {
-                SuggestionStrip(suggestions, rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] }, onPick = vm::onSuggestion, icons = showIcons)
-            } else {
-                SuggestionList(
-                    suggestions,
-                    onPick = vm::onSuggestion,
-                    onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
-                    icons = showIcons,
-                    wrapHelp = remember(configVersion) { config[Keys.SUGGESTIONS_WRAP] },
-                )
-            }
-        }
+        PromptSuggestions(
+            vm,
+            previewTyping = preview?.typing == true,
+            always = !suggestionsAuto || typing,
+            configVersion = configVersion,
+            onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
+        )
         // [/selector]
         }
         // keybar.auto: only while typing, so an idle home shows more of the log.
@@ -601,6 +591,43 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 onText = vm::insert,
             )
         }
+    }
+}
+
+/**
+ * What the prompt suggests for its text, shown while typing or [always]. The text is read here, so
+ * a key builds this, not the whole of home.
+ */
+@Composable
+private fun PromptSuggestions(
+    vm: TerminalViewModel,
+    previewTyping: Boolean,
+    always: Boolean,
+    configVersion: Int,
+    onAppLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit,
+) {
+    val config = vm.config
+    val apps by vm.apps.collectAsStateWithLifecycle()
+    val maxSuggestions = remember(configVersion) { config[Keys.SUGGESTIONS] }
+    val commandNames by vm.commandNames.collectAsStateWithLifecycle()
+    val prefsVersion by vm.appPrefsVersion.collectAsStateWithLifecycle()
+    val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val inputText = if (previewTyping) PREVIEW_INPUT else vm.input.text
+    val suggestions = remember(inputText, apps, maxSuggestions, commandNames, prefsVersion, contacts) {
+        vm.suggestions(inputText).take(maxSuggestions)
+    }
+    if (!always && inputText.isEmpty()) return
+    val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] }
+    if (remember(configVersion) { config[Keys.SUGGESTIONS_STYLE] } == "chips") {
+        SuggestionStrip(suggestions, rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] }, onPick = vm::onSuggestion, icons = showIcons)
+    } else {
+        SuggestionList(
+            suggestions,
+            onPick = vm::onSuggestion,
+            onAppLongPress = onAppLongPress,
+            icons = showIcons,
+            wrapHelp = remember(configVersion) { config[Keys.SUGGESTIONS_WRAP] },
+        )
     }
 }
 
