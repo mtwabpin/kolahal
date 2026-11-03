@@ -20,7 +20,9 @@ internal class RunWatchdog(host: HostApi, timeoutMs: Long, nativeLimitMb: Long?)
         val killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
         try {
             while (true) {
-                Thread.sleep(WATCH_EVERY_MS)
+                // With no memory to watch (JavaScript has its own limit), only the clock is left, and
+                // when it runs out is known: one sleep, not a hundred wake-ups a second.
+                Thread.sleep(if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else WATCH_EVERY_MS)
                 val reason = when {
                     nativeLimitMb != null && Debug.getNativeHeapAllocatedSize() - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
                     System.currentTimeMillis() > killAt -> "still running after timeout"
