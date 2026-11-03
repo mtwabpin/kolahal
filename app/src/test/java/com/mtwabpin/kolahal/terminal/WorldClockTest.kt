@@ -52,4 +52,12 @@ class WorldClockTest {
         assertEquals(listOf("New York", "London", "UTC+2"), places.map { it.name })
         assertNull(WorldClock.parse(listOf("london", "nowhere")))
     }
+
+    /** Offsets go to ±18:00: one past it is no place, not an error from Java. */
+    @Test fun offsetsStopAtEighteenHours() {
+        assertEquals(ZoneOffset.ofHours(18), WorldClock.find("+18")!!.zone)
+        assertEquals(ZoneOffset.ofHours(-18), WorldClock.find("-18:00")!!.zone)
+        assertNull(WorldClock.find("+18:30"))
+        assertNull(WorldClock.find("-18:01"))
+    }
 }

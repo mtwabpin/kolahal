@@ -58,7 +58,8 @@ object WorldClock {
         OFFSET.matchEntire(q)?.let { m ->
             val hours = m.groupValues[2].toInt()
             val minutes = m.groupValues[3].ifEmpty { "0" }.toInt()
-            if (hours > 18 || minutes > 59) return null
+            // Java's offsets reach ±18:00, no further.
+            if (hours > 18 || minutes > 59 || (hours == 18 && minutes > 0)) return null
             val sign = if (m.groupValues[1] == "-") -1 else 1
             return Place("UTC$q", ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes))
         }
