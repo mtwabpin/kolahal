@@ -90,15 +90,22 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val reloadRequests = MutableStateFlow(0L)
     private fun requestReload() = reloadRequests.update { it + 1 }
 
-    /** Home is started (MainActivity's onStart to onStop): the log page is read again only then. */
+    /**
+     * Home is shown (from [onResume], once a fresh screen is decided, to MainActivity's onStop): the
+     * log page is read again and a `/` search runs only then.
+     */
     private val started = MutableStateFlow(true)
 
-    /** Started again after a stop: the next read of the page doesn't wait. */
+    /** Back after a stop: the one read of the page on return doesn't wait. */
     @Volatile private var back = false
 
+    /** MainActivity's onStart to onStop. */
+    @Volatile private var visible = true
+
     fun onStarted(on: Boolean) {
-        if (on && !started.value) back = true
-        started.value = on
+        visible = on
+        // Back, [onResume] starts reading again.
+        if (!on) started.value = false
         com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).setActive(on)
     }
 
@@ -320,9 +327,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             launch { appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged().drop(1).collect { requestReload() } }
             // Away from home only the trim goes on, which keeps the log at its cap as lines come.
             launch { logs.version.collect { if (!started.value) withContext(Dispatchers.IO) { runCatching { logs.trimIfOverdue() } } } }
-            // Only while home is started: nobody sees the page otherwise. Back, it reads what came
-            // meanwhile at once; bursts wait as before. So does the first read: started here, it
-            // could otherwise run before the fields further down are set.
+            // Only while home is shown: nobody sees the page otherwise. Back, it reads what came
+            // meanwhile at once, and once; bursts wait as before. So does the first read: started
+            // here, it could otherwise run before the fields further down are set.
             started.flatMapLatest { on -> if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow() }
                 .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
                 .collectLatest {
@@ -533,10 +540,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     init {
         viewModelScope.launch {
-            // Typing settles before a search; leaving it is at once. The log changing searches again.
+            // Typing settles before a search; leaving it is at once. The log changing searches again,
+            // while home is shown: a search left in the prompt runs again once on return.
             // Locking the private space hides its lines from the results too, as from the log.
             val locks = appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged()
-            combine(androidx.compose.runtime.snapshotFlow { searchWords(input.text) }.distinctUntilChanged(), logs.version, locks) { words, _, locked -> words to locked }
+            started.flatMapLatest { on ->
+                if (!on) emptyFlow()
+                else combine(androidx.compose.runtime.snapshotFlow { searchWords(input.text) }.distinctUntilChanged(), logs.version, locks) { words, _, locked -> words to locked }
+            }
                 .debounce { (words, _) -> if (words.isNullOrEmpty()) 0L else 120L }
                 .collectLatest { (words, locked) ->
                     // A failed search keeps the previous results instead of crashing home.
@@ -613,8 +624,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         io { logs.trimIfDue(config[Keys.LOG_KEEP_DAYS]) }
         // Daily times drift (late runs, a daylight-saving change): anchored again every few hours.
         io { ScriptScheduler.syncAllIfDue(context) }
-        // A crash in the script process doesn't restart home: its report is announced here.
-        io { runCatching { com.mtwabpin.kolahal.CrashReports.announce(context) } }
+        // A crash in the script process doesn't restart home: its report is announced here, off the
+        // command queue, so a command typed at once doesn't wait for it.
+        viewModelScope.launch(Dispatchers.IO) { runCatching { com.mtwabpin.kolahal.CrashReports.announce(context) } }
         // Coming back from an app is a fresh look at home: show the full header again.
         expandHeader()
         seenUpTo = logs.seenUpTo
@@ -622,12 +634,17 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // hidden (script lines that arrived meanwhile stay), and nothing is deleted.
         val freshMin = config[Keys.LOG_FRESH]
         val seen = seenUpTo
-        if (freshMin > 0 && pausedAt > 0 && System.currentTimeMillis() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE) {
-            io { logs.hideScreen(seen) }
-        }
+        val hide = freshMin > 0 && pausedAt > 0 && System.currentTimeMillis() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE
         viewModelScope.launch {
-            unreadUntil = withContext(Dispatchers.IO) { logs.maxId() }
-            requestReload()
+            withContext(Dispatchers.IO) {
+                if (hide) runCatching { logs.hideScreen(seen) }
+                unreadUntil = runCatching { logs.maxId() }.getOrDefault(unreadUntil)
+            }
+            // Back after a stop, the page is read here, once, with the fresh screen already in.
+            when {
+                started.value -> requestReload()
+                visible -> { back = true; started.value = true }
+            }
         }
         if (_screen.value == Screen.SETUP || _screen.value == Screen.ONBOARDING) refreshSetup()
         unlockCounter.refresh()
@@ -642,6 +659,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     private var focusOnWindowFocus = false
 
+    /** When Kolahal was installed: asked once, not at every return home. */
+    private val installedAt: Long? by lazy {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime }.getOrNull()
+    }
+
     /**
      * `log.tips`: on the first look at home each day, from one to fourteen days after installing, a
      * line about something not used yet ([Tips]); tapping it puts the example in the prompt.
@@ -651,7 +673,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val prefs = context.getSharedPreferences("tips", Context.MODE_PRIVATE)
         val today = java.time.LocalDate.now().toString()
         if (prefs.getString("day", null) == today) return
-        val installed = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime }.getOrNull() ?: return
+        val installed = installedAt ?: return
         if ((System.currentTimeMillis() - installed) / 86_400_000L !in Tips.DAYS) return
         val shown = prefs.getStringSet("shown", emptySet()).orEmpty()
         val tip = Tips.next(logs.commandHistory(), shown) ?: return
