@@ -94,6 +94,9 @@ class FeedUrlTest {
         assertEquals("https://example.com/feed.xml", FeedUrl.normalize("  HTTPS://Example.COM:443/feed.xml#top "))
         assertEquals("http://example.com:8080/rss?x=1", FeedUrl.normalize("http://example.com:8080/rss?x=1"))
         assertEquals("https://example.com/rss", FeedUrl.normalize("feed://example.com/rss"))
+        // An international name, as the address it goes to.
+        assertEquals("https://xn--bcher-kva.de/feed", FeedUrl.normalize("bücher.de/feed"))
+        assertEquals("https://xn--bcher-kva.de/feed?a=1", FeedUrl.normalize("https://Bücher.de/feed?a=1"))
         assertEquals("https://example.com/rss", FeedUrl.normalize("feed:https://example.com/rss"))
         assertEquals("https://example.com/Path", FeedUrl.normalize("https://example.com/Path"))
     }

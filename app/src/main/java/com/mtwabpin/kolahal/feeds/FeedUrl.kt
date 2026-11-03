@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.feeds
 
 import com.mtwabpin.kolahal.data.takeWhole
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
 
 /** Pure URL helpers for feeds (no Android APIs, unit-tested on the JVM). */
@@ -21,7 +22,8 @@ object FeedUrl {
         val uri = runCatching { URI(s) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase() ?: return null
         if (scheme != "http" && scheme != "https") return null
-        val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        // java.net.URI reads no host in an international name (bücher.de): OkHttp does, as punycode.
+        val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: s.toHttpUrlOrNull()?.host ?: return null
         val port = uri.port.takeUnless { it == -1 || (scheme == "http" && it == 80) || (scheme == "https" && it == 443) }
         return buildString {
             append(scheme).append("://")
