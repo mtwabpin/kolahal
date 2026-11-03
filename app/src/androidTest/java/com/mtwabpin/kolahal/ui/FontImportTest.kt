@@ -124,6 +124,8 @@ class FontImportTest {
         assertNothingSaved()
         assertEquals("Mono", TermFonts.importFrom(context, picked("Mono", jetbrains)))
         assertArrayEquals(jetbrains, saved("custom.ttf").readBytes())
+        // A dot in a version is no extension either.
+        assertEquals("Iosevka 27.3", TermFonts.importFrom(context, picked("Iosevka 27.3", jetbrains)))
     }
 
     /** Over 10 MB is refused by the size the provider gives, or else part way through the copy. */

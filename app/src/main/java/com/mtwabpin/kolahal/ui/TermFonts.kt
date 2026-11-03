@@ -22,6 +22,7 @@ object TermFonts {
 
     /** Imported fonts larger than this are refused. */
     const val MAX_BYTES = 10L * 1024 * 1024
+    private val EXTENSION = Regex("[a-z][a-z0-9]{0,4}")
 
     val names: List<String> get() = Keys.FONT.choices
 
@@ -96,7 +97,8 @@ object TermFonts {
                 if (!c.isNull(1)) size = c.getLong(1)
             }
         }
-        val named = name?.substringAfterLast('.', "")?.lowercase()?.takeIf { it.isNotEmpty() }
+        // An extension starts with a letter after the last dot: "Iosevka 27.3" has none, ".woff2" has one.
+        val named = name?.substringAfterLast('.', "")?.lowercase()?.takeIf { it.matches(EXTENSION) }
         // Some providers give no display name, or one without an extension; then the file's own header decides.
         if (named != null && named != "ttf" && named != "otf") throw IllegalArgumentException("pick a .ttf or .otf file (got $name)")
         if (size > MAX_BYTES) throw IllegalArgumentException("font is larger than 10 MB")
