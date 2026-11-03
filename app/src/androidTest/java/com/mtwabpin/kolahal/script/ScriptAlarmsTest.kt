@@ -1,6 +1,8 @@
 package com.mtwabpin.kolahal.script
 
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -8,9 +10,13 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
+import java.net.InetAddress
+import java.net.ServerSocket
+import kotlin.concurrent.thread
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -76,6 +82,44 @@ class ScriptAlarmsTest {
         val deadline = System.currentTimeMillis() + 5_000
         while (alarms().none { "${script.id}/23:00" in it } && System.currentTimeMillis() < deadline) Thread.sleep(100)
         assertTrue(alarms().joinToString("\n"), alarms().any { "${script.id}/23:00" in it })
+    }
+
+    /** A script that goes online, at its daily time with a network up: it runs, and its request reaches the server. */
+    @Test fun aScriptThatGoesOnlineRunsAtItsTime() {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        assumeTrue("no network", cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
+        val server = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))
+        thread(isDaemon = true) {
+            while (!server.isClosed) {
+                val client = runCatching { server.accept() }.getOrNull() ?: break
+                client.use { c ->
+                    val reader = c.getInputStream().bufferedReader()
+                    while (reader.readLine()?.isNotEmpty() == true) Unit
+                    c.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\npong".toByteArray())
+                }
+            }
+        }
+        try {
+            val script = scripts.create(name, ScriptLang.LUA, "local r = http.get('http://127.0.0.1:${server.localPort}/')\nlog('got ' .. r.body .. ' at ' .. event.time)")
+            scripts.setAtTimes(script.id, listOf("21:15"))
+            // As the app does when the times are set: the tear-down then knows the alarm to cancel.
+            ScriptScheduler.sync(context, scripts.byId(script.id)!!)
+            context.sendBroadcast(
+                Intent(context, ScriptAlarmReceiver::class.java)
+                    .setAction("${ScriptAlarms.ACTION}/${script.id}/21:15")
+                    .putExtra(ScriptAlarms.EXTRA_ID, script.id)
+                    .putExtra(ScriptAlarms.EXTRA_TIME, "21:15")
+            )
+            val until = System.currentTimeMillis() + 30_000
+            var ran: String? = null
+            while (ran == null && System.currentTimeMillis() < until) {
+                Thread.sleep(200)
+                ran = logs.recent(limit = 200).firstOrNull { it.source == name }?.text?.let(StyledText::plain)
+            }
+            assertEquals("got pong at 21:15", ran)
+        } finally {
+            server.close()
+        }
     }
 
     @Test fun switchedOffItsAlarmsGo() {

@@ -90,7 +90,8 @@ class FeedFetcher(context: Context) {
         // Everything stored arrived just now (pruning may have dropped some): the first successful fetch.
         val first = repo.itemCount(feed.id) <= fresh.size
         val newTitle = parsed.title?.takeIf { feed.title.isNullOrBlank() && it.isNotBlank() }
-        val status = if (first) "ok · ${parsed.items.size} items" else "ok · ${fresh.size} new"
+        val n = parsed.items.size
+        val status = if (first) "ok · $n ${if (n == 1) "item" else "items"}" else "ok · ${fresh.size} new"
         repo.recordFetch(feed.id, status, etag, lastModified, newTitle)
         return fresh
     }
@@ -139,7 +140,7 @@ class FeedFetcher(context: Context) {
             }
         }
         val bytes = out.toByteArray()
-        val charset = body.contentType()?.charset() ?: xmlDeclaredCharset(bytes) ?: Charsets.UTF_8
+        val charset = body.contentType()?.charset() ?: bomCharset(bytes) ?: xmlDeclaredCharset(bytes) ?: Charsets.UTF_8
         return String(bytes, charset).removePrefix("\uFEFF")
     }
 
@@ -147,6 +148,20 @@ class FeedFetcher(context: Context) {
         const val MAX_BODY_BYTES = 3 * 1024 * 1024
 
         private val ENCODING = Regex("^<\\?xml[^>]*encoding\\s*=\\s*[\"']([A-Za-z0-9._-]+)[\"']")
+
+        /**
+         * The charset a byte-order mark at the start names. Before the prolog: a UTF-16 one can't be
+         * read as bytes, and XML lets the mark decide.
+         */
+        internal fun bomCharset(bytes: ByteArray): Charset? {
+            fun startsWith(vararg b: Int) = bytes.size >= b.size && b.indices.all { bytes[it] == b[it].toByte() }
+            return when {
+                startsWith(0xEF, 0xBB, 0xBF) -> Charsets.UTF_8
+                startsWith(0xFE, 0xFF) -> Charsets.UTF_16BE
+                startsWith(0xFF, 0xFE) -> Charsets.UTF_16LE
+                else -> null
+            }
+        }
 
         /** `encoding="..."` from the XML prolog, when the server didn't send a charset. */
         internal fun xmlDeclaredCharset(bytes: ByteArray): Charset? {
