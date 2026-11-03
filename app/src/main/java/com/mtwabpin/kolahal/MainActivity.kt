@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        (application as? LauncherApp)?.homeShown()
         WidgetHost.get(this).startListening()
         com.mtwabpin.kolahal.status.DeviceStatus.get(this).watchBattery(true)
         // Current from the first frame back: home is built again after Settings and the like.
