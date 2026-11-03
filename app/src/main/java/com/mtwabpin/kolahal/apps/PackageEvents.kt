@@ -93,6 +93,15 @@ class PackageEvents private constructor(private val context: Context) {
      * Installed apps, the serials of paused profiles (whose apps are hidden, not gone), and the
      * serials of every profile the launcher can see, paused or not.
      */
+    /** What [current] last asked Android for one of this profile's apps, with the APK it read it for. */
+    private class Asked(val apk: String, val time: Long, val version: String, val code: Long, val updated: Long)
+
+    /**
+     * By key, since this process started: the same APK file (path and time) is the same version, so
+     * the hourly check and the one after an install ask only about apps that changed. Under [diff]'s lock.
+     */
+    private val asked = HashMap<String, Asked>()
+
     private fun current(): Triple<Map<String, Pkg>, Set<Long>, Set<Long>> {
         val out = HashMap<String, Pkg>()
         val paused = HashSet<Long>()
@@ -113,21 +122,24 @@ class PackageEvents private constructor(private val context: Context) {
                 if (key in out) continue
                 // Comes with the activity: no extra call to the system per app.
                 val info = a.applicationInfo
+                val apkTime = info.sourceDir?.let { java.io.File(it).lastModified() } ?: 0L
                 // Version details are only readable for this profile: don't ask for the others.
-                val pi = if (user != me) null else runCatching {
+                val pi = if (user != me) null else asked[key]?.takeIf { it.apk == info.sourceDir && it.time == apkTime } ?: runCatching {
                     context.packageManager.getPackageInfo(a.componentName.packageName, 0)
-                }.getOrNull()
+                }.getOrNull()?.let { Asked(info.sourceDir.orEmpty(), apkTime, it.versionName.orEmpty(), it.longVersionCode, it.lastUpdateTime) }
+                    ?.also { if (info.sourceDir != null) asked[key] = it }
                 out[key] = Pkg(
                     label = a.label.toString(),
-                    version = pi?.versionName.orEmpty(),
-                    code = pi?.longVersionCode ?: 0L,
+                    version = pi?.version.orEmpty(),
+                    code = pi?.code ?: 0L,
                     // Other profiles: the app's install-time stamp is not readable; the APK's
                     // file time changes on every update, which is what we need.
-                    updated = pi?.lastUpdateTime ?: info.sourceDir?.let { java.io.File(it).lastModified() } ?: 0L,
+                    updated = pi?.updated ?: info.sourceDir?.let { apkTime } ?: 0L,
                     profile = profile,
                 )
             }
         }
+        asked.keys.retainAll(out.keys)
         return Triple(out, paused, present)
     }
 
