@@ -78,6 +78,15 @@ private val PRODUCTIVITY_COMMANDS = CommandCatalog.PRODUCTIVITY + setOf("feed", 
 /** The whole page is read again at least this often, catching trims by other processes. */
 private const val FULL_RELOAD_MS = 60_000L
 
+/**
+ * ↑ history once [fresh] lines (oldest first) came after it: their commands first, newest first,
+ * each text once and [limit] in all, as [LogRepository.commandHistory] would read it.
+ */
+internal fun withNewCommands(history: List<String>, fresh: List<LogEntry>, limit: Int = LogRepository.HISTORY_LIMIT): List<String> {
+    val added = fresh.asReversed().filter { it.kind == LogKind.COMMAND }.map { it.text }
+    return if (added.isEmpty()) history else (added + history).distinct().take(limit)
+}
+
 /** `/battery low` at the prompt searches the log for those words; null when the line isn't a search. */
 internal fun searchWords(text: String): List<String>? =
     if (!text.startsWith("/")) null else text.substring(1).split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -435,7 +444,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
         _statuses.value = KvStore(context, HostApi.STATUS_SCOPE).all()
         if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = logs.hiddenCount()
-        if (!incremental || fresh.any { it.kind == LogKind.COMMAND }) history = logs.commandHistory()
+        // A typed command's own line puts it first: read again only when a command may have gone (a
+        // trim, or a removed line this page doesn't have or that was a command).
+        val commandGone = trimmed != loadedTrimmed ||
+            (gone.isNotEmpty() && loaded.filter { it.id in gone }.let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } })
+        if (!incremental || commandGone) history = logs.commandHistory()
+        else history = withNewCommands(history, fresh)
         if (!incremental || fresh.any(::touchesProductivity)) refreshProductivity()
         if (!incremental || fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
         // A locked private space hides its apps; its lines (launches, notifications) hide with it.

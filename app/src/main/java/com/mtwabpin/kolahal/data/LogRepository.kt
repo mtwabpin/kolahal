@@ -364,7 +364,7 @@ class LogRepository private constructor(private val context: Context) {
     ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
 
     /** Distinct commands, most recent first, for history navigation. */
-    fun commandHistory(limit: Int = 200): List<String> {
+    fun commandHistory(limit: Int = HISTORY_LIMIT): List<String> {
         val out = ArrayList<String>()
         db.readableDatabase.rawQuery(
             "SELECT text FROM logs WHERE kind = ? AND id > ? GROUP BY text ORDER BY MAX(id) DESC LIMIT ?",
@@ -605,6 +605,9 @@ class LogRepository private constructor(private val context: Context) {
     companion object {
         /** Characters kept per stored field; far below the 2 MB SQLite cursor window. */
         const val MAX_FIELD = 64 * 1024
+
+        /** Commands ↑ goes back through. */
+        const val HISTORY_LIMIT = 200
 
         /** Length of [values] written as a JSON object by [LogContext.toJson] (org.json's escapes). */
         internal fun jsonLength(values: Map<String, String>): Int {

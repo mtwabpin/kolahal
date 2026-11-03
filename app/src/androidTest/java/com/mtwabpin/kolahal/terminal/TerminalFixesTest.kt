@@ -115,6 +115,34 @@ class TerminalFixesTest {
         }
     }
 
+    /** ↑ goes back through what you typed, newest first, each command once. */
+    @Test fun upRecallsTypedCommandsNewestFirst() {
+        val vm = viewModel()
+        fun type(line: String) = instrumentation.runOnMainSync {
+            vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue(line))
+            vm.submit()
+        }
+        fun up(): String {
+            var text = ""
+            instrumentation.runOnMainSync {
+                vm.historyUp()
+                text = vm.input.text
+            }
+            return text
+        }
+        fun shown(line: String) = vm.entries.value.count { it.kind == LogKind.COMMAND && it.text == line }
+        type("echo tf one")
+        waitUntil("the first") { shown("echo tf one") == 1 }
+        type("echo tf two")
+        waitUntil("the second") { shown("echo tf two") == 1 }
+        type("echo tf one")
+        waitUntil("the first again") { shown("echo tf one") == 2 }
+        assertEquals("echo tf one", up())
+        assertEquals("echo tf two", up())
+        // Typed twice, it's there once.
+        assertTrue(up() != "echo tf one")
+    }
+
     /** The same message twice shows twice: each is a notice of its own. */
     @Test fun theSameMessageTwiceIsTwoNotices() {
         val vm = viewModel()
