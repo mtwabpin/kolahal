@@ -263,7 +263,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 // Since Android 15, Kolahal turns off only its own Do Not Disturb: one turned on
                 // elsewhere (quick settings, a schedule, another app) stays on.
                 if (filter == NotificationManager.INTERRUPTION_FILTER_ALL && !turnsOff()) {
-                    error("Do Not Disturb is still on: it was turned on outside Kolahal, so turn it off there", LogContext.of(LogContext.RUN to "dnd"))
+                    error("Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there", LogContext.of(LogContext.RUN to "dnd"))
                 } else {
                     info("Do Not Disturb ${dndLabel(filter)}", LogContext.of(LogContext.RUN to "dnd"))
                 }

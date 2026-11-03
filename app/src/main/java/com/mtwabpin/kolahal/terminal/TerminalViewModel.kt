@@ -449,8 +449,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // trim, or a removed line this page doesn't have or that was a command).
         val commandGone = trimmed != loadedTrimmed ||
             (gone.isNotEmpty() && loaded.filter { it.id in gone }.let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } })
-        if (!incremental || commandGone) history = logs.commandHistory()
-        else history = withNewCommands(history, fresh)
+        history = if (!incremental || commandGone) logs.commandHistory() else withNewCommands(history, fresh)
         if (!incremental || fresh.any(::touchesProductivity)) refreshProductivity()
         if (!incremental || fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
         // A locked private space hides its apps; its lines (launches, notifications) hide with it.

@@ -164,7 +164,7 @@ class ControlCommandsTest {
             waitUntil("on from outside") { notifications.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_PRIORITY }
             val said = lines("dnd off").single()
             assertEquals(LogKind.ERROR, said.kind)
-            assertEquals("Do Not Disturb is still on: it was turned on outside Kolahal, so turn it off there", said.text)
+            assertEquals("Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there", said.text)
             // Toggling from on tries off, and says the same.
             assertEquals(listOf(said.text), run("dnd"))
         } finally {
