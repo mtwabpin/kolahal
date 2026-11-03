@@ -96,16 +96,32 @@ class MediaRepository private constructor(private val context: Context) {
     private val component by lazy { ComponentName(context, KolahalNotificationListener::class.java) }
 
     @Volatile private var listening = false
-    private var controllers: List<MediaController> = emptyList()
+    private var watches: List<Watch> = emptyList()
     @Volatile private var current: MediaController? = null
 
     private val lastPlaying = LastPlaying()
 
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { list -> onSessions(list.orEmpty()) }
 
-    private val callback = object : MediaController.Callback() {
-        override fun onPlaybackStateChanged(state: PlaybackState?) = recompute()
-        override fun onMetadataChanged(metadata: MediaMetadata?) = recompute()
+    /**
+     * A session followed, with what its updates last said. An update from any player picks what to
+     * show from these: asking every session again was two system calls each, and the shown one's
+     * metadata with its artwork, on the main thread at every update.
+     */
+    private inner class Watch(val controller: MediaController) : MediaController.Callback() {
+        var state: PlaybackState? = controller.playbackState
+        var metadata: MediaMetadata? = controller.metadata
+
+        override fun onPlaybackStateChanged(state: PlaybackState?) {
+            this.state = state
+            recompute()
+        }
+
+        override fun onMetadataChanged(metadata: MediaMetadata?) {
+            this.metadata = metadata
+            recompute()
+        }
+
         override fun onSessionDestroyed() { main.post { refresh() } }
     }
 
@@ -163,34 +179,31 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     private fun onSessions(list: List<MediaController>) {
-        controllers.forEach { c -> runCatching { c.unregisterCallback(callback) } }
-        controllers = list
-        list.forEach { c -> runCatching { c.registerCallback(callback, main) } }
+        watches.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
+        watches = list.map { c -> Watch(c).also { w -> runCatching { c.registerCallback(w, main) } } }
         recompute()
     }
 
     /** Main thread. Picks the session to show and publishes it. */
     private fun recompute() {
         val now = System.currentTimeMillis()
-        lastPlaying.update(controllers.filter { it.playbackState.isActive() }.map { it.packageName }.toSet(), now)
-        val chosen = controllers.firstOrNull { it.playbackState.isActive() }
-            ?: controllers.maxByOrNull { lastPlaying[it.packageName] ?: 0L }
-        current = chosen
-        _nowPlaying.value = chosen?.let { snapshot(it, now) }
+        lastPlaying.update(watches.filter { it.state.isActive() }.map { it.controller.packageName }.toSet(), now)
+        val chosen = watches.firstOrNull { it.state.isActive() }
+            ?: watches.maxByOrNull { lastPlaying[it.controller.packageName] ?: 0L }
+        current = chosen?.controller
+        _nowPlaying.value = chosen?.let { snapshot(it.controller.packageName, it.metadata, it.state, now) }
     }
 
     private fun PlaybackState?.isActive() =
         this?.state == PlaybackState.STATE_PLAYING || this?.state == PlaybackState.STATE_BUFFERING
 
-    private fun snapshot(c: MediaController, now: Long): NowPlaying {
-        val meta = c.metadata
-        val ps = c.playbackState
+    private fun snapshot(pkg: String, meta: MediaMetadata?, ps: PlaybackState?, now: Long): NowPlaying {
         val elapsedNow = SystemClock.elapsedRealtime()
         val updatedAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { now - (elapsedNow - it) } ?: now
-        val idleSince = if (ps.isActive()) now else lastPlaying[c.packageName] ?: updatedAt.coerceAtMost(now)
+        val idleSince = if (ps.isActive()) now else lastPlaying[pkg] ?: updatedAt.coerceAtMost(now)
         return NowPlaying(
-            pkg = c.packageName,
-            app = appLabel(c.packageName),
+            pkg = pkg,
+            app = appLabel(pkg),
             title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
             artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST)
                 ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
@@ -243,7 +256,7 @@ class MediaRepository private constructor(private val context: Context) {
     /** Fresh snapshot for the `media` command (positions move while playing). */
     fun snapshotNow(): NowPlaying? {
         val c = controller() ?: return null
-        return snapshot(c, System.currentTimeMillis())
+        return snapshot(c.packageName, c.metadata, c.playbackState, System.currentTimeMillis())
     }
 
     companion object {
