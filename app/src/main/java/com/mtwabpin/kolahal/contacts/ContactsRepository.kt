@@ -52,16 +52,22 @@ class ContactsRepository private constructor(private val context: Context) {
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
     private var observing = false
 
-    /** Home is started: a change in the contacts reloads them as it comes. */
-    @Volatile private var active = true
+    /**
+     * Home is started: a change in the contacts reloads them as it comes. Not before home first
+     * starts: a process started for a job (a feed, a reminder) has no home to show them.
+     */
+    @Volatile private var active = false
 
     /** A change came while home wasn't started: the list is reloaded on return, or when a command needs it. */
     @Volatile private var stale = false
 
-    /** Home started or stopped. Away, a sync's bursts of changes don't each reload every number. */
+    /**
+     * Home started or stopped. Away, a sync's bursts of changes don't each reload every number. Back,
+     * the reload waits as long as one for a change does, past the return's own work.
+     */
     fun setActive(on: Boolean) {
         active = on
-        if (on && stale) reload(0)
+        if (on && stale) reload(RELOAD_DEBOUNCE_MS)
     }
 
     /** The contacts as they are now: read again first if they changed while home wasn't started. */
