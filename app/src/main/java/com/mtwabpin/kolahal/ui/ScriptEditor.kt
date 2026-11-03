@@ -209,7 +209,15 @@ fun ScriptEditor(
         onSave(text) { failure, changed ->
             if (failure == null) {
                 saved = text
-                if (!quiet) message = savedMessage(text, changed)
+                // The check reads the whole script: off the main thread. A message shown meanwhile
+                // came later, so it stays.
+                if (!quiet) {
+                    val before = message
+                    scope.launch {
+                        val saidSaved = withContext(Dispatchers.Default) { savedMessage(text, changed) }
+                        if (message === before) message = saidSaved
+                    }
+                }
             } else {
                 message = EditorMessage("Couldn't save: ${failure.message ?: failure.javaClass.simpleName}", EditorMessage.Kind.ERROR)
             }
