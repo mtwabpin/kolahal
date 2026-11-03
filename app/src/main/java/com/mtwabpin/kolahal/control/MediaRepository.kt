@@ -250,7 +250,7 @@ class MediaRepository private constructor(private val context: Context) {
         } else {
             lastPlaying[pkg] ?: updatedAt.coerceAtMost(now)
         }
-        return NowPlaying(
+        val fresh = NowPlaying(
             pkg = pkg,
             app = appLabel(pkg),
             title = track?.title,
@@ -262,7 +262,13 @@ class MediaRepository private constructor(private val context: Context) {
             duration = track?.duration ?: 0L,
             idleSince = idleSince,
         )
+        // The same playback told two ways (asked, Android works the position out to now; in a
+        // callback it's the player's own, from earlier): the last value stands.
+        val last = _nowPlaying.value
+        val sameTrack = last != null && last.copy(position = fresh.position, positionAt = fresh.positionAt) == fresh
+        return if (sameTrack && kotlin.math.abs(last!!.positionNow(now) - fresh.positionNow(now)) < SAME_POSITION_MS) last else fresh
     }
+
 
     private val labels = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -307,6 +313,9 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     companion object {
+        /** Two positions this close, worked out to the same moment, are the same. */
+        private const val SAME_POSITION_MS = 50L
+
         @SuppressLint("StaticFieldLeak") // application context only
         @Volatile
         private var instance: MediaRepository? = null
