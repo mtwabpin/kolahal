@@ -260,7 +260,8 @@ fun LogLine(
                 drawRect(gutterColor, topLeft = Offset.Zero, size = Size(2.dp.toPx(), size.height))
             })
             .combinedClickable(
-                interactionSource = touch,
+                // Only where it's watched: without one, the ripple is made at the first press, not as the line shows.
+                interactionSource = if (byPart) touch else null,
                 indication = androidx.compose.foundation.LocalIndication.current,
                 onLongClickLabel = "actions",
                 onClick = { onTap(entry) },
