@@ -65,7 +65,7 @@ class ReminderFiringTest {
         assertEquals(localTime(at).toString(), store.byId(r.id)!!.time)
     }
 
-    /** Its next time is at the time asked for, not the one it fired at, which a daylight-saving gap moves (02:30 to 03:30). */
+    /** Its next time is at the time asked for, not the one it fired at (which a daylight-saving gap can move, 02:30 to 03:30). */
     @Test fun aRepeatingOneKeepsTheTimeAskedFor() {
         val r = store.add(System.currentTimeMillis() - 1_000, "firing-asked", "day", "02:30")
         fire(r.id)
@@ -73,7 +73,10 @@ class ReminderFiringTest {
         assertEquals(LocalTime.of(2, 30), localTime(store.byId(r.id)!!.at))
     }
 
-    /** In a new time zone, one still ahead moves to the time asked for there; one set without its time stays. */
+    /**
+     * What a time-zone change runs (followZone): one whose time no longer reads as the time asked for
+     * moves to it, as after a flight; one set without its time stays. The phone's zone itself isn't changed.
+     */
     @Test fun aNewZoneMovesItToTheTimeAskedFor() {
         val elsewhere = LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val asked = store.add(elsewhere, "firing-zone", "day", "09:00")
