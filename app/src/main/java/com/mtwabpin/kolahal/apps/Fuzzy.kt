@@ -18,22 +18,31 @@ internal object Fuzzy {
         if (q.length < 4) return false
         val max = if (q.length >= 8) 2 else 1
         return names.any { name ->
-            (q.length - max..q.length + max).any { n -> n in 1..name.length && distance(q, name.take(n)) <= max }
+            (q.length - max..q.length + max).any { n -> n in 1..name.length && distance(q, name, n) <= max }
         }
     }
 
-    /** Edits from [a] to [b], a swap of two neighbours counting as one (optimal string alignment). */
-    fun distance(a: String, b: String): Int {
-        val d = Array(a.length + 1) { IntArray(b.length + 1) }
-        for (i in 0..a.length) d[i][0] = i
-        for (j in 0..b.length) d[0][j] = j
+    /**
+     * Edits from [a] to the first [bLength] letters of [b], a swap of two neighbours counting as one
+     * (optimal string alignment). Three rows of the table at a time: app search asks for a slip
+     * against every name, a few times each, on a key that matches nothing.
+     */
+    fun distance(a: String, b: String, bLength: Int = b.length): Int {
+        var older = IntArray(bLength + 1)
+        var prev = IntArray(bLength + 1) { it }
+        var row = IntArray(bLength + 1)
         for (i in 1..a.length) {
-            for (j in 1..b.length) {
+            row[0] = i
+            for (j in 1..bLength) {
                 val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                d[i][j] = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
-                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d[i][j] = minOf(d[i][j], d[i - 2][j - 2] + 1)
+                row[j] = minOf(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost)
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) row[j] = minOf(row[j], older[j - 2] + 1)
             }
+            val spare = older
+            older = prev
+            prev = row
+            row = spare
         }
-        return d[a.length][b.length]
+        return prev[bLength]
     }
 }

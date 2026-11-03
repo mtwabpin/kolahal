@@ -57,4 +57,30 @@ class FuzzyTest {
         val daily = (0 until 30).sumOf { AppPrefs.decayed(1.0, it * 86_400_000L) }
         assertTrue("$oldFavourite vs $daily", daily > oldFavourite * 5)
     }
+
+    /** The distance as a full table, as it was worked out before: the three-row version must agree. */
+    private fun tableDistance(a: String, b: String): Int {
+        val d = Array(a.length + 1) { IntArray(b.length + 1) }
+        for (i in 0..a.length) d[i][0] = i
+        for (j in 0..b.length) d[0][j] = j
+        for (i in 1..a.length) {
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                d[i][j] = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d[i][j] = minOf(d[i][j], d[i - 2][j - 2] + 1)
+            }
+        }
+        return d[a.length][b.length]
+    }
+
+    @Test fun distanceAgreesWithTheFullTable() {
+        val r = kotlin.random.Random(7)
+        repeat(5_000) {
+            val a = String(CharArray(r.nextInt(0, 10)) { "abcde"[r.nextInt(5)] })
+            val b = String(CharArray(r.nextInt(0, 10)) { "abcde"[r.nextInt(5)] })
+            val n = r.nextInt(0, b.length + 1)
+            assertEquals("$a / $b", tableDistance(a, b), Fuzzy.distance(a, b))
+            assertEquals("$a / ${b.take(n)}", tableDistance(a, b.take(n)), Fuzzy.distance(a, b, n))
+        }
+    }
 }
