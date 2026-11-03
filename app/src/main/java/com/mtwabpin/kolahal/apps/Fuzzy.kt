@@ -6,8 +6,20 @@ import java.text.Normalizer
 internal object Fuzzy {
     private val MARKS = Regex("\\p{Mn}+")
 
-    /** "Café" and "cafe" read alike: lowercase, without accents. */
-    fun fold(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(MARKS, "")
+    /**
+     * "Café" and "cafe" read alike: lowercase, without accents. Letters that aren't a letter and an
+     * accent (ł, ø, ß, æ…) are written as their plain letters too: "Straße" reads as "strasse".
+     */
+    fun fold(s: String): String {
+        val plain = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(MARKS, "")
+        if (plain.none { it in LETTERS }) return plain
+        return buildString(plain.length + 4) { for (c in plain) append(LETTERS[c] ?: c) }
+    }
+
+    /** Latin letters with no accent to take off, as they're written in plain letters. */
+    private val LETTERS = mapOf(
+        'ł' to "l", 'ø' to "o", 'ß' to "ss", 'đ' to "d", 'ð' to "d", 'æ' to "ae", 'œ' to "oe", 'þ' to "th", 'ı' to "i", 'ħ' to "h",
+    )
 
     /**
      * Whether [q] is a slip for the start of one of [names] (the label, then its words): a letter

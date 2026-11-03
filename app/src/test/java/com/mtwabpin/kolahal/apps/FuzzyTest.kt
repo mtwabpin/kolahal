@@ -6,6 +6,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FuzzyTest {
+    /** Letters that aren't a letter and an accent are found as people type them without one. */
+    @Test fun lettersWithoutAnAccentToTakeOff() {
+        assertEquals("strasse", Fuzzy.fold("Straße"))
+        assertEquals("lodz", Fuzzy.fold("Łódź"))
+        assertEquals("oresund", Fuzzy.fold("Øresund"))
+        assertEquals("aegir", Fuzzy.fold("Ægir"))
+        assertEquals("cafe", Fuzzy.fold("Café"))
+        // Two such letters were more than a slip: now they're no slip at all.
+        assertTrue(Fuzzy.fold("Straßenbahn").startsWith(Fuzzy.fold("strassen")))
+    }
+
     @Test fun accentsDontMatter() {
         assertEquals("cafe", Fuzzy.fold("Café"))
         assertEquals("ubersetzer", Fuzzy.fold("Übersetzer"))
