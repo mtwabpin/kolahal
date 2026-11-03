@@ -52,6 +52,9 @@ object AppIcons {
 
     fun cached(app: AppEntry, px: Int): ImageBitmap? = cache.get("${app.key}@$px")
 
+    /** Android is short of memory: the kept icons go. Those on screen stay where they are; the rest load again when shown. */
+    fun trim() = cache.evictAll()
+
     fun load(context: Context, app: AppEntry, px: Int): ImageBitmap? {
         cached(app, px)?.let { return it }
         val icon = runCatching {

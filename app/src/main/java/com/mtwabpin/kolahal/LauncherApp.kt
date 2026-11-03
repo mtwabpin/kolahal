@@ -32,6 +32,27 @@ class LauncherApp : Application(), Configuration.Provider {
             .setDefaultProcessName(packageName)
             .build()
 
+    /**
+     * Android short of memory: the log pictures (on disk too) and app icons kept for scrolling back
+     * go. The fewer MB home holds then, the less likely it's closed, which would make the return home
+     * a cold start. Not merely on going behind another app: pictures scrolled back to would then
+     * load again after every visit.
+     */
+    @Suppress("DEPRECATION") // TRIM_MEMORY_BACKGROUND is still sent, and is the pressure meant here
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_BACKGROUND) {
+            com.mtwabpin.kolahal.ui.LogImages.trim()
+            com.mtwabpin.kolahal.ui.AppIcons.trim()
+        }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        com.mtwabpin.kolahal.ui.LogImages.trim()
+        com.mtwabpin.kolahal.ui.AppIcons.trim()
+    }
+
     override fun onCreate() {
         super.onCreate()
         // Before anything else can fail: a crash in either process leaves a report (see `crashes`).
