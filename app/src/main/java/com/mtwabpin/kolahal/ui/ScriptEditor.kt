@@ -78,9 +78,13 @@ import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
+
+/** The symbol bar's keys, under the code. */
+private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
 
 /**
  * Monospace editor for scripts: line numbers, light syntax colouring, undo/redo, find/replace,
@@ -414,8 +418,11 @@ fun ScriptEditor(
     }
     // Scroll an error jump into view once the text has been laid out.
     var revealedJump by remember(script.id) { mutableStateOf(jumpToLine == null) }
-    LaunchedEffect(layout, viewportHeight) {
-        if (!revealedJump && layout != null && viewportHeight > 0) {
+    // Read in here, not as the effect's keys: every key lays the text out again, and the editor
+    // would be built again for each layout.
+    LaunchedEffect(script.id) {
+        androidx.compose.runtime.snapshotFlow { layout != null && viewportHeight > 0 }.first { it }
+        if (!revealedJump) {
             revealedJump = true
             reveal(value.selection.start)
         }
@@ -641,12 +648,11 @@ fun ScriptEditor(
                 }
             }
         }
-        val symbols = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
         // Read here, not inside the row's items, so a change re-dims the arrows.
         val canUndo = history.canUndo
         val canRedo = history.canRedo
         LazyRow(Modifier.fillMaxWidth().background(Term.surface)) {
-            items(symbols) { s ->
+            items(SYMBOLS) { s ->
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier

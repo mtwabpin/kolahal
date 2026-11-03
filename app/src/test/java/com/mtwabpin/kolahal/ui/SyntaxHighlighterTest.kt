@@ -65,7 +65,7 @@ class SyntaxHighlighterTest {
         fun fonts(code: String) = SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString(code)).text.spanStyles
             .count { it.item.fontWeight != null || it.item.fontStyle != null }
         assertTrue(fonts(lua) > 0)
-        val big = buildString { while (length <= 20_000) append(lua).append('\n') }
+        val big = buildString { while (length <= 8_000) append(lua).append('\n') }
         assertEquals(0, fonts(big))
         // The colours stay.
         assertTrue(SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString(big)).text.spanStyles.size > 100)

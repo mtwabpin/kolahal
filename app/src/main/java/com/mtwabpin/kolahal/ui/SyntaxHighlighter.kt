@@ -104,8 +104,8 @@ internal class SyntaxHighlighter(
     private fun colour(text: AnnotatedString): TransformedText {
         val src = text.text
         // A big script is coloured without italic comments and bold keywords: laying out a script
-        // with them costs more the more of them there are (on the emulator, 25 KB took 396 ms with
-        // them and 73 ms without, at every key).
+        // with them costs more the more of them there are (on the emulator, at every key: 8 KB took
+        // 48 ms with them and 13 ms without, 20 KB 162 ms and 32 ms).
         val plain = src.length > PLAIN_FROM
         val styles = arrayOf(
             SpanStyle(color = Term.dim, fontStyle = if (plain) null else FontStyle.Italic),
@@ -153,8 +153,8 @@ internal class SyntaxHighlighter(
     private companion object {
         const val STRING = LineTokens.STRING
 
-        /** Longer than this (about 550 lines), code is coloured only. */
-        const val PLAIN_FROM = 20_000
+        /** Longer than this (about 200 lines), code is coloured only. */
+        const val PLAIN_FROM = 8_000
     }
 
     override fun equals(other: Any?) = other is SyntaxHighlighter && other.flashLine == flashLine &&
