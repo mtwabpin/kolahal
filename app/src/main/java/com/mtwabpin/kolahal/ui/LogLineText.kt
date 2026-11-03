@@ -34,7 +34,9 @@ fun markMatches(text: AnnotatedString, words: List<String>): AnnotatedString {
     if (words.isEmpty()) return text
     val mark = SpanStyle(background = Term.prompt.copy(alpha = 0.35f))
     return AnnotatedString.Builder(text).apply {
+        // An empty word would be found at the same place for ever.
         for (w in words) {
+            if (w.isEmpty()) continue
             var at = text.text.indexOf(w, ignoreCase = true)
             while (at >= 0) {
                 addStyle(mark, at, at + w.length)
