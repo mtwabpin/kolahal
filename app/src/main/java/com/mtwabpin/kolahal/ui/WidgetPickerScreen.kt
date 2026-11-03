@@ -147,8 +147,25 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     // Each waiting message once, oldest first, whichever widget screen is open.
     LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
     BackHandler { vm.closeScreen() }
-    // Its pictures are let go with it.
-    DisposableEffect(Unit) { onDispose { pickerImages.evictAll() } }
+    // Its pictures are let go with it, and when Android asks: hidden behind another app or short of
+    // memory, Kolahal is likelier to be closed the more it holds. Cards decode theirs again on return.
+    DisposableEffect(Unit) {
+        val trim = object : android.content.ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) pickerImages.evictAll()
+            }
+
+            override fun onConfigurationChanged(newConfig: android.content.res.Configuration) = Unit
+
+            @Deprecated("Called on old Android versions only", ReplaceWith("onTrimMemory"))
+            override fun onLowMemory() = pickerImages.evictAll()
+        }
+        context.registerComponentCallbacks(trim)
+        onDispose {
+            context.unregisterComponentCallbacks(trim)
+            pickerImages.evictAll()
+        }
+    }
 
     GuiTheme {
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
