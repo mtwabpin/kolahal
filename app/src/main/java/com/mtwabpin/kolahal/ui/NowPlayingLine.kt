@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -18,14 +17,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -34,6 +38,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -48,8 +53,15 @@ internal fun NowPlayingLine(
 ) {
     val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
 
-    var position by remember(np) {
-        mutableLongStateOf(np.positionNow())
+    // How far along: worked out every 250 ms, but stored only when the bar's filled part changes by a
+    // pixel, and read only to draw the bar. An hour-long track moves it a pixel every few seconds,
+    // and each change used to build and measure the whole line again.
+    val barWidth = remember { intArrayOf(0) }
+    var progress by remember(np) { mutableFloatStateOf(np.progressNow()) }
+    fun update() {
+        val p = np.progressNow()
+        val w = barWidth[0]
+        if (w == 0 || (w * p).roundToInt() != (w * progress).roundToInt()) progress = p
     }
 
     // Update position locally without requiring MediaRepository events. Keyed on all of np: a seek,
@@ -59,17 +71,11 @@ internal fun NowPlayingLine(
     LaunchedEffect(np, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (np.playing) {
-                position = np.positionNow()
+                update()
                 delay(250.milliseconds)
             }
-            position = np.positionNow()
+            update()
         }
-    }
-
-    val progress = if (np.duration > 0 && position >= 0) {
-        (position.toFloat() / np.duration).coerceIn(0f, 1f)
-    } else {
-        0f
     }
 
     Column(
@@ -138,26 +144,39 @@ internal fun NowPlayingLine(
             }
         }
 
-        // Playback progress track.
-        ProgressTrack(progress)
+        // Playback progress track. A new width is drawn at once, not at the next pixel's worth of track.
+        ProgressTrack({ progress }, Modifier.onSizeChanged { barWidth[0] = it.width; progress = np.progressNow() })
     }
+}
+
+/** How far along [NowPlaying] is now, 0 to 1; 0 when the length or position isn't known. */
+private fun NowPlaying.progressNow(): Float {
+    val position = positionNow()
+    return if (duration > 0 && position >= 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
 }
 
 /** A thin bar, filled as far as [fraction] (0 to 1). */
 @Composable
-internal fun ProgressTrack(fraction: Float) {
+internal fun ProgressTrack(fraction: Float) = ProgressTrack({ fraction })
+
+/**
+ * A thin bar, filled as far as [fraction] (0 to 1), read only while drawing: a change draws the bar
+ * again, without building or measuring anything. The fill is as wide as a child at
+ * `fillMaxWidth(fraction)` would be: whole pixels, from the start side.
+ */
+@Composable
+internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier) {
+    val fill = Term.prompt
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(2.dp)
             .clip(RoundedCornerShape(50))
             .background(Term.dim.copy(alpha = 0.25f))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(fraction)
-                .fillMaxHeight()
-                .background(Term.prompt)
-        )
-    }
+            .drawBehind {
+                val w = (size.width * fraction()).roundToInt().toFloat()
+                val x = if (layoutDirection == LayoutDirection.Rtl) size.width - w else 0f
+                drawRect(fill, topLeft = Offset(x, 0f), size = Size(w, size.height))
+            }
+    )
 }
