@@ -89,7 +89,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             ui.requestContactsPermission()
             return
         }
-        val list = if (query.isBlank()) contacts.contacts.value.filter { it.starred }.ifEmpty { contacts.contacts.value.take(20) } else contacts.search(query, 20)
+        val list = if (query.isBlank()) contacts.current().let { all -> all.filter { it.starred }.ifEmpty { all.take(20) } } else contacts.search(query, 20)
         if (list.isEmpty()) return info(if (query.isBlank()) "No contacts" else "No contact matches '$query'")
         list.forEach(::contactLine)
     }

@@ -99,6 +99,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun onStarted(on: Boolean) {
         if (on && !started.value) back = true
         started.value = on
+        com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).setActive(on)
     }
 
     /** Serials of private spaces that are locked. */

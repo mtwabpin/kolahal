@@ -52,6 +52,24 @@ class ContactsRepository private constructor(private val context: Context) {
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
     private var observing = false
 
+    /** Home is started: a change in the contacts reloads them as it comes. */
+    @Volatile private var active = true
+
+    /** A change came while home wasn't started: the list is reloaded on return, or when a command needs it. */
+    @Volatile private var stale = false
+
+    /** Home started or stopped. Away, a sync's bursts of changes don't each reload every number. */
+    fun setActive(on: Boolean) {
+        active = on
+        if (on && stale) reload(0)
+    }
+
+    /** The contacts as they are now: read again first if they changed while home wasn't started. */
+    fun current(): List<Contact> {
+        if (stale && Looper.myLooper() != Looper.getMainLooper()) runCatching { reloadNow() }
+        return _contacts.value
+    }
+
     /** Contacts come from Android's contact picker, not READ_CONTACTS: the Play build. */
     var picker = !BuildConfig.CONTACTS
         internal set(value) { field = value; _contacts.value = emptyList(); refresh() }
@@ -74,7 +92,9 @@ class ContactsRepository private constructor(private val context: Context) {
                 ContactsContract.Contacts.CONTENT_URI, true,
                 object : ContentObserver(Handler(Looper.getMainLooper())) {
                     // Sync adapters fire bursts of changes; coalesce them into one reload.
-                    override fun onChange(selfChange: Boolean) = reload(RELOAD_DEBOUNCE_MS)
+                    override fun onChange(selfChange: Boolean) {
+                        if (active) reload(RELOAD_DEBOUNCE_MS) else stale = true
+                    }
                 },
             )
         }
@@ -89,9 +109,16 @@ class ContactsRepository private constructor(private val context: Context) {
         reloadJob?.cancel()
         reloadJob = scope.launch {
             if (delayMs > 0) delay(delayMs.milliseconds)
-            if (!hasPermission()) return@launch
-            runCatching { _contacts.value = load() }
+            runCatching { reloadNow() }
         }
+    }
+
+    /** Reads every number again, on the caller's thread. */
+    @Synchronized
+    private fun reloadNow() {
+        stale = false
+        if (!hasPermission()) return
+        _contacts.value = load()
     }
 
     private fun load(): List<Contact> {
@@ -174,7 +201,7 @@ class ContactsRepository private constructor(private val context: Context) {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
         val digits = q.filter { it.isDigit() }
-        return _contacts.value.asSequence()
+        return current().asSequence()
             .mapNotNull { c ->
                 val name = c.lowerName
                 val score = when {
