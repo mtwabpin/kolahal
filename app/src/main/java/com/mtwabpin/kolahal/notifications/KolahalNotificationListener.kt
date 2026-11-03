@@ -38,6 +38,9 @@ class KolahalNotificationListener : NotificationListenerService() {
         val active = runCatching { activeNotifications }.getOrNull().orEmpty()
         val accepted = active.filter(::accept).map { it to toNotif(it) }
         NotificationStore.replaceAll(accepted.map { (sbn, n) -> n to sbn.notification.contentIntent })
+        // Those showing were logged when they came, before access went or the process ended: an
+        // unchanged re-post of one isn't a new line.
+        accepted.forEach { (sbn, n) -> if (n.line.isNotEmpty()) lastLogged.putIfAbsent(n.key, sbn.postTime to n.line) }
         scope.launch { accepted.forEach { (sbn, n) -> saveIcon(n, sbn) } }
         mirror()
         // Access turned off and on again: now playing listens to media sessions again.
