@@ -308,22 +308,30 @@ class CommandFamiliesTest {
         }
     }
 
-    /** `calls` prints call lines, as the ones logged by themselves are, so they stay out of backups. */
+    /**
+     * `calls` prints call lines, as the ones logged by themselves are, so they stay out of backups;
+     * the newest call first.
+     */
     @Test fun callsPrintsCallLines() {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         fun shell(command: String) = android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes() }
-        val number = "5550142"
+        val older = "5550142"
+        val newer = "5550143"
         shell("pm grant ${context.packageName} android.permission.READ_CALL_LOG")
-        shell("content insert --uri content://call_log/calls --bind number:s:$number --bind type:i:1 --bind date:l:${System.currentTimeMillis()} --bind duration:l:5")
+        val now = System.currentTimeMillis()
+        shell("content insert --uri content://call_log/calls --bind number:s:$older --bind type:i:1 --bind date:l:${now - 60_000} --bind duration:l:5")
+        shell("content insert --uri content://call_log/calls --bind number:s:$newer --bind type:i:2 --bind date:l:$now --bind duration:l:7")
         val before = logs.maxId()
         try {
             processor.run("calls 5")
             val lines = logs.recent(50).filter { it.id > before && it.kind != LogKind.COMMAND }
-            assertTrue(lines.toString(), lines.any { it.ctx.values[LogContext.PHONE] == number })
+            val numbers = lines.mapNotNull { it.ctx.values[LogContext.PHONE] }
+            assertTrue(lines.toString(), older in numbers && newer in numbers)
+            assertTrue(numbers.toString(), numbers.indexOf(newer) < numbers.indexOf(older))
             assertTrue(lines.toString(), lines.all { it.source == com.mtwabpin.kolahal.calls.CallEvents.SOURCE })
         } finally {
             logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
-            shell("content delete --uri content://call_log/calls --where \"number='$number'\"")
+            shell("content delete --uri content://call_log/calls --where \"number='$older' OR number='$newer'\"")
         }
     }
 

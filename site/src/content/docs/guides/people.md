@@ -60,7 +60,7 @@ The arrow at the end is the direction (↙ incoming, ↗ outgoing); missed and d
 ✕, blocked ones in ⊘. The number, then the time and length (or "not answered"), are on dimmed lines
 below. Tap a line to dial back; long-press to call, message, copy the number or open the contact.
 
-- `calls` lists the last 20 calls from Android's call log, with the day; `calls 50` lists more.
+- `calls` lists the last 20 calls from Android's call log, newest first, with the day; `calls 50` lists more.
 - To turn this on, grant access: `calls --allow`, or **Call log** in the [setup checklist](/getting-started/setup/).
   Calls from before you allowed it aren't added to the log. To stop, remove the permission in
   Android's app settings (`calls --settings`).
