@@ -77,6 +77,10 @@ class KolahalNotificationListener : NotificationListenerService() {
         mirrorJob?.cancel()
         // Synchronous (a single small delete) so onDestroy cancelling the scope can't skip it.
         clearMirror(this)
+        // A write already writing can't be cancelled and may land after that: cleared again once it
+        // has, on the same queue, outside the scope onDestroy cancels.
+        val app = applicationContext
+        CoroutineScope(mirrorWork).launch { clearMirror(app) }
     }
 
     override fun onDestroy() {
