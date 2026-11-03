@@ -55,7 +55,7 @@ class WidgetHost private constructor(context: Context) {
         // A provider was removed, updated or (un)masked: drop widgets that no longer exist.
         override fun onProvidersChanged() {
             forgetInfos()
-            prune()
+            checks.execute { runCatching { prune() } }
             _providersVersion.value++
         }
     }
@@ -129,10 +129,16 @@ class WidgetHost private constructor(context: Context) {
         return taken
     }
 
+    /**
+     * Where [prune] runs for a start or a change of providers: it asks Android about each widget, one
+     * call each, and home's return shouldn't wait for them. One at a time.
+     */
+    private val checks = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     fun startListening() {
         if (listening) return
         listening = runCatching { host.startListening() }.isSuccess
-        prune()
+        checks.execute { runCatching { prune() } }
     }
 
     fun stopListening() {
