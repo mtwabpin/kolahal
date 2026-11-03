@@ -81,6 +81,12 @@ class InstantRunTest {
         assertFalse("optional-argument commands wait for Enter", InstantRun.canRun("setup", commands, emptyMap(), emptyList()))
         assertTrue(InstantRun.isSensitive("notifications-feed clear"))
         assertFalse(InstantRun.canRun("call mom", commands, emptyMap(), emptyList()))
+        // Tapped in the log (a contact, a history line) a call runs: the dialer still waits for Call.
+        assertTrue(InstantRun.canRun("call mom", commands, emptyMap(), emptyList(), tapped = true))
+        assertTrue(InstantRun.canRun("mom", commands, mapOf("mom" to "call mom"), emptyList(), tapped = true))
+        assertFalse("only a call", InstantRun.canRun("sms mom hi", commands, emptyMap(), emptyList(), tapped = true))
+        // A script still may not open the dialer.
+        assertTrue(InstantRun.isSensitive("call mom"))
         assertFalse(InstantRun.canRun("work off", commands, emptyMap(), emptyList()))
         assertFalse(InstantRun.canRun("weather london", commands, emptyMap(), listOf("weather")))
     }

@@ -708,7 +708,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private fun runsOnTap(line: String) = config[Keys.LAUNCH_INSTANT] == InstantRun.ALL &&
         // A trailing space marks a prefill ("apps " from help): it is waiting for an argument.
         !line.endsWith(' ') &&
-        (InstantRun.canRun(line, commandUsages, appPrefs.aliases(), _commandNames.value) { name ->
+        (InstantRun.canRun(line, commandUsages, appPrefs.aliases(), _commandNames.value, tapped = true) { name ->
             appsRepo.searchRanked(name).firstOrNull()?.second == 0
         } || InstantRun.wholeLine(line, commandUsages, appPrefs.aliases()))
 
@@ -803,7 +803,18 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** A completion fills the prompt; in `launch.instant all` a line it leaves with nothing to choose runs (`torch on`). */
     private fun pickCompletion(replacement: String) {
         setText(replacement)
-        if (searchWords(replacement) == null && replacement.trim().contains(' ')) instantRun(replacement)
+        if (searchWords(replacement) != null || !replacement.trim().contains(' ')) return
+        // A contact picked for `call` opens the dialer at once, as a tap in the log does: the
+        // dialer still waits for Call. Any other line runs only once it's complete (`torch on`).
+        val line = replacement.trim()
+        if (InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && runsOnTap(line)) {
+            setText("")
+            collapseHeader()
+            _events.tryEmit(UiEvent.ScrollToBottom)
+            io { processor.run(line) }
+        } else {
+            instantRun(replacement)
+        }
     }
 
     fun onSuggestion(s: Suggestion) {

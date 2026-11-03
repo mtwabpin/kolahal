@@ -200,6 +200,12 @@ object InstantRun {
      */
     private val WHOLE_LINE_OK = com.mtwabpin.kolahal.control.ControlCommands.SENSITIVE
 
+    /**
+     * Sensitive when typed or sent by a script, but a line tapped in the log runs: `call` only opens
+     * the dialer with the number, where you still press Call, so a tapped contact needn't wait for Enter.
+     */
+    private val TAP_OK = setOf("call")
+
     /** A [line] with arguments that fills its command's usage line completely ([UsageLine.complete]). */
     fun wholeLine(line: String, commands: Map<String, String>, aliases: Map<String, String>): Boolean {
         val word = line.trim().lowercase().substringBefore(' ')
@@ -219,6 +225,7 @@ object InstantRun {
         commands: Map<String, String>,
         aliases: Map<String, String>,
         scriptCommands: Collection<String>,
+        tapped: Boolean = false,
         isApp: (String) -> Boolean = { false },
     ): Boolean {
         var current = line.trim()
@@ -231,7 +238,7 @@ object InstantRun {
         }
         val parts = current.split(Regex("\\s+"))
         val head = canonical(parts.firstOrNull() ?: return false)
-        if (head.isEmpty() || head in SENSITIVE) return false
+        if (head.isEmpty() || (head in SENSITIVE && !(tapped && head in TAP_OK))) return false
         // Script commands are in [commands] only when their usage is known (ScriptMeta.usage).
         val usage = commands[head] ?: return head !in scriptCommands && isApp(current)
         // Only commands that take no arguments at all: `contacts` must still accept `contacts bob`.

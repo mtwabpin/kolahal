@@ -5,6 +5,7 @@ import android.app.Instrumentation
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.contacts.Contact
@@ -13,6 +14,8 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Script
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -170,5 +173,30 @@ class ContactPickerTest {
         assertTrue(completer.suggestions("call ").none { it.label == "Allow contacts access" })
         val forget = completer.suggestions("contacts --forget kol").filterIsInstance<Suggestion.Completion>()
         assertEquals(listOf("contacts --forget ${mum.name}"), forget.map { it.replacement })
+    }
+
+    /** A contact picked from `call`'s suggestions opens the dialer at once, where you still press Call. */
+    @Test fun aContactPickedForCallOpensTheDialer() {
+        contacts.remember(listOf(mum))
+        val config = Config.get(app)
+        try {
+            lateinit var vm: TerminalViewModel
+            instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+            val picked = Suggestion.Completion("call ${mum.name}", "call ${mum.name}")
+            // With launch.instant off it waits for Enter, as before.
+            config.set(Keys.LAUNCH_INSTANT, "off")
+            instrumentation.runOnMainSync { vm.onSuggestion(picked) }
+            Thread.sleep(1_000)
+            assertEquals(0, dial.hits)
+            assertEquals("call ${mum.name}", vm.input.text)
+            config.set(Keys.LAUNCH_INSTANT, "all")
+            instrumentation.runOnMainSync { vm.onSuggestion(picked) }
+            val deadline = System.currentTimeMillis() + 5_000
+            while (dial.hits == 0 && System.currentTimeMillis() < deadline) Thread.sleep(100)
+            assertEquals(1, dial.hits)
+            assertEquals("", vm.input.text)
+        } finally {
+            config.reset(Keys.LAUNCH_INSTANT)
+        }
     }
 }
