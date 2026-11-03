@@ -42,11 +42,13 @@ class FetchTest {
         assertEquals("─".repeat("alex@Pixel 9".length), lines[5])
     }
 
-    /** A few columns (a huge text size on a narrow screen): cut short, never an error. */
+    /** A few columns (a huge text size on a narrow screen): the title is cut short to fit, never an error. */
     @Test fun aTinyWidthStillLaysOut() {
-        for (cols in listOf(0, 3, 5, 9)) {
+        val title = "kolahal@Pixel 9"
+        for (cols in listOf(0, 1, 3, 5, 9, 15, 16)) {
             val lines = plain(Fetch.layout("Pixel 9", rows, cols))
-            assertTrue("$cols: ${lines.first()}", lines.first().startsWith("kola") || lines.first().startsWith("…") || lines.first().startsWith("▍"))
+            val expected = if (title.length <= cols) title else title.take((cols - 1).coerceAtLeast(0)) + "…"
+            assertEquals("$cols columns", expected, lines[4])
         }
         assertEquals("kola…", plain(Fetch.layout("Pixel 9", rows, cols = 5))[4])
     }

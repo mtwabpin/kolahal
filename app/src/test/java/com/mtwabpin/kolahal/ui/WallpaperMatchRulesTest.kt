@@ -9,7 +9,8 @@ import java.io.File
  * someone's own wallpaper, which the next theme change would replace.
  */
 class WallpaperMatchRulesTest {
-    private val line = """path="wallpaper_match.xml""""
+    /** Left out, not let in: the same path in an include would mean the opposite. */
+    private val line = """<exclude domain="sharedpref" path="wallpaper_match.xml"""
 
     private fun count(file: String) = File("src/main/res/xml/$file").readText().windowed(line.length).count { it == line }
 

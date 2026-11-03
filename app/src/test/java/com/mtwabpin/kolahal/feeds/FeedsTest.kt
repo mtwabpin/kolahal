@@ -126,8 +126,10 @@ class FeedScheduleTest {
         assertFalse(FeedScheduler.isDue(false, null, 60, now))
         assertFalse(FeedScheduler.isDue(true, now - 30 * min, 60, now))
         assertTrue(FeedScheduler.isDue(true, now - 60 * min, 60, now))
-        // Slack: a 30-minute feed is picked up by a run that fires slightly early.
+        // Slack: a 30-minute feed is picked up by a run that fires slightly early, up to 3 minutes.
         assertTrue(FeedScheduler.isDue(true, now - 29 * min, 30, now))
+        assertTrue(FeedScheduler.isDue(true, now - 27 * min, 30, now))
+        assertFalse(FeedScheduler.isDue(true, now - 26 * min, 30, now))
         // Intervals below the floor are treated as 15 minutes.
         assertFalse(FeedScheduler.isDue(true, now - 5 * min, 1, now))
     }

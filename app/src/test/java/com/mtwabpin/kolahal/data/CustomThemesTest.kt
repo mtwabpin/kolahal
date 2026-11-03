@@ -18,6 +18,8 @@ class CustomThemesTest {
 
     @Test fun aFileMissingAColourIsNotATheme() {
         val text = CustomThemes.encode(colors).lines().filterNot { it.contains("\"error\"") }.joinToString("\n")
+        // The colour really went: a change in how themes are written can't make this a plain round trip.
+        assertTrue(text, "\"error\"" !in text && "\"background\"" in text)
         assertNull(CustomThemes.decode(text))
         assertNull(CustomThemes.decode("not json"))
     }
@@ -40,7 +42,9 @@ class CustomThemesTest {
     @Test fun noOrHalfALightVersionIsNone() {
         assertNull(CustomThemes.light(colors))
         val half = colors + mapOf(CustomThemes.LIGHT + "background" to 0xFFFFFFFF.toInt())
-        assertEquals(colors, CustomThemes.decode(CustomThemes.encode(colors) .replace("\n}", ",\n  \"light-background\": \"#FFFFFF\"\n}")))
+        val halfText = CustomThemes.encode(colors).replace("\n}", ",\n  \"light-background\": \"#FFFFFF\"\n}")
+        assertTrue(halfText, "light-background" in halfText)
+        assertEquals(colors, CustomThemes.decode(halfText))
         assertNull(CustomThemes.light(half))
         assertFalse(CustomThemes.isKey("light-nope"))
         assertTrue(CustomThemes.isKey("light-background"))

@@ -104,12 +104,17 @@ class PipesTest {
         assertEquals(listOf("2"), run("grep a | count", "a", "b", "ca"))
         assertEquals(listOf("a", "b", "c"), run("sort", "c", "a", "b"))
         assertEquals(listOf("a", "b"), run("uniq", "a", "a", "b"))
+        // Every repeat, not only one next to its first, as Unix's uniq would.
+        assertEquals(listOf("a", "b"), run("uniq", "a", "b", "a"))
     }
 
     @Test fun errorsPassThrough() {
         val input = lines("x") + Pending(LogKind.ERROR, "boom", null, LogContext.EMPTY, 5)
         val out = Pipes.apply(input, listOf("grep nothing")).getOrThrow()
         assertEquals(listOf("boom"), out.map { it.text })
+        // Ahead of what the filters leave, so it isn't cut away by head or tail.
+        val mixed = lines("a") + Pending(LogKind.ERROR, "boom", null, LogContext.EMPTY, 5) + lines("b", "c")
+        assertEquals(listOf("boom", "c"), Pipes.apply(mixed, listOf("tail 1")).getOrThrow().map { it.text })
     }
 
     @Test fun unknownStageFails() {

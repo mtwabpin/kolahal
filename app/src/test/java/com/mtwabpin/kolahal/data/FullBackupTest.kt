@@ -6,7 +6,8 @@ import org.junit.Test
 
 /** The ids a backup's log saved, against the lines that came along: what keeps new lines in view after a restore. */
 class FullBackupTest {
-    private val ids = listOf("hidden_up_to", "cleared_up_to", "purge_up_to", "seen_up_to", "history_from")
+    /** Every id the log keeps, so one added later is tested too. */
+    private val ids = LogRepository.ID_KEYS.toList()
 
     private fun saved(vararg entries: Pair<String, Long>) = entries.associate { (key, id) -> key to mapOf("l" to id) }
 
