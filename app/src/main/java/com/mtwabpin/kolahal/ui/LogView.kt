@@ -39,6 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -162,13 +165,22 @@ fun LogLine(
         actionable -> lineHeight + 10.dp
         else -> lineHeight
     }
+    val lineText = if (isGrid || desc != null) null else remember(entry, Term.palette, indents, row.unread, iconKey, marks, row.showSource) {
+        markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
+    }
+    // A dimmed line whose parts can't overlap fades part by part, which draws the same pixels.
+    val byPart = dim && row.dimmed && !highlighted && !isGrid && image == null && marks.isEmpty() &&
+        remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
+    // Which way the line is swiped, if at all: what it shows changes only when this does, not on
+    // every frame the line moves (the offset and the reveal read the swipe as they lay out and draw).
+    val swiped by remember { androidx.compose.runtime.derivedStateOf { kotlin.math.sign(swipe.value) } }
     Box(Modifier.padding(top = topGap)) {
     // What the swipe will do, revealed as the line moves: drawn only where the line has moved away
     // from, so the line needs no background of its own and home's page (or wallpaper) shows through.
-    if (swipe.value != 0f) {
+    if (swiped != 0f) {
         Text(
-            if (swipe.value > 0) "⧉ Copy" else "Delete ✕",
-            style = Term.text.copy(color = if (swipe.value > 0) Term.prompt else Term.error),
+            if (swiped > 0) "⧉ Copy" else "Delete ✕",
+            style = Term.text.copy(color = if (swiped > 0) Term.prompt else Term.error),
             modifier = Modifier
                 .matchParentSize()
                 .drawWithContent {
@@ -179,7 +191,7 @@ fun LogLine(
                 }
                 .wrapContentHeight()
                 .padding(horizontal = 16.dp),
-            textAlign = if (swipe.value > 0) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End,
+            textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End,
         )
     }
     Row(
@@ -216,7 +228,7 @@ fun LogLine(
             .fillMaxWidth()
             .heightIn(min = minHeight)
             .testTag("line-${entry.id}")
-            .then(if (dim && row.dimmed) Modifier.alpha(0.62f) else Modifier)
+            .then(if (!dim || !row.dimmed) Modifier else if (byPart) DIMMED_BY_PART else DIMMED)
             .background(if (highlighted) Term.surface else Color.Transparent)
             .then(if (!gutter) Modifier else Modifier.drawBehind {
                 drawRect(gutterColor, topLeft = Offset.Zero, size = Size(2.dp.toPx(), size.height))
@@ -242,9 +254,7 @@ fun LogLine(
                 }
                 desc != null -> TwoColumns(entry, desc, marks, dense)
                 else -> {
-                    val text = remember(entry, Term.palette, indents, row.unread, iconKey, marks, row.showSource) {
-                        markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
-                    }
+                    val text = lineText!!
                     if (image == null) Text(text, style = entry.style().dense(dense), inlineContent = inline)
                     else Column {
                         if (entry.text.isNotEmpty()) Text(text, style = entry.style().dense(dense), inlineContent = inline)
@@ -272,6 +282,25 @@ fun gutterColor(gutter: Gutter): Color = when (gutter) {
     Gutter.SCRIPT -> Term.script
     Gutter.ERROR -> Term.error
 }.copy(alpha = 0.45f)
+
+/** A dimmed line (log.dim): drawn whole into a buffer, then faded. */
+private val DIMMED = Modifier.alpha(0.62f)
+
+/**
+ * A dimmed line drawn faded part by part, with no buffer: the buffer is drawn again on every frame
+ * the log moves, a couple of dozen times a frame with a screen of dimmed lines. Only for a line
+ * whose parts don't overlap ([fadesByPart]), where both ways give the same pixels.
+ */
+private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = 0.62f, clip = true, compositingStrategy = CompositingStrategy.ModulateAlpha)
+
+/**
+ * Whether [text] can be faded part by part and look as faded whole: letters that never overlap
+ * (plain Latin, digits, common punctuation, not joined scripts or accents built from marks, not box
+ * drawing), and nothing drawn over or under them (a background, an underline, a shadow).
+ */
+internal fun fadesByPart(text: AnnotatedString): Boolean =
+    text.text.all { c -> c == '\n' || c in ' '..'~' || c in '\u00A0'..'\u024F' || c in '\u2010'..'\u2027' } &&
+        text.spanStyles.none { it.item.background.isSpecified || it.item.textDecoration != null || it.item.shadow != null }
 
 private val ACTIONABLE_KEYS = setOf(
     LogContext.URL, LogContext.PKG, LogContext.COMMAND, LogContext.RUN, LogContext.SCRIPT, LogContext.APPS, LogContext.LINE,
