@@ -296,11 +296,15 @@ private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = 0.62f, clip = true, 
 /**
  * Whether [text] can be faded part by part and look as faded whole: letters that never overlap
  * (plain Latin, digits, common punctuation, not joined scripts or accents built from marks, not box
- * drawing), and nothing drawn over or under them (a background, an underline, a shadow).
+ * drawing, nor slanted into the next as italics can be), and nothing drawn over or under them (a
+ * background, an underline, a shadow).
  */
 internal fun fadesByPart(text: AnnotatedString): Boolean =
     text.text.all { c -> c == '\n' || c in ' '..'~' || c in '\u00A0'..'\u024F' || c in '\u2010'..'\u2027' } &&
-        text.spanStyles.none { it.item.background.isSpecified || it.item.textDecoration != null || it.item.shadow != null }
+        text.spanStyles.none {
+            it.item.background.isSpecified || it.item.textDecoration != null || it.item.shadow != null ||
+                it.item.fontStyle == androidx.compose.ui.text.font.FontStyle.Italic
+        }
 
 private val ACTIONABLE_KEYS = setOf(
     LogContext.URL, LogContext.PKG, LogContext.COMMAND, LogContext.RUN, LogContext.SCRIPT, LogContext.APPS, LogContext.LINE,

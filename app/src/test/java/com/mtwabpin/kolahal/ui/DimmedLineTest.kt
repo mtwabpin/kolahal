@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import org.junit.Assert.assertFalse
@@ -32,5 +33,7 @@ class DimmedLineTest {
     @Test fun anythingDrawnUnderOrOverTheLettersFadesWhole() {
         assertFalse(fadesByPart(buildAnnotatedString { withStyle(SpanStyle(background = Color.Yellow)) { append("found") } }))
         assertFalse(fadesByPart(buildAnnotatedString { withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) { append("link") } }))
+        // Slanted letters can lean into the next one.
+        assertFalse(fadesByPart(buildAnnotatedString { withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append("aside") } }))
     }
 }
