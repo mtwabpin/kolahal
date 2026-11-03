@@ -288,7 +288,10 @@ fun AppSelector(
     val lensOn by remember { derivedStateOf { !state.contact.isNaN() } }
     val lens = animateFloatAsState(if (lensOn) 1f else 0f, tween(LENS_MS), label = "lens")
     val dim = animateFloatAsState(if (state.mode == Mode.SCRUB || state.mode == Mode.SELECT) 1f else 0f, tween(LENS_MS), label = "dim")
-    val waveIn by animateFloatAsState(if (sliding) 1f else 0f, tween(140), label = "wave")
+    val wave = animateFloatAsState(if (sliding) 1f else 0f, tween(140), label = "wave")
+    val waveIn by wave
+    // Whether the wave shows at all: what's built changes only then, not on every frame it grows.
+    val waveShown by remember { derivedStateOf { wave.value > 0f } }
     /** Where the wave is centred along the strip (0 top … 1 bottom): the letter's middle, gliding to the next one's. */
     val waveAt = remember { Animatable(0f) }
     LaunchedEffect(letter, sliding, edgeMiddles) {
@@ -384,9 +387,10 @@ fun AppSelector(
         val open = state.mode != Mode.CLOSED
 
         // While it's open the selector has the screen: home dims behind it.
-        val dimmed by animateFloatAsState(if (open && count > 0) 1f else 0f, tween(160), label = "dim")
-        if (dimmed > 0f) {
-            Box(Modifier.fillMaxSize().graphicsLayer { alpha = dimmed }.background(Term.bg.copy(alpha = 0.9f)).testTag("app-selector-scrim"))
+        val dimmed = animateFloatAsState(if (open && count > 0) 1f else 0f, tween(160), label = "dim")
+        val scrim by remember { derivedStateOf { dimmed.value > 0f } }
+        if (scrim) {
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = dimmed.value }.background(Term.bg.copy(alpha = 0.9f)).testTag("app-selector-scrim"))
         }
 
         // Left open: a tap anywhere else closes it, and the whole touch is swallowed.
@@ -468,7 +472,7 @@ fun AppSelector(
             // selector.letters: each letter in the middle of its stretch of the strip, nudged apart where
             // they crowd; fainter outside the part a touch may start on. At rest they take the handle's
             // place, in the edge's gutter, clear of the log's text; under the thumb the wave takes over.
-            if (letters && !touching && waveIn == 0f && count > 0) {
+            if (letters && !touching && !waveShown && count > 0) {
                 val linePx = with(density) { 9.sp.toPx() }
                 val gapPx = linePx + with(density) { 1.dp.toPx() }
                 val placed = remember(edgeMiddles, stripHPx, gapPx) {
@@ -519,7 +523,7 @@ fun AppSelector(
         // The letter you're at, big in a bubble beside the thumb, and the letters around it bulging
         // out from the edge toward it in a wave, growing a little, the nearest pushed apart to make
         // room for it: you see where you are and which way the letter you want is.
-        if (waveIn > 0f && letter in sectionLetters.indices) {
+        if (waveShown && letter in sectionLetters.indices) {
             val unit = stripHPx * (1f - 2 * SelectorMath.DEAD) / sectionLetters.size
             val spread = SelectorMath.waveSpread(unit, with(density) { WAVE_ROOM.toPx() })
             val letterGap = with(density) { 10.dp.toPx() }
