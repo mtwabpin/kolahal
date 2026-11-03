@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.notifications
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.Assert.assertFalse
 
 class NotifFormatTest {
     @Test fun titleAndText() = assertEquals("Alice — see you at 6", NotifFormat.line("Alice", "see you at 6"))
@@ -19,4 +20,14 @@ class NotifFormatTest {
     }
     @Test fun titlePrefixOfWordKept() = assertEquals("Bob — Bobby is here", NotifFormat.line("Bob", "Bobby is here"))
     @Test fun shortStringUntouched() = assertEquals("abc", NotifFormat.truncate("abc", 3))
+
+    /** Cut short, a line ends on a whole character: never half an emoji, which shows as a box. */
+    @Test fun aCutKeepsEmojiWhole() {
+        for (n in 140..160) {
+            val line = NotifFormat.line("T", "😀".repeat(n))
+            assertTrue(line, line.endsWith("…"))
+            val cut = line.dropLast(1)
+            assertFalse(line, cut.last().isHighSurrogate())
+        }
+    }
 }

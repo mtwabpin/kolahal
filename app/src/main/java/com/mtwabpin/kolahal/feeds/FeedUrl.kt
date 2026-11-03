@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.feeds
 
+import com.mtwabpin.kolahal.data.takeWhole
 import java.net.URI
 
 /** Pure URL helpers for feeds (no Android APIs, unit-tested on the JVM). */
@@ -38,6 +39,6 @@ object FeedUrl {
         val base = title?.trim()?.split(": ", " - ", " | ", " – ")?.first()?.trim()?.takeIf { it.isNotEmpty() }
             ?: runCatching { URI(url).host }.getOrNull()?.removePrefix("www.")
             ?: url
-        return if (base.length > max) base.take(max - 1).trimEnd() + "…" else base
+        return if (base.length > max) base.takeWhole(max - 1).trimEnd() + "…" else base
     }
 }

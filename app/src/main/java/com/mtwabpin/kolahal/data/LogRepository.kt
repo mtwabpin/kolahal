@@ -582,7 +582,7 @@ class LogRepository private constructor(private val context: Context) {
     private val inMainProcess by lazy { android.app.Application.getProcessName() == context.packageName }
 
     /** Caps a line's text: one huge value (an HTTP body, a script's log(bigString)) must stay readable. */
-    private fun clip(s: String) = if (s.length <= MAX_FIELD) s else s.take(MAX_FIELD - 1) + "…"
+    private fun clip(s: String) = if (s.length <= MAX_FIELD) s else s.takeWhole(MAX_FIELD - 1) + "…"
 
     /**
      * Caps a line's context: each value at a quarter of [MAX_FIELD], and all of it, as JSON, at

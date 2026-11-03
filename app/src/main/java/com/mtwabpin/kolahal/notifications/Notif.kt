@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.notifications
 
 import androidx.compose.runtime.Immutable
+import com.mtwabpin.kolahal.data.takeWhole
 
 /** A notification seen by [KolahalNotificationListener], reduced to what the terminal shows. */
 @Immutable
@@ -47,7 +48,7 @@ object NotifFormat {
     }
 
     fun truncate(s: String, max: Int): String =
-        if (s.length <= max) s else s.take((max - 1).coerceAtLeast(0)).trimEnd() + "…"
+        if (s.length <= max) s else s.takeWhole((max - 1).coerceAtLeast(0)).trimEnd() + "…"
 
     private fun String.collapse() = replace(WHITESPACE, " ").trim()
 }

@@ -17,6 +17,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.takeWhole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,7 +77,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
         }
     }
 
-    private fun clip(v: Any?): Any? = if (v is String && v.length > MAX_TEXT) v.take(MAX_TEXT) + "…" else v
+    private fun clip(v: Any?): Any? = if (v is String && v.length > MAX_TEXT) v.takeWhole(MAX_TEXT) + "…" else v
 
     private fun subscribers(event: String): List<Long> {
         refresh()

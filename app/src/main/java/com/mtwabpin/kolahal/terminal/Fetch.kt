@@ -19,6 +19,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.StyledText.Colour
 import com.mtwabpin.kolahal.data.StyledText.Style
+import com.mtwabpin.kolahal.data.takeWhole
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -72,7 +73,7 @@ object Fetch {
         }
     }
 
-    private fun ellipsize(s: String, max: Int) = if (s.length <= max) s else s.take((max - 1).coerceAtLeast(0)) + "…"
+    private fun ellipsize(s: String, max: Int) = if (s.length <= max) s else s.takeWhole((max - 1).coerceAtLeast(0)) + "…"
 
     /**
      * The lines `fetch` prints, styled ([StyledText]), for a log [cols] characters wide: a
