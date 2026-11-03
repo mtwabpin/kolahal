@@ -96,8 +96,8 @@ object TermFonts {
                 if (!c.isNull(1)) size = c.getLong(1)
             }
         }
-        val named = name?.substringAfterLast('.', "")?.lowercase()
-        // Some providers give no display name; then the file's own header decides.
+        val named = name?.substringAfterLast('.', "")?.lowercase()?.takeIf { it.isNotEmpty() }
+        // Some providers give no display name, or one without an extension; then the file's own header decides.
         if (named != null && named != "ttf" && named != "otf") throw IllegalArgumentException("pick a .ttf or .otf file (got $name)")
         if (size > MAX_BYTES) throw IllegalArgumentException("font is larger than 10 MB")
         val dir = dir(context).apply { mkdirs() }
