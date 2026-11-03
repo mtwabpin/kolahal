@@ -122,6 +122,20 @@ class HomeScreenTest {
         }
     }
 
+    /** The suggestions follow each key: read where they show, not by all of home, they still change as you type. */
+    @Test fun theSuggestionsFollowEachKey() {
+        val vm = show(360.dp, 700.dp)
+        fun suggested(text: String) = compose.onAllNodes(
+            hasText(text, substring = true, ignoreCase = true) and androidx.compose.ui.test.hasAnyAncestor(hasTestTag("suggestions")),
+            useUnmergedTree = true,
+        ).fetchSemanticsNodes().isNotEmpty()
+        type(vm, "sett")
+        compose.waitUntil(5_000) { suggested("settings") }
+        type(vm, "tod")
+        compose.waitUntil(5_000) { suggested("todo") }
+        assertFalse("still suggests settings", suggested("settings"))
+    }
+
     @Test fun headerIsOneLineWhileTyping() {
         val vm = show(360.dp, 700.dp)
         type(vm, "s")
