@@ -56,6 +56,20 @@ object CommandParsing {
     fun clockWords(args: List<String>): List<String> =
         args.flatMap { it.split(',', ' ') }.filter { it.isNotBlank() }
 
+    /** What `script at`'s words ([clockWords]) set: the times, sorted and each once, none for `off`, or the first word that isn't one. */
+    sealed interface DailyTimes {
+        data class Times(val times: List<String>) : DailyTimes
+        data class Bad(val word: String) : DailyTimes
+    }
+
+    /** [words] as `script at` reads them; null when there are none (a usage line, not `off`). */
+    fun dailyTimes(words: List<String>): DailyTimes? {
+        if (words.isEmpty()) return null
+        if (words[0] == "off") return DailyTimes.Times(emptyList())
+        val times = words.map { com.mtwabpin.kolahal.script.ScriptScheduler.normalizeTime(it) ?: return DailyTimes.Bad(it) }
+        return DailyTimes.Times(times.distinct().sorted())
+    }
+
     /** Levenshtein distance, for "did you mean". */
     fun editDistance(a: String, b: String): Int {
         var prev = IntArray(b.length + 1) { it }

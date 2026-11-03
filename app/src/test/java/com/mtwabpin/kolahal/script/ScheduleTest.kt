@@ -82,7 +82,14 @@ class ScheduleTest {
     /** An `@at` line and `script at` read a list of times alike. */
     @Test fun scriptAtAgreesWithAnAtLine() {
         for (form in listOf("7:05", "8:5", "22:30,06:30", "22:30, 06:30", "22:30 06:30", "22:30 , 06:30", "22:30,", ",22:30", "22:30,,06:30", "18:30, 7:05, 18:30")) {
-            assertEquals(form, ScriptMeta.at("-- @at $form"), typed(form).mapNotNull(ScriptScheduler::normalizeTime).distinct().sorted())
+            assertEquals(form, CommandParsing.DailyTimes.Times(ScriptMeta.at("-- @at $form")), CommandParsing.dailyTimes(typed(form)))
         }
+    }
+
+    /** `script at` refuses the whole line for one bad time, rather than keeping the good ones; `off` clears them. */
+    @Test fun scriptAtRefusesABadTime() {
+        assertEquals(CommandParsing.DailyTimes.Bad("25:00"), CommandParsing.dailyTimes(typed("8:00, 25:00")))
+        assertEquals(CommandParsing.DailyTimes.Times(emptyList()), CommandParsing.dailyTimes(typed("off")))
+        assertEquals(null, CommandParsing.dailyTimes(typed(",")))
     }
 }

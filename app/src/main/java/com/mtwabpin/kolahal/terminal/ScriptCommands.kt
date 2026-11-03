@@ -155,16 +155,18 @@ class ScriptCommands(
                 )
             }
             "at" -> withScript(target) { s ->
-                val specs = CommandParsing.clockWords(args.drop(2))
-                if (specs.isEmpty()) return error("Usage: script at <name> <HH:mm[,HH:mm…]|off>")
-                val times = if (specs[0] == "off") emptyList() else specs.map { ScriptScheduler.normalizeTime(it) ?: return error("Invalid time '$it' — use HH:mm") }
-                scripts.setAtTimes(s.id, times.distinct().sorted())
+                val times = when (val read = CommandParsing.dailyTimes(CommandParsing.clockWords(args.drop(2)))) {
+                    null -> return error("Usage: script at <name> <HH:mm[,HH:mm…]|off>")
+                    is CommandParsing.DailyTimes.Bad -> return error("Invalid time '${read.word}' — use HH:mm")
+                    is CommandParsing.DailyTimes.Times -> read.times
+                }
+                scripts.setAtTimes(s.id, times)
                 if (times.isNotEmpty() && !s.enabled) {
                     scripts.setEnabled(s.id, true)
                     scripts.byId(s.id)?.let { ScriptAccess.askForNew(context, it) }
                 }
                 scripts.byId(s.id)?.let { ScriptScheduler.sync(context, it) }
-                info(if (times.isEmpty()) "${s.name}: no daily times" else "${s.name}: daily at ${times.distinct().sorted().joinToString(", ")}", scriptCtx(s))
+                info(if (times.isEmpty()) "${s.name}: no daily times" else "${s.name}: daily at ${times.joinToString(", ")}", scriptCtx(s))
             }
             "notify" -> withScript(target) { s ->
                 val on = when (args.getOrNull(2)) {
