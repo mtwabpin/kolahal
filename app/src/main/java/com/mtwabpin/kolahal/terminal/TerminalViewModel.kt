@@ -609,7 +609,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
         if (_screen.value == Screen.SETUP || _screen.value == Screen.ONBOARDING) refreshSetup()
         unlockCounter.refresh()
-        appsRepo.refresh()
+        // No app list reload here: it's kept, and installs, updates, removals, profiles and a new
+        // language reload it as they happen ([AppRepository.start]). `restart` reads it afresh.
         mediaRepo.start() // picks up notification access granted while we were away
         io { tipOfTheDay() }
         // keyboard.on-home: back from an app or the lock screen is home shown too. The keyboard

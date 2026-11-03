@@ -96,7 +96,9 @@ class AppRepository private constructor(private val context: Context) {
             override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon()
             override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon()
         })
+        // Kept between visits to home: what can change it reloads it. App names follow the language.
         val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_LOCALE_CHANGED)
             addAction(Intent.ACTION_MANAGED_PROFILE_ADDED)
             addAction(Intent.ACTION_MANAGED_PROFILE_REMOVED)
             addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE)
@@ -154,7 +156,10 @@ class AppRepository private constructor(private val context: Context) {
                             hidden = prefs.isHidden(key),
                         )
                     }
-            }.sortedWith(compareBy({ it.label.lowercase() }, { it.profile.kind.ordinal }))
+            }.map { it to it.label.lowercase() }
+                // Each label lowered once, not at every comparison of the sort.
+                .sortedWith(compareBy({ it.second }, { it.first.profile.kind.ordinal }))
+                .map { it.first }
             _profiles.value = profiles
             _apps.value = apps
         }
