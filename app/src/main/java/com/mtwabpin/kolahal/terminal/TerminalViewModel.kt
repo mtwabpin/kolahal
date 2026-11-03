@@ -201,7 +201,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * allowed a header line, whichever way they were switched off.
      */
     val statuses: StateFlow<Map<String, String>> = combine(_statuses, scriptList) { lines, list ->
-        val shown = list.filter { it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
+        // Only those with a line: what a script may do is read from its code, on the main thread.
+        val shown = list.filter { it.name in lines && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
         lines.filterKeys { it in shown }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
