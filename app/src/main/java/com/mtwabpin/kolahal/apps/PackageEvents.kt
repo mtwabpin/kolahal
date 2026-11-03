@@ -98,7 +98,7 @@ class PackageEvents private constructor(private val context: Context) {
                 continue
             }
             val serial = userManager.getSerialNumberForUser(user)
-            val profile = if (user == me) "" else AppRepository.kindOf(launcherApps, user, me).tag
+            val profile = if (user == me) "" else AppRepository.kindOf(context, launcherApps, user, me).tag
             val activities = runCatching { launcherApps.getActivityList(null, user) }.getOrDefault(emptyList())
             for (a in activities) {
                 val key = "${a.componentName.packageName}#$serial"

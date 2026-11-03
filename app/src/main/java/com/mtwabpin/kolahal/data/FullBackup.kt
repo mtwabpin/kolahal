@@ -252,7 +252,7 @@ object FullBackup {
         val users = context.getSystemService(android.os.UserManager::class.java)
         val me = android.os.Process.myUserHandle()
         launcher.profiles
-            .filter { com.mtwabpin.kolahal.apps.AppRepository.kindOf(launcher, it, me) == com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE }
+            .filter { com.mtwabpin.kolahal.apps.AppRepository.kindOf(context, launcher, it, me) == com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE }
             .map { users.getSerialNumberForUser(it) }
             .toSet()
     }.getOrDefault(emptySet())

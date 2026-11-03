@@ -585,7 +585,7 @@ class HostApi(
     private fun workProfile(): android.os.UserHandle? {
         val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
         val me = android.os.Process.myUserHandle()
-        return la.profiles.firstOrNull { AppRepository.kindOf(la, it, me) == ProfileKind.WORK }
+        return la.profiles.firstOrNull { AppRepository.kindOf(context, la, it, me) == ProfileKind.WORK }
     }
 
     /** Launchable apps across profiles: [{label, pkg, profile}]. */

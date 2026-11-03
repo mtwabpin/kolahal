@@ -171,13 +171,11 @@ class AppRepository private constructor(private val context: Context) {
             Profile(
                 user = user,
                 serial = userManager.getSerialNumberForUser(user),
-                kind = kindOf(user, me),
+                kind = kindOf(context, launcherApps, user, me),
                 quiet = user != me && runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(false),
             )
         }.sortedBy { it.kind.ordinal }
     }
-
-    private fun kindOf(user: UserHandle, me: UserHandle): ProfileKind = kindOf(launcherApps, user, me)
 
     fun profileBySerial(serial: Long): Profile? = _profiles.value.firstOrNull { it.serial == serial }
 
@@ -324,7 +322,7 @@ class AppRepository private constructor(private val context: Context) {
         private const val SLIP = 5
 
         /** Which kind of profile [user] is, seen from [me] (this app's user): anything not personal, a private space or a clone is work. */
-        fun kindOf(launcherApps: LauncherApps, user: UserHandle, me: UserHandle): ProfileKind {
+        fun kindOf(context: Context, launcherApps: LauncherApps, user: UserHandle, me: UserHandle): ProfileKind {
             if (user == me) return ProfileKind.PERSONAL
             if (Build.VERSION.SDK_INT >= 35) {
                 val type = runCatching { launcherApps.getLauncherUserInfo(user)?.userType }.getOrNull()
@@ -332,9 +330,25 @@ class AppRepository private constructor(private val context: Context) {
                     UserManager.USER_TYPE_PROFILE_PRIVATE -> return ProfileKind.PRIVATE
                     USER_TYPE_PROFILE_CLONE -> return ProfileKind.CLONE
                 }
+            } else if (labelledAsClone(context, user)) {
+                return ProfileKind.CLONE
             }
             return ProfileKind.WORK
         }
+
+        /**
+         * Below Android 15 a launcher can't ask what a profile is, but Android names a clone's apps as
+         * clones: "Clone Chrome", where a work profile's are "Work Chrome" (app cloning, Android 14).
+         * Only that wording counts; a profile named any other way stays work, as before.
+         */
+        private fun labelledAsClone(context: Context, user: UserHandle): Boolean = runCatching {
+            val res = android.content.res.Resources.getSystem()
+            val clone = res.getIdentifier("clone_profile_label_badge", "string", "android")
+            clone != 0 && context.packageManager.getUserBadgedLabel(PROBE_LABEL, user).toString() == res.getString(clone, PROBE_LABEL)
+        }.getOrDefault(false)
+
+        /** Any app name: what Android adds to it for a profile is what tells. */
+        private const val PROBE_LABEL = "Kolahal"
 
         @SuppressLint("StaticFieldLeak") // application context only
         @Volatile
