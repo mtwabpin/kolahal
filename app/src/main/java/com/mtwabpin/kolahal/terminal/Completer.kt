@@ -159,11 +159,11 @@ class Completer(private val context: Context, private val data: Data) {
      */
     private fun described(word: String, shown: Set<String>): List<Suggestion> {
         if (word.length < (if (word.all(Char::isDigit)) 2 else 3)) return emptyList()
-        fun says(text: String) = text.split(NOT_WORD).any { it.startsWith(word, ignoreCase = true) }
+        fun says(text: String) = words(text).any { it.startsWith(word, ignoreCase = true) }
         val builtIn = CommandCatalog.COMMANDS.asSequence()
             .filter { it.name !in CommandCatalog.UNAVAILABLE && it.name !in shown && it.name != word }
             // The options its usage lists count too (`ring … silent`), but not short ones such as `on`.
-            .filter { spec -> says(spec.help) || says(KEYWORDS[spec.name].orEmpty()) || spec.usage.split(NOT_WORD).drop(1).any { it.length >= 4 && it.startsWith(word, ignoreCase = true) } }
+            .filter { spec -> says(spec.help) || says(KEYWORDS[spec.name].orEmpty()) || words(spec.usage).asSequence().drop(1).any { it.length >= 4 && it.startsWith(word, ignoreCase = true) } }
             .map { Suggestion.Completion(it.name, "${it.name} ", help = it.help) }
         val scripted = data.scriptDescriptions.asSequence().filter { (name, desc) -> name !in shown && says(desc) }
             .map { (name, desc) -> Suggestion.Completion(name, "$name ", icon = R.drawable.ic_code, help = desc) }
@@ -471,6 +471,15 @@ class Completer(private val context: Context, private val data: Data) {
     companion object {
         /** What splits a description into words. */
         private val NOT_WORD = Regex("[^\\p{L}\\p{N}]+")
+
+        /** Descriptions split into words, once each: typing looks through all of them on every key. */
+        private val wordsOf = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+
+        private fun words(text: String): List<String> {
+            // Edited scripts leave old descriptions behind; a few hundred are in use at once.
+            if (wordsOf.size > 2_000) wordsOf.clear()
+            return wordsOf.getOrPut(text) { text.split(NOT_WORD) }
+        }
 
         /** Everyday words for what a command does that its description doesn't use. */
         private val KEYWORDS = mapOf(

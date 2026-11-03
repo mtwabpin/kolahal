@@ -12,9 +12,11 @@ data class LivePreview(val theme: String? = null, val font: String? = null, val 
     val label: String get() = theme ?: font?.let { "font $it" } ?: "font size $fontSize"
 
     companion object {
+        private val SPACES = Regex("\\s+")
+
         /** The preview of [line]: only a whole value, and only one that isn't in use already. */
         fun of(line: String, config: Config, hasCustomFont: () -> Boolean): LivePreview? {
-            val words = line.trim().lowercase().split(Regex("\\s+"))
+            val words = line.trim().lowercase().split(SPACES)
             val rest = words.drop(1)
             val (key, value) = when (words[0]) {
                 "theme" -> rest.singleOrNull()?.let { Keys.THEME to it }

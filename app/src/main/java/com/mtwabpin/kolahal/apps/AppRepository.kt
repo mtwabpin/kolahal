@@ -52,11 +52,15 @@ data class AppEntry(
     val hidden: Boolean = false,
 ) {
     val pkg: String get() = component.packageName
-    val key: String get() = keyOf(component, profile)
+    val key: String by lazy(LazyThreadSafetyMode.PUBLICATION) { keyOf(component, profile) }
 
     /** For search, worked out once per list load instead of on every keystroke: lowercase, accents aside. */
     internal val lower: String = Fuzzy.fold(label)
     internal val words: List<String> = lower.split(' ', '-', '_', '.')
+
+    /** Its package and package/activity in lowercase, which also name it in a search: worked out at the first. */
+    internal val lowerPkg: String by lazy(LazyThreadSafetyMode.PUBLICATION) { pkg.lowercase() }
+    internal val lowerComponent: String by lazy(LazyThreadSafetyMode.PUBLICATION) { component.flattenToShortString().lowercase() }
 }
 
 /**
@@ -241,7 +245,7 @@ class AppRepository private constructor(private val context: Context) {
     private fun score(app: AppEntry, q: String): Int? = when {
         app.lower == q -> 0
         // Its package, or package/activity, names one app exactly: how two apps of one name are told apart.
-        app.pkg.lowercase() == q || app.component.flattenToShortString().lowercase() == q -> 0
+        app.lowerPkg == q || app.lowerComponent == q -> 0
         app.lower.startsWith(q) -> 1
         app.words.any { it.startsWith(q) } -> 2
         app.lower.contains(q) -> 3

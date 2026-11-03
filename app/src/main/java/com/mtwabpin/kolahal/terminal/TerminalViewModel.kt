@@ -142,12 +142,16 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** `@desc` of the command scripts that have one, for their suggestion rows; set with [commandNames]. */
     @Volatile private var scriptDescriptions: Map<String, String> = emptyMap()
 
+    /** [scriptUsages] and the built-in commands' usage lines: what instant launch checks a line against, on every key. */
+    @Volatile private var commandUsages: Map<String, String> = scriptUsages + CommandCatalog.COMMAND_USAGES
+
     /** The bundled library's script names, read once (`script install` completes them). */
     private val libraryNames: List<String> by lazy { ScriptLibrary(context).entries.map { it.name } }
 
     private fun setCommandScripts(list: List<Script>) {
         val commands = list.filter { it.enabled && ScriptMeta.isCommand(it.code) }
         scriptUsages = commands.mapNotNull { s -> ScriptMeta.usage(s.code, s.name)?.let { s.name to it } }.toMap()
+        commandUsages = scriptUsages + CommandCatalog.COMMAND_USAGES
         scriptDescriptions = commands.mapNotNull { s -> ScriptMeta.description(s.code)?.let { s.name to it } }.toMap()
         _commandNames.value = commands.map { it.name }
     }
@@ -665,7 +669,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val target = InstantRun.target(
             text, config[Keys.LAUNCH_INSTANT], config[Keys.LAUNCH_INSTANT_MIN],
             rankedApps = { appsRepo.searchRanked(it) }, appLabel = { it.label },
-            commands = scriptUsages + CommandCatalog.COMMAND_USAGES, aliases = appPrefs.aliases(), scriptCommands = _commandNames.value,
+            commands = commandUsages, aliases = appPrefs.aliases(), scriptCommands = _commandNames.value,
             isOn = { !it.profile.quiet },
         ) ?: return
         setText("")
@@ -681,9 +685,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private fun runsOnTap(line: String) = config[Keys.LAUNCH_INSTANT] == InstantRun.ALL &&
         // A trailing space marks a prefill ("apps " from help): it is waiting for an argument.
         !line.endsWith(' ') &&
-        (InstantRun.canRun(line, scriptUsages + CommandCatalog.COMMAND_USAGES, appPrefs.aliases(), _commandNames.value) { name ->
+        (InstantRun.canRun(line, commandUsages, appPrefs.aliases(), _commandNames.value) { name ->
             appsRepo.searchRanked(name).firstOrNull()?.second == 0
-        } || InstantRun.wholeLine(line, scriptUsages + CommandCatalog.COMMAND_USAGES, appPrefs.aliases()))
+        } || InstantRun.wholeLine(line, commandUsages, appPrefs.aliases()))
 
     fun submit() {
         val line = input.text

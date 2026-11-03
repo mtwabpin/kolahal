@@ -32,7 +32,12 @@ data class Contact(
     val label: String,
     val starred: Boolean,
     val lookupUri: Uri,
-)
+) {
+    /** What [ContactsRepository.search] compares, worked out at its first search rather than on every key. */
+    internal val lowerName: String by lazy(LazyThreadSafetyMode.PUBLICATION) { name.lowercase() }
+    internal val nameWords: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { lowerName.split(' ') }
+    internal val digits: String by lazy(LazyThreadSafetyMode.PUBLICATION) { number.filter { it.isDigit() } }
+}
 
 /**
  * Contacts with phone numbers, cached in memory for instant `call` / `sms` suggestions.
@@ -171,13 +176,13 @@ class ContactsRepository private constructor(private val context: Context) {
         val digits = q.filter { it.isDigit() }
         return _contacts.value.asSequence()
             .mapNotNull { c ->
-                val name = c.name.lowercase()
+                val name = c.lowerName
                 val score = when {
                     name == q -> 0
                     name.startsWith(q) -> 1
-                    name.split(' ').any { it.startsWith(q) } -> 2
+                    c.nameWords.any { it.startsWith(q) } -> 2
                     name.contains(q) -> 3
-                    digits.length >= 3 && c.number.filter { it.isDigit() }.contains(digits) -> 4
+                    digits.length >= 3 && c.digits.contains(digits) -> 4
                     else -> null
                 }
                 score?.let { c to it }
