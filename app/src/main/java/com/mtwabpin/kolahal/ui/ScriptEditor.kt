@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,10 +37,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -48,8 +53,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalCursorBlinkEnabled
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextLayoutResult
@@ -66,7 +73,10 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.shownText
 import com.mtwabpin.kolahal.script.ApiDoc
 import com.mtwabpin.kolahal.script.ScriptWorker
+import kotlin.math.floor
+import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -519,9 +529,18 @@ fun ScriptEditor(
                         value = value,
                         onValueChange = ::edit,
                         textStyle = Term.code,
-                        cursorBrush = SolidColor(Term.prompt),
+                        // No caret from the field: it draws its caret with the text, so each blink drew
+                        // the whole script again. [EditorCaret] draws it over the text instead.
+                        cursorBrush = SolidColor(Color.Unspecified),
                         visualTransformation = highlighter,
                         onTextLayout = { layout = it },
+                        decorationBox = { field ->
+                            // The field keeps its minimum width, as without a box around it.
+                            Box(propagateMinConstraints = true) {
+                                field()
+                                EditorCaret(value, { layout }, editorFocused, Term.prompt, Modifier.matchParentSize())
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(
                             autoCorrectEnabled = false,
                             capitalization = KeyboardCapitalization.None,
@@ -735,4 +754,48 @@ internal fun selectionAtLine(text: String, line: Int?): TextRange =
 /** One line of feedback above the symbol bar; [line] makes it a jump to that line. */
 private class EditorMessage(val text: String, val kind: Kind, val line: Int? = null) {
     enum class Kind { INFO, OK, BUSY, ERROR }
+}
+
+/**
+ * The editor's caret, in a layer of its own over the text, so a blink draws the caret alone and not
+ * the whole script. Drawn as the text field drew its own: 2 dp wide at the cursor, shown at once
+ * after a change and then blinking every 500 ms, while the editor and its window have focus and
+ * nothing is selected.
+ */
+@Composable
+private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, focused: Boolean, color: Color, modifier: Modifier) {
+    val blinks = LocalCursorBlinkEnabled.current
+    val show = LocalWindowInfo.current.isWindowFocused && focused && value.selection.collapsed
+    var alpha by remember { mutableFloatStateOf(0f) }
+    if (show) {
+        LaunchedEffect(value.text, value.selection, blinks) {
+            try {
+                alpha = 1f
+                if (!blinks) awaitCancellation()
+                while (true) {
+                    delay(500)
+                    alpha = 0f
+                    delay(500)
+                    alpha = 1f
+                }
+            } finally {
+                alpha = 0f
+            }
+        }
+    }
+    Box(
+        modifier.graphicsLayer().drawBehind {
+            val a = alpha
+            if (!show || a == 0f) return@drawBehind
+            val result = layout() ?: return@drawBehind
+            val rect = result.getCursorRect(value.selection.start.coerceIn(0, result.layoutInput.text.length))
+            val width = floor(2.dp.toPx()).coerceAtLeast(1f)
+            val x = (rect.left + width / 2)
+                .coerceAtMost(size.width - width / 2)
+                .coerceAtLeast(width / 2)
+                // An odd width is drawn in the middle of a pixel, so it isn't blurred.
+                .let { if (width.toInt() % 2 == 1) floor(it) + 0.5f else round(it) }
+            drawLine(color, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = width, alpha = a)
+        },
+    )
 }
