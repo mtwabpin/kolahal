@@ -35,6 +35,24 @@ class LogTrimTest {
         assertEquals("$token output 100", outputs.first())
     }
 
+    /** Both kinds past the cap, mixed: each keeps its newest, and a second trim takes nothing more. */
+    @Test fun eachKindKeepsItsNewestHoweverMixed() {
+        repeat(600) {
+            logs.add(LogKind.OUTPUT, "$token output $it")
+            if (it < 510) logs.add(LogKind.COMMAND, "$token command $it")
+        }
+        logs.trim(keep = 500)
+        val left = mine()
+        val commands = left.filter { it.kind == LogKind.COMMAND }.map { it.text }
+        val outputs = left.filter { it.kind == LogKind.OUTPUT }.map { it.text }
+        assertEquals((10 until 510).map { "$token command $it" }, commands)
+        assertEquals((100 until 600).map { "$token output $it" }, outputs)
+        val reached = logs.trimmedUpTo
+        logs.trim(keep = 500)
+        assertEquals(1_000, mine().size)
+        assertEquals(reached, logs.trimmedUpTo)
+    }
+
     /** A trim says how far it reached, so home keeps a page the trim didn't touch. */
     @Test fun aTrimReportsHowFarItReached() {
         val ids = (0 until 510).map { logs.add(LogKind.OUTPUT, "$token output $it") }

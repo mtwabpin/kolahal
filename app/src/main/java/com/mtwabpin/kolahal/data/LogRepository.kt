@@ -519,12 +519,24 @@ class LogRepository private constructor(private val context: Context) {
         var removed = 0
         var upTo = 0L
         // The newest line past the cap, of each kind: it and everything before it of that kind go.
-        for (kind in listOf("!=", "=")) {
-            val cut = w.rawQuery(
-                "SELECT id FROM logs WHERE kind $kind ? ORDER BY id DESC LIMIT 1 OFFSET ?", arrayOf(command, keep.toString()),
-            ).use { c -> if (c.moveToFirst()) c.getLong(0) else null } ?: continue
-            removed += w.delete("logs", "kind $kind ? AND id <= ?", arrayOf(command, cut.toString()))
-            upTo = maxOf(upTo, cut)
+        // Counted on the kind index first, then found from the oldest end, a few lines in after the
+        // last trim: from the newest end it read the whole log at every script run. One transaction,
+        // so another process's trim can't move the oldest end between the count and the cut.
+        w.beginTransaction()
+        try {
+            for (kind in listOf("!=", "=")) {
+                val count = w.rawQuery("SELECT COUNT(*) FROM logs WHERE kind $kind ?", arrayOf(command))
+                    .use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+                if (count <= keep) continue
+                val cut = w.rawQuery(
+                    "SELECT id FROM logs WHERE kind $kind ? ORDER BY id LIMIT 1 OFFSET ?", arrayOf(command, (count - keep - 1).toString()),
+                ).use { c -> if (c.moveToFirst()) c.getLong(0) else null } ?: continue
+                removed += w.delete("logs", "kind $kind ? AND id <= ?", arrayOf(command, cut.toString()))
+                upTo = maxOf(upTo, cut)
+            }
+            w.setTransactionSuccessful()
+        } finally {
+            w.endTransaction()
         }
         if (maxAgeDays != null) {
             val cutoff = System.currentTimeMillis() - maxAgeDays * 86_400_000L
