@@ -156,7 +156,11 @@ class WidgetHost private constructor(context: Context) {
 
     // ---- placing --------------------------------------------------------------------------
 
-    fun allocate(): Int = host.allocateAppWidgetId().also { synchronized(inFlight) { inFlight += it } }
+    /**
+     * A new id for a flow that binds a widget. Under the same lock as [prune]'s clean-up, which runs on
+     * its own thread: an id it read from the host is never one the flow hasn't marked in flight yet.
+     */
+    fun allocate(): Int = synchronized(inFlight) { host.allocateAppWidgetId().also { inFlight += it } }
 
     /** An id whose flow resumes after the process was stopped (WidgetBinder.restore): [prune] leaves it alone again. */
     fun resume(id: Int) {
@@ -175,19 +179,23 @@ class WidgetHost private constructor(context: Context) {
      * restores: that entry's size and order carry over.
      */
     fun place(id: Int, info: AppWidgetProviderInfo, replacing: String? = null) {
-        synchronized(inFlight) { inFlight -= id }
         forget(id)
-        update { all ->
-            val old = replacing?.let { key -> all.firstOrNull { it.key == key } }
-            val placed = PlacedWidget(
-                id = id,
-                provider = info.provider.flattenToShortString(),
-                profileSerial = serialOf(info.profile),
-                heightDp = old?.heightDp?.coerceAtLeast(minHeightDp(info)) ?: defaultHeightDp(info),
-                order = old?.order ?: WidgetOrder.nextOrder(all),
-                span = old?.span ?: WidgetLayout.COLUMNS,
-            )
-            all.filterNot { it.key == old?.key } + placed
+        // Placed first, then out of flight, under the lock [prune]'s clean-up takes: it always finds
+        // the id in one or the other, so it keeps it.
+        synchronized(inFlight) {
+            update { all ->
+                val old = replacing?.let { key -> all.firstOrNull { it.key == key } }
+                val placed = PlacedWidget(
+                    id = id,
+                    provider = info.provider.flattenToShortString(),
+                    profileSerial = serialOf(info.profile),
+                    heightDp = old?.heightDp?.coerceAtLeast(minHeightDp(info)) ?: defaultHeightDp(info),
+                    order = old?.order ?: WidgetOrder.nextOrder(all),
+                    span = old?.span ?: WidgetLayout.COLUMNS,
+                )
+                all.filterNot { it.key == old?.key } + placed
+            }
+            inFlight -= id
         }
         _widgets.value.firstOrNull { it.id == id }?.let { applySize(id, it.heightDp, it.span) }
     }
@@ -370,8 +378,11 @@ class WidgetHost private constructor(context: Context) {
                 )
             }
         }
-        val used = _widgets.value.mapNotNull { it.id }.toSet() + synchronized(inFlight) { inFlight.toSet() }
-        runCatching { host.appWidgetIds }.getOrNull()?.filter { it !in used }?.forEach { runCatching { host.deleteAppWidgetId(it) } }
+        // Ids nothing uses: read with what uses them under one lock, as [allocate] and [place] change them.
+        synchronized(inFlight) {
+            val used = _widgets.value.mapNotNull { it.id }.toSet() + inFlight
+            runCatching { host.appWidgetIds }.getOrNull()?.filter { it !in used }?.forEach { runCatching { host.deleteAppWidgetId(it) } }
+        }
     }
 
     // ---- backup ---------------------------------------------------------------------------
