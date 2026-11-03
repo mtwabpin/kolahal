@@ -113,12 +113,16 @@ class ContactsRepository private constructor(private val context: Context) {
         }
     }
 
+    /** One load at a time, under a lock of its own: [reload], on the main thread, never waits for one. */
+    private val loading = Any()
+
     /** Reads every number again, on the caller's thread. */
-    @Synchronized
     private fun reloadNow() {
-        stale = false
-        if (!hasPermission()) return
-        _contacts.value = load()
+        synchronized(loading) {
+            stale = false
+            if (!hasPermission()) return
+            _contacts.value = load()
+        }
     }
 
     private fun load(): List<Contact> {
