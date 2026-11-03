@@ -171,6 +171,32 @@ fun LogLine(
     // A dimmed line whose parts can't overlap fades part by part, which draws the same pixels.
     val byPart = dim && row.dimmed && !highlighted && !isGrid && image == null && marks.isEmpty() &&
         remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
+    // Pressed, focused or under a pointer, and for a moment after: the ripple or highlight drawn over
+    // the letters would fade with them part by part, a shade off. Faded whole meanwhile, as it was.
+    val touch = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    var touched by remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (byPart) androidx.compose.runtime.LaunchedEffect(touch) {
+        // Started again (the line dimmed anew): nothing is pressed yet.
+        touched = false
+        var active = 0
+        var settle: kotlinx.coroutines.Job? = null
+        touch.interactions.collect { i ->
+            when (i) {
+                is androidx.compose.foundation.interaction.PressInteraction.Press,
+                is androidx.compose.foundation.interaction.FocusInteraction.Focus,
+                is androidx.compose.foundation.interaction.HoverInteraction.Enter -> active++
+                is androidx.compose.foundation.interaction.PressInteraction.Release,
+                is androidx.compose.foundation.interaction.PressInteraction.Cancel,
+                is androidx.compose.foundation.interaction.FocusInteraction.Unfocus,
+                is androidx.compose.foundation.interaction.HoverInteraction.Exit -> active = (active - 1).coerceAtLeast(0)
+                else -> return@collect
+            }
+            settle?.cancel()
+            if (active > 0) touched = true
+            // A quick tap's ripple finishes growing, then fades: done well within this.
+            else settle = launch { kotlinx.coroutines.delay(RIPPLE_DONE_MS); touched = false }
+        }
+    }
     // Which way the line is swiped, if at all: what it shows changes only when this does, not on
     // every frame the line moves (the offset and the reveal read the swipe as they lay out and draw).
     val swiped by remember { androidx.compose.runtime.derivedStateOf { kotlin.math.sign(swipe.value) } }
@@ -228,12 +254,14 @@ fun LogLine(
             .fillMaxWidth()
             .heightIn(min = minHeight)
             .testTag("line-${entry.id}")
-            .then(if (!dim || !row.dimmed) Modifier else if (byPart) DIMMED_BY_PART else DIMMED)
+            .then(if (!dim || !row.dimmed) Modifier else if (byPart && !touched) DIMMED_BY_PART else DIMMED)
             .background(if (highlighted) Term.surface else Color.Transparent)
             .then(if (!gutter) Modifier else Modifier.drawBehind {
                 drawRect(gutterColor, topLeft = Offset.Zero, size = Size(2.dp.toPx(), size.height))
             })
             .combinedClickable(
+                interactionSource = touch,
+                indication = androidx.compose.foundation.LocalIndication.current,
                 onLongClickLabel = "actions",
                 onClick = { onTap(entry) },
                 onLongClick = {
@@ -292,6 +320,9 @@ private val DIMMED = Modifier.alpha(0.62f)
  * whose parts don't overlap ([fadesByPart]), where both ways give the same pixels.
  */
 private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = 0.62f, clip = true, compositingStrategy = CompositingStrategy.ModulateAlpha)
+
+/** How long after a press, focus or pointer leaves a dimmed line it fades whole: its ripple's growing and fading. */
+private const val RIPPLE_DONE_MS = 450L
 
 /**
  * Whether [text] can be faded part by part and look as faded whole: letters that never overlap
