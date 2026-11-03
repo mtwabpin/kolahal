@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.unlock
 import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
+import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -106,7 +107,13 @@ class UnlockCounter private constructor(private val context: Context) {
 
     /** How many unlocks in [from, until), and the time of the last. */
     private fun keyguardHidden(from: Long, until: Long): Pair<Int, Long?> {
-        val events = context.getSystemService(UsageStatsManager::class.java).queryEvents(from, until)
+        val usage = context.getSystemService(UsageStatsManager::class.java)
+        // From Android 15 Android hands over the unlocks alone, not every event of the day to skip.
+        val events = if (Build.VERSION.SDK_INT >= 35) {
+            usage.queryEvents(UsageEventsQuery.Builder(from, until).setEventTypes(UsageEvents.Event.KEYGUARD_HIDDEN).build())
+        } else {
+            usage.queryEvents(from, until)
+        } ?: return 0 to null
         val event = UsageEvents.Event()
         var count = 0
         var last: Long? = null
