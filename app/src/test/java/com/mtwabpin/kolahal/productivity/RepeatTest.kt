@@ -44,4 +44,13 @@ class RepeatTest {
         assertEquals("on the 22nd of every month", Repeat.label("month:22"))
         assertEquals("every year on 14 Mar", Repeat.label("year:03-14"))
     }
+
+    /** Rules nothing writes, which would come only from a hand-edited backup, are refused. */
+    @Test fun rulesNothingWritesArentValid() {
+        for (rule in listOf("year:02-30", "year:04-31", "year:02-30-5", "month:32", "month:99", "mon,funday", "mon,", ",mon", "year:-03-14")) {
+            assertFalse(rule, Repeat.isValid(rule))
+        }
+        // As stored by a phone in Persian before the rule was kept in plain digits.
+        assertTrue(Repeat.isValid("year:۰۳-۱۴"))
+    }
 }

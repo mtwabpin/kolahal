@@ -37,11 +37,26 @@ object Repeat {
         throw IllegalArgumentException("no date for $rule")
     }
 
-    /** Whether [next] and [label] can work with [rule]: a backup can hold anything, a newer version's rules too. */
-    fun isValid(rule: String): Boolean = runCatching {
-        label(rule)
-        next(rule, LocalTime.NOON, LocalDateTime.of(2028, 1, 1, 0, 0))
-    }.isSuccess
+    /**
+     * Whether [rule] is one Kolahal writes, so [next] and [label] work with it: a backup can hold
+     * anything, a newer version's rules too. A day of the month 1 to 31, a date that exists in some
+     * year (29 February too), and days of the week each named.
+     */
+    fun isValid(rule: String): Boolean {
+        val shape = when {
+            rule == "day" || rule == "weekdays" || rule == "weekend" -> true
+            rule.startsWith("month:") -> rule.removePrefix("month:").toIntOrNull() in 1..31
+            rule.startsWith("year:") -> rule.removePrefix("year:").split('-').let { p ->
+                val month = p.first().toIntOrNull()
+                p.size == 2 && month in 1..12 && p[1].toIntOrNull() in 1..Month.of(month!!).maxLength()
+            }
+            else -> rule.split(',').all { name -> name.isNotBlank() && DayOfWeek.entries.any { it.name.lowercase().startsWith(name) } }
+        }
+        return shape && runCatching {
+            label(rule)
+            next(rule, LocalTime.NOON, LocalDateTime.of(2028, 1, 1, 0, 0))
+        }.isSuccess
+    }
 
     /** `every day`, `every Mon and Thu`, `on the 15th of every month`, `every year on 3 Dec`. */
     fun label(rule: String): String = when {
