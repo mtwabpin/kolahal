@@ -12,7 +12,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Widget results reach you: on a widget screen when one opens, in the log when Kolahal starts. */
+/** Widget results are kept for a widget screen to show, and a widget to add again is said in the log. */
 @RunWith(AndroidJUnit4::class)
 class WidgetMessagesTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -27,8 +27,11 @@ class WidgetMessagesTest {
         logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
-    /** Adding from the picker moves to the Widgets screen just as "Added" comes: it waits for that screen. */
-    @Test fun aMessageWaitsForAWidgetScreen() {
+    /**
+     * Adding from the picker moves to the Widgets screen just as "Added" comes: messages are kept, in
+     * order, until a screen takes them. (Each screen showing them is checked in its own test.)
+     */
+    @Test fun messagesAreKeptInOrderUntilTaken() {
         while (widgets.takeMessage() != null) Unit
         widgets.message("Added Clock")
         widgets.message("Widget not added")

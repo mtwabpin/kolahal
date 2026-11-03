@@ -327,14 +327,16 @@ class FeedCommandsTest {
         val live = Notif("0|llat|1", SETTINGS, serial, "Settings", "Llat title", "Llat body", now)
         val gone = Notif("0|llat|2", SETTINGS, serial, "Settings", "Llat gone", null, now - 1_000, removed = true)
         // The listener replaces the list with what is really showing as it connects, at any moment
-        // after access is on: the two are added again until the list keeps them.
+        // after access is on: the two are added again until both lists keep them.
         var shown: List<LogEntry>
+        var all: List<String>
         val until = System.currentTimeMillis() + 10_000
         do {
             NotificationStore.put(gone, null)
             NotificationStore.put(live, null)
             shown = lines("notifs")
-            if (shown.any { it.text == "Llat title — Llat body" }) break
+            all = run("notifs all")
+            if (shown.any { it.text == "Llat title — Llat body" } && "Llat gone" in all) break
             Thread.sleep(200)
         } while (System.currentTimeMillis() < until)
         val line = shown.single { it.text == "Llat title — Llat body" }
@@ -345,7 +347,7 @@ class FeedCommandsTest {
         assertEquals("Llat title — Llat body", line.ctx.copy)
         assertEquals(live.key, line.ctx.values[KolahalNotificationListener.CTX_KEY])
         assertTrue(shown.none { it.text == "Llat gone" })
-        assertTrue(run("notifs all").containsAll(listOf("Llat title — Llat body", "Llat gone")))
+        assertTrue(all.toString(), all.containsAll(listOf("Llat title — Llat body", "Llat gone")))
 
         assertEquals(listOf("Notifications cleared"), run("notifs clear"))
         assertNull(NotificationStore.find(live.key))
