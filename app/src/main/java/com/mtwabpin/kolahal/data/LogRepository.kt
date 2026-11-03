@@ -61,7 +61,8 @@ class LogRepository private constructor(private val context: Context) {
             val ids = db.readableDatabase.rawQuery("SELECT id FROM logs WHERE kind = ? AND text = ?", arrayOf(kind.key, text))
                 .use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
             if (ids.isNotEmpty()) {
-                db.writableDatabase.delete("logs", "kind = ? AND text = ?", arrayOf(kind.key, text))
+                // The rows just found, not a second search of every line of that kind.
+                db.writableDatabase.delete("logs", "id IN (${ids.joinToString(",")})", null)
                 noteRemoved(ids)
             }
         }
