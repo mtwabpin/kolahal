@@ -41,10 +41,14 @@ object AppIcons {
     var generation by mutableIntStateOf(0)
         private set
 
-    /** Icons can change when an app is installed or updated: drops them once [packageChanges] moves. */
-    fun sync(packageChanges: Int) {
+    /**
+     * Icons can change when an app is installed or updated: once [packageChanges] moves, the icons of
+     * the apps it moved for ([changed]) go; the others stay.
+     */
+    fun sync(packageChanges: Int, changed: Set<String>) {
         if (filledAt != -1 && filledAt != packageChanges) {
-            cache.evictAll()
+            // Keys start with the package: `com.example/.Main#0@96`.
+            cache.snapshot().keys.filter { it.substringBefore('/') in changed }.forEach { cache.remove(it) }
             generation++
         }
         filledAt = packageChanges

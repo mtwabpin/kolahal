@@ -123,9 +123,10 @@ val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: TerminalViewModel.Peek? = null) {
-    // An install or update may change icons: suggestions.icons loads them again.
-    val packageChanges by com.mtwabpin.kolahal.apps.AppRepository.get(androidx.compose.ui.platform.LocalContext.current).packageChanges.collectAsStateWithLifecycle()
-    if (preview == null) LaunchedEffect(packageChanges) { AppIcons.sync(packageChanges) }
+    // An install or update may change icons: suggestions.icons loads those apps' again.
+    val appsRepo = com.mtwabpin.kolahal.apps.AppRepository.get(androidx.compose.ui.platform.LocalContext.current)
+    val packageChanges by appsRepo.packageChanges.collectAsStateWithLifecycle()
+    if (preview == null) LaunchedEffect(packageChanges) { AppIcons.sync(packageChanges, appsRepo.takeChanged()) }
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val unlocks by vm.unlocksToday.collectAsStateWithLifecycle()
     val status by vm.status.collectAsStateWithLifecycle()

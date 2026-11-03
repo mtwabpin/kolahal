@@ -92,11 +92,11 @@ class AppRepository private constructor(private val context: Context) {
         if (started) return
         started = true
         launcherApps.registerCallback(object : LauncherApps.Callback() {
-            override fun onPackageRemoved(packageName: String, user: UserHandle) = refreshSoon()
-            override fun onPackageAdded(packageName: String, user: UserHandle) = refreshSoon()
-            override fun onPackageChanged(packageName: String, user: UserHandle) = refreshSoon()
-            override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon()
-            override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon()
+            override fun onPackageRemoved(packageName: String, user: UserHandle) = refreshSoon(listOf(packageName))
+            override fun onPackageAdded(packageName: String, user: UserHandle) = refreshSoon(listOf(packageName))
+            override fun onPackageChanged(packageName: String, user: UserHandle) = refreshSoon(listOf(packageName))
+            override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon(names.asList())
+            override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon(names.asList())
         })
         // Kept between visits to home: what can change it reloads it. App names follow the language.
         val filter = IntentFilter().apply {
@@ -134,8 +134,15 @@ class AppRepository private constructor(private val context: Context) {
     /** Bumped when an app is installed, updated or removed: its icon may have changed. */
     val packageChanges: StateFlow<Int> = _packageChanges.asStateFlow()
 
+    /** The packages behind [packageChanges] since [takeChanged] last asked. */
+    private val changed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** The packages installed, updated or removed since the last call: their icons may have changed. */
+    fun takeChanged(): Set<String> = changed.toSet().also { changed.removeAll(it) }
+
     /** An install or update sends several callbacks in a row: one reload once they stop. */
-    private fun refreshSoon() {
+    private fun refreshSoon(packages: Collection<String>) {
+        changed += packages
         _packageChanges.update { it + 1 }
         soon?.cancel()
         soon = scope.launch {
