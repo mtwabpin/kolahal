@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
@@ -75,7 +76,17 @@ internal class ScriptCode(code: String, name: String) {
     val uses = ScriptMeta.uses(code)
     val secrets = ScriptMeta.secrets(code)
     val notifies = ScriptMeta.postsNotifications(code)
+    /** Which of internet and the header line it uses ([ScriptAccess.base]). */
+    val base = ScriptAccess.base(code).toSet()
+    /** What its sheet and expanded card list: its access, then its events ([ScriptAccess.items]). */
+    val accessItems = ScriptAccess.items(code)
 }
+
+/**
+ * The [ScriptCode] of each script as last shown, by name and code: kept while the page is away (the
+ * editor replaces it, and coming back after a save would read every script again). Main thread.
+ */
+private val keptCodes = HashMap<Pair<String, String>, ScriptCode>()
 
 /** What a script's card shows and the filters match. */
 internal class ScriptInfo(val script: Script, code: ScriptCode) {
@@ -88,6 +99,9 @@ internal class ScriptInfo(val script: Script, code: ScriptCode) {
     val timed = script.intervalMin > 0 || script.atTimes.isNotEmpty()
     val secrets = code.secrets
     val notifies = code.notifies
+    /** [Script.grants], from the code as read once. */
+    val grants = ScriptAccess.Grants(code.uses, script.access, code.base)
+    val accessItems = code.accessItems
 }
 
 /**
@@ -177,11 +191,10 @@ fun ScriptsScreen(
     }
 
     // The list is read again when a script runs (its last run changes) or one is saved: only code
-    // that changed is read again.
-    val codes = remember { HashMap<Pair<String, String>, ScriptCode>() }
+    // that changed is read again, also after the page was away.
     val infos = remember(scripts) {
-        codes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
-        scripts.map { s -> ScriptInfo(s, codes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
+        keptCodes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
+        scripts.map { s -> ScriptInfo(s, keptCodes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
     }
     // Declared secrets with no value yet, by script name.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()

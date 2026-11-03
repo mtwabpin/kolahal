@@ -82,7 +82,7 @@ internal fun ScriptCard(
     val failed = s.failed()
     val summary = buildList {
         // Events switched off don't run it: left out.
-        add(schedule(s, info.isCommand, info.events.filter { s.grants.allows(it) }))
+        add(schedule(s, info.isCommand, info.events.filter { info.grants.allows(it) }))
         add(s.lastRun?.let { (if (failed) "failed " else "ran ") + relative(it, short = true) } ?: "never run")
         if (missingKeys.isNotEmpty()) add("needs " + missingKeys.joinToString(", "))
         if (updateAvailable) add("update available")
@@ -158,7 +158,7 @@ private fun ScriptDetails(
 ) {
     val s = info.script
     val colors = MaterialTheme.colorScheme
-    val grants = s.grants
+    val grants = info.grants
     Column(Modifier.padding(start = 20.dp, top = 10.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         line?.let {
             Surface(shape = MaterialTheme.shapes.small, color = colors.surfaceContainerHighest) {
@@ -180,7 +180,7 @@ private fun ScriptDetails(
         // Everything it may do, as in its sheet: its access (internet, its header line and notifications
         // when its code uses them, what it declares with @uses), and apart from it the events of its @on
         // lines. A tap switches one.
-        val (events, access) = ScriptAccess.items(s.code).partition { it in info.events }
+        val (events, access) = info.accessItems.partition { it in info.events }
         if (access.isNotEmpty() || info.notifies) PillGroup("Access") {
             // Notifications after internet and the header line, as in the sheet.
             val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }

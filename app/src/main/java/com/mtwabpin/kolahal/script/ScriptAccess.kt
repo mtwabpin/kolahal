@@ -26,7 +26,7 @@ object ScriptAccess {
     const val HEADER = "header"
 
     /** [INTERNET] and [HEADER], for the ones [code] uses. */
-    private fun base(code: String): List<String> =
+    internal fun base(code: String): List<String> =
         listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }, HEADER.takeIf { ScriptMeta.setsHeader(code) })
 
     /** Everything a script with [code] can be switched for, in display order: only what it uses. */
