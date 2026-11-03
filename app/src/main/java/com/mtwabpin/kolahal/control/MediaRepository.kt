@@ -109,8 +109,14 @@ class MediaRepository private constructor(private val context: Context) {
      * metadata with its artwork, on the main thread at every update.
      */
     private inner class Watch(val controller: MediaController) : MediaController.Callback() {
-        var state: PlaybackState? = controller.playbackState
-        var metadata: MediaMetadata? = controller.metadata
+        var state: PlaybackState? = null
+        var track: Track? = null
+
+        /** What the session says now: read once its updates come here, so none falls in between. */
+        fun read() {
+            state = controller.playbackState
+            track = Track.of(controller.metadata)
+        }
 
         override fun onPlaybackStateChanged(state: PlaybackState?) {
             this.state = state
@@ -118,7 +124,7 @@ class MediaRepository private constructor(private val context: Context) {
         }
 
         override fun onMetadataChanged(metadata: MediaMetadata?) {
-            this.metadata = metadata
+            track = Track.of(metadata)
             recompute()
         }
 
@@ -180,7 +186,7 @@ class MediaRepository private constructor(private val context: Context) {
 
     private fun onSessions(list: List<MediaController>) {
         watches.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
-        watches = list.map { c -> Watch(c).also { w -> runCatching { c.registerCallback(w, main) } } }
+        watches = list.map { c -> Watch(c).also { w -> runCatching { c.registerCallback(w, main) }; w.read() } }
         recompute()
     }
 
@@ -191,28 +197,41 @@ class MediaRepository private constructor(private val context: Context) {
         val chosen = watches.firstOrNull { it.state.isActive() }
             ?: watches.maxByOrNull { lastPlaying[it.controller.packageName] ?: 0L }
         current = chosen?.controller
-        _nowPlaying.value = chosen?.let { snapshot(it.controller.packageName, it.metadata, it.state, now) }
+        _nowPlaying.value = chosen?.let { snapshot(it.controller.packageName, it.track, it.state, now) }
     }
 
     private fun PlaybackState?.isActive() =
         this?.state == PlaybackState.STATE_PLAYING || this?.state == PlaybackState.STATE_BUFFERING
 
-    private fun snapshot(pkg: String, meta: MediaMetadata?, ps: PlaybackState?, now: Long): NowPlaying {
+    /** What now playing shows of a track, kept without its artwork, which can be MB a session. */
+    private class Track(val title: String?, val artist: String?, val duration: Long) {
+        companion object {
+            fun of(meta: MediaMetadata?): Track? = meta?.let {
+                Track(
+                    title = it.getString(MediaMetadata.METADATA_KEY_TITLE) ?: it.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
+                    artist = it.getString(MediaMetadata.METADATA_KEY_ARTIST)
+                        ?: it.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+                        ?: it.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE),
+                    duration = it.getLong(MediaMetadata.METADATA_KEY_DURATION),
+                )
+            }
+        }
+    }
+
+    private fun snapshot(pkg: String, track: Track?, ps: PlaybackState?, now: Long): NowPlaying {
         val elapsedNow = SystemClock.elapsedRealtime()
         val updatedAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { now - (elapsedNow - it) } ?: now
         val idleSince = if (ps.isActive()) now else lastPlaying[pkg] ?: updatedAt.coerceAtMost(now)
         return NowPlaying(
             pkg = pkg,
             app = appLabel(pkg),
-            title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
-            artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST)
-                ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
-                ?: meta?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE),
+            title = track?.title,
+            artist = track?.artist,
             state = ps?.state ?: PlaybackState.STATE_NONE,
             position = ps?.position ?: -1,
             positionAt = updatedAt,
             speed = ps?.playbackSpeed?.takeIf { it != 0f } ?: 1f,
-            duration = meta?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L,
+            duration = track?.duration ?: 0L,
             idleSince = idleSince,
         )
     }
@@ -256,7 +275,7 @@ class MediaRepository private constructor(private val context: Context) {
     /** Fresh snapshot for the `media` command (positions move while playing). */
     fun snapshotNow(): NowPlaying? {
         val c = controller() ?: return null
-        return snapshot(c.packageName, c.metadata, c.playbackState, System.currentTimeMillis())
+        return snapshot(c.packageName, Track.of(c.metadata), c.playbackState, System.currentTimeMillis())
     }
 
     companion object {
