@@ -122,7 +122,12 @@ object ScriptScheduler {
      */
     fun syncAllIfDue(context: Context) {
         val last = context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE).getLong(KEY_SYNCED_AT, 0L)
-        if (System.currentTimeMillis() - last !in 0 until RECHECK_MS) syncAll(context)
+        if (System.currentTimeMillis() - last !in 0 until RECHECK_MS) {
+            syncAll(context)
+            // Each event run is appended to its script's chain, and WorkManager reads the whole chain
+            // to append the next; finished runs are otherwise only cleared when home's process starts.
+            WorkManager.getInstance(context).pruneWork()
+        }
     }
 
     /** Re-syncs every script; one bad script can't stop the rest. */
