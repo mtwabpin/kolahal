@@ -170,18 +170,32 @@ class SetupScreenTest {
         assertEquals(Screen.SETUP, vm.screen.value)
     }
 
-    /** A check with nothing to fix runs nothing when tapped. */
+    /** A check with nothing to fix, or one that's done, runs nothing when tapped. */
     @Test fun aCheckWithNothingToFixDoesNothing() {
         show()
-        val check = checks().first { it.fix == null }
-        scrollTo(check)
-        row(check).performClick()
+        val checks = checks()
+        // One that's done but has a fix (notifications allowed, say) is the one a missing guard would open.
+        val tapped = listOfNotNull(checks.first { it.fix == null }, checks.firstOrNull { it.ok && it.fix != null })
+        for (check in tapped) {
+            scrollTo(check)
+            row(check).performClick()
+        }
         val until = System.currentTimeMillis() + 1_000
         while (System.currentTimeMillis() < until) {
             assertTrue("opened ${opened.map { it.action }}", opened.isEmpty())
             assertTrue("ran ${commands()}", commands().isEmpty())
             Thread.sleep(100)
         }
+    }
+
+    /** While the checks load, it says so, and the button isn't Done: none are done yet. */
+    @Test fun beforeTheChecksComeItIsntDone() {
+        compose.runOnUiThread { vm = vms.terminal(compose.activity.application) }
+        // Not opened as `setup` opens it, nothing reads the checks: they stay loading.
+        compose.setContent { KolahalTheme { Box(Modifier.size(360.dp, 720.dp)) { SetupScreen(vm) } } }
+        waitForText("Checking…")
+        compose.onNodeWithText("Continue to terminal").assertExists()
+        compose.onAllNodesWithText("Done").assertCountEquals(0)
     }
 
     /** With checks still to do, the button says the terminal is next, and goes there. */

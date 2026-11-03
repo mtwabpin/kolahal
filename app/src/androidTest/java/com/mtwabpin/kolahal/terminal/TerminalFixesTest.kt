@@ -99,8 +99,24 @@ class TerminalFixesTest {
     /** `feed fetch` for every feed says which ones failed, as fetching one feed does. */
     @Test fun fetchingAllFeedsReportsTheOnesThatFail() {
         val feeds = com.mtwabpin.kolahal.feeds.FeedRepository.get(app)
-        // Fetched a few at a time, they're still reported in the feeds' order.
-        val added = listOf("a", "b", "c").map { feeds.add("https://kolahal-test-$it.invalid/feed.xml", title = "tf-broken-$it") }
+        // Fetched a few at a time, they're still reported in the feeds' order: the first answers last,
+        // from a server here that waits before it fails.
+        val slow = java.net.ServerSocket(0, 5, java.net.InetAddress.getByName("127.0.0.1"))
+        kotlin.concurrent.thread(isDaemon = true) {
+            while (!slow.isClosed) {
+                val client = runCatching { slow.accept() }.getOrNull() ?: break
+                kotlin.concurrent.thread(isDaemon = true) {
+                    client.use { c ->
+                        val reader = c.getInputStream().bufferedReader(Charsets.ISO_8859_1)
+                        generateSequence { reader.readLine()?.takeIf { it.isNotEmpty() } }.toList()
+                        Thread.sleep(1_500)
+                        runCatching { c.getOutputStream().write("HTTP/1.1 500 Oops\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray()) }
+                    }
+                }
+            }
+        }
+        val added = listOf(feeds.add("http://127.0.0.1:${slow.localPort}/feed.xml", title = "tf-broken-a")) +
+            listOf("b", "c").map { feeds.add("https://kolahal-test-$it.invalid/feed.xml", title = "tf-broken-$it") }
         try {
             val before = logs.maxId()
             processor.run("feed fetch")
@@ -111,36 +127,56 @@ class TerminalFixesTest {
             val command = logs.recent(100).single { it.id > before && it.kind == LogKind.COMMAND && it.text == "feed fetch" }
             assertTrue(failed().all { it.ctx.values[LogContext.FROM] == command.id.toString() })
         } finally {
+            slow.close()
             added.forEach { feeds.remove(it.id) }
+            // `feed fetch` queued the feeds' job: with these gone it goes too, unless other feeds keep it.
+            com.mtwabpin.kolahal.feeds.FeedScheduler.sync(app)
         }
     }
+
+    private fun TerminalViewModel.type(line: String) = instrumentation.runOnMainSync {
+        onInputChange(androidx.compose.ui.text.input.TextFieldValue(line))
+        submit()
+    }
+
+    /** ↑ once: what the prompt then holds. */
+    private fun TerminalViewModel.up(): String {
+        var text = ""
+        instrumentation.runOnMainSync {
+            historyUp()
+            text = input.text
+        }
+        return text
+    }
+
+    private fun TerminalViewModel.shown(line: String) = entries.value.count { it.kind == LogKind.COMMAND && it.text == line }
 
     /** ↑ goes back through what you typed, newest first, each command once. */
     @Test fun upRecallsTypedCommandsNewestFirst() {
         val vm = viewModel()
-        fun type(line: String) = instrumentation.runOnMainSync {
-            vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue(line))
-            vm.submit()
-        }
-        fun up(): String {
-            var text = ""
-            instrumentation.runOnMainSync {
-                vm.historyUp()
-                text = vm.input.text
-            }
-            return text
-        }
-        fun shown(line: String) = vm.entries.value.count { it.kind == LogKind.COMMAND && it.text == line }
-        type("echo tf one")
-        waitUntil("the first") { shown("echo tf one") == 1 }
-        type("echo tf two")
-        waitUntil("the second") { shown("echo tf two") == 1 }
-        type("echo tf one")
-        waitUntil("the first again") { shown("echo tf one") == 2 }
-        assertEquals("echo tf one", up())
-        assertEquals("echo tf two", up())
+        vm.type("echo tf one")
+        waitUntil("the first") { vm.shown("echo tf one") == 1 }
+        vm.type("echo tf two")
+        waitUntil("the second") { vm.shown("echo tf two") == 1 }
+        vm.type("echo tf one")
+        waitUntil("the first again") { vm.shown("echo tf one") == 2 }
+        assertEquals("echo tf one", vm.up())
+        assertEquals("echo tf two", vm.up())
         // Typed twice, it's there once.
-        assertTrue(up() != "echo tf one")
+        assertTrue(vm.up() != "echo tf one")
+    }
+
+    /** A command's line deleted, ↑ no longer offers it: history is read again when a command goes. */
+    @Test fun aDeletedCommandLeavesHistory() {
+        val vm = viewModel()
+        vm.type("echo tf gone")
+        waitUntil("the first") { vm.shown("echo tf gone") == 1 }
+        vm.type("echo tf stays")
+        waitUntil("the second") { vm.shown("echo tf stays") == 1 }
+        logs.delete(vm.entries.value.single { it.kind == LogKind.COMMAND && it.text == "echo tf gone" }.id)
+        waitUntil("it leaves the page") { vm.shown("echo tf gone") == 0 }
+        assertEquals("echo tf stays", vm.up())
+        assertTrue(vm.up() != "echo tf gone")
     }
 
     /** The same message twice shows twice: each is a notice of its own. */

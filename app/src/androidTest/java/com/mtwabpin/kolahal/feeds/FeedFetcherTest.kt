@@ -203,6 +203,13 @@ class FeedFetcherTest {
         assertEquals(listOf("Ñandú four"), titles(utf16.toByteArray(Charsets.UTF_16LE), "Content-Type: application/xml"))
         val utf16be = "\uFEFF" + rss("Cptest", item("c5", "Œuvre five", "/5"))
         assertEquals(listOf("Œuvre five"), titles(utf16be.toByteArray(Charsets.UTF_16BE), "Content-Type: application/xml"))
+        // Where they disagree: the server over the prolog, the mark over the prolog.
+        val serverWins = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + rss("Cptest", item("c6", "Café six", "/6"))
+        assertEquals(listOf("Café six"), titles(serverWins.toByteArray(latin1), "Content-Type: text/xml; charset=ISO-8859-1"))
+        val markWins = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>" + rss("Cptest", item("c7", "Café seven", "/7"))
+        assertEquals(listOf("Café seven"), titles(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + markWins.toByteArray(), "Content-Type: application/xml"))
+        // Nothing to say which: UTF-8.
+        assertEquals(listOf("Café eight"), titles(rss("Cptest", item("c8", "Café eight", "/8")).toByteArray(), "Content-Type: application/xml"))
     }
 
     /** A feed with one item says so on its first fetch: "1 item". */

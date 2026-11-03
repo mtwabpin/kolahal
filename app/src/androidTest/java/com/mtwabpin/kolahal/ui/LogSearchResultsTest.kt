@@ -233,9 +233,13 @@ class LogSearchResultsTest {
     @Test fun aSearchAtThePromptShowsTheMatchesInPlaceOfTheLog() {
         config.set(Keys.LOG_TIPS, "off")
         val token = "lsr${System.nanoTime()}"
+        // Older lines above it, as in a log of any length.
+        repeat(30) { logs.add(LogKind.OUTPUT, "lsr older $it") }
         val first = logs.add(LogKind.OUTPUT, "$token first")
         val other = logs.add(LogKind.OUTPUT, "lsr other line")
         val second = logs.add(LogKind.OUTPUT, "$token second")
+        // More than a screen after them: the tap has to bring the first back into view.
+        val last = (1..60).map { logs.add(LogKind.OUTPUT, "lsr filler $it") }.last()
         lateinit var vm: TerminalViewModel
         compose.runOnUiThread { vm = vms.terminal(app) }
         compose.setContent {
@@ -244,7 +248,8 @@ class LogSearchResultsTest {
             }
         }
         fun type(text: String) = compose.runOnIdle { vm.onInputChange(TextFieldValue(text, TextRange(text.length))) }
-        compose.waitUntil(5_000) { exists("line-$other") }
+        compose.waitUntil(5_000) { exists("line-$last") }
+        assertFalse("the first is off screen before", exists("line-$first"))
 
         type("/")
         compose.waitUntil(5_000) { exists("log-search-summary") }
@@ -256,11 +261,12 @@ class LogSearchResultsTest {
         val counted = Regex("2 of \\d+ lines · tap one to see it in the log")
         compose.waitUntil(5_000) { exists("log-search") && counted.matches(summary()) }
         assertTrue(exists("line-$first") && exists("line-$second"))
-        assertFalse(exists("line-$other"))
+        assertFalse(exists("line-$other") || exists("line-$last"))
         assertFalse(exists("log"))
 
         compose.onNodeWithTag("line-$first").performClick()
         compose.waitUntil(5_000) { !exists("log-search") && exists("log") && exists("line-$first") }
+        compose.onNodeWithTag("line-$first").assertIsDisplayed()
         assertEquals("", vm.input.text)
         assertFalse(exists("log-search-summary"))
     }

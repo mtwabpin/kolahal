@@ -82,7 +82,8 @@ class ProductivityCommandsTest {
         notes.all().filter { "pctest" in it.text }.forEach { notes.remove(it.id) }
         reminders.all().filter { "pctest" in it.text }.forEach { ReminderScheduler.cancel(context, it.id); reminders.remove(it.id) }
         // Its events go with it.
-        calendar?.let { shell("content delete --uri $CALENDARS --where _id=$it") }
+        // Every test calendar, one an aborted run left too.
+        if (calendar != null) shell("content delete --uri $CALENDARS --where account_name='pctest'")
         Keys.ALL.forEach(config::reset)
         logs.recent(500).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
@@ -260,8 +261,9 @@ class ProductivityCommandsTest {
     }
 
     /**
-     * `agenda` asks for the calendar first; then the next three days, by day: all-day events first,
-     * times lined up, a day with nothing left out; `agenda 1` is today alone.
+     * `agenda` asks for the calendar first; then the next three days, by day: an event's times, an
+     * all-day event, a day with nothing left out; `agenda 1` is today alone. (All-day events first
+     * within a day: AgendaTest.)
      */
     @Test fun agendaListsTheNextDays() {
         if (!Agenda.hasPermission(context)) {
@@ -280,6 +282,8 @@ class ProductivityCommandsTest {
         }
 
         config.set(Keys.CLOCK_24H, "on")
+        // A calendar an aborted run left would be found first, its events with it.
+        shell("content delete --uri $CALENDARS --where account_name='pctest'")
         shell("content insert --uri $CALENDARS --bind account_name:s:pctest --bind account_type:s:LOCAL --bind name:s:pctest --bind calendar_displayName:s:pctest --bind calendar_access_level:i:700 --bind ownerAccount:s:pctest --bind visible:i:1 --bind sync_events:i:1")
         calendar = Regex("_id=(\\d+)").find(shell("content query --uri content://com.android.calendar/calendars --projection _id --where account_name='pctest'"))?.groupValues?.get(1)
         assertNotNull("the test calendar", calendar)

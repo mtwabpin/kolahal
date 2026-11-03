@@ -169,12 +169,15 @@ class LogLineTest {
         assertTrue(tapped.isEmpty())
     }
 
-    /** A swipe short of a third does nothing, and the line goes back. */
+    /** A swipe short of a third moves the line, does nothing, and the line goes back. */
     @Test fun aShortSwipeDoesNothing() {
         val e = entry("swipe me")
         show { Line(row(e)) }
-        line(e).performTouchInput { swipeRight(startX = centerX, endX = centerX + width / 5f) }
+        line(e).performTouchInput { down(center); moveBy(Offset(width / 5f, 0f)) }
+        compose.waitUntil(5_000) { bounds(e).left > 0.dp }
+        line(e).performTouchInput { up() }
         staysPut()
+        assertTrue("tapped $tapped", tapped.isEmpty())
         compose.waitUntil(5_000) { bounds(e).left == 0.dp }
     }
 

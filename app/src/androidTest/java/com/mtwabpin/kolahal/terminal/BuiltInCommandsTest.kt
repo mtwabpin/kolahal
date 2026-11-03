@@ -21,6 +21,7 @@ import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.AutoBackup
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
@@ -65,6 +66,7 @@ class BuiltInCommandsTest {
     private val fxBefore = fx.get("USD")
     private val crashDir = File(context.filesDir, "crash")
     private val crashReport = File(crashDir, "20260101-120000-crash.txt")
+    private val olderReport = File(crashDir, "20251231-120000-crash.txt")
     private val before = logs.maxId()
 
     private val screens = CopyOnWriteArrayList<Screen>()
@@ -104,6 +106,7 @@ class BuiltInCommandsTest {
         scripts.all().filter { it.name.startsWith("pctest") }.forEach { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
         fx.set("USD", fxBefore)
         crashReport.delete()
+        olderReport.delete()
         Keys.ALL.forEach(config::reset)
         logs.recent(500).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
@@ -284,14 +287,22 @@ class BuiltInCommandsTest {
         crashReport.writeText(
             "Kolahal crash report\nKolahal 0.0 (1, debug)\nAndroid\nWhen: x\nWhat: crash in test, thread main\n\njava.lang.IllegalStateException: pctest boom\n\tat a.b(c:1)\n",
         )
-        for (line in listOf("crashes share", "crashes share 20260101-120000", "crashes share 1")) {
+        // And one from the day before, to tell the newest from the rest.
+        olderReport.writeText(
+            "Kolahal crash report\nKolahal 0.0 (1, debug)\nAndroid\nWhen: y\nWhat: crash in test, thread main\n\njava.lang.IllegalStateException: pctest older\n\tat a.b(c:1)\n",
+        )
+        val shares = listOf(
+            "crashes share" to "pctest boom", "crashes share 1" to "pctest boom", "crashes share 20260101-120000" to "pctest boom",
+            "crashes share 2" to "pctest older", "crashes share 20251231-120000" to "pctest older",
+        )
+        for ((line, sent) in shares) {
             opened.clear()
             assertEquals(line, emptyList<String>(), run(line))
             val chooser = opened.single()
             assertEquals(Intent.ACTION_CHOOSER, chooser.action)
             val send = IntentCompat.getParcelableExtra(chooser, Intent.EXTRA_INTENT, Intent::class.java)!!
             assertEquals(Intent.ACTION_SEND, send.action)
-            assertTrue(line, send.getStringExtra(Intent.EXTRA_TEXT).orEmpty().contains("IllegalStateException: pctest boom"))
+            assertTrue(line, send.getStringExtra(Intent.EXTRA_TEXT).orEmpty().contains("IllegalStateException: $sent"))
         }
     }
 
@@ -367,8 +378,9 @@ class BuiltInCommandsTest {
         assertTrue(logs.commandHistory().contains("echo pctest-one"))
         val upTo = logs.maxId()
         assertEquals(emptyList<String>(), run("clear all"))
-        // Ids are never reused: anything at or below it is a line from before.
+        // Ids are never reused: anything at or below it is a line from before. Deleted, not hidden.
         assertEquals(emptyList<LogEntry>(), logs.recent(400).filter { it.id <= upTo })
+        assertTrue(Db.get(context).readableDatabase.rawQuery("SELECT COUNT(*) FROM logs WHERE id <= ?", arrayOf(upTo.toString())).use { it.moveToFirst(); it.getInt(0) == 0 })
         assertEquals(emptyList<String>(), logs.commandHistory())
     }
 
