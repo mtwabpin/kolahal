@@ -168,8 +168,9 @@ fun LogLine(
     val lineText = if (isGrid || desc != null) null else remember(entry, Term.palette, indents, row.unread, iconKey, marks, row.showSource) {
         markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
     }
-    // A dimmed line whose parts can't overlap fades part by part, which draws the same pixels.
-    val byPart = dim && row.dimmed && !highlighted && !isGrid && image == null && marks.isEmpty() &&
+    // A dimmed line whose parts can't overlap fades part by part, which draws the same pixels. A
+    // picture is one draw, under its text, not behind it; the apps grid's chips put text on colour.
+    val byPart = dim && row.dimmed && !highlighted && !isGrid && marks.isEmpty() &&
         remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
     // Pressed, focused or under a pointer, and for a moment after: the ripple or highlight drawn over
     // the letters would fade with them part by part, a shade off. Faded whole meanwhile, as it was.
