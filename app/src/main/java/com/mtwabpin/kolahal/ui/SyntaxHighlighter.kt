@@ -32,19 +32,45 @@ internal class LineTokens(lang: ScriptLang) {
             "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
     )
 
-    private val lineTokens = object : LinkedHashMap<String, IntArray>(512, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IntArray>?) = size > 8000
-    }
+    /**
+     * Kept by how much text they hold, not how many: typing on a line keeps a copy of it per key (the
+     * oldest go first, the script's own lines are used at every key), and a script with more lines
+     * than a count allowed had every line tokenised again at each key.
+     */
+    private val lineTokens = Kept(KEPT_CHARS)
 
     /**
-     * Very long lines (minified code, data) are kept apart, a few at a time: typing on one makes a new
-     * one on every key, and among the 8,000 kept lines each would stay, a copy of the line each.
+     * Very long lines (minified code, data) are kept apart: copies of one being typed on would
+     * otherwise push out the rest of the script.
      */
-    private val longLines = object : LinkedHashMap<String, IntArray>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IntArray>?) = size > 8
-    }
+    private val longLines = Kept(KEPT_LONG_CHARS)
+
+    /** Characters of the lines kept, for tests. */
+    internal val keptChars: Long get() = lineTokens.chars + longLines.chars
 
     fun of(line: String): IntArray = (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
+
+    /** Tokens by line, least recently used first, holding lines of [maxChars] characters at most together. */
+    private class Kept(private val maxChars: Long) {
+        private val map = LinkedHashMap<String, IntArray>(512, 0.75f, true)
+        var chars = 0L
+            private set
+
+        fun getOrPut(line: String, make: () -> IntArray): IntArray {
+            map[line]?.let { return it }
+            val tokens = make()
+            map[line] = tokens
+            chars += line.length
+            val oldest = map.entries.iterator()
+            while (chars > maxChars && oldest.hasNext()) {
+                val e = oldest.next()
+                if (e.key === line) continue
+                chars -= e.key.length
+                oldest.remove()
+            }
+            return tokens
+        }
+    }
 
     private fun tokenize(line: String): IntArray {
         val out = ArrayList<Int>()
@@ -65,6 +91,9 @@ internal class LineTokens(lang: ScriptLang) {
     companion object {
         /** Lines longer than this are kept apart ([longLines]). */
         const val LONG_LINE = 2_000
+        /** Lines kept, in characters: a script of about 2 MB, or 4 MB of memory. */
+        const val KEPT_CHARS = 2_000_000L
+        const val KEPT_LONG_CHARS = 1_000_000L
         const val COMMENT = 0
         const val STRING = 1
         const val NUMBER = 2

@@ -71,6 +71,21 @@ class SyntaxHighlighterTest {
         assertTrue(SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString(big)).text.spanStyles.size > 100)
     }
 
+    /** The kept tokens hold a bounded amount of text, not a number of lines: a long script stays whole. */
+    @Test fun keptTokensAreBoundedByText() {
+        val tokens = LineTokens(ScriptLang.LUA)
+        // More lines than the 8,000 once kept, all of them kept.
+        val short = (0 until 9_000).map { "local x$it = $it" }
+        short.forEach { tokens.of(it) }
+        assertEquals(short.sumOf { it.length }.toLong(), tokens.keptChars)
+        // Copies of a long line typed on, and very long lines: no more than the cap.
+        repeat(3_000) { tokens.of("local s = '" + "a".repeat(1_500) + it + "'") }
+        repeat(500) { tokens.of("-- " + "b".repeat(5_000) + it) }
+        assertTrue(tokens.keptChars <= LineTokens.KEPT_CHARS + LineTokens.KEPT_LONG_CHARS)
+        // A line let go is tokenised again alike.
+        assertTrue(LineTokens(ScriptLang.LUA).of(short[0]).contentEquals(tokens.of(short[0])))
+    }
+
     @Test fun findMatchesAreEqualByWhatTheyMark() {
         assertEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 5))
         assertEquals(
