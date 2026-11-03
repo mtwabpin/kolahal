@@ -19,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.text.KeyboardActions
@@ -36,7 +35,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -94,16 +92,14 @@ internal fun SettingItem(
                 )
                 if (changed && key !is ConfigKey.Bool) {
                     Spacer(Modifier.width(4.dp))
-                    Icon(
-                        painterResource(R.drawable.ic_restart),
-                        contentDescription = "Reset to default",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .clickable { vm.resetConfig(key) }
-                            .padding(4.dp),
-                    )
+                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.resetConfig(key) }, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            painterResource(R.drawable.ic_restart),
+                            contentDescription = "Reset to default",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }

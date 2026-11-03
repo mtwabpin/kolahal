@@ -232,7 +232,9 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   | =ExtendedFloatingActionButton=                 | =SmallExtendedFloatingActionButton=                            |
   | =DropdownMenu=, =ExposedDropdownMenuBox=       | =DropdownMenuPopup= and =DropdownMenuGroup=                    |
   | a row of your own                              | =SegmentedListItem=                                            |
-  =ExpressiveOnlyTest= fails on these.
+  =ExpressiveOnlyTest= fails on the components it can name, in any file that uses Material 3, and
+  on a =TextField= without =TextFieldDefaults.roundedShape= and =fieldColors()=; a row or tab bar
+  of your own is left to review.
 
 ** Keeping a pull request out of others' way
 

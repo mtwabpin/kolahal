@@ -21,6 +21,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -284,7 +285,7 @@ fun ScriptsScreen(
                             placeholder = { Text("Search by name, title or description") },
                             leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                             singleLine = true,
-                            shape = MaterialTheme.shapes.extraLarge,
+                            shape = TextFieldDefaults.roundedShape,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
