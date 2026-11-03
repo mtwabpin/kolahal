@@ -19,8 +19,14 @@ class WidgetCheckTest {
     private val before = logs.maxId()
 
     @After fun tearDown() {
-        t.close()
-        logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
+        try {
+            logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
+        } finally {
+            // As a process with no home started has it: left listening, the next MainActivity's
+            // start would skip its check.
+            instrumentation.runOnMainSync { widgets.stopListening() }
+            t.close()
+        }
     }
 
     private fun waitUntil(what: String, check: () -> Boolean) {
@@ -35,10 +41,14 @@ class WidgetCheckTest {
         val lost = Int.MAX_VALUE - 9
         widgets.place(lost, clock.info)
         val placed = widgets.widgets.value.single { it.id == lost }
+        var keptAsItStarts = false
         instrumentation.runOnMainSync {
             widgets.stopListening()
             widgets.startListening()
+            keptAsItStarts = widgets.widgets.value.any { it.id == lost }
         }
+        // Still there as the start returns: the check didn't run on the main thread.
+        assertTrue("checked on the main thread", keptAsItStarts)
         // Waiting, it's known by its provider and place: it has no id.
         waitUntil("waiting to be added again") {
             widgets.widgets.value.any { it.pending && it.provider == placed.provider && it.order == placed.order }

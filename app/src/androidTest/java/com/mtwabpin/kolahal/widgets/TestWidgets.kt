@@ -7,8 +7,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 
 /**
- * Widgets for the device tests: the stock clock's providers, Kolahal allowed to bind them without
- * Android's "allow Kolahal to create widgets" dialog, and everything a test placed taken away again.
+ * Widgets for the device tests: the stock clock's providers, Kolahal allowed (or not) to bind them
+ * without Android's "allow Kolahal to create widgets" dialog, and everything a test placed taken
+ * away again.
  */
 class TestWidgets {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -46,6 +47,17 @@ class TestWidgets {
         assertTrue("binding widgets wasn't allowed: $said", mayBind(probe))
     }
 
+    private var revoked = false
+
+    /** Takes away Kolahal's leave to bind widgets, so Android's dialog is asked; [close] gives it back when this took it. */
+    fun forbidBinding(probe: ProviderEntry) {
+        if (!mayBind(probe)) return
+        shell("appwidget revokebind --package ${context.packageName} --user $userId")
+        revoked = true
+        assertTrue("binding widgets is still allowed", !mayBind(probe))
+    }
+
+    /** Whether Kolahal may bind [p] without Android's dialog: tried on an id given back at once. */
     private fun mayBind(p: ProviderEntry): Boolean {
         val id = host.host.allocateAppWidgetId()
         return try {
@@ -91,6 +103,7 @@ class TestWidgets {
         val used = host.widgets.value.mapNotNull { it.id }.toSet()
         runCatching { host.host.appWidgetIds }.getOrNull()?.filter { it !in hadIds && it !in used }?.forEach { host.discard(it) }
         if (granted) shell("appwidget revokebind --package ${context.packageName} --user $userId")
+        if (revoked) shell("appwidget grantbind --package ${context.packageName} --user $userId")
     }
 
     private fun shell(command: String): String {

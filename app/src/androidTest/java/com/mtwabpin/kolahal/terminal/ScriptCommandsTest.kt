@@ -17,7 +17,6 @@ import com.mtwabpin.kolahal.script.SecretStore
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -48,12 +47,25 @@ class ScriptCommandsTest {
     /** Every script made here starts with this, so [tearDown] finds them. */
     private val prefix = "sctest"
 
+    /** The log's newest line before the test: [tearDown] deletes what came after, commands (the history) too. */
+    private val start = logs.maxId()
+
     @After fun tearDown() {
-        for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
-            ScriptScheduler.cancel(context, s.id)
-            scripts.delete(s.id)
-            statuses.set(s.name, null)
-            SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
+        try {
+            for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
+                ScriptScheduler.cancel(context, s.id)
+                scripts.delete(s.id)
+                statuses.set(s.name, null)
+                SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
+            }
+        } finally {
+            // Lines last, once the scripts and their timers are gone: a later class reads the log and
+            // the history built from it.
+            while (true) {
+                val mine = logs.recent(400, afterId = start)
+                if (mine.isEmpty()) break
+                mine.forEach { logs.delete(it.id) }
+            }
         }
     }
 
@@ -140,15 +152,25 @@ class ScriptCommandsTest {
         assertTrue(scripts.byId(s.id)!!.grants.allows("clipboard"))
     }
 
-    /** A script's secrets: listed, set (not too short), and cleared; a name it doesn't declare is refused. */
+    /**
+     * A script's secrets: listed, set (not too short), and cleared; a name it doesn't declare is refused.
+     * A value typed on the line, too short or not, is in no line of the log (its command line neither)
+     * and so not in the history.
+     */
     @Test fun secrets() {
         val s = create("sec", "-- @secret API_KEY example.com The key\nlocal k = secrets.get('API_KEY')")
         assertTrue(run("script secret ${s.name}").any { it.startsWith("API_KEY") && it.endsWith("not set") })
         // No value on the line: the masked box.
         run("script secret ${s.name} API_KEY")
         assertEquals(listOf(s.name to "API_KEY"), asked)
-        assertEquals(listOf("API_KEY must be at least ${SecretStore.MIN_LENGTH} characters"), run("script secret ${s.name} API_KEY ab"))
-        assertTrue(run("script secret ${s.name} API_KEY abcdef").single().startsWith("${s.name}: API_KEY set"))
+        val short = "zq7"
+        val value = "zq7Kx9secret"
+        assertEquals(listOf("API_KEY must be at least ${SecretStore.MIN_LENGTH} characters"), run("script secret ${s.name} API_KEY $short"))
+        assertTrue(run("script secret ${s.name} API_KEY $value").single().startsWith("${s.name}: API_KEY set"))
+        val logged = logs.recent(400, afterId = start)
+        assertTrue(logged.joinToString { it.text }, logged.none { e -> short in e.text || e.ctx.values.values.any { short in it } })
+        val history = logs.commandHistory()
+        assertTrue(history.toString(), history.none { short in it })
         assertTrue(run("script secret ${s.name}").any { it.startsWith("API_KEY") && it.endsWith("set") && !it.endsWith("not set") })
         assertEquals(listOf("${s.name}: API_KEY cleared"), run("script secret ${s.name} API_KEY --clear"))
         assertEquals(listOf("${s.name} has no @secret NOPE — it has: API_KEY"), run("script secret ${s.name} NOPE x"))
@@ -209,12 +231,19 @@ class ScriptCommandsTest {
         assertTrue(triggers.last().text.startsWith("Events: "))
     }
 
-    /** A command script that's off doesn't run by its name: it says so, with a tap to turn it on. */
+    /**
+     * A command script that's off doesn't run by its name: it says so, with a tap to turn it on, and
+     * two seconds later it has logged nothing and has never run.
+     */
     @Test fun anOffCommandSaysItsOff() {
-        val s = create("cmd", "-- @command\nreturn 1", enabled = false)
+        val s = create("cmd", "-- @command\nlog('sctest-cmd ran')", enabled = false)
         val said = lines(s.name)
         assertEquals(listOf("${s.name} is off — tap to turn it on"), said.map { it.text })
         assertEquals("script on ${s.name}", said.single().ctx.values[LogContext.RUN])
-        assertNotNull(scripts.byId(s.id))
+        // Nothing is coming, so there's nothing to wait on: give a wrong run the time to show.
+        Thread.sleep(2_000)
+        val later = logs.recent(400, afterId = start)
+        assertTrue(later.joinToString { it.text }, later.none { it.text == "sctest-cmd ran" || it.source == s.name })
+        assertNull(scripts.byId(s.id)!!.lastRun)
     }
 }

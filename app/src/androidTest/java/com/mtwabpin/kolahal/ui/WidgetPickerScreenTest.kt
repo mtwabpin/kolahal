@@ -110,12 +110,19 @@ class WidgetPickerScreenTest {
         (clocks - p).forEach { compose.onAllNodes(card(it)).assertCountEquals(0) }
     }
 
-    /** Searching the app's name shows all of its widgets. */
+    /**
+     * Searching the app's name shows all of its widgets, those whose own name doesn't hold it too
+     * (a clock app's Stopwatch): one at least, or the test can't tell, and shows as skipped.
+     */
     @Test fun searchingAnAppsNameShowsAllItsWidgets() {
         val clocks = t.clocks()
+        val name = appName(clocks.first())
+        val onlyByApp = clocks.filter { name.lowercase() !in t.label(it).lowercase() }
+        assumeTrue("every clock widget's name holds \"$name\"", onlyByApp.isNotEmpty())
         show()
         scrollTo(card(clocks.first()))
-        search(appName(clocks.first()))
+        search(name)
+        onlyByApp.forEach { p -> scrollTo(card(p)) }
         clocks.forEach { p -> scrollTo(card(p)) }
     }
 

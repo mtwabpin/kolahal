@@ -6,7 +6,11 @@ import com.mtwabpin.kolahal.script.ScriptAccess
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** A script card's access, from the code as read once, is what the script's own access says. */
+/**
+ * A script card's access, from the code as read once, is what the script's own access says. This
+ * only keeps the two ways of working it out from drifting apart: whether either is right for a
+ * script is for the tests of [ScriptAccess] and the script's switches (ScriptPermissionsTest and others).
+ */
 class ScriptInfoTest {
     private val codes = listOf(
         "print('hi')",

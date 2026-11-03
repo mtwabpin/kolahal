@@ -68,6 +68,10 @@ class AwayTrimTest {
         assertTrue("still kept after the time away", within(5_000) { LogImages.cached(url, width) == null })
     }
 
+    /**
+     * Back on home before the time is up, they're kept. Home's return is told here as MainActivity's
+     * start tells it (`homeShown`); the activity itself isn't started.
+     */
     @Test fun backBeforeThenKeepsThem() {
         trim(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
         instrumentation.runOnMainSync { app.homeShown() }

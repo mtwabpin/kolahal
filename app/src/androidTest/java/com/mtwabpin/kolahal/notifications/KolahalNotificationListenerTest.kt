@@ -75,9 +75,12 @@ class KolahalNotificationListenerTest {
     }
 
     /** Posts a notification from the shell, another app as far as Kolahal knows; no spaces in any part. */
-    private fun post(tag: String, title: String, text: String, style: String = "") {
-        shell("cmd notification post -i @android:drawable/ic_dialog_alert -t $title $style $tag $text".replace(Regex(" +"), " "))
+    private fun post(tag: String, title: String, text: String, style: String = "", icon: String = "ic_dialog_alert") {
+        shell("cmd notification post -i @android:drawable/$icon -t $title $style $tag $text".replace(Regex(" +"), " "))
     }
+
+    /** The key of the icon only [aNotificationIsALineEndingInItsIcon] posts; its file goes in [tearDown]. */
+    private val freshIcon = NotifIcons.key(app, SHELL, android.graphics.drawable.Icon.createWithResource("android", android.R.drawable.ic_menu_compass))!!
 
     /** Whether the system shows the shell's notification [tag], whoever listens. */
     private fun showing(tag: String) = shell("cmd notification list").lines().any { "|$SHELL|" in it && it.contains("|$tag|") }
@@ -109,17 +112,28 @@ class KolahalNotificationListenerTest {
             waitUntil("the test's notifications go") { posted().isEmpty() }
         } finally {
             logs.recent(400).filter { it.id > before }.forEach { logs.delete(it.id) }
+            // Not on disk, the next process doesn't know the icon either.
+            java.io.File(app.filesDir, "notif-icons/$freshIcon.png").delete()
             if (!had) disallow()
         }
     }
 
-    /** A notification is in the feed and becomes a line with its app, its text to copy and its icon, saved before the line shows. */
+    /**
+     * A notification is in the feed and becomes a line with its app, its text to copy and its icon,
+     * saved before the line shows: an icon no other test posts, not saved before, is saved as the
+     * line first appears.
+     */
     @Test fun aNotificationIsALineEndingInItsIcon() {
-        post("kn-tag-1", "kn-title-1", "kn-text-1")
+        assertFalse("the icon was saved before the test", NotifIcons.has(app, freshIcon))
+        post("kn-tag-1", "kn-title-1", "kn-text-1", icon = "ic_menu_compass")
         val n = waitFor("in the feed") { inFeed("kn-title-1") }
         assertEquals("kn-text-1", n.text)
         assertFalse(n.removed)
-        val line = waitFor("its line") { lines("kn-title-1 — kn-text-1").singleOrNull() }
+        var savedAsItShowed = false
+        val line = waitFor("its line") {
+            lines("kn-title-1 — kn-text-1").singleOrNull()?.also { savedAsItShowed = NotifIcons.has(app, freshIcon) }
+        }
+        assertTrue("the icon saved by the time its line shows", savedAsItShowed)
         assertEquals(LogKind.SCRIPT, line.kind)
         assertEquals(n.app, line.source)
         assertEquals(SHELL, line.ctx.values[LogContext.PKG])
@@ -128,9 +142,8 @@ class KolahalNotificationListenerTest {
         val icon = n.icon
         assertNotNull("a resource icon has a key", icon)
         assertEquals(icon, line.ctx.values[LogContext.ICON])
-        assertTrue(icon, icon!!.startsWith("android_"))
-        assertTrue(NotifIcons.has(app, icon))
-        assertNotNull(NotifIcons.load(app, icon))
+        assertEquals(freshIcon, icon)
+        assertNotNull(NotifIcons.load(app, icon!!))
     }
 
     /** Dismissed, it stays in the feed marked removed; posted again later with the same text, it is a new line. */

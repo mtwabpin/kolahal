@@ -19,7 +19,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
@@ -65,12 +64,9 @@ class FeedsScreenTest {
     @After fun tearDown() {
         val wm = WorkManager.getInstance(app)
         val mine = repo.all().filter { MARK in it.url }.map { it.id }
-        // A fetch Add feed started is stopped, not left to run after the test.
+        // A fetch Add feed started and still to run doesn't run after the test. (The test that
+        // starts one waits for it to end: a cancelled fetch already running can't be waited for.)
         mine.forEach { wm.cancelUniqueWork("feeds-now-$it").result.get() }
-        val until = System.currentTimeMillis() + 5_000
-        while (System.currentTimeMillis() < until &&
-            mine.any { id -> wm.getWorkInfosForUniqueWork("feeds-now-$id").get().any { it.state == WorkInfo.State.RUNNING } }
-        ) Thread.sleep(50)
         mine.forEach(repo::remove)
         FeedScheduler.sync(app)
         val ids = mine.mapTo(HashSet()) { it.toString() }
@@ -100,9 +96,18 @@ class FeedsScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
     }
 
-    private fun waitFor(what: String, check: () -> Boolean) {
-        compose.waitUntil(5_000) { check() }
+    private fun waitFor(what: String, ms: Long = 5_000, check: () -> Boolean) {
+        compose.waitUntil(ms) { check() }
         assertTrue(what, check())
+    }
+
+    /** [check] holds for a second: what a wrong change, still on its way, would undo. */
+    private fun stays(what: String, check: () -> Boolean) {
+        val until = System.currentTimeMillis() + 1_000
+        while (System.currentTimeMillis() < until) {
+            assertTrue(what, check())
+            Thread.sleep(50)
+        }
     }
 
     /** How often [f] is fetched, as its row says it: new feeds take feeds.interval. */
@@ -176,6 +181,9 @@ class FeedsScreenTest {
         compose.onNodeWithText("Notifications").performClick()
         waitFor("notify on") { repo.byId(f.id)!!.notify }
         assertEquals(1, notificationsAsked)
+        // The second tap switches from what the sheet shows: wait for it to show on, as the row
+        // under it does (the sheet's switch has no state to read).
+        waitForText("${every(f)} · notify", substring = true)
         compose.onNodeWithText("Notifications").performClick()
         waitFor("notify off") { !repo.byId(f.id)!!.notify }
         assertEquals(1, notificationsAsked)
@@ -237,6 +245,14 @@ class FeedsScreenTest {
         // Its row: no title yet, so its address's host.
         val row = hasContentDescription("Feed options") and hasAnyAncestor(hasText("127.0.0.1"))
         compose.waitUntil(5_000) { compose.onAllNodes(row).fetchSemanticsNodes().isNotEmpty() }
+        // The fetch it started fails at once (nothing listens there): over before the test is, its
+        // last line, the failure, logged.
+        waitFor("the fetch's failure", ms = 30_000) {
+            logs.recent(200).any { it.id > logStart && it.ctx.values[FeedWorker.CTX_FEED] == added!!.id.toString() }
+        }
+        waitFor("the fetch done", ms = 10_000) {
+            WorkManager.getInstance(app).getWorkInfosForUniqueWork("feeds-now-${added!!.id}").get().all { it.state.isFinished }
+        }
     }
 
     /** What isn't an http(s) address says so, and Subscribe stays off. */
@@ -262,7 +278,7 @@ class FeedsScreenTest {
         box.performTextInput(f.url)
         box.performImeAction()
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Already subscribed to ${f.url}") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
-        assertEquals(1, repo.all().count { it.url == f.url })
+        stays("added once") { repo.all().count { it.url == f.url } == 1 }
     }
 
     /** A feed opens on its items, newest first; Mark all read clears them, and Back returns to the list. */
@@ -305,7 +321,7 @@ class FeedsScreenTest {
         waitForText("KT Alpha 1")
         compose.onNodeWithText("KT Alpha 1").performClick()
         waitForText("No app can open kolahal-test-nothing:item-1")
-        assertEquals(1, repo.unreadCount(f.id))
+        stays("still unread") { repo.unreadCount(f.id) == 1 }
     }
 
     /** A feed never fetched opens on what to do, not an empty page. */

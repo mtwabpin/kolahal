@@ -46,8 +46,12 @@ class KeptWidgetViewsTest {
         assertNull("still in the old holder", again.parent)
     }
 
-    /** Once the activity is gone its views go with it: the next one is new. */
-    @Test fun aNewActivityGetsANewView() {
+    /**
+     * Let go as their activity is destroyed (`releaseViews`, which MainActivity's end calls), its
+     * views aren't used again: the next one asked for is new. Same activity here; a view kept for
+     * another one isn't tried.
+     */
+    @Test fun releasedViewsAreMadeAgain() {
         val id = clock()
         val first = view(id)
         compose.runOnUiThread { widgets.releaseViews(compose.activity) }

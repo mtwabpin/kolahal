@@ -27,6 +27,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -62,16 +63,33 @@ class FeedCommandsTest {
     private val processor = CommandProcessor(context, ui)
 
     @After fun tearDown() {
-        feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
-        FeedScheduler.sync(context)
-        (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
-        notifPrefs.logToTerminal = logToTerminalBefore
-        NotificationStore.clear()
-        storeBefore.asReversed().forEach { NotificationStore.put(it, intentsBefore[it.key]) }
-        if (NotificationActions.isEnabled(context) != accessBefore) {
-            shell("cmd notification ${if (accessBefore) "allow" else "disallow"}_listener $listener")
+        try {
+            feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
+            FeedScheduler.sync(context)
+            (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
+            notifPrefs.logToTerminal = logToTerminalBefore
+            // Access first: a listener binding as it comes back replaces the list with what is showing.
+            if (NotificationActions.isEnabled(context) != accessBefore) {
+                shell("cmd notification ${if (accessBefore) "allow" else "disallow"}_listener $listener")
+            }
+            settleListener()
+            NotificationStore.clear()
+            storeBefore.asReversed().forEach { NotificationStore.put(it, intentsBefore[it.key]) }
+        } finally {
+            // Last, once the feeds are gone and nothing more can come from them; whatever went wrong above.
+            logs.recent(400, afterId = start).forEach { logs.delete(it.id) }
         }
-        logs.recent(400, afterId = start).forEach { logs.delete(it.id) }
+    }
+
+    /**
+     * Waits a few seconds at most for the listener to be bound as access says. It can stay bound a
+     * while after access goes, so a listener still there isn't a failure.
+     */
+    private fun settleListener(ms: Long = 5_000) {
+        val until = System.currentTimeMillis() + ms
+        while ((KolahalNotificationListener.connected != null) != NotificationActions.isEnabled(context) &&
+            System.currentTimeMillis() < until
+        ) Thread.sleep(50)
     }
 
     private fun shell(command: String) =
@@ -127,9 +145,10 @@ class FeedCommandsTest {
         }
     }
 
+    /** Access on and the listener bound, so its first list, from what is really showing, is in. */
     private fun allowNotifications() {
         if (!NotificationActions.isEnabled(context)) shell("cmd notification allow_listener $listener")
-        waitUntil("notification access") { NotificationActions.isEnabled(context) }
+        waitUntil("notification access", ms = 15_000) { NotificationActions.isEnabled(context) && KolahalNotificationListener.connected != null }
     }
 
     /** `feed add` subscribes, says it is fetching, and the failed fetch comes as the command's own line; the same address twice is one feed. */
@@ -216,6 +235,30 @@ class FeedCommandsTest {
         assertEquals(0, feeds.unreadCount(many.id))
     }
 
+    /** Exactly forty unread: `feed read` shows all forty and no line about more. */
+    @Test fun feedReadOfExactlyFortySaysNoMore() {
+        val forty = feed("forty")
+        items(forty, 40)
+        assertEquals((1..40).map { "Llat item $it" }, run("feed read ${forty.id}"))
+        assertEquals(0, feeds.unreadCount(forty.id))
+    }
+
+    /** `feed read` with no id shows every feed's unread items, each under its own feed, and marks them all read. */
+    @Test fun feedReadWithNoIdReadsEveryFeed() {
+        assumeTrue("other feeds on the emulator have unread items", feeds.unreadCount(null) == 0)
+        val one = feed("one", title = "Llat One")
+        items(one, 2)
+        val two = feed("two", title = "Llat Two")
+        feeds.insertItems(two.id, listOf(FeedRepository.NewItem("llat-two", "Llat two's item", "${BASE}two/1", null, null)))
+        val shown = lines("feed read")
+        assertEquals(
+            setOf("Llat item 1" to "Llat One", "Llat item 2" to "Llat One", "Llat two's item" to "Llat Two"),
+            shown.map { it.text to it.source }.toSet(),
+        )
+        assertEquals(3, shown.size)
+        assertEquals(0, feeds.unreadCount(null))
+    }
+
     /** `feed open` opens the five newest unread links in the browser and marks only those read; a link nothing opens stays unread. */
     @Test fun feedOpenOpensTheNewestUnreadLinks() {
         val f = feed("open")
@@ -242,9 +285,12 @@ class FeedCommandsTest {
     /** `feed notify`, `every`, `off` and `on` change one feed and say so; a wrong id or a missing one says how. */
     @Test fun feedSettingsChangeOneFeed() {
         val f = feed("set")
+        // On, then off: whichever a new feed starts with, each one is a change.
+        assertEquals(listOf("Feed #${f.id} notifications on"), run("feed notify ${f.id}"))
+        assertTrue(feeds.byId(f.id)!!.notify)
         assertEquals(listOf("Feed #${f.id} notifications off"), run("feed notify ${f.id} off"))
         assertFalse(feeds.byId(f.id)!!.notify)
-        assertEquals(listOf("Feed #${f.id} notifications on"), run("feed notify ${f.id}"))
+        assertEquals(listOf("Feed #${f.id} notifications on"), run("feed notify ${f.id} on"))
         assertTrue(feeds.byId(f.id)!!.notify)
 
         assertEquals(listOf("Feed #${f.id} every 2h"), run("feed every ${f.id} 2h"))
@@ -290,8 +336,11 @@ class FeedCommandsTest {
         assertEquals(commandId("feed refresh"), failure("Llat Fetch", again).ctx.values[LogContext.FROM])
     }
 
-    /** `rss` with no address says how; an address it can't read ends in an error line from `rss`. */
-    @Test fun rssReadsAFeedOnce() {
+    /**
+     * `rss` with no address says how; an address it can't read ends in an error line from `rss`, and
+     * subscribes to nothing. (A feed it can read isn't tried: the tests reach no server.)
+     */
+    @Test fun rssWithNoAddressOrOneItCantRead() {
         assertEquals(listOf("Usage: rss <feed url>"), run("rss"))
         val before = logs.maxId()
         processor.run("rss ${BASE}feed")
@@ -308,6 +357,7 @@ class FeedCommandsTest {
         if (NotificationActions.isEnabled(context)) {
             shell("cmd notification disallow_listener $listener")
             waitUntil("access off") { !NotificationActions.isEnabled(context) }
+            settleListener()
         }
         for (typed in listOf("notifs", "notifs muted", "notifications-feed all")) {
             val off = lines(typed).single()
@@ -349,6 +399,8 @@ class FeedCommandsTest {
         assertTrue(shown.none { it.text == "Llat gone" })
         assertTrue(all.toString(), all.containsAll(listOf("Llat title — Llat body", "Llat gone")))
 
+        // This dismisses every clearable notification on the device and deletes the copy kept for
+        // scripts, not only the test's two: fine on the emulator, which the tests run on.
         assertEquals(listOf("Notifications cleared"), run("notifs clear"))
         assertNull(NotificationStore.find(live.key))
         assertNull(NotificationStore.find(gone.key))

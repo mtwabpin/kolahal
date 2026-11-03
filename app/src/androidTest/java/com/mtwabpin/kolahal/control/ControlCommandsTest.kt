@@ -217,6 +217,7 @@ class ControlCommandsTest {
         try {
             shell("cmd notification disallow_listener $listener")
             waitUntil("access off") { !com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context) }
+            settleListener()
             for (line in listOf("media", "mp", "next")) {
                 val asked = lines(line).single()
                 assertEquals(line, "Media control needs notification access — tap to allow it", asked.text)
@@ -225,7 +226,20 @@ class ControlCommandsTest {
             assertTrue(run("media loudly").single().startsWith("Usage: media"))
         } finally {
             if (had) shell("cmd notification allow_listener $listener")
+            settleListener()
         }
+    }
+
+    /**
+     * Waits a few seconds at most for the notification listener to be bound as access says. It can
+     * stay bound a while after access goes, so one still there isn't a failure.
+     */
+    private fun settleListener() {
+        val until = System.currentTimeMillis() + 5_000
+        while ((com.mtwabpin.kolahal.notifications.KolahalNotificationListener.connected != null) !=
+            com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context) &&
+            System.currentTimeMillis() < until
+        ) Thread.sleep(50)
     }
 
     /** One line per toggle, each with what a tap does. */

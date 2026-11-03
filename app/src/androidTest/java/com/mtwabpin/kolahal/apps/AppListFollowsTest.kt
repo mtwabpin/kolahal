@@ -8,7 +8,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The app list is kept between visits to home, and still follows an app turned off and on as it happens. */
+/** The app list, once read, follows an app turned off and on as it happens, with nothing asking to read it again. */
 @RunWith(AndroidJUnit4::class)
 class AppListFollowsTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

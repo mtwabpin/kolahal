@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
@@ -116,10 +117,15 @@ class EditorBarsTest {
         waitForText("1/3")
     }
 
-    /** Text that isn't there counts 0/0 and marks nothing. */
+    /**
+     * Text that isn't there counts 0/0 and marks nothing. A word that is there is found first, so the
+     * 0/0 waited for is the search's answer, not what shows before the search has run.
+     */
     @Test fun aSearchWithNoMatchCountsZero() {
         show()
-        find("plum", "0/0")
+        find("apple", "1/3")
+        compose.onNodeWithTag("find").performTextReplacement("plum")
+        waitForText("0/0")
         assertEquals(emptyList<Int>() to null, marks())
     }
 
@@ -170,7 +176,10 @@ class EditorBarsTest {
         compose.onNodeWithText("edbars.lua").assertExists()
     }
 
-    /** Ln asks for a line, takes only digits, refuses one past the end, and puts the cursor at the start of the one given. */
+    /**
+     * Ln asks for a line, takes only digits, refuses one past the end (4 of 3 lines) and takes the
+     * last, and puts the cursor at the start of the one given.
+     */
     @Test fun goToLinePutsTheCursorOnTheLine() {
         show()
         // The symbol bar: the last list that scrolls sideways (suggestions, when shown, sit above it).
@@ -180,40 +189,50 @@ class EditorBarsTest {
         compose.onNodeWithText("Go to line").assertExists()
         compose.onNodeWithText("Line (1–3)", useUnmergedTree = true).assertExists()
         val field = compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog()))
-        field.performTextInput("7")
+        field.performTextInput("4")
         compose.onNodeWithText("Go").assertIsNotEnabled()
-        field.performTextReplacement("x2")
+        field.performTextReplacement("x3")
         compose.onNodeWithText("Go").assertIsEnabled().performClick()
         compose.onNodeWithText("Go to line").assertDoesNotExist()
-        assertEquals(TextRange(10), selection())
+        assertEquals(TextRange(23), selection())
+    }
+
+    /** Puts the cursor at [offset], away from the end where it starts, so what goes in at it can't be an append. */
+    private fun cursorAt(offset: Int) {
+        compose.onNodeWithTag("editor").performTextInputSelection(TextRange(offset))
+        compose.waitUntil(3_000) { selection() == TextRange(offset) }
     }
 
     /** A function picked from the API reference goes in at the cursor, ready for its arguments. */
     @Test fun theReferenceInsertsAFunctionAtTheCursor() {
         show()
+        cursorAt(10)
         compose.onNodeWithText("[?]").performClick()
         waitForText("API reference · Lua")
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("log(title, body?, ctx?)"))
         compose.onNodeWithText("log(title, body?, ctx?)").performClick()
         compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
-        assertEquals("${code}log(", text())
+        assertEquals("apple pie\nlog(banana apple\nApple cider", text())
     }
 
     /** A directive picked from the reference goes on a line of its own above the cursor's. */
     @Test fun theReferencePutsADirectiveAboveTheLine() {
         show()
+        // Inside the second line.
+        cursorAt(13)
         compose.onNodeWithText("[?]").performClick()
         waitForText("API reference · Lua")
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("-- @command"))
         compose.onNodeWithText("-- @command").performClick()
-        assertEquals("apple pie\nbanana apple\n-- @command\nApple cider", text())
+        assertEquals("apple pie\n-- @command\nbanana apple\nApple cider", text())
     }
 
     /** A symbol goes in at the cursor and marks the script changed; ↶ takes it out again. */
     @Test fun theSymbolBarInsertsAndUndoes() {
         show()
+        cursorAt(5)
         compose.onNodeWithText("(").performClick()
-        assertEquals("$code(", text())
+        assertEquals("apple( pie\nbanana apple\nApple cider", text())
         compose.onNodeWithText("edbars.lua *").assertExists()
         compose.onNodeWithText("↶").performClick()
         assertEquals(code, text())

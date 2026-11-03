@@ -172,7 +172,8 @@ class ScriptActionsTest {
      * line offers that. Timer off, its runs stop.
      */
     @Test fun aTimerSwitchesItOnButAllowsNothing() {
-        val s = create("sa-one", "-- @uses clipboard\nreturn 1", enabled = false)
+        // Code that logs nothing: the timer's first run starts at once, and may end after the test.
+        val s = create("sa-one", "-- @uses clipboard\nlocal x = 1", enabled = false)
         actions.setScriptInterval(s, 5)
         val on = now(s)
         assertEquals(ScriptScheduler.MIN_INTERVAL_MIN, on.intervalMin)
@@ -200,6 +201,15 @@ class ScriptActionsTest {
         assertTrue(now(s).enabled)
         assertFalse(now(s).grants.allows("apps"))
         assertTrue(newLines().any { it.text == "sa-one requests apps — tap to allow" })
+    }
+
+    /** A time that isn't one refuses the lot: nothing is set, and the script stays off. */
+    @Test fun aBadTimeSetsNothing() {
+        val s = create("sa-one", enabled = false)
+        assertFalse(actions.setScriptTimes(s, "7:05 soon"))
+        assertFalse(actions.setScriptTimes(s, "25:00"))
+        assertTrue(now(s).atTimes.isEmpty())
+        assertFalse(now(s).enabled)
     }
 
     /** Run now says it is running, and the script's own line follows. */
@@ -231,7 +241,8 @@ class ScriptActionsTest {
 
     /** Deleted, a script goes from the list with its header line and its timer, and that is said. */
     @Test fun deleteTakesItsLineAndTimerToo() {
-        val s = create("sa-one", "status('x')")
+        // Code that sets no line itself: the timer's first run starts at once, and could set it after the delete.
+        val s = create("sa-one", "local x = 1")
         repo.setInterval(s.id, 60)
         ScriptScheduler.sync(context, now(s))
         waitUntil("its timer is set") { work(s).any { !it.isFinished } }

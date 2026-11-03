@@ -48,8 +48,8 @@ class BackupActionsTest {
     private val lastWas = autoBackup.getLong("last", 0L)
 
     @Before fun setUp() {
-        // No folder chosen, whatever this phone had.
-        autoBackup.edit(commit = true) { remove("folder") }
+        // No folder chosen and no backup made, whatever this phone had.
+        autoBackup.edit(commit = true) { remove("folder"); remove("last") }
     }
 
     @After fun tearDown() {
@@ -130,16 +130,17 @@ class BackupActionsTest {
         assertNull(prefs.alias("help"))
     }
 
-    /** A file that isn't a Kolahal backup fails, saying so, and changes nothing. */
+    /** A file that isn't a Kolahal backup fails, saying so, and changes nothing: not even a config section it has. */
     @Test fun aFileThatIsntABackupSaysSo() {
         actions.importBackup(Uri.fromFile(file("list.json", "[1, 2]")))
-        actions.importBackup(Uri.fromFile(file("other.json", """{"theme.name":"amber"}""")))
+        actions.importBackup(Uri.fromFile(file("other.json", """{"config":{"theme.name":"amber"},"aliases":{"ba-al":"echo a"}}""")))
         assertEquals(
             listOf("import" to "not a Kolahal backup", "import" to "not a Kolahal backup (missing \"kolahal\")"),
             host.failures.toList(),
         )
         assertTrue(host.notices.isEmpty())
         assertTrue(config.isDefault(Keys.THEME))
+        assertNull(prefs.alias("ba-al"))
     }
 
     /** Back up now with no folder chosen asks for one first; a picker closed with nothing picked changes nothing. */

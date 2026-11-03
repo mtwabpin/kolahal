@@ -129,6 +129,22 @@ class LogLineActionsTest {
     }
 
     @After fun tearDown() {
+        try {
+            // Lines first: a wait below that times out mustn't leave them.
+            while (true) {
+                val mine = logs.recent(400, afterId = start)
+                if (mine.isEmpty()) break
+                mine.forEach { logs.delete(it.id) }
+            }
+        } finally {
+            restore()
+        }
+    }
+
+    private fun restore() {
+        // A tap on an app's line leaves Settings in front.
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("am force-stop $SETTINGS")).use { it.readBytes() }
+        prefs.setAlias(ALIAS, null)
         scripts.byName(SCRIPT)?.let { scripts.delete(it.id) }
         feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
         (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
@@ -145,7 +161,6 @@ class LogLineActionsTest {
             apps.refresh()
             waitUntil("Settings shown again") { apps.apps.value.any { it.key == s.key && !it.hidden } }
         }
-        logs.recent(400, afterId = start).forEach { logs.delete(it.id) }
     }
 
     private fun waitUntil(what: String, ms: Long = 5_000, check: () -> Boolean) {
@@ -211,13 +226,25 @@ class LogLineActionsTest {
         }
     }
 
-    /** A tap on a hint runs its command, as written; on a command it fills the prompt, or runs it where taps run commands. */
+    /**
+     * A tap on a hint runs its command, as written: one that names an alias doesn't run the alias,
+     * which typed would. On a command it fills the prompt, or runs it where taps run commands.
+     */
     @Test fun tappingRunsOrRecallsTheLinesCommand() {
         val hint = line(LogKind.INFO, "Tap to say hi", LogContext.RUN to "echo llat hi")
         actions.onTap(hint)
         assertEquals(listOf(UiEvent.ScrollToBottom), home.events)
         assertNull(home.prompt)
         assertTrue(logs.recent(50, afterId = hint.id).any { it.kind == LogKind.OUTPUT && it.text == "llat hi" })
+
+        prefs.setAlias(ALIAS, "echo llat expanded")
+        val typedAlias = logs.maxId()
+        processor.run(ALIAS)
+        assertTrue("the alias, typed", logs.recent(50, afterId = typedAlias).any { it.text == "llat expanded" })
+        val aliasHint = line(LogKind.INFO, "Tap for the alias", LogContext.RUN to ALIAS)
+        actions.onTap(aliasHint)
+        val after = logs.recent(50, afterId = aliasHint.id)
+        assertTrue(after.joinToString { it.text }, after.isNotEmpty() && after.none { it.text == "llat expanded" })
 
         home.forget()
         val typed = line(LogKind.COMMAND, "echo llat again", LogContext.COMMAND to "echo llat again")
@@ -421,7 +448,10 @@ class LogLineActionsTest {
         assertEquals("package:$SETTINGS", opened.single().dataString)
     }
 
-    /** A notification's long-press opens, mutes or dismisses it, shows only that app's lines, and copies it as sensitive. */
+    /**
+     * A notification's long-press offers to open, mute or dismiss it; muting it, showing only that
+     * app's lines and copying it (as sensitive) are run here, the others only listed.
+     */
     @Test fun aNotificationsLongPressOffersOpenMuteAndDismiss() {
         val s = settings()
         prefs.setPinned(s.key, false)
@@ -586,5 +616,7 @@ class LogLineActionsTest {
         const val SETTINGS = "com.android.settings"
         const val SCRIPT = "llatest"
         const val BASE = "http://127.0.0.1:9/"
+        /** An alias no app's name is near, so run literally it launches nothing. */
+        const val ALIAS = "zqllat"
     }
 }

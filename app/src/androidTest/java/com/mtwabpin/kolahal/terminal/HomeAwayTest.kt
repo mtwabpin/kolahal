@@ -31,15 +31,25 @@ class HomeAwayTest {
     private val token = "away${System.nanoTime()}"
     private var before = 0L
 
+    /** What the user had seen before the test: [away]'s pause writes the newest line over it. */
+    private var seenUpTo = Long.MAX_VALUE
+
     @Before fun setUp() {
         before = logs.maxId()
+        seenUpTo = logs.seenUpTo
         // No tip line on return, which would land among the lines checked.
         config.set(Keys.LOG_TIPS, "off")
     }
 
     @After fun tearDown() {
-        config.reset(Keys.LOG_TIPS)
-        logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
+        try {
+            logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
+        } finally {
+            logs.seenUpTo = seenUpTo
+            // [back] started contacts' reloads; as a process with no home started has them.
+            com.mtwabpin.kolahal.contacts.ContactsRepository.get(app).setActive(false)
+            config.reset(Keys.LOG_TIPS)
+        }
     }
 
     private fun home(): TerminalViewModel {
@@ -85,6 +95,16 @@ class HomeAwayTest {
         assertTrue("read while away", vm.entries.value.none { it.id == meanwhile })
         back(vm)
         waitUntil("read on return") { vm.entries.value.any { it.id == meanwhile } }
+    }
+
+    /** A pause with no stop (a dialog, the shade pulled down) leaves home shown: it goes on reading. */
+    @Test fun aPauseWithoutAStopKeepsReading() {
+        val vm = home()
+        val first = add("first")
+        waitUntil("the first line") { vm.entries.value.any { it.id == first } }
+        instrumentation.runOnMainSync { vm.onPause() }
+        val paused = add("paused")
+        waitUntil("read while paused") { vm.entries.value.any { it.id == paused } }
     }
 
     @Test fun aSearchLeftOpenWaitsForTheReturn() {

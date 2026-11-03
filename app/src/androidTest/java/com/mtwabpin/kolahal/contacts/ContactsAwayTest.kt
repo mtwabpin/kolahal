@@ -26,8 +26,12 @@ class ContactsAwayTest {
     private fun shell(command: String) =
         ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
 
+    /** The names [add] gave, so [tearDown] waits for them to leave the list. */
+    private val added = mutableListOf<String>()
+
     /** A contact with [name] (one word) and a number, added from outside Kolahal (as a sync would). */
     private fun add(name: String, number: String) {
+        added += name
         shell("content insert --uri content://com.android.contacts/raw_contacts --bind account_type:s:$account --bind account_name:s:$account")
         val id = Regex("_id=(\\d+)").findAll(
             shell("content query --uri content://com.android.contacts/raw_contacts --projection _id --where account_name='$account'"),
@@ -54,6 +58,9 @@ class ContactsAwayTest {
         shell("content delete --uri content://com.android.contacts/raw_contacts?caller_is_syncadapter=true --where account_name='$account'")
         // As a process with no home started has it.
         contacts.setActive(false)
+        // Away, the delete only marks the list stale: read it again so later tests don't find these.
+        contacts.refresh()
+        waitUntil("the test's contacts gone from the list") { added.none(::known) }
     }
 
     @Test fun awayAChangeWaitsForACommandToNeedIt() {

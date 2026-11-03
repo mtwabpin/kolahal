@@ -4,10 +4,14 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.service.notification.StatusBarNotification
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.MainActivity
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.productivity.ReminderScheduler
@@ -96,13 +100,21 @@ class NotifierTest {
         assertEquals("kn body", n.text(Notification.EXTRA_BIG_TEXT))
         assertEquals("kn-feed", n.text(Notification.EXTRA_SUB_TEXT))
         assertTrue(n.flags and Notification.FLAG_AUTO_CANCEL != 0)
-        assertTrue(n.contentIntent.isActivity)
+        assertEquals(existing(id, Intent(context, MainActivity::class.java)), n.contentIntent)
 
         assertTrue(Notifier.post(context, "kn-link", "kn title", "kn body", url = "https://example.com/kn"))
         val linked = ("kn-link" + "kn title" + "kn body").hashCode()
         waitUntil("the linked one shows") { shown("kn-link", linked) != null }
-        assertTrue(shown("kn-link", linked)!!.notification.contentIntent.isActivity)
+        assertEquals(existing(linked, Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com/kn"))), shown("kn-link", linked)!!.notification.contentIntent)
     }
+
+    /**
+     * The tap Android already holds for [requestCode] and an intent like [intent] (action, data and
+     * component; extras and flags aren't compared). Null when there is none.
+     */
+    private fun existing(requestCode: Int, intent: Intent): PendingIntent? =
+        PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            .also { assertTrue("no such tap for $intent", it != null) }
 
     /** With an id, a notification replaces the one before it (one per feed); without, each different text is one of its own. */
     @Test fun anIdReplacesTheOneBefore() {
@@ -131,13 +143,18 @@ class NotifierTest {
         waitUntil("it goes") { shown(Notifier.CHANNEL_REMINDERS, REMINDER_IDS[0]) == null }
     }
 
-    /** Done takes the reminder away and sets nothing again. */
+    /** Done takes the reminder away and sets nothing again: for a second after, none is set. */
     @Test fun doneTakesTheReminderAway() {
         Notifier.postReminder(context, REMINDER_IDS[1].toLong(), "kn done")
         waitUntil("it shows") { shown(Notifier.CHANNEL_REMINDERS, REMINDER_IDS[1]) != null }
         shown(Notifier.CHANNEL_REMINDERS, REMINDER_IDS[1])!!.notification.actions[2].actionIntent.send()
         waitUntil("it goes") { shown(Notifier.CHANNEL_REMINDERS, REMINDER_IDS[1]) == null }
-        assertTrue(reminders.all().none { it.text == "kn done" })
+        // A Done that wrongly snoozed would set it again after the notification went.
+        val until = System.currentTimeMillis() + 1_000
+        while (System.currentTimeMillis() < until) {
+            assertTrue("set again", reminders.all().none { it.text == "kn done" })
+            Thread.sleep(50)
+        }
     }
 
     /** Snooze 1 hour takes it away and sets it again an hour from now, saying so in the log. */

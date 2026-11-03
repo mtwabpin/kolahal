@@ -1,11 +1,15 @@
 package com.mtwabpin.kolahal.widgets
 
 import android.app.Activity
+import android.app.Instrumentation
+import android.appwidget.AppWidgetManager
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,15 +20,23 @@ import org.junit.runner.RunWith
 
 /**
  * Adding a widget once Kolahal may bind them: no dialog, the widget on the page and "Added" said; a
- * request that outlived Kolahal being stopped finishes, or frees its id, when the widget's setup answers.
+ * request that outlived Kolahal being stopped finishes, or frees its id, when the widget's setup
+ * answers. Without leave, the dialog's No frees the id.
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetBinderTest {
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val t = TestWidgets()
     private val widgets = t.host
     private val added = mutableListOf<PlacedWidget>()
 
     @After fun tearDown() = t.close()
+
+    private fun waitUntil(what: String, check: () -> Boolean) {
+        val until = System.currentTimeMillis() + 5_000
+        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
+        assertTrue(what, check())
+    }
 
     /** A test activity with a binder made before it starts, as MainActivity makes its own; [saved] is what Android kept. */
     private fun withBinder(saved: Bundle? = null, block: (ActivityScenario<ComponentActivity>, WidgetBinder) -> Unit) {
@@ -116,6 +128,41 @@ class WidgetBinderTest {
             assertFalse(id in t.ids())
             assertTrue(widgets.widgets.value.none { it.id == id })
             assertEquals(listOf("Widget setup cancelled"), widgets.messages.value)
+        }
+    }
+
+    /**
+     * Without leave to bind widgets, Android's dialog is asked for the widget's id; turned down, the
+     * widget isn't added, its id is freed and nothing is placed. The dialog is answered here, unseen.
+     */
+    @Test fun aBindTurnedDownFreesTheId() {
+        val clock = t.clocks(unconfigured = true).first()
+        t.forbidBinding(clock)
+        val asked = java.util.concurrent.CopyOnWriteArrayList<Intent>()
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                if (intent.action != AppWidgetManager.ACTION_APPWIDGET_BIND) return null
+                asked += intent
+                return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        val placedBefore = widgets.widgets.value
+        try {
+            withBinder { scenario, binder ->
+                scenario.onActivity { binder.add(clock) }
+                waitUntil("the refusal said") { widgets.messages.value == listOf("Widget not added") }
+                val id = asked.single().getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                @Suppress("DEPRECATION")
+                assertEquals(clock.info.provider, asked.single().getParcelableExtra<android.content.ComponentName>(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER))
+                assertFalse("its id kept", id in t.ids())
+                assertTrue(added.isEmpty())
+                assertEquals(placedBefore, widgets.widgets.value)
+                // Nothing is kept for a later stop either.
+                assertFalse(Bundle().also(binder::save).containsKey("widget_binder_id"))
+            }
+        } finally {
+            instrumentation.removeMonitor(monitor)
         }
     }
 

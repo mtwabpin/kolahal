@@ -71,16 +71,26 @@ class AppCommandsTest {
     }
 
     @After fun tearDown() {
-        Keys.ALL.forEach(config::reset)
-        prefs.pinned().forEach { prefs.setPinned(it, false) }
-        pinnedBefore.forEach { prefs.setPinned(it, true) }
-        apps.apps.value.firstOrNull { it.pkg == SETTINGS }?.let { s ->
-            prefs.setHidden(s.key, false)
-            prefs.setLabel(s.key, null)
-            apps.refresh()
-            waitUntil("Settings as it was") { apps.apps.value.any { it.key == s.key && !it.hidden && it.label == it.originalLabel } }
+        try {
+            // Lines first: a wait below that times out mustn't leave them.
+            while (true) {
+                val mine = logs.recent(400, afterId = start)
+                if (mine.isEmpty()) break
+                mine.forEach { logs.delete(it.id) }
+            }
+        } finally {
+            // `open` and `info` leave Settings or its App info page in front.
+            shell("am force-stop $SETTINGS")
+            Keys.ALL.forEach(config::reset)
+            prefs.pinned().forEach { prefs.setPinned(it, false) }
+            pinnedBefore.forEach { prefs.setPinned(it, true) }
+            apps.apps.value.firstOrNull { it.pkg == SETTINGS }?.let { s ->
+                prefs.setHidden(s.key, false)
+                prefs.setLabel(s.key, null)
+                apps.refresh()
+                waitUntil("Settings as it was") { apps.apps.value.any { it.key == s.key && !it.hidden && it.label == it.originalLabel } }
+            }
         }
-        logs.recent(400, afterId = start).forEach { logs.delete(it.id) }
     }
 
     /** The personal Settings app, which every test phone has. */
@@ -208,33 +218,46 @@ class AppCommandsTest {
         assertEquals(listOf("No app matches 'zzqqxx'"), run("pin zzqqxx"))
     }
 
-    /** `pins` is the pinned apps as one grid, in the order they were pinned, or how to pin one. */
+    /**
+     * `pins` is the pinned apps as one grid, in the order they were pinned, or how to pin one. Settings
+     * is pinned first and an app whose name sorts before it second, so a list by name would differ.
+     */
     @Test fun pinsListsThePinnedAppsInOrder() {
         val s = settings()
         assertEquals(listOf("No pinned apps — pin <app>, or long-press an app → Pin"), run("pins"))
-        val other = apps.apps.value.first { !it.hidden && it.pkg != SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
-        prefs.setPinned(other.key, true)
+        val other = apps.apps.value.firstOrNull {
+            !it.hidden && it.pkg != SETTINGS && it.profile.kind == ProfileKind.PERSONAL && it.label.lowercase() < "settings"
+        }
+        assumeTrue("an app whose name sorts before Settings", other != null)
         run("pin Settings")
+        prefs.setPinned(other!!.key, true)
         val listed = lines("pins")
-        assertEquals("${other.label}, Settings", listed[0].text)
-        assertEquals(listOf(other.pkg, SETTINGS), gridPackages(listed[0]))
+        assertEquals("Settings, ${other.label}", listed[0].text)
+        assertEquals(listOf(SETTINGS, other.pkg), gridPackages(listed[0]))
         assertEquals("2 pinned · unpin <app> to remove", listed[1].text)
         assertEquals(run("pins"), run("pin"))
         assertEquals(run("pins"), run("favs"))
-        assertEquals(listOf(other.key, s.key), prefs.pinned())
+        assertEquals(listOf(s.key, other.key), prefs.pinned())
     }
 
-    /** `open` and `launch` start the app and say so on one line, however often; `info` opens its page. */
+    /**
+     * `open` brings the app to the front, counts the launch and says so; `launch` says it on the same
+     * line, however often; `info` says it opened the app's page.
+     */
     @Test fun openLaunchesAnAppAndInfoOpensItsPage() {
         val s = settings()
         val usage = context.getSharedPreferences(AppPrefs.USAGE_FILE, Context.MODE_PRIVATE)
         val launchesBefore = usage.getString("launch:${s.key}", null)
         try {
+            shell("am force-stop $SETTINGS")
+            val score = prefs.frecency(s.key)
             val launched = lines("open Settings").single()
             assertEquals("Launched Settings", launched.text)
             assertEquals(LogKind.INFO, launched.kind)
             assertEquals(SETTINGS, launched.ctx.pkg)
-            assertTrue(prefs.frecency(s.key) > 0)
+            assertTrue("$score, then ${prefs.frecency(s.key)}", prefs.frecency(s.key) > score + 0.5)
+            val resumed = Regex("ResumedActivity.{0,120}${Regex.escape(SETTINGS)}/")
+            waitUntil("Settings in front", ms = 10_000) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
             assertEquals(listOf("Launched Settings"), run("launch Settings"))
             assertEquals(1, logs.recent(400, afterId = start).count { it.text == "Launched Settings" })
             assertEquals(listOf("App info: Settings"), run("info Settings"))
@@ -319,42 +342,59 @@ class AppCommandsTest {
         }
     }
 
-    /** Without usage access `usage` says to allow it; with it, screen time per app, longest first, with a bar each. */
-    @Test fun usageNeedsAccessThenShowsScreenTime() {
+    /** Runs [block] with usage access set to [mode], then puts it back as it was. */
+    private fun withUsageAccess(mode: String, block: () -> Unit) {
         val op = "appops get ${context.packageName} GET_USAGE_STATS"
         val accessBefore = Regex("GET_USAGE_STATS: (\\w+)").find(shell(op))?.groupValues?.get(1) ?: "default"
         try {
-            shell("appops set ${context.packageName} GET_USAGE_STATS ignore")
-            val denied = lines("usage").single()
-            assertEquals("Screen time needs usage access — tap to allow it", denied.text)
-            assertEquals(LogKind.ERROR, denied.kind)
-            assertEquals("usage-access", denied.ctx.values[LogContext.RUN])
-
-            shell("appops set ${context.packageName} GET_USAGE_STATS allow")
-            val duration = "(\\d+h )?\\d+m"
-            for ((typed, said) in listOf("usage" to "today", "screentime 7" to "last 7 days", "usage 99" to "last 30 days")) {
-                val shown = lines(typed)
-                val first = shown.first().text
-                if (first.startsWith("No app usage recorded")) {
-                    assertEquals(typed, 1, shown.size)
-                    assertEquals(typed, if (said == "today") "No app usage recorded today" else "No app usage recorded in ${said.removePrefix("last ")}", first)
-                    continue
-                }
-                assertTrue(first, Regex("Screen time $said: $duration").matches(first))
-                val perApp = shown.drop(1)
-                assertTrue(typed, perApp.size in 1..12)
-                assertTrue(perApp.toString(), perApp.all { Regex("$duration  █+").matches(it.ctx.values[LogContext.DESC].orEmpty()) })
-                assertTrue(perApp.toString(), perApp.none { it.ctx.pkg == context.packageName })
-                val bars = perApp.map { it.ctx.values.getValue(LogContext.DESC).count { c -> c == '█' } }
-                assertEquals(typed, 12, bars.first())
-                assertEquals(typed, bars.sortedDescending(), bars)
-            }
+            shell("appops set ${context.packageName} GET_USAGE_STATS $mode")
+            block()
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $accessBefore")
         }
     }
 
-    /** `installs` is the newest installs and updates first, each with its time, or says none are recorded. */
+    /** Without usage access `usage` says to allow it, with a tap that opens the page. */
+    @Test fun usageNeedsAccess() = withUsageAccess("ignore") {
+        val denied = lines("usage").single()
+        assertEquals("Screen time needs usage access — tap to allow it", denied.text)
+        assertEquals(LogKind.ERROR, denied.kind)
+        assertEquals("usage-access", denied.ctx.values[LogContext.RUN])
+    }
+
+    /**
+     * With usage access, screen time per app, longest first, with a bar each, for a day or up to 30;
+     * with none recorded it says so. A fresh emulator often has none: then the test shows as skipped.
+     */
+    @Test fun usageShowsScreenTime() = withUsageAccess("allow") {
+        val duration = "(\\d+h )?\\d+m"
+        var listed = false
+        for ((typed, said) in listOf("usage" to "today", "screentime 7" to "last 7 days", "usage 99" to "last 30 days")) {
+            val shown = lines(typed)
+            val first = shown.first().text
+            if (first.startsWith("No app usage recorded")) {
+                assertEquals(typed, 1, shown.size)
+                assertEquals(typed, if (said == "today") "No app usage recorded today" else "No app usage recorded in ${said.removePrefix("last ")}", first)
+                continue
+            }
+            listed = true
+            assertTrue(first, Regex("Screen time $said: $duration").matches(first))
+            val perApp = shown.drop(1)
+            assertTrue(typed, perApp.size in 1..12)
+            assertTrue(perApp.toString(), perApp.all { Regex("$duration  █+").matches(it.ctx.values[LogContext.DESC].orEmpty()) })
+            assertTrue(perApp.toString(), perApp.none { it.ctx.pkg == context.packageName })
+            val bars = perApp.map { it.ctx.values.getValue(LogContext.DESC).count { c -> c == '█' } }
+            assertEquals(typed, 12, bars.first())
+            assertEquals(typed, bars.sortedDescending(), bars)
+        }
+        assumeTrue("no app usage recorded in 30 days, so no list to check", listed)
+    }
+
+    /**
+     * `installs` lists the recorded installs and updates in the order the history keeps them (newest
+     * first, as the test writes them: the recording isn't run here), each with its time, or says none
+     * are recorded; `updates 1` only the first.
+     */
     @Test fun installsListsWhatChangedNewestFirst() {
         val store = KvStore(context, "packages")
         val historyBefore = store.get("history")

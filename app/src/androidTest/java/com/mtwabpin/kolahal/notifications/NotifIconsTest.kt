@@ -72,12 +72,19 @@ class NotifIconsTest {
         assertNull(NotifIcons.cached(key))
     }
 
-    /** Past 400 saved icons the oldest go, and only they: the one just saved and the newer ones stay. */
+    /**
+     * Past 400 saved icons the oldest go, and only they: the one just saved and the newer ones stay.
+     * The oldest of all was saved as a notification's is, so it's known, and once gone it isn't.
+     */
     @Test fun theOldestGoPastFourHundred() {
         NotifIcons.preload(context)
         dir.mkdirs()
         val others = dir.listFiles { f -> f.name.endsWith(".png") }.orEmpty().map { it.name }
-        val old = (0 until 400).map { i ->
+        val oldest = "kn-trim-oldest-${System.nanoTime()}"
+        NotifIcons.save(context, oldest, ours)
+        assertTrue(NotifIcons.has(context, oldest))
+        png(oldest).setLastModified(1_400_000_000_000L)
+        val old = (0 until 399).map { i ->
             png("kn-trim-$i").apply {
                 writeBytes(byteArrayOf(1))
                 setLastModified(1_500_000_000_000L + i * 1_000L)
@@ -89,9 +96,12 @@ class NotifIconsTest {
         val left = dir.listFiles { f -> f.name.endsWith(".png") }.orEmpty().map { it.name }.toSet()
         assertEquals(400, left.size)
         assertTrue("$key.png" in left)
+        assertTrue(NotifIcons.has(context, key))
         assertTrue(left.containsAll(others))
-        // The oldest of the 400 went, as many as there were too many.
+        // The oldest went first, and from what is known; then as many of the rest as were too many.
+        assertFalse(png(oldest).exists())
+        assertFalse(NotifIcons.has(context, oldest))
         val gone = old.filter { !it.exists() }
-        assertEquals(old.take(others.size + 1), gone)
+        assertEquals(old.take(others.size), gone)
     }
 }

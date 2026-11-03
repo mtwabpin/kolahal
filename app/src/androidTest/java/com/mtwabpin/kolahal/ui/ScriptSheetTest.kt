@@ -12,6 +12,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.isOff
+import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -106,6 +108,25 @@ class ScriptSheetTest {
         assertTrue(what, check())
     }
 
+    /** [check] holds for a second: what a wrong change, still on its way, would undo. */
+    private fun stays(what: String, check: () -> Boolean) {
+        val until = System.currentTimeMillis() + 1_000
+        while (System.currentTimeMillis() < until) {
+            assertTrue(what, check())
+            Thread.sleep(50)
+        }
+    }
+
+    /**
+     * Waits for [name]'s switch, as its card in the list shows it, to be [on]. The sheet's Enabled row
+     * shows the same script, but has no state to read; a tap on it before it shows the change would
+     * switch from what it showed before.
+     */
+    private fun waitForSwitch(on: Boolean, name: String = "sstest") {
+        val switch = isToggleable() and hasAnyAncestor(hasTestTag("script-card") and hasText("$name.lua")) and if (on) isOn() else isOff()
+        compose.waitUntil(5_000) { compose.onAllNodes(switch).fetchSemanticsNodes().isNotEmpty() }
+    }
+
     /** The dialog titled [title]: the sheet under it is a dialog too. */
     private fun dialog(title: String) = isDialog() and hasAnyDescendant(hasText(title))
 
@@ -131,8 +152,10 @@ class ScriptSheetTest {
         compose.onNodeWithText("Runs on its timers and events").assertExists()
         compose.onNodeWithText("Enabled").performClick()
         waitFor("off") { !script().enabled }
+        waitForSwitch(on = false)
         compose.onNodeWithText("Enabled").performClick()
         waitFor("on again") { script().enabled }
+        waitForSwitch(on = true)
     }
 
     /** Switching on a script that asks for something asks first, each item with a switch: what you switch off stays off. */
@@ -144,7 +167,7 @@ class ScriptSheetTest {
         inDialog("It requests:").assertExists()
         inDialog("Cancel").performClick()
         compose.onNodeWithText("Turn on sstest.lua?").assertDoesNotExist()
-        assertFalse(script().enabled)
+        stays("off after Cancel") { !script().enabled }
 
         compose.onNodeWithText("Enabled").performClick()
         inDialog("Clipboard", title = "Turn on sstest.lua?").performClick()
@@ -195,14 +218,21 @@ class ScriptSheetTest {
         compose.onNodeWithContentDescription("Set times").assertDoesNotExist()
     }
 
-    /** The clock beside Daily at adds the time picked to the script's times. */
+    /**
+     * The clock beside Daily at adds the time picked to the times the box holds, saved or not, in
+     * order: 18:30 saved and 21:00 typed, 08:00 picked, all three are set.
+     */
     @Test fun theClockAddsATime() {
-        create("local x = 1")
+        val s = create("local x = 1")
+        scripts.setAtTimes(s.id, listOf("18:30"))
         openSheet()
+        val box = compose.onNode(hasSetTextAction())
+        box.performScrollTo().assert(hasText("18:30"))
+        box.performTextReplacement("18:30, 21:00")
         compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()
         inDialog("Add").performClick()
-        waitFor("08:00 daily") { script().atTimes == listOf("08:00") }
-        compose.onNode(hasSetTextAction()).assert(hasText("08:00"))
+        waitFor("three daily times") { script().atTimes == listOf("08:00", "18:30", "21:00") }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText("08:00, 18:30, 21:00")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     /** Delete asks first: Cancel keeps the script, Delete removes it and closes the sheet. */
@@ -304,13 +334,15 @@ class ScriptSheetTest {
         val s = library.install(entry)
         scripts.saveCode(s.id, library.code(entry) + "\n-- mine", byUser = true)
         openSheet("countdown")
+        // Whether it differs from the library is worked out after the sheet opens.
+        waitForText("Compare")
         compose.onNodeWithText("Compare").performScrollTo().assertExists()
         compose.onNodeWithText("Reset to library version").performScrollTo().performClick()
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
-        assertTrue(script("countdown").code.endsWith("-- mine"))
+        stays("your edits kept while it asks") { script("countdown").code.endsWith("-- mine") }
         inDialog("Reset").performClick()
         waitFor("the library version") { script("countdown").code == library.code(entry) }
-        compose.onNodeWithText("Reset to library version").assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Reset to library version").fetchSemanticsNodes().isEmpty() }
     }
 
     /** Export hands the script to the file picker, and Edit opens it in the editor. */
@@ -359,7 +391,8 @@ class ScriptSheetTest {
         val made = script("sstnew")
         assertEquals(ScriptLang.JS, made.lang)
         assertTrue(made.code, ScriptMeta.isCommand(made.code))
-        compose.runOnIdle { assertEquals(made.id, vm.editing.value?.id) }
+        // Opened in the editor once it's made, a moment after.
+        waitFor("open in the editor") { vm.editing.value?.id == made.id }
     }
 
     private companion object {

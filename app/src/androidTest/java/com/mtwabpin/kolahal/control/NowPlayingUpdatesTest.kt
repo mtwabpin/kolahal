@@ -28,24 +28,33 @@ class NowPlayingUpdatesTest {
     private fun shell(command: String) =
         ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
 
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
+    private fun waitUntil(what: String, ms: Long = 8_000, check: () -> Boolean) {
+        val until = System.currentTimeMillis() + ms
         while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
         assertTrue(what, check())
     }
 
+    /**
+     * The same state five times, then a position 20 ms off (inside the margin a state told two ways
+     * gets) give nothing new; a seek of two seconds with all else the same, and a new title, each give
+     * one value. The values are collected unconfined, on the thread that sets them, so none is
+     * conflated away.
+     */
     @Test fun aRepeatedStateIsNoNewValue() {
         val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
         val had = NotificationActions.isEnabled(context)
         shell("cmd notification allow_listener $listener")
         val session = MediaSession(context, "NowPlayingUpdatesTest")
-        val scope = CoroutineScope(Dispatchers.Default)
+        val scope = CoroutineScope(Dispatchers.Unconfined)
         try {
-            waitUntil("notification access") { NotificationActions.isEnabled(context) }
+            // Bound, and past the reconnect a binding listener asks for, which would ask every session again.
+            waitUntil("notification access", ms = 15_000) { NotificationActions.isEnabled(context) && KolahalNotificationListener.connected != null }
+            repeat(2) { instrumentation.runOnMainSync {} }
             fun title(title: String) = session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, title).build())
             val since = SystemClock.elapsedRealtime()
             // The same state each time, as a player that repeats itself sends it.
-            fun playing() = session.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 1_000, 1f, since).build())
+            fun playing(position: Long = 1_000) =
+                session.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, position, 1f, since).build())
             title("Song")
             playing()
             session.isActive = true
@@ -57,15 +66,24 @@ class NowPlayingUpdatesTest {
             scope.launch { repository.nowPlaying.collect { values += it } }
             waitUntil("the value as it is") { values.isNotEmpty() }
             repeat(5) { playing() }
+            playing(1_020)
+            playing(3_000)
+            waitUntil("the seek") { values.lastOrNull()?.position == 3_000L }
             // A change after them: once it's there, the repeats were all heard.
             title("Song again")
-            waitUntil("the change") { repository.nowPlaying.value?.title == "Song again" }
-            Thread.sleep(200)
-            assertEquals(values.joinToString("\n"), listOf("Song", "Song again"), values.map { it?.title })
+            waitUntil("the change") { values.lastOrNull()?.title == "Song again" }
+            // The first was asked for, so Android worked its position out to then: only the seek's is exact.
+            assertEquals(values.joinToString("\n"), listOf("Song", "Song", "Song again"), values.map { it?.title })
+            assertEquals(values.joinToString("\n"), 3_000L, values[1]?.position)
         } finally {
             scope.cancel()
             session.release()
-            if (!had) shell("cmd notification disallow_listener $listener")
+            if (!had) {
+                shell("cmd notification disallow_listener $listener")
+                // It can stay bound a while after access goes: wait a little, but don't fail on it.
+                val until = System.currentTimeMillis() + 5_000
+                while (KolahalNotificationListener.connected != null && System.currentTimeMillis() < until) Thread.sleep(50)
+            }
         }
     }
 }

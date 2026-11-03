@@ -28,7 +28,10 @@ class SearchTiersTest {
         assertNull(tier("Clock", "com.example"))
     }
 
-    /** Accents don't matter: the label is folded, and so is what's typed before it gets here. */
+    /**
+     * Accents don't matter once the label and what's typed are both folded. Search folds both (what's
+     * typed in `searchRanked`, before it gets here); this test folds them itself, as search does.
+     */
     @Test fun accentsAside() {
         assertEquals(1, tier("Café Mocha", Fuzzy.fold("Cafe")))
         assertEquals(2, tier("Le Café", Fuzzy.fold("café")))
@@ -36,7 +39,7 @@ class SearchTiersTest {
 
     /** The better tier wins when several fit: a label that starts with the query beats one of its words. */
     @Test fun theBestTierWins() {
-        assertEquals(1, tier("Maps Maps", "maps "))
+        assertEquals(1, tier("Maps Maps", "maps"))
         assertEquals(1, tier("Notes notes", "no"))
     }
 }

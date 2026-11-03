@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -146,6 +147,13 @@ class GetScriptsScreenTest {
 
     private fun waitForText(text: String) = waitFor(hasText(text))
 
+    /** Taps the button [label] once it can be tapped: a sheet's buttons wait for the script's code. */
+    private fun tapWhenEnabled(label: String) {
+        val button = hasText(label) and hasClickAction() and isEnabled()
+        waitFor(button)
+        compose.onNode(button).performScrollTo().performClick()
+    }
+
     private fun search(text: String) {
         compose.onNode(hasScrollToNodeAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).performTextReplacement(text)
@@ -162,7 +170,10 @@ class GetScriptsScreenTest {
         compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} on GitHub").assertExists()
     }
 
-    /** The search matches names, authors and tags, every word; nothing found says so. */
+    /**
+     * The search matches names, authors and tags, every word: two words that each match a different
+     * script find neither. Nothing found says so.
+     */
     @Test fun theSearchMatchesNamesAuthorsAndTags() {
         listed(tide, joke)
         show()
@@ -175,6 +186,10 @@ class GetScriptsScreenTest {
         compose.onNodeWithText("Tide times").assertDoesNotExist()
         search("gstide weather")
         compose.onNodeWithText("Tide times").assertExists()
+        search("sea fun")
+        compose.onNodeWithText("No script matches “sea fun”.").assertExists()
+        compose.onNodeWithText("Tide times").assertDoesNotExist()
+        compose.onNodeWithText("Joke of the day").assertDoesNotExist()
         search("zzqx")
         compose.onNodeWithText("No script matches “zzqx”.").assertExists()
     }
@@ -190,8 +205,12 @@ class GetScriptsScreenTest {
         waitForText("No scripts shared yet.")
     }
 
-    /** A list that couldn't be read again says why, keeps the one from before, and offers to try again. */
-    @Test fun aListThatCantBeReadSaysWhyAndKeepsTheLastOne() {
+    /**
+     * A list that couldn't be read again says why, still shows the scripts it had, and offers to try
+     * again. The failed read's state (the entries from before, and the error) is set here, as nothing
+     * goes online: that a failed read keeps them isn't tried.
+     */
+    @Test fun aListThatCantBeReadSaysWhyAndShowsTheLastOne() {
         listed(tide)
         val vm = show()
         waitForText("Tide times")
@@ -215,6 +234,8 @@ class GetScriptsScreenTest {
         compose.onNodeWithText("Runs: command").assertExists()
         compose.onNodeWithText("Uses: nothing private").assertExists()
         compose.onNodeWithText("Tags: sea, weather").assertExists()
+        // The code is read for the sheet: once it's there, Install can be tapped.
+        waitForText(tide.code)
         compose.onNodeWithText(tide.code).performScrollTo().assertExists()
         compose.onNodeWithText("Install").performScrollTo().assertIsEnabled()
         assertTrue(scripts.byName(tide.name) == null)
@@ -226,34 +247,49 @@ class GetScriptsScreenTest {
         show(tide)
         waitForText("Tide times")
         compose.onNodeWithText("Tide times").performClick()
-        compose.onNodeWithText("Install").performScrollTo().performClick()
-        compose.waitUntil(5_000) { scripts.byName(tide.name) != null }
+        tapWhenEnabled("Install")
+        // Said once the install is done: the script is made off and switched on after.
+        waitForText("Installed gstide.lua — run it as 'gstide'")
         val s = scripts.byName(tide.name)!!
         assertEquals(tide.code, s.code)
         assertTrue(s.enabled)
-        waitForText("Installed gstide.lua — run it as 'gstide'")
         waitFor(hasText("Installed") and hasClickAction())
         compose.onNode(hasText("Installed") and hasClickAction()).assertIsNotEnabled()
         waitForText("The next high and low tide · Installed")
     }
 
-    /** One that asks for something lists it to switch off before installing; it installs with that answer. */
-    @Test fun installingOneThatAsksLetsYouChoose() {
+    /** Installs [clip] from its sheet, switching clipboard off in the dialog when [switchOff]. */
+    private fun installClip(switchOff: Boolean) {
         listed(clip)
         show(clip)
         waitForText("Clipboard cleaner")
         compose.onNodeWithText("Clipboard cleaner").performClick()
         waitForText("Uses: clipboard")
-        compose.onNodeWithText("Install").performScrollTo().performClick()
-        compose.onNodeWithText("Install gsclip.lua?").assertExists()
+        tapWhenEnabled("Install")
+        waitForText("Install gsclip.lua?")
         compose.onNodeWithText("It requests:").assertExists()
-        compose.onNode(hasText("Clipboard") and hasClickAction()).performClick()
+        if (switchOff) compose.onNode(hasText("Clipboard") and hasClickAction()).performClick()
         val inDialog = hasAnyAncestor(hasAnyDescendant(hasText("It requests:")))
         compose.onNode(hasText("Install") and hasClickAction() and inDialog).performClick()
-        compose.waitUntil(5_000) { scripts.byName(clip.name) != null }
+        // Said once the install is done, with its answers and its switch in.
+        waitForText("Installed gsclip.lua")
+    }
+
+    /** One that asks for something lists it to switch off before installing; it installs with that answer. */
+    @Test fun installingOneThatAsksLetsYouChoose() {
+        installClip(switchOff = true)
         val s = scripts.byName(clip.name)!!
         assertEquals(clip.code, s.code)
+        assertTrue(s.enabled)
         assertFalse("clipboard was switched off before installing", s.grants.allows("clipboard"))
+    }
+
+    /** Left on in the dialog, what it asks for is allowed. */
+    @Test fun installingWithItLeftOnAllowsIt() {
+        installClip(switchOff = false)
+        val s = scripts.byName(clip.name)!!
+        assertTrue(s.enabled)
+        assertTrue("clipboard was left on", s.grants.allows("clipboard"))
     }
 
     /** A newer version of one installed from here shows as an update, and Update brings its code. */
@@ -263,7 +299,7 @@ class GetScriptsScreenTest {
         show(tideNext)
         waitForText("The next high and low tide · Update to 1.1")
         compose.onNodeWithText("Tide times").performClick()
-        compose.onNodeWithText("Update to 1.1").performScrollTo().performClick()
+        tapWhenEnabled("Update to 1.1")
         compose.waitUntil(5_000) { scripts.byName(tide.name)?.code == tideNext.code }
         waitForText("Updated gstide.lua to 1.1")
         waitForText("The next high and low tide · Installed")
@@ -278,8 +314,8 @@ class GetScriptsScreenTest {
         show(tide)
         waitForText("The next high and low tide · Installed, edited")
         compose.onNodeWithText("Tide times").performClick()
-        compose.onNodeWithText("Replace your edited copy").performScrollTo().performClick()
-        compose.onNodeWithText("Replace gstide.lua?").assertExists()
+        tapWhenEnabled("Replace your edited copy")
+        waitForText("Replace gstide.lua?")
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Replace gstide.lua?").assertDoesNotExist()
         assertEquals(mine, scripts.byName(tide.name)!!.code)

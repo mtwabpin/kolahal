@@ -107,6 +107,8 @@ class ScriptLibraryScreenTest {
         app.getSharedPreferences("script_library", Context.MODE_PRIVATE).edit().putString("installed:countdown", old).commit()
         assertEquals(ScriptLibrary.State.UPDATE_AVAILABLE, library.state(entry, scripts.all()))
         show()
+        // The row shows before the scripts are read, as not installed: Update comes once they are.
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Update") and hasAnyAncestor(hasText("Countdowns"))).fetchSemanticsNodes().isNotEmpty() }
         inCountdownRow("Update").performClick()
         compose.waitUntil(5_000) { scripts.byName("countdown")?.code == library.code(entry) }
         countdownRowSays("Installed")
@@ -121,7 +123,12 @@ class ScriptLibraryScreenTest {
         countdownRowSays("Edited")
         inCountdownRow("Install").assertDoesNotExist()
         inCountdownRow("Update").assertDoesNotExist()
-        assertTrue(scripts.byName("countdown")!!.code.endsWith("-- mine"))
+        // Shown, nothing replaces your edits: they're still there a second on.
+        val until = System.currentTimeMillis() + 1_000
+        while (System.currentTimeMillis() < until) {
+            assertTrue("your edits kept", scripts.byName("countdown")!!.code.endsWith("-- mine"))
+            Thread.sleep(50)
+        }
     }
 
     /** Back returns to the page the library was opened from. */

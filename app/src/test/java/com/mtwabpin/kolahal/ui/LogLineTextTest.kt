@@ -11,6 +11,7 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.StyledText
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -113,10 +114,23 @@ class LogLineTextTest {
         assertTrue(text.paragraphStyles.size >= 4)
     }
 
-    /** Lines that line columns up use the terminal font, and wrap under their own indent. */
+    /**
+     * Lines that line columns up use the terminal font, and wrap under their own indent. With the
+     * phone's font for the terminal (`font.sans all`) the two fonts differ, so each line shows which.
+     */
     @Test fun alignedLinesUseTheCodeFont() {
-        val entry = line(LogKind.OUTPUT, "a  b", ctx = LogContext(LogContext.ALIGNED))
-        assertEquals(Term.code, entry.style())
-        assertEquals(Term.text, line(LogKind.OUTPUT, "a b").style())
+        val was = Term.sans
+        Term.sans = Term.Sans.ALL
+        try {
+            assertNotEquals(Term.text, Term.code)
+            val aligned = line(LogKind.OUTPUT, "a  b", ctx = LogContext(LogContext.ALIGNED))
+            val plain = line(LogKind.OUTPUT, "a b")
+            assertEquals(Term.code, aligned.style())
+            assertEquals(Term.text, plain.style())
+            assertEquals(indents.code, render(aligned).paragraphStyles[0].item.textIndent?.restLine)
+            assertEquals(indents.text, render(plain).paragraphStyles[0].item.textIndent?.restLine)
+        } finally {
+            Term.sans = was
+        }
     }
 }
