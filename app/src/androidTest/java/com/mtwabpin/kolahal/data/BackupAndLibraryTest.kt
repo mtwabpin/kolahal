@@ -32,6 +32,15 @@ class BackupAndLibraryTest {
         Keys.ALL.forEach(config::reset)
         prefs.setAlias("bk", null)
         listOf("bktest", "bknew").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
+        // What the round trip adds, also when it fails half way.
+        val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(context)
+        todos.all().filter { it.text == "bk todo" }.forEach { todos.remove(it.id) }
+        val notes = com.mtwabpin.kolahal.productivity.NoteStore.get(context)
+        notes.all().filter { it.text == "bk note" }.forEach { notes.remove(it.id) }
+        val feeds = com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
+        feeds.all().filter { it.url.contains("bk-feed") }.forEach { feeds.remove(it.id) }
+        prefs.setPinned("bk/pin#0", false)
+        java.io.File(context.cacheDir, "kolahal-full-backup-test.json").delete()
     }
 
     /** The path that broke in release builds: a set() must bump the version immediately. */

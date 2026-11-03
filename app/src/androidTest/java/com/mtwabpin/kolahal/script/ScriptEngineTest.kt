@@ -18,6 +18,13 @@ class ScriptEngineTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private fun host() = HostApi(context, "test", scriptId = null, notifyEnabled = false)
 
+    /** What the store tests set, in the store typed lines use: gone again after. */
+    @org.junit.After fun tearDown() {
+        val repl = com.mtwabpin.kolahal.data.KvStore(context, "repl")
+        repl.set("k", null)
+        repl.set("x", null)
+    }
+
     private fun lua(code: String, repl: Boolean = true, timeout: Long = 5_000) =
         runBlocking { LuaEngine().run(code, "t", host(), timeout, repl) }
 
@@ -261,8 +268,8 @@ class ScriptEngineTest {
         val h = host()
         runBlocking { LuaEngine().run("log('hello from lua', { url = 'https://example.com' })", "t", h, 5_000, false) }
         h.flush() // the worker flushes buffered lines at the end of a run
-        val last = logs.recent(5).last { it.kind == LogKind.SCRIPT }
-        assertEquals("hello from lua", last.text)
+        // Its own line, not whatever came last.
+        val last = logs.recent(20).last { it.kind == LogKind.SCRIPT && it.text == "hello from lua" }
         assertEquals("https://example.com/", last.ctx.url)  // links are normalised
     }
 

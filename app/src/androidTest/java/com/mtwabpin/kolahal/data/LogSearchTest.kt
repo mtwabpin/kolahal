@@ -63,9 +63,9 @@ class LogSearchTest {
     /** Styled text matches as it reads: a word across a style's edge is still the word. */
     @Test fun aWordAcrossAStyleEdgeIsFound() {
         add("$token ab" + StyledText.wrap(StyledText.Style.BOLD, "cd") + "ef")
-        assertEquals(1, logs.search(listOf("bcde")).total)
+        assertEquals(1, logs.search(listOf(token, "bcde")).total)
         added += logs.add(LogKind.SCRIPT, "t", "s", LogContext.of(LogContext.TITLE to "1", LogContext.BODY to "$token xy" + StyledText.wrap(StyledText.Style.ITALIC, "z") + "w"))
-        assertEquals(1, logs.search(listOf("yzw")).total)
+        assertEquals(1, logs.search(listOf(token, "yzw")).total)
     }
 
     /** JSON escapes the slashes in a link. */
@@ -79,13 +79,14 @@ class LogSearchTest {
         add("$token 100x")
         add("$token a_b")
         add("$token axb")
-        assertEquals(setOf("$token 100%"), texts("100%"))
-        assertEquals(setOf("$token a_b"), texts("a_b"))
+        // With the token too: any other line in the log with "100%" in it would be found.
+        assertEquals(setOf("$token 100%"), texts(token, "100%"))
+        assertEquals(setOf("$token a_b"), texts(token, "a_b"))
     }
 
     @Test fun nonAsciiWordsIgnoreCase() {
         add("$token Éclair")
-        assertEquals(setOf("$token Éclair"), texts("éclair"))
+        assertEquals(setOf("$token Éclair"), texts(token, "éclair"))
         assertEquals(setOf("$token Éclair"), texts(token, "ÉCLAIR"))
     }
 
