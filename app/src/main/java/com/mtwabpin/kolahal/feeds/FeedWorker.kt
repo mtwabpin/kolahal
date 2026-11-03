@@ -9,6 +9,10 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.notify.Notifier
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -39,9 +43,16 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         // Android stops a worker after about ten minutes, and what it had fetched by then would be
         // stored but never reported: report what is done before that; the rest is due again.
         val fetcher = FeedFetcher(ctx)
-        val results = ArrayList<FeedFetcher.Result>()
-        kotlinx.coroutines.withTimeoutOrNull(FETCH_DEADLINE_MS.milliseconds) { for (feed in targets) results += fetcher.fetchOne(feed) }
-        report(ctx, results, explicit = force || feedId >= 0, from = inputData.getLong(KEY_FROM, -1L).takeIf { it >= 0 })
+        // A few at a time: each mostly waits on the network, and a feed that doesn't answer no longer
+        // holds back the rest. Each result keeps its feed's place, so the report's order is the same.
+        val results = arrayOfNulls<FeedFetcher.Result>(targets.size)
+        kotlinx.coroutines.withTimeoutOrNull(FETCH_DEADLINE_MS.milliseconds) {
+            val slots = Semaphore(PARALLEL_FETCHES)
+            coroutineScope {
+                targets.forEachIndexed { i, feed -> launch { slots.withPermit { results[i] = fetcher.fetchOne(feed) } } }
+            }
+        }
+        report(ctx, results.filterNotNull(), explicit = force || feedId >= 0, from = inputData.getLong(KEY_FROM, -1L).takeIf { it >= 0 })
         return Result.success()
     }
 
@@ -121,6 +132,9 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         const val KEY_FORCE = "force"
         /** Fetching stops here, well before the system stops the worker. */
         private const val FETCH_DEADLINE_MS = 8 * 60_000L
+
+        /** Feeds fetched at once: OkHttp allows five a host, and each body can be up to 3 MB in memory. */
+        private const val PARALLEL_FETCHES = 4
         const val KEY_FROM = "from"
 
         /** Log context key carrying the feed id on feed lines. */

@@ -99,18 +99,19 @@ class TerminalFixesTest {
     /** `feed fetch` for every feed says which ones failed, as fetching one feed does. */
     @Test fun fetchingAllFeedsReportsTheOnesThatFail() {
         val feeds = com.mtwabpin.kolahal.feeds.FeedRepository.get(app)
-        val feed = feeds.add("https://kolahal-test.invalid/feed.xml", title = "tf-broken")
+        // Fetched a few at a time, they're still reported in the feeds' order.
+        val added = listOf("a", "b", "c").map { feeds.add("https://kolahal-test-$it.invalid/feed.xml", title = "tf-broken-$it") }
         try {
             val before = logs.maxId()
             processor.run("feed fetch")
-            val until = System.currentTimeMillis() + 20_000
-            fun failed() = logs.recent(100).firstOrNull { it.id > before && it.kind == LogKind.ERROR && it.text.startsWith("tf-broken: ") }
-            while (failed() == null && System.currentTimeMillis() < until) Thread.sleep(100)
-            // It is the command's output, though the fetch ran in the background.
+            fun failed() = logs.recent(100).filter { it.id > before && it.kind == LogKind.ERROR && it.text.startsWith("tf-broken-") }
+            waitUntil("the failures", ms = 20_000) { failed().size == 3 }
+            assertEquals(listOf("a", "b", "c"), failed().map { it.text.substringAfter("tf-broken-").substringBefore(':') })
+            // They are the command's output, though the fetch ran in the background.
             val command = logs.recent(100).single { it.id > before && it.kind == LogKind.COMMAND && it.text == "feed fetch" }
-            assertEquals(command.id.toString(), failed()!!.ctx.values[LogContext.FROM])
+            assertTrue(failed().all { it.ctx.values[LogContext.FROM] == command.id.toString() })
         } finally {
-            feeds.remove(feed.id)
+            added.forEach { feeds.remove(it.id) }
         }
     }
 
