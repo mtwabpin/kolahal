@@ -65,17 +65,29 @@ internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minute
 /** A library script with its state against what is installed, and its `@on` events. */
 internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>)
 
-/** What a script's card shows and the filters match, read from its code once per change. */
-internal class ScriptInfo(val script: Script) {
-    val title = ScriptMeta.title(script.code)
-    val desc = ScriptMeta.description(script.code)
-    val isCommand = ScriptMeta.isCommand(script.code)
-    val usage = if (isCommand) ScriptMeta.usage(script.code, script.name) else null
-    val events = ScriptMeta.events(script.code)
-    val uses = ScriptMeta.uses(script.code)
+/** What a script's code says, for its card and the filters: read once per version of the code. */
+internal class ScriptCode(code: String, name: String) {
+    val title = ScriptMeta.title(code)
+    val desc = ScriptMeta.description(code)
+    val isCommand = ScriptMeta.isCommand(code)
+    val usage = if (isCommand) ScriptMeta.usage(code, name) else null
+    val events = ScriptMeta.events(code)
+    val uses = ScriptMeta.uses(code)
+    val secrets = ScriptMeta.secrets(code)
+    val notifies = ScriptMeta.postsNotifications(code)
+}
+
+/** What a script's card shows and the filters match. */
+internal class ScriptInfo(val script: Script, code: ScriptCode) {
+    val title = code.title
+    val desc = code.desc
+    val isCommand = code.isCommand
+    val usage = code.usage
+    val events = code.events
+    val uses = code.uses
     val timed = script.intervalMin > 0 || script.atTimes.isNotEmpty()
-    val secrets = ScriptMeta.secrets(script.code)
-    val notifies = ScriptMeta.postsNotifications(script.code)
+    val secrets = code.secrets
+    val notifies = code.notifies
 }
 
 /**
@@ -164,7 +176,13 @@ fun ScriptsScreen(
         }
     }
 
-    val infos = remember(scripts) { scripts.map(::ScriptInfo) }
+    // The list is read again when a script runs (its last run changes) or one is saved: only code
+    // that changed is read again.
+    val codes = remember { HashMap<Pair<String, String>, ScriptCode>() }
+    val infos = remember(scripts) {
+        codes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
+        scripts.map { s -> ScriptInfo(s, codes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
+    }
     // Declared secrets with no value yet, by script name.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
     val missingKeys by produceState(emptyMap(), infos, secretsVersion) {
