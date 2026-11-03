@@ -1446,7 +1446,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /**
      * Where the log's app selector is, in the window: the log's area between the header and the
      * prompt. The widgets page puts its selector in the same place, so selector.position and the
-     * selector's height come out the same on both pages.
+     * selector's height come out the same on both pages. Only how far down and how high it is: where
+     * it is across changes on every frame of a swipe between the pages, and the widgets page would be
+     * built again each time.
      */
     var selectorArea by mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
 

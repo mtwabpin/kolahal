@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -390,7 +389,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         Box(
             Modifier.weight(1f).fillMaxWidth().then(
                 // The selector's place, for the widgets page's to match.
-                if (preview == null) Modifier.onGloballyPositioned { vm.selectorArea = androidx.compose.ui.geometry.Rect(it.positionInWindow(), it.size.toSize()) }
+                if (preview == null) Modifier.onGloballyPositioned { vm.selectorArea = androidx.compose.ui.geometry.Rect(0f, it.positionInWindow().y, it.size.width.toFloat(), it.positionInWindow().y + it.size.height) }
                 else Modifier
             )
         ) {
