@@ -245,6 +245,8 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
     /** Steps undone, the last undone last. */
     private val redo = ArrayDeque<Edit>()
     private var lastRecord = 0L
+    /** The text before the step still being typed into: what it leads from, kept rather than rebuilt at every key. */
+    private var stepStart: String? = null
 
     private fun setTop(text: String) {
         top = text
@@ -256,12 +258,13 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
         val newlines = text.count { it == '\n' }
         val newline = text.length > top.length && newlines != topNewlines
         if (now - lastRecord > 600 || newline || undo.isEmpty()) {
+            stepStart = top
             undo.addLast(Edit.between(top, text))
             if (undo.size + 1 > 200) undo.removeFirst()
         } else {
             // The same step goes on: it now leads from the text before it to this one.
-            val before = undo.removeLast().undo(top)
-            undo.addLast(Edit.between(before, text))
+            val last = undo.removeLast()
+            undo.addLast(Edit.between(stepStart ?: last.undo(top), text))
         }
         top = text
         topNewlines = newlines
@@ -272,6 +275,7 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
     /** The next [record] starts a new undo step (used around replace operations). */
     fun checkpoint() {
         lastRecord = 0
+        stepStart = null
     }
 
     val canUndo get() = undo.isNotEmpty()
@@ -281,6 +285,7 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
         val step = undo.removeLastOrNull() ?: return null
         redo.addLast(step)
         lastRecord = 0
+        stepStart = null
         setTop(step.undo(top))
         return top
     }
@@ -289,6 +294,7 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
         val step = redo.removeLastOrNull() ?: return null
         undo.addLast(step)
         lastRecord = 0
+        stepStart = null
         setTop(step.redo(top))
         return top
     }

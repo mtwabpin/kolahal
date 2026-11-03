@@ -3,6 +3,8 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.ui.text.AnnotatedString
 import com.mtwabpin.kolahal.data.ScriptLang
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Test
 
@@ -41,12 +43,28 @@ class SyntaxHighlighterTest {
         assertEquals(SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString("$lua\nprint(1)")).text, changed.text)
     }
 
+    /** The last answer stands only for the theme it was coloured in. */
+    @Test fun aNewThemeColoursAgain() {
+        val before = Term.palette
+        try {
+            Term.palette = Palettes.green
+            val h = SyntaxHighlighter(ScriptLang.LUA, null, null)
+            val green = h.filter(AnnotatedString(lua))
+            Term.palette = Palettes.dracula
+            val dracula = h.filter(AnnotatedString(lua))
+            assertNotSame(green, dracula)
+            assertEquals(SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString(lua)).text, dracula.text)
+        } finally {
+            Term.palette = before
+        }
+    }
+
     @Test fun findMatchesAreEqualByWhatTheyMark() {
         assertEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 5))
         assertEquals(
             SyntaxHighlighter(ScriptLang.LUA, null, MatchHighlights(intArrayOf(1, 5), 2, 5)),
             SyntaxHighlighter(ScriptLang.LUA, null, MatchHighlights(intArrayOf(1, 5), 2, 5)),
         )
-        assert(MatchHighlights(intArrayOf(1, 5), 2, 5) != MatchHighlights(intArrayOf(1, 5), 2, 1))
+        assertNotEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 1))
     }
 }

@@ -36,7 +36,17 @@ internal class LineTokens(lang: ScriptLang) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IntArray>?) = size > 8000
     }
 
-    fun of(line: String): IntArray = lineTokens.getOrPut(line) {
+    /**
+     * Very long lines (minified code, data) are kept apart, a few at a time: typing on one makes a new
+     * one on every key, and among the 8,000 kept lines each would stay, a copy of the line each.
+     */
+    private val longLines = object : LinkedHashMap<String, IntArray>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IntArray>?) = size > 8
+    }
+
+    fun of(line: String): IntArray = (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
+
+    private fun tokenize(line: String): IntArray {
         val out = ArrayList<Int>()
         for (m in token.findAll(line)) {
             val t = m.value
@@ -49,10 +59,12 @@ internal class LineTokens(lang: ScriptLang) {
             }
             out += m.range.first; out += m.range.last + 1; out += kind
         }
-        out.toIntArray()
+        return out.toIntArray()
     }
 
     companion object {
+        /** Lines longer than this are kept apart ([longLines]). */
+        const val LONG_LINE = 2_000
         const val COMMENT = 0
         const val STRING = 1
         const val NUMBER = 2
