@@ -58,7 +58,7 @@ object LogImages {
 
     fun cached(url: String, widthPx: Int): ImageBitmap? = memory.get("$url@$widthPx")
 
-    /** Home is hidden: the kept pictures go (they're on disk too). Those on screen stay; the rest are decoded again when shown. */
+    /** Android is short of memory: the kept pictures go (they're on disk too). Those on screen stay; the rest are decoded again when shown. */
     fun trim() = memory.evictAll()
 
     /** [url]'s image at most [widthPx] wide (smaller ones aren't scaled up here), or null if it can't be had. */
