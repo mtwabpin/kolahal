@@ -69,7 +69,7 @@ class Backup(private val context: Context) {
             "themes" to CustomThemes.themes.value.mapValues { (_, colors) -> colors.mapValues { CustomThemes.hex(it.value) } },
         )
         val text = Json.stringify(data)
-        val mb = text.toByteArray().size / (1024 * 1024)
+        val mb = utf8Size(text) / (1024 * 1024)
         if (mb >= Files.MAX_BACKUP_BYTES / (1024 * 1024)) throw TooBig(
             "the backup would be $mb MB, more than the ${Files.MAX_BACKUP_BYTES / (1024 * 1024)} MB import limit: " +
                 "lower log.keep-lines or clear the log (clear all), then export again"
@@ -214,4 +214,25 @@ class Backup(private val context: Context) {
         const val FILE_NAME = "kolahal-backup.json"
         private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
     }
+}
+
+/**
+ * How many bytes [text] takes in UTF-8, as the file holds it: counted, rather than made a copy of
+ * to measure, as a backup can be tens of MB. A lone surrogate counts as the one byte it's written as.
+ */
+internal fun utf8Size(text: String): Long {
+    var n = 0L
+    var i = 0
+    while (i < text.length) {
+        val c = text[i]
+        n += when {
+            c.code < 0x80 -> 1
+            c.code < 0x800 -> 2
+            c.isHighSurrogate() && i + 1 < text.length && text[i + 1].isLowSurrogate() -> { i++; 4 }
+            c.isSurrogate() -> 1
+            else -> 3
+        }
+        i++
+    }
+    return n
 }
