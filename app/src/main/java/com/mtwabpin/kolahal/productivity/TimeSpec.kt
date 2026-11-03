@@ -109,9 +109,14 @@ object TimeSpec {
             ?: dayOfMonth(a)?.let { d -> month(b)?.let { it to d } }
             ?: return null
         val year = tokens.getOrNull(i + 2)?.takeIf { YEAR.matches(it) }?.toInt()
-        val date = runCatching { LocalDate.of(year ?: today.year, m, d) }.getOrNull() ?: return null
-        return Day(date, if (year != null) 3 else 2, year != null)
+        // Without a year, this year's, or the next that has it (29 February).
+        val date = if (year != null) runCatching { LocalDate.of(year, m, d) }.getOrNull() else nextWith(today.year, m, d)
+        return Day(date ?: return null, if (year != null) 3 else 2, year != null)
     }
+
+    /** [month] [day] in [from] or the first year after it that has that day; null when none does. */
+    private fun nextWith(from: Int, month: java.time.Month, day: Int): LocalDate? =
+        (from..from + 8).firstNotNullOfOrNull { y -> runCatching { LocalDate.of(y, month, day) }.getOrNull() }
 
     /** Default time for a day given without one ("tomorrow", "fri"). */
     val DEFAULT_TIME: LocalTime = LocalTime.of(9, 0)
@@ -138,7 +143,10 @@ object TimeSpec {
             // A bare hour only after `at`: `dec 3 2 tickets` is about two tickets.
             val time = tokens.getOrNull(j)?.let { parseClock(it, allowBareHour = at) }
             var whenAt = day.date.atTime(time ?: DEFAULT_TIME)
-            if (!day.yearGiven && !whenAt.isAfter(now)) whenAt = whenAt.plusYears(1)
+            // Gone this year: the next year that has the day (29 February comes back in four).
+            if (!day.yearGiven && !whenAt.isAfter(now)) {
+                whenAt = nextWith(day.date.year + 1, day.date.month, day.date.dayOfMonth)?.atTime(whenAt.toLocalTime()) ?: return null
+            }
             if (!whenAt.isAfter(now)) return null
             return Parsed(whenAt, if (time != null) j + 1 else i + day.used)
         }

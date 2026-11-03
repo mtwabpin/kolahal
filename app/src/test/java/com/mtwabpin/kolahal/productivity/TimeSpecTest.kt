@@ -192,4 +192,16 @@ class TimeSpecTest {
             }
         }
     }
+
+    /** 29 February without a year is the next one there is, as any date without a year is the next it comes. */
+    @Test fun leapDayIsTheNextOne() {
+        assertEquals(LocalDateTime.of(2028, 2, 29, 9, 0), parse("feb 29 x")!!.at)
+        assertEquals(LocalDateTime.of(2028, 2, 29, 18, 0), parse("29 feb at 18:00 x")!!.at)
+        // In a leap year after it: the one four years on, not 28 February.
+        val after = LocalDateTime.of(2028, 3, 1, 9, 0)
+        assertEquals(LocalDateTime.of(2032, 2, 29, 9, 0), TimeSpec.parseWhen("feb 29 x".split(" "), after)!!.at)
+        // With a year that has none: no date.
+        assertNull(parse("feb 29 2027 x"))
+        assertNull(parse("feb 30 x"))
+    }
 }
