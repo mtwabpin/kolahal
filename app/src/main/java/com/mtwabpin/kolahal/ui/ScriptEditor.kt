@@ -409,7 +409,9 @@ fun ScriptEditor(
             MatchHighlights(matches.starts.copyOfRange(from, to), matches.length, if (current >= 0) matches.starts[c] else -1)
         }
     }
-    val highlighter = remember(script.lang, flashLine, Term.palette, highlights) { SyntaxHighlighter(script.lang, flashLine, highlights) }
+    // The tokens of each line stay across highlighters: find matches and a flashed line make new ones.
+    val lineTokens = remember(script.lang) { LineTokens(script.lang) }
+    val highlighter = remember(script.lang, flashLine, Term.palette, highlights) { SyntaxHighlighter(script.lang, flashLine, highlights, lineTokens) }
     val lineCount = value.text.count { it == '\n' } + 1
     val numbers = remember(lineCount) { (1..lineCount).joinToString("\n") }
 

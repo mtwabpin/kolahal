@@ -11,34 +11,32 @@ import androidx.compose.ui.text.input.VisualTransformation
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDocs
 
-/** Find matches to draw: a window of start offsets around the current one. */
-internal class MatchHighlights(val starts: IntArray, val length: Int, val current: Int)
+/** Find matches to draw: a window of start offsets around the current one. Equal when they mark the same. */
+internal class MatchHighlights(val starts: IntArray, val length: Int, val current: Int) {
+    override fun equals(other: Any?) =
+        other is MatchHighlights && other.length == length && other.current == current && other.starts.contentEquals(starts)
 
-/** Colours comments, strings, numbers and keywords; flashes one line (error jump); marks find matches. */
-internal class SyntaxHighlighter(
-    lang: ScriptLang,
-    private val flashLine: Int?,
-    private val matches: MatchHighlights?,
-) : VisualTransformation {
-    private val keywords = ApiDocs.keywords(lang).toSet()
-    // The theme it was made for: a text field colours again only for a highlighter that isn't equal to the last.
-    private val palette = Term.palette
-    private val js = lang == ScriptLang.JS
+    override fun hashCode() = 31 * (31 * starts.contentHashCode() + length) + current
+}
+
+/**
+ * Tokens per line, by the line's text: typing re-matches only the line being edited, not the
+ * whole script. Each token is (start, end, kind) within its line. Kept by the editor for its
+ * language, so a new [SyntaxHighlighter] (a find match, a flashed line) starts with them.
+ */
+internal class LineTokens(lang: ScriptLang) {
+    val keywords = ApiDocs.keywords(lang).toSet()
     // Every token here stays on one line; JS template strings (`…`), which may span lines, are found separately.
     private val token = Regex(
         (if (lang == ScriptLang.LUA) "--[^\n]*" else "//[^\n]*") +
             "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
     )
 
-    /**
-     * Tokens per line, by the line's text: typing re-matches only the line being edited, not the
-     * whole script. Each token is (start, end, kind) within its line.
-     */
     private val lineTokens = object : LinkedHashMap<String, IntArray>(512, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IntArray>?) = size > 8000
     }
 
-    private fun tokensOf(line: String): IntArray = lineTokens.getOrPut(line) {
+    fun of(line: String): IntArray = lineTokens.getOrPut(line) {
         val out = ArrayList<Int>()
         for (m in token.findAll(line)) {
             val t = m.value
@@ -54,7 +52,44 @@ internal class SyntaxHighlighter(
         out.toIntArray()
     }
 
+    companion object {
+        const val COMMENT = 0
+        const val STRING = 1
+        const val NUMBER = 2
+        const val KEYWORD = 3
+    }
+}
+
+/** Colours comments, strings, numbers and keywords; flashes one line (error jump); marks find matches. */
+internal class SyntaxHighlighter(
+    lang: ScriptLang,
+    private val flashLine: Int?,
+    private val matches: MatchHighlights?,
+    private val tokens: LineTokens = LineTokens(lang),
+) : VisualTransformation {
+    private val keywords = tokens.keywords
+    // The theme it was made for: a text field colours again only for a highlighter that isn't equal to the last.
+    private val palette = Term.palette
+    private val js = lang == ScriptLang.JS
+
+    private fun tokensOf(line: String): IntArray = tokens.of(line)
+
+    // The text field asks again for the same text when only the cursor or selection moved, twice
+    // per change: the last answer stands.
+    private var lastText: AnnotatedString? = null
+    private var lastPalette: Palette? = null
+    private var last: TransformedText? = null
+
     override fun filter(text: AnnotatedString): TransformedText {
+        last?.let { if (text == lastText && Term.palette == lastPalette) return it }
+        return colour(text).also {
+            lastText = text
+            lastPalette = Term.palette
+            last = it
+        }
+    }
+
+    private fun colour(text: AnnotatedString): TransformedText {
         val src = text.text
         val styles = arrayOf(
             SpanStyle(color = Term.dim, fontStyle = FontStyle.Italic),
@@ -100,14 +135,11 @@ internal class SyntaxHighlighter(
     }
 
     private companion object {
-        const val COMMENT = 0
-        const val STRING = 1
-        const val NUMBER = 2
-        const val KEYWORD = 3
+        const val STRING = LineTokens.STRING
     }
 
     override fun equals(other: Any?) = other is SyntaxHighlighter && other.flashLine == flashLine &&
-        other.keywords == keywords && other.matches === matches && other.palette == palette
+        other.keywords == keywords && other.matches == matches && other.palette == palette
 
-    override fun hashCode() = 31 * (31 * (31 * keywords.hashCode() + (flashLine ?: 0)) + System.identityHashCode(matches)) + palette.hashCode()
+    override fun hashCode() = 31 * (31 * (31 * keywords.hashCode() + (flashLine ?: 0)) + matches.hashCode()) + palette.hashCode()
 }
