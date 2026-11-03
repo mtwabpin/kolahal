@@ -5,7 +5,6 @@ import android.app.Instrumentation
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.contacts.Contact
@@ -23,6 +22,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,6 +33,7 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ContactPickerTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -181,7 +182,7 @@ class ContactPickerTest {
         val config = Config.get(app)
         try {
             lateinit var vm: TerminalViewModel
-            instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+            instrumentation.runOnMainSync { vm = vms.terminal(app) }
             // The rows the prompt shows for what's typed, as a tap or Tab takes them.
             fun callRows(typed: String): List<Suggestion.Completion> {
                 instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue(typed)) }

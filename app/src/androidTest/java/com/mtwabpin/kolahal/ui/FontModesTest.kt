@@ -17,7 +17,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogContext
@@ -35,6 +34,7 @@ import kotlin.math.abs
 /** `font.sans`: which parts of home draw in the phone's font, and that indents still line up. */
 @RunWith(AndroidJUnit4::class)
 class FontModesTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -48,7 +48,7 @@ class FontModesTest {
     private fun show(sans: Term.Sans) {
         Term.sans = sans
         lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = TerminalViewModel(app, SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {

@@ -29,13 +29,14 @@ import org.junit.runner.RunWith
 /** The band that says it's a preview, on the home screen. */
 @RunWith(AndroidJUnit4::class)
 class LivePreviewBandTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
 
     @Before fun show() {
-        compose.runOnUiThread { vm = TerminalViewModel(app, androidx.lifecycle.SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {

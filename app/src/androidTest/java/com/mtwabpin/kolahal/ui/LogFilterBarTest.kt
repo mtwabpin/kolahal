@@ -10,7 +10,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.terminal.LogFilter
@@ -24,6 +23,7 @@ import org.junit.runner.RunWith
 /** The bar `log only …` puts above the prompt, and the ways it goes. */
 @RunWith(AndroidJUnit4::class)
 class LogFilterBarTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     @After fun tearDown() {
@@ -32,7 +32,7 @@ class LogFilterBarTest {
 
     private fun show(): TerminalViewModel {
         lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = TerminalViewModel(compose.activity.application, SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(compose.activity.application) }
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp)) {

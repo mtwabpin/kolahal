@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogRepository
@@ -20,6 +19,7 @@ import org.junit.runner.RunWith
 /** Turning notification access on, Kolahal first says what it reads and asks (Play's prominent disclosure). */
 @RunWith(AndroidJUnit4::class)
 class NotificationAccessTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
 
@@ -40,7 +40,7 @@ class NotificationAccessTest {
     @Test fun notifsEnableAsksFirst() {
         assumeFalse("notification access is already on here", NotificationActions.isEnabled(app))
         lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = TerminalViewModel(app, SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         val logs = LogRepository.get(app)
         val before = logs.recent(1).lastOrNull()?.id ?: 0
         compose.runOnUiThread { vm.runCommand("notifs enable") }

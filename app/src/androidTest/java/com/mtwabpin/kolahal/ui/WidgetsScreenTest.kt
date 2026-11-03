@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
@@ -19,6 +18,7 @@ import org.junit.runner.RunWith
 /** Settings → Widgets → Arrange widgets. */
 @RunWith(AndroidJUnit4::class)
 class WidgetsScreenTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -31,7 +31,7 @@ class WidgetsScreenTest {
     @Test fun withThePageOffItSaysSoAndTurnsItOn() {
         config.set(Keys.WIDGETS_PAGE, "off")
         lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+        instrumentation.runOnMainSync { vm = vms.terminal(app) }
         compose.setContent { WidgetsScreen(vm, onReAdd = { _, _ -> }) }
         compose.onNodeWithText("The widgets page is off").assertExists()
         compose.onNodeWithText("Turn on the widgets page").performClick()

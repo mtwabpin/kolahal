@@ -9,7 +9,6 @@ import androidx.compose.ui.test.printToString
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -23,6 +22,7 @@ import org.junit.runner.RunWith
 /** The tour's previews. */
 @RunWith(AndroidJUnit4::class)
 class TourPreviewsTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -38,7 +38,7 @@ class TourPreviewsTest {
     /** The typing demo plays only while it shows: behind another app it would wake twice a second and search the apps. */
     @Test fun theTypingDemoStopsOffScreen() {
         lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+        instrumentation.runOnMainSync { vm = vms.terminal(app) }
         val owner = object : LifecycleOwner {
             val registry = LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
             override val lifecycle: Lifecycle get() = registry

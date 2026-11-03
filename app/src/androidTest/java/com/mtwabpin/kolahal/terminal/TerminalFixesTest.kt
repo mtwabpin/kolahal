@@ -2,7 +2,6 @@ package com.mtwabpin.kolahal.terminal
 
 import android.app.Application
 import android.os.ParcelFileDescriptor
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.apps.AppPrefs
@@ -23,12 +22,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Fixes to typing, the log and its lines, as home runs them. */
 @RunWith(AndroidJUnit4::class)
 class TerminalFixesTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -72,7 +73,7 @@ class TerminalFixesTest {
 
     private fun viewModel(): TerminalViewModel {
         lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+        instrumentation.runOnMainSync { vm = vms.terminal(app) }
         return vm
     }
 

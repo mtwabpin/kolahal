@@ -21,7 +21,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
@@ -39,6 +38,7 @@ import org.junit.runner.RunWith
 /** The tour: how Kolahal works, and the first few settings on the way, each one tap. */
 @RunWith(AndroidJUnit4::class)
 class OnboardingTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
@@ -49,7 +49,7 @@ class OnboardingTest {
     /** The tour, opened from home, on a phone-sized frame. */
     private fun show() {
         compose.runOnUiThread {
-            vm = TerminalViewModel(app, SavedStateHandle())
+            vm = vms.terminal(app)
             vm.openScreen(Screen.ONBOARDING)
         }
         compose.setContent {
@@ -192,7 +192,7 @@ class OnboardingTest {
     }
 
     @Test fun tourOpensIt() {
-        compose.runOnUiThread { vm = TerminalViewModel(app, SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         vm.runCommand("tour")
         compose.waitUntil(5_000) { vm.screen.value == Screen.ONBOARDING }
     }

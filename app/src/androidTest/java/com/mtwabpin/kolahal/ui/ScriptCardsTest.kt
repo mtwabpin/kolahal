@@ -13,7 +13,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.ScriptLang
@@ -34,6 +33,7 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ScriptCardsTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val scripts = ScriptRepository.get(app)
@@ -46,7 +46,7 @@ class ScriptCardsTest {
 
     private fun show(): TerminalViewModel {
         lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = TerminalViewModel(app, SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         compose.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
         compose.waitUntil(5_000) { vm.scriptList.value.isNotEmpty() }
         // Every card's details.

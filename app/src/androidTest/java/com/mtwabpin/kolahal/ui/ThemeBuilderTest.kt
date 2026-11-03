@@ -26,7 +26,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
@@ -46,6 +45,7 @@ import java.io.File
 /** Settings → Look & feel → Your themes: making, changing and deleting a theme. */
 @RunWith(AndroidJUnit4::class)
 class ThemeBuilderTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
@@ -61,7 +61,7 @@ class ThemeBuilderTest {
     /** The builder for [name] (null: a new theme), on a phone-sized frame, as Settings opens it. */
     private fun open(name: String?) {
         compose.runOnUiThread {
-            vm = TerminalViewModel(app, SavedStateHandle())
+            vm = vms.terminal(app)
             vm.openThemeBuilder(name)
         }
         compose.setContent {
