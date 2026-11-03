@@ -143,11 +143,12 @@ class WallpaperMatchTest {
         assertFalse(WallpaperMatch.isMatched(context))
 
         WallpaperMatch.follow(context, Color.BLUE)
-        Thread.sleep(1_500)
+        // Forgotten, not just skipped: it lets go of the wallpaper it had set, for good.
+        waitFor("forgotten") { !context.getSharedPreferences("wallpaper_match", android.content.Context.MODE_PRIVATE).contains("id") }
         assertEquals(theirs, wallpapers.getWallpaperId(system))
         waitFor("still green") { shows(system, Color.GREEN) }
 
-        // Forgotten, not just skipped: another theme later doesn't touch it either.
+        // So another theme later doesn't touch it either.
         WallpaperMatch.follow(context, Color.YELLOW)
         Thread.sleep(500)
         assertEquals(theirs, wallpapers.getWallpaperId(system))

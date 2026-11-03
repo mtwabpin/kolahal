@@ -22,9 +22,16 @@ class ScriptBoundsTest {
     private val scripts = ScriptRepository.get(context)
     private val status = KvStore(context, HostApi.STATUS_SCOPE)
 
+    private val logs = LogRepository.get(context)
+    private val before = logs.maxId()
+
     @After fun tearDown() {
         scripts.byName("bounds")?.let { scripts.delete(it.id) }
         status.set("bounds", null)
+        // Its lines and notifications too: a later run of this class counts them.
+        logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
+        val notifications = context.getSystemService(android.app.NotificationManager::class.java)
+        notifications.activeNotifications.filter { it.tag == "bounds" }.forEach { notifications.cancel(it.tag, it.id) }
     }
 
     private fun refused(what: String, block: () -> Unit) {
@@ -72,7 +79,7 @@ class ScriptBoundsTest {
         val host = HostApi(context, "bounds", scriptId = null, notifyEnabled = true)
         repeat(12) { host.notify("t$it", "b") }
         host.flush()
-        val said = LogRepository.get(context).recent(50).count { "more than ${HostApi.MAX_NOTIFY_PER_RUN} notifications" in it.text }
+        val said = logs.recent(50).count { it.id > before && "more than ${HostApi.MAX_NOTIFY_PER_RUN} notifications" in it.text }
         assertEquals(1, said)
     }
 
@@ -84,7 +91,7 @@ class ScriptBoundsTest {
         )
         for (cmd in listOf("search my clipboard", "g words", "yt words", "maps a place", "wiki words")) assertTrue(cmd, !off.runCommand(cmd))
         off.flush()
-        assertTrue(LogRepository.get(context).recent(50).any { "sends text to a website" in it.text })
+        assertTrue(logs.recent(50).any { it.id > before && "sends text to a website" in it.text })
     }
 
     /** Nor to a `@command` script that goes online: it runs with its own switches, so it could send them on. */
@@ -123,7 +130,14 @@ class ScriptBoundsTest {
         assertEquals(1 + 6 + 2, ScriptScheduler.storedSize("a😀é"))
         val s = scripts.create("bounds", ScriptLang.LUA, "-- @on notification\n-- @uses notifications\nreturn 1")
         // 7.8 KB as UTF-8, under the old check, but 11.7 KB as stored: building the work used to throw.
-        ScriptScheduler.runForEvent(context, s.id, mapOf("name" to "notification", "text" to "😀".repeat(1950)))
+        val wm = androidx.work.WorkManager.getInstance(context)
+        try {
+            ScriptScheduler.runForEvent(context, s.id, mapOf("name" to "notification", "text" to "😀".repeat(1950)))
+            // Queued, its text cut to fit: not dropped.
+            assertEquals(1, wm.getWorkInfosForUniqueWork("script-${s.id}-events").get().size)
+        } finally {
+            wm.cancelUniqueWork("script-${s.id}-events")
+        }
     }
 
     /** An event queued before its switch went off doesn't run the script. */

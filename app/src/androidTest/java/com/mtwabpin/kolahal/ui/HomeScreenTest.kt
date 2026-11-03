@@ -64,6 +64,7 @@ import org.junit.runner.RunWith
 /** The home screen's layout rules, on a frame smaller than the phone. */
 @RunWith(AndroidJUnit4::class)
 class HomeScreenTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
@@ -73,7 +74,7 @@ class HomeScreenTest {
     private fun show(width: Dp, height: Dp): TerminalViewModel {
         // On the main thread, as the activity makes it.
         lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = TerminalViewModel(app, androidx.lifecycle.SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         compose.setContent {
             // The frame is all the room there is: the keyboard (the emulator shows one for the
             // focused prompt) and the system bars are taken out of the window, not of the frame.
@@ -251,7 +252,7 @@ class HomeScreenTest {
         try {
             assumeTrue("this device can't set its time zone from a test", setZone("Pacific/Kiritimati"))
             lateinit var vm: TerminalViewModel
-            compose.runOnUiThread { vm = TerminalViewModel(app, androidx.lifecycle.SavedStateHandle()) }
+            compose.runOnUiThread { vm = vms.terminal(app) }
             val onHome = androidx.compose.runtime.mutableStateOf(true)
             compose.setContent { KolahalTheme { if (onHome.value) TerminalScreen(vm, onPickFolder = {}) } }
             fun shows(zone: String) {
@@ -274,7 +275,7 @@ class HomeScreenTest {
     /** The header's ⚙ shows no word; a screen reader still has one to say. */
     @Test fun headerSettingsHasANameForScreenReaders() {
         lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = TerminalViewModel(app, androidx.lifecycle.SavedStateHandle()) }
+        compose.runOnUiThread { vm = vms.terminal(app) }
         // As Settings shows home, not typing: the emulator's keyboard, up or not, would otherwise
         // decide between the full header and the one-line one (which has no ⚙).
         compose.setContent {
@@ -348,15 +349,21 @@ class HomeScreenTest {
     @Test fun aClearedScreenComesBackWithUndo() {
         val logs = LogRepository.get(app)
         val mark = "before the clear ${System.nanoTime()}"
-        logs.add(com.mtwabpin.kolahal.data.LogKind.OUTPUT, mark)
+        val id = logs.add(com.mtwabpin.kolahal.data.LogKind.OUTPUT, mark)
         val vm = show(360.dp, 700.dp)
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
-        compose.runOnIdle { vm.clearScreen() }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Screen cleared").fetchSemanticsNodes().isNotEmpty() }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("Undo").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Screen cleared").assertDoesNotExist()
+        try {
+            compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
+            compose.runOnIdle { vm.clearScreen() }
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Screen cleared").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithText("Undo").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Screen cleared").assertDoesNotExist()
+        } finally {
+            // Failed before the tap: the log stays cleared for every later test unless it's undone.
+            compose.runOnIdle { vm.undo() }
+            logs.delete(id)
+        }
     }
 
     /** gesture.swipe-up is none by default, which turns swiping up off; an action turns it on. */
@@ -369,10 +376,15 @@ class HomeScreenTest {
         }
         fun ran() = logs.recent(50).any { it.text == mark }
 
+        // Nothing at all runs, not only the action set later.
+        val before = logs.maxId()
         swipe()
         compose.waitForIdle()
         Thread.sleep(500)
-        assertFalse("swiping up ran its action while it was none", ran())
+        assertFalse(
+            "swiping up ran something while it was none",
+            logs.recent(20).any { it.id > before && (it.kind == com.mtwabpin.kolahal.data.LogKind.COMMAND || it.kind == com.mtwabpin.kolahal.data.LogKind.ERROR) },
+        )
 
         compose.runOnIdle { config.set(Keys.GESTURE_SWIPE_UP, "echo $mark") }
         swipe()

@@ -31,7 +31,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CrashReports
@@ -55,6 +54,7 @@ private const val TEST_THEME = "tb-test"
 /** Settings: home showing through while a look setting changes, and the setting rows. */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
@@ -78,7 +78,7 @@ class SettingsScreenTest {
     /** Settings open on [page] (null: the main page), on a phone-sized frame, as MainActivity shows it. */
     private fun show(page: String?) {
         compose.runOnUiThread {
-            vm = TerminalViewModel(app, SavedStateHandle())
+            vm = vms.terminal(app)
             vm.settingsCategory.value = page
         }
         compose.setContent {
@@ -105,12 +105,19 @@ class SettingsScreenTest {
         home.assertExists()
         compose.onNodeWithText("Release to return").assertIsDisplayed()
 
-        eye.performTouchInput { up() }
-        compose.waitForIdle()
-        assertNull(vm.peek.value)
-        // Home fades out as Settings comes back, then is gone.
-        compose.mainClock.advanceTimeBy(PEEK_FADE_MS + 100L)
-        home.assertDoesNotExist()
+        // Home fades out as Settings comes back, then is gone: still there halfway through the fade.
+        compose.mainClock.autoAdvance = false
+        try {
+            eye.performTouchInput { up() }
+            compose.mainClock.advanceTimeByFrame()
+            assertNull(vm.peek.value)
+            compose.mainClock.advanceTimeBy(PEEK_FADE_MS / 2L)
+            home.assertExists()
+            compose.mainClock.advanceTimeBy(PEEK_FADE_MS + 100L)
+            home.assertDoesNotExist()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
     }
 
     @Test fun aTapOnTheEyeSaysToHold() {
@@ -430,7 +437,7 @@ class SettingsScreenTest {
     /** Home must not stay drawn under whatever comes next. */
     @Test fun peekEndsWhenSettingsGoesAway() {
         compose.runOnUiThread {
-            vm = TerminalViewModel(app, SavedStateHandle())
+            vm = vms.terminal(app)
             vm.peek(TerminalViewModel.Peek(null, typing = false))
             vm.openScreen(Screen.SCRIPTS)
             assertNull(vm.peek.value)

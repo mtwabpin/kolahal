@@ -48,6 +48,7 @@ class CommandFamiliesTest {
     private val crashDir = File(context.filesDir, "crash")
 
     @Before fun setUp() {
+        clearMine()
         apps.refresh()
         val deadline = System.currentTimeMillis() + 5_000
         while (apps.apps.value.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(50)
@@ -57,6 +58,20 @@ class CommandFamiliesTest {
         prefs.setAlias("tt", null)
         Keys.ALL.forEach(config::reset)
         crashDir.deleteRecursively()
+        clearMine()
+    }
+
+    /** This class's todos, notes and reminders (each says cptest), and the reminders' alarms: a test that fails leaves none behind. */
+    private fun clearMine() {
+        val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(context)
+        todos.all().filter { "cptest" in it.text }.forEach { todos.remove(it.id) }
+        val notes = com.mtwabpin.kolahal.productivity.NoteStore.get(context)
+        notes.all().filter { "cptest" in it.text }.forEach { notes.remove(it.id) }
+        val reminders = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
+        reminders.all().filter { "cptest" in it.text }.forEach {
+            com.mtwabpin.kolahal.productivity.ReminderScheduler.cancel(context, it.id)
+            reminders.remove(it.id)
+        }
     }
 
     /** Runs [line] and returns the non-command lines it printed. */
@@ -401,8 +416,9 @@ class CommandFamiliesTest {
         // The time elsewhere: each place on a line of its own, the detail in its second column.
         assertEquals(listOf("Tokyo", "New York"), run("date tokyo new york"))
         assertTrue(run("date nowhere").single().startsWith("Unknown place"))
+        // The title, the day names, and four to six weeks (a February starting on the week's first day has four).
         val cal = run("cal")
-        assertTrue(cal.toString(), cal.size in 7..8 && cal[1].trim().split(" ").size == 7)
+        assertTrue(cal.toString(), cal.size in 6..8 && cal[1].trim().split(" ").size == 7)
         assertTrue(run("cal nope").single().startsWith("Unknown month"))
     }
 }

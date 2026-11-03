@@ -55,6 +55,9 @@ class ScriptAlarmsTest {
         ScriptScheduler.sync(context, scripts.byId(script.id)!!)
         // An alarm each.
         assertTrue(alarms().joinToString("\n"), alarms().any { "${script.id}/23:00" in it } && alarms().any { "${script.id}/07:00" in it })
+        // As when it fires: the alarm is gone, and only the run can set the next one.
+        ScriptAlarms.cancel(context, script.id, "23:00")
+        assertTrue(alarms().none { "${script.id}/23:00" in it })
 
         context.sendBroadcast(
             Intent(context, ScriptAlarmReceiver::class.java)
@@ -69,8 +72,10 @@ class ScriptAlarmsTest {
             ran = logs.recent(limit = 200).firstOrNull { it.source == name }?.text?.let(StyledText::plain)
         }
         assertEquals("ran at at 23:00", ran)
-        // Still one for each time.
-        assertTrue(alarms().any { "${script.id}/23:00" in it })
+        // The next one is set again.
+        val deadline = System.currentTimeMillis() + 5_000
+        while (alarms().none { "${script.id}/23:00" in it } && System.currentTimeMillis() < deadline) Thread.sleep(100)
+        assertTrue(alarms().joinToString("\n"), alarms().any { "${script.id}/23:00" in it })
     }
 
     @Test fun switchedOffItsAlarmsGo() {

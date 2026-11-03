@@ -218,6 +218,7 @@ class LibraryScriptsTest {
 
     /** Night Do Not Disturb: on at its evening time and off in the morning, but only what it turned on. */
     @Test fun nightDndTurnsOffOnlyWhatItTurnedOn() {
+        val had = nm.isNotificationPolicyAccessGranted
         shell("cmd notification allow_dnd ${context.packageName}")
         val all = android.app.NotificationManager.INTERRUPTION_FILTER_ALL
         val priority = android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
@@ -248,6 +249,8 @@ class LibraryScriptsTest {
         } finally {
             nm.setInterruptionFilter(all)
             shell("cmd notification set_dnd off")
+            // Do Not Disturb access as it was.
+            if (!had) shell("cmd notification disallow_dnd ${context.packageName}")
         }
     }
 

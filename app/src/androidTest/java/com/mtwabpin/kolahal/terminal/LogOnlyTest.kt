@@ -3,7 +3,6 @@ package com.mtwabpin.kolahal.terminal
 import android.app.Application
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogContext
@@ -14,12 +13,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** `log only …`, "Only …" on a line, and `/@` in a search. */
 @RunWith(AndroidJUnit4::class)
 class LogOnlyTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -37,7 +38,7 @@ class LogOnlyTest {
 
     private fun viewModel(): TerminalViewModel {
         lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+        instrumentation.runOnMainSync { vm = vms.terminal(app) }
         return vm
     }
 
@@ -65,9 +66,11 @@ class LogOnlyTest {
         waitUntil("the new line") { vm.entries.value.lastOrNull()?.text == "lo third comic" }
         waitUntil("counted") { vm.filterCount.value == 3 }
         logs.add(LogKind.SCRIPT, "lo another release", "loreleases", LogContext.of(LogContext.SCRIPT to "loreleases"))
-        Thread.sleep(400)
-        assertEquals(listOf("lo first comic", "lo second comic", "lo third comic"), vm.entries.value.map { it.text })
-        assertEquals(3, vm.filterCount.value)
+        // A line it shows after that one: once it's in, the other was read and left out.
+        logs.add(LogKind.SCRIPT, "lo fourth comic", "loxkcd", LogContext.of(LogContext.SCRIPT to "loxkcd"))
+        waitUntil("the line after it") { vm.entries.value.lastOrNull()?.text == "lo fourth comic" }
+        assertEquals(listOf("lo first comic", "lo second comic", "lo third comic", "lo fourth comic"), vm.entries.value.map { it.text })
+        assertEquals(4, vm.filterCount.value)
         // Another command ends it, so it and what it prints show.
         vm.runCommand("echo lo done")
         waitUntil("everything again") { vm.filter.value == null && vm.entries.value.any { it.text == "lo a release" } }

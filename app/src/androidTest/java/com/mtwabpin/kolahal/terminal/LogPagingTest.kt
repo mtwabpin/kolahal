@@ -1,7 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.app.Application
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Db
@@ -10,12 +9,14 @@ import com.mtwabpin.kolahal.data.LogRepository
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** How home's page of the log follows the log: older pages, moved and deleted lines. */
 @RunWith(AndroidJUnit4::class)
 class LogPagingTest {
+    @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -25,11 +26,14 @@ class LogPagingTest {
     @After fun tearDown() {
         // By hand, not line by line: a few hundred lines were added.
         if (first != Long.MAX_VALUE) Db.get(app).writableDatabase.delete("logs", "id >= ?", arrayOf(first.toString()))
+        if (hid) logs.unhide()
     }
+
+    private var hid = false
 
     private fun viewModel(): TerminalViewModel {
         lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = TerminalViewModel(app, SavedStateHandle()) }
+        instrumentation.runOnMainSync { vm = vms.terminal(app) }
         return vm
     }
 
@@ -64,9 +68,12 @@ class LogPagingTest {
 
     /** Scrolled back to the log's start, then down again: the page shrinks, and scrolling back reads older lines again. */
     @Test fun olderLinesLoadAgainAfterThePageShrinks() {
+        // Only this test's lines show, however long the log is: the start is reached within the cap.
+        logs.hideScreen(logs.maxId())
+        hid = true
         repeat(450) { add("$token $it") }
         val total = logs.recent(5_000).size
-        assertTrue("$total lines", total < 5_000)
+        assertEquals(450, total)
         val vm = viewModel()
         waitUntil("the newest page") { vm.entries.value.lastOrNull()?.text == "$token 449" }
         while (vm.entries.value.size < total) {

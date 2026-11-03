@@ -49,11 +49,14 @@ class LogTrimTest {
     /** Home trims on its own as the log grows, so notifications can't pile up between script runs. */
     @Test fun homeTrimsOnItsOwnAfterEnoughLines() {
         logs.keepLines = 500
-        repeat(LogRepository.TRIM_EVERY) { logs.add(LogKind.OUTPUT, "$token output $it") }
+        repeat(600) { logs.add(LogKind.OUTPUT, "$token output $it") }
         logs.trimIfOverdue()
-        val mine = mine()
-        assertTrue(mine.size.toString(), mine.size <= 500)
-        repeat(600) { logs.add(LogKind.OUTPUT, "$token more $it") }
+        assertEquals(500, mine().size)
+        // Not before enough lines came since: a trim at every line would cost a query each.
+        repeat(LogRepository.TRIM_EVERY - 1) { logs.add(LogKind.OUTPUT, "$token more $it") }
+        logs.trimIfOverdue()
+        assertEquals(500 + LogRepository.TRIM_EVERY - 1, mine().size)
+        logs.add(LogKind.OUTPUT, "$token last")
         logs.trimIfOverdue()
         assertEquals(500, mine().size)
     }

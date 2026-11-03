@@ -135,6 +135,8 @@ class ScriptSecretsTest {
             h.finish()
             ended.countDown()
             call.join(5_000)
+            // Finished, so nothing it does can land after the check.
+            assertFalse("the request never ended", call.isAlive)
             assertNull(KvStore(context, "repl").get("http.cache:$url"))
         }
     }

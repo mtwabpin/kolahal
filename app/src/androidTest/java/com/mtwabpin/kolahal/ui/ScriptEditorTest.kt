@@ -98,9 +98,12 @@ class ScriptEditorTest {
         show(changed = "runs every 1h")
         compose.onNodeWithTag("editor").performTextReplacement("-- @every 1h\nlocal r = http.gte('x')")
         compose.onNodeWithText("[save]").performClick()
-        compose.waitForIdle()
-        val shown = compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
-        assertEquals("Saved · runs every 1h · line 2: http.gte isn't in the API: http.get?", shown)
+        fun shown() = runCatching {
+            compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
+        }.getOrDefault("")
+        // The check runs off the main thread: waiting for idle doesn't wait for it.
+        compose.waitUntil(5_000) { "line 2" in shown() }
+        assertEquals("Saved · runs every 1h · line 2: http.gte isn't in the API: http.get?", shown())
     }
 
     @Test fun aRunsLinesShowUnderTheCode() {

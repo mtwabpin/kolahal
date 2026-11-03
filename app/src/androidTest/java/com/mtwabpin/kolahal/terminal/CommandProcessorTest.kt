@@ -149,22 +149,31 @@ class CommandProcessorTest {
         assertEquals(emptyList<String>(), times())
     }
 
+    /** Waits up to 5 s for the kept app list to reload into what [done] wants. */
+    private fun appsUntil(done: () -> Boolean) {
+        val until = System.currentTimeMillis() + 5_000
+        while (!done() && System.currentTimeMillis() < until) Thread.sleep(50)
+        assertTrue("the app list didn't reload", done())
+    }
+
     @Test fun hideAndRenameApp() {
         val app = apps.apps.value.first { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
+        fun now() = apps.apps.value.first { it.key == app.key }
         try {
             prefs.setHidden(app.key, true)
             apps.refresh()
-            Thread.sleep(500)
+            appsUntil { now().hidden }
             assertFalse(apps.search(app.originalLabel).any { it.key == app.key })
             assertTrue(apps.search(app.originalLabel, includeHidden = true).any { it.key == app.key })
             prefs.setLabel(app.key, "Zz Renamed")
             apps.refresh()
-            Thread.sleep(500)
-            assertEquals("Zz Renamed", apps.apps.value.first { it.key == app.key }.label)
+            appsUntil { now().label == "Zz Renamed" }
         } finally {
             prefs.setHidden(app.key, false)
             prefs.setLabel(app.key, null)
             apps.refresh()
+            // Later tests find it as it was.
+            appsUntil { !now().hidden && now().label == app.originalLabel }
         }
     }
 }

@@ -118,8 +118,18 @@ class ScriptEngineTest {
     }
 
     /**
-     * A string doubling itself outruns any instruction count: in the :script process the watchdog
-     * stops it, once (it doesn't run again), and the app lives on.
+     * Waits until no script run is queued or running: a run stopped by its process going down that
+     * would run again is queued for it, after WorkManager's back-off (10 s at least).
+     */
+    private fun scriptRunsSettle() {
+        val wm = androidx.work.WorkManager.getInstance(context)
+        val until = System.currentTimeMillis() + 60_000
+        while (System.currentTimeMillis() < until && wm.getWorkInfosByTag(ScriptWorker::class.java.name).get().any { !it.state.isFinished }) Thread.sleep(250)
+    }
+
+    /**
+     * A string doubling itself outruns any instruction count: in the :script process its memory cap or
+     * the watchdog stops it, once (it doesn't run again), and the app lives on.
      */
     @Test fun aRunawayStringIsStoppedInTheScriptProcess() {
         val logs = LogRepository.get(context)
@@ -135,7 +145,7 @@ class ScriptEngineTest {
         val deadline = System.currentTimeMillis() + 30_000
         while (System.currentTimeMillis() < deadline && stops().isEmpty()) Thread.sleep(250)
         assertTrue("never stopped", stops().isNotEmpty())
-        Thread.sleep(5_000)
+        scriptRunsSettle()
         assertEquals("ran again: ${stops()}", 1, logs.recent(200).count { it.text == marker })
     }
 
@@ -217,7 +227,7 @@ class ScriptEngineTest {
         val deadline = System.currentTimeMillis() + ScriptWorker.TIMEOUT_MS + 30_000
         while (System.currentTimeMillis() < deadline && stops().isEmpty()) Thread.sleep(500)
         assertTrue("never stopped", stops().isNotEmpty())
-        Thread.sleep(5_000)
+        scriptRunsSettle()
         assertEquals("ran again", 1, logs.recent(200).count { it.text == marker })
     }
 

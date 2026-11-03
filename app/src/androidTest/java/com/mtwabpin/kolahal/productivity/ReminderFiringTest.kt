@@ -49,7 +49,8 @@ class ReminderFiringTest {
         waitFor("and it says so") {
             logs.recent(50).any { it.id > before && it.kind == LogKind.ERROR && "firing-bad" in it.text && "won't repeat" in it.text }
         }
-        assertTrue("it still reminds", logs.recent(50).any { it.id > before && it.text == "Reminder: firing-bad" })
+        // Logged after the notification is posted, a moment after the line above.
+        waitFor("it still reminds") { logs.recent(50).any { it.id > before && it.text == "Reminder: firing-bad" } }
     }
 
     @Test fun aRepeatingOneIsSetForItsNextTime() {
