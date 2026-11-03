@@ -46,10 +46,16 @@ class KolahalNotificationListener : NotificationListenerService() {
     /** No copy is on disk since this listener cleared it: nothing to delete again at the next notification. */
     @Volatile private var mirrorCleared = false
 
+    /**
+     * The copy's writes and clears, one at a time: a write that's already writing can't be cancelled,
+     * and a clear started meanwhile would end before it, leaving a copy marked cleared.
+     */
+    private val mirrorWork = Dispatchers.IO.limitedParallelism(1)
+
     /** Scripts run in the :script process, so they read a snapshot of the feed from the shared database. */
     private fun mirror() {
         mirrorJob?.cancel()
-        mirrorJob = scope.launch {
+        mirrorJob = scope.launch(mirrorWork) {
             kotlinx.coroutines.delay(400.milliseconds)
             // Only kept while a script may read it (`@uses notifications`); otherwise no copy at all.
             if (!com.mtwabpin.kolahal.script.TriggerDispatcher.get(this@KolahalNotificationListener).wantsNotifications()) {
