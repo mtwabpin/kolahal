@@ -139,7 +139,7 @@ class AppCommands(
             }
             else -> appGrid(list)
         }
-        info("${list.size} apps · " + kinds.joinToString("  ") { "${it.label} [${it.tag}]" })
+        info("${list.size} ${if (list.size == 1) "app" else "apps"} · " + kinds.joinToString("  ") { "${it.label} [${it.tag}]" })
     }
 
     private fun resolveApp(args: List<String>, includeHidden: Boolean = false): List<AppEntry> =
@@ -189,7 +189,7 @@ class AppCommands(
             val flag = if (app.profile.kind == ProfileKind.PRIVATE) "-s" else "-w"
             logs.add(
                 LogKind.INFO,
-                "${app.profile.kind.label} profile is paused — tap to resume it and open ${app.label}",
+                "${app.profile.kind.title} profile is paused — tap to resume it and open ${app.label}",
                 ctx = LogContext.of(LogContext.RUN to "open ${app.label} $flag --resume"),
             )
             return
@@ -218,7 +218,7 @@ class AppCommands(
                     return@background
                 }
             }
-            error("${app.profile.kind.label} profile didn't resume in time — try again")
+            error("${app.profile.kind.title} profile didn't resume in time — try again")
         }
     }
 
@@ -238,13 +238,13 @@ class AppCommands(
             return
         }
         when (args.firstOrNull()) {
-            null, "status" -> info("${kind.label} profile: ${if (profile.quiet) "paused" else "on"}")
+            null, "status" -> info("${kind.title} profile: ${if (profile.quiet) "paused" else "on"}")
             "on", "off" -> {
                 val quiet = args[0] == "off"
                 if (Build.VERSION.SDK_INT < 29) {
                     error("Toggling profiles needs Android 10+")
                 } else if (apps.setQuietMode(profile, quiet)) {
-                    info("${kind.label} profile turning ${args[0]}…")
+                    info("${kind.title} profile turning ${args[0]}…")
                 } else {
                     error("Couldn't change ${kind.label} profile (is Kolahal the default launcher? run 'home')")
                 }
@@ -297,6 +297,9 @@ class AppCommands(
             )
         }
     }
+
+    /** The profile's name at the start of a sentence. */
+    private val ProfileKind.title get() = label.replaceFirstChar { it.uppercase() }
 
     private fun duration(ms: Long): String {
         val minutes = ms / 60_000
