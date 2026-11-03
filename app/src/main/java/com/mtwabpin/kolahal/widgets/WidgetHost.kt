@@ -54,9 +54,30 @@ class WidgetHost private constructor(context: Context) {
 
         // A provider was removed, updated or (un)masked: drop widgets that no longer exist.
         override fun onProvidersChanged() {
+            forgetInfos()
             prune()
             _providersVersion.value++
         }
+    }
+
+    /**
+     * What [cachedInfo] read for each id. Read again after each start ([startListening]: providers
+     * may have changed while nothing listened), when providers change, and for an id placed or let go.
+     */
+    private val infos = HashMap<Int, AppWidgetProviderInfo?>()
+
+    /**
+     * Views by id, kept for a return to home: home is built again after a full-screen page (Settings,
+     * Widgets), and a kept view saves asking the widget's app for its content and inflating it again.
+     * Only a view made in the same activity, for the same details, is used again.
+     */
+    private val views = HashMap<Int, Pair<AppWidgetHostView, AppWidgetProviderInfo>>()
+
+    private fun forgetInfos() = synchronized(infos) { infos.clear() }
+
+    private fun forget(id: Int) {
+        synchronized(infos) { infos.remove(id) }
+        synchronized(views) { views.remove(id) }
     }
 
     private val _widgets = MutableStateFlow(
@@ -94,6 +115,7 @@ class WidgetHost private constructor(context: Context) {
 
     fun startListening() {
         if (listening) return
+        forgetInfos()
         listening = runCatching { host.startListening() }.isSuccess
         prune()
     }
@@ -123,6 +145,7 @@ class WidgetHost private constructor(context: Context) {
     /** Gives up an id from an unfinished flow. */
     fun discard(id: Int) {
         synchronized(inFlight) { inFlight -= id }
+        forget(id)
         runCatching { host.deleteAppWidgetId(id) }
     }
 
@@ -132,6 +155,7 @@ class WidgetHost private constructor(context: Context) {
      */
     fun place(id: Int, info: AppWidgetProviderInfo, replacing: String? = null) {
         synchronized(inFlight) { inFlight -= id }
+        forget(id)
         update { all ->
             val old = replacing?.let { key -> all.firstOrNull { it.key == key } }
             val placed = PlacedWidget(
@@ -149,7 +173,7 @@ class WidgetHost private constructor(context: Context) {
 
     fun remove(key: String) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
-        w.id?.let { runCatching { host.deleteAppWidgetId(it) } }
+        w.id?.let { forget(it); runCatching { host.deleteAppWidgetId(it) } }
         update { all -> all.filterNot { it.key == key } }
     }
 
@@ -183,6 +207,31 @@ class WidgetHost private constructor(context: Context) {
     // ---- providers ------------------------------------------------------------------------
 
     fun info(id: Int): AppWidgetProviderInfo? = runCatching { manager.getAppWidgetInfo(id) }.getOrNull()
+
+    /** [info] as last read for [id], since this start or the last change of providers: screens ask while they're built. */
+    fun cachedInfo(id: Int): AppWidgetProviderInfo? = synchronized(infos) {
+        if (id in infos) infos[id] else info(id).also { infos[id] = it }
+    }
+
+    /**
+     * The view for widget [id] in [context] (an activity): the one kept from the last time home or the
+     * Widgets page showed it, or a new one from the host, which then gets the widget's updates.
+     */
+    fun view(context: Context, id: Int, info: AppWidgetProviderInfo): AppWidgetHostView = synchronized(views) {
+        views[id]?.let { (view, madeFor) ->
+            if (view.context === context && madeFor === info) {
+                // Still inside the holder of the screen that showed it last, which is gone.
+                (view.parent as? android.view.ViewGroup)?.removeView(view)
+                return view
+            }
+        }
+        host.createView(context, id, info).also { views[id] = it to info }
+    }
+
+    /** Lets go of the views made in [context], an activity being destroyed. */
+    fun releaseViews(context: Context) = synchronized(views) {
+        views.values.removeAll { (view, _) -> view.context === context }
+    }
 
     fun serialOf(user: UserHandle): Long = userManager.getSerialNumberForUser(user)
 
@@ -273,7 +322,7 @@ class WidgetHost private constructor(context: Context) {
             available
         }
         if (dead.isNotEmpty()) {
-            dead.forEach { w -> w.id?.let { runCatching { host.deleteAppWidgetId(it) } } }
+            dead.forEach { w -> w.id?.let { forget(it); runCatching { host.deleteAppWidgetId(it) } } }
             // Its app still offers it: the id was lost (Android's own backup restored the list on a
             // new phone, where ids differ). It waits on the Widgets page, one tap to add again.
             val offered = runCatching { providers().map { it.flat to it.serial } }.getOrDefault(emptyList()).toSet()
@@ -398,8 +447,14 @@ class KolahalWidgetView(context: Context) : AppWidgetHostView(context) {
         postDelayed(report, 150)
     }
 
+    /** A settled size not reported yet: a view kept for later ([WidgetHost.view]) reports it when shown again. */
     private var pending: Pair<Float, Float>? = null
-    private val report = Runnable { pending?.let { (w, h) -> reportSize(w, h) } }
+    private val report = Runnable { pending?.let { (w, h) -> pending = null; reportSize(w, h) } }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (pending != null) postDelayed(report, 150)
+    }
 
     private fun reportSize(wDp: Float, hDp: Float) {
         runCatching {

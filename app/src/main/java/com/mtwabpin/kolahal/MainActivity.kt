@@ -110,6 +110,12 @@ class MainActivity : ComponentActivity() {
         com.mtwabpin.kolahal.ui.HomeClock.release(this)
     }
 
+    override fun onDestroy() {
+        // The widget views kept for a return to home were made in this activity.
+        WidgetHost.get(this).releaseViews(this)
+        super.onDestroy()
+    }
+
     @Deprecated("Needed for AppWidgetHost.startAppWidgetConfigureActivityForResult, which reports here")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")

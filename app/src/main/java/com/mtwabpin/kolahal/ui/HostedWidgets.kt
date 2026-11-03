@@ -82,7 +82,7 @@ internal fun HostedWidget(
         placeholder(if (pausedKind == ProfileKind.PRIVATE) "private space locked" else "${pausedKind.label} profile paused")
         return
     }
-    val info = remember(id, providersVersion) { widgets.info(id) }
+    val info = remember(id, providersVersion) { widgets.cachedInfo(id) }
     if (info == null) {
         placeholder("widget unavailable")
         return
@@ -91,7 +91,8 @@ internal fun HostedWidget(
     key(id) {
         AndroidView(
             factory = { ctx ->
-                widgets.host.createView(ctx, id, info).apply {
+                // Home is built again after Settings or the Widgets page; the widget's view is kept.
+                widgets.view(ctx, id, info).apply {
                     (this as? KolahalWidgetView)?.onLongPress = { longPress?.invoke() }
                 }
             },

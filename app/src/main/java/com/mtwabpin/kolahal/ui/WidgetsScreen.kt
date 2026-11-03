@@ -117,7 +117,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     // Each label is a binder call and a load: only again when widgets come or go, not on every resize step.
     val placed = remember(all) { all.map { Triple(it.key, it.id, it.provider) } }
     val labels = remember(placed, providersVersion) {
-        placed.associate { (key, id, provider) -> key to (id?.let { widgets.info(it) }?.loadLabel(context.packageManager) ?: provider.substringAfterLast('.')) }
+        placed.associate { (key, id, provider) -> key to (id?.let { widgets.cachedInfo(it) }?.loadLabel(context.packageManager) ?: provider.substringAfterLast('.')) }
     }
     val chosen = panel.firstOrNull { it.key == selected }
 
