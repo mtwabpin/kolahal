@@ -2,6 +2,9 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import android.content.Context
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -59,8 +62,13 @@ class ScriptLibraryScreenTest {
     private fun show() {
         compose.runOnUiThread { vm = vms.terminal(app) }
         compose.setContent { ScriptLibraryScreen(vm) }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Countdowns").fetchSemanticsNodes().isNotEmpty() }
+        // In a full run, with the log and scripts earlier classes left, the first load is slower.
+        runCatching { compose.waitUntil(15_000) { compose.onAllNodesWithText("Countdowns").fetchSemanticsNodes().isNotEmpty() } }
+            .onFailure { throw AssertionError("no countdown row; shown: " + shownTexts(), it) }
     }
+
+    private fun shownTexts() = compose.onAllNodes(SemanticsMatcher("any node") { true }).fetchSemanticsNodes()
+        .flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty().map { t -> t.text } }.distinct().take(40)
 
     private fun waitForText(text: String) {
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
