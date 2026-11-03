@@ -50,7 +50,8 @@ data class NowPlaying(
 
     fun positionNow(now: Long = System.currentTimeMillis()): Long {
         if (position < 0) return -1
-        val p = if (state == PlaybackState.STATE_PLAYING) position + ((now - positionAt) * speed).toLong() else position
+        // Never before the start: [positionAt] can be a moment ahead of [now] (two clocks, read apart).
+        val p = if (state == PlaybackState.STATE_PLAYING) (position + ((now - positionAt) * speed).toLong()).coerceAtLeast(0) else position
         return if (duration > 0) p.coerceAtMost(duration) else p
     }
 

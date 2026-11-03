@@ -107,4 +107,10 @@ class NowPlayingTest {
         assertFalse(np(state = PlaybackState.STATE_NONE).showInHeader(at))
         assertFalse(np(state = PlaybackState.STATE_ERROR).showInHeader(at))
     }
+
+    /** Its time read a moment ahead of the clock (two clocks, read apart): the start, not a negative time. */
+    @Test fun neverBeforeTheStart() {
+        assertEquals(0L, np(position = 0).positionNow(at - 800))
+        assertEquals(0L, np(position = 100).positionNow(at - 800))
+    }
 }
