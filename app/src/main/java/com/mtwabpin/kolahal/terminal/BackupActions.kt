@@ -65,7 +65,10 @@ class BackupActions(
 
     /** The backup folder and the last backup's time, for Settings; null with no folder. */
     fun backupFolderLine(): String? {
-        val name = com.mtwabpin.kolahal.data.AutoBackup.folderName(context) ?: return null
+        if (com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) return null
+        // Kept, but Kolahal may no longer open it (restored on another phone, or the folder deleted):
+        // backups fail until it's picked again.
+        val name = com.mtwabpin.kolahal.data.AutoBackup.folderName(context) ?: return "Can't be written: tap to pick it again"
         val last = com.mtwabpin.kolahal.data.AutoBackup.last(context)?.let {
             "last backup " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(it))
         }
