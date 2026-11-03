@@ -7,6 +7,8 @@ import java.io.StringReader
 
 /** Minimal RSS 2.0 / RSS 1.0 (RDF) / Atom parser. */
 object RssParser {
+    private val SPACES = Regex("\\s+")
+
     data class Item(
         val title: String,
         val link: String?,
@@ -113,7 +115,7 @@ object RssParser {
         Html.fromHtml(s, Html.FROM_HTML_MODE_COMPACT).toString()
 
     private fun cleanSummary(s: String): String? {
-        val text = stripHtml(s).replace(Regex("\\s+"), " ").trim()
+        val text = stripHtml(s).replace(SPACES, " ").trim()
         if (text.isEmpty()) return null
         return if (text.length > SUMMARY_MAX) text.take(SUMMARY_MAX - 1) + "…" else text
     }

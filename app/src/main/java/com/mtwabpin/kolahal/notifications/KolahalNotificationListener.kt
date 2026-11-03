@@ -132,8 +132,11 @@ class KolahalNotificationListener : NotificationListenerService() {
         return runCatching { la.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_PRIVATE }.getOrDefault(false)
     }
 
-    private fun isPrivateSerial(serial: Long): Boolean =
-        runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()?.let(::isPrivate) ?: false
+    /** Your own profile's serial: never the private space, and most notifications come from it. */
+    private val ownSerial by lazy { runCatching { userManager.getSerialNumberForUser(android.os.Process.myUserHandle()) }.getOrDefault(-1L) }
+
+    private fun isPrivateSerial(serial: Long): Boolean = serial != ownSerial &&
+        (runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()?.let(::isPrivate) ?: false)
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
         NotificationStore.markRemoved(sbn.key)
