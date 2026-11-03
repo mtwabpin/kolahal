@@ -19,11 +19,13 @@ object LineDiff {
 
     /**
      * Every line of [old] and [new], each the same, only in [old] (removed) or only in [new] (added).
-     * A text's last newline ends its last line rather than starting an empty one.
+     * A text's last newline ends its last line rather than starting an empty one, an empty text has
+     * no lines, and Windows line endings are line endings.
      */
     fun lines(old: String, new: String): List<Line> {
-        val a = old.removeSuffix("\n").lines()
-        val b = new.removeSuffix("\n").lines()
+        fun split(text: String) = text.replace("\r\n", "\n").removeSuffix("\n").let { if (it.isEmpty()) emptyList() else it.lines() }
+        val a = split(old)
+        val b = split(new)
         var start = 0
         while (start < a.size && start < b.size && a[start] == b[start]) start++
         var endA = a.size

@@ -31,7 +31,7 @@ class LineDiffTest {
 
     @Test fun anEmptyLineAtTheEndStillCounts() = assertEquals(listOf("S a", "A "), kinds("a\n", "a\n\n"))
 
-    @Test fun fromNothing() = assertEquals(listOf("R ", "A a", "A b"), kinds("", "a\nb"))
+    @Test fun fromNothing() = assertEquals(listOf("A a", "A b"), kinds("", "a\nb"))
 
     @Test fun hunksKeepThreeLinesAroundAChangeAndCountTheRest() {
         val old = (1..20).joinToString("\n")
@@ -64,5 +64,13 @@ class LineDiffTest {
         assertEquals(SAME, lines.first().kind)
         assertEquals(SAME, lines.last().kind)
         assertEquals(List(1500) { REMOVED } + List(1500) { ADDED }, lines.drop(1).dropLast(1).map { it.kind })
+    }
+
+    /** A copy saved with Windows line endings shows no lines changed, nor an empty one added. */
+    @Test fun windowsLineEndingsAreLineEndings() = assertEquals(listOf("S a", "S b"), kinds("a\r\nb\r\n", "a\nb"))
+
+    @Test fun anEmptyTextHasNoLines() {
+        assertEquals(listOf("R a"), kinds("a", ""))
+        assertEquals(emptyList<String>(), kinds("", ""))
     }
 }
