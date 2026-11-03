@@ -299,7 +299,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<UiEvent> = _events
 
-    private var history: List<String> = emptyList()
+    /** Written by [reload], off the main thread; read on it. */
+    @Volatile private var history: List<String> = emptyList()
     private var historyIndex = -1
     private var draft = ""
 
@@ -358,7 +359,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /** Every visible line loaded, before the private-space filter; what the next reload builds on. */
-    private var loaded: List<LogEntry> = emptyList()
+    @Volatile private var loaded: List<LogEntry> = emptyList()
     /** The newest line loaded so far, kept across an emptied page ([onPause] records it as seen). */
     @Volatile private var newestLoaded: Long? = null
     private var loadedStructure = -1L
@@ -381,8 +382,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * (a restore, a hide, a clear), when a trim reached into it, and once a minute (another process
      * may have changed what this one didn't see). Scripts, history and the todo and feed caches are
      * read only when something they show could have changed.
+     *
+     * All on one background thread: each trip back to the main thread between the reads waited for
+     * whatever it was doing (a frame while typing or scrolling), so new lines showed later. Only this
+     * collector writes the fields it keeps; the main thread reads the page from [rows].
      */
-    private suspend fun reload() {
+    private suspend fun reload() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         // Home keeps the log at its cap as it grows: a trim every few hundred lines it wrote.
         withContext(Dispatchers.IO) { logs.trimIfOverdue() }
