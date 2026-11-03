@@ -50,7 +50,8 @@ class TerminalHeaderTest {
         KolahalTheme { Box(Modifier.width(200.dp)) { CompactHeader(status, 0, config, 0, onExpand = {}) } }
     }
 
-    @Test fun theFullHeaderShowsItsDefaults() {
+    /** By default, the clock (the gap before the date is for it), the date and the settings button. */
+    @Test fun theFullHeaderHasTheClockDateAndSettings() {
         full()
         compose.onNodeWithContentDescription("Settings").assertExists()
         compose.onNodeWithText("  $date").assertExists()
