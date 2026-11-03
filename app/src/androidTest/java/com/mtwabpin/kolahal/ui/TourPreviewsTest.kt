@@ -28,7 +28,12 @@ class TourPreviewsTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
 
-    private fun shown() = compose.onRoot(useUnmergedTree = true).printToString()
+    /**
+     * The text on screen: what typing changes. Pictures are left out, as an app's icon can arrive
+     * from its loader after the demo stops, which isn't the demo moving.
+     */
+    private fun shown() = compose.onRoot(useUnmergedTree = true).printToString().lines()
+        .filter { "Text = " in it || "EditableText = " in it }.joinToString("\n")
 
     /** The typing demo plays only while it shows: behind another app it would wake twice a second and search the apps. */
     @Test fun theTypingDemoStopsOffScreen() {
