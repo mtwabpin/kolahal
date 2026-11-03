@@ -19,7 +19,7 @@ import java.util.Locale
 class DayDividerTest {
     @get:Rule val compose = createComposeRule()
 
-    /** At midnight, with the log still on screen, "Yesterday" becomes its date. */
+    /** When the day changes with the log on screen (home passes in the new day at midnight), "Yesterday" becomes its date. */
     @Test fun yesterdayMovesAtMidnight() {
         val day = LocalDate.of(2026, 11, 1)
         var today by mutableStateOf(day.plusDays(1))

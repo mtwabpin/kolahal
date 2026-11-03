@@ -119,13 +119,25 @@ class ScriptFolderTest {
         assertFalse(s.enabled)
     }
 
-    /** The same code and settings again aren't an update; changed code is. */
+    /** The same code again isn't an update; changed code is. */
     @Test fun onlyAChangedScriptCountsAsUpdated() {
         yours(lines + "return 1", every = 120, at = listOf("09:00"))
         File(dir, "foldtest.lua").writeText(lines + "return 1")
         assertEquals(0, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
         File(dir, "foldtest.lua").writeText(lines + "return 2")
         assertEquals(1, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
+    }
+
+    /** The folder's settings (kolahal.json) count as an update only when they change what the script has. */
+    @Test fun onlyChangedSettingsCountAsUpdated() {
+        yours(lines + "return 1", every = 120, at = listOf("09:00"))
+        File(dir, "foldtest.lua").writeText(lines + "return 1")
+        fun manifest(every: Int) = """{"version":1,"scripts":[{"name":"foldtest","lang":"lua","every":$every,"at":["09:00"],"notify":false,"enabled":true}]}"""
+        File(dir, "kolahal.json").writeText(manifest(120))
+        assertEquals(0, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
+        File(dir, "kolahal.json").writeText(manifest(30))
+        assertEquals(1, ScriptFolder(context).import(DocumentFile.fromFile(dir)).updated)
+        assertEquals(30, scripts.byName("foldtest")!!.intervalMin)
     }
 
     /** Another phone's script stays in the folder, and so do its settings; one whose file is gone doesn't. */
