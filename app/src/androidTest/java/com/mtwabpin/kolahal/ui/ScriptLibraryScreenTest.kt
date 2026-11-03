@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -80,6 +81,15 @@ class ScriptLibraryScreenTest {
     /** Waits for the countdown row to say [word] (Installed, Edited): plain text, part of the row itself. */
     private fun countdownRowSays(word: String) =
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Countdowns") and hasText(word)).fetchSemanticsNodes().isNotEmpty() }
+
+    /**
+     * It opens at its first script. With the rows read after the first frame, "Get more scripts" shown
+     * alone first kept its place as they came above it, and the list opened at its end (seen in a full run).
+     */
+    @Test fun itOpensAtItsFirstScript() {
+        show()
+        compose.onNode(hasText(library.entries.first().file + " · ", substring = true)).assertIsDisplayed()
+    }
 
     /** Each row says the script's file and how it runs; a tap opens its description. */
     @Test fun aRowSaysHowTheScriptRunsAndOpensItsDescription() {

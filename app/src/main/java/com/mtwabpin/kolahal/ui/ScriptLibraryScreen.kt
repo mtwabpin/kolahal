@@ -81,7 +81,9 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                val rows = library.orEmpty()
+                // Nothing until the rows are read: "Get more scripts" shown alone first stayed where it
+                // was as the rows came above it, so the list opened scrolled to its end.
+                val rows = library ?: return@LazyColumn
                 itemsIndexed(rows, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
                     LibraryRow(r, i, rows.size) { vm.scriptActions.installFromLibrary(r.entry) }
                 }
