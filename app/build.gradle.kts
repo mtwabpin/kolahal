@@ -38,8 +38,8 @@ android {
         applicationId = "com.mtwabpin.kolahal"
         minSdk = 28
         targetSdk = 37
-        versionCode = 24
-        versionName = "0.4.15-dev"
+        versionCode = 25
+        versionName = "0.4.15"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // The accessibility service (double-tap / `lock`), the call log, READ_CONTACTS and
         // REQUEST_INSTALL_PACKAGES (`update`) are in the manifest; the play build leaves them out.
