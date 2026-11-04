@@ -262,7 +262,8 @@ Consequences, all deliberate:
 
 The data types are in [[src:data/LogEntry.kt::data class LogEntry][data/LogEntry.kt]]:
 
-- =LogEntry=: one row: =id=, timestamp =ts=, =kind=, =source=, =text=, =ctx=.
+- =LogEntry=: one row: =id=, timestamp =ts=, =kind=, =source=, =text=, =ctx=, and =starred=
+  (kept past the log's limits and through a clear; nothing on screen shows it).
 - =LogKind=: =COMMAND= (something you typed), =OUTPUT=, =INFO=, =ERROR=, =SCRIPT=.
 - =LogContext=: a string map saved with the line, as JSON. Its keys decide what a tap does:
   =url= opens a link, =pkg= / =cls= / =user= identify an app to launch, =run= is a command

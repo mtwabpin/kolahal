@@ -189,6 +189,8 @@ class LogLineActions(private val context: Context, private val processor: Comman
         }
         // Only this line's script, feed or app (or its kind), until the bar's ✕.
         LogFilter.forLine(entry)?.let { f -> actions += LogAction("Show only ${f.label}") { host.filterLog(f) } }
+        // Kept for good, past the log's limits and through a clear; `/@starred` finds it.
+        actions += LogAction(if (entry.starred) "Unstar line" else "Star line") { host.io { logs.setStarred(entry.id, !entry.starred) } }
         actions += LogAction("Copy text") { copy(ctx.copy?.let(StyledText::plain) ?: entry.shownText, sensitive(entry)) }
         danger += LogAction("Delete line", destructive = true) { host.io { logs.delete(entry.id) } }
         return actions + danger

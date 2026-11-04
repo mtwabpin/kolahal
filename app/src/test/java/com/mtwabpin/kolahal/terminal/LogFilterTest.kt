@@ -60,6 +60,16 @@ class LogFilterTest {
         assertFalse(LogFilter.OfKind(Kind.COMMANDS).matches(timerComic))
     }
 
+    /** `@starred`: the lines you starred, whatever they are; starring doesn't change what a line is. */
+    @Test fun starredIsEveryStarredLine() {
+        val starred = LogFilter.parse("@starred")!!
+        assertEquals(LogFilter.OfKind(Kind.STARRED), starred)
+        assertEquals(listOf(true, true, false), listOf(timerComic.copy(starred = true), typed.copy(starred = true), timerComic).map(starred::matches))
+        assertEquals(setOf(Kind.SCRIPTS), LogFilter.kindsOf(timerComic.copy(starred = true)))
+        assertEquals(LogFilter.Named("xkcd"), LogFilter.forLine(timerComic.copy(starred = true)))
+        assertEquals(listOf("scripts", "starred"), LogFilter.suggestions("@s", emptyList()).map { it.word })
+    }
+
     @Test fun longPressOffersTheLinesNameElseItsKind() {
         assertEquals(LogFilter.Named("xkcd"), LogFilter.forLine(askedComic))
         assertEquals(LogFilter.Named("Hacker News"), LogFilter.forLine(story))

@@ -18,15 +18,16 @@ sealed class LogFilter {
 
     abstract fun matches(e: LogEntry): Boolean
 
+    /** [STARRED]: the lines you starred, whatever they are ([LogEntry.starred]). */
     enum class Kind(val word: String) {
         COMMANDS("commands"), SCRIPTS("scripts"), FEEDS("feeds"), NOTIFICATIONS("notifications"),
-        APPS("apps"), CALLS("calls"), REMINDERS("reminders"),
+        APPS("apps"), CALLS("calls"), REMINDERS("reminders"), STARRED("starred"),
     }
 
     data class OfKind(val kind: Kind) : LogFilter() {
         override val label get() = kind.word
         override val word get() = kind.word
-        override fun matches(e: LogEntry) = kind in kindsOf(e)
+        override fun matches(e: LogEntry) = if (kind == Kind.STARRED) e.starred else kind in kindsOf(e)
     }
 
     /** A script, a feed or an app: the name a line ends with, any case, spaces aside. */

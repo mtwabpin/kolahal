@@ -1,0 +1,1 @@
+Star a log line to keep it: long-press it and pick Star line. Starred lines aren't deleted with old lines or by clear, and /@starred finds them.

@@ -54,11 +54,12 @@ class LogRepository private constructor(private val context: Context) {
 
     /**
      * Like [add], but first removes earlier lines with the same kind and text, so a repeated
-     * event (launching the same app again) keeps a single line, moved to the bottom.
+     * event (launching the same app again) keeps a single line, moved to the bottom. A starred one
+     * stays where it is.
      */
     fun addReplacing(kind: LogKind, text: String, ctx: LogContext = LogContext.EMPTY): Long {
         if (capture.get() == null) {
-            val ids = db.readableDatabase.rawQuery("SELECT id FROM logs WHERE kind = ? AND text = ?", arrayOf(kind.key, text))
+            val ids = db.readableDatabase.rawQuery("SELECT id FROM logs WHERE kind = ? AND text = ? AND starred = 0", arrayOf(kind.key, text))
                 .use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
             if (ids.isNotEmpty()) {
                 // The rows just found, not a second search of every line of that kind.
@@ -239,7 +240,7 @@ class LogRepository private constructor(private val context: Context) {
         db.readableDatabase.rawQuery(
             // substr: a row over the 2 MB cursor window (written before lines were capped) can't be
             // read at all, and would break loading the log for good.
-            "SELECT id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD) FROM logs WHERE id > ? AND id < ? ORDER BY id DESC LIMIT ?",
+            "SELECT id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD), starred FROM logs WHERE id > ? AND id < ? ORDER BY id DESC LIMIT ?",
             arrayOf(maxOf(visibleAfter(), afterId).toString(), beforeId.toString(), limit.toString()),
         ).use { c ->
             while (c.moveToNext()) {
@@ -250,6 +251,7 @@ class LogRepository private constructor(private val context: Context) {
                     source = c.getString(3),
                     text = c.getString(4),
                     ctx = LogContext.fromJson(c.getString(5)),
+                    starred = c.getInt(6) != 0,
                 )
             }
         }
@@ -262,8 +264,9 @@ class LogRepository private constructor(private val context: Context) {
 
     /**
      * Lines with every one of [words] (ignoring case) in their text, source, link, script or second
-     * column, newest first: all the log keeps, lines a fresh screen hid included. At most [limit] are
-     * returned; [Found.total] counts them all. [skip] leaves lines out (a locked private space's).
+     * column, newest first: all the log keeps, lines a fresh screen hid and starred lines a clear
+     * took off the screen included. At most [limit] are returned; [Found.total] counts them all.
+     * [skip] leaves lines out (a locked private space's).
      * With [match], only the lines it takes are searched (`/@xkcd`, `log only xkcd`); with no words,
      * all of those are found.
      */
@@ -283,7 +286,7 @@ class LogRepository private constructor(private val context: Context) {
         // read: LIKE ignores case for ASCII only, and a quote or a backslash reads differently in
         // the stored JSON. With [match], every line is read: the count of lines it takes is shown.
         val narrow = match == null && words.isNotEmpty() && words.all { w -> w.all { it in ' '..'~' && it != '"' && it != '\\' } }
-        val where = StringBuilder("id > ?")
+        val where = StringBuilder(KEPT)
         val args = arrayListOf(from)
         if (narrow) {
             // A styled line may hold a word across a style's edge, so it is read and checked whole.
@@ -298,7 +301,7 @@ class LogRepository private constructor(private val context: Context) {
             }
         }
         db.readableDatabase.rawQuery(
-            "SELECT id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD) FROM logs WHERE $where ORDER BY id DESC",
+            "SELECT id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD), starred FROM logs WHERE $where ORDER BY id DESC",
             args.toTypedArray(),
         ).use { c ->
             while (c.moveToNext()) {
@@ -321,7 +324,7 @@ class LogRepository private constructor(private val context: Context) {
                     searched++
                     continue
                 }
-                val e = LogEntry(c.getLong(0), c.getLong(1), LogKind.of(c.getString(2)), source, text, LogContext.fromJson(c.getString(5)))
+                val e = LogEntry(c.getLong(0), c.getLong(1), LogKind.of(c.getString(2)), source, text, LogContext.fromJson(c.getString(5)), c.getInt(6) != 0)
                 if (skip?.invoke(e) == true) {
                     skipped++
                     continue
@@ -335,7 +338,7 @@ class LogRepository private constructor(private val context: Context) {
         }
         // The lines the database ruled out were searched too.
         if (narrow) {
-            val all = db.readableDatabase.rawQuery("SELECT COUNT(*) FROM logs WHERE id > ?", arrayOf(from)).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+            val all = db.readableDatabase.rawQuery("SELECT COUNT(*) FROM logs WHERE $KEPT", arrayOf(from)).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
             searched = maxOf(searched, all - skipped)
         }
         return Found(found, total, searched)
@@ -343,7 +346,7 @@ class LogRepository private constructor(private val context: Context) {
 
     /** Where lines came from (scripts, feeds, apps), most recent first: `/@` and `log only` suggest them. */
     fun sources(): List<String> = db.readableDatabase.rawQuery(
-        "SELECT source FROM logs WHERE source IS NOT NULL AND id > ? GROUP BY source ORDER BY MAX(id) DESC",
+        "SELECT source FROM logs WHERE source IS NOT NULL AND $KEPT GROUP BY source ORDER BY MAX(id) DESC",
         arrayOf(prefs.getLong(KEY_CLEARED_UP_TO, 0L).toString()),
     ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
 
@@ -387,9 +390,22 @@ class LogRepository private constructor(private val context: Context) {
             put("source", e.source)
             put("text", clip(e.text))
             put("ctx", clip(e.ctx).toJson())
+            put("starred", if (e.starred) 1 else 0)
         }, android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE)
         restructured()
     }
+
+    /**
+     * Stars line [id], or takes its star off. A starred line stays past `log.keep-days` and
+     * `log.keep-lines` ([trim]) and through a clear ([purgeCleared]); `/@starred` finds it.
+     */
+    fun setStarred(id: Long, starred: Boolean) {
+        val values = ContentValues().apply { put("starred", if (starred) 1 else 0) }
+        if (db.writableDatabase.update("logs", values, "id = ?", arrayOf(id.toString())) > 0) restructured()
+    }
+
+    /** Whether a clear took line [id] off the screen: only a starred one is still in the log. */
+    fun isCleared(id: Long): Boolean = id <= prefs.getLong(KEY_CLEARED_UP_TO, 0L)
 
     /** Empties ↑ recall; the log itself (commands and their output) stays as it is. */
     fun clearHistory() {
@@ -468,14 +484,14 @@ class LogRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Deletes what a clear took out of view, commands aside, up to [upTo]: once its Undo is gone,
-     * before the next clear, and on a fresh start for one a closed launcher left behind.
+     * Deletes what a clear took out of view, commands and starred lines aside, up to [upTo]: once
+     * its Undo is gone, before the next clear, and on a fresh start for one a closed launcher left behind.
      */
     @Synchronized
     fun purgeCleared(upTo: Long = prefs.getLong(KEY_PURGE_UP_TO, 0L)) {
         // Brought back since: they are on screen again.
         if (upTo <= 0L || prefs.getLong(KEY_CLEARED_UP_TO, 0L) < upTo) return
-        db.writableDatabase.delete("logs", "id <= ? AND kind != ?", arrayOf(upTo.toString(), LogKind.COMMAND.key))
+        db.writableDatabase.delete("logs", "id <= ? AND kind != ? AND starred = 0", arrayOf(upTo.toString(), LogKind.COMMAND.key))
         if (prefs.getLong(KEY_PURGE_UP_TO, 0L) <= upTo) prefs.edit { remove(KEY_PURGE_UP_TO) }
     }
 
@@ -512,7 +528,8 @@ class LogRepository private constructor(private val context: Context) {
     /**
      * Keeps the newest [keep] lines and, counted apart, the newest [keep] typed commands, so a script
      * that logs a lot can't push out ↑ history. Drops output older than [maxAgeDays], which only
-     * the UI process passes (the :script process has a stale settings copy).
+     * the UI process passes (the :script process has a stale settings copy). Starred lines are
+     * kept, and not counted.
      */
     fun trim(keep: Int = keepLines, maxAgeDays: Int? = null) {
         val w = db.writableDatabase
@@ -525,23 +542,26 @@ class LogRepository private constructor(private val context: Context) {
         // so another process's trim can't move the oldest end between the count and the cut.
         w.transaction {
             for (kind in listOf("!=", "=")) {
-                val count = w.rawQuery("SELECT COUNT(*) FROM logs WHERE kind $kind ?", arrayOf(command))
-                    .use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+                // The starred lines, few, are counted on their own index and taken off.
+                val count = w.rawQuery(
+                    "SELECT (SELECT COUNT(*) FROM logs WHERE kind $kind ?) - (SELECT COUNT(*) FROM logs WHERE kind $kind ? AND starred = 1)",
+                    arrayOf(command, command),
+                ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
                 if (count <= keep) continue
                 val cut = w.rawQuery(
-                    "SELECT id FROM logs WHERE kind $kind ? ORDER BY id LIMIT 1 OFFSET ?", arrayOf(command, (count - keep - 1).toString()),
+                    "SELECT id FROM logs WHERE kind $kind ? AND starred = 0 ORDER BY id LIMIT 1 OFFSET ?", arrayOf(command, (count - keep - 1).toString()),
                 ).use { c -> if (c.moveToFirst()) c.getLong(0) else null } ?: continue
-                removed += w.delete("logs", "kind $kind ? AND id <= ?", arrayOf(command, cut.toString()))
+                removed += w.delete("logs", "kind $kind ? AND id <= ? AND starred = 0", arrayOf(command, cut.toString()))
                 upTo = maxOf(upTo, cut)
             }
         }
         if (maxAgeDays != null) {
             val cutoff = System.currentTimeMillis() - maxAgeDays * 86_400_000L
             // Commands are kept (↑ history); only their output ages out.
-            val last = w.rawQuery("SELECT COALESCE(MAX(id), 0) FROM logs WHERE ts < ? AND kind != ?", arrayOf(cutoff.toString(), command))
+            val last = w.rawQuery("SELECT COALESCE(MAX(id), 0) FROM logs WHERE ts < ? AND kind != ? AND starred = 0", arrayOf(cutoff.toString(), command))
                 .use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
             if (last > 0) {
-                removed += w.delete("logs", "ts < ? AND kind != ?", arrayOf(cutoff.toString(), command))
+                removed += w.delete("logs", "ts < ? AND kind != ? AND starred = 0", arrayOf(cutoff.toString(), command))
                 upTo = maxOf(upTo, last)
             }
         }
@@ -637,6 +657,9 @@ class LogRepository private constructor(private val context: Context) {
         private const val KEY_SEEN_UP_TO = "seen_up_to"
         private const val KEY_HISTORY_FROM = "history_from"
         private const val KEY_FILTER = "filter"
+
+        /** Lines a search reads, with the clear's id as its argument: those after it, and starred ones before. */
+        private const val KEPT = "(id > ? OR starred = 1)"
 
         /** The preferences that hold a line's id, which a backup carries along with the lines ([FullBackup]). */
         internal val ID_KEYS = setOf(KEY_CLEARED_UP_TO, KEY_HIDDEN_UP_TO, KEY_PURGE_UP_TO, KEY_SEEN_UP_TO, KEY_HISTORY_FROM)

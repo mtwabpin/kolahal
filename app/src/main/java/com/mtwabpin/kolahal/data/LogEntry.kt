@@ -122,6 +122,8 @@ data class LogEntry(
     val source: String?,
     val text: String,
     val ctx: LogContext,
+    /** Starred from its long-press: kept past the log's limits and through a clear ([LogRepository.trim]). */
+    val starred: Boolean = false,
 )
 
 /** What the line shows, as plain text: its text, and a script line's body under it. */

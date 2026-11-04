@@ -500,7 +500,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     /** `log only xkcd` · `log only feeds`: the log shows those lines alone, until `log all` (or ✕, Back, another command). */
     private fun logFilter(args: List<String>) {
         when (args.firstOrNull()) {
-            "only" -> ui.filterLog(LogFilter.parse(args.drop(1).joinToString(" ")) ?: return error("Usage: log only <script, feed or app | commands, scripts, feeds, notifications, apps, calls, reminders>"))
+            "only" -> ui.filterLog(LogFilter.parse(args.drop(1).joinToString(" ")) ?: return error("Usage: log only <script, feed or app | commands, scripts, feeds, notifications, apps, calls, reminders, starred>"))
             "all" -> ui.filterLog(null)
             else -> error("Usage: log only <name|kind> · log all")
         }

@@ -356,17 +356,17 @@ class LogLineActionsTest {
         }
     }
 
-    /** A command's long-press runs it again, edits it, copies its output or it, shows only commands, and deletes it with its output. */
+    /** A command's long-press runs it again, edits it, copies its output or it, shows only commands, stars it, and deletes it with its output. */
     @Test fun aCommandsLongPressOffersItsCommandAndOutput() {
         val command = line(LogKind.COMMAND, "echo llat block", LogContext.COMMAND to "echo llat block")
         val one = line(LogKind.OUTPUT, "llat one", LogContext.FROM to command.id.toString())
         val two = line(LogKind.OUTPUT, "llat two", LogContext.FROM to command.id.toString())
         home.lines = listOf(command, one, two)
         assertEquals(
-            listOf("Run again", "Edit in prompt", "Copy output", "Show only commands", "Copy text", "Delete command and output", "Delete line"),
+            listOf("Run again", "Edit in prompt", "Copy output", "Show only commands", "Star line", "Copy text", "Delete command and output", "Delete line"),
             labels(command),
         )
-        assertEquals(listOf(false, false, false, false, false, true, true), actions.actionsFor(command).map { it.destructive })
+        assertEquals(listOf(false, false, false, false, false, false, true, true), actions.actionsFor(command).map { it.destructive })
 
         action(command, "Run again").run()
         assertEquals("echo llat block", home.prompt)
@@ -396,7 +396,7 @@ class LogLineActionsTest {
         val output = line(LogKind.OUTPUT, "llat x", LogContext.FROM to command.id.toString())
         home.lines = listOf(command, output)
         assertEquals(
-            listOf("Run 'echo llat x' again", "Edit 'echo llat x' in prompt", "Show only commands", "Copy text", "Delete line"),
+            listOf("Run 'echo llat x' again", "Edit 'echo llat x' in prompt", "Show only commands", "Star line", "Copy text", "Delete line"),
             labels(output),
         )
         action(output, "Run 'echo llat x' again").run()
@@ -418,7 +418,7 @@ class LogLineActionsTest {
         val launched = line(LogKind.INFO, "Llat launched Settings", *appCtx(s))
         fun shown() = labels(launched).filterNot { it.startsWith("Settings › ") }
         assertEquals(
-            listOf("Launch Settings [P]", "App info", "Copy package name", "Pin to favourites", "Hide from lists", "Show only commands", "Copy text", "Uninstall", "Delete line"),
+            listOf("Launch Settings [P]", "App info", "Copy package name", "Pin to favourites", "Hide from lists", "Show only commands", "Star line", "Copy text", "Uninstall", "Delete line"),
             shown(),
         )
         assertEquals(listOf("Uninstall", "Delete line"), actions.actionsFor(launched).filter { it.destructive }.map { it.label })
@@ -458,7 +458,7 @@ class LogLineActionsTest {
         assertEquals(
             listOf(
                 "Launch Settings [P]", "App info", "Copy package name", "Pin to favourites", "Hide from lists",
-                "Open notification", "Mute this app's notifications", "Show only Settings", "Copy text",
+                "Open notification", "Mute this app's notifications", "Show only Settings", "Star line", "Copy text",
                 "Uninstall", "Dismiss notification", "Delete line",
             ),
             labels(n).filterNot { it.startsWith("Settings › ") },
@@ -480,7 +480,7 @@ class LogLineActionsTest {
         val contact = "content://com.android.contacts/contacts/lookup/llat/1"
         val ann = line(LogKind.OUTPUT, "Llat Ann", LogContext.PHONE to "5550100", LogContext.CONTACT to contact)
         assertEquals(
-            listOf("Call 5550100", "Send a message", "Open contact", "Copy number", "Show only commands", "Copy text", "Delete line"),
+            listOf("Call 5550100", "Send a message", "Open contact", "Copy number", "Show only commands", "Star line", "Copy text", "Delete line"),
             labels(ann),
         )
         for (label in listOf("Call 5550100", "Send a message", "Open contact")) action(ann, label).run()
@@ -498,7 +498,7 @@ class LogLineActionsTest {
             LogKind.SCRIPT, StyledText.wrap(StyledText.Style.BOLD, "Llat") + " story",
             LogContext.URL to "${BASE}story", LogContext.IMAGE to "${BASE}story.png", FeedWorker.CTX_FEED to "1", source = "Llat Feed",
         )
-        assertEquals(listOf("Open link", "Share link", "Copy link", "Open image", "Show only Llat Feed", "Copy text", "Delete line"), labels(story))
+        assertEquals(listOf("Open link", "Share link", "Copy link", "Open image", "Show only Llat Feed", "Star line", "Copy text", "Delete line"), labels(story))
         action(story, "Open link").run()
         action(story, "Share link").run()
         action(story, "Open image").run()
@@ -533,7 +533,7 @@ class LogLineActionsTest {
         assertEquals(
             listOf(
                 "Run $SCRIPT now", "Edit $SCRIPT at line 4", "Edit $SCRIPT.lua", "Turn off $SCRIPT", "Notify on new items",
-                "Show only $SCRIPT", "Copy text", "Delete line",
+                "Show only $SCRIPT", "Star line", "Copy text", "Delete line",
             ),
             labels(error),
         )
@@ -570,7 +570,7 @@ class LogLineActionsTest {
     /** Todo, note, reminder and event lines offer their own actions, each run as the command it stands for. */
     @Test fun productivityLinesOfferTheirActions() {
         val todo = line(LogKind.OUTPUT, "[ ] Llat milk", LogContext.TODO to "3", LogContext.COPY to "Llat milk")
-        assertEquals(listOf("Mark done", "Edit in prompt", "Show only commands", "Copy text", "Delete todo", "Delete line"), labels(todo))
+        assertEquals(listOf("Mark done", "Edit in prompt", "Show only commands", "Star line", "Copy text", "Delete todo", "Delete line"), labels(todo))
         action(todo, "Mark done").run()
         action(todo, "Delete todo").run()
         assertEquals(listOf("todo done #3", "todo rm #3"), home.commands)
@@ -605,7 +605,7 @@ class LogLineActionsTest {
 
         val chip = LogEntry(-1, System.currentTimeMillis(), LogKind.OUTPUT, null, s.label, LogContext.of(*appCtx(s)))
         assertEquals(actions.appActions(s).map { it.label }, labels(chip))
-        assertTrue(labels(chip).none { it == "Copy text" || it == "Delete line" || it.startsWith("Show only") })
+        assertTrue(labels(chip).none { it == "Copy text" || it == "Delete line" || it == "Star line" || it.startsWith("Show only") })
     }
 
     private companion object {

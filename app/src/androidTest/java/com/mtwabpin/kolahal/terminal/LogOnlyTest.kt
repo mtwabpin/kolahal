@@ -103,6 +103,33 @@ class LogOnlyTest {
         assertEquals(LogFilter.Named("loxkcd"), vm.filter.value)
     }
 
+    /**
+     * "Star line" on a line's long-press: `/@starred` finds it, after a clear too, and showing it from
+     * there shows the starred lines, as the clear took it off the screen.
+     */
+    @Test fun aStarredLineIsFoundAfterAClear() {
+        val vm = viewModel()
+        waitUntil("the lines load") { vm.entries.value.any { it.text == "lo a release" } }
+        val star = vm.actionsFor(vm.entries.value.last { it.text == "lo a release" }).single { it.label == "Star line" }
+        instrumentation.runOnMainSync { star.run() }
+        waitUntil("starred") { vm.entries.value.single { it.text == "lo a release" }.starred }
+        val release = vm.entries.value.single { it.text == "lo a release" }
+        try {
+            assertTrue(vm.actionsFor(release).any { it.label == "Unstar line" })
+            val cleared = logs.clearScreen()
+            logs.purgeCleared(cleared.upTo)
+            waitUntil("off the screen") { vm.entries.value.none { it.text.startsWith("lo ") } }
+            type(vm, "/@starred release")
+            waitUntil("found") { vm.search.value?.rows.orEmpty().any { it is LogRow.Entry && it.entry.id == release.id } }
+            instrumentation.runOnMainSync { vm.showInLog(release) }
+            waitUntil("among the starred lines") {
+                vm.filter.value == LogFilter.OfKind(LogFilter.Kind.STARRED) && vm.entries.value.any { it.id == release.id }
+            }
+        } finally {
+            logs.delete(release.id)
+        }
+    }
+
     @Test fun atNarrowsASearchToOneSource() {
         val vm = viewModel()
         waitUntil("the lines load") { vm.entries.value.any { it.text == "lo second comic" } }

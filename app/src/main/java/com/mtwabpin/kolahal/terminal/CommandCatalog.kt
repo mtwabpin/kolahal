@@ -47,7 +47,7 @@ object CommandCatalog {
         CommandSpec("history", "history", "Recent commands (tap to reuse)"),
         CommandSpec("clear", "clear [history|all]", "Clear the screen, the ↑ history, or both"),
         CommandSpec("backup", "backup [now|every <daily|weekly|off>|dir]", "Back up everything to a folder now, or every day or week"),
-        CommandSpec("log", "log [only <name|kind>|all]", "Show only one script's, feed's or app's lines, or one kind of line"),
+        CommandSpec("log", "log [only <name|kind>|all]", "Show only one script's, feed's or app's lines, one kind of line, or the starred ones"),
         CommandSpec("fresh", "fresh", "Start a clean screen now, like log.fresh; earlier lines are one tap away (not logged)"),
         CommandSpec("restart", "restart [scripts]", "Restart the launcher, or stop running scripts"),
         CommandSpec("update", "update [install]", "Check for updates (install: download and install the latest)"),

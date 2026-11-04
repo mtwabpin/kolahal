@@ -416,8 +416,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // reload that asks for must then read the longer page, not find this one already at it.
         val limit = pageLimit
         val newest = loaded.lastOrNull()?.id
-        val oldest = loaded.firstOrNull()?.id
-        val incremental = newest != null && oldest != null && structure == loadedStructure && trimmed < oldest &&
+        // Trims leave starred lines: the oldest of the others says whether one reached into the page.
+        val oldest = loaded.firstOrNull { !it.starred }?.id ?: Long.MAX_VALUE
+        val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
             removed != null && now - fullAt < FULL_RELOAD_MS
         val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
         var start = logStart
@@ -607,7 +608,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         setText("")
         _events.tryEmit(UiEvent.HideKeyboard)
         // `log only …` would keep the line out of sight: it ends, as running a command ends it.
-        _filter.value?.let { if (!it.matches(entry)) filterLog(null) }
+        // A starred line a clear took off the screen is among the starred lines alone.
+        val filter = if (entry.starred && logs.isCleared(entry.id)) LogFilter.OfKind(LogFilter.Kind.STARRED) else _filter.value?.takeIf { it.matches(entry) }
+        filterLog(filter)
         io {
             if (logs.isHidden(entry.id)) logs.unhide()
             pageLimit = maxOf(pageLimit, (logs.countFrom(entry.id) + 20).coerceAtMost(MAX_PAGE))

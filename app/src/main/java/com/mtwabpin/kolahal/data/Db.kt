@@ -24,11 +24,13 @@ class Db private constructor(context: Context) :
                 kind TEXT NOT NULL,
                 source TEXT,
                 text TEXT NOT NULL,
-                ctx TEXT
+                ctx TEXT,
+                starred INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS logs_kind_ts ON logs(kind, ts)")
+        db.execSQL(STARRED_INDEX)
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS scripts (
@@ -105,6 +107,11 @@ class Db private constructor(context: Context) :
         if (oldVersion < 6 && !hasColumn(db, "reminders", "repeat_rule")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
         // The time a repeating reminder was asked for (version 7), so a daylight-saving gap or a trip doesn't move it for good.
         if (oldVersion < 7 && !hasColumn(db, "reminders", "repeat_time")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_time TEXT")
+        // Starred log lines (version 8), kept past the log's limits.
+        if (oldVersion < 8) {
+            if (!hasColumn(db, "logs", "starred")) db.execSQL("ALTER TABLE logs ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
+            db.execSQL(STARRED_INDEX)
+        }
     }
 
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
@@ -131,7 +138,10 @@ class Db private constructor(context: Context) :
 
     companion object {
         private const val NAME = "kolahal.db"
-        private const val VERSION = 7
+        private const val VERSION = 8
+
+        /** The starred lines alone, by kind: a trim counts them on it instead of reading every line. */
+        private const val STARRED_INDEX = "CREATE INDEX IF NOT EXISTS logs_starred ON logs(kind) WHERE starred = 1"
 
         /** Run headers (`── hn · 22:40 ──`) are gone (version 5): every line shows its time and its script. */
         internal fun dropRunHeaders(db: SQLiteDatabase): Int =

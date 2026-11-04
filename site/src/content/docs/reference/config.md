@@ -75,8 +75,8 @@ The `theme` and `font` commands are unchanged.
 | `log.taller-taps` | bool | `off` | make tappable lines slightly taller, so they're easier to hit; off: every line is the same height |
 | `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent: `0` is none; higher shows less of the theme's colour |
 | `chips.height` | number 20–64 | `48` | height (dp) of suggestion and app-grid chips |
-| `log.keep-days` | number 1–365 | `60` | delete log lines older than this many days (checked at least twice a day) |
-| `log.keep-lines` | number 500–50000 | `5000` | delete the oldest log lines past this many. Typed commands are counted separately, so ↑ history is kept. Only with `config set`: the settings screen doesn't show it |
+| `log.keep-days` | number 1–365 | `60` | delete log lines older than this many days (checked at least twice a day). Starred lines are kept |
+| `log.keep-lines` | number 500–50000 | `5000` | delete the oldest log lines past this many. Typed commands are counted separately, so ↑ history is kept. Starred lines are kept and not counted. Only with `config set`: the settings screen doesn't show it |
 | `log.tips` | bool | `on` | for your first two weeks, a line a day about something you haven't used yet; tap it to try it |
 | `log.fresh` | number 0–240 | `10` | show a clean home screen after this many minutes away (0: never); earlier output is one tap away. `fresh` does this right away |
 | `feeds.log` | bool | `on` | post new feed items in the log |

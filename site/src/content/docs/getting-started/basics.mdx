@@ -150,9 +150,9 @@ red for errors. Hide it with `log.gutter off`. Output older than the latest comm
 - **Daily tips** (`log.tips`, on by default): for your first two weeks, the first time you open the home screen each day, the log shows a tip about something you haven't used yet (`todo`, `remind`, `=`, `alias`…, based on the commands you typed). Tap it to put the example in the prompt. `config set log.tips off` stops them.
 - When you scroll up, a ↓ button jumps back to the newest lines. Repeating a command with nothing
   printed in between (`settings`, `settings`) doesn't add another line.
-- Scroll to the top to load older entries. Lines older than `log.keep-days` (60), or beyond the newest `log.keep-lines` (5000), are deleted. Typed commands are counted separately, so ↑ history is kept.
+- Scroll to the top to load older entries. Lines older than `log.keep-days` (60), or beyond the newest `log.keep-lines` (5000), are deleted. Typed commands are counted separately, so ↑ history is kept, and starred lines are always kept (see [Starring lines](#starring-lines)).
 - `clear` (or `Ctrl+L`) clears the screen, with **Undo** under the log for a few seconds; then
-  its lines are deleted, except your commands, which ↑ still recalls. `clear history` deletes the ↑ history but keeps the log, and `clear all` removes both.
+  its lines are deleted, except your commands, which ↑ still recalls, and starred lines. `clear history` deletes the ↑ history but keeps the log, and `clear all` removes both.
 
 ### Searching the log
 
@@ -169,10 +169,14 @@ The search covers a line's text, commands you typed, and a line's source and lin
 
 `@` and a name shows only the lines from that source: a script, a feed or an app, using the name at the end of its lines, in any case and without spaces. Or a whole kind: `@commands` (what you typed and
 what it printed), `@scripts`, `@feeds`, `@notifications`, `@apps` (installs and updates), `@calls`,
-`@reminders`. Typing `/@` suggests them. Use two `@` names to find lines from either.
+`@reminders`, and `@starred` for the lines you starred. Typing `/@` suggests them. Use two `@` names to find lines from either.
 
 Tap a line to see it in the log, among the lines around it. `Enter` hides the keyboard so more results fit; `Esc`, Back or clearing the prompt ends the search. Long-press and swipes work as
 they do in the log.
+
+### Starring lines
+
+Long-press a line and pick **Star line** to keep it. A starred line looks the same, but it isn't deleted by `log.keep-days` or `log.keep-lines`, and `clear` takes it off the screen without deleting it. `/@starred` finds your starred lines, together with words to look for among them (`/@starred wifi`), and `log only starred` shows only them. **Unstar line** puts it back under the usual limits. **Delete line**, a swipe to the left and `clear all` still delete it.
 
 ### Filtering by source
 
