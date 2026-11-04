@@ -144,7 +144,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
             host.scripts.firstOrNull { it.name == name }?.let { s ->
                 actions += LogAction("Run $name now") { host.io { ScriptScheduler.runNow(context, s) } }
                 // For a script with a status line: show it at the top of home, or no longer.
-                if (ScriptMeta.setsHeader(s.code)) {
+                if (ScriptMeta.setsStatus(s.code)) {
                     val pinned = s.grants.allows(ScriptAccess.HEADER)
                     actions += LogAction(if (pinned) "Unpin $name" else "Pin $name to the top") {
                         host.io {

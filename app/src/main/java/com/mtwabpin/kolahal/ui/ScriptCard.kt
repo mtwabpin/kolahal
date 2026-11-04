@@ -55,7 +55,7 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
  * One script, its card tinted in the theme's colour when on and faded when off. Compact: a dot (on,
  * failed, off), its title and file name, Run for a command, the
  * details arrow, the switch, and one line of how it runs and how its last run went. Expanded, also
- * its header line, description, next run, usage, events and what it may use.
+ * its status line, description, next run, usage, events and what it may use.
  */
 @Composable
 internal fun ScriptCard(
@@ -141,7 +141,7 @@ internal fun ScriptCard(
 }
 
 /**
- * A card's details: its header line, description, next run and usage, a pill for each thing it may
+ * A card's details: its status line, description, next run and usage, a pill for each thing it may
  * do (on or off, a tap switches it), its secrets, and for an edited or older library copy, Compare
  * and Reset or Update.
  */

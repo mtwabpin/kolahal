@@ -305,7 +305,7 @@ internal fun TypingPreview(vm: TerminalViewModel) {
     )
 }
 
-/** The look: the header's clock, a few log lines with their times, and the prompt. */
+/** The look: the header's line, a few log lines with their times, and the prompt. */
 @Composable
 internal fun LookPreview(vm: TerminalViewModel) {
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -323,19 +323,23 @@ internal fun LookPreview(vm: TerminalViewModel) {
             (0L..6L).joinToString(" ") { "%2d".format(monday.plusDays(it).dayOfMonth) }
     }
     HomeFrame(230.dp) {
+        // As the header draws it: the time and date, the battery at the end.
+        val locale = LocalConfiguration.current.locales[0]
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
             Text(
-                SimpleDateFormat(if (clock24) "HH:mm" else "h:mm a", LocalConfiguration.current.locales[0]).format(now),
-                style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize + 2).sp),
+                SimpleDateFormat(if (clock24) "HH:mm" else "h:mm a", locale).format(now),
+                style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold),
                 modifier = Modifier.testTag("tour-clock"),
             )
-            Spacer(Modifier.width(10.dp))
-            BatteryGlyph(battery, false, Term.fg, (Term.fontSize + 2).dp)
-            Spacer(Modifier.width(6.dp))
-            Text("$battery%", style = Term.text.copy(color = Term.dim))
+            Spacer(Modifier.width(8.dp))
+            Text(SimpleDateFormat("EEE d MMM", locale).format(now), style = Term.text.copy(color = Term.dim))
+            Spacer(Modifier.weight(1f))
+            BatteryGlyph(battery, false, Term.fg, Term.fontSize.dp)
+            Spacer(Modifier.width(3.dp))
+            Text("$battery%", style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold))
         }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             CommandLine("cal", logTime(clock24, now))

@@ -84,7 +84,7 @@ class ScriptFormattingTest {
         assertEquals(listOf("hi\n1. a\n2. b", "x\n• p\n• q", "s"), lines().map { it.shownText })
     }
 
-    @Test fun aHeaderLineIsPlain() {
+    @Test fun aStatusLineIsPlain() {
         lua("""status(fmt.bold("12") .. " new")""", host(scriptId = 1L))
         assertEquals("12 new", KvStore(context, HostApi.STATUS_SCOPE).get(name))
     }

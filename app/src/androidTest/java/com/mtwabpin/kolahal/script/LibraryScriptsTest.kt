@@ -72,7 +72,7 @@ class LibraryScriptsTest {
         assertEquals(listOf("1. Past  10 days ago", "2. Now   today", "3. Soon  in 3 days", "4. Trip  in 30 days"), lines().map { StyledText.plain(it.text) })
         assertEquals(true, lines().all { it.ctx.values[com.mtwabpin.kolahal.data.LogContext.MONO] == "1" })
         assertEquals(listOf(today.minusDays(10), today, today.plusDays(3), today.plusDays(30)).map(LocalDate::toString), lines().map { it.ctx.body })
-        // The nearest one not past is pinned in the header.
+        // The nearest one not past is its status line.
         assertEquals("Now: today", status.get(name))
 
         run("countdown.lua", "rm 1")

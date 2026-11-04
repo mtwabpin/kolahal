@@ -1412,7 +1412,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     // ---- productivity (todo, notes, reminders, agenda) --------------------------------------
 
     private val _todoCount = MutableStateFlow(0)
-    /** Open todos, for the header (header.todo). */
+    /** Open todos, for the header's todo item. */
     val todoCount: StateFlow<Int> = _todoCount.asStateFlow()
 
     /** Suggestion data, refreshed with the log (every todo / note / remind command logs). */

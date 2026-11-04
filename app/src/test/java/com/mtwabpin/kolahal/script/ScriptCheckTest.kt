@@ -31,7 +31,7 @@ class ScriptCheckTest {
         assertEquals(setOf("clipboard", "apps"), ScriptMeta.uses("-- @uses Clipboard\tapps"))
     }
 
-    @Test fun headerLinesItCantRead() {
+    @Test fun statusLinesItCantRead() {
         val issues = lua("""
             -- @evrey 1h
             -- @every 5x

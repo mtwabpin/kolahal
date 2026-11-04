@@ -88,7 +88,7 @@ object ScriptMeta {
      */
     fun usesInternet(code: String) = internetRef.containsMatchIn(code)
 
-    fun setsHeader(code: String) = statusRef.containsMatchIn(code)
+    fun setsStatus(code: String) = statusRef.containsMatchIn(code)
 
     fun postsNotifications(code: String) = notifyRef.containsMatchIn(code)
 

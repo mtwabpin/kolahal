@@ -155,7 +155,7 @@ FEEDS
 SCRIPTS IN LUA OR JAVASCRIPT
 • Run a script on a timer, at set times, or when something happens, such as unlocking the phone or plugging it in.
 • Make a script into a command of your own that takes arguments.
-• Pin a status line in the header, post a notification, fetch from the web.
+• Keep a status line you can pin at the top, post a notification, fetch from the web.
 • Start from 16 ready-made scripts (weather, Hacker News, a charge reminder and more) in an editor with completion.
 • Scripts run sandboxed, in a separate process.
 
@@ -171,7 +171,7 @@ PRIVATE BY DESIGN
 • Crash reports stay on your phone until you choose to email one.
 
 WORK PROFILE AND PRIVATE SPACE
-• If you have them, their apps sit in the same list as yours, marked [W] and [S], and you can pause or resume the work profile from the header or with a command.
+• If you have them, their apps sit in the same list as yours, marked [W] and [S], and you can pause or resume the work profile from the quick actions or with a command.
 
 The guide: mtwabpin.github.io/kolahal
 The source code: github.com/mtwabpin/kolahal

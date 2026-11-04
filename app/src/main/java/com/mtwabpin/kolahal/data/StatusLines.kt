@@ -63,8 +63,8 @@ object StatusLines {
 
     /**
      * Once, on the first start of a version where you pin scripts (0.4.14): the ones whose line the
-     * header showed before are pinned, so none goes without a word; one whose header line was switched
-     * off stays unpinned. The dev builds' `pin()` items go too.
+     * header showed before are pinned, so none goes without a word; one whose line was switched off
+     * there stays unpinned. The dev builds' `pin()` items go too.
      */
     fun pinShownOnce(context: Context) {
         val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -72,7 +72,7 @@ object StatusLines {
         val scripts = ScriptRepository.get(context)
         val lines = KvStore(context, HostApi.STATUS_SCOPE).all().keys
         for (s in scripts.all()) {
-            if (s.name in lines && ScriptAccess.HEADER !in s.access && ScriptMeta.setsHeader(s.code)) scripts.setAccess(s.id, ScriptAccess.HEADER, true)
+            if (s.name in lines && ScriptAccess.HEADER !in s.access && ScriptMeta.setsStatus(s.code)) scripts.setAccess(s.id, ScriptAccess.HEADER, true)
         }
         KvStore(context, "pin").let { old -> old.all().keys.forEach { old.set(it, null) } }
         prefs.edit { putBoolean(PINS_CARRIED, true) }

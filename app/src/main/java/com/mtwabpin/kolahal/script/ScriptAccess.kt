@@ -14,7 +14,7 @@ import com.mtwabpin.kolahal.data.Script
  *   outside that declares more leaves the new ones off.
  * - [INTERNET]: a script whose code uses it ([ScriptMeta.usesInternet]) has it unless it is switched
  *   off; one that doesn't never has it, so the switches shown are all it may do.
- * - [HEADER], pinned at the top: a script that sets a status line ([ScriptMeta.setsHeader]) shows it
+ * - [HEADER], pinned at the top: a script that sets a status line ([ScriptMeta.setsStatus]) shows it
  *   at the top of home only once you pin it (`script pin`, its menus); nothing pins itself.
  * - Each `@on` event: on unless switched off.
  * Switched off, a script gets an empty answer where that is honest (no apps, no notifications, no
@@ -28,7 +28,7 @@ object ScriptAccess {
 
     /** [INTERNET] and [HEADER], for the ones [code] uses. */
     internal fun base(code: String): List<String> =
-        listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }, HEADER.takeIf { ScriptMeta.setsHeader(code) })
+        listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }, HEADER.takeIf { ScriptMeta.setsStatus(code) })
 
     /** Everything a script with [code] can be switched for, in display order: only what it uses. */
     fun items(code: String): List<String> = base(code) + ScriptMeta.uses(code) + ScriptMeta.events(code)

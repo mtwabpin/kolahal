@@ -39,7 +39,7 @@ class ScriptLifecycleTest {
     @Test fun renameKeepsTheScriptAndMovesWhatIsKeptByName() {
         val s = repo.create("lc-a", ScriptLang.LUA, "-- @secret KEY api.example.com a key\nreturn 1")
         secrets.set("lc-a", "KEY", "value-1234", key.hosts)
-        status.set("lc-a", "its header line")
+        status.set("lc-a", "its status line")
         // Left behind under the new name by an earlier script: replaced, not merged.
         status.set("lc-b", "stale line")
         context.getSharedPreferences("script_catalog", android.content.Context.MODE_PRIVATE).edit { putString("installed:lc-a", "{}") }
@@ -50,7 +50,7 @@ class ScriptLifecycleTest {
         assertEquals(s.id, repo.byName("lc-b")?.id)
         assertEquals("value-1234", secrets.get("lc-b", "KEY")?.value)
         assertNull(secrets.get("lc-a", "KEY"))
-        assertEquals("its header line", status.get("lc-b"))
+        assertEquals("its status line", status.get("lc-b"))
         assertNull(status.get("lc-a"))
         // Renamed, a shared script is yours: no updates for it under the old name.
         assertNull(context.getSharedPreferences("script_catalog", android.content.Context.MODE_PRIVATE).getString("installed:lc-a", null))

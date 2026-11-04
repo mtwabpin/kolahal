@@ -203,7 +203,7 @@ class ScriptCommands(
             "set", "option", "options" -> withScript(target) { s -> option(s, args.drop(2)) }
             "access" -> withScript(target) { listAccess(it) }
             "pin", "unpin" -> withScript(target) { s ->
-                if (!ScriptMeta.setsHeader(s.code)) return error("${s.name} has no status line to pin: it never calls status()")
+                if (!ScriptMeta.setsStatus(s.code)) return error("${s.name} has no status line to pin: it never calls status()")
                 scripts.setAccess(s.id, ScriptAccess.HEADER, sub == "pin")
                 logs.onStatusChanged()
                 info(if (sub == "pin") "${s.name}: pinned to the top" else "${s.name}: unpinned", scriptCtx(s))

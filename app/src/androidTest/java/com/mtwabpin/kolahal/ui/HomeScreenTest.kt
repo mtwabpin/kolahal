@@ -179,7 +179,7 @@ class HomeScreenTest {
         compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
     }
 
-    /** header.show off: no header line, and it comes back when turned on. */
+    /** header.show off: no header, and it comes back when turned on. */
     @Test fun headerCanBeTurnedOff() {
         config.set(Keys.HEADER_SHOW, "off")
         val vm = show(360.dp, 700.dp)

@@ -32,7 +32,7 @@ class Completer(private val context: Context, private val data: Data) {
         val scriptUsages: Map<String, String>
         /** `@desc` of the command scripts that have one, shown beside their name. */
         val scriptDescriptions: Map<String, String> get() = emptyMap()
-        /** Scripts with a status line in the header. */
+        /** Scripts with a status line. */
         val statusNames: Set<String>
         val feeds: List<com.mtwabpin.kolahal.feeds.FeedInfo>
         val todos: List<com.mtwabpin.kolahal.productivity.Todo>

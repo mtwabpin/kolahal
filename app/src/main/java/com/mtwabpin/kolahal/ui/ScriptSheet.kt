@@ -180,7 +180,7 @@ internal fun ScriptSheet(
                 s.enabled,
             ) { onEnabled(it) }
 
-            // What it may use: internet, its header line and notifications when its code uses them, and
+            // What it may use: internet, pinned at the top and notifications when its code uses them, and
             // what it declares with @uses; then, in a group of their own, the events of its @on lines.
             val (events, uses) = access.partition { it in ScriptMeta.EVENTS }
             if (uses.isNotEmpty() || notifies) {

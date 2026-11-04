@@ -65,7 +65,7 @@ class ScriptBoundsTest {
     }
 
     /** status() writes only what changed, and a loop of it stops after a few. */
-    @Test fun headerLineWritesAreCapped() {
+    @Test fun statusLineWritesAreCapped() {
         val s = scripts.create("bounds", ScriptLang.LUA, "status('x')")
         val host = HostApi(context, "bounds", scriptId = s.id, notifyEnabled = false)
         repeat(5) { host.status("same") }

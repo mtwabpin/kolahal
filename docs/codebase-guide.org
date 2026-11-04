@@ -144,7 +144,7 @@ The text field doesn't decide anything. It shows =vm.input= and reports what the
 
 1. *State*: "what is true right now". Exposed as =StateFlow=. Always has a current value; a new
    subscriber immediately gets it. Examples: =screen=, =rows= (the log lines to draw),
-   =editing= (the script open in the editor, or null), =headerCollapsed=.
+   =editing= (the script open in the editor, or null), =pinned= (the status lines you pinned).
 
 2. *Text-field state*: =input= is a Compose =mutableStateOf=, not a =StateFlow=
    ([[src:terminal/TerminalViewModel.kt::var input by mutableStateOf][here]]). Text fields are the usual exception: Compose's guidance is to keep a text
@@ -319,7 +319,7 @@ is Kolahal's replacement for a dependency-injection framework.
 | =feeds.db= (SQLite, WAL)     | feed subscriptions and items                                       | [[src:feeds/FeedDb.kt::class FeedDb][feeds/FeedDb.kt]]                                |
 | =SharedPreferences= "config" | every user setting                                                 | [[src:data/Config.kt::class Config private constructor][data/Config.kt]]                                 |
 | other =SharedPreferences=    | aliases, hidden/renamed apps, launch history, widgets, log markers | =AppPrefs=, =WidgetHost=, =LogRepository=, ... |
-| =kv= table                   | per-script key/value store, script status lines in the header      | [[src:data/KvStore.kt::class KvStore][data/KvStore.kt]]                                |
+| =kv= table                   | per-script key/value store, scripts' status lines                  | [[src:data/KvStore.kt::class KvStore][data/KvStore.kt]]                                |
 | memory only                  | recent notifications (with a copy in =kv= for scripts)             | [[src:notifications/NotificationStore.kt::object NotificationStore][notifications/NotificationStore.kt]]             |
 
 *** Settings, a small complete example
@@ -345,7 +345,7 @@ screen.
 | =input=                           | Compose state                                  | the prompt's text and cursor                   |
 | =screen=                          | =StateFlow<Screen>=                            | which page is showing                          |
 | =editing=, =editLine=             | =StateFlow=                                    | the script in the editor and a line to jump to |
-| =headerCollapsed=, =headerHidden= | =StateFlow<Boolean>=                           | header size while scrolling                    |
+| =statuses=, =pinned=              | =StateFlow=                                    | status lines; the pinned ones for the top      |
 | =apps=, =profiles=, =status=, ... | =StateFlow= (passed through from repositories) | header and suggestions                         |
 | =events=                          | =SharedFlow<UiEvent>=                          | one-off requests (scroll, focus, permissions)  |
 | =config=                          | =Config=                                       | settings, read directly                        |
@@ -431,7 +431,8 @@ and a Home press while already home (=onNewIntent=) → =vm.onHomePressed()=.
 | Terminal (home)           | [[src:ui/TerminalScreen.kt::fun TerminalScreen][ui/TerminalScreen.kt]]                                                            | header, log, suggestions, prompt, key bar                                |
 | one log line              | [[src:ui/LogView.kt::fun LogLine][ui/LogView.kt]]                                                                   | =LogLine=, the app grid, the long-press =ActionSheet=                    |
 | prompt                    | [[src:ui/Prompt.kt::fun Prompt][ui/Prompt.kt]]                                                                    | the text field and hardware-key handling                                 |
-| header                    | [[src:ui/TerminalHeader.kt::internal fun Header(][ui/TerminalHeader.kt]]                                                            | =Header= and =CompactHeader=: clock, battery, unlocks, profiles          |
+| header                    | [[src:ui/TerminalHeader.kt::internal fun Header(][ui/TerminalHeader.kt]]                                                            | =Header=, one line: time, date, battery, two items (=HeaderLayout=)      |
+| pinned header             | [[src:ui/PinnedHeader.kt::internal fun PinnedHeader(][ui/PinnedHeader.kt]]                                                          | music and pinned status lines, in turns (=PinnedTurns=)                  |
 | app selector on an edge   | [[src:ui/AppSelector.kt::fun AppSelector(][ui/AppSelector.kt]]                                                                 | =AppSelector=; pure maths split out and unit-tested (=SelectorMathTest=) |
 | Settings                  | [[src:ui/SettingsScreen.kt::fun SettingsScreen][ui/SettingsScreen.kt]]                                                            | pages come from [[src:ui/SettingsCatalog.kt::private val CATEGORIES][ui/SettingsCatalog.kt]]                                    |
 | Script manager and editor | [[src:ui/ScriptsScreen.kt::fun ScriptsScreen][ui/ScriptsScreen.kt]], [[src:ui/ScriptEditor.kt::fun ScriptEditor][ui/ScriptEditor.kt]]                                         | editor logic in =EditorLogic.kt= (unit-tested)                           |
@@ -449,7 +450,7 @@ Things specific to this screen:
 - The log is a =LazyColumn= with =reverseLayout=: item 0 is at the /bottom/, so new lines
   appear where your thumb is. That's why the code uses =rows.asReversed()= and scrolls to
   index 0 to reach the newest line.
-- =pinned= is local UI state (=remember { mutableStateOf(true) }=): "is the user looking at
+- =followNewest= is local UI state (=remember { mutableStateOf(true) }=): "is the user looking at
   the newest line?". It belongs to the View, not the ViewModel, because it's purely about
   scrolling. Deciding where each piece of state belongs is a good habit to practise.
 - A =LaunchedEffect= collects =vm.events= for scroll, focus and keyboard requests.
@@ -535,7 +536,7 @@ Open each linked function as you read. These five cover most of what the app doe
    stores the new =input= (Compose redraws the field) and checks =instantRun=. =echo= is in
    =InstantRun.SENSITIVE=, so it waits for Enter. The suggestion list recomputes from
    =vm.suggestions(text)= in =TerminalScreen=.
-2. *Enter.* =onGo= calls [[src:terminal/TerminalViewModel.kt::fun submit][vm.submit()]]: it clears the prompt, collapses the header, queues
+2. *Enter.* =onGo= calls [[src:terminal/TerminalViewModel.kt::fun submit][vm.submit()]]: it clears the prompt, queues
    =processor.run(line)= on the serial =io { }= lane, and emits =UiEvent.ScrollToBottom=.
 3. *Parse.* [[src:terminal/CommandProcessor.kt::fun run(line: String][CommandProcessor.run()]] logs the command itself as a =COMMAND= line, expands
    aliases, splits pipes (=help | grep feed=), and calls =execute()=.
@@ -792,7 +793,7 @@ functions is the quickest way to learn what they promise.
 2. A script in =:script= sets a field on a singleton. Will the home screen ever see it? Why not?
 3. Why is =UiEvent.ScrollToBottom= an event and not a =StateFlow<Boolean>=?
 4. Ten log lines are written in 20 ms. How many times does =reload()= run, and which operator decides?
-5. Is =pinned= (in =TerminalScreen=) ViewModel state or View state? Why?
+5. Is =followNewest= (in =TerminalScreen=) ViewModel state or View state? Why?
 
 * Glossary of Kolahal terms
 

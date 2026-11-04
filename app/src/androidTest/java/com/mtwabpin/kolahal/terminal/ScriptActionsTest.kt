@@ -131,7 +131,7 @@ class ScriptActionsTest {
         assertFalse(now(s).grants.allows(ScriptAccess.HEADER))
     }
 
-    /** Long-press on a header line no script has any more offers only to clear it, and clearing it does. */
+    /** Long-press on a status line no script has any more offers only to clear it, and clearing it does. */
     @Test fun aLineWithNoScriptCanOnlyBeCleared() {
         status.set("sa-gone", "left behind")
         val offered = actions.statusActions("sa-gone")
@@ -243,7 +243,7 @@ class ScriptActionsTest {
         assertEquals("sa-two", now(s).name)
     }
 
-    /** Deleted, a script goes from the list with its header line and its timer, and that is said. */
+    /** Deleted, a script goes from the list with its status line and its timer, and that is said. */
     @Test fun deleteTakesItsLineAndTimerToo() {
         // Code that sets no line itself: the timer's first run starts at once, and could set it after the delete.
         val s = create("sa-one", "local x = 1")

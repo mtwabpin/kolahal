@@ -142,7 +142,7 @@ class ScriptMetaTest {
         assertFalse(ScriptMeta.goesOnline("log(\"see https://example.com\")"))
     }
 
-    /** The internet for requests, feeds, links and pictures; the header line for status; notifications for notify. */
+    /** The internet for requests, feeds, links and pictures; pinning for status; notifications for notify. */
     @Test fun whatTheCodeUsesIsReadFromIt() {
         assertTrue(ScriptMeta.usesInternet("local r = http.get(u)"))
         assertTrue(ScriptMeta.usesInternet("local h = http\nh.get(u)"))
@@ -153,19 +153,19 @@ class ScriptMetaTest {
         // Commands can hand words to a site (a search).
         assertTrue(ScriptMeta.usesInternet("-- @uses commands\nlauncher.run('yt ' .. args[1])"))
 
-        assertTrue(ScriptMeta.setsHeader("status(\"HN: 3 new\")"))
-        assertTrue(ScriptMeta.setsHeader("status(nil)"))
-        assertTrue(ScriptMeta.setsHeader("if (line) status(`Sun ${'$'}{rise}`);"))
-        assertFalse(ScriptMeta.setsHeader("local r = http.get(u)\nif r.status ~= 200 then return end"))
-        assertFalse(ScriptMeta.setsHeader("const ok = res.status === 200;"))
-        assertTrue(ScriptMeta.setsHeader("status(\"NZ 136/8\", { progress = 0.66, refresh = 30 })"))
+        assertTrue(ScriptMeta.setsStatus("status(\"HN: 3 new\")"))
+        assertTrue(ScriptMeta.setsStatus("status(nil)"))
+        assertTrue(ScriptMeta.setsStatus("if (line) status(`Sun ${'$'}{rise}`);"))
+        assertFalse(ScriptMeta.setsStatus("local r = http.get(u)\nif r.status ~= 200 then return end"))
+        assertFalse(ScriptMeta.setsStatus("const ok = res.status === 200;"))
+        assertTrue(ScriptMeta.setsStatus("status(\"NZ 136/8\", { progress = 0.66, refresh = 30 })"))
 
         assertTrue(ScriptMeta.postsNotifications("notify(\"Battery\", \"low\")"))
         assertFalse(ScriptMeta.postsNotifications("-- @notify\nlog(\"no notification\")"))
         assertFalse(ScriptMeta.postsNotifications("if s.notify then log(1) end"))
     }
 
-    /** Only what the code uses has a switch, and only that is allowed: no internet or header line for one that uses neither. */
+    /** Only what the code uses has a switch, and only that is allowed: no internet or pinning for one that uses neither. */
     @Test fun aScriptMayOnlyDoWhatItUses() {
         val offline = "-- @uses dnd\n-- @on unlock\ndevice.setDnd('on')"
         assertEquals(listOf("dnd", "unlock"), ScriptAccess.items(offline))

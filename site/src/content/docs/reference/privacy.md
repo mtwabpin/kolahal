@@ -68,7 +68,7 @@ Declared in the manifest:
 | Permission | Why |
 | --- | --- |
 | `INTERNET` | scripts, feeds and currency rates (see above) |
-| `ACCESS_NETWORK_STATE` | the `net` item in the header and `device.network()` |
+| `ACCESS_NETWORK_STATE` | the network item in the header and `device.network()` |
 | `READ_CONTACTS` | `call`, `sms` and `contacts` name matching. Asked for on first use; optional. Not in the Play build |
 | `READ_CALL_LOG` | calls in the log, and `calls`. Asked for on first use; optional. Not in the Play build |
 | `REQUEST_INSTALL_PACKAGES` | `update install` hands the new version to Android's installer. Android asks you to allow it the first time, and the installer asks before it installs; optional. Not in the Play build |

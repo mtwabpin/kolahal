@@ -143,7 +143,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val listState = rememberLazyListState()
     val rows by vm.rows.collectAsStateWithLifecycle()
     val reversedRows = remember(rows) { rows.asReversed() }
-    var pinned by remember { mutableStateOf(true) }
+    var followNewest by remember { mutableStateOf(true) }
     var promptFocused by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -155,7 +155,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     if (preview == null) LaunchedEffect(Unit) {
         // Home pressed on another page: scroll and focus now that the terminal is here.
         vm.consumeArrival()?.let { a ->
-            pinned = true
+            followNewest = true
             runCatching { listState.scrollToItem(0) }
             if (a.focus) {
                 androidx.compose.runtime.withFrameNanos { } // the prompt's focus target is attached after the first frame
@@ -165,7 +165,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         }
         vm.events.collect { e ->
             when (e) {
-                UiEvent.ScrollToBottom -> { pinned = true; listState.scrollToItem(0) }
+                UiEvent.ScrollToBottom -> { followNewest = true; listState.scrollToItem(0) }
                 // Handled by MainActivity so it works from every page (setup, script manager).
                 UiEvent.RequestNotificationPermission, UiEvent.RequestContactsPermission, UiEvent.PickContact, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
                 UiEvent.PickFont, UiEvent.PickBackupFolder -> Unit
@@ -179,8 +179,8 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             }
         }
     }
-    // Stay pinned to the newest line (index 0 with reverseLayout) unless the user scrolled up.
-    // Only user scrolls change `pinned`: inserting items shifts the anchor and must not unpin.
+    // Follow the newest line (index 0 with reverseLayout) unless the user scrolled up.
+    // Only user scrolls change `followNewest`: inserting items shifts the anchor and must not stop following.
     LaunchedEffect(listState) {
         snapshotFlow {
             listState.isScrollInProgress to
@@ -188,9 +188,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         }.collect { (scrolling, atBottom) ->
             // Settled at the bottom too: a fling the newest line stops can end in the same frame it
             // arrives, with no scrolling-and-at-bottom state in between. Inserts can't settle a list.
-            if (scrolling) pinned = atBottom
+            if (scrolling) followNewest = atBottom
             else if (atBottom) {
-                pinned = true
+                followNewest = true
                 // Settled back at the newest lines: older pages loaded on the way up can go.
                 vm.atNewest()
             }
@@ -198,7 +198,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     }
     // Keyed on the newest *row* (rows are built after entries), so the scroll targets the new line.
     LaunchedEffect(reversedRows.firstOrNull()?.key) {
-        if (pinned) listState.scrollToItem(0)
+        if (followNewest) listState.scrollToItem(0)
     }
     // Near the oldest loaded line (top of the reversed list): load the next page.
     LaunchedEffect(listState) {
@@ -223,7 +223,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         val index = reversedRows.indexOfFirst { it is LogRow.Entry && it.entry.id == id }
         if (index < 0) return@LaunchedEffect
         // One of the newest lines: still following new ones.
-        pinned = index <= 3
+        followNewest = index <= 3
         runCatching { listState.scrollToItem((index - 3).coerceAtLeast(0)) }
         vm.jumpDone()
         flash = id
@@ -316,7 +316,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         val typing = preview?.typing ?: (promptFocused && WindowInsets.isImeVisible)
         // While searching, the pinned header steps aside: the suggestions use its room.
         val searching = typing || hasInput
-        // header.show off: no header line; the pinned header and the log start under the camera.
+        // header.show off: no header; the pinned header and the log start under the camera.
         val showHeader = remember(configVersion) { config[Keys.HEADER_SHOW] }
         val showMedia = remember(configVersion) { config[Keys.HEADER_MEDIA] }
         if (showHeader) Header(
@@ -458,7 +458,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                     .size(48.dp)
                     .background(Term.surface, RoundedCornerShape(24.dp))
                     .border(1.dp, Term.prompt.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
-                    .clickable(onClickLabel = "jump to the newest lines") { pinned = true; scope.launch { listState.animateScrollToItem(0) } },
+                    .clickable(onClickLabel = "jump to the newest lines") { followNewest = true; scope.launch { listState.animateScrollToItem(0) } },
             ) {
                 TintedIcon(R.drawable.ic_arrow_down, Term.prompt, 24.dp, description = "Jump to the newest lines")
             }

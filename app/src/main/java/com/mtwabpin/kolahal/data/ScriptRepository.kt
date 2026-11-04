@@ -59,7 +59,7 @@ class ScriptRepository private constructor(private val context: Context) {
      * declares; code from a file, a folder or a backup comes [enabled] false and asks when switched on.
      */
     fun create(name: String, lang: ScriptLang, code: String, enabled: Boolean = true): Script {
-        // Nothing of an earlier script with this name carries over: a header line a run left behind, values.
+        // Nothing of an earlier script with this name carries over: a status line a run left behind, values.
         StatusLines.clear(context, name)
         db.writableDatabase.delete("kv", "scope = ?", arrayOf(SecretStore.scope(name)))
         db.writableDatabase.insertOrThrow("scripts", null, ContentValues().apply {
@@ -150,7 +150,7 @@ class ScriptRepository private constructor(private val context: Context) {
             put("enabled", if (enabled) 1 else 0)
             if (enabled && grant) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(s.code, s.access)))
         }
-        // Its header line goes either way: switched off, it would come back stale; switched on, a
+        // Its status line goes either way: switched off, it would come back stale; switched on, a
         // line left by a run while it was off would.
         if (enabled != s.enabled) StatusLines.clear(context, s.name)
     }

@@ -77,7 +77,7 @@ internal class ScriptCode(code: String, name: String) {
     val uses = ScriptMeta.uses(code)
     val secrets = ScriptMeta.secrets(code)
     val notifies = ScriptMeta.postsNotifications(code)
-    /** Which of internet and the header line it uses ([ScriptAccess.base]). */
+    /** Which of internet and a status line it uses ([ScriptAccess.base]). */
     val base = ScriptAccess.base(code).toSet()
     /** What its sheet and expanded card list: its access, then its events ([ScriptAccess.items]). */
     val accessItems = ScriptAccess.items(code)
@@ -130,7 +130,7 @@ private val SCRIPT_FILTERS = listOf(
 
 /**
  * Script manager (Material 3 Expressive), the Scripts tab: a card per script, compact (its title,
- * kind, timers and last run on one line) or expanded (its header line, next run, usage, events and
+ * kind, timers and last run on one line) or expanded (its status line, next run, usage, events and
  * access), filtered by chips and search. Add script holds new, library, shared and imported ones;
  * a card opens the script's sheet.
  */

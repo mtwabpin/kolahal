@@ -4,7 +4,7 @@ package com.mtwabpin.kolahal.data
  * Styled text in a log line: invisible markers around its styled parts, put there by a script's
  * `fmt.*` functions, or by `md.log` from Markdown. The markers are private-use characters from
  * Unicode's plane 16, which text from the web doesn't use, so a feed title can't turn styling on.
- * The log draws them; everywhere else (notifications, header lines, Copy text, search) they are
+ * The log draws them; everywhere else (notifications, status lines, Copy text, search) they are
  * stripped ([plain]).
  */
 object StyledText {

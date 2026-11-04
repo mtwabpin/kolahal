@@ -44,7 +44,7 @@ import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Header line "♪ Title — Artist  ⏭" (drawn icons) over a bar for how far along the track is: tap
+ * The pinned header's music line "♪ Title — Artist  ⏭" (drawn icons) over a bar for how far along the track is: tap
  * toggles play/pause, long-press or ⏭ skips to the next track. [endPadding] keeps the line's end
  * clear for the pinned header's dots; the bar runs on under them.
  */

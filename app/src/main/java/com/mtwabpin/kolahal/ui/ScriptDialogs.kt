@@ -210,7 +210,7 @@ internal fun RenameDialog(s: Script, existing: Set<String>, onDismiss: () -> Uni
                 singleLine = true,
                 isError = problem != null,
                 supportingText = {
-                    Text(problem ?: "Its keys, timers and header line are kept. A copy from the library or Get more scripts becomes yours and no longer gets updates.")
+                    Text(problem ?: "Its keys, timers and status line are kept. A copy from the library or Get more scripts becomes yours and no longer gets updates.")
                 },
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (valid) onRename(clean) }),
