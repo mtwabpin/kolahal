@@ -93,6 +93,10 @@ class LuaEngine : ScriptEngine {
             host.status(l.str(1))
             0
         }
+        lua.global("pin") { l ->
+            host.pin(l.str(1), l.mapArg(2))
+            0
+        }
         lua.global("allowed") { l ->
             l.push(host.allowed(l.str(1).orEmpty()))
             1

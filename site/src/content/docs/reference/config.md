@@ -29,6 +29,7 @@ work in `config` (which tells you the new name), and older backups import as bef
 | `gesture.swipeup.on` | removed: set `gesture.swipe-up` to `none` to turn swiping up off |
 | `log.lineheight`, `log.keepdays` | `log.line-height`, `log.keep-days` |
 | `keyboard.onhome` | `keyboard.on-home` |
+| `header.media-always` | removed in 0.4.14: with the header off, what's playing always shows in the [pinned header](/getting-started/basics/#the-pinned-header) |
 
 The `theme` and `font` commands are unchanged.
 :::
@@ -37,8 +38,9 @@ The `theme` and `font` commands are unchanged.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `header.show` | bool | `on` | show the header; off: the log fills the screen (open settings with `settings`) |
-| `header.media-always` | bool | `off` | with the header off, still show what's playing at the top of home, with a progress bar: tap plays / pauses, long-press skips (needs notification access) |
+| `header.show` | bool | `on` | show the header; off: the log fills the screen, under the [pinned header](/getting-started/basics/#the-pinned-header) when something is in it (open settings with `settings`) |
+| `header.pinned-seconds` | number 2–60 | `5` | with the header off, how many seconds each item in the pinned header shows before the next one |
+| `header.pinned-dots` | number 0–10 | `3` | dots at the end of the pinned header showing which item is on screen, for up to this many items; `0`: never |
 | `header.clock` | bool | `on` | show the clock |
 | `header.settings` | bool | `on` | show the settings button (`settings` opens Settings too) |
 | `header.device` | bool | `off` | show `name@device` in the header (`kolahal@device` until you set `user.name`) |

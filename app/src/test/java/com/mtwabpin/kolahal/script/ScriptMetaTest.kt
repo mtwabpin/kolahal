@@ -158,6 +158,10 @@ class ScriptMetaTest {
         assertTrue(ScriptMeta.setsHeader("if (line) status(`Sun ${'$'}{rise}`);"))
         assertFalse(ScriptMeta.setsHeader("local r = http.get(u)\nif r.status ~= 200 then return end"))
         assertFalse(ScriptMeta.setsHeader("const ok = res.status === 200;"))
+        // Its pinned header item too.
+        assertTrue(ScriptMeta.setsHeader("pin(\"NZ 136/8\", { progress = 0.66 })"))
+        assertTrue(ScriptMeta.setsHeader("pin(null);"))
+        assertFalse(ScriptMeta.setsHeader("const code = card.pin;"))
 
         assertTrue(ScriptMeta.postsNotifications("notify(\"Battery\", \"low\")"))
         assertFalse(ScriptMeta.postsNotifications("-- @notify\nlog(\"no notification\")"))

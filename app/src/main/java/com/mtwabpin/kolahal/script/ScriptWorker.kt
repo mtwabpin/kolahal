@@ -71,6 +71,17 @@ internal object ScriptRun {
         if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false) &&
             (!script.grants.allows(on) || (on == "notification" && !script.grants.allows("notifications")))
         ) return true
+        // A pinned item's refresh, every few seconds while home shows it: what stays the same isn't said
+        // again. An error shows once until a run works, and a result a run returns isn't logged.
+        val refresh = script != null && on == ScriptScheduler.REFRESH && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
+        val refreshes = KvStore(ctx, "worker")
+        val refreshKey = "refresh-error:${script?.id}"
+        val lastError = if (refresh) refreshes.get(refreshKey) else null
+        var failed: String? = null
+        fun fail(text: String, context: LogContext) {
+            failed = text
+            if (text != lastError) logs.add(LogKind.ERROR, text, name, context)
+        }
 
         val host = HostApi(
             ctx, name, script?.id,
@@ -96,7 +107,7 @@ internal object ScriptRun {
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
             }
             host.flush()
-            if (result != null) {
+            if (result != null && !refresh) {
                 val shown = host.redact(result)
                 logs.add(LogKind.OUTPUT, shown, name, LogContext.of(LogContext.COPY to shown) + errorCtx.values)
             } else if (repl && host.effects == 0) {
@@ -108,7 +119,7 @@ internal object ScriptRun {
             host.flush()
             // Only our own timeout is a script failure; WorkManager stopping the worker must propagate.
             if (e !is TimeoutCancellationException) throw e
-            logs.add(LogKind.ERROR, "$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", name, errorCtx)
+            fail("$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", errorCtx)
             "timeout"
         } catch (e: Throwable) {
             host.flush()
@@ -117,14 +128,11 @@ internal object ScriptRun {
             // QuickJS's interrupt, or Lua's own timeout error (raised by the hook or a host call that waits).
             val timedOut = e is com.dokar.quickjs.QuickJsInterruptedException || e.message.orEmpty().contains("script timed out")
             if (timedOut) {
-                logs.add(LogKind.ERROR, "$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", name, errorCtx)
+                fail("$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", errorCtx)
                 "timeout"
             } else if (off != null) {
                 // Stopped by a switch the user turned off: say which, with a tap to allow it.
-                logs.add(
-                    LogKind.ERROR, "$name: ${ScriptAccess.label(off).lowercase()} is off for this script — tap to allow", name,
-                    errorCtx + mapOf(LogContext.RUN to "script allow $name $off"),
-                )
+                fail("$name: ${ScriptAccess.label(off).lowercase()} is off for this script — tap to allow", errorCtx + mapOf(LogContext.RUN to "script allow $name $off"))
                 "stopped: ${ScriptAccess.label(off).lowercase()} off"
             } else {
                 // An error can quote a URL or a header: masked like everything else a run shows.
@@ -136,7 +144,7 @@ internal object ScriptRun {
                     put(LogContext.COPY, message ?: msg)
                     line?.let { put(LogContext.LINE, it.toString()) }
                 }
-                logs.add(LogKind.ERROR, "$name: $msg" + (line?.let { " (tap to edit line $it)" } ?: ""), name, errorCtx + extra)
+                fail("$name: $msg" + (line?.let { " (tap to edit line $it)" } ?: ""), errorCtx + extra)
                 "error: $msg" + (line?.let { " (line $it)" } ?: "")
             }
         } finally {
@@ -146,7 +154,11 @@ internal object ScriptRun {
         if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
             ScriptAccess.askToAllow(ctx, name, host.undecided.toList(), "needs permission for")
         }
+        if (refresh && failed != lastError) refreshes.set(refreshKey, failed)
         script?.let {
+            // A refresh that went as the last one did leaves the script's row be: one each few seconds
+            // would have home read every script again.
+            if (refresh && failed == lastError) return@let
             scripts.recordRun(it.id, status)
             // The run's lines went out before its result was stored; without this, home could show the previous run.
             logs.touch()

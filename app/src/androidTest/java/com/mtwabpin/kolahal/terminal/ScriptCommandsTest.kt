@@ -55,7 +55,7 @@ class ScriptCommandsTest {
             for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
                 ScriptScheduler.cancel(context, s.id)
                 scripts.delete(s.id)
-                statuses.set(s.name, null)
+                com.mtwabpin.kolahal.data.Pins.clearLines(context, s.name)
                 SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
             }
         } finally {
@@ -94,6 +94,17 @@ class ScriptCommandsTest {
         assertNull(statuses.all()[shown.name])
         assertEquals("hidden", statuses.all()[off.name])
         assertTrue(run("status bogus").single().startsWith("Usage: status"))
+    }
+
+    /** Pinned header items list with the status lines, marked, and `status clear` takes them too. */
+    @Test fun statusListsPinnedItemsAndClearsThem() {
+        val s = create("pin", "pin('x')")
+        val pins = KvStore(context, com.mtwabpin.kolahal.data.Pins.SCOPE)
+        pins.set(s.name, com.mtwabpin.kolahal.data.Pins.encode(com.mtwabpin.kolahal.data.Pin(s.name, "NZ 136/8", 0.5f, 30, 1)))
+        assertTrue(run("status").toString(), "${s.name} ▸ NZ 136/8 · pinned" in run("status"))
+        run("status clear")
+        assertNull(pins.get(s.name))
+        assertEquals(listOf("No status lines or pinned items — scripts set them with status(text) and pin(text)"), run("status"))
     }
 
     /** The library lists its scripts; one installs, shows as installed, and an edited copy is replaced only when asked. */

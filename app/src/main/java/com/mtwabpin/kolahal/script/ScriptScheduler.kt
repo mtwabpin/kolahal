@@ -166,6 +166,29 @@ object ScriptScheduler {
         )
     }
 
+    /** The `event` of a run a pinned item asks for with `refresh`. */
+    const val REFRESH = "refresh"
+
+    /**
+     * A pinned item's run again (`pin(text, { refresh = s })`), which home asks for while it shows
+     * the item. Never two at once: while one waits or runs (for a network, say), the next is dropped.
+     */
+    fun refreshPinned(context: Context, script: Script) {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "script-${script.id}-refresh",
+            androidx.work.ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<ScriptWorker>()
+                .apply { if (ScriptMeta.goesOnline(script.code)) setConstraints(online()) }
+                .setInputData(remoteData(context) {
+                    putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
+                    putBoolean(ScriptWorker.KEY_SCHEDULED, true)
+                    putString(ScriptWorker.KEY_EVENT, Json.stringify(mapOf("name" to REFRESH)))
+                })
+                .addTag("script")
+                .build(),
+        )
+    }
+
     /**
      * One non-interactive run triggered by a device event (`@on`). [payload] becomes the script's
      * `event` global; it is skipped in the worker if the script was disabled meanwhile.

@@ -102,9 +102,12 @@ content. If Android blocks Kolahal's notifications, a "tap to allow" line appear
 
 `status(text)` pins one line into the header for this script, like `weather ▸ Pune: ☀️ +27°C`.
 `status(nil)` (or `null` in JS) clears it. Only the first line is used, up to 80 characters.
+With the header off, status lines don't show: [`pin(text)`](/scripting/api/#pintext-opts) puts an
+item in the [pinned header](/getting-started/basics/#the-pinned-header) instead, with a bar and
+quicker updates if you like.
 
 ```sh
-status                # list status lines
+status                # list status lines and pinned items
 status clear weather  # remove one (or: status clear all)
 ```
 
@@ -233,14 +236,14 @@ Each script's sheet (Scripts → tap the script) has an **Access** group, with a
 everything it uses, and an **Events** group, with one for each event of its `@on` lines; the pills
 in its card's details switch the same things, in the same two groups. What it uses is read from its
 code: **Internet** when it uses `http` or `rss`, puts links or pictures on its lines (`url`,
-`image`), or runs commands (`launcher.run`, as a search reaches a site); **Header line** when it calls `status`; **Post notifications** when it calls `notify`;
+`image`), or runs commands (`launcher.run`, as a search reaches a site); **Header line** when it calls `status` or `pin`; **Post notifications** when it calls `notify`;
 and what its `@uses` line names. A script gets only those: one that never mentions `http` can't go
 online. With a switch off, a call returns nothing where that's a valid result, and the script stops where it isn't:
 
 | Switch | Switched off, the script… |
 | --- | --- |
 | Internet | stops at its first `http` or `rss` call, with a line to tap to allow it again; its lines carry no links or pictures |
-| Header line | runs as before, but its `status()` line doesn't show |
+| Header line | runs as before, but its `status()` line and its `pin()` item don't show |
 | Post notifications | runs as before; `notify()` returns false |
 | An `@uses` item | gets nothing: `apps.list()` and `notifications.recent()` return empty lists, `clipboard.get()` returns nil and `clipboard.set()` does nothing, and `launcher.run` returns false |
 | An `@on` event | doesn't run on that event |

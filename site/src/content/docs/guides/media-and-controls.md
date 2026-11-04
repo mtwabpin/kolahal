@@ -35,8 +35,9 @@ The line disappears 30 minutes after playback was paused. When the header is col
 `♪` next to the time shows that something is playing (`header.compact.media`). Turn the line off with
 `config header.media off`.
 
-With the header off (`header.show off`), the line goes with it. To keep it, turn on `header.media-always`:
-the same line, at the top of home, under the same rule. It stays while you type or scroll back.
+With the header off (`header.show off`), the same line shows in the
+[pinned header](/getting-started/basics/#the-pinned-header) at the top of home, under the same
+rule, taking turns with what scripts pin there. It stays while you type or scroll back.
 
 ## Toggles
 

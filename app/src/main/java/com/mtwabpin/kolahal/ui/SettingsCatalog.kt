@@ -15,7 +15,8 @@ internal val TITLES = mapOf(
     "font.sans" to "System font",
     "font.size" to "Text size",
     "header.show" to "Show the header",
-    "header.media-always" to "Now playing with the header off",
+    "header.pinned-seconds" to "Pinned header: seconds per item",
+    "header.pinned-dots" to "Pinned header: dots up to",
     "header.clock" to "Clock",
     "header.date" to "Date",
     "clock.24h" to "24-hour clock",
@@ -165,8 +166,9 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.FEEDS_READ_SHOWN to on(Keys.FEEDS_LOG),
         // Without the header, only the clock's 24-hour setting and your name still count: the log and fetch use them.
         *(HEADER_ITEM_KEYS + listOf(Keys.HEADER_AUTOHIDE, Keys.GESTURE_SWIPE_DOWN)).map { it to on(Keys.HEADER_SHOW) }.toTypedArray(),
-        // And this, which is only for then.
-        Keys.HEADER_MEDIA_ALWAYS to { c: Config -> !c[Keys.HEADER_SHOW] },
+        // And these, which are only for then.
+        Keys.HEADER_PINNED_SECONDS to { c: Config -> !c[Keys.HEADER_SHOW] },
+        Keys.HEADER_PINNED_DOTS to { c: Config -> !c[Keys.HEADER_SHOW] },
         // With no item that draws an icon, there's nothing for it to change.
         Keys.HEADER_ICONS to { c: Config -> c[Keys.HEADER_SHOW] && HEADER_ICON_ITEMS.any { c[it] } },
     )
@@ -210,7 +212,8 @@ private val CATEGORIES = listOf(
         listOf(
             null to listOf(
                 Keys.HEADER_SHOW,
-                Keys.HEADER_MEDIA_ALWAYS,
+                Keys.HEADER_PINNED_SECONDS,
+                Keys.HEADER_PINNED_DOTS,
                 Keys.HEADER_AUTOHIDE,
             ),
             "Header items" to listOf<ConfigKey<*>>(Keys.HEADER_ICONS) + HEADER_ITEM_KEYS,

@@ -156,6 +156,24 @@ class HomeScreenTest {
         compose.onNodeWithTag("header-compact").assertExists()
     }
 
+    /** A script's pinned item shows at the top with the header off; with it on, not (yet). */
+    @Test fun thePinnedHeaderShowsWithTheHeaderOff() {
+        val scripts = com.mtwabpin.kolahal.data.ScriptRepository.get(app)
+        val s = scripts.create("pinned-home", com.mtwabpin.kolahal.data.ScriptLang.LUA, "pin('x')")
+        try {
+            com.mtwabpin.kolahal.data.KvStore(app, com.mtwabpin.kolahal.data.Pins.SCOPE)
+                .set(s.name, com.mtwabpin.kolahal.data.Pins.encode(com.mtwabpin.kolahal.data.Pin(s.name, "NZ 136/8", 0.5f, null, 1)))
+            config.set(Keys.HEADER_SHOW, "off")
+            show(360.dp, 700.dp)
+            compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
+            compose.runOnIdle { config.set(Keys.HEADER_SHOW, "on") }
+            compose.onNodeWithTag("pinned-header").assertDoesNotExist()
+        } finally {
+            scripts.delete(s.id)
+            com.mtwabpin.kolahal.data.Pins.clearLines(app, s.name)
+        }
+    }
+
     /** The one-line header has its own choices: the full header's don't change it. */
     @Test fun theOneLineHeaderHasItsOwnChoices() {
         val date = java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault()).format(Date())

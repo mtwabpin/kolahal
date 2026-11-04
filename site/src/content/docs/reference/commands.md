@@ -128,7 +128,7 @@ See [Productivity](/guides/productivity/). `<n>` is the number shown in the list
 | `lua <code>` | evaluate Lua 5.4 |
 | `js <code>` | evaluate JavaScript (QuickJS) |
 | `= <expr>` | calculator: `= 5 km in mi`, `= 72 f to c`, `= 100 usd in eur` |
-| `status [clear <name\|all>]` | header lines pinned by scripts |
+| `status [clear <name\|all>]` | header lines and pinned header items scripts set; `clear` removes them |
 
 `script` subcommands:
 

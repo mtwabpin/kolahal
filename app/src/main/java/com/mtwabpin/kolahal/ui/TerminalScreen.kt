@@ -131,6 +131,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val unlocks by vm.unlocksToday.collectAsStateWithLifecycle()
     val status by vm.status.collectAsStateWithLifecycle()
     val statuses by vm.statuses.collectAsStateWithLifecycle()
+    val pins by vm.pins.collectAsStateWithLifecycle()
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
@@ -382,7 +383,18 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 )
             }
         }
-        if (!showHeader) nowPlaying?.let { NowPlayingBar(it, config, configVersion, vm::mediaToggle, vm::mediaNext) }
+        // With the header off: what's playing and the scripts' pinned items, in turns.
+        if (!showHeader) PinnedHeader(
+            nowPlaying = nowPlaying,
+            pins = pins,
+            config = config,
+            version = configVersion,
+            onMediaToggle = vm::mediaToggle,
+            onMediaNext = vm::mediaNext,
+            onPinTap = vm::runScriptNamed,
+            onPinLongPress = { name -> showMenu("$name ▸ ${pins.firstOrNull { it.name == name }?.text.orEmpty()}", null) { vm.scriptActions.statusActions(name) } },
+            onRefresh = vm::refreshPinned,
+        )
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
         // The log and the suggestions share what the header, key bar and prompt leave. Those are
         // measured first, so a long suggestion list can't push the prompt off the screen.

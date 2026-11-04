@@ -38,8 +38,9 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
 }
 
 object Keys {
-    val HEADER_SHOW = ConfigKey.Bool("header.show", true, "Show the header: clock, header items and script status lines (off: the log fills the screen; open settings with the settings command)")
-    val HEADER_MEDIA_ALWAYS = ConfigKey.Bool("header.media-always", false, "With the header off, still show what's playing at the top of home, with a progress bar (tap: play/pause, long-press: next; needs notification access)")
+    val HEADER_SHOW = ConfigKey.Bool("header.show", true, "Show the header: clock, header items and script status lines (off: the log fills the screen, under the pinned header while music plays or a script pins an item; open settings with the settings command)")
+    val HEADER_PINNED_SECONDS = ConfigKey.Num("header.pinned-seconds", 5, 2..60, "With the header off, how many seconds each item in the pinned header shows before the next one")
+    val HEADER_PINNED_DOTS = ConfigKey.Num("header.pinned-dots", 3, 0..10, "Dots at the end of the pinned header showing which item is on screen, for up to this many items (0: never)")
     val HEADER_CLOCK = ConfigKey.Bool("header.clock", true, "Show the clock")
     val HEADER_SETTINGS = ConfigKey.Bool("header.settings", true, "Show the settings button (the command settings opens Settings too)")
     val HEADER_DEVICE = ConfigKey.Bool("header.device", false, "Show name@device in the header (the name is user.name)")
@@ -172,7 +173,8 @@ object Keys {
 
     val ALL: List<ConfigKey<*>> = listOf(
         HEADER_SHOW,
-        HEADER_MEDIA_ALWAYS,
+        HEADER_PINNED_SECONDS,
+        HEADER_PINNED_DOTS,
         HEADER_CLOCK,
         HEADER_SETTINGS,
         HEADER_DEVICE,
@@ -317,6 +319,7 @@ object Keys {
         "widgets.home" to "widgets are on the widgets page (widgets.page)",
         "widgets.height" to "widgets are on the widgets page (widgets.page)",
         "theme.paper" to "the home screen's background is the theme's colour; the phone's wallpaper can show behind it (log.wallpaper)",
+        "header.media-always" to "with the header off, what's playing always shows in the pinned header at the top of home",
     )
 
     /**

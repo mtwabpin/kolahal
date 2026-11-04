@@ -34,11 +34,14 @@ class ConfigNamesTest {
         }
     }
 
-    /** Settings that are gone (0.3.1: settings colours, home widgets) leave saved values and backups. */
+    /**
+     * Settings that are gone (0.3.1: settings colours, home widgets; 0.4.14: now playing with the
+     * header off, which the pinned header always shows) leave saved values and backups.
+     */
     @Test fun removedSettingsAreDropped() {
         val saved = mapOf(
             "theme.settings-colors" to "system", "gui.colors" to "system", "widgets.home" to "on", "widgets.height" to "200",
-            "theme" to "amber",
+            "header.media-always" to "on", "theme" to "amber",
         )
         assertEquals(mapOf("theme.name" to "amber"), Keys.migrate(saved))
     }

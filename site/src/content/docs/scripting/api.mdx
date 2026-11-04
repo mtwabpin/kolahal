@@ -22,6 +22,7 @@ means a table with those keys in Lua and an object with those properties in JS.
 | [`fmt.bold(text)` and the other styles](#styles-fmt) | the text, styled for the log |
 | [`notify(title, body, ctx?)`](#notifytitle-body-ctx) | `true` if a notification was posted |
 | [`status(text)`](#statustext) | nothing; pins or clears a header line |
+| [`pin(text, opts?)`](#pintext-opts) | nothing; puts or takes away its item in the pinned header |
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
 | [`http.get(url, headers?)`](#httpgeturl-headers) | `{ status, ok, body, headers }` |
 | [`http.request(opts)`](#httprequestopts) | same as `http.get` |
@@ -219,13 +220,51 @@ status(null);
 </TabItem>
 </Tabs>
 
+### pin(text, opts?)
+
+Puts this script's item in the [pinned header](/getting-started/basics/#the-pinned-header), the
+line at the top of home while the header is off (first line of `text`, at most 80 characters).
+`pin(nil)` / `pin(null)` or an empty string takes it out. Items take turns in that line with
+what's playing, first pinned first; a new text keeps the item's place. It only works in saved
+scripts, and needs Kolahal 0.4.14 (`@requires 0.4.14`). Tapping the item runs the script. A run
+changes it at most 20 times; setting what it already shows doesn't count. It's separate from
+[`status`](#statustext): a script may use either or both.
+
+`opts` can have:
+
+- `progress`: how far along, from 0 to 1, drawn as a bar under the item. Without it, there's no
+  bar.
+- `refresh`: run the script again every this many seconds (10 at the fastest) while home shows the
+  pinned header, to keep the item current. That run's [`event.name`](#event) is `"refresh"`, so it
+  can skip what only a typed command needs. It runs only while home is on screen, the header is
+  off and the item asks for it: pin without `refresh` once the item stops changing. An error in
+  those runs shows once until a run works again, and what a run returns isn't logged; its own
+  `log` lines are.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+pin("NZ 136/8 (33.2 ov) v IND", { progress = 200 / 300, refresh = 30 })
+pin("NZ won by 4 wickets")
+pin(nil)
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+pin("NZ 136/8 (33.2 ov) v IND", { progress: 200 / 300, refresh: 30 });
+pin("NZ won by 4 wickets");
+pin(null);
+```
+</TabItem>
+</Tabs>
+
 ### allowed(what)
 
 Whether this script may use `what`: `"internet"`, `"header"`, `"notifications"`, `"apps"`,
 `"clipboard"`, `"commands"`, `"dnd"`, an `@on` event such as `"unlock"`, or `"work"`. You switch these per script
 ([switching access off](/scripting/overview/#switching-access-off)); with one off, a script can do
 something else instead. A script has `"internet"` only if its code uses `http`, `rss`, `url`,
-`image` or `launcher.run`, and `"header"` only if it calls `status`. Code typed at the prompt gets `true` for everything.
+`image` or `launcher.run`, and `"header"` only if it calls `status` or `pin`. Code typed at the prompt gets `true` for everything.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -591,7 +630,8 @@ happened. `event.name` is the event (`unlock`, `charger`, `unplug`, `wifi`, `off
 
 A run at one of the script's [daily times](/scripting/overview/#running-scripts) gets `event.name`
 `"at"` and `event.time`, the scheduled time (`"23:00"`), even when it runs late: a script with two
-times can tell them apart. Other runs get nil (null in JavaScript).
+times can tell them apart. A run a [pinned item](#pintext-opts) asks for with `refresh` gets `event.name`
+`"refresh"`. Other runs get nil (null in JavaScript).
 
 ## Work profile
 

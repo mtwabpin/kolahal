@@ -75,16 +75,16 @@ object ScriptMeta {
     fun goesOnline(code: String) = online.containsMatchIn(code)
 
     private val internetRef = Regex("""\b(http|rss|url|image)\b|\blauncher\s*\.\s*run\b""")
-    private val statusRef = Regex("""(?<![.:\w])status\b""")
+    private val statusRef = Regex("""(?<![.:\w])(status|pin)\b""")
     private val notifyRef = Regex("""(?<![.:\w@])notify\b""")
 
     /**
      * What a script uses beyond `@uses`, read from the names in its code ([ScriptAccess] switches and
      * allows only these): the internet for `http` and `rss`, for the links and pictures its lines
      * carry (`url`, `image`), and for `launcher.run` (a search hands its words to a site); its header
-     * line for `status`; posting notifications for `notify`.
-     * Anything that mentions the name counts (a comment, `local status`), so a script that calls one
-     * by name always has it; a field such as `res.status` or the `@notify` line doesn't.
+     * line for `status` and its pinned header item for `pin`; posting notifications for `notify`.
+     * Anything that mentions the name counts (a comment, `local status`, `local pin`), so a script
+     * that calls one by name always has it; a field such as `res.status` or the `@notify` line doesn't.
      */
     fun usesInternet(code: String) = internetRef.containsMatchIn(code)
 

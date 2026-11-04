@@ -5,14 +5,13 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
-import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.script.HostApi
+import com.mtwabpin.kolahal.data.Pins
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFiles
@@ -90,7 +89,7 @@ class ScriptActions(
     fun setScriptAccess(s: Script, item: String, on: Boolean) = updateScript(s) {
         scripts.setAccess(s.id, item, on)
         if (item == ScriptAccess.HEADER && !on) {
-            KvStore(context, HostApi.STATUS_SCOPE).set(s.name, null)
+            Pins.clearLines(context, s.name)
             logs.onStatusChanged()
         }
     }
@@ -98,7 +97,7 @@ class ScriptActions(
     /** Long-press on a script's header line: run it, hide its line, or edit it. */
     fun statusActions(name: String): List<LogAction> {
         val s = scripts.byName(name) ?: return listOf(
-            LogAction("Clear this line") { io { KvStore(context, HostApi.STATUS_SCOPE).set(name, null); logs.onStatusChanged() } },
+            LogAction("Clear this line") { io { Pins.clearLines(context, name); logs.onStatusChanged() } },
         )
         return listOf(
             LogAction("Run $name now") { io { ScriptScheduler.runNow(context, s) } },
@@ -156,7 +155,7 @@ class ScriptActions(
     fun deleteScript(s: Script) = io {
         ScriptScheduler.cancel(context, s.id)
         scripts.delete(s.id)
-        KvStore(context, HostApi.STATUS_SCOPE).set(s.name, null)
+        Pins.clearLines(context, s.name)
         scriptList.value = scripts.all()
         notice("Deleted ${s.name}")
     }

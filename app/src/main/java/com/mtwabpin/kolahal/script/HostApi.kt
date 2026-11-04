@@ -7,6 +7,8 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Pin
+import com.mtwabpin.kolahal.data.Pins
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.notify.Notifier
@@ -484,6 +486,46 @@ class HostApi(
     /** Header-line writes this run. */
     private var statusWrites = 0
 
+    /**
+     * Puts this script's item in the pinned header, the line at the top of home while the header is
+     * off; null or empty takes it out. [opts]: `progress` (0 to 1) draws a bar under it, `refresh`
+     * (seconds, 10 at the fastest) runs the script again that often while the item is on screen.
+     */
+    fun pin(text: String?, opts: Map<*, *>? = null) {
+        live()
+        effects++
+        flush()
+        if (scriptId == null) {
+            log("pin() only works in saved scripts (it is keyed by script name)")
+            return
+        }
+        val unknown = opts?.keys?.map { it.toString() }?.filter { it != "progress" && it != "refresh" }.orEmpty()
+        require(unknown.isEmpty()) { "pin: no option ${unknown.joinToString(", ")} (there are progress and refresh)" }
+        val progress = opts?.get("progress")?.let {
+            val p = (it as? Number)?.toDouble()?.takeIf(Double::isFinite) ?: throw IllegalArgumentException("pin: progress is a number from 0 to 1")
+            p.coerceIn(0.0, 1.0).toFloat()
+        }
+        val refresh = opts?.get("refresh")?.let {
+            val s = (it as? Number)?.toDouble()?.takeIf(Double::isFinite) ?: throw IllegalArgumentException("pin: refresh is a number of seconds")
+            if (s <= 0) null else s.coerceIn(Pins.MIN_REFRESH.toDouble(), Pins.MAX_REFRESH.toDouble()).toInt()
+        }
+        // Header access switched off: the script runs on, its item just doesn't show.
+        if (grants?.allows(ScriptAccess.HEADER) == false) return
+        val value = text?.let(::redact)?.let(StyledText::plain)?.lines()?.firstOrNull()?.take(STATUS_MAX)?.takeIf { it.isNotBlank() }
+        val store = KvStore(context, Pins.SCOPE)
+        val old = store.get(scriptName)
+        // A new text keeps the item's place among the others.
+        val since = old?.let { Pins.decode(scriptName, it) }?.since ?: System.currentTimeMillis()
+        val new = value?.let { Pins.encode(Pin(scriptName, it, progress, refresh, since)) }
+        // Each write tells home to redraw: unchanged writes are skipped, and a loop stops after a few.
+        if (old == new || ++pinWrites > MAX_STATUS_PER_RUN) return
+        store.set(scriptName, new)
+        logs.onStatusChanged()
+    }
+
+    /** Pinned header writes this run. */
+    private var pinWrites = 0
+
     // ---- device, apps, launcher ----------------------------------------------------------
 
     fun clipboardSet(text: String) {
@@ -741,7 +783,7 @@ class HostApi(
         const val MAX_COMMANDS_PER_RUN = 10
         /** Notifications one run may post. */
         const val MAX_NOTIFY_PER_RUN = 10
-        /** Header-line writes one run may make. */
+        /** Header-line writes one run may make, and as many pinned header writes. */
         const val MAX_STATUS_PER_RUN = 20
         /** Longest text clipboard.set takes (characters). */
         const val MAX_CLIP = 100_000

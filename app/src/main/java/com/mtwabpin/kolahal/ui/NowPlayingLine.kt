@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,13 +45,15 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Header line "♪ Title — Artist  ⏭" (drawn icons) over a bar for how far along the track is: tap
- * toggles play/pause, long-press or ⏭ skips to the next track.
+ * toggles play/pause, long-press or ⏭ skips to the next track. [endPadding] keeps the line's end
+ * clear for the pinned header's dots; the bar runs on under them.
  */
 @Composable
 internal fun NowPlayingLine(
     np: NowPlaying,
     onToggle: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    endPadding: Dp = 0.dp,
 ) {
     val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
 
@@ -85,7 +89,7 @@ internal fun NowPlayingLine(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().padding(end = endPadding)
         ) {
             val iconSize = (Term.fontSize + 2).dp
 

@@ -9,6 +9,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Pins
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.LineDiff
@@ -51,21 +52,26 @@ class ScriptCommands(
         return Unit
     }
 
-    /** `status` lists script status lines; `status clear <name|all>` removes them. */
+    /**
+     * `status` lists script status lines and pinned header items; `status clear <name|all>` removes
+     * them.
+     */
     fun status(args: List<String>) {
-        val store = KvStore(context, HostApi.STATUS_SCOPE)
-        val all = store.all()
+        val all = KvStore(context, HostApi.STATUS_SCOPE).all()
+        val pins = Pins.all(context)
         when (args.firstOrNull()) {
             null, "ls" -> {
                 // What the header shows: lines of scripts that are on and allowed one.
                 val shown = scripts.all().filter { it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
                 val lines = all.filterKeys { it in shown }
-                if (lines.isEmpty()) info("No status lines — scripts set them with status(text)")
+                val pinned = pins.filter { it.name in shown }
+                if (lines.isEmpty() && pinned.isEmpty()) info("No status lines or pinned items — scripts set them with status(text) and pin(text)")
                 lines.forEach { (name, text) -> out("$name ▸ $text", LogContext.of(LogContext.SCRIPT to name)) }
+                pinned.forEach { p -> out("${p.name} ▸ ${p.text} · pinned", LogContext.of(LogContext.SCRIPT to p.name)) }
             }
             "clear" -> {
                 val target = args.getOrNull(1) ?: "all"
-                (if (target == "all") all.keys else listOf(target)).forEach { store.set(it, null) }
+                (if (target == "all") all.keys + pins.map { it.name } else setOf(target)).forEach { Pins.clearLines(context, it) }
                 logs.onStatusChanged()
                 info("Cleared status: $target")
             }
@@ -205,7 +211,7 @@ class ScriptCommands(
             "rm", "delete" -> withScript(target) { s ->
                 ScriptScheduler.cancel(context, s.id)
                 scripts.delete(s.id)
-                KvStore(context, HostApi.STATUS_SCOPE).set(s.name, null)
+                Pins.clearLines(context, s.name)
                 logs.onStatusChanged()
                 info("Deleted ${s.name}")
             }
@@ -427,7 +433,7 @@ class ScriptCommands(
         }
         // Switched off, its line leaves the header now rather than at its next run.
         if (!on && ScriptAccess.HEADER in items) {
-            KvStore(context, HostApi.STATUS_SCOPE).set(s.name, null)
+            Pins.clearLines(context, s.name)
             logs.onStatusChanged()
         }
         info("${s.name}: " + items.joinToString(", ") { "$it ${if (on) "on" else "off"}" }, scriptCtx(s))

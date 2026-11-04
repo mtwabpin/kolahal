@@ -258,7 +258,22 @@ While you type (the keyboard is open, or there is text in the prompt), the heade
 (`user.name`) beside it in Settings. Swipe down on the header to pull down the
 notification shade (a [gesture](/guides/gestures/) you can change).
 
-To hide the header, turn off **Show the header** (`header.show`). The log then fills the screen, you open Settings with `settings`, and script status lines aren't shown. To keep what's playing on screen anyway, turn on **Now playing with the header off** (`header.media-always`).
+To hide the header, turn off **Show the header** (`header.show`). The log then fills the screen, you open Settings with `settings`, and script status lines aren't shown.
+
+### The pinned header
+
+With the header off, one line at the top of home shows what's playing (with notification access)
+and what scripts pin there with [`pin`](/scripting/api/#pintext-opts), such as a live score. With
+more than one, they take turns in that line: each shows for **Pinned header: seconds per item**
+(`header.pinned-seconds`, 5 seconds), then the next slides up. Dots at the end show which one is
+on screen, for up to **Pinned header: dots up to** (`header.pinned-dots`, 3) items. A finger on the
+line keeps the one showing.
+
+- **What's playing**: tap to play or pause, long-press or **⏭** to skip, as in the header.
+- **A script's item**: tap runs the script, long-press for Run, Hide from header and Edit. A bar
+  under it shows how far along it is, when the script gives one.
+
+With nothing to show, the line takes no room.
 
 ## The key bar
 

@@ -30,6 +30,8 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Pin
+import com.mtwabpin.kolahal.data.Pins
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.Files
@@ -43,6 +45,7 @@ import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.ui.HeaderTarget
 import com.mtwabpin.kolahal.ui.KeyBarKey
+import com.mtwabpin.kolahal.ui.PinnedTurns
 import com.mtwabpin.kolahal.ui.TermFonts
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import kotlin.time.Duration.Companion.milliseconds
@@ -205,6 +208,29 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val shown = list.filter { it.name in lines && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
         lines.filterKeys { it in shown }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Every stored `pin(text)` item, first pinned first. */
+    private val _pins = MutableStateFlow<List<Pin>>(emptyList())
+    /** The pinned header's items from scripts: as [statuses], those of scripts on and allowed a header line. */
+    val pins: StateFlow<List<Pin>> = combine(_pins, scriptList) { items, list ->
+        if (items.isEmpty()) return@combine emptyList()
+        val shown = list.filter { it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
+        items.filter { it.name in shown }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** When each pinned item was last run again, by script name, on [SystemClock.elapsedRealtime]. */
+    private val pinRuns = HashMap<String, Long>()
+
+    /**
+     * Runs again the pinned items that ask for it (`refresh`) and are due. Home calls it each second
+     * while the pinned header is on screen, so they run only then; one still running is let be.
+     */
+    fun refreshPinned(now: Long = android.os.SystemClock.elapsedRealtime()) {
+        val due = PinnedTurns.due(pins.value, pinRuns, now)
+        if (due.isEmpty()) return
+        due.forEach { pinRuns[it] = now }
+        io { due.forEach { name -> scripts.byName(name)?.let { ScriptScheduler.refreshPinned(context, it) } } }
+    }
 
     private val _entries = MutableStateFlow<List<LogEntry>>(emptyList())
     val entries: StateFlow<List<LogEntry>> = _entries.asStateFlow()
@@ -444,6 +470,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             scriptsPrint = print
         }
         _statuses.value = KvStore(context, HostApi.STATUS_SCOPE).all()
+        _pins.value = Pins.all(context)
         if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = logs.hiddenCount()
         // A typed command's own line puts it first: read again only when a command may have gone (a
         // trim, or a removed line this page doesn't have or that was a command).

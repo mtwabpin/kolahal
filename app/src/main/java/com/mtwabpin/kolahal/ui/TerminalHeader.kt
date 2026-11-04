@@ -151,7 +151,7 @@ internal fun rememberToday(): java.time.LocalDate {
  * ([rememberZoneChanges]).
  */
 @Composable
-private fun rememberNow(): Pair<Date, Int> {
+internal fun rememberNow(): Pair<Date, Int> {
     HomeClock.use()
     return HomeClock.now to HomeClock.zone
 }
@@ -266,17 +266,6 @@ internal fun CompactHeader(
             }
         }
         TintedIcon(R.drawable.ic_expand_more, Term.dim, (Term.fontSize + 6).dp)
-    }
-}
-
-/** `header.media-always`: with the header off, its now playing line where the header would be, under the same rule. */
-@Composable
-internal fun NowPlayingBar(nowPlaying: com.mtwabpin.kolahal.control.NowPlaying, config: Config, version: Int, onToggle: () -> Unit, onNext: () -> Unit) {
-    // `now` ticks each minute, so a paused session drops out after 30 minutes.
-    val (now, _) = rememberNow()
-    val always = remember(version) { config[Keys.HEADER_MEDIA_ALWAYS] }
-    if (always && nowPlaying.showInHeader(now.time)) Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
-        NowPlayingLine(nowPlaying, onToggle, onNext)
     }
 }
 

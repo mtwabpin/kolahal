@@ -243,8 +243,8 @@ class SettingsScreenTest {
     }
 
     /**
-     * Without the header its settings go, but the 24-hour clock stays, as the log's times use it. Now
-     * playing with the header off shows only then.
+     * Without the header its settings go, but the 24-hour clock stays, as the log's times use it. The
+     * pinned header's show only then.
      */
     @Test fun headerOffHidesItsSettings() {
         show("header")
@@ -252,11 +252,14 @@ class SettingsScreenTest {
         compose.onNodeWithTag(Keys.HEADER_DATE.key).assertExists()
         compose.onNodeWithTag(Keys.COMPACT_DATE.key).assertExists()
         scrollTo(Keys.HEADER_SHOW)
-        compose.onNodeWithText(Keys.HEADER_MEDIA_ALWAYS.key, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(Keys.HEADER_PINNED_SECONDS.key, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(Keys.HEADER_PINNED_DOTS.key, useUnmergedTree = true).assertDoesNotExist()
 
         compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
-        scrollTo(Keys.HEADER_MEDIA_ALWAYS)
-        compose.onNodeWithText(Keys.HEADER_MEDIA_ALWAYS.key, useUnmergedTree = true).assertExists()
+        scrollTo(Keys.HEADER_PINNED_SECONDS)
+        compose.onNodeWithText(Keys.HEADER_PINNED_SECONDS.key, useUnmergedTree = true).assertExists()
+        scrollTo(Keys.HEADER_PINNED_DOTS)
+        compose.onNodeWithText(Keys.HEADER_PINNED_DOTS.key, useUnmergedTree = true).assertExists()
         scrollTo(Keys.CLOCK_24H)
         compose.onNodeWithText(Keys.CLOCK_24H.key, useUnmergedTree = true).assertExists()
         compose.onNodeWithTag(Keys.HEADER_DATE.key).assertDoesNotExist()
