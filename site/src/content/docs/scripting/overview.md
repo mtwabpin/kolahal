@@ -65,7 +65,7 @@ script: its title, how it runs and how its last run went (red if it failed), **R
 and its on/off switch; a card is tinted in the theme's colour when its script is on, and faded when it's off. The arrow on a card, or the one at the top for all of them, shows its details: its status line, next run, usage, and a pill for everything it may do (internet, pinned at the top, notifications, what it declares, its events). A pill is filled in the theme's colour when on and faded when off. Tap it to switch it.
 A library script you edited (its summary says "edited") gets **Compare** and **Reset to library
 version** there too.
-Chips filter the cards (commands, timers, events, in the header, failed, off, needs a key, differs
+Chips filter the cards (commands, timers, events, pinned, failed, off, needs a key, differs
 from the library, and what they use), and the search icon finds one by name.
 Tap a card for **Run**, **Edit**, **Export**, access, notifications, timers and **Delete**.
 **Add script** creates a new one, or adds one from the library, from
@@ -251,7 +251,7 @@ online. With a switch off, a call returns nothing where that's a valid result, a
 | An `@uses` item | gets nothing: `apps.list()` and `notifications.recent()` return empty lists, `clipboard.get()` returns nil and `clipboard.set()` does nothing, and `launcher.run` returns false |
 | An `@on` event | doesn't run on that event |
 
-Long-press a script's line in the header for **Hide from header**. In the terminal,
+Long-press a pinned script's line at the top of home for **Unpin**. In the terminal,
 `script access <name>` lists the switches, and `script allow <name> <what…>` and
 `script deny <name> <what…>` change them (`notify` is the notifications switch). A script can
 check with [`allowed(what)`](/scripting/api/#allowedwhat) and do something else.

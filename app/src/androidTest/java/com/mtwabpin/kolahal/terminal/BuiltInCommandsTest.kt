@@ -67,6 +67,8 @@ class BuiltInCommandsTest {
     private val crashDir = File(context.filesDir, "crash")
     private val crashReport = File(crashDir, "20260101-120000-crash.txt")
     private val olderReport = File(crashDir, "20251231-120000-crash.txt")
+    /** Reports already there (one Android recorded earlier in the run, say), set aside while a test reads the newest. */
+    private val setAside = File(context.cacheDir, "crash-set-aside")
     private val before = logs.maxId()
 
     private val screens = CopyOnWriteArrayList<Screen>()
@@ -107,6 +109,8 @@ class BuiltInCommandsTest {
         fx.set("USD", fxBefore)
         crashReport.delete()
         olderReport.delete()
+        setAside.listFiles()?.forEach { it.renameTo(File(crashDir, it.name)) }
+        setAside.delete()
         Keys.ALL.forEach(config::reset)
         logs.recent(500).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
@@ -281,7 +285,16 @@ class BuiltInCommandsTest {
 
     /** `crashes share` hands the newest report, or the one named, to the share sheet. */
     @Test fun crashesShareSendsTheReport() {
-        if (CrashReports.list(context).isEmpty()) assertEquals(listOf("No crash reports"), run("crashes share"))
+        // Only the test's own: one written earlier in the run is newer than these, and would be sent.
+        // Said in the log, so a run can tell what wrote it.
+        crashDir.listFiles()?.takeIf { it.isNotEmpty() }?.let { others ->
+            setAside.mkdirs()
+            others.forEach { f ->
+                android.util.Log.w("BuiltInCommandsTest", "set aside ${f.name}: ${f.readLines().take(8).joinToString(" | ")}")
+                f.renameTo(File(setAside, f.name))
+            }
+        }
+        assertEquals(listOf("No crash reports"), run("crashes share"))
         crashDir.mkdirs()
         // The newest, as just written.
         crashReport.writeText(

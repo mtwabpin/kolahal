@@ -77,7 +77,7 @@ class ScriptCardsTest {
     }
 
     /**
-     * Only what its code uses: no internet, header line or notifications for one that doesn't go online, set a line or
+     * Only what its code uses: no internet, pinning or notifications for one that doesn't go online, set a line or
      * notify. The events it runs on have a line of their own, under its access.
      */
     @Test fun aCardShowsOnlyWhatTheScriptUses() {
@@ -86,7 +86,7 @@ class ScriptCardsTest {
         show()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("unlock"))
         compose.onNodeWithText("clipboard").assertExists()
-        listOf("internet", "header line", "notifies").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        listOf("internet", "pinned", "notifies").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         val access = compose.onNodeWithText("clipboard").getUnclippedBoundsInRoot()
         val events = compose.onNodeWithText("Events", useUnmergedTree = true).getUnclippedBoundsInRoot()
         val unlock = compose.onNodeWithText("unlock").getUnclippedBoundsInRoot()

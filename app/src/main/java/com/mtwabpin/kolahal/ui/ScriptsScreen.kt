@@ -106,10 +106,10 @@ internal class ScriptInfo(val script: Script, code: ScriptCode) {
 }
 
 /**
- * What a filter can ask about a script beyond its code: a header line now, a secret not set yet, a
- * library copy that differs from this version's (edited, or from an older Kolahal).
+ * What a filter can ask about a script beyond its code: a secret not set yet, a library copy that
+ * differs from this version's (edited, or from an older Kolahal).
  */
-private class ScriptState(val inHeader: Boolean, val needsKey: Boolean, val differs: Boolean)
+private class ScriptState(val needsKey: Boolean, val differs: Boolean)
 
 /** A filter chip: its name and the scripts it keeps. */
 private class ScriptFilter(val id: String, val label: String, val keeps: (info: ScriptInfo, state: ScriptState) -> Boolean)
@@ -121,7 +121,7 @@ private val SCRIPT_FILTERS = listOf(
     ScriptFilter("commands", "Commands") { s, _ -> s.isCommand },
     ScriptFilter("timers", "Timers") { s, _ -> s.timed },
     ScriptFilter("events", "Events") { s, _ -> s.events.isNotEmpty() },
-    ScriptFilter("header", "In the header") { _, st -> st.inHeader },
+    ScriptFilter("pinned", "Pinned") { s, _ -> s.script.grants.allows(ScriptAccess.HEADER) },
     ScriptFilter("needs-key", "Needs a key") { _, st -> st.needsKey },
     ScriptFilter("failed", "Failed") { s, _ -> s.script.failed() },
     ScriptFilter("off", "Off") { s, _ -> !s.script.enabled },
@@ -207,7 +207,6 @@ fun ScriptsScreen(
         }
     }
     fun stateOf(info: ScriptInfo) = ScriptState(
-        info.script.name in statuses,
         info.script.name in missingKeys,
         libByName[info.script.name]?.state.let { it == ScriptLibrary.State.MODIFIED || it == ScriptLibrary.State.UPDATE_AVAILABLE },
     )

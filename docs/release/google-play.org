@@ -203,12 +203,12 @@ They must show the Play build: nothing about the screen lock or the call log.
    =./gradlew -PplayApk :app:assemblePlay= and =adb install -r app/build/outputs/apk/play/app-play.apk=.
    Locally it is signed with the release key, so an install with another key must be removed first
    (or re-sign a copy with the debug key to keep the emulator's data).
-2. Settings as a new install has them, plus =config set header.network on= and
-   =config set theme.name gruvbox=; a 1080 × 2400 screen (=adb shell wm size= shows it); the
-   emulator in dark mode, so the keyboard is dark too (=adb shell cmd uimode night yes=).
+2. Settings as a new install has them, plus =config set theme.name gruvbox=; a 1080 × 2400 screen
+   (=adb shell wm size= shows it); the emulator in dark mode, so the keyboard is dark too (=adb shell cmd uimode night yes=).
    Three feeds (Hacker News, LWN, and NASA's Image of the Day:
-   https://www.nasa.gov/feeds/iotd-feed/), three to-dos, and the =weather= script from the library
-   on a 30-minute timer, with =script set weather city Pune=.
+   https://www.nasa.gov/feeds/iotd-feed/), three to-dos, an alarm for 7:00, and the =weather= script
+   from the library on a 30-minute timer, with =script set weather city Pune=, pinned
+   (=script pin weather=) so its line shows in the pinned header.
 3. Each capture: =adb exec-out screencap -p > docs/release/graphics/raw/<name>.png=.
    | Capture     | What is on screen                                                                                          |
    |-------------+------------------------------------------------------------------------------------------------------------|

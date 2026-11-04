@@ -285,7 +285,7 @@ private fun Swatch(colour: Color, size: androidx.compose.ui.unit.Dp) {
     )
 }
 
-/** A small home screen in [p]'s colours: header, a command and its output, every kind of line, chips and the prompt. */
+/** A small home screen in [p]'s colours: the header's line, a command and its output, every kind of line, chips and the prompt. */
 @Composable
 fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
     val mono = Term.fontFamily
@@ -299,13 +299,15 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
             .testTag("theme-preview"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("9:41", style = line.copy(color = p.fg, fontSize = 22.sp, fontWeight = FontWeight.Bold))
+        // The header's line: the time and date, the battery at the end.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("9:41", style = line.copy(color = p.fg, fontWeight = FontWeight.Bold))
             Spacer(Modifier.width(8.dp))
             Text("Thu 22 Oct", style = line.copy(color = p.dim))
             Spacer(Modifier.weight(1f))
-            Text("bat ", style = line.copy(color = p.dim))
-            Text("82%", style = line.copy(color = p.prompt))
+            BatteryGlyph(82, charging = false, color = p.fg, height = 12.dp)
+            Spacer(Modifier.width(3.dp))
+            Text("82%", style = line.copy(color = p.fg, fontWeight = FontWeight.Bold))
         }
         Row {
             Box(Modifier.width(2.dp).height(34.dp).background(p.prompt))

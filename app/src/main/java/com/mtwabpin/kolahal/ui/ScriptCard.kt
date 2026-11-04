@@ -177,19 +177,19 @@ private fun ScriptDetails(
             Fact("Next run", if (exact) time else "about $time")
         }
         info.usage?.let { Fact("Usage", it) }
-        // Everything it may do, as in its sheet: its access (internet, its header line and notifications
+        // Everything it may do, as in its sheet: its access (internet, pinning and notifications
         // when its code uses them, what it declares with @uses), and apart from it the events of its @on
         // lines. A tap switches one.
         val (events, access) = info.accessItems.partition { it in info.events }
         if (access.isNotEmpty() || info.notifies) PillGroup("Access") {
-            // Notifications after internet and the header line, as in the sheet.
+            // Notifications after internet and pinning, as in the sheet.
             val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
             for (item in base + listOfNotNull("notify".takeIf { info.notifies }) + declared) {
                 if (item == "notify") {
                     AccessPill("notifies", s.notify) { onNotify(!s.notify) }
                     continue
                 }
-                val name = USES_SHORT[item] ?: ScriptAccess.label(item).lowercase()
+                val name = USES_SHORT[item] ?: if (item == ScriptAccess.HEADER) "pinned" else ScriptAccess.label(item).lowercase()
                 val allowed = grants.allows(item)
                 AccessPill(if (item in grants.undecided) "$name · not allowed yet" else name, allowed) { onAccess(item, !allowed) }
             }
