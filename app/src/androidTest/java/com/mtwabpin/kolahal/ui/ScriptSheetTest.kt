@@ -230,6 +230,7 @@ class ScriptSheetTest {
         box.performScrollTo().assert(hasText("18:30"))
         box.performTextReplacement("18:30, 21:00")
         compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Add") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
         inDialog("Add").performClick()
         waitFor("three daily times") { script().atTimes == listOf("08:00", "18:30", "21:00") }
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText("08:00, 18:30, 21:00")).fetchSemanticsNodes().isNotEmpty() }
