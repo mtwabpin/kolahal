@@ -360,6 +360,7 @@ class AppRepository private constructor(private val context: Context) {
          * clones: "Clone Chrome", where a work profile's are "Work Chrome" (app cloning, Android 14).
          * Only that wording counts; a profile named any other way stays work, as before.
          */
+        @SuppressLint("DiscouragedApi") // the badge's string isn't public: only its name finds it
         private fun labelledAsClone(context: Context, user: UserHandle): Boolean = runCatching {
             val res = android.content.res.Resources.getSystem()
             val clone = res.getIdentifier("clone_profile_label_badge", "string", "android")

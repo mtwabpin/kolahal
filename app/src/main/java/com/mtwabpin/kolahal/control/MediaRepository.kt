@@ -266,7 +266,7 @@ class MediaRepository private constructor(private val context: Context) {
         // callback it's the player's own, from earlier): the last value stands.
         val last = _nowPlaying.value
         val sameTrack = last != null && last.copy(position = fresh.position, positionAt = fresh.positionAt) == fresh
-        return if (sameTrack && kotlin.math.abs(last!!.positionNow(now) - fresh.positionNow(now)) < SAME_POSITION_MS) last else fresh
+        return if (sameTrack && kotlin.math.abs(last.positionNow(now) - fresh.positionNow(now)) < SAME_POSITION_MS) last else fresh
     }
 
 

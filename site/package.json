@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.4.14",
   "private": true,
-  "packageManager": "pnpm@12.14.0",
+  "packageManager": "pnpm@12.16.1",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
@@ -13,10 +13,10 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/markdown-satteri": "0.4.4",
-    "@astrojs/starlight": "0.42.6",
+    "@astrojs/markdown-satteri": "0.4.6",
+    "@astrojs/starlight": "0.42.8",
     "@fontsource/jetbrains-mono": "5.3.0",
-    "astro": "7.3.8",
+    "astro": "7.4.5",
     "sharp": "0.35.5"
   }
 }

@@ -480,9 +480,10 @@ class AppSelectorTest {
     /** Keyboard up (inactive): nothing shows and an open list closes; down again, it is back as it was. */
     @Test fun inactiveItHidesAndClosesItsList() {
         var active by mutableStateOf(true)
+        val list = apps.apps.value
         compose.setContent {
             Box(Modifier.size(360.dp, 700.dp)) {
-                AppSelector(apps.apps.value, emptySet(), onLaunch = {}, onLongPress = {}, heightDp = 300, edgeBackGesture = false, active = active)
+                AppSelector(list, emptySet(), onLaunch = {}, onLongPress = {}, heightDp = 300, edgeBackGesture = false, active = active)
             }
         }
         compose.onNodeWithTag("app-selector").performTouchInput { down(center); up() }
@@ -507,9 +508,10 @@ class AppSelectorTest {
     @Test fun theListCanUseThePhonesFont() {
         val first = entries.first().item.label
         var systemFont by mutableStateOf(true)
+        val list = apps.apps.value
         compose.setContent {
             Box(Modifier.size(360.dp, 700.dp)) {
-                AppSelector(apps.apps.value, emptySet(), onLaunch = {}, onLongPress = {}, heightDp = 300, edgeBackGesture = false, systemFont = systemFont)
+                AppSelector(list, emptySet(), onLaunch = {}, onLongPress = {}, heightDp = 300, edgeBackGesture = false, systemFont = systemFont)
             }
         }
         compose.onNodeWithTag("app-selector").performTouchInput { down(Offset(centerX, 2f)) }

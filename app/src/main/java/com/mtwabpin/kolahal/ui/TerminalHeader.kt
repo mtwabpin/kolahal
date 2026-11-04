@@ -57,9 +57,9 @@ enum class HeaderTarget { CLOCK, UNLOCKS, BATTERY, NETWORK, ALARM, SETTINGS, TOD
  * The clock home shows, kept once for all of it: the time a minute at a time as the system ticks it
  * (on waking too, where a delay that slept with the phone wouldn't), today's date, and a count of
  * time-zone changes, all new at once when the clock or the time zone is set. One set of receivers
- * while something on screen reads it ([use]); the headers swap as the keyboard opens and the log
- * scrolls, and each used to register its own and remove them again. MainActivity holds it while
- * started, so it is current whenever home is built.
+ * while something on screen reads it ([Hold]), for the header, the pinned header and the log's day
+ * dividers together, rather than one each. MainActivity holds it while started, so it is current
+ * whenever home is built.
  */
 internal object HomeClock {
     private var nowState by androidx.compose.runtime.mutableStateOf(Date())
@@ -115,11 +115,11 @@ internal object HomeClock {
 
     /**
      * Holds the clock while the screen reading it is started. The first holder makes it current
-     * ([acquire]); one coming while it's held finds it current, as ticks keep it: a header swapped in
-     * (the keyboard, the log scrolled) doesn't set the time again, which built both headers again.
+     * ([acquire]); one coming while it's held finds it current, as ticks keep it, so it doesn't set
+     * the time again and redraw what already reads it.
      */
     @Composable
-    fun use() {
+    fun Hold() {
         val context = androidx.compose.ui.platform.LocalContext.current
         androidx.lifecycle.compose.LifecycleStartEffect(context) {
             acquire(context)
@@ -131,7 +131,7 @@ internal object HomeClock {
 /** Counts the phone's time-zone changes, for formatters to be made again in the new zone. */
 @Composable
 internal fun rememberZoneChanges(): Int {
-    HomeClock.use()
+    HomeClock.Hold()
     return HomeClock.zone
 }
 
@@ -141,7 +141,7 @@ internal fun rememberZoneChanges(): Int {
  */
 @Composable
 internal fun rememberToday(): java.time.LocalDate {
-    HomeClock.use()
+    HomeClock.Hold()
     return HomeClock.today
 }
 
@@ -151,7 +151,7 @@ internal fun rememberToday(): java.time.LocalDate {
  */
 @Composable
 internal fun rememberNow(): Pair<Date, Int> {
-    HomeClock.use()
+    HomeClock.Hold()
     return HomeClock.now to HomeClock.zone
 }
 

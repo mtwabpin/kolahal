@@ -5,10 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.script.Json
@@ -184,7 +184,7 @@ internal class UpdateCommands(
 
     private fun install(release: Release) {
         if (!context.packageManager.canRequestPackageInstalls()) {
-            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${context.packageName}".toUri()))
             info("Allow Kolahal to install unknown apps, then run 'update install' again.", installLine)
             return
         }

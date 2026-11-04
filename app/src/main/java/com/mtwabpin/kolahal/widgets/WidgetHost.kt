@@ -73,7 +73,7 @@ class WidgetHost private constructor(context: Context) {
      */
     private fun sameAs(a: AppWidgetProviderInfo, b: AppWidgetProviderInfo) =
         Build.VERSION.SDK_INT >= 31 && a.provider == b.provider && a.profile == b.profile && a.initialLayout == b.initialLayout &&
-            a.activityInfo?.applicationInfo?.sourceDir == b.activityInfo?.applicationInfo?.sourceDir
+            a.activityInfo.applicationInfo?.sourceDir == b.activityInfo.applicationInfo?.sourceDir
 
     /**
      * Views by id, kept for a return to home: home is built again after a full-screen page (Settings,
