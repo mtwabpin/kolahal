@@ -486,12 +486,7 @@ private fun FeedSheet(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            // A typo in the address, or a feed that moved: change it here rather than remove and add again.
-            TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress, contentPadding = ButtonDefaults.TextButtonWithIconContentPadding) {
-                Icon(painterResource(R.drawable.ic_edit), null, Modifier.size(ButtonDefaults.IconSize))
-                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                Text("Edit address")
-            }
+            Spacer(Modifier.height(4.dp))
             Text(
                 listOfNotNull(
                     "${feed.unread} unread of ${feed.total}",
@@ -523,15 +518,24 @@ private fun FeedSheet(
             Spacer(Modifier.height(12.dp))
             IntervalSelector("Refresh every", feed.intervalMin, onInterval, FEED_INTERVALS)
 
+            // What changes the subscription itself, together at the end: its address (a typo, a feed
+            // that moved) rather than removing it and adding it again, and removing it.
             Spacer(Modifier.height(16.dp))
-            TextButton(
-                shapes = ButtonDefaults.shapes(),
-                onClick = { confirmRemove = true },
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) {
-                Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(ButtonDefaults.IconSize))
-                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                Text("Remove feed")
+            Row {
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress) {
+                    Icon(painterResource(R.drawable.ic_edit), null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text("Edit address")
+                }
+                TextButton(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = { confirmRemove = true },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text("Remove feed")
+                }
             }
         }
     }
