@@ -59,7 +59,9 @@ appear after you subscribed are unread.
 ### Feeds screen
 
 `feeds` (or the **Feeds** tab in Settings) opens a screen for managing subscriptions: adding, removing and toggling feeds, intervals
-and notifications, without typing ids. Tap a feed for its items (tap one to open it and mark it read).
+and notifications, without typing ids. A feed's ⋮ opens its sheet, where **Edit address** changes
+its address, for a typo or a feed that moved: its items and settings stay. Tap a feed for its items: tap one to open it and mark it read, or swipe one either way to mark it
+read (or, when it's read, unread again).
 The top bar refreshes everything and imports or exports **OPML**, so you can move subscriptions from
 or to another feed reader. The `feed …` subcommands work too.
 
@@ -74,6 +76,7 @@ Settings search finds them too.
 feed every 2 2h          # check feed #2 every 2 hours (minimum 15m; default 1h)
 feed notify 2 on         # one notification per fetch with new items (off to stop)
 feed off 2               # pause a feed; feed on 2 resumes it
+feed url 2 lwn.net/headlines/newrss   # a new address (a typo fixed): its items stay
 feed rm 2                # unsubscribe and delete its items
 ```
 

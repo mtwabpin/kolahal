@@ -44,6 +44,9 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -63,6 +67,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -130,6 +138,7 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
     var openFeedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var sheetFeedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var editingFeedId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     BackHandler { if (openFeedId != null) openFeedId = null else vm.closeScreen() }
 
@@ -170,6 +179,7 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
                 onRefresh = { io("refresh") { FeedScheduler.fetchNow(context, open.id); "Fetching ${open.displayTitle()}…" } },
                 onMarkAllRead = { io("mark read") { repo.markAllRead(open.id); null } },
                 onOpenItem = { item -> openItem(context, scope, repo, item, snackbar) },
+                onToggleRead = { item -> io("mark read") { if (item.read) repo.markUnread(item.id) else repo.markRead(item.id); null } },
             )
         } else {
             FeedListPage(
@@ -203,6 +213,7 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
                 },
                 onInterval = { minutes -> io("update") { repo.setInterval(sheetFeed.id, minutes); FeedScheduler.sync(context); null } },
                 onMarkAllRead = { io("mark read") { repo.markAllRead(sheetFeed.id); "Marked ${sheetFeed.displayTitle()} read" } },
+                onEditAddress = { editingFeedId = sheetFeed.id },
                 onRemove = {
                     sheetFeedId = null
                     if (openFeedId == sheetFeed.id) openFeedId = null
@@ -211,9 +222,37 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
             )
         }
 
-        if (adding) AddFeedDialog(repo, onDismiss = { adding = false }) { title ->
+        if (adding) FeedAddressDialog(
+            title = "Add feed",
+            confirm = "Subscribe",
+            initial = "",
+            onDismiss = { adding = false },
+            onSubmit = { url ->
+                if (repo.byUrl(url) != null) throw IllegalArgumentException("Already subscribed to $url")
+                val feed = repo.add(url)
+                FeedScheduler.sync(context)
+                FeedScheduler.fetchNow(context, feed.id)
+                "Subscribed to ${feed.shortName} — fetching…"
+            },
+        ) { message ->
             adding = false
-            scope.launch { snackbar.showSnackbar("Subscribed to $title — fetching…") }
+            scope.launch { snackbar.showSnackbar(message) }
+        }
+
+        val editing = editingFeedId?.let { id -> feeds?.firstOrNull { it.id == id } }
+        if (editing != null) FeedAddressDialog(
+            title = "Edit address",
+            confirm = "Save",
+            initial = editing.url,
+            onDismiss = { editingFeedId = null },
+            onSubmit = { url ->
+                val feed = repo.setUrl(editing.id, url)
+                FeedScheduler.fetchNow(context, feed.id)
+                "${editing.displayTitle()} is at ${hostOf(feed.url)} now — fetching…"
+            },
+        ) { message ->
+            editingFeedId = null
+            scope.launch { snackbar.showSnackbar(message) }
         }
     }
 }
@@ -428,6 +467,7 @@ private fun FeedSheet(
     onEnabled: (Boolean) -> Unit,
     onInterval: (Int) -> Unit,
     onMarkAllRead: () -> Unit,
+    onEditAddress: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val state = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
@@ -446,7 +486,12 @@ private fun FeedSheet(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(4.dp))
+            // A typo in the address, or a feed that moved: change it here rather than remove and add again.
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress, contentPadding = ButtonDefaults.TextButtonWithIconContentPadding) {
+                Icon(painterResource(R.drawable.ic_edit), null, Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text("Edit address")
+            }
             Text(
                 listOfNotNull(
                     "${feed.unread} unread of ${feed.total}",
@@ -509,13 +554,23 @@ private fun FeedSheet(
     }
 }
 
-// ---- add dialog ---------------------------------------------------------------------------------
+// ---- address dialog -----------------------------------------------------------------------------
 
+/**
+ * A feed's address, to add one or to change one's ([initial] filled in). [onSubmit] runs off the main
+ * thread with the address normalised and returns what to say; what it throws shows under the field.
+ */
 @Composable
-private fun AddFeedDialog(repo: FeedRepository, onDismiss: () -> Unit, onAdded: (String) -> Unit) {
-    val context = LocalContext.current
+private fun FeedAddressDialog(
+    title: String,
+    confirm: String,
+    initial: String,
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> String,
+    onDone: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
-    var url by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val normalized = remember(url) { FeedUrl.normalize(url) }
@@ -525,24 +580,16 @@ private fun AddFeedDialog(repo: FeedRepository, onDismiss: () -> Unit, onAdded: 
         if (normalized == null || busy) return
         busy = true
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    if (repo.byUrl(normalized) != null) throw IllegalArgumentException("Already subscribed to $normalized")
-                    val feed = repo.add(url)
-                    FeedScheduler.sync(context)
-                    FeedScheduler.fetchNow(context, feed.id)
-                    feed.shortName
-                }
-            }
+            val result = withContext(Dispatchers.IO) { runCatching { onSubmit(normalized) } }
             busy = false
-            result.onSuccess(onAdded).onFailure { error = it.message ?: "Couldn't add that feed" }
+            result.onSuccess(onDone).onFailure { error = it.message ?: "Couldn't use that address" }
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(painterResource(R.drawable.ic_rss), null) },
-        title = { Text("Add feed") },
+        title = { Text(title) },
         text = {
             TextField(
                 shape = TextFieldDefaults.roundedShape,
@@ -568,7 +615,7 @@ private fun AddFeedDialog(repo: FeedRepository, onDismiss: () -> Unit, onAdded: 
                 modifier = Modifier.fillMaxWidth(),
             )
         },
-        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = normalized != null && !busy, onClick = ::submit) { Text("Subscribe") } },
+        confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = normalized != null && !busy, onClick = ::submit) { Text(confirm) } },
         dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }
@@ -585,6 +632,7 @@ private fun FeedItemsPage(
     onRefresh: () -> Unit,
     onMarkAllRead: () -> Unit,
     onOpenItem: (FeedItem) -> Unit,
+    onToggleRead: (FeedItem) -> Unit,
 ) {
     val items by produceState<List<FeedItem>?>(null, feed.id, version) {
         value = withContext(Dispatchers.IO) { repo.items(feedId = feed.id, limit = ITEM_LIMIT) }
@@ -632,41 +680,90 @@ private fun FeedItemsPage(
                 }
             }
             if (list != null) itemsIndexed(list, key = { _, it -> it.id }) { i, item ->
-                ItemRow(item, i, list.size) { onOpenItem(item) }
+                ItemRow(item, i, list.size, onClick = { onOpenItem(item) }, onToggleRead = { onToggleRead(item) })
+            }
+            if (!list.isNullOrEmpty()) item(key = "hint") {
+                Text(
+                    "Tap an item to open it · swipe it to mark it read or unread",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+                )
             }
         }
     }
 }
 
+/**
+ * An item: tap opens it, a swipe either way marks it read, or unread again when it is. The row comes
+ * back once let go; a screen reader has the same as an action.
+ */
 @Composable
-private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit) {
+private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit, onToggleRead: () -> Unit) {
     val date = item.publishedText?.takeIf { it.isNotBlank() } ?: relative(item.fetchedAt)
-    SegmentedListItem(
-        onClick = onClick,
-        shapes = segShapes(index, count),
-        colors = segColors(),
-        leadingContent = {
-            // Unread dot; a fixed-size slot keeps titles aligned when it's hidden.
-            Box(Modifier.size(10.dp).then(
-                if (!item.read) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape) else Modifier
-            ))
+    val shapes = segShapes(index, count)
+    val swipe = rememberSwipeToDismissBoxState()
+    val scope = rememberCoroutineScope()
+    val label = if (item.read) "Mark unread" else "Mark read"
+    // One callback for the row's life: the box runs it again whenever it's a new one while the row is
+    // still out, and each run would toggle the item once more.
+    val toggle by rememberUpdatedState(onToggleRead)
+    val dismissed = remember(swipe, scope) {
+        { _: SwipeToDismissBoxValue ->
+            toggle()
+            scope.launch { swipe.reset() }
+            Unit
+        }
+    }
+    SwipeToDismissBox(
+        state = swipe,
+        backgroundContent = {
+            // What letting go does, on the side the row was pulled from.
+            Row(
+                horizontalArrangement = if (swipe.dismissDirection == SwipeToDismissBoxValue.EndToStart) Arrangement.End else Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(shapes.shape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .padding(horizontal = 24.dp),
+            ) {
+                val color = MaterialTheme.colorScheme.onSecondaryContainer
+                Icon(painterResource(if (item.read) R.drawable.ic_mail else R.drawable.ic_done_all), null, tint = color)
+                Spacer(Modifier.width(8.dp))
+                Text(label, style = MaterialTheme.typography.labelLarge, color = color)
+            }
         },
-        supportingContent = {
+        onDismiss = dismissed,
+        modifier = Modifier.semantics { customActions = listOf(CustomAccessibilityAction(label) { onToggleRead(); true }) },
+    ) {
+        SegmentedListItem(
+            onClick = onClick,
+            shapes = shapes,
+            colors = segColors(),
+            leadingContent = {
+                // Unread dot; a fixed-size slot keeps titles aligned when it's hidden.
+                Box(Modifier.size(10.dp).then(
+                    if (!item.read) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape) else Modifier
+                ))
+            },
+            supportingContent = {
+                Text(
+                    date,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+        ) {
             Text(
-                date,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
-                maxLines = 1,
+                item.title,
+                fontWeight = if (item.read) FontWeight.Normal else FontWeight.SemiBold,
+                color = if (item.read) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-        },
-    ) {
-        Text(
-            item.title,
-            fontWeight = if (item.read) FontWeight.Normal else FontWeight.SemiBold,
-            color = if (item.read) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
+        }
     }
 }

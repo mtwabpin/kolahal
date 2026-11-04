@@ -82,6 +82,28 @@ class FeedRepository private constructor(private val context: Context) {
         return byUrl(normalized) ?: error("Couldn't add the feed")
     }
 
+    /**
+     * Moves feed [id] to [url] (normalised first), as for one subscribed with a typo. What fetches
+     * learnt from the old address goes (its validators, when it was fetched and how it went); its
+     * items, title and settings stay.
+     * @throws IllegalArgumentException when the address isn't an http(s) URL, another feed has it,
+     * or there's no feed [id].
+     */
+    fun setUrl(id: Long, url: String): Feed {
+        val normalized = FeedUrl.normalize(url) ?: throw IllegalArgumentException("Not an http(s) URL: $url")
+        val feed = byId(id) ?: throw IllegalArgumentException("No feed #$id")
+        if (normalized == feed.url) return feed
+        if (byUrl(normalized) != null) throw IllegalArgumentException("Already subscribed to $normalized")
+        updateFeed(id) {
+            put("url", normalized)
+            putNull("etag")
+            putNull("last_modified")
+            putNull("last_fetch")
+            putNull("last_status")
+        }
+        return byId(id) ?: error("Couldn't change the feed's address")
+    }
+
     fun remove(id: Long) {
         val w = db.writableDatabase
         w.transaction {
@@ -156,6 +178,14 @@ class FeedRepository private constructor(private val context: Context) {
     fun markRead(itemId: Long) {
         val n = db.writableDatabase.update(
             "items", ContentValues().apply { put("read", 1) }, "id = ? AND read = 0", arrayOf(itemId.toString()),
+        )
+        if (n > 0) changed()
+    }
+
+    /** Marks one item unread again: a second swipe in its feed's list, or a read one swiped. */
+    fun markUnread(itemId: Long) {
+        val n = db.writableDatabase.update(
+            "items", ContentValues().apply { put("read", 0) }, "id = ? AND read = 1", arrayOf(itemId.toString()),
         )
         if (n > 0) changed()
     }

@@ -67,6 +67,13 @@ class FeedCommands(
                 scheduler.fetchNow(context, feed.id)
                 info("Subscribed #${feed.id} ${feed.url} — fetching…", LogContext.of(LogContext.URL to feed.url))
             }
+            "url" -> {
+                val url = args.getOrNull(2)
+                if (id == null || url == null) return error("Usage: feed url <id> <address>")
+                val feed = runCatching { repo.setUrl(id, url) }.getOrElse { return error((it.message ?: "Invalid URL") + if (repo.byId(id) == null) " — 'feeds' lists them" else "") }
+                scheduler.fetchNow(context, feed.id)
+                info("Feed #${feed.id} is at ${feed.url} — fetching…", LogContext.of(LogContext.URL to feed.url))
+            }
             "rm", "remove" -> {
                 id ?: return error("Usage: feed rm <id>")
                 if (repo.byId(id) == null) return error("No feed #$id — 'feeds' lists them")
@@ -128,7 +135,7 @@ class FeedCommands(
                 scheduler.sync(context)
                 info("Feed #$id ${args[0]}")
             }
-            else -> error("Usage: feed [ls|add <url>|rm|fetch|read|all|open|notify|every|on|off] [id]")
+            else -> error("Usage: feed [ls|add <url>|url <id> <url>|rm|fetch|read|all|open|notify|every|on|off] [id]")
         }
     }
 

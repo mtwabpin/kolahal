@@ -25,7 +25,7 @@ object CommandCatalog {
         CommandSpec("lua", "lua <code>", "Evaluate Lua 5.4"),
         CommandSpec("js", "js <code>", "Evaluate JavaScript (QuickJS)"),
         CommandSpec("rss", "rss <url>", "Fetch a feed into the log once"),
-        CommandSpec("feed", "feed [add <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]", "RSS/Atom subscriptions with unread counts (no args: text list)"),
+        CommandSpec("feed", "feed [add <url>|url <id> <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]", "RSS/Atom subscriptions with unread counts (no args: text list)"),
         CommandSpec("feeds", "feeds", "Feed manager screen (add, intervals, notifications, OPML)"),
         CommandSpec("widgets", "widgets [ls]", "Settings → Widgets → Arrange widgets: add, resize and arrange them (ls: text list)"),
         CommandSpec("widget", "widget add", "Pick a widget to add to the widgets page"),

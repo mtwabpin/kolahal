@@ -503,7 +503,7 @@ class Completer(private val context: Context, private val data: Data) {
         private val PICK_BEST_APP = setOf("open", "info", "uninstall", "hide", "shortcuts", "pin")
 
         /** `feed <sub> <id>`: the subcommands that take a feed. */
-        private val FEED_ID_SUBCOMMANDS = setOf("rm", "remove", "read", "all", "open", "notify", "every", "fetch", "refresh", "on", "off")
+        private val FEED_ID_SUBCOMMANDS = setOf("rm", "remove", "url", "read", "all", "open", "notify", "every", "fetch", "refresh", "on", "off")
 
         /** `script <sub>`: the subcommands that take no script name. */
         private val SCRIPT_NO_NAME = setOf("ls", "lib", "triggers", "dir", "export", "import", "new")

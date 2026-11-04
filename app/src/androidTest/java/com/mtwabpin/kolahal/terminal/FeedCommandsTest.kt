@@ -322,7 +322,29 @@ class FeedCommandsTest {
         assertEquals(listOf("No feed #${f.id} — 'feeds' lists them"), run("feed remove ${f.id}"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm first"))
-        assertEquals(listOf("Usage: feed [ls|add <url>|rm|fetch|read|all|open|notify|every|on|off] [id]"), run("feed bogus"))
+        assertEquals(listOf("Usage: feed [ls|add <url>|url <id> <url>|rm|fetch|read|all|open|notify|every|on|off] [id]"), run("feed bogus"))
+    }
+
+    /**
+     * `feed url` moves a feed to another address, as for a typo: its items stay, what fetching the
+     * old one learnt goes. One another feed has, one that isn't an address, or no feed, is said.
+     */
+    @Test fun feedUrlChangesAFeedsAddress() {
+        val f = feed("typo")
+        items(f, 2)
+        feeds.recordFetch(f.id, "error: 404", etag = "\"old\"")
+        val other = feed("other")
+        val fixed = "${BASE}fixed"
+        assertEquals(listOf("Feed #${f.id} is at $fixed — fetching…"), run("feed url ${f.id} $fixed").take(1))
+        val moved = feeds.byId(f.id)!!
+        assertEquals(fixed, moved.url)
+        assertNull(moved.etag)
+        assertEquals(2, feeds.itemCount(f.id))
+        assertTrue(feeds.all().first { it.id == f.id }.lastStatus != "error: 404")
+        assertEquals(listOf("Already subscribed to ${other.url}"), run("feed url ${f.id} ${other.url}"))
+        assertEquals(listOf("Not an http(s) URL: ftp://x"), run("feed url ${f.id} ftp://x"))
+        assertEquals(listOf("No feed #999999 — 'feeds' lists them"), run("feed url 999999 $fixed"))
+        assertEquals(listOf("Usage: feed url <id> <address>"), run("feed url ${f.id}"))
     }
 
     /** `feed fetch` says which feed it fetches, or all; a feed that can't be reached says so under that command. */

@@ -60,6 +60,7 @@ optional, and `a|b` means one of.
 | --- | --- |
 | `feed`, `feed ls` | list subscriptions with unread counts, interval and status |
 | `feed add <url>` | subscribe and fetch now |
+| `feed url <id> <url>` | change its address (a typo, a feed that moved); its items and settings stay |
 | `feed rm <id>` | unsubscribe and delete its items |
 | `feed fetch [id]` | refresh now (alias `refresh`) |
 | `feed read [id]` | show unread items, then mark them read |

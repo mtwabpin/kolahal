@@ -7,7 +7,16 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -231,6 +240,26 @@ class FeedsScreenTest {
         compose.onNodeWithText("Remove feed").assertDoesNotExist()
     }
 
+    /** Edit address in a feed's sheet: the address filled in, changed, and the feed keeps its items. */
+    @Test fun aFeedsAddressCanBeEdited() {
+        val f = feed("KT Typo", unread = 2)
+        show()
+        openSheet("KT Typo")
+        compose.onNodeWithText("Edit address").performClick()
+        val box = compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog()))
+        box.assert(hasText(f.url))
+        val fixed = "http://127.0.0.1:9/$MARK/fixed.xml"
+        box.performTextReplacement(fixed)
+        inDialog("Save").performClick()
+        waitFor("moved") { repo.byId(f.id)?.url == fixed }
+        waitForText("KT Typo is at 127.0.0.1 now — fetching…")
+        compose.onNodeWithText("Feed URL").assertDoesNotExist()
+        assertEquals(2, repo.itemCount(f.id))
+        waitFor("the fetch done", ms = 30_000) {
+            WorkManager.getInstance(app).getWorkInfosForUniqueWork("feeds-now-${f.id}").get().all { it.state.isFinished }
+        }
+    }
+
     /** Add feed takes an address, and the new feed shows in the list. */
     @Test fun anAddedFeedShowsInTheList() {
         show()
@@ -298,6 +327,30 @@ class FeedsScreenTest {
         compose.onNodeWithContentDescription("Back").performClick()
         waitForText("Subscriptions")
         compose.onNodeWithText("KT Alpha 1").assertDoesNotExist()
+    }
+
+    /** A swipe either way marks an item read, and a read one unread again; a screen reader has the same. */
+    @Test fun aSwipeMarksAnItemReadOrUnread() {
+        val f = feed("KT Alpha", unread = 2)
+        show()
+        waitForText("KT Alpha")
+        compose.onNodeWithText("KT Alpha").performClick()
+        waitForText("KT Alpha 1")
+        val newest = repo.items(feedId = f.id).first { it.title == "KT Alpha 1" }
+        compose.onNodeWithText("KT Alpha 1").performTouchInput { swipeRight() }
+        waitFor("read") { repo.items(feedId = f.id).first { it.id == newest.id }.read }
+        waitForText("1 unread · 127.0.0.1")
+        compose.onNodeWithText("KT Alpha 1").performTouchInput { swipeLeft() }
+        waitFor("unread again") { !repo.items(feedId = f.id).first { it.id == newest.id }.read }
+        waitForText("2 unread · 127.0.0.1")
+        // The row is back where it was, and the hint says how.
+        compose.onNodeWithText("KT Alpha 1").assertIsDisplayed()
+        compose.onNodeWithText("Tap an item to open it · swipe it to mark it read or unread").assertExists()
+        val unread = compose.onAllNodes(SemanticsMatcher("can be marked read") { node ->
+            node.config.getOrNull(SemanticsActions.CustomActions)?.any { it.label == "Mark read" } == true
+        }).fetchSemanticsNodes()
+        compose.runOnIdle { unread.first().config[SemanticsActions.CustomActions].first { it.label == "Mark read" }.action() }
+        waitFor("read by its action") { repo.unreadCount(f.id) == 1 }
     }
 
     /** An item without a link says so, and counts as read. */
