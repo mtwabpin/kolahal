@@ -1,22 +1,20 @@
 package com.mtwabpin.kolahal.ui
 
-import android.os.Build
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,13 +27,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,8 +49,6 @@ import com.mtwabpin.kolahal.status.Status
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 
 /** What a tap on a header item does. */
 enum class HeaderTarget { CLOCK, UNLOCKS, BATTERY, NETWORK, ALARM, SETTINGS, TODO }
@@ -156,131 +155,208 @@ internal fun rememberNow(): Pair<Date, Int> {
     return HomeClock.now to HomeClock.zone
 }
 
+/** Height of the header with no band to fill: a line of text with room to tap it. */
+private val HEADER_MIN = 32.dp
+
+/** Room kept clear on each side of the camera's cutout. */
+private val CUTOUT_GAP = 4.dp
+
+/** Space between the header's parts. */
+private val HEADER_SPACING = 4.dp
+
 /**
- * One-line header while the log is in use, with what `header.compact.*` chooses. What doesn't fit on
- * the line is left out, and with nothing to show it takes no room.
+ * Where the header's parts go along its line, in pixels, apart from Compose so it can be tested.
+ * The line runs [pad] in from each end; a camera cutout across it ([cutouts], x ranges) splits it.
+ */
+internal object HeaderLayout {
+    /** The stretches of the line free for text, left to right: each cutout kept [gap] clear. */
+    fun zones(width: Int, pad: Int, cutouts: List<IntRange>, gap: Int): List<IntRange> {
+        var zones = listOf(pad..(width - pad - 1))
+        for (c in cutouts) {
+            zones = zones.flatMap { z ->
+                val from = c.first - gap
+                val to = c.last + gap
+                if (to < z.first || from > z.last) listOf(z)
+                else listOf(z.first..(from - 1), (to + 1)..z.last).filterNot { it.isEmpty() }
+            }
+        }
+        return zones
+    }
+
+    /** Where each part goes: null for one left out. */
+    class Places(val time: Int?, val date: Int?, val items: List<Int?>)
+
+    /**
+     * The time and date ([time], [date] wide) at the start of the first stretch with room for them,
+     * the date left out if only the time fits; the items ([items], widths in the order they show)
+     * against the end of the last stretch. Items that don't fit are left out from the one before
+     * the last backwards, the last (the battery) last of all.
+     */
+    fun place(zones: List<IntRange>, time: Int, date: Int, items: List<Int>, spacing: Int): Places {
+        if (zones.isEmpty()) return Places(null, null, items.map { null })
+        fun room(z: IntRange) = z.last - z.first + 1
+        val both = time + spacing + date
+        var withDate = true
+        var lz = zones.indexOfFirst { room(it) >= both }
+        if (lz < 0) {
+            withDate = false
+            lz = zones.indexOfFirst { room(it) >= time }.takeIf { it >= 0 } ?: zones.indices.maxBy { room(zones[it]) }
+        }
+        val timeX = zones[lz].first
+        val last = zones.lastIndex
+        val start = if (lz == last) timeX + (if (withDate) both else time) + spacing else zones[last].first
+        val space = zones[last].last + 1 - start
+        val kept = items.indices.toMutableList()
+        val dropOrder = (items.size - 2 downTo 0) + listOf(items.size - 1)
+        var next = 0
+        fun width() = kept.sumOf { items[it] } + spacing * (kept.size - 1).coerceAtLeast(0)
+        while (kept.isNotEmpty() && width() > space) kept.remove(dropOrder[next++])
+        val xs = MutableList<Int?>(items.size) { null }
+        var x = zones[last].last + 1
+        for (i in kept.reversed()) {
+            x -= items[i]
+            xs[i] = x
+            x -= spacing
+        }
+        return Places(timeX, if (withDate) timeX + time + spacing else null, xs)
+    }
+}
+
+/**
+ * The header: one line at the top of home, Kolahal's own status bar. The time and date on the
+ * left; on the right the battery, and before it the two items you chose (`header.item-1`,
+ * `header.item-2`). In full screen it sits in the band the camera's cutout leaves across the top,
+ * clear of the cutout itself, so it takes no room from the log; with the status bar shown, it sits
+ * under it. What doesn't fit is left out: your second item first, then your first, the date when
+ * only the time fits, the battery last. A tap on a part does what it says; swiping down on the line
+ * pulls the shade.
  */
 @Composable
-internal fun CompactHeader(
+internal fun Header(
     status: Status,
-    statusCount: Int,
+    unlocks: Int,
+    profiles: List<Profile>,
+    todoCount: Int,
     config: Config,
     version: Int,
-    onExpand: () -> Unit,
-    mediaPlaying: Boolean = false,
-    unlocks: Int = 0,
-    profiles: List<Profile> = emptyList(),
-    todoCount: Int = 0,
-    onOpenSettings: () -> Unit = {},
+    onTarget: (HeaderTarget) -> Unit,
+    onProfileTap: (Profile) -> Unit,
+    onSwipeDown: () -> Unit,
 ) {
     val (now, zone) = rememberNow()
     val is24h = remember(version) { config[Keys.CLOCK_24H] }
     val timeFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm a", Locale.getDefault()) }
     val dateFmt = remember(zone) { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
-    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "EEE HH:mm" else "EEE h:mm a", Locale.getDefault()) }
+    // The alarm's time without AM or PM: the next alarm is yours, and the line is short beside a camera.
+    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm", Locale.getDefault()) }
+    val dayFmt = remember(zone) { SimpleDateFormat("EEE ", Locale.getDefault()) }
+    val chosen = remember(version) { listOf(config[Keys.HEADER_ITEM_1], config[Keys.HEADER_ITEM_2]) }
     val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
-    val useIcons = config[Keys.HEADER_ICONS]
-    val iconSize = (Term.fontSize + 2).dp
+    val bold = small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
+    val iconSize = (Term.fontSize + 1).dp
 
-    val clock = config[Keys.COMPACT_CLOCK]
-    val date = config[Keys.COMPACT_DATE]
-    val device = config[Keys.COMPACT_DEVICE]
-    val showUnlocks = config[Keys.COMPACT_UNLOCKS]
-    val pct = status.batteryPct?.takeIf { config[Keys.COMPACT_BATTERY] }
-    val network = config[Keys.COMPACT_NETWORK]
-    val alarm = status.nextAlarm?.takeIf { config[Keys.COMPACT_ALARM] }
-    val todos = config[Keys.COMPACT_TODO] && todoCount > 0
-    val gear = config[Keys.COMPACT_SETTINGS]
-    val shownProfiles = if (config[Keys.COMPACT_PROFILES]) profiles.filter(::hasHeaderItem) else emptyList()
-    if (
-        !clock && !date && !device && !showUnlocks && pct == null && !network && alarm == null && !todos && !mediaPlaying &&
-        statusCount == 0 && !gear && shownProfiles.isEmpty()
-    ) return
+    // The band beside the camera: the cutout's height, with the status bar hidden.
+    val density = LocalDensity.current
+    val barTop = WindowInsets.statusBars.getTop(density)
+    val band = (WindowInsets.displayCutout.getTop(density) - barTop).coerceAtLeast(0)
+    val height = with(density) { maxOf(band.toDp(), HEADER_MIN) }
+    val view = LocalView.current
+    // Where the cutout is across the line; under a status bar shown, it's the bar's to avoid.
+    val cutouts = remember(band, barTop, view) {
+        if (barTop > 0 || band == 0) emptyList()
+        else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }.map { it.left..it.right }
+    }
+    val originX = remember { floatArrayOf(0f) }
 
-    /** An item: its icon (header.icons) or a text label, then its value. */
+    /** One part of the line: as tall as it, with room to tap. */
     @Composable
-    fun Part(label: String, value: String, color: Color = Term.dim, icon: @Composable () -> Unit) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (useIcons) icon()
-            val text = if (!useIcons) "$label $value" else if (value.isEmpty()) "" else " $value"
-            if (text.isNotEmpty()) Text(text, style = small.copy(color = color), maxLines = 1)
+    fun Part(tag: String, label: String, description: String? = null, onClick: () -> Unit, content: @Composable () -> Unit) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier
+                .fillMaxHeight()
+                .testTag("header-$tag")
+                .clickable(onClickLabel = label, onClick = onClick)
+                .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
+                .padding(horizontal = 3.dp),
+        ) { content() }
+    }
+
+    // The items, in the order they show, each a composable or nothing (no alarm set, no todos).
+    val items: List<@Composable () -> Unit> = buildList {
+        for (kind in chosen) when (kind) {
+            "alarm" -> status.nextAlarm?.let { at ->
+                // A day ahead or more, with its day.
+                val text = (if (at - now.time >= 24 * 3_600_000L) dayFmt.format(Date(at)) else "") + alarmFmt.format(Date(at))
+                add { Part("alarm", "alarms", onClick = { onTarget(HeaderTarget.ALARM) }) { TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize); Text(text, style = bold, maxLines = 1) } }
+            }
+            "todo" -> if (todoCount > 0) add {
+                Part("todo", "todo", onClick = { onTarget(HeaderTarget.TODO) }) { TintedIcon(R.drawable.ic_check, Term.dim, iconSize); Text("$todoCount", style = bold) }
+            }
+            "network" -> add {
+                val color = if (status.network == "offline") Term.error else Term.fg
+                val res = networkIcon(status.network)
+                Part("network", "network", description = "network ${status.network}", onClick = { onTarget(HeaderTarget.NETWORK) }) {
+                    if (res != null) TintedIcon(res, color, iconSize) else Text(status.network, style = bold.copy(color = color))
+                }
+            }
+            "unlocks" -> add {
+                Part("unlocks", "unlocks", onClick = { onTarget(HeaderTarget.UNLOCKS) }) { TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize); Text("$unlocks", style = bold) }
+            }
+            "profiles" -> profiles.filter(::hasHeaderItem).forEach { p ->
+                add {
+                    val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
+                    val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
+                    Part("profile-${p.kind.label}", p.kind.label, description = "${p.kind.label} ${if (p.quiet) "off" else "on"}", onClick = { onProfileTap(p) }) { TintedIcon(res, color, iconSize) }
+                }
+            }
+            "settings" -> add {
+                Part("settings", "settings", description = "Settings", onClick = { onTarget(HeaderTarget.SETTINGS) }) { TintedIcon(R.drawable.ic_settings, Term.dim, iconSize) }
+            }
+        }
+        status.batteryPct?.let { pct ->
+            val color = when {
+                status.charging -> Term.prompt
+                pct <= 15 -> Term.error
+                else -> Term.fg
+            }
+            add { Part("battery", "battery", onClick = { onTarget(HeaderTarget.BATTERY) }) { BatteryGlyph(pct, status.charging, color, iconSize); Text("$pct%", style = bold.copy(color = color)) } }
         }
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Layout(
+        content = {
+            Part("time", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(timeFmt.format(now), style = bold, maxLines = 1) }
+            Part("date", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(dateFmt.format(now), style = small.copy(color = Term.dim), maxLines = 1) }
+            items.forEach { it() }
+        },
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("header-compact")
-            .clickable(onClick = onExpand)
+            .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
+            .testTag("header")
+            .height(height)
+            .onPlaced { originX[0] = it.positionInWindow().x }
+            // Swiping down on the line pulls the notification shade.
             .pointerInput(Unit) {
                 var total = 0f
                 detectVerticalDragGestures(
                     onDragStart = { total = 0f },
-                    onDragEnd = { if (total > 24.dp.toPx()) onExpand() },
+                    onDragEnd = { if (total > 24.dp.toPx()) onSwipeDown() },
                 ) { _, dy -> total += dy }
-            }
-            .heightIn(min = HEADER_ROW)
-            .padding(horizontal = 12.dp),
-    ) {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
-        ) {
-            if (clock) Text(timeFmt.format(now), style = small.copy(color = Term.fg, fontWeight = FontWeight.Bold))
-            if (date) Text(dateFmt.format(now), style = small.copy(color = Term.dim), maxLines = 1)
-            if (showUnlocks) Part("unlocks", unlocks.toString()) { TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize) }
-            pct?.let {
-                val color = when {
-                    status.charging -> Term.prompt
-                    it <= 15 -> Term.error
-                    else -> Term.dim
-                }
-                Part("bat", "$it%" + if (status.charging && !useIcons) "+" else "", color) { BatteryGlyph(it, status.charging, color, iconSize) }
-            }
-            if (network) {
-                val color = if (status.network == "offline") Term.error else Term.dim
-                val res = networkIcon(status.network)
-                Part("net", if (useIcons && res != null) "" else status.network, color) { res?.let { TintedIcon(it, color, iconSize) } }
-            }
-            alarm?.let { Part("alarm", alarmFmt.format(Date(it))) { TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize) } }
-            if (todos) Part("todo", todoCount.toString()) { TintedIcon(R.drawable.ic_check, Term.dim, iconSize) }
-            if (mediaPlaying) {
-                if (useIcons) TintedIcon(R.drawable.ic_music_note, Term.prompt, iconSize) else Text("♪", style = small.copy(color = Term.prompt))
-            }
-            if (statusCount > 0) Text("· $statusCount status", style = small.copy(color = Term.dim), maxLines = 1)
-            shownProfiles.forEach { p ->
-                val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
-                val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
-                Part(p.kind.label, if (p.quiet) "off" else "on", color) { TintedIcon(res, color, iconSize) }
-            }
-            if (device) DeviceName(config, small)
-            // Its own tap: Settings, where the rest of the line expands the header.
-            if (gear) Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.clickable(onClick = onOpenSettings).heightIn(min = HEADER_ROW).widthIn(min = 44.dp),
-            ) {
-                if (useIcons) TintedIcon(R.drawable.ic_settings, Term.dim, iconSize, "Settings") else Text("⚙", style = small.copy(color = Term.dim))
-            }
+            },
+    ) { measurables, constraints ->
+        val h = constraints.maxHeight
+        val parts = measurables.map { it.measure(Constraints(minHeight = h, maxHeight = h)) }
+        val shift = originX[0].toInt()
+        val zones = HeaderLayout.zones(constraints.maxWidth, 8.dp.roundToPx(), cutouts.map { (it.first - shift)..(it.last - shift) }, CUTOUT_GAP.roundToPx())
+        val places = HeaderLayout.place(zones, parts[0].width, parts[1].width, parts.drop(2).map { it.width }, HEADER_SPACING.roundToPx())
+        layout(constraints.maxWidth, h) {
+            places.time?.let { parts[0].place(it, 0) }
+            places.date?.let { parts[1].place(it, 0) }
+            places.items.forEachIndexed { i, x -> x?.let { parts[i + 2].place(it, 0) } }
         }
-        TintedIcon(R.drawable.ic_expand_more, Term.dim, (Term.fontSize + 6).dp)
     }
-}
-
-/** name@device. */
-@Composable
-private fun DeviceName(config: Config, style: TextStyle, modifier: Modifier = Modifier) {
-    Text(
-        buildAnnotatedString {
-            withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append(config[Keys.USER_NAME]) }
-            withStyle(SpanStyle(color = Term.dim)) { append("@" + Build.MODEL.lowercase().replace(' ', '-')) }
-        },
-        style = style,
-        maxLines = 1,
-        modifier = modifier,
-    )
 }
 
 private fun networkIcon(network: String): Int? = when (network) {
@@ -305,203 +381,6 @@ internal fun TintedIcon(res: Int, tint: Color, size: Dp, description: String? = 
         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint),
         modifier = Modifier.size(size),
     )
-}
-
-/** Height of a header row: a fair touch target that keeps the header tight. */
-private val HEADER_ROW = 40.dp
-
-/**
- * Clock, date and the status items in one flowing line that wraps as whole items. Items are tappable
- * (alarms, unlock history, battery, network, profile toggle); swipe down opens notifications.
- */
-@Composable
-internal fun Header(
-    unlocks: Int,
-    profiles: List<Profile>,
-    status: Status,
-    statuses: Map<String, String>,
-    config: Config,
-    version: Int,
-    onStatusTap: (String) -> Unit,
-    onSwipeDown: () -> Unit,
-    onTarget: (HeaderTarget) -> Unit,
-    onProfileTap: (Profile) -> Unit,
-    nowPlaying: com.mtwabpin.kolahal.control.NowPlaying? = null,
-    onMediaToggle: () -> Unit = {},
-    onMediaNext: () -> Unit = {},
-    todoCount: Int = 0,
-    /** Long-press on a script's line: its menu (run, hide from header, edit). */
-    onStatusLongPress: (String) -> Unit = {},
-) {
-    val (now, zone) = rememberNow()
-    val is24h = remember(version) { config[Keys.CLOCK_24H] }
-    val timeFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm a", Locale.getDefault()) }
-    val dateFmt = remember(zone) { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
-    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "EEE HH:mm" else "EEE h:mm a", Locale.getDefault()) }
-    val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
-
-    val useIcons = config[Keys.HEADER_ICONS]
-    val iconSize = (Term.fontSize + 3).dp
-
-    /** A header item: an icon (header.icons) or a dim text label, then the value. */
-    @Composable
-    fun Item(
-        label: String,
-        value: String,
-        valueColor: Color = Term.fg,
-        icon: (@Composable () -> Unit)? = null,
-        /** What a screen reader says for an item its icon alone shows (⚙, the network kind). */
-        description: String? = null,
-        onClick: () -> Unit,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier
-                // Comfortable touch target even for short items like ⚙, without spreading the header out.
-                .clickable(onClickLabel = label.ifEmpty { null }, onClick = onClick)
-                .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
-                .heightIn(min = HEADER_ROW)
-                .widthIn(min = 44.dp)
-                .padding(horizontal = 6.dp),
-        ) {
-            if (useIcons && icon != null) {
-                icon()
-                if (value.isNotEmpty()) Spacer(Modifier.width(4.dp))
-            }
-            Text(
-                buildAnnotatedString {
-                    if (label.isNotEmpty() && !(useIcons && icon != null)) withStyle(SpanStyle(color = Term.dim)) { append("$label ") }
-                    withStyle(SpanStyle(color = valueColor, fontWeight = FontWeight.Bold)) { append(value) }
-                },
-                style = small,
-            )
-        }
-    }
-
-    @Composable
-    fun Glyph(res: Int, tint: Color = Term.dim) {
-        androidx.compose.foundation.Image(
-            painter = androidx.compose.ui.res.painterResource(res),
-            contentDescription = null,
-            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(tint),
-            modifier = Modifier.size(iconSize),
-        )
-    }
-
-    val clock = config[Keys.HEADER_CLOCK]
-    val date = config[Keys.HEADER_DATE]
-    val pct = status.batteryPct
-    val shownProfiles = if (config[Keys.HEADER_PROFILES]) profiles.filter(::hasHeaderItem) else emptyList()
-    val playing = nowPlaying != null && nowPlaying.showInHeader(now.time)
-    // With nothing to show, it takes no room.
-    if (
-        !clock && !date && !config[Keys.HEADER_DEVICE] && !config[Keys.HEADER_UNLOCKS] && !(config[Keys.HEADER_BATTERY] && pct != null) &&
-        !config[Keys.HEADER_NETWORK] && !(config[Keys.HEADER_ALARM] && status.nextAlarm != null) && !(config[Keys.HEADER_TODO] && todoCount > 0) &&
-        !config[Keys.HEADER_SETTINGS] && shownProfiles.isEmpty() && !playing && !(config[Keys.HEADER_STATUS] && statuses.isNotEmpty())
-    ) return
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .testTag("header")
-            // Swipe down on the header pulls down the notification shade.
-            .pointerInput(Unit) {
-                var total = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragEnd = { if (total > 48.dp.toPx()) onSwipeDown() },
-                ) { _, dy -> total += dy }
-            }
-            .padding(horizontal = 12.dp, vertical = 2.dp)
-    ) {
-        // One flowing line: clock and date, then the status items beside them. Items wrap as whole
-        // items onto a second line only when they don't fit.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-        if (clock || date) Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onTarget(HeaderTarget.CLOCK) }.heightIn(min = HEADER_ROW).padding(end = 6.dp),
-        ) {
-            if (clock) {
-                Text(
-                    timeFmt.format(now),
-                    style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize + 6).sp),
-                )
-            }
-            if (date) {
-                Text(
-                    (if (clock) "  " else "") + dateFmt.format(now),
-                    style = small.copy(color = Term.dim),
-                )
-            }
-        }
-            if (config[Keys.HEADER_UNLOCKS]) {
-                Item("unlocks", unlocks.toString(), icon = { Glyph(R.drawable.ic_lock_open) }) { onTarget(HeaderTarget.UNLOCKS) }
-            }
-            if (config[Keys.HEADER_BATTERY] && pct != null) {
-                val color = when {
-                    status.charging -> Term.prompt
-                    pct <= 15 -> Term.error
-                    else -> Term.fg
-                }
-                Item(
-                    "bat", "$pct%" + if (status.charging && !useIcons) "+" else "", color,
-                    icon = { BatteryGlyph(pct, status.charging, color, iconSize) },
-                ) { onTarget(HeaderTarget.BATTERY) }
-            }
-            if (config[Keys.HEADER_NETWORK]) {
-                val offline = status.network == "offline"
-                val netIcon = networkIcon(status.network)
-                // With an icon the kind is obvious; only unusual kinds (eth, vpn…) keep their name.
-                Item(
-                    "net", if (useIcons && netIcon != null) "" else status.network, if (offline) Term.error else Term.fg,
-                    icon = netIcon?.let { res -> { Glyph(res, if (offline) Term.error else Term.fg) } },
-                    description = "network ${status.network}",
-                ) { onTarget(HeaderTarget.NETWORK) }
-            }
-            if (config[Keys.HEADER_ALARM] && status.nextAlarm != null) {
-                Item("alarm", alarmFmt.format(Date(status.nextAlarm)), icon = { Glyph(R.drawable.ic_alarm) }) { onTarget(HeaderTarget.ALARM) }
-            }
-            if (config[Keys.HEADER_TODO] && todoCount > 0) {
-                Item("todo", todoCount.toString(), icon = { Glyph(R.drawable.ic_check) }) { onTarget(HeaderTarget.TODO) }
-            }
-            if (config[Keys.HEADER_SETTINGS]) {
-                Item("", if (useIcons) "" else "⚙", Term.dim, icon = { Glyph(R.drawable.ic_settings) }, description = "Settings") { onTarget(HeaderTarget.SETTINGS) }
-            }
-            shownProfiles.forEach { p ->
-                val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
-                val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
-                Item(p.kind.label, if (p.quiet) "off" else "on", color, icon = { Glyph(res, color) }) {
-                    onProfileTap(p)
-                }
-            }
-            if (config[Keys.HEADER_DEVICE]) DeviceName(config, small, Modifier.padding(horizontal = 6.dp))
-        }
-        // `now` ticks each minute, so a paused session drops out after 30 minutes.
-        if (playing) NowPlayingLine(nowPlaying, onMediaToggle, onMediaNext)
-        if (config[Keys.HEADER_STATUS]) {
-            statuses.forEach { (name, text) ->
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(color = Term.dim)) { append("$name ▸ ") }
-                        withStyle(SpanStyle(color = Term.script)) { append(text) }
-                    },
-                    style = small,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    // As tall as a log line (log.line-height), so a few status lines stay compact.
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(onLongClick = { onStatusLongPress(name) }) { onStatusTap(name) }
-                        .heightIn(min = with(androidx.compose.ui.platform.LocalDensity.current) { Term.lineHeight.sp.toDp() })
-                        .wrapContentHeight(),
-                )
-            }
-        }
-    }
 }
 
 /**

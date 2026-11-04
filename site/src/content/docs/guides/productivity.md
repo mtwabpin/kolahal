@@ -24,8 +24,8 @@ todo clear                # delete all finished items
 - `<n>` is the number `todo` shows. After `todo done ` the suggestion strip lists the open items,
   so you rarely need to remember numbers.
 - If your todo starts with a subcommand word (`all`, `done`, `clear`, …), use `todo add …`.
-- The header shows `todo 3` while you have open items; tap it to list them. Turn it off with
-  `config header.todo off`.
+- With the `todo` item in the header (`header.item-2`, the default), it shows how many are open;
+  tap it to list them.
 
 ## Notes
 

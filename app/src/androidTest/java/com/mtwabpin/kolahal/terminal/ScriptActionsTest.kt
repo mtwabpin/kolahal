@@ -115,16 +115,19 @@ class ScriptActionsTest {
         assertTrue(on.grants.undecided.isEmpty())
     }
 
-    /** Switching its header line off takes the line off the home screen now; another switch leaves it. */
-    @Test fun headerLineOffTakesTheLineAway() {
+    /** Pinning is a switch of its own, off until you pin; unpinned, the line stays, for its card and `status`. */
+    @Test fun unpinningKeepsTheLine() {
         val s = create("sa-one", "status('sa line')\nreturn http.get('https://example.com')")
         status.set("sa-one", "sa line")
-        actions.setScriptAccess(s, ScriptAccess.INTERNET, false)
-        assertEquals("sa line", status.get("sa-one"))
+        assertFalse(s.grants.allows(ScriptAccess.HEADER))
+        actions.setScriptAccess(s, ScriptAccess.HEADER, true)
+        assertTrue(now(s).grants.allows(ScriptAccess.HEADER))
+        actions.setScriptAccess(now(s), ScriptAccess.INTERNET, false)
         assertFalse(now(s).grants.allows(ScriptAccess.INTERNET))
+        assertTrue(now(s).grants.allows(ScriptAccess.HEADER))
 
         actions.setScriptAccess(now(s), ScriptAccess.HEADER, false)
-        assertNull(status.get("sa-one"))
+        assertEquals("sa line", status.get("sa-one"))
         assertFalse(now(s).grants.allows(ScriptAccess.HEADER))
     }
 
@@ -137,21 +140,22 @@ class ScriptActionsTest {
         assertNull(status.get("sa-gone"))
     }
 
-    /** Long-press on a script's header line: run it, hide its line (saying how to bring it back), or edit it. */
-    @Test fun aScriptsLineOffersRunHideAndEdit() {
+    /** Long-press on a pinned script's line: run it, unpin it (saying how to pin it again), or edit it. */
+    @Test fun aPinnedLineOffersRunUnpinAndEdit() {
         val s = create("sa-one", "status('sa line')")
         status.set("sa-one", "sa line")
+        actions.setScriptAccess(s, ScriptAccess.HEADER, true)
         val offered = actions.statusActions("sa-one")
-        assertEquals(listOf("Run sa-one now", "Hide from header", "Edit sa-one.lua"), offered.map { it.label })
+        assertEquals(listOf("Run sa-one now", "Unpin sa-one", "Edit sa-one.lua"), offered.map { it.label })
 
         offered.single { it.label == "Edit sa-one.lua" }.run()
         assertEquals(listOf(s.id), host.opened.map { it.id })
 
-        offered.single { it.label == "Hide from header" }.run()
-        assertNull(status.get("sa-one"))
+        offered.single { it.label == "Unpin sa-one" }.run()
+        assertEquals("sa line", status.get("sa-one"))
         assertFalse(now(s).grants.allows(ScriptAccess.HEADER))
-        val said = newLines().single { it.text.startsWith("sa-one: header line off") }
-        assertEquals("sa-one: header line off — 'script allow sa-one header' restores it", said.text)
+        val said = newLines().single { it.text.startsWith("sa-one: unpinned") }
+        assertEquals("sa-one: unpinned — 'script pin sa-one' pins it again", said.text)
         assertEquals("sa-one", said.ctx.values[LogContext.SCRIPT])
     }
 

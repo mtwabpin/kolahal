@@ -29,7 +29,12 @@ work in `config` (which tells you the new name), and older backups import as bef
 | `gesture.swipeup.on` | removed: set `gesture.swipe-up` to `none` to turn swiping up off |
 | `log.lineheight`, `log.keepdays` | `log.line-height`, `log.keep-days` |
 | `keyboard.onhome` | `keyboard.on-home` |
-| `header.media-always` | removed in 0.4.14: with the header off, what's playing always shows in the [pinned header](/getting-started/basics/#the-pinned-header) |
+| `header.media-always` | removed in 0.4.14: what's playing always shows in the [pinned header](/getting-started/basics/#the-pinned-header) |
+| `header.clock`, `header.date`, `header.battery` | removed in 0.4.14: the [header](/getting-started/basics/#the-header) always shows the time, the date and the battery |
+| `header.unlocks`, `header.network`, `header.alarm`, `header.todo`, `header.settings`, `header.profiles` | removed in 0.4.14: choose two with `header.item-1` and `header.item-2` (the first two that were on carried over) |
+| `header.device` | removed in 0.4.14: `fetch` shows `name@device` |
+| `header.status` | removed in 0.4.14: a script's status line shows at the top once you [pin the script](/getting-started/basics/#the-pinned-header) |
+| `header.autohide`, `header.icons`, `header.compact.*` | removed in 0.4.14: the header is one line with icons, the same all the time |
 
 The `theme` and `font` commands are unchanged.
 :::
@@ -38,37 +43,14 @@ The `theme` and `font` commands are unchanged.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `header.show` | bool | `on` | show the header; off: the log fills the screen, under the [pinned header](/getting-started/basics/#the-pinned-header) when something is in it (open settings with `settings`) |
-| `header.pinned-seconds` | number 2–60 | `5` | with the header off, how many seconds each item in the pinned header shows before the next one |
+| `header.show` | bool | `on` | show the [header](/getting-started/basics/#the-header), the line at the top of home: the time, the date, the battery and your two items; off: only the [pinned header](/getting-started/basics/#the-pinned-header) is at the top (open settings with `settings`) |
+| `header.item-1` | choice: `alarm` `todo` `network` `unlocks` `settings` `none` `profiles` | `alarm` | the header's first item beside the battery: the next alarm, the open todo count, the network, today's unlock count, a settings button, nothing, or the work and private profiles |
+| `header.item-2` | choice: as `header.item-1` | `todo` | the header's second item; when the line is full, it's left out first |
+| `header.media` | bool | `on` | show what's playing in the pinned header, with a progress bar: tap plays / pauses, long-press skips (needs notification access; see [Media](/guides/media-and-controls/#in-the-pinned-header)) |
+| `header.pinned-seconds` | number 2–60 | `5` | how many seconds each item in the pinned header shows before the next one |
 | `header.pinned-dots` | number 0–10 | `3` | dots at the end of the pinned header showing which item is on screen, for up to this many items; `0`: never |
-| `header.clock` | bool | `on` | show the clock |
-| `header.settings` | bool | `on` | show the settings button (`settings` opens Settings too) |
-| `header.device` | bool | `off` | show `name@device` in the header (`kolahal@device` until you set `user.name`) |
-| `user.name` | text | `kolahal` | your name in `name@device`, in the header and in `fetch`: up to 32 characters, no spaces or `@` |
-| `header.date` | bool | `on` | show the date next to the clock |
-| `header.unlocks` | bool | `on` | show today's unlock count |
-| `header.battery` | bool | `on` | show battery level |
-| `header.network` | bool | `off` | show network type |
-| `header.alarm` | bool | `on` | show the next alarm |
-| `header.status` | bool | `on` | show status lines pinned by scripts |
-| `header.media` | bool | `on` | show what's playing under the clock, with a progress bar: tap plays / pauses, long-press skips (needs notification access; see [Media](/guides/media-and-controls/#in-the-header)) |
-| `header.todo` | bool | `on` | show the open todo count (tap to run `todo`) |
-| `header.autohide` | bool | `on` | scrolling back through older output hides the header; scrolling toward the newest shows it as one line (also after a command); Home or a tap brings the full header back |
-| `header.icons` | bool | `on` | icons for battery, network, unlocks, alarm and profiles in the header (off: text labels) |
 | `clock.24h` | bool | `off` | use 24-hour time in the header and log |
-| `header.profiles` | bool | `on` | show work/private profile state |
-| `header.compact.clock` | bool | `on` | show the clock in the one-line header |
-| `header.compact.date` | bool | `off` | show the date in the one-line header |
-| `header.compact.device` | bool | `off` | show `name@device` in the one-line header |
-| `header.compact.unlocks` | bool | `off` | show today's unlock count in the one-line header |
-| `header.compact.battery` | bool | `on` | show battery level in the one-line header |
-| `header.compact.network` | bool | `off` | show network type in the one-line header |
-| `header.compact.alarm` | bool | `off` | show the next alarm in the one-line header |
-| `header.compact.media` | bool | `on` | show a music note while something plays in the one-line header |
-| `header.compact.todo` | bool | `off` | show the open todo count in the one-line header |
-| `header.compact.status` | bool | `on` | show how many status lines scripts have pinned in the one-line header |
-| `header.compact.settings` | bool | `off` | show the settings button in the one-line header |
-| `header.compact.profiles` | bool | `off` | show work/private profile state in the one-line header |
+| `user.name` | text | `kolahal` | your name in `name@device`, in `fetch`: up to 32 characters, no spaces or `@` |
 
 ## Appearance
 

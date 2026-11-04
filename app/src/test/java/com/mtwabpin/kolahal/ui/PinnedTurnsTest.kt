@@ -1,6 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
-import com.mtwabpin.kolahal.data.Pin
+import com.mtwabpin.kolahal.data.StatusLine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -37,7 +37,7 @@ class PinnedTurnsTest {
     }
 
     @Test fun onlyItemsAskingForARefreshRunAgain() {
-        fun pin(name: String, refresh: Int?) = Pin(name, "x", null, refresh, 0)
+        fun pin(name: String, refresh: Int?) = StatusLine(name, "x", null, refresh)
         val pins = listOf(pin("still", null), pin("cricket", 10), pin("football", 30))
         // Never run yet: at once.
         assertEquals(listOf("cricket", "football"), PinnedTurns.due(pins, emptyMap(), 1_000_000))

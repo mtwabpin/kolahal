@@ -53,19 +53,25 @@ class ConfigNamesTest {
         }
     }
 
-    /** What was off before the one-line header had its own choices stays off there, unless it has a choice already. */
-    @Test fun theOneLineHeaderKeepsWhatWasOff() {
-        fun compact(vararg saved: Pair<String, String>) = (Keys.carryCompact(saved.toMap()) - saved.toMap().keys).toSortedMap().toMap()
-        assertEquals(emptyMap<String, String>(), compact())
-        assertEquals(emptyMap<String, String>(), compact("header.date" to "off", "header.battery" to "on"))
-        assertEquals(mapOf("header.compact.battery" to "off"), compact("header.battery" to "off"))
+    /**
+     * The full header's items become the one line's two (0.4.14): the first two that were on, in the
+     * order it showed them; with none changed, the new defaults stand, unsaved.
+     */
+    @Test fun theOldItemsBecomeTheTwo() {
+        fun items(vararg saved: Pair<String, String>) = Keys.migrate(saved.toMap()).filterKeys { it.startsWith("header.item-") }.toSortedMap().toMap()
+        assertEquals(emptyMap<String, String>(), items())
+        assertEquals(emptyMap<String, String>(), items("header.date" to "off", "header.battery" to "off"))
+        // Unlocks off, the rest as they were: the alarm and todos, as the new defaults.
+        assertEquals(mapOf("header.item-1" to "alarm", "header.item-2" to "todo"), items("header.unlocks" to "off"))
+        // Unlocks on by default comes first.
+        assertEquals(mapOf("header.item-1" to "unlocks", "header.item-2" to "network"), items("header.network" to "on"))
         assertEquals(
-            mapOf("header.compact.battery" to "off", "header.compact.media" to "off", "header.compact.status" to "off"),
-            compact("header.battery" to "off", "header.media" to "off", "header.status" to "off"),
+            mapOf("header.item-1" to "settings", "header.item-2" to "none"),
+            items("header.unlocks" to "off", "header.alarm" to "off", "header.todo" to "false", "header.profiles" to "off"),
         )
-        // A backup edited by hand can say it another way.
-        assertEquals(mapOf("header.compact.media" to "off"), compact("header.media" to "false"))
-        assertEquals(emptyMap<String, String>(), compact("header.battery" to "off", "header.compact.battery" to "on"))
+        // A choice already made under the new names wins, and the old names go.
+        val moved = Keys.migrate(mapOf("header.unlocks" to "off", "header.item-1" to "network", "header.compact.clock" to "on"))
+        assertEquals(mapOf("header.item-1" to "network", "header.item-2" to "todo"), moved)
     }
 
     @Test fun noNameIsBothASettingAndAGroup() {

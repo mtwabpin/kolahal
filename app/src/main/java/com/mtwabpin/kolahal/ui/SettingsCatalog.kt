@@ -15,36 +15,13 @@ internal val TITLES = mapOf(
     "font.sans" to "System font",
     "font.size" to "Text size",
     "header.show" to "Show the header",
-    "header.pinned-seconds" to "Pinned header: seconds per item",
-    "header.pinned-dots" to "Pinned header: dots up to",
-    "header.clock" to "Clock",
-    "header.date" to "Date",
-    "clock.24h" to "24-hour clock",
-    "header.device" to "Device name",
-    "user.name" to "Your name",
-    "header.icons" to "Icons instead of labels",
-    "header.unlocks" to "Unlock count",
-    "header.battery" to "Battery",
-    "header.network" to "Network",
-    "header.alarm" to "Next alarm",
-    "header.settings" to "Settings button",
-    "header.profiles" to "Work / private state",
+    "header.item-1" to "First item",
+    "header.item-2" to "Second item",
     "header.media" to "Now playing",
-    "header.todo" to "Open todos",
-    "header.status" to "Script status lines",
-    "header.compact.clock" to "Clock on one line",
-    "header.compact.date" to "Date on one line",
-    "header.compact.device" to "Device name on one line",
-    "header.compact.unlocks" to "Unlock count on one line",
-    "header.compact.battery" to "Battery on one line",
-    "header.compact.network" to "Network on one line",
-    "header.compact.alarm" to "Next alarm on one line",
-    "header.compact.media" to "Now playing on one line",
-    "header.compact.todo" to "Open todos on one line",
-    "header.compact.status" to "Script status lines on one line",
-    "header.compact.settings" to "Settings button on one line",
-    "header.compact.profiles" to "Work / private state on one line",
-    "header.autohide" to "Shrink while using the log",
+    "header.pinned-seconds" to "Seconds per item",
+    "header.pinned-dots" to "Dots up to",
+    "clock.24h" to "24-hour clock",
+    "user.name" to "Your name",
     "widgets.page" to "Widgets page (swipe sideways)",
     "widgets.start" to "Start on the widgets page",
     "widgets.wallpaper" to "Transparency (%)",
@@ -126,13 +103,6 @@ internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
     Keys.CHIP_HEIGHT.key to true,
 )
 
-/** The header's items with an icon or a label to choose between (header.icons). */
-private val HEADER_ICON_ITEMS = listOf(
-    Keys.HEADER_UNLOCKS, Keys.HEADER_BATTERY, Keys.HEADER_NETWORK, Keys.HEADER_ALARM, Keys.HEADER_TODO, Keys.HEADER_SETTINGS, Keys.HEADER_PROFILES,
-    Keys.COMPACT_UNLOCKS, Keys.COMPACT_BATTERY, Keys.COMPACT_NETWORK, Keys.COMPACT_ALARM, Keys.COMPACT_MEDIA, Keys.COMPACT_TODO, Keys.COMPACT_SETTINGS,
-    Keys.COMPACT_PROFILES,
-)
-
 /**
  * Settings that only matter while another one allows them, such as the key bar's rows while the
  * key bar is off. Settings hides them until then; `config` still reaches every setting.
@@ -164,13 +134,11 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.SELECTOR_SYSTEM_FONT to on(Keys.SELECTOR_RAIL),
         Keys.FEEDS_LOG_LINES to on(Keys.FEEDS_LOG),
         Keys.FEEDS_READ_SHOWN to on(Keys.FEEDS_LOG),
-        // Without the header, only the clock's 24-hour setting and your name still count: the log and fetch use them.
-        *(HEADER_ITEM_KEYS + listOf(Keys.HEADER_AUTOHIDE, Keys.GESTURE_SWIPE_DOWN)).map { it to on(Keys.HEADER_SHOW) }.toTypedArray(),
-        // And these, which are only for then.
-        Keys.HEADER_PINNED_SECONDS to { c: Config -> !c[Keys.HEADER_SHOW] },
-        Keys.HEADER_PINNED_DOTS to { c: Config -> !c[Keys.HEADER_SHOW] },
-        // With no item that draws an icon, there's nothing for it to change.
-        Keys.HEADER_ICONS to { c: Config -> c[Keys.HEADER_SHOW] && HEADER_ICON_ITEMS.any { c[it] } },
+        // Without the header, its items and its swipe go; the pinned header, the 24-hour clock (the log's
+        // times) and your name (fetch) still count.
+        Keys.HEADER_ITEM_1 to on(Keys.HEADER_SHOW),
+        Keys.HEADER_ITEM_2 to on(Keys.HEADER_SHOW),
+        Keys.GESTURE_SWIPE_DOWN to on(Keys.HEADER_SHOW),
     )
 }
 
@@ -208,15 +176,18 @@ private val CATEGORIES = listOf(
         ),
     ),
     Category(
-        "header", "Header", "Header items, clock, your name", R.drawable.ic_home,
+        "header", "Header", "The line at the top, the pinned header, your name", R.drawable.ic_home,
         listOf(
             null to listOf(
                 Keys.HEADER_SHOW,
+                Keys.HEADER_ITEM_1,
+                Keys.HEADER_ITEM_2,
+            ),
+            "Pinned header" to listOf(
+                Keys.HEADER_MEDIA,
                 Keys.HEADER_PINNED_SECONDS,
                 Keys.HEADER_PINNED_DOTS,
-                Keys.HEADER_AUTOHIDE,
             ),
-            "Header items" to listOf<ConfigKey<*>>(Keys.HEADER_ICONS) + HEADER_ITEM_KEYS,
             "Clock and name" to listOf(
                 Keys.CLOCK_24H,
                 Keys.USER_NAME,

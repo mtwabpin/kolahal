@@ -74,40 +74,35 @@ class BackupAndLibraryTest {
     }
 
     /** A backup from before 0.3.0 has the old setting names; they land on today's settings. */
-    /** Once on a phone: turning an item off in the full header later leaves the one-line header alone. */
-    @Test fun theOneLineHeaderKeepsWhatWasOffOnce() {
+    /** On the phone: the full header's items become the line's two once, and its other settings go. */
+    @Test fun theOldHeaderItemsCarryOnce() {
         val saved = context.getSharedPreferences("config", android.content.Context.MODE_PRIVATE)
         try {
-            saved.edit().remove(Keys.COMPACT_CARRIED).putString(Keys.HEADER_BATTERY.key, "off").commit()
+            saved.edit().putString("header.unlocks", "off").putString("header.alarm", "off").putString("header.compact.date", "on").commit()
             config.migrate()
-            assertEquals(false, config[Keys.COMPACT_BATTERY])
-
-            config.set(Keys.COMPACT_BATTERY, "on")
-            config.set(Keys.HEADER_MEDIA, "off")
+            assertEquals("todo", config[Keys.HEADER_ITEM_1])
+            assertEquals("settings", config[Keys.HEADER_ITEM_2])
+            assertFalse(saved.contains("header.unlocks") || saved.contains("header.compact.date"))
+            // Changed since, it stays changed.
+            config.set(Keys.HEADER_ITEM_2, "network")
             config.migrate()
-            assertEquals(true, config[Keys.COMPACT_BATTERY])
-            assertEquals(true, config[Keys.COMPACT_MEDIA])
+            assertEquals("network", config[Keys.HEADER_ITEM_2])
         } finally {
-            listOf(Keys.HEADER_BATTERY, Keys.HEADER_MEDIA, Keys.COMPACT_BATTERY).forEach(config::reset)
+            listOf(Keys.HEADER_ITEM_1, Keys.HEADER_ITEM_2).forEach(config::reset)
         }
     }
 
-    /** A backup from before the choices keeps what was off; a newer one is taken as it is. */
-    @Test fun aBackupKeepsTheOneLineHeaderAsItHadIt() {
-        val file = File(context.cacheDir, "kolahal-backup-one-line.json")
-        fun restore(version: Int) {
-            file.writeText("""{"kolahal":$version,"config":{"header.battery":"off"}}""")
-            Backup(context).import(Uri.fromFile(file))
-        }
+    /** A backup with the full header's settings lands on the line's two items, and leaves the rest out. */
+    @Test fun aBackupWithTheOldHeaderCarriesItsItems() {
+        val file = File(context.cacheDir, "kolahal-backup-old-header.json")
         try {
-            restore(2)
-            assertEquals(false, config[Keys.COMPACT_BATTERY])
-            config.reset(Keys.COMPACT_BATTERY)
-            restore(Backup.VERSION)
-            assertEquals(true, config[Keys.COMPACT_BATTERY])
+            file.writeText("""{"kolahal":3,"config":{"header.unlocks":"off","header.network":"on","header.compact.battery":"off"}}""")
+            Backup(context).import(Uri.fromFile(file))
+            assertEquals("network", config[Keys.HEADER_ITEM_1])
+            assertEquals("alarm", config[Keys.HEADER_ITEM_2])
         } finally {
             file.delete()
-            listOf(Keys.HEADER_BATTERY, Keys.COMPACT_BATTERY).forEach(config::reset)
+            listOf(Keys.HEADER_ITEM_1, Keys.HEADER_ITEM_2).forEach(config::reset)
         }
     }
 

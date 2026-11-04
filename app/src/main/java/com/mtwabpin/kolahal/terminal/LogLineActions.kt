@@ -22,6 +22,7 @@ import com.mtwabpin.kolahal.notifications.NotificationActions
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptAccess
+import com.mtwabpin.kolahal.script.ScriptMeta
 
 /**
  * What a tap or a long-press on a log line does; the line's saved [LogContext] decides. The view
@@ -38,7 +39,6 @@ class LogLineActions(private val context: Context, private val processor: Comman
         fun setText(text: String)
         fun submit()
         fun emit(event: UiEvent)
-        fun collapseHeader()
         fun runsOnTap(line: String): Boolean
         fun runCommand(cmd: String)
         fun openEditorAt(script: Script, line: Int?)
@@ -76,7 +76,6 @@ class LogLineActions(private val context: Context, private val processor: Comman
             entry.kind == LogKind.COMMAND || ctx.command != null -> {
                 val line = ctx.command ?: entry.text
                 if (host.runsOnTap(line)) {
-                    host.collapseHeader()
                     host.emit(UiEvent.ScrollToBottom)
                     host.io { processor.run(line) }
                 } else {
@@ -144,6 +143,17 @@ class LogLineActions(private val context: Context, private val processor: Comman
         ctx.script?.let { name ->
             host.scripts.firstOrNull { it.name == name }?.let { s ->
                 actions += LogAction("Run $name now") { host.io { ScriptScheduler.runNow(context, s) } }
+                // For a script with a status line: show it at the top of home, or no longer.
+                if (ScriptMeta.setsHeader(s.code)) {
+                    val pinned = s.grants.allows(ScriptAccess.HEADER)
+                    actions += LogAction(if (pinned) "Unpin $name" else "Pin $name to the top") {
+                        host.io {
+                            scripts.setAccess(s.id, ScriptAccess.HEADER, !pinned)
+                            logs.onStatusChanged()
+                            logs.add(LogKind.INFO, "$name: ${if (pinned) "unpinned" else "pinned to the top"}", ctx = LogContext.of(LogContext.SCRIPT to name))
+                        }
+                    }
+                }
                 ctx.values[LogContext.LINE]?.toIntOrNull()?.let { line ->
                     actions += LogAction("Edit $name at line $line") { host.io { scripts.byId(s.id)?.let { host.openEditorAt(it, line) } } }
                 }

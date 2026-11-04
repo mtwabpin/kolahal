@@ -111,10 +111,9 @@ class Backup(private val context: Context) {
         }
 
         var settings = 0
-        // Older backups use the names settings had before 0.3.0, and have no choices for the one-line header.
-        val carry = ((root["kolahal"] as? Number)?.toInt() ?: 0) < 3
+        // Older backups use the names settings had before 0.3.0, and the full header's items.
         val savedConfig = (root["config"] as? Map<*, *>)?.entries?.mapNotNull { (k, v) -> if (k != null && v != null) k.toString().lowercase() to v.toString() else null }?.toMap()
-        savedConfig?.let(Keys::migrate)?.let { if (carry) Keys.carryCompact(it) else it }?.forEach { (k, v) ->
+        savedConfig?.let(Keys::migrate)?.forEach { (k, v) ->
             val key = Keys.byName(k)
             if (key != null && config.set(key, v)) settings++ else skipped += "config $k"
         }

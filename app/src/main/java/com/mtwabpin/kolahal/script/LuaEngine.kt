@@ -90,11 +90,7 @@ class LuaEngine : ScriptEngine {
             0
         }
         lua.global("status") { l ->
-            host.status(l.str(1))
-            0
-        }
-        lua.global("pin") { l ->
-            host.pin(l.str(1), l.mapArg(2))
+            host.status(l.str(1), l.mapArg(2))
             0
         }
         lua.global("allowed") { l ->

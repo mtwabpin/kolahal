@@ -243,54 +243,33 @@ class SettingsScreenTest {
     }
 
     /**
-     * Without the header its settings go, but the 24-hour clock stays, as the log's times use it. The
-     * pinned header's show only then.
+     * Without the header its two items go; the pinned header's settings stay, and the 24-hour clock,
+     * as the log's times use it.
      */
-    @Test fun headerOffHidesItsSettings() {
+    @Test fun headerOffHidesItsItems() {
         show("header")
-        compose.onNode(hasScrollToKeyAction()).performScrollToKey("header-items")
-        compose.onNodeWithTag(Keys.HEADER_DATE.key).assertExists()
-        compose.onNodeWithTag(Keys.COMPACT_DATE.key).assertExists()
-        scrollTo(Keys.HEADER_SHOW)
-        compose.onNodeWithText(Keys.HEADER_PINNED_SECONDS.key, useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText(Keys.HEADER_PINNED_DOTS.key, useUnmergedTree = true).assertDoesNotExist()
-
+        scrollTo(Keys.HEADER_ITEM_1)
+        compose.onNodeWithText(Keys.HEADER_ITEM_1.key, useUnmergedTree = true).assertExists()
         compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
+        compose.onNodeWithText(Keys.HEADER_ITEM_1.key, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(Keys.HEADER_ITEM_2.key, useUnmergedTree = true).assertDoesNotExist()
         scrollTo(Keys.HEADER_PINNED_SECONDS)
         compose.onNodeWithText(Keys.HEADER_PINNED_SECONDS.key, useUnmergedTree = true).assertExists()
         scrollTo(Keys.HEADER_PINNED_DOTS)
         compose.onNodeWithText(Keys.HEADER_PINNED_DOTS.key, useUnmergedTree = true).assertExists()
         scrollTo(Keys.CLOCK_24H)
         compose.onNodeWithText(Keys.CLOCK_24H.key, useUnmergedTree = true).assertExists()
-        compose.onNodeWithTag(Keys.HEADER_DATE.key).assertDoesNotExist()
-        compose.onNodeWithTag(Keys.COMPACT_DATE.key).assertDoesNotExist()
-        compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText(Keys.HEADER_AUTOHIDE.key, useUnmergedTree = true).assertDoesNotExist()
     }
 
-    /** One tap each, and a stage's box changes only that stage. */
-    @Test fun theHeaderTableChangesOneStage() {
+    /** An item is one tap away: its choices are on its row. */
+    @Test fun anItemIsOneTap() {
         show("header")
-        compose.onNode(hasScrollToKeyAction()).performScrollToKey("header-items")
-        compose.onNodeWithTag(Keys.COMPACT_DATE.key).performClick()
+        scrollTo(Keys.HEADER_ITEM_1)
+        compose.onAllNodesWithText("network", useUnmergedTree = true)[0].performClick()
         compose.runOnIdle {
-            assertEquals(true, config[Keys.COMPACT_DATE])
-            assertEquals(Keys.HEADER_DATE.default, config[Keys.HEADER_DATE])
+            assertEquals("network", config[Keys.HEADER_ITEM_1])
+            assertEquals(Keys.HEADER_ITEM_2.default, config[Keys.HEADER_ITEM_2])
         }
-        compose.onNodeWithTag(Keys.HEADER_BATTERY.key).performClick()
-        compose.runOnIdle {
-            assertEquals(false, config[Keys.HEADER_BATTERY])
-            assertEquals(Keys.COMPACT_BATTERY.default, config[Keys.COMPACT_BATTERY])
-        }
-    }
-
-    /** With no item that has an icon, the switch between icons and labels has nothing to change. */
-    @Test fun iconsGoWithNoItemToShowThem() {
-        show("header")
-        scrollTo(Keys.HEADER_ICONS)
-        compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertExists()
-        compose.runOnIdle { HEADER_ITEMS.forEach { config.set(it.full, "off"); config.set(it.oneLine, "off") } }
-        compose.onNodeWithText(Keys.HEADER_ICONS.key, useUnmergedTree = true).assertDoesNotExist()
     }
 
     /** Your name, on the Header page: a name with a space turns the field red and isn't saved. */

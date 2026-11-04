@@ -158,10 +158,7 @@ class ScriptMetaTest {
         assertTrue(ScriptMeta.setsHeader("if (line) status(`Sun ${'$'}{rise}`);"))
         assertFalse(ScriptMeta.setsHeader("local r = http.get(u)\nif r.status ~= 200 then return end"))
         assertFalse(ScriptMeta.setsHeader("const ok = res.status === 200;"))
-        // Its pinned header item too.
-        assertTrue(ScriptMeta.setsHeader("pin(\"NZ 136/8\", { progress = 0.66 })"))
-        assertTrue(ScriptMeta.setsHeader("pin(null);"))
-        assertFalse(ScriptMeta.setsHeader("const code = card.pin;"))
+        assertTrue(ScriptMeta.setsHeader("status(\"NZ 136/8\", { progress = 0.66, refresh = 30 })"))
 
         assertTrue(ScriptMeta.postsNotifications("notify(\"Battery\", \"low\")"))
         assertFalse(ScriptMeta.postsNotifications("-- @notify\nlog(\"no notification\")"))
@@ -182,6 +179,8 @@ class ScriptMetaTest {
         assertEquals(listOf(ScriptAccess.INTERNET, ScriptAccess.HEADER), ScriptAccess.items(online))
         assertTrue(ScriptAccess.grants(online, emptyMap()).allows(ScriptAccess.INTERNET))
         assertFalse(ScriptAccess.grants(online, mapOf(ScriptAccess.INTERNET to false)).allows(ScriptAccess.INTERNET))
-        assertTrue(ScriptAccess.grants(online, emptyMap()).allows(ScriptAccess.HEADER))
+        // Its status line shows at the top only once you pin it.
+        assertFalse(ScriptAccess.grants(online, emptyMap()).allows(ScriptAccess.HEADER))
+        assertTrue(ScriptAccess.grants(online, mapOf(ScriptAccess.HEADER to true)).allows(ScriptAccess.HEADER))
     }
 }

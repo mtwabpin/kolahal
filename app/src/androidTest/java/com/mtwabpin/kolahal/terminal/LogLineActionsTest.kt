@@ -89,7 +89,6 @@ class LogLineActionsTest {
         var instant = false
         var prompt: String? = null
         var submits = 0
-        var collapses = 0
         var filter: LogFilter? = null
         val events = mutableListOf<UiEvent>()
         val commands = mutableListOf<String>()
@@ -102,7 +101,6 @@ class LogLineActionsTest {
         override fun setText(text: String) { prompt = text }
         override fun submit() { submits++ }
         override fun emit(event: UiEvent) { events += event }
-        override fun collapseHeader() { collapses++ }
         override fun runsOnTap(line: String) = instant
         override fun runCommand(cmd: String) { commands += cmd }
         override fun openEditorAt(script: Script, line: Int?) { editors += script.name to line }
@@ -112,7 +110,6 @@ class LogLineActionsTest {
         fun forget() {
             prompt = null
             submits = 0
-            collapses = 0
             filter = null
             events.clear()
             commands.clear()
@@ -257,7 +254,6 @@ class LogLineActionsTest {
         home.instant = true
         actions.onTap(typed)
         assertNull(home.prompt)
-        assertEquals(1, home.collapses)
         assertEquals(listOf(UiEvent.ScrollToBottom), home.events)
         assertTrue(logs.recent(50, afterId = typed.id).any { it.text == "llat again" })
 

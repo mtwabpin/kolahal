@@ -40,7 +40,8 @@ private on           # unlock it
 
 Toggling profiles needs **Android 10+** and Kolahal set as the **default home app** (`home`).
 
-- The header shows the work profile's status. Tapping it resumes a paused profile. Pausing asks for a second
+- With `profiles` as one of the header's items (`header.item-1` or `header.item-2`), the header
+  shows the work profile's status. Tapping it resumes a paused profile. Pausing asks for a second
   tap, so you can't pause it by accident.
 - Apps in a paused profile are faded. Opening one prints a line offering to resume the profile and
   launch the app; tap it and Kolahal turns the profile on, waits for it (up to 20 s) and opens the app.

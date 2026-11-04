@@ -60,7 +60,7 @@ class ScriptRepository private constructor(private val context: Context) {
      */
     fun create(name: String, lang: ScriptLang, code: String, enabled: Boolean = true): Script {
         // Nothing of an earlier script with this name carries over: a header line a run left behind, values.
-        Pins.clearLines(context, name)
+        StatusLines.clear(context, name)
         db.writableDatabase.delete("kv", "scope = ?", arrayOf(SecretStore.scope(name)))
         db.writableDatabase.insertOrThrow("scripts", null, ContentValues().apply {
             put("name", name)
@@ -123,7 +123,7 @@ class ScriptRepository private constructor(private val context: Context) {
             put("access", ScriptAccess.encode(s.access.filterValues { !it } + newInternet(s, code).associateWith { false }))
         }
         forgetRemovedSecrets(s.name, code)
-        Pins.clearLines(context, s.name)
+        StatusLines.clear(context, s.name)
     }
 
     /**
@@ -152,7 +152,7 @@ class ScriptRepository private constructor(private val context: Context) {
         }
         // Its header line goes either way: switched off, it would come back stale; switched on, a
         // line left by a run while it was off would.
-        if (enabled != s.enabled) Pins.clearLines(context, s.name)
+        if (enabled != s.enabled) StatusLines.clear(context, s.name)
     }
 
     /** The timers and notifications [code] suggests (`@every`, `@at`, `@notify`), for a script just added. */
@@ -181,9 +181,10 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Renames a script; check the name first (`ScriptNames.invalid`). Its secrets, header line and
-     * pinned item, kept by name, move with it. A copy from the library or Get more scripts becomes
-     * yours: it no longer takes their updates. Lines already in the log keep the old name.
+     * Renames a script; check the name first (`ScriptNames.invalid`). Its secrets and status line
+     * with its bar and refresh, kept by name, move with it. A copy from the library or Get more
+     * scripts becomes yours: it no longer takes their updates. Lines already in the log keep the old
+     * name.
      */
     fun rename(id: Long, to: String) {
         val s = byId(id) ?: return
@@ -197,8 +198,8 @@ class ScriptRepository private constructor(private val context: Context) {
             update("kv", ContentValues().apply { put("scope", com.mtwabpin.kolahal.script.ScriptOptions.scope(to)) }, "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(s.name)))
             delete("kv", "scope = ? AND k = ?", arrayOf(HostApi.STATUS_SCOPE, to))
             update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(HostApi.STATUS_SCOPE, s.name))
-            delete("kv", "scope = ? AND k = ?", arrayOf(Pins.SCOPE, to))
-            update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(Pins.SCOPE, s.name))
+            delete("kv", "scope = ? AND k = ?", arrayOf(StatusLines.EXTRAS_SCOPE, to))
+            update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(StatusLines.EXTRAS_SCOPE, s.name))
         }
         forgetOrigin(s.name)
         version.incrementAndGet()

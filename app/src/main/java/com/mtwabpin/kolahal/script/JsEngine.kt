@@ -69,8 +69,7 @@ class JsEngine : ScriptEngine {
             val list = args.singleOrNull() as? List<*> ?: args.toList()
             host.logs(list.map(::render))
         }
-        js.function("status") { args -> host.status(args.str(0)) }
-        js.function("pin") { args -> host.pin(args.str(0), args.getOrNull(1) as? Map<*, *>) }
+        js.function("status") { args -> host.status(args.str(0), args.getOrNull(1) as? Map<*, *>) }
         js.function("allowed") { args -> host.allowed(args.str(0).orEmpty()) }
         js.function("notify") { args ->
             host.notify(args.str(0) ?: "", args.str(1) ?: "", args.getOrNull(2) as? Map<*, *>)
@@ -256,7 +255,7 @@ class JsEngine : ScriptEngine {
                 if (o[k] !== wrapped) throw new Error("guard.js: could not wrap " + k);
               };
               const g = globalThis;
-              for (const name of ["log", "logs", "status", "pin", "allowed", "notify", "__kolahal_done"]) install(g, name, false);
+              for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done"]) install(g, name, false);
               install(g, "sleep", true);
               const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets"];
               for (const ns of spaces) {

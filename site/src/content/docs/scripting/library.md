@@ -120,7 +120,7 @@ exchange 50 eur              # in USD
 ## ip
 
 **Public IP** from api.ipify.org; long-press the line to copy it. On a timer it notifies when the
-IP changes (handy for noticing a dropped VPN) and pins it as a status line.
+IP changes (handy for noticing a dropped VPN) and sets it as its status line.
 
 ## wikipedia
 

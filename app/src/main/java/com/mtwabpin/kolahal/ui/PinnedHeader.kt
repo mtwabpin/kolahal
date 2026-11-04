@@ -49,11 +49,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.Pin
+import com.mtwabpin.kolahal.data.StatusLine
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 
-/** What the pinned header shows in turn: what's playing, then the scripts' items. */
+/** What the pinned header shows in turn: what's playing, then the status lines you pinned. */
 internal sealed interface PinnedItem {
     val key: String
 
@@ -61,8 +61,8 @@ internal sealed interface PinnedItem {
         override val key get() = MEDIA
     }
 
-    data class Script(val pin: Pin) : PinnedItem {
-        override val key get() = "script:${pin.name}"
+    data class Script(val line: StatusLine) : PinnedItem {
+        override val key get() = "script:${line.name}"
     }
 
     companion object {
@@ -83,10 +83,10 @@ internal object PinnedTurns {
         if (keys.isEmpty()) null else keys[(index(keys, current) + 1) % keys.size]
 
     /**
-     * The items to run again at [now] (ms): those asking for a refresh whose last run ([lastRun], by
+     * The lines to run again at [now] (ms): those asking for a refresh whose last run ([lastRun], by
      * name, on the same clock) is that many seconds ago or more, or that haven't run yet.
      */
-    fun due(pins: List<Pin>, lastRun: Map<String, Long>, now: Long): List<String> = pins.mapNotNull { p ->
+    fun due(lines: List<StatusLine>, lastRun: Map<String, Long>, now: Long): List<String> = lines.mapNotNull { p ->
         val every = p.refresh ?: return@mapNotNull null
         val last = lastRun[p.name]
         p.name.takeIf { last == null || now - last >= every * 1000L }
@@ -97,17 +97,17 @@ internal object PinnedTurns {
 private val PINNED_ROW = 48.dp
 
 /**
- * The pinned header: with the header off, a line at the top of home for what's playing and the
- * items scripts pin (`pin(text)`). With more than one they take turns, sliding up every
- * `header.pinned-seconds`; a finger on the line keeps the one showing. Dots at its end say which
- * one shows, for up to `header.pinned-dots` items. A changed text shows in place. With nothing to
- * show it takes no room. While it's on screen, the items that ask to run again are run ([onRefresh],
- * each second).
+ * The pinned header: a line under the header (or at the top, with the header off) for what's
+ * playing and the status lines of the scripts you pinned. With more than one they take turns,
+ * sliding up every `header.pinned-seconds`; a finger on the line keeps the one showing. Dots at its
+ * end say which one shows, for up to `header.pinned-dots` items. A changed text shows in place. With
+ * nothing to show it takes no room. While it's on screen, the lines that ask to run again are run
+ * ([onRefresh], each second).
  */
 @Composable
 internal fun PinnedHeader(
     nowPlaying: NowPlaying?,
-    pins: List<Pin>,
+    lines: List<StatusLine>,
     config: Config,
     version: Int,
     onMediaToggle: () -> Unit,
@@ -123,7 +123,7 @@ internal fun PinnedHeader(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     val refresh by rememberUpdatedState(onRefresh)
-    if (pins.any { it.refresh != null }) LaunchedEffect(lifecycle) {
+    if (lines.any { it.refresh != null }) LaunchedEffect(lifecycle) {
         // Only while home is on screen: a delay doesn't stop with the activity.
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
@@ -135,7 +135,7 @@ internal fun PinnedHeader(
 
     val items = buildList {
         nowPlaying?.takeIf { it.showInHeader(now.time) }?.let { add(PinnedItem.Media(it)) }
-        pins.forEach { add(PinnedItem.Script(it)) }
+        lines.forEach { add(PinnedItem.Script(it)) }
     }
     if (items.isEmpty()) return
     val keys = items.map { it.key }
@@ -180,34 +180,34 @@ internal fun PinnedHeader(
         ) { item ->
             when (item) {
                 is PinnedItem.Media -> NowPlayingLine(item.np, onMediaToggle, onMediaNext, endPadding = dotsRoom)
-                is PinnedItem.Script -> PinLine(item.pin, onPinTap, onPinLongPress, dotsRoom)
+                is PinnedItem.Script -> PinLine(item.line, onPinTap, onPinLongPress, dotsRoom)
             }
         }
         if (dots) PinnedDots(items.size, index, Modifier.align(Alignment.TopEnd).height(PINNED_ROW))
     }
 }
 
-/** A script's item: its name, then its text, as its header line shows them; its bar only with a progress. */
+/** A pinned script's status line: its name, then its text; its bar only with a progress. */
 @Composable
-private fun PinLine(pin: Pin, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp) {
-    Column(Modifier.fillMaxWidth().testTag("pinned-${pin.name}")) {
+private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp) {
+    Column(Modifier.fillMaxWidth().testTag("pinned-${line.name}")) {
         Text(
             buildAnnotatedString {
-                withStyle(SpanStyle(color = Term.dim)) { append("${pin.name} ▸ ") }
-                withStyle(SpanStyle(color = Term.script)) { append(pin.text) }
+                withStyle(SpanStyle(color = Term.dim)) { append("${line.name} ▸ ") }
+                withStyle(SpanStyle(color = Term.script)) { append(line.text) }
             },
             style = Term.text.copy(fontSize = (Term.fontSize - 1).sp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(onLongClickLabel = "actions", onLongClick = { onLongPress(pin.name) }) { onTap(pin.name) }
+                .combinedClickable(onLongClickLabel = "actions", onLongClick = { onLongPress(line.name) }) { onTap(line.name) }
                 .heightIn(min = PINNED_ROW)
                 .wrapContentHeight()
                 .padding(end = endPadding),
         )
         // The bar's room stays without one: the line is as tall for every item, and the log doesn't move.
-        val progress = pin.progress
+        val progress = line.progress
         if (progress != null) ProgressTrack(progress) else Spacer(Modifier.height(2.dp))
     }
 }

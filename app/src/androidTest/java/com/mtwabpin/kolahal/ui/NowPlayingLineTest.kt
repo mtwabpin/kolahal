@@ -37,7 +37,6 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
-import com.mtwabpin.kolahal.status.Status
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -358,25 +357,7 @@ class NowPlayingLineTest {
         }
     }
 
-    private fun header(np: NowPlaying) = compose.setContent {
-        KolahalTheme {
-            Header(
-                unlocks = 0,
-                profiles = emptyList(),
-                status = Status(),
-                statuses = emptyMap(),
-                config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext),
-                version = 0,
-                onStatusTap = {},
-                onSwipeDown = {},
-                onTarget = {},
-                onProfileTap = {},
-                nowPlaying = np,
-            )
-        }
-    }
-
-    /** With the header off, the pinned header shows it without being asked, under the header's rule. */
+    /** The pinned header shows it, as long as the header's rule says: until half an hour after a pause. */
     @Test fun thePinnedHeaderShowsItUnderTheHeadersRule() {
         val config = Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
         var np by mutableStateOf(track())
@@ -386,16 +367,5 @@ class NowPlayingLineTest {
         compose.runOnIdle { np = paused(position = DURATION / 2).copy(idleSince = System.currentTimeMillis() - NowPlaying.HIDE_AFTER_MS - 1_000) }
         compose.onNodeWithTag("header-media").assertDoesNotExist()
         compose.onNodeWithTag("pinned-header").assertDoesNotExist()
-    }
-
-    @Test fun theHeaderShowsIt() {
-        header(track())
-        compose.onNodeWithTag("header-media").assertExists()
-    }
-
-    @Test fun theHeaderDropsItHalfAnHourAfterAPause() {
-        val long = System.currentTimeMillis() - NowPlaying.HIDE_AFTER_MS - 1_000
-        header(paused().copy(idleSince = long))
-        compose.onNodeWithTag("header-media").assertDoesNotExist()
     }
 }

@@ -97,6 +97,7 @@ class LauncherApp : Application(), Configuration.Provider {
             // Library scripts nobody edited follow the app's library.
             runCatching { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
             runCatching { ScriptScheduler.syncAll(this) }
+            runCatching { com.mtwabpin.kolahal.data.StatusLines.pinShownOnce(this) }
             runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
             runCatching { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
             runCatching { LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS]) }

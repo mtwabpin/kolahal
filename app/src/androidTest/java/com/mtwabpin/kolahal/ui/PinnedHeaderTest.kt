@@ -23,7 +23,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.Pin
+import com.mtwabpin.kolahal.data.StatusLine
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -39,7 +39,7 @@ class PinnedHeaderTest {
     private val taps = mutableListOf<String>()
     private val presses = mutableListOf<String>()
     private var refreshes = 0
-    private var pins by mutableStateOf(emptyList<Pin>())
+    private var pins by mutableStateOf(emptyList<StatusLine>())
     private var np by mutableStateOf<NowPlaying?>(null)
     private var version by mutableIntStateOf(0)
 
@@ -49,7 +49,7 @@ class PinnedHeaderTest {
     }
 
     private fun pin(name: String, text: String = "$name text", progress: Float? = null, refresh: Int? = null) =
-        Pin(name, text, progress, refresh, 0)
+        StatusLine(name, text, progress, refresh)
 
     private fun track(): NowPlaying {
         val now = System.currentTimeMillis()
@@ -57,7 +57,7 @@ class PinnedHeaderTest {
     }
 
     /** The header with [items], its clock driven by the test: nothing moves until [advance]. */
-    private fun show(vararg items: Pin, seconds: Int? = null) {
+    private fun show(vararg items: StatusLine, seconds: Int? = null) {
         seconds?.let { config.set(Keys.HEADER_PINNED_SECONDS, it.toString()) }
         pins = items.toList()
         compose.mainClock.autoAdvance = false

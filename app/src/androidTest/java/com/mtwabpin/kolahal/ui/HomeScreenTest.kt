@@ -136,62 +136,75 @@ class HomeScreenTest {
         assertFalse("still suggests settings", suggested("settings"))
     }
 
-    @Test fun headerIsOneLineWhileTyping() {
-        val vm = show(360.dp, 700.dp)
-        type(vm, "s")
-        compose.onNodeWithTag("header-compact").assertExists()
-        compose.onNodeWithTag("header").assertDoesNotExist()
+    /** A script with a status line, pinned or not, for as long as [block] runs. */
+    private fun withStatusLine(name: String, text: String, pinned: Boolean, block: () -> Unit) {
+        val scripts = com.mtwabpin.kolahal.data.ScriptRepository.get(app)
+        val s = scripts.create(name, com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('x')")
+        try {
+            if (pinned) scripts.setAccess(s.id, com.mtwabpin.kolahal.script.ScriptAccess.HEADER, true)
+            com.mtwabpin.kolahal.data.KvStore(app, com.mtwabpin.kolahal.script.HostApi.STATUS_SCOPE).set(name, text)
+            block()
+        } finally {
+            scripts.delete(s.id)
+            com.mtwabpin.kolahal.data.StatusLines.clear(app, name)
+        }
     }
 
-    /** header.show off: no header, full or one-line, and it comes back when turned on. */
+    /**
+     * Home as Settings shows it, not typing whatever the emulator's keyboard does (up, it counts as
+     * typing); text in the prompt still does.
+     */
+    private fun showResting(): TerminalViewModel {
+        lateinit var vm: TerminalViewModel
+        compose.runOnUiThread { vm = vms.terminal(app) }
+        compose.setContent {
+            KolahalTheme {
+                Box(Modifier.size(360.dp, 700.dp)) {
+                    TerminalScreen(vm, onPickFolder = {}, preview = TerminalViewModel.Peek(null, typing = false))
+                }
+            }
+        }
+        return vm
+    }
+
+    /** The header stays one line while typing; the pinned header steps aside for the suggestions. */
+    @Test fun whileTypingThePinnedHeaderStepsAside() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
+        val vm = showResting()
+        compose.onNodeWithTag("header").assertExists()
+        compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
+        type(vm, "s")
+        compose.onNodeWithTag("header").assertExists()
+        compose.onNodeWithTag("pinned-header").assertDoesNotExist()
+        type(vm, "")
+        compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
+    }
+
+    /** header.show off: no header line, and it comes back when turned on. */
     @Test fun headerCanBeTurnedOff() {
         config.set(Keys.HEADER_SHOW, "off")
         val vm = show(360.dp, 700.dp)
         compose.onNodeWithTag("header").assertDoesNotExist()
-        compose.onNodeWithTag("header-compact").assertDoesNotExist()
-        // While typing it would be the one-line header: none either.
         type(vm, "s")
-        compose.onNodeWithTag("header-compact").assertDoesNotExist()
+        compose.onNodeWithTag("header").assertDoesNotExist()
         compose.runOnIdle { config.set(Keys.HEADER_SHOW, "on") }
-        compose.onNodeWithTag("header-compact").assertExists()
+        compose.onNodeWithTag("header").assertExists()
     }
 
-    /** A script's pinned item shows at the top with the header off; with it on, not (yet). */
-    @Test fun thePinnedHeaderShowsWithTheHeaderOff() {
-        val scripts = com.mtwabpin.kolahal.data.ScriptRepository.get(app)
-        val s = scripts.create("pinned-home", com.mtwabpin.kolahal.data.ScriptLang.LUA, "pin('x')")
-        try {
-            com.mtwabpin.kolahal.data.KvStore(app, com.mtwabpin.kolahal.data.Pins.SCOPE)
-                .set(s.name, com.mtwabpin.kolahal.data.Pins.encode(com.mtwabpin.kolahal.data.Pin(s.name, "NZ 136/8", 0.5f, null, 1)))
-            config.set(Keys.HEADER_SHOW, "off")
-            show(360.dp, 700.dp)
+    /** Only a script you pinned shows its line at the top, with the header on or off. */
+    @Test fun onlyPinnedScriptsShowAtTheTop() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
+        withStatusLine("unpinned-home", "US AQI 131", pinned = false) {
+            showResting()
             compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
-            compose.runOnIdle { config.set(Keys.HEADER_SHOW, "on") }
-            compose.onNodeWithTag("pinned-header").assertDoesNotExist()
-        } finally {
-            scripts.delete(s.id)
-            com.mtwabpin.kolahal.data.Pins.clearLines(app, s.name)
+            compose.onNodeWithText("unpinned-home ▸ US AQI 131").assertDoesNotExist()
+            compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
+            compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
         }
     }
 
-    /** The one-line header has its own choices: the full header's don't change it. */
-    @Test fun theOneLineHeaderHasItsOwnChoices() {
-        val date = java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault()).format(Date())
+    /** The settings item, when you choose it, opens Settings. */
+    @Test fun theSettingsItemOpensSettings() {
+        config.set(Keys.HEADER_ITEM_1, "settings")
         val vm = show(360.dp, 700.dp)
-        type(vm, "s")
-        compose.onNodeWithTag("header-compact").assertExists()
-        compose.onNodeWithText(date).assertDoesNotExist()
-        compose.runOnIdle { config.set(Keys.COMPACT_DATE, "on") }
-        compose.onNodeWithText(date).assertExists()
-        compose.runOnIdle { config.set(Keys.HEADER_DATE, "off") }
-        compose.onNodeWithText(date).assertExists()
-    }
-
-    /** On the one-line header, the settings button opens Settings, not the full header. */
-    @Test fun theOneLineSettingsButtonOpensSettings() {
-        config.set(Keys.COMPACT_SETTINGS, "on")
-        val vm = show(360.dp, 700.dp)
-        type(vm, "s")
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.SETTINGS }
     }
@@ -306,17 +319,8 @@ class HomeScreenTest {
 
     /** The header's ⚙ shows no word; a screen reader still has one to say. */
     @Test fun headerSettingsHasANameForScreenReaders() {
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
-        // As Settings shows home, not typing: the emulator's keyboard, up or not, would otherwise
-        // decide between the full header and the one-line one (which has no ⚙).
-        compose.setContent {
-            KolahalTheme {
-                Box(Modifier.size(360.dp, 700.dp)) {
-                    TerminalScreen(vm, onPickFolder = {}, preview = TerminalViewModel.Peek(null, typing = false))
-                }
-            }
-        }
+        config.set(Keys.HEADER_ITEM_2, "settings")
+        show(360.dp, 700.dp)
         compose.onNodeWithContentDescription("Settings").assertExists()
     }
 
@@ -333,14 +337,14 @@ class HomeScreenTest {
      */
     @Test fun wrappedDescriptionsShowWhole() {
         val vm = show(360.dp, 700.dp)
-        type(vm, "config set header.au")
-        val help = compose.onNodeWithText(Keys.HEADER_AUTOHIDE.help, substring = true, useUnmergedTree = true)
+        type(vm, "config set header.sh")
+        val help = compose.onNodeWithText(Keys.HEADER_SHOW.help, substring = true, useUnmergedTree = true)
         assertEquals(1, help.layout().lineCount)
 
         compose.runOnIdle { config.set(Keys.SUGGESTIONS_WRAP, "on") }
         val wrapped = help.layout()
         assertTrue("${wrapped.lineCount} lines", wrapped.lineCount > 1)
-        val name = compose.onNodeWithText(Keys.HEADER_AUTOHIDE.key, substring = true, useUnmergedTree = true)
+        val name = compose.onNodeWithText(Keys.HEADER_SHOW.key, substring = true, useUnmergedTree = true)
         val nameBounds = name.getUnclippedBoundsInRoot()
         val helpBounds = help.getUnclippedBoundsInRoot()
         assertTrue("the description starts at ${helpBounds.left}, the name ends at ${nameBounds.right}", helpBounds.left >= nameBounds.right)

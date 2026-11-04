@@ -14,7 +14,7 @@ Kolahal is young, and its code is still under review. Treat it as beta software:
   you first use it; Kolahal explains what notification access reads before you turn it on. The Play build
   leaves out the screen lock and the call log altogether.
 - **Scripts run separately.** They run in their own process, for at most a minute, with capped memory. A script stuck in a loop the engine can't interrupt is still stopped.
-- **A script gets only what you allow.** It can use your notifications, clipboard, apps, terminal commands, Do Not Disturb and work profile only with an `@uses` line and your approval, and internet access and its header line only if its code uses them. Each has a switch, per script
+- **A script gets only what you allow.** It can use your notifications, clipboard, apps, terminal commands, Do Not Disturb and work profile only with an `@uses` line and your approval, internet access only if its code uses it, and a place at the top of home only when you pin it. Each has a switch, per script
   ([switching access off](/scripting/overview/#switching-access-off)).
 - **A script with internet access can reach your local network.** As with any Android app, internet access covers this phone and your local network, so don't give it to a script you don't trust. On Android 17
   and newer, Android itself blocks your local network.

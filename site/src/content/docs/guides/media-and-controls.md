@@ -22,22 +22,20 @@ Without it, media commands print a tappable line that opens the permission page.
 
 Kolahal controls the session that is playing or, if nothing is playing, the most recently played one.
 
-### In the header
+### In the pinned header
 
-With `header.media` on (the default), the header shows `♪ Title — Artist` under the clock while
-something plays, and `‖ Title — Artist` while it is paused. A thin progress bar under the line fills as the track plays, and updates when you seek or start another track; for a stream with no length it
-stays empty.
+With `header.media` on (the default), the [pinned header](/getting-started/basics/#the-pinned-header)
+under the header shows `♪ Title — Artist` while something plays, and `‖ Title — Artist` while it
+is paused, before the scripts you pinned. A thin progress bar under the line fills as the track
+plays, and updates when you seek or start another track; for a stream with no length it stays
+empty.
 
 - **Tap** the line to play or pause.
 - **Long-press** it, or tap **⏭**, to skip to the next track.
 
-The line disappears 30 minutes after playback was paused. When the header is collapsed, a small
-`♪` next to the time shows that something is playing (`header.compact.media`). Turn the line off with
+The line disappears 30 minutes after playback was paused, and steps aside while you type. With
+the header off (`header.show off`) it shows at the top of home. Turn it off with
 `config header.media off`.
-
-With the header off (`header.show off`), the same line shows in the
-[pinned header](/getting-started/basics/#the-pinned-header) at the top of home, under the same
-rule, taking turns with what scripts pin there. It stays while you type or scroll back.
 
 ## Toggles
 

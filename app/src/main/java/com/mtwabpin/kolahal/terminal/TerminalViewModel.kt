@@ -30,8 +30,8 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Pin
-import com.mtwabpin.kolahal.data.Pins
+import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.Files
@@ -140,7 +140,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val commandNames get() = _commandNames.value
         override val scriptUsages get() = this@TerminalViewModel.scriptUsages
         override val scriptDescriptions get() = this@TerminalViewModel.scriptDescriptions
-        override val statusNames get() = _statuses.value.keys
+        override val statusNames get() = _lines.value.mapTo(HashSet()) { it.name }
         override val libraryNames get() = this@TerminalViewModel.libraryNames
         override val sharedNames get() = scriptActions.sharedScripts.value.entries.map { it.name }
         override val feeds get() = feedCache
@@ -197,36 +197,37 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Bumps when aliases, hidden apps or labels change. */
     val appPrefsVersion: StateFlow<Int> get() = appPrefs.version
 
-    /** Every stored `status(text)` line, keyed by script name. */
-    private val _statuses = MutableStateFlow<Map<String, String>>(emptyMap())
-    /**
-     * Header lines pinned by scripts with `status(text)`: only those of scripts that are switched on and
-     * allowed a header line, whichever way they were switched off.
-     */
-    val statuses: StateFlow<Map<String, String>> = combine(_statuses, scriptList) { lines, list ->
-        // Only those with a line: what a script may do is read from its code, on the main thread.
-        val shown = list.filter { it.name in lines && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
-        lines.filterKeys { it in shown }
+    /** Every stored `status(text, opts)` line, by script name. */
+    private val _lines = MutableStateFlow<List<StatusLine>>(emptyList())
+
+    /** Scripts' status lines by name, of those switched on: their cards in Scripts show them. */
+    val statuses: StateFlow<Map<String, String>> = combine(_lines, scriptList) { lines, list ->
+        if (lines.isEmpty()) return@combine emptyMap()
+        val on = list.filter { it.enabled }.mapTo(HashSet()) { it.name }
+        lines.filter { it.name in on }.associate { it.name to it.text }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
-    /** Every stored `pin(text)` item, first pinned first. */
-    private val _pins = MutableStateFlow<List<Pin>>(emptyList())
-    /** The pinned header's items from scripts: as [statuses], those of scripts on and allowed a header line. */
-    val pins: StateFlow<List<Pin>> = combine(_pins, scriptList) { items, list ->
-        if (items.isEmpty()) return@combine emptyList()
-        val shown = list.filter { it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
-        items.filter { it.name in shown }
+    /**
+     * The status lines you pinned ([ScriptAccess.HEADER]), of scripts switched on: what the pinned
+     * header shows after what's playing, by name.
+     */
+    val pinned: StateFlow<List<StatusLine>> = combine(_lines, scriptList) { lines, list ->
+        if (lines.isEmpty()) return@combine emptyList()
+        // What a script may do is read from its code, on the main thread: only those with a line.
+        val named = lines.mapTo(HashSet()) { it.name }
+        val shown = list.filter { it.name in named && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
+        lines.filter { it.name in shown }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** When each pinned item was last run again, by script name, on [SystemClock.elapsedRealtime]. */
+    /** When each pinned line was last run again, by script name, on [SystemClock.elapsedRealtime]. */
     private val pinRuns = HashMap<String, Long>()
 
     /**
-     * Runs again the pinned items that ask for it (`refresh`) and are due. Home calls it each second
+     * Runs again the pinned lines that ask for it (`refresh`) and are due. Home calls it each second
      * while the pinned header is on screen, so they run only then; one still running is let be.
      */
     fun refreshPinned(now: Long = android.os.SystemClock.elapsedRealtime()) {
-        val due = PinnedTurns.due(pins.value, pinRuns, now)
+        val due = PinnedTurns.due(pinned.value, pinRuns, now)
         if (due.isEmpty()) return
         due.forEach { pinRuns[it] = now }
         io { due.forEach { name -> scripts.byName(name)?.let { ScriptScheduler.refreshPinned(context, it) } } }
@@ -261,32 +262,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // Kept until cleared, through leaving home and a restart.
         logs.filter = filter?.let { if (it is LogFilter.OfKind) it.word else it.label }
         requestReload()
-    }
-
-    private val _headerCollapsed = MutableStateFlow(false)
-    /** header.autohide: the header shrinks to one line while the log is in use. */
-    val headerCollapsed: StateFlow<Boolean> = _headerCollapsed.asStateFlow()
-
-    private val _headerHidden = MutableStateFlow(false)
-    /** Scrolling back through older output hides the header entirely (header.autohide). */
-    val headerHidden: StateFlow<Boolean> = _headerHidden.asStateFlow()
-
-    fun collapseHeader() {
-        if (!config[Keys.HEADER_AUTOHIDE]) return
-        _headerCollapsed.value = true
-        _headerHidden.value = false
-    }
-
-    /** Scrolling toward older lines: no header at all, the log gets the whole screen. */
-    fun hideHeader() {
-        if (!config[Keys.HEADER_AUTOHIDE]) return
-        _headerCollapsed.value = true
-        _headerHidden.value = true
-    }
-
-    fun expandHeader() {
-        _headerCollapsed.value = false
-        _headerHidden.value = false
     }
 
     private val _screen = MutableStateFlow(Screen.TERMINAL)
@@ -469,8 +444,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             withContext(Dispatchers.Default) { setCommandScripts(latest) }
             scriptsPrint = print
         }
-        _statuses.value = KvStore(context, HostApi.STATUS_SCOPE).all()
-        _pins.value = Pins.all(context)
+        _lines.value = StatusLines.all(context)
         if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = logs.hiddenCount()
         // A typed command's own line puts it first: read again only when a command may have gone (a
         // trim, or a removed line this page doesn't have or that was a command).
@@ -675,8 +649,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // A crash in the script process doesn't restart home: its report is announced here, off the
         // command queue, so a command typed at once doesn't wait for it.
         viewModelScope.launch(Dispatchers.IO) { runCatching { com.mtwabpin.kolahal.CrashReports.announce(context) } }
-        // Coming back from an app is a fresh look at home: show the full header again.
-        expandHeader()
         seenUpTo = logs.seenUpTo
         // log.fresh: after a while away, home starts clean. Only what you had already seen is
         // hidden (script lines that arrived meanwhile stay), and nothing is deleted.
@@ -766,7 +738,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             isOn = { !it.profile.quiet },
         ) ?: return
         setText("")
-        collapseHeader()
         _events.tryEmit(UiEvent.ScrollToBottom)
         when (target) {
             is InstantRun.Target.App -> io { processor.launch(target.app) }
@@ -793,7 +764,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         input = TextFieldValue("")
         historyIndex = -1
         if (line.isBlank()) return
-        collapseHeader()
         io {
             try {
                 processor.run(line)
@@ -882,7 +852,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val line = replacement.trim()
         if (tapped && InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && runsOnTap(line)) {
             setText("")
-            collapseHeader()
             _events.tryEmit(UiEvent.ScrollToBottom)
             io { processor.run(line) }
         } else {
@@ -928,7 +897,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override fun setText(text: String) = this@TerminalViewModel.setText(text)
         override fun submit() = this@TerminalViewModel.submit()
         override fun emit(event: UiEvent) { _events.tryEmit(event) }
-        override fun collapseHeader() = this@TerminalViewModel.collapseHeader()
         override fun runsOnTap(line: String) = this@TerminalViewModel.runsOnTap(line)
         override fun runCommand(cmd: String) = this@TerminalViewModel.runCommand(cmd)
         override fun openEditorAt(script: Script, line: Int?) = this@TerminalViewModel.openEditorAt(script, line)
@@ -1153,7 +1121,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** Runs [cmd] as if typed (without alias expansion); [byScript]: a script sent it, and the scripts it starts can't send more. */
     fun runCommand(cmd: String, byScript: Boolean = false) {
-        collapseHeader()
         _events.tryEmit(UiEvent.ScrollToBottom)
         io { if (byScript) ScriptScheduler.sentByScript { processor.run(cmd, expand = false) } else processor.run(cmd, expand = false) }
     }
@@ -1191,7 +1158,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             }
             // Gesture actions may be aliases, so they expand like typed input.
             else -> {
-                collapseHeader()
                 _events.tryEmit(UiEvent.ScrollToBottom)
                 io { processor.run(action) }
             }
@@ -1428,7 +1394,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     override fun clearScreen() {
-        expandHeader()
         io {
             val cleared = logs.clearScreen()
             withContext(Dispatchers.Main) {
@@ -1441,7 +1406,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     override fun freshScreen() {
-        expandHeader()
         io { logs.hideScreen() }
     }
 
@@ -1582,7 +1546,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         settingsCategory.value = null
         _homePresses.value++
         _editing.value?.let { return }
-        expandHeader()
         val fromOtherScreen = _screen.value != Screen.TERMINAL
         openScreen(Screen.TERMINAL) // Home always lands on the terminal and forgets the page stack
         escape()

@@ -13,8 +13,9 @@ import selectorOpen from '../../../assets/parts/selector-open.png';
 
 <Image src={terminal} alt="The Kolahal home screen: header with clock and status, feed lines and a unit conversion in the log, and the prompt" class="shot shot-single" width={320} />
 
-The home screen has four parts, from top to bottom: the **header**, the **log**, the
-**suggestions**, and the **prompt** (`$`), with the **key bar** below it while you type.
+The home screen has four parts, from top to bottom: the **header** (with the **pinned header** under
+it when something is in it), the **log**, the **suggestions**, and the **prompt** (`$`), with the
+**key bar** below it while you type.
 [Parts of the app](/getting-started/parts/) shows each one, numbered on the screen.
 
 ## The prompt
@@ -227,53 +228,55 @@ and launch in another profile.
 
 ## The header
 
-A large clock and date, then unlocks, battery, network, next alarm, ⚙︎ and profile state, shown
-as icons: the battery is drawn to its charge level (green with a bolt while charging, red when
-low), and the network icon shows Wi-Fi, mobile or offline. `header.icons off` brings back the
-text labels (`bat`, `net`, …). Every item is tappable:
+One line at the top of home, a status bar of its own: the time and date on the left, and on the
+right the battery and two items you choose. In full screen it sits beside the camera, in the band
+the camera leaves across the top, so it takes no room from the log; with the status bar shown
+(`screen.bars show`) it sits under it. It looks the same all the time, while you type and while
+you scroll back.
 
-| Item | Tap | Config key |
+Choose the two items in **Settings → Header**: **First item** (`header.item-1`, the next alarm by
+default) and **Second item** (`header.item-2`, open todos by default). `none` leaves a place empty.
+
+| Item | Shows | Tap |
 | --- | --- | --- |
-| Clock, next alarm | opens your alarms | `clock.24h`, `header.date`, `header.alarm` |
-| `unlocks` | runs `unlocks 7` | `header.unlocks` |
-| `bat` | battery usage | `header.battery` |
-| `net` | network settings | `header.network` |
-| ⚙︎ | the [settings screen](/guides/themes-and-settings/) | |
-| Script status lines | runs that script | `header.status` |
-| `work` / `private` | resumes a paused profile; pausing asks for a second tap | `header.profiles` |
+| `alarm` | the next alarm: its time (without AM or PM), with the day when it's a day or more away | opens your alarms |
+| `todo` | how many todos are open, when there are any | runs `todo` |
+| `network` | Wi-Fi, mobile or offline (in red) | network settings |
+| `unlocks` | today's unlock count | runs `unlocks 7` |
+| `settings` | ⚙︎ | the [settings screen](/guides/themes-and-settings/) |
+| `profiles` | the work and private profiles, dimmed while paused | resumes a paused profile; pausing asks for a second tap |
 
-Choose what shows in **Settings → Header → Header items**: each item has a box for the full
-header and one for the one-line header described below. The clock (`header.clock`) and ⚙︎
-(`header.settings`) can go too, and `settings` still opens Settings. If nothing is left to show,
-the header takes no room.
+The battery is drawn to its charge level (green with a bolt while charging, red when low), and a
+tap opens battery usage. A tap on the time or date opens your alarms; `clock.24h` switches to
+24-hour time. What doesn't fit beside the camera is left out: your second item first, then your
+first, then the date, the battery last.
 
-**Auto-hide** (`header.autohide`, on by default): while you scroll back through older output the header
-disappears entirely; scrolling toward the newest lines (or running a command) brings it back as one
-line, by default with the time, battery, a music note while something plays and the number of hidden status lines. Tap it or swipe down on it to expand it; pressing Home, coming back from an app or `clear`
-also brings it back.
-
-While you type (the keyboard is open, or there is text in the prompt), the header shrinks to one line, so the suggestions have more room. It returns to full size when you finish.
-
-`header.device` adds a `name@device` line, `kolahal@device` until you set **Your name**
-(`user.name`) beside it in Settings. Swipe down on the header to pull down the
-notification shade (a [gesture](/guides/gestures/) you can change).
-
-To hide the header, turn off **Show the header** (`header.show`). The log then fills the screen, you open Settings with `settings`, and script status lines aren't shown.
+Swipe down on the header to pull down the notification shade (a [gesture](/guides/gestures/) you
+can change). To hide it, turn off **Show the header** (`header.show`): the pinned header and the
+log start at the top, and you open Settings with `settings`.
 
 ### The pinned header
 
-With the header off, one line at the top of home shows what's playing (with notification access)
-and what scripts pin there with [`pin`](/scripting/api/#pintext-opts), such as a live score. With
-more than one, they take turns in that line: each shows for **Pinned header: seconds per item**
+Under the header, one line for what's playing and for the scripts you pin, such as a live score.
+With more than one, they take turns in that line: each shows for **Seconds per item**
 (`header.pinned-seconds`, 5 seconds), then the next slides up. Dots at the end show which one is
-on screen, for up to **Pinned header: dots up to** (`header.pinned-dots`, 3) items. A finger on the
-line keeps the one showing.
+on screen, for up to **Dots up to** (`header.pinned-dots`, 3) items. A finger on the line keeps
+the one showing. While you type, it steps aside for the suggestions. With nothing playing and
+nothing pinned, it takes no room.
 
-- **What's playing**: tap to play or pause, long-press or **⏭** to skip, as in the header.
-- **A script's item**: tap runs the script, long-press for Run, Hide from header and Edit. A bar
-  under it shows how far along it is, when the script gives one.
+- **What's playing** comes first, with notification access (**Now playing**, `header.media`, turns
+  it off): tap to play or pause, long-press or **⏭** to skip.
+- **A script you pinned** shows its status line, with a bar under it when the script says how far
+  along it is. Tap it to run the script; long-press it for Run, Unpin and Edit.
 
-With nothing to show, the line takes no room.
+A script never puts itself there. Its [status line](/scripting/overview/#status-lines) shows on
+its card in Scripts and in `status`; to have it at the top, pin the script:
+
+- long-press a line it logged and pick **Pin cricket to the top**,
+- switch on **Pinned at the top** on its card in Scripts,
+- or type `script pin cricket` (`script unpin cricket` takes it away).
+
+Pinned scripts follow what's playing, in the order of their names.
 
 ## The key bar
 

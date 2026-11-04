@@ -28,11 +28,12 @@ class SettingsCatalogTest {
         }
     }
 
-    /** Every one-line choice has a row in the table, and every row a setting of its own for each stage. */
-    @Test fun theHeaderTableHasEveryOneLineChoice() {
-        assertEquals(Keys.ALL.filter { it.key.startsWith("header.compact.") }.toSet(), HEADER_ITEMS.map { it.oneLine }.toSet())
-        assertEquals(HEADER_ITEM_KEYS.size, HEADER_ITEM_KEYS.toSet().size)
-        assertTrue(HEADER_ITEM_KEYS.all { it in Keys.ALL && it.key in TITLES })
+    /** The header is one line: its settings are a few, each with a title, and the full and one-line headers' are gone. */
+    @Test fun theHeaderHasAFewSettings() {
+        val header = Keys.ALL.filter { it.key.startsWith("header.") }
+        assertEquals(listOf("header.show", "header.item-1", "header.item-2", "header.media", "header.pinned-seconds", "header.pinned-dots"), header.map { it.key })
+        assertTrue(header.all { it.key in TITLES })
+        assertTrue(Keys.REMOVED.keys.filter { it.startsWith("header.compact.") }.size == 12)
     }
 
     @Test fun everySettingIsOnAPageButConfigOnlyOnes() {

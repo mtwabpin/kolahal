@@ -128,7 +128,7 @@ See [Productivity](/guides/productivity/). `<n>` is the number shown in the list
 | `lua <code>` | evaluate Lua 5.4 |
 | `js <code>` | evaluate JavaScript (QuickJS) |
 | `= <expr>` | calculator: `= 5 km in mi`, `= 72 f to c`, `= 100 usd in eur` |
-| `status [clear <name\|all>]` | header lines and pinned header items scripts set; `clear` removes them |
+| `status [clear <name\|all>]` | scripts' status lines, the pinned ones marked; `clear` removes them |
 
 `script` subcommands:
 
@@ -149,7 +149,8 @@ See [Productivity](/guides/productivity/). `<n>` is the number shown in the list
 | `script on\|off <name>` | enable / disable (aliases `enable`, `disable`) |
 | `script triggers` | scripts with `@on` lines and the events they run on (alias `events`) |
 | `script access <name>` | each [access switch](/scripting/overview/#switching-access-off), on or off; tap one to put the command that changes it in the prompt |
-| `script allow\|deny <name> <what…>` | switch access on or off: `internet`, `header`, an `@uses` item, an `@on` event, or `notify` |
+| `script allow\|deny <name> <what…>` | switch access on or off: `internet`, `header` (pinned at the top), an `@uses` item, an `@on` event, or `notify` |
+| `script pin\|unpin <name>` | show its status line in the [pinned header](/getting-started/basics/#the-pinned-header), or stop |
 | `script secret <name> [<NAME> [--clear]]` | its [secrets](/scripting/overview/#api-keys-and-other-secrets), and whether each is set; with a name, opens a box to set it (`--clear` deletes it) |
 | `script set <name> [<option> [<value>\|--reset]]` | its [options](/scripting/overview/#options) and their values; with an option and a value, sets it (`--reset` restores its default) |
 | `script mv <name> <new-name>` | [rename it](/scripting/overview/#renaming-a-script) (alias `rename`) |

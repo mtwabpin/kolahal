@@ -11,7 +11,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.data.Pins
+import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFiles
@@ -85,25 +85,22 @@ class ScriptActions(
         scripts.byId(s.id)?.let { ScriptAccess.askForSecrets(context, it) }
     }
 
-    /** One access switch; switching the header line off takes the line away now. */
+    /** One access switch; pinning or unpinning shows at the top of home at once. */
     fun setScriptAccess(s: Script, item: String, on: Boolean) = updateScript(s) {
         scripts.setAccess(s.id, item, on)
-        if (item == ScriptAccess.HEADER && !on) {
-            Pins.clearLines(context, s.name)
-            logs.onStatusChanged()
-        }
+        if (item == ScriptAccess.HEADER) logs.onStatusChanged()
     }
 
-    /** Long-press on a script's header line: run it, hide its line, or edit it. */
+    /** Long-press on a pinned script's line at the top: run it, unpin it, or edit it. */
     fun statusActions(name: String): List<LogAction> {
         val s = scripts.byName(name) ?: return listOf(
-            LogAction("Clear this line") { io { Pins.clearLines(context, name); logs.onStatusChanged() } },
+            LogAction("Clear this line") { io { StatusLines.clear(context, name); logs.onStatusChanged() } },
         )
         return listOf(
             LogAction("Run $name now") { io { ScriptScheduler.runNow(context, s) } },
-            LogAction("Hide from header") {
+            LogAction("Unpin $name") {
                 setScriptAccess(s, ScriptAccess.HEADER, false)
-                io { logs.add(LogKind.INFO, "$name: header line off — 'script allow $name header' restores it", ctx = LogContext.of(LogContext.SCRIPT to name)) }
+                io { logs.add(LogKind.INFO, "$name: unpinned — 'script pin $name' pins it again", ctx = LogContext.of(LogContext.SCRIPT to name)) }
             },
             LogAction("Edit $name.${s.lang.ext}") { openEditor(s) },
         )
@@ -155,7 +152,7 @@ class ScriptActions(
     fun deleteScript(s: Script) = io {
         ScriptScheduler.cancel(context, s.id)
         scripts.delete(s.id)
-        Pins.clearLines(context, s.name)
+        StatusLines.clear(context, s.name)
         scriptList.value = scripts.all()
         notice("Deleted ${s.name}")
     }

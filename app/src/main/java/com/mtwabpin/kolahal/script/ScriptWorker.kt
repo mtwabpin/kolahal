@@ -71,7 +71,7 @@ internal object ScriptRun {
         if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false) &&
             (!script.grants.allows(on) || (on == "notification" && !script.grants.allows("notifications")))
         ) return true
-        // A pinned item's refresh, every few seconds while home shows it: what stays the same isn't said
+        // A pinned status line's refresh, every few seconds while home shows it: what stays the same isn't said
         // again. An error shows once until a run works, and a result a run returns isn't logged.
         val refresh = script != null && on == ScriptScheduler.REFRESH && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
         val refreshes = KvStore(ctx, "worker")

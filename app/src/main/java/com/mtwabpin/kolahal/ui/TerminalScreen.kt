@@ -15,7 +15,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -44,8 +52,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -130,8 +136,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val unlocks by vm.unlocksToday.collectAsStateWithLifecycle()
     val status by vm.status.collectAsStateWithLifecycle()
-    val statuses by vm.statuses.collectAsStateWithLifecycle()
-    val pins by vm.pins.collectAsStateWithLifecycle()
+    val pinnedLines by vm.pinned.collectAsStateWithLifecycle()
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
@@ -302,99 +307,47 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         Modifier
             .fillMaxSize()
             .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
-            .cutoutSafePadding()
+            // The top is the header's: it fills the band beside the camera.
+            .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))
             .navigationBarsPadding()
             .imePadding()
     ) {
-        val headerCollapsed by vm.headerCollapsed.collectAsStateWithLifecycle()
         // A hardware keyboard already has these keys: the bar follows the on-screen keyboard.
         val typing = preview?.typing ?: (promptFocused && WindowInsets.isImeVisible)
-        // While searching, the header shrinks to one line: suggestions can't use the room it takes.
-        // Only shown smaller; it returns as it was when the search ends.
+        // While searching, the pinned header steps aside: the suggestions use its room.
         val searching = typing || hasInput
-        val headerHidden by vm.headerHidden.collectAsStateWithLifecycle()
-        // header.show off: no header at all, and the log takes its room.
+        // header.show off: no header line; the pinned header and the log start under the camera.
         val showHeader = remember(configVersion) { config[Keys.HEADER_SHOW] }
-        val density = LocalDensity.current
-        val headerScroll = remember(vm, density) {
-            val threshold = with(density) { 24.dp.toPx() }
-            object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-                var travelled = 0f
-                override fun onPreScroll(available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
-                    val dy = available.y
-                    if (dy == 0f) return Offset.Zero
-                    // Reversed log: a positive delta (finger moving down) reveals older lines.
-                    if (travelled != 0f && (dy > 0) != (travelled > 0)) travelled = 0f
-                    travelled += dy
-                    when {
-                        travelled > threshold -> { vm.hideHeader(); travelled = 0f }
-                        travelled < -threshold -> { vm.collapseHeader(); travelled = 0f }
-                    }
-                    return Offset.Zero
-                }
-            }
-        }
-        // Header transitions slide like scrolling: up and out when hidden, back down when it
-        // returns, and full ↔ one-line morph in place. The log follows the size change smoothly.
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showHeader && !headerHidden,
-            enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) +
-                androidx.compose.animation.slideInVertically { -it },
-            exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top) +
-                androidx.compose.animation.slideOutVertically { -it },
-        ) {
-            androidx.compose.animation.AnimatedContent(
-                targetState = headerCollapsed || searching,
-                transitionSpec = {
-                    (androidx.compose.animation.slideInVertically { -it / 3 } + androidx.compose.animation.fadeIn())
-                        .togetherWith(androidx.compose.animation.slideOutVertically { -it / 3 } + androidx.compose.animation.fadeOut())
-                        .using(androidx.compose.animation.SizeTransform(clip = true))
-                },
-                contentAlignment = Alignment.TopStart,
-                label = "header",
-            ) { collapsed ->
-                if (collapsed) CompactHeader(
-                    status = status,
-                    statusCount = if (config[Keys.COMPACT_STATUS]) statuses.size else 0,
-                    config = config,
-                    version = configVersion,
-                    onExpand = vm::expandHeader,
-                    mediaPlaying = config[Keys.COMPACT_MEDIA] && nowPlaying?.playing == true,
-                    unlocks = unlocks,
-                    profiles = profiles,
-                    todoCount = vm.todoCount.collectAsStateWithLifecycle().value,
-                    onOpenSettings = { vm.onHeaderTap(HeaderTarget.SETTINGS) },
-                ) else Header(
-                    unlocks = unlocks,
-                    profiles = profiles,
-                    status = status,
-                    statuses = statuses,
-                    config = config,
-                    version = configVersion,
-                    onStatusTap = vm::runScriptNamed,
-                    onStatusLongPress = { name -> showMenu("$name ▸ ${statuses[name].orEmpty()}", null) { vm.scriptActions.statusActions(name) } },
-                    onSwipeDown = { vm.onGesture(Keys.GESTURE_SWIPE_DOWN) },
-                    onTarget = vm::onHeaderTap,
-                    onProfileTap = vm::onProfileTap,
-                    nowPlaying = nowPlaying?.takeIf { config[Keys.HEADER_MEDIA] },
-                    onMediaToggle = vm::mediaToggle,
-                    onMediaNext = vm::mediaNext,
-                    todoCount = vm.todoCount.collectAsStateWithLifecycle().value,
-                )
-            }
-        }
-        // With the header off: what's playing and the scripts' pinned items, in turns.
-        if (!showHeader) PinnedHeader(
-            nowPlaying = nowPlaying,
-            pins = pins,
+        val showMedia = remember(configVersion) { config[Keys.HEADER_MEDIA] }
+        if (showHeader) Header(
+            status = status,
+            unlocks = unlocks,
+            profiles = profiles,
+            todoCount = vm.todoCount.collectAsStateWithLifecycle().value,
             config = config,
             version = configVersion,
-            onMediaToggle = vm::mediaToggle,
-            onMediaNext = vm::mediaNext,
-            onPinTap = vm::runScriptNamed,
-            onPinLongPress = { name -> showMenu("$name ▸ ${pins.firstOrNull { it.name == name }?.text.orEmpty()}", null) { vm.scriptActions.statusActions(name) } },
-            onRefresh = vm::refreshPinned,
-        )
+            onTarget = vm::onHeaderTap,
+            onProfileTap = vm::onProfileTap,
+            onSwipeDown = { vm.onGesture(Keys.GESTURE_SWIPE_DOWN) },
+        ) else Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars.union(WindowInsets.displayCutout)))
+        // What's playing and the status lines you pinned, in turns.
+        androidx.compose.animation.AnimatedVisibility(
+            visible = !searching,
+            enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top) + androidx.compose.animation.fadeOut(),
+        ) {
+            PinnedHeader(
+                nowPlaying = nowPlaying?.takeIf { showMedia },
+                lines = pinnedLines,
+                config = config,
+                version = configVersion,
+                onMediaToggle = vm::mediaToggle,
+                onMediaNext = vm::mediaNext,
+                onPinTap = vm::runScriptNamed,
+                onPinLongPress = { name -> showMenu("$name ▸ ${pinnedLines.firstOrNull { it.name == name }?.text.orEmpty()}", null) { vm.scriptActions.statusActions(name) } },
+                onRefresh = vm::refreshPinned,
+            )
+        }
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
         // The log and the suggestions share what the header, key bar and prompt leave. Those are
         // measured first, so a long suggestion list can't push the prompt off the screen.
@@ -426,9 +379,6 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             reverseLayout = true,
             modifier = Modifier
                 .fillMaxSize()
-                // header.autohide by direction: toward older lines the header goes away entirely,
-                // back toward the newest it returns as the one-line mini header.
-                .nestedScroll(headerScroll)
                 .onSizeChanged { vm.onLogWidth(it.width) }
                 .testTag("log")
                 .then(pinch)

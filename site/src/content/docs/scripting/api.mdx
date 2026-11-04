@@ -21,8 +21,7 @@ means a table with those keys in Lua and an object with those properties in JS.
 | [`md.log(title, body?, ctx?)`](#mdlogtitle-body-ctx) | nothing; appends a line, rendering Markdown |
 | [`fmt.bold(text)` and the other styles](#styles-fmt) | the text, styled for the log |
 | [`notify(title, body, ctx?)`](#notifytitle-body-ctx) | `true` if a notification was posted |
-| [`status(text)`](#statustext) | nothing; pins or clears a header line |
-| [`pin(text, opts?)`](#pintext-opts) | nothing; puts or takes away its item in the pinned header |
+| [`status(text, opts?)`](#statustext-opts) | nothing; sets or clears its status line |
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
 | [`http.get(url, headers?)`](#httpgeturl-headers) | `{ status, ok, body, headers }` |
 | [`http.request(opts)`](#httprequestopts) | same as `http.get` |
@@ -156,7 +155,7 @@ Use these for lines that include text from the web, where Markdown would need es
 Colours are set by role, never by value: the theme picks each one, in its dark and its light version, so a line is readable on every theme. `good` is for up, done or passing, `warn` for something short of
 an error, `bad` for down or failed (the theme's error colour). Show it in the text too (`▲`, `▼`, "down"): a colour alone is easy to miss.
 
-Styles appear only in the log: notifications, header lines, Copy text and search use the plain text.
+Styles appear only in the log: notifications, status lines, Copy text and search use the plain text.
 A styled string is ordinary text with invisible marks around the styled parts, so shorten text
 before styling it; if text is cut in the middle of a mark, the style continues to the end of the line. Use
 `fmt.plain` before storing or sending a styled string anywhere else.
@@ -198,62 +197,42 @@ notify("Build finished", "main is green", { url: "https://ci.example.org" });
 </TabItem>
 </Tabs>
 
-### status(text)
+### status(text, opts?)
 
-Pins one line for this script into the header (first line of `text`, at most 80 characters).
+Sets this script's status line (first line of `text`, at most 80 characters): it shows on the
+script's card in Scripts and in `status`, and in the
+[pinned header](/getting-started/basics/#the-pinned-header) at the top of home once you pin the
+script (`script pin <name>`, or **Pin to the top** in its menus); a script can't pin itself.
 `status(nil)` / `status(null)` or an empty string clears it. It only works in saved scripts, since
-it is keyed by the script's name. Tapping the status line runs the script. A run changes it at most
-20 times; setting the line it already shows doesn't count.
+it is keyed by the script's name. Tapping the line at the top runs the script. A run changes it at
+most 20 times; setting the line it already shows doesn't count.
+
+`opts` can have:
+
+- `progress`: how far along, from 0 to 1, drawn as a bar under the line at the top. Without it,
+  there's no bar.
+- `refresh`: run the script again every this many seconds (10 at the fastest, up to 3600) while
+  home shows the line at the top, to keep it current. That run's [`event.name`](#event) is
+  `"refresh"`, so it can skip what only a typed command needs. It runs only while home is on
+  screen and the script is pinned: set the line without `refresh` once it stops changing. An
+  error in those runs shows once until a run works again, and what a run returns isn't logged; its
+  own `log` lines are.
+
+Any other key, or a value that isn't a number, is an error. Kolahal before 0.4.14 ignores `opts`.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
 status("HN: " .. count .. " new")
+status("NZ 136/8 (33.2 ov) v IND", { progress = 200 / 300, refresh = 30 })
 status(nil)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
 status(`HN: ${count} new`);
+status("NZ 136/8 (33.2 ov) v IND", { progress: 200 / 300, refresh: 30 });
 status(null);
-```
-</TabItem>
-</Tabs>
-
-### pin(text, opts?)
-
-Puts this script's item in the [pinned header](/getting-started/basics/#the-pinned-header), the
-line at the top of home while the header is off (first line of `text`, at most 80 characters).
-`pin(nil)` / `pin(null)` or an empty string takes it out. Items take turns in that line with
-what's playing, first pinned first; a new text keeps the item's place. It only works in saved
-scripts, and needs Kolahal 0.4.14 (`@requires 0.4.14`). Tapping the item runs the script. A run
-changes it at most 20 times; setting what it already shows doesn't count. It's separate from
-[`status`](#statustext): a script may use either or both.
-
-`opts` can have:
-
-- `progress`: how far along, from 0 to 1, drawn as a bar under the item. Without it, there's no
-  bar.
-- `refresh`: run the script again every this many seconds (10 at the fastest) while home shows the
-  pinned header, to keep the item current. That run's [`event.name`](#event) is `"refresh"`, so it
-  can skip what only a typed command needs. It runs only while home is on screen, the header is
-  off and the item asks for it: pin without `refresh` once the item stops changing. An error in
-  those runs shows once until a run works again, and what a run returns isn't logged; its own
-  `log` lines are.
-
-<Tabs syncKey="lang">
-<TabItem label="Lua">
-```lua
-pin("NZ 136/8 (33.2 ov) v IND", { progress = 200 / 300, refresh = 30 })
-pin("NZ won by 4 wickets")
-pin(nil)
-```
-</TabItem>
-<TabItem label="JavaScript">
-```js
-pin("NZ 136/8 (33.2 ov) v IND", { progress: 200 / 300, refresh: 30 });
-pin("NZ won by 4 wickets");
-pin(null);
 ```
 </TabItem>
 </Tabs>
@@ -264,7 +243,8 @@ Whether this script may use `what`: `"internet"`, `"header"`, `"notifications"`,
 `"clipboard"`, `"commands"`, `"dnd"`, an `@on` event such as `"unlock"`, or `"work"`. You switch these per script
 ([switching access off](/scripting/overview/#switching-access-off)); with one off, a script can do
 something else instead. A script has `"internet"` only if its code uses `http`, `rss`, `url`,
-`image` or `launcher.run`, and `"header"` only if it calls `status` or `pin`. Code typed at the prompt gets `true` for everything.
+`image` or `launcher.run`. `"header"` is whether you pinned it, so its status line shows at the top
+of home; a script has it only if it calls `status`. Code typed at the prompt gets `true` for everything.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -630,7 +610,7 @@ happened. `event.name` is the event (`unlock`, `charger`, `unplug`, `wifi`, `off
 
 A run at one of the script's [daily times](/scripting/overview/#running-scripts) gets `event.name`
 `"at"` and `event.time`, the scheduled time (`"23:00"`), even when it runs late: a script with two
-times can tell them apart. A run a [pinned item](#pintext-opts) asks for with `refresh` gets `event.name`
+times can tell them apart. A run a [status line](#statustext-opts) asks for with `refresh` gets `event.name`
 `"refresh"`. Other runs get nil (null in JavaScript).
 
 ## Work profile

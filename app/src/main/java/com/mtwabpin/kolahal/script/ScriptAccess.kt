@@ -12,12 +12,13 @@ import com.mtwabpin.kolahal.data.Script
  * - [ScriptMeta.USES], given by declaring them with `@uses`: off until allowed. Switching a script on
  *   allows the ones not decided yet (the Scripts screen asks first, with everything on); code from
  *   outside that declares more leaves the new ones off.
- * - [INTERNET] and [HEADER]: a script whose code uses them ([ScriptMeta.usesInternet],
- *   [ScriptMeta.setsHeader]) has them unless they are switched off; one that doesn't never has them,
- *   so the switches shown are all it may do.
+ * - [INTERNET]: a script whose code uses it ([ScriptMeta.usesInternet]) has it unless it is switched
+ *   off; one that doesn't never has it, so the switches shown are all it may do.
+ * - [HEADER], pinned at the top: a script that sets a status line ([ScriptMeta.setsHeader]) shows it
+ *   at the top of home only once you pin it (`script pin`, its menus); nothing pins itself.
  * - Each `@on` event: on unless switched off.
  * Switched off, a script gets an empty answer where that is honest (no apps, no notifications, no
- * clipboard, its header line ignored) and stops where it isn't (internet).
+ * clipboard) and stops where it isn't (internet).
  * Posting notifications keeps its own switch ([com.mtwabpin.kolahal.data.Script.notify]), shown
  * for a script that calls `notify` ([ScriptMeta.postsNotifications]).
  */
@@ -34,7 +35,7 @@ object ScriptAccess {
 
     fun label(item: String): String = when (item) {
         INTERNET -> "Internet"
-        HEADER -> "Header line"
+        HEADER -> "Pinned at the top"
         "notifications" -> "Your notifications"
         "apps" -> "Your app list"
         "clipboard" -> "Clipboard"
@@ -46,7 +47,7 @@ object ScriptAccess {
 
     fun help(item: String): String = when (item) {
         INTERNET -> "Web requests and feeds to any address, including your local network, and links and images in its output; when off, a run that needs a request stops"
-        HEADER -> "Its line at the top of the home screen; when off, the script still runs"
+        HEADER -> "Its status line at the top of home, in turns with what's playing and other pinned scripts; when off, it shows in its card and in status"
         "notifications" -> "Reads your recent notifications; when off, it sees none"
         "apps" -> "Lists your installed apps; when off, it sees none"
         "clipboard" -> "Reads and sets the clipboard; when off, it can't"
@@ -58,12 +59,13 @@ object ScriptAccess {
 
     /**
      * A script's access: what its code declares with `@uses`, which of [INTERNET] and [HEADER] it
-     * uses ([base]), and what the user decided.
+     * uses ([base]), and what the user decided. [HEADER] is off until pinned.
      */
     class Grants(val declared: Set<String>, private val values: Map<String, Boolean>, private val base: Set<String> = setOf(INTERNET, HEADER)) {
         fun allows(item: String): Boolean = when (item) {
             in ScriptMeta.USES -> item in declared && values[item] == true
-            INTERNET, HEADER -> item in base && values[item] != false
+            INTERNET -> item in base && values[item] != false
+            HEADER -> item in base && values[item] == true
             else -> values[item] != false
         }
 

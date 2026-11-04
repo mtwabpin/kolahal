@@ -11,7 +11,9 @@ class ConfigDefaultsTest {
         assertEquals(false, Keys.SUGGESTIONS_WRAP.default)
         // Swiping up is off until it is given an action: it fires by accident easily.
         assertEquals("none", Keys.GESTURE_SWIPE_UP.default)
-        assertEquals(false, Keys.HEADER_DEVICE.default)
+        // From 0.4.14: the header's two items beside the battery.
+        assertEquals("alarm", Keys.HEADER_ITEM_1.default)
+        assertEquals("todo", Keys.HEADER_ITEM_2.default)
         // From 0.4.3: groups closer together, and lines a line of text and a little room, all alike.
         assertEquals(5, Keys.LOG_SPACING.default)
         assertEquals(22, Keys.LOG_LINE_HEIGHT.default)

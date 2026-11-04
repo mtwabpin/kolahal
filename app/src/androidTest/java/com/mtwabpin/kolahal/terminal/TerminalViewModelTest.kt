@@ -393,20 +393,6 @@ class TerminalViewModelTest {
         staysTrue("a command ran") { added().none { it.kind == LogKind.COMMAND } }
     }
 
-    /** Scrolling back hides the header with header.autohide on, and leaves it with autohide off. */
-    @Test fun scrollingBackHidesTheHeaderOnlyWithAutohide() {
-        val vm = home()
-        main { vm.hideHeader() }
-        assertTrue(vm.headerCollapsed.value)
-        assertTrue(vm.headerHidden.value)
-        main { vm.expandHeader() }
-        assertFalse(vm.headerHidden.value)
-        config.set(Keys.HEADER_AUTOHIDE, "off")
-        main { vm.hideHeader() }
-        assertFalse(vm.headerCollapsed.value)
-        assertFalse(vm.headerHidden.value)
-    }
-
     /** A swiped-away line goes from the log and comes back with Undo. */
     @Test fun aSwipedLineComesBackWithUndo() {
         val vm = home()

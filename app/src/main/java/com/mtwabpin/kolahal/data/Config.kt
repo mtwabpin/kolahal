@@ -20,8 +20,7 @@ class Config private constructor(private val prefs: SharedPreferences) {
     /** Settings saved under names from before 0.3.0 ([Keys.RENAMED]) move to today's names; ones that are gone ([Keys.REMOVED]) are dropped. */
     fun migrate() {
         val saved = prefs.all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap()
-        // Once: a default is never saved, so later on a missing choice is one the user made.
-        val moved = Keys.migrate(saved).let { if (Keys.COMPACT_CARRIED in it) it else Keys.carryCompact(it) + (Keys.COMPACT_CARRIED to "on") }
+        val moved = Keys.migrate(saved)
         if (moved == saved) return
         prefs.edit(commit = true) {
             saved.keys.filter { it !in moved }.forEach { remove(it) }

@@ -4,7 +4,7 @@ description: Lua 5.4 and JavaScript scripts in Kolahal, timers, notifications, s
 ---
 
 Scripts are small programs that run inside the launcher. They can fetch things from the web,
-print lines into the log, post notifications, pin a status line in the header, or become new
+print lines into the log, post notifications, set a status line you can pin at the top, or become new
 terminal commands. Write them in **Lua 5.4** or **JavaScript** (QuickJS). Both languages get the
 same [API](/scripting/api/).
 
@@ -62,7 +62,7 @@ script makes requests and there is none.
 last run's result. The script manager (`scripts`, or the **Scripts** tab in Settings;
 [its parts, numbered](/getting-started/parts/#scripts-tab)) shows a card per
 script: its title, how it runs and how its last run went (red if it failed), **Run** for a command,
-and its on/off switch; a card is tinted in the theme's colour when its script is on, and faded when it's off. The arrow on a card, or the one at the top for all of them, shows its details: its header line, next run, usage, and a pill for everything it may do (internet, its header line, notifications, what it declares, its events). A pill is filled in the theme's colour when on and faded when off. Tap it to switch it.
+and its on/off switch; a card is tinted in the theme's colour when its script is on, and faded when it's off. The arrow on a card, or the one at the top for all of them, shows its details: its status line, next run, usage, and a pill for everything it may do (internet, pinned at the top, notifications, what it declares, its events). A pill is filled in the theme's colour when on and faded when off. Tap it to switch it.
 A library script you edited (its summary says "edited") gets **Compare** and **Reset to library
 version** there too.
 Chips filter the cards (commands, timers, events, in the header, failed, off, needs a key, differs
@@ -100,18 +100,21 @@ content. If Android blocks Kolahal's notifications, a "tap to allow" line appear
 
 ## Status lines
 
-`status(text)` pins one line into the header for this script, like `weather ▸ Pune: ☀️ +27°C`.
-`status(nil)` (or `null` in JS) clears it. Only the first line is used, up to 80 characters.
-With the header off, status lines don't show: [`pin(text)`](/scripting/api/#pintext-opts) puts an
-item in the [pinned header](/getting-started/basics/#the-pinned-header) instead, with a bar and
-quicker updates if you like.
+`status(text)` sets one line for this script, like `weather ▸ Pune: ☀️ +27°C`, and `status(nil)`
+(or `null` in JS) clears it. Only the first line is used, up to 80 characters. The line shows on the
+script's card in Scripts and in `status`. Pin the script and it shows at the top of home too, in
+the [pinned header](/getting-started/basics/#the-pinned-header), taking turns with what's playing
+and the other scripts you pinned; a script can't pin itself. [`status(text, opts)`](/scripting/api/#statustext-opts)
+adds a bar there, and quicker updates while it shows.
 
 ```sh
-status                # list status lines and pinned items
+status                # list status lines, the pinned ones marked
+script pin weather    # show its line at the top (script unpin weather takes it away)
 status clear weather  # remove one (or: status clear all)
 ```
 
-Tapping a status line runs its script again. `header.status off` hides them all.
+Tapping a line at the top runs its script again; long-pressing it offers Run, Unpin and Edit. Any
+line a script logged has **Pin to the top** (or **Unpin**) in its long-press menu too.
 
 ## Command scripts
 
@@ -236,14 +239,14 @@ Each script's sheet (Scripts → tap the script) has an **Access** group, with a
 everything it uses, and an **Events** group, with one for each event of its `@on` lines; the pills
 in its card's details switch the same things, in the same two groups. What it uses is read from its
 code: **Internet** when it uses `http` or `rss`, puts links or pictures on its lines (`url`,
-`image`), or runs commands (`launcher.run`, as a search reaches a site); **Header line** when it calls `status` or `pin`; **Post notifications** when it calls `notify`;
+`image`), or runs commands (`launcher.run`, as a search reaches a site); **Pinned at the top** when it calls `status`; **Post notifications** when it calls `notify`;
 and what its `@uses` line names. A script gets only those: one that never mentions `http` can't go
 online. With a switch off, a call returns nothing where that's a valid result, and the script stops where it isn't:
 
 | Switch | Switched off, the script… |
 | --- | --- |
 | Internet | stops at its first `http` or `rss` call, with a line to tap to allow it again; its lines carry no links or pictures |
-| Header line | runs as before, but its `status()` line and its `pin()` item don't show |
+| Pinned at the top | off until you pin it: its `status()` line shows only on its card and in `status`, not at the top of home |
 | Post notifications | runs as before; `notify()` returns false |
 | An `@uses` item | gets nothing: `apps.list()` and `notifications.recent()` return empty lists, `clipboard.get()` returns nil and `clipboard.set()` does nothing, and `launcher.run` returns false |
 | An `@on` event | doesn't run on that event |
@@ -333,7 +336,7 @@ command, a timer, an API key, an event, and one in JavaScript. Install one and
 
 Tap the ✎ beside a script's name in its sheet (Scripts → tap the script), or run
 `script mv <name> <new-name>`. A command script then runs by its new name. Its timers, access
-switches, stored data, keys and header line stay with it. A script from the library or Get more
+switches, stored data, keys and status line stay with it. A script from the library or Get more
 scripts becomes yours: it no longer gets their updates, and the original can be installed again.
 Lines already in the log keep the old name.
 

@@ -1,7 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
-import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.LogKind
@@ -9,9 +8,8 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.data.Pins
+import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.notify.Notifier
-import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.LineDiff
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
@@ -53,25 +51,26 @@ class ScriptCommands(
     }
 
     /**
-     * `status` lists script status lines and pinned header items; `status clear <name|all>` removes
+     * `status` lists scripts' status lines, the pinned ones marked; `status clear <name|all>` removes
      * them.
      */
     fun status(args: List<String>) {
-        val all = KvStore(context, HostApi.STATUS_SCOPE).all()
-        val pins = Pins.all(context)
+        val all = StatusLines.all(context)
         when (args.firstOrNull()) {
             null, "ls" -> {
-                // What the header shows: lines of scripts that are on and allowed one.
-                val shown = scripts.all().filter { it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
-                val lines = all.filterKeys { it in shown }
-                val pinned = pins.filter { it.name in shown }
-                if (lines.isEmpty() && pinned.isEmpty()) info("No status lines or pinned items — scripts set them with status(text) and pin(text)")
-                lines.forEach { (name, text) -> out("$name ▸ $text", LogContext.of(LogContext.SCRIPT to name)) }
-                pinned.forEach { p -> out("${p.name} ▸ ${p.text} · pinned", LogContext.of(LogContext.SCRIPT to p.name)) }
+                // Lines of scripts that are on; those pinned show at the top of home.
+                val on = scripts.all().filter { it.enabled }.associateBy { it.name }
+                val lines = all.filter { it.name in on }
+                if (lines.isEmpty()) return info("No status lines — scripts set them with status(text)")
+                lines.forEach { l ->
+                    val pinned = on.getValue(l.name).grants.allows(ScriptAccess.HEADER)
+                    out("${l.name} ▸ ${l.text}" + if (pinned) " · pinned" else "", LogContext.of(LogContext.SCRIPT to l.name))
+                }
+                if (lines.none { on.getValue(it.name).grants.allows(ScriptAccess.HEADER) }) info("None pinned — script pin <name>, or long-press one, shows it at the top")
             }
             "clear" -> {
                 val target = args.getOrNull(1) ?: "all"
-                (if (target == "all") all.keys + pins.map { it.name } else setOf(target)).forEach { Pins.clearLines(context, it) }
+                (if (target == "all") all.map { it.name } else listOf(target)).forEach { StatusLines.clear(context, it) }
                 logs.onStatusChanged()
                 info("Cleared status: $target")
             }
@@ -203,6 +202,12 @@ class ScriptCommands(
             "secret", "secrets" -> withScript(target) { s -> secret(s, args.drop(2)) }
             "set", "option", "options" -> withScript(target) { s -> option(s, args.drop(2)) }
             "access" -> withScript(target) { listAccess(it) }
+            "pin", "unpin" -> withScript(target) { s ->
+                if (!ScriptMeta.setsHeader(s.code)) return error("${s.name} has no status line to pin: it never calls status()")
+                scripts.setAccess(s.id, ScriptAccess.HEADER, sub == "pin")
+                logs.onStatusChanged()
+                info(if (sub == "pin") "${s.name}: pinned to the top" else "${s.name}: unpinned", scriptCtx(s))
+            }
             "allow", "deny" -> withScript(target) { s ->
                 val items = args.drop(2).map { it.lowercase() }
                 if (items.isEmpty()) return error("Usage: script $sub <name> <what…> — 'script access ${s.name}' lists them")
@@ -211,7 +216,7 @@ class ScriptCommands(
             "rm", "delete" -> withScript(target) { s ->
                 ScriptScheduler.cancel(context, s.id)
                 scripts.delete(s.id)
-                Pins.clearLines(context, s.name)
+                StatusLines.clear(context, s.name)
                 logs.onStatusChanged()
                 info("Deleted ${s.name}")
             }
@@ -238,7 +243,7 @@ class ScriptCommands(
                 })
             }
             "diff" -> withScript(target) { s -> diff(s) }
-            else -> error("Usage: script [ls|new|edit|run|every|at|notify|on|off|get|access|allow|deny|secret|triggers|mv|rm|cat|diff] <name>")
+            else -> error("Usage: script [ls|new|edit|run|every|at|notify|on|off|get|access|allow|deny|pin|unpin|secret|triggers|mv|rm|cat|diff] <name>")
         }
     }
 
@@ -385,7 +390,7 @@ class ScriptCommands(
         val grants = s.grants
         val items = ScriptAccess.items(s.code)
         if (items.isEmpty() && !ScriptMeta.postsNotifications(s.code)) {
-            return info("${s.name}.${s.lang.ext} has no access switches: no internet, header line, notifications, @uses or @on", scriptCtx(s))
+            return info("${s.name}.${s.lang.ext} has no access switches: no internet, status line to pin, notifications, @uses or @on", scriptCtx(s))
         }
         info("${s.name}.${s.lang.ext} — 'script allow|deny ${s.name} <what>'", scriptCtx(s))
         fun row(item: String) {
@@ -404,7 +409,7 @@ class ScriptCommands(
                 ) + LogContext.ALIGNED,
             )
         }
-        // As the Scripts screen groups them: internet and the header line, notifications, what it
+        // As the Scripts screen groups them: internet and pinning, notifications, what it
         // declares with @uses, and last the events it runs on.
         val (events, access) = items.partition { it in ScriptMeta.EVENTS }
         val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
@@ -431,11 +436,8 @@ class ScriptCommands(
         for (item in items) {
             if (item == "notify") scripts.setNotify(s.id, on) else scripts.setAccess(s.id, item, on)
         }
-        // Switched off, its line leaves the header now rather than at its next run.
-        if (!on && ScriptAccess.HEADER in items) {
-            Pins.clearLines(context, s.name)
-            logs.onStatusChanged()
-        }
+        // Pinned or unpinned: the top of home shows it now.
+        if (ScriptAccess.HEADER in items) logs.onStatusChanged()
         info("${s.name}: " + items.joinToString(", ") { "$it ${if (on) "on" else "off"}" }, scriptCtx(s))
         if (on && "notify" in items && !Notifier.canPost(context)) ui.requestNotificationPermission()
     }
@@ -560,6 +562,6 @@ class ScriptCommands(
         }
 
         /** What follows `script`, for completion. */
-        val SUBCOMMANDS = listOf("ls", "lib", "install", "new", "edit", "run", "every", "at", "notify", "on", "off", "get", "access", "allow", "deny", "secret", "set", "triggers", "mv", "rm", "cat", "diff", "dir", "export", "import")
+        val SUBCOMMANDS = listOf("ls", "lib", "install", "new", "edit", "run", "every", "at", "notify", "on", "off", "get", "access", "allow", "deny", "pin", "unpin", "secret", "set", "triggers", "mv", "rm", "cat", "diff", "dir", "export", "import")
     }
 }

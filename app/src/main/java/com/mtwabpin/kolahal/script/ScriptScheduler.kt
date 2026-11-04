@@ -166,12 +166,13 @@ object ScriptScheduler {
         )
     }
 
-    /** The `event` of a run a pinned item asks for with `refresh`. */
+    /** The `event` of a run a pinned status line asks for with `refresh`. */
     const val REFRESH = "refresh"
 
     /**
-     * A pinned item's run again (`pin(text, { refresh = s })`), which home asks for while it shows
-     * the item. Never two at once: while one waits or runs (for a network, say), the next is dropped.
+     * A pinned status line's run again (`status(text, { refresh = s })`), which home asks for while
+     * it shows the line. Never two at once: while one waits or runs (for a network, say), the next is
+     * dropped.
      */
     fun refreshPinned(context: Context, script: Script) {
         WorkManager.getInstance(context).enqueueUniqueWork(

@@ -11,6 +11,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.HostApi
+import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
@@ -55,7 +56,7 @@ class ScriptCommandsTest {
             for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
                 ScriptScheduler.cancel(context, s.id)
                 scripts.delete(s.id)
-                com.mtwabpin.kolahal.data.Pins.clearLines(context, s.name)
+                com.mtwabpin.kolahal.data.StatusLines.clear(context, s.name)
                 SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
             }
         } finally {
@@ -96,15 +97,20 @@ class ScriptCommandsTest {
         assertTrue(run("status bogus").single().startsWith("Usage: status"))
     }
 
-    /** Pinned header items list with the status lines, marked, and `status clear` takes them too. */
-    @Test fun statusListsPinnedItemsAndClearsThem() {
-        val s = create("pin", "pin('x')")
-        val pins = KvStore(context, com.mtwabpin.kolahal.data.Pins.SCOPE)
-        pins.set(s.name, com.mtwabpin.kolahal.data.Pins.encode(com.mtwabpin.kolahal.data.Pin(s.name, "NZ 136/8", 0.5f, 30, 1)))
-        assertTrue(run("status").toString(), "${s.name} ▸ NZ 136/8 · pinned" in run("status"))
-        run("status clear")
-        assertNull(pins.get(s.name))
-        assertEquals(listOf("No status lines or pinned items — scripts set them with status(text) and pin(text)"), run("status"))
+    /** `script pin` and `unpin`: the line shows at the top, marked in `status`; one without a status line can't be pinned. */
+    @Test fun pinAndUnpin() {
+        val s = create("pin", "status('x')")
+        statuses.set(s.name, "NZ 136/8")
+        assertTrue("${s.name} ▸ NZ 136/8" in run("status"))
+        assertEquals(listOf("${s.name}: pinned to the top"), run("script pin ${s.name}"))
+        assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
+        assertTrue("${s.name} ▸ NZ 136/8 · pinned" in run("status"))
+        assertEquals(listOf("${s.name}: unpinned"), run("script unpin ${s.name}"))
+        assertFalse(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
+        // Its line stays: only the top of home no longer shows it.
+        assertEquals("NZ 136/8", statuses.all()[s.name])
+        val plain = create("pin2", "return 1")
+        assertEquals(listOf("${plain.name} has no status line to pin: it never calls status()"), run("script pin ${plain.name}"))
     }
 
     /** The library lists its scripts; one installs, shows as installed, and an edited copy is replaced only when asked. */
@@ -197,16 +203,19 @@ class ScriptCommandsTest {
         assertEquals(listOf("${s.name}: clipboard off"), run("script deny ${s.name} clipboard"))
         assertFalse(scripts.byId(s.id)!!.grants.allows("clipboard"))
         statuses.set(s.name, "line")
+        // Pinned until it isn't; its line stays either way.
+        assertEquals(listOf("${s.name}: header on"), run("script allow ${s.name} header"))
+        assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
         run("script deny ${s.name} header")
-        // Its line leaves the header at once.
-        assertNull(statuses.all()[s.name])
+        assertFalse(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
+        assertEquals("line", statuses.all()[s.name])
         assertEquals(listOf("${s.name}: clipboard on, unlock on"), run("script allow ${s.name} clipboard unlock"))
         assertTrue(scripts.byId(s.id)!!.grants.allows("unlock"))
         assertEquals(listOf("${s.name} doesn't declare @uses dnd"), run("script deny ${s.name} dnd"))
         assertTrue(run("script deny ${s.name} bogus").single().startsWith("No 'bogus' for ${s.name} — it has: internet header clipboard unlock"))
         assertTrue(run("script allow ${s.name}").single().startsWith("Usage: script allow"))
         val plain = create("acc2", "return 1")
-        assertTrue(run("script access ${plain.name}").single().endsWith("has no access switches: no internet, header line, notifications, @uses or @on"))
+        assertTrue(run("script access ${plain.name}").single().endsWith("has no access switches: no internet, status line to pin, notifications, @uses or @on"))
     }
 
     /** Renamed, shown, compared and deleted; the same name, a bad one, or none is said. */
