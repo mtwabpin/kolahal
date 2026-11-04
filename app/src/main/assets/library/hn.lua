@@ -7,8 +7,8 @@
 -- @option lines 10 Maximum stories logged per run
 --
 -- Runs well on a timer (every 30-60 min). Each run logs the new front-page
--- stories (tap a line to open it), notifies about the top new one and pins
--- a short "HN: N new" status line in the header.
+-- stories (tap a line to open it), notifies about the top new one and sets
+-- a short "HN: N new" status line.
 
 local POINTS = math.floor(tonumber(options.points) or 50)
 local FEED = "https://hnrss.org/frontpage" .. (POINTS > 0 and ("?points=" .. POINTS) or "")

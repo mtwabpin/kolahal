@@ -214,9 +214,9 @@ They must show the Play build: nothing about the screen lock or the call log.
    |-------------+------------------------------------------------------------------------------------------------------------|
    | =1-home=    | after =clear=: =weather=, ~= 30 c in f~, ~= 5 km in mi~, ~= 100 usd in eur~, =todo=, =feed=; keyboard down |
    | =2-type=    | =ca= typed in the prompt, keyboard up; app icons on (the default)                                          |
-   | =3-feeds=   | =feed read 5=, NASA: live news can carry headlines a store page shouldn't                                  |
+   | =3-feeds=   | =feed read 3=, NASA; news can carry names a store page shouldn't (then =clear=, read the next batch)        |
    | =4-scripts= | =script edit weather=, keyboard hidden, scrolled to the top                                                |
-   | =5-themes=  | Settings → Look & feel → Your themes → a theme, named =olive= (not saved)                                  |
+   | =5-themes=  | Settings → Look & feel → Your themes → Create a theme, named =olive= (not saved)                            |
 4. =tools/play-graphics.sh=, then look at the results before uploading.
 
 * Each release on Play

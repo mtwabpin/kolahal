@@ -16,56 +16,55 @@ import settings from '../../../assets/parts/settings.png';
 import scripts from '../../../assets/parts/scripts-tab.png';
 import editor from '../../../assets/parts/editor.png';
 
-The guide calls each part of Kolahal by a name: *the header line*, *the suggestions*, *the key bar*. Here
+The guide calls each part of Kolahal by a name: *the pinned header*, *the suggestions*, *the key bar*. Here
 they are, numbered on the app's own screens, so you know what each one is when you read about it.
 The screenshots use the default theme, green.
 
 ## Home screen
 
-From top to bottom: the **header** (1–4), the **log** (5–10) and the **prompt** (11–12). See
-[Basics](/getting-started/basics/) for each.
+From top to bottom: the **header** (1–2), the **pinned header** (3), the **log** (4–9) and the
+**prompt** (10–11). See [Basics](/getting-started/basics/) for each.
 
 <Annotated
 	src={home}
-	alt="Kolahal's home screen: the header with clock, date and items, a script's status line, the log with four groups, and the prompt"
-	marks={[[16.7, 5.5], [68.6, 5.5], [13.3, 7.5], [66.7, 11.1], [50.0, 31.6], [62.2, 69.3], [3.1, 76.8], [86.7, 74.6], [38.9, 82.6], [42.8, 85.2], [12.2, 97.6], [88.9, 97.6], [94.4, 58.0]]}
+	alt="Kolahal's home screen: the header line with clock, date, alarm, open todos and battery, a pinned script's line under it, the log with four groups, and the prompt"
+	marks={[[17.0, 5.3], [79.0, 5.3], [69.0, 8.1], [50.0, 30.0], [62.0, 71.0], [3.1, 79.0], [86.7, 75.6], [38.9, 83.6], [42.8, 86.1], [9.5, 97.7], [88.9, 97.7], [94.5, 60.0]]}
 >
 
 1. **Clock and date.** Tap for your alarms.
-2. **Header items**: unlocks, battery, open todos and the rest, each one tappable.
-3. **⚙︎** opens Settings.
-4. **Header line**: a script's line in the header (here, *countdown*'s). Tap it to run the script.
-5. **Empty log space.** Tap it for the keyboard; double-tap it to lock the screen.
-6. **A group**: a command and its output, with a gap above it.
-7. **Coloured bar**: green beside commands, a script's colour beside its lines, red beside errors.
-8. **Time**, on each group's first line.
-9. **A command you typed.** Tap it to put it back in the prompt.
-10. **Output.** Long-press any line for its actions.
-11. **Prompt** (`$`). Tap the `$` for quick actions.
-12. **Key bar button** (⌨): turns the key bar on or off.
-13. **App selector handle**, on the edge, when the [app selector](#app-selector) is on.
+2. **Header items**: the two you chose (here, the next alarm and open todos) and the battery. Tap one to open it.
+3. **Pinned header**: the line of a script you pinned (here, *countdown*'s). Tap it to run the script; long-press it for more.
+4. **Empty log space.** Tap it for the keyboard; double-tap it to lock the screen.
+5. **A group**: a command and its output, with a gap above it.
+6. **Coloured bar**: green beside commands, a script's colour beside its lines, red beside errors.
+7. **Time**, on each group's first line.
+8. **A command you typed.** Tap it to put it back in the prompt.
+9. **Output.** Long-press any line for its actions.
+10. **Prompt** (`$`). Tap the `$` for quick actions.
+11. **Key bar button** (⌨): turns the key bar on or off.
+12. **App selector handle**, on the edge, when the [app selector](#app-selector) is on.
 
 </Annotated>
 
 ## While you type
 
-The header shrinks so the suggestions have more room, and the key bar appears above the keyboard.
+The pinned header steps aside so the suggestions have more room, and the key bar appears above the
+keyboard.
 
 <Annotated
 	src={typing}
-	alt="Typing ma at the prompt: the one-line header, the suggestion list with Maps highlighted at the bottom, the prompt and the key bar"
-	marks={[[61.1, 4.7], [88.9, 4.7], [66.7, 20.3], [35.6, 42.7], [80.0, 69.4], [28.9, 78.3], [17.8, 86.9], [79.4, 86.9], [57.2, 94.8]]}
+	alt="Typing ma at the prompt: the header line, the log, the suggestion list with Maps highlighted at the bottom, the prompt and the key bar"
+	marks={[[48.0, 4.1], [50.0, 32.8], [30.0, 59.6], [80.0, 75.0], [28.0, 82.6], [17.8, 89.9], [79.4, 89.9], [57.2, 96.9]]}
 >
 
-1. **The header**, one line while you type, with how many status lines it hides.
-2. **Expand**: shows the whole header.
-3. **The log**, older output dimmed.
-4. **Suggestions**: the apps, commands and settings that match.
-5. **A command suggestion**, with its description.
-6. **Best match**, highlighted at the bottom, nearest your thumb: Enter (⏎) opens it.
-7. **The prompt**, with what you typed.
-8. **Clear** (✕) empties the prompt.
-9. **Key bar**: keys the keyboard leaves out (symbols, cursor, history), above the keyboard.
+1. **The header**, the same while you type.
+2. **The log.**
+3. **Suggestions**: the apps, commands and settings that match.
+4. **A command suggestion**, with its description.
+5. **Best match**, highlighted at the bottom, nearest your thumb: Enter (⏎) opens it.
+6. **The prompt**, with what you typed.
+7. **Clear** (✕) empties the prompt.
+8. **Key bar**: keys the keyboard leaves out (symbols, cursor, history), above the keyboard.
 
 </Annotated>
 
@@ -80,7 +79,7 @@ has the details.
 <Annotated
 	src={selectorSlide}
 	alt="Sliding along the right edge at G: the panel of apps on the left, Gmail and Google bright, the G bubble beside the thumb and the letters fanning out from the edge"
-	marks={[[38.9, 33.9], [4.6, 53.6], [33.3, 62.4], [33.3, 82.2], [82.2, 60.2], [84.4, 55.8], [93.9, 73.7], [50.0, 15.8]]}
+	marks={[[40.0, 33.6], [3.5, 55.8], [30.0, 64.5], [30.0, 79.0], [83.0, 60.0], [85.0, 56.0], [94.0, 74.0], [60.0, 20.0]]}
 >
 
 1. **Panel**: every app in one list, favourites (★) first or last, then A to Z.
@@ -99,7 +98,7 @@ has the details.
 <Annotated
 	src={selectorPick}
 	alt="Picking Gmail: its row magnified and filling with the theme colour, the rows beside it slightly larger"
-	marks={[[50.0, 60.1], [36.7, 60.1], [33.3, 65.9]]}
+	marks={[[45.0, 62.1], [33.0, 62.1], [33.0, 67.7]]}
 >
 
 1. **The app at your thumb**, magnified; move up and down to change it, lift to open it.
@@ -112,8 +111,8 @@ has the details.
 
 <Annotated
 	src={selectorOpen}
-	alt="The app list left open: wide, almost to the edge, under the header"
-	marks={[[61.1, 47.4], [44.4, 20.0], [94.4, 63.2]]}
+	alt="The app list left open: wide, almost to the edge, under the pinned header"
+	marks={[[60.0, 48.0], [44.0, 22.0], [95.0, 63.0]]}
 >
 
 1. **The list, left open**, almost as wide as the screen, so your thumb reaches every row. Scroll it, tap an app, or long-press one for its actions.
@@ -145,7 +144,7 @@ has the details.
 	marks={[[34.4, 4.3], [33.3, 35.3]]}
 >
 
-1. **Quick actions**: what the header offers, within reach of your thumb.
+1. **Quick actions**: Settings, alarms, battery, network and more, within reach of your thumb.
 2. **Live icons**: current battery and network status.
 
 </Annotated>
@@ -170,12 +169,13 @@ Swipe sideways on the home screen to reach it. See [Widgets](/guides/widgets/).
 
 ## Settings
 
-Tap ⚙︎ in the header, or type `settings`. See [Themes & settings](/guides/themes-and-settings/).
+Type `settings`, or tap Settings in the quick actions (or ⚙︎ in the header, if it's one of your
+header items). See [Themes & settings](/guides/themes-and-settings/).
 
 <Annotated
 	src={settings}
 	alt="The Settings screen: Settings, Scripts and Feeds tabs, a search box and the pages Look and feel, Header, Widgets, Log, Suggestions, Keyboard, App selector and Launching and search"
-	marks={[[19.9, 22.3], [49.9, 22.3], [80.0, 22.3], [77.8, 26.6], [44.4, 34.7]]}
+	marks={[[19.9, 26.2], [49.9, 26.2], [80.0, 26.2], [77.8, 30.3], [44.4, 38.0]]}
 >
 
 1. **Settings** tab: every setting, page by page.
@@ -193,11 +193,11 @@ The script manager, with a card for each script. See [Scripting](/scripting/over
 <Annotated
 	src={scripts}
 	alt="The Scripts tab: filter chips, two tinted cards for scripts that are on, one with its details open, and a faded card for a script that is off"
-	marks={[[17.8, 32.5], [76.7, 4.1], [93.1, 6.6], [61.1, 38.6], [5.6, 45.3], [42.2, 49.2], [62.8, 45.4], [75.7, 45.4], [87.8, 45.0], [82.2, 51.5], [81.1, 55.1], [43.3, 74.0], [25.6, 77.1], [63.6, 77.1], [36.7, 90.4], [80.0, 91.1]]}
+	marks={[[19.0, 35.6], [74.5, 8.8], [93.0, 11.5], [59.0, 41.0], [8.7, 48.1], [38.0, 51.5], [62.7, 48.1], [75.5, 48.1], [88.0, 47.9], [82.2, 53.9], [79.2, 57.3], [34.3, 75.2], [25.5, 78.2], [63.4, 78.2], [47.0, 88.7], [80.0, 91.6]]}
 >
 
-1. **Filter chips**: commands, timers, events, failed, off, differs from the library and more, each
-   with a count.
+1. **Filter chips**: commands, timers, events, pinned, failed, off, differs from the library and
+   more, each with a count.
 2. **Search** scripts by name.
 3. **All details**: opens or closes every card's details.
 4. **A script that's on**: its card is tinted in the theme's colour.
@@ -207,8 +207,9 @@ The script manager, with a card for each script. See [Scripting](/scripting/over
 8. **Details arrow**: shows or hides this card's details.
 9. **On/off switch.**
 10. **Summary**: how it runs, its last run, and "edited" if you changed it.
-11. **Its header line**, as it is now.
-12. **Pills**: what it may use, filled when on and faded when off; tap one to switch it.
+11. **Its status line**, as it is now.
+12. **Pills**: what it may use, filled when on and faded when off; tap one to switch it. *pinned*
+    puts its status line in the pinned header.
 13. **Compare** your copy with the library version.
 14. **Reset to library version.**
 15. **A script that's off**: its card fades.

@@ -176,7 +176,7 @@ private val CATEGORIES = listOf(
         ),
     ),
     Category(
-        "header", "Header", "The line at the top, the pinned header, your name", R.drawable.ic_home,
+        "header", "Header", "Header items, pinned header, your name", R.drawable.ic_home,
         listOf(
             null to listOf(
                 Keys.HEADER_SHOW,

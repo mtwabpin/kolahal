@@ -12,7 +12,7 @@
 //   crypto solana dogecoin       other coins (CoinGecko ids)
 //   crypto bitcoin --vs eur      in another currency
 //
-// On a timer (no arguments) it pins a compact price line, e.g. "BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%".
+// On a timer (no arguments) its status line is a compact price line, e.g. "BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%".
 
 const list = (s) => (s || "").trim().split(/[\s,]+/).filter(Boolean).map((w) => w.toLowerCase());
 const DEFAULT_IDS = list(options.coins).length > 0 ? list(options.coins) : ["bitcoin", "ethereum"];

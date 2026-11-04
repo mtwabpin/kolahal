@@ -10,7 +10,7 @@
 //   forecast                  forecast for its city option (London if it's empty)
 //   forecast Tokyo            forecast for Tokyo
 //
-// On a timer (no arguments) it pins today's summary as a status line.
+// On a timer (no arguments) it sets today's summary as its status line.
 
 // A failure: what didn't work, in the theme's bad colour, and why under it.
 const fail = (what, why) => log(fmt.color("bad", what), why);

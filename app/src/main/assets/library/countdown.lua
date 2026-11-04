@@ -11,7 +11,7 @@
 --   countdown                          list saved countdowns (nearest first)
 --   countdown rm 2                     delete saved countdown #2
 --
--- On a timer (e.g. daily) it pins the nearest upcoming countdown as a status line.
+-- On a timer (e.g. daily) it sets the nearest upcoming countdown as its status line.
 
 local DAY = 86400
 
@@ -106,7 +106,7 @@ if cmd ~= "" then
   return show(describe(days, rest ~= "" and rest or cmd), days)
 end
 
--- No arguments: list saved countdowns and pin the nearest upcoming one.
+-- No arguments: list saved countdowns and set the nearest upcoming one as the status line.
 local list = sorted(load())
 if #list == 0 then
   status(nil)

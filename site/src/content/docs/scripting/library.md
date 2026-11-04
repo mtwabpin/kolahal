@@ -27,6 +27,9 @@ shows how it differs: lines only in the library version in red, lines only in yo
 colour; `script diff weather` prints the same in the log. It is only replaced when you ask: `script install weather --replace`, or **Reset to library
 version** beside Compare (or at the bottom of Compare). Export it first to keep your version.
 
+Scripts that keep a status line (weather, hn, countdown and others) show it at the top of home once
+you pin them: `script pin weather`, or long-press the line.
+
 None of the network scripts need an API key.
 
 | Script | Lang | Command | Suggested timer | Notifies |
@@ -51,7 +54,7 @@ None of the network scripts need an API key.
 ## hn
 
 **Hacker News**: new front-page stories with 50+ points since the last run (via hnrss.org), up
-to 10 lines. Notifies about the top new story and pins `HN: N new` in the header. Options:
+to 10 lines. Notifies about the top new story and keeps `HN: N new` as its status line. Options:
 `points` (`0` for every story) and `lines`.
 
 ## releases
@@ -74,7 +77,7 @@ back to the subreddit's RSS feed when Reddit blocks anonymous JSON requests. `re
 
 ## weather
 
-**Weather**: current weather in one line from wttr.in. On a timer it pins the result in the header.
+**Weather**: current weather in one line from wttr.in. On a timer it keeps the result as its status line.
 
 ```sh
 weather                      # its city option (or your IP's location)
@@ -85,7 +88,7 @@ script set weather city Pune # the city when you type none
 ## forecast
 
 **3-day forecast** from Open-Meteo: conditions, min/max temperature and rain chance. On a timer it
-pins today's summary. `forecast` (its `city` option, London if it's empty) or `forecast Tokyo`.
+keeps today's summary as its status line. `forecast` (its `city` option, London if it's empty) or `forecast Tokyo`.
 
 ## sun
 
@@ -94,8 +97,8 @@ pins today's summary. `forecast` (its `city` option, London if it's empty) or `f
 
 ## crypto
 
-**Crypto prices** with 24h change from CoinGecko, lined up in columns. On a timer it pins a compact
-line such as `BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%`.
+**Crypto prices** with 24h change from CoinGecko, lined up in columns. On a timer its status line is a
+compact one such as `BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%`.
 
 ```sh
 crypto                       # bitcoin and ethereum in USD
@@ -139,8 +142,8 @@ new comic is out.
 
 ## countdown
 
-**Countdowns**: days until (or since) dates, lined up in columns, with the nearest one pinned in the
-header. No network.
+**Countdowns**: days until (or since) dates, lined up in columns, with the nearest one as its status
+line. No network.
 
 ```sh
 countdown 2026-12-25

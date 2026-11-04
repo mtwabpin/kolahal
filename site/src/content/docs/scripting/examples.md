@@ -8,7 +8,7 @@ paste the code into the editor and save with `Ctrl+S` or **save**.
 
 ## Battery log (Lua, timer)
 
-Records the battery level each run and pins the change since the last run.
+Records the battery level each run and keeps the change since the last run as its status line.
 
 ```lua
 -- batterylog.lua — run with: script every batterylog 30m

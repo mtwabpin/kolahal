@@ -10,7 +10,8 @@
 --   weather                 weather for its city option (or your IP location)
 --   weather Paris           weather for Paris
 --
--- On a timer (no arguments) it pins the result as a status line.
+-- On a timer (no arguments) it sets the result as its status line; pin it
+-- (script pin weather) to see it at the top of home.
 
 local function urlencode(s)
   return (s:gsub("[^%w%-_%.~]", function(c)
@@ -49,7 +50,7 @@ if text == "" or text:find("Unknown location", 1, true) then
   return fail("No weather", "wttr.in doesn't know '" .. city .. "'")
 end
 
--- Only background runs (no arguments) update the pinned status line.
+-- Only background runs (no arguments) update the status line.
 if line == "" then status(text) end
 -- "Pune: ⛅️ +31°C": the place is the title, the weather under it.
 local place, now = text:match("^(.-):%s*(.+)$")

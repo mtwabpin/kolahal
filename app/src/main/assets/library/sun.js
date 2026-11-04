@@ -11,7 +11,7 @@
 //   sun 12.97 77.59      save coordinates directly
 //
 // Times are local to the location (timezone=auto), so no device timezone
-// handling is needed. On a timer (e.g. daily at 05:00) it pins a status line.
+// handling is needed. On a timer (e.g. daily at 05:00) it sets its status line.
 
 // A failure: what didn't work, in the theme's bad colour, and why under it.
 const fail = (what, why) => log(fmt.color("bad", what), why);
