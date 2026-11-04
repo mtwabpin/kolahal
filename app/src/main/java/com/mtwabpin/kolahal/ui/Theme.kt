@@ -3,8 +3,11 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
@@ -296,6 +302,24 @@ fun androidx.compose.ui.Modifier.cutoutSafePadding(): androidx.compose.ui.Modifi
         .union(WindowInsets.displayCutout)
         .only(androidx.compose.foundation.layout.WindowInsetsSides.Top + androidx.compose.foundation.layout.WindowInsetsSides.Horizontal),
 )
+
+/**
+ * The page's colour behind three-button navigation, over a list that scrolls under it: the list's
+ * text would show between the buttons. Gesture navigation's handle takes no taps (its inset here is
+ * 0), nor does a hidden bar (`screen.bars immersive`), so the list still runs to the edge there. Put
+ * it before the scroll, on a list that reaches the bottom of the screen; [alpha] fades it with the page.
+ */
+@Composable
+fun androidx.compose.ui.Modifier.navigationBarScrim(alpha: () -> Float = { 1f }): androidx.compose.ui.Modifier {
+    val color = MaterialTheme.colorScheme.surface
+    // The keyboard covers the bar while it shows.
+    val bar = WindowInsets.tappableElement.exclude(WindowInsets.ime)
+    return drawWithContent {
+        drawContent()
+        val height = bar.getBottom(this).toFloat()
+        if (height > 0f) drawRect(color.copy(alpha = alpha()), topLeft = Offset(0f, size.height - height), size = Size(size.width, height))
+    }
+}
 
 /**
  * Home's background: the theme's colour. With [wallpaper] above 0 (`log.wallpaper`,

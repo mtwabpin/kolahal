@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
@@ -93,7 +94,7 @@ fun OnboardingScreen(vm: TerminalViewModel) {
             bottomBar = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 16.dp),
                 ) {
                     Box(Modifier.weight(1f)) {
                         if (pager.currentPage > 0) TextButton(shapes = ButtonDefaults.shapes(), onClick = { go(pager.currentPage - 1) }, modifier = Modifier.testTag("tour-back")) { Text("Back") }

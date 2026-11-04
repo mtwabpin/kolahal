@@ -190,6 +190,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
             Column(
                 Modifier
                     .fillMaxSize()
+                    .navigationBarScrim()
                     .verticalScroll(rememberScrollState())
                     .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 96.dp)
                     // The widgets as wide as on the widgets page (its margins and the side insets it

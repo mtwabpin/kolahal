@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,7 +59,7 @@ fun SetupScreen(vm: TerminalViewModel) {
                 )
             },
             bottomBar = {
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
+                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
                     Button(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen) { Text(if (checks.isNotEmpty() && done == checks.size) "Done" else "Continue to terminal") }
                 }
             },
@@ -69,7 +70,7 @@ fun SetupScreen(vm: TerminalViewModel) {
                     top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 16.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().navigationBarScrim(),
             ) {
                 itemsIndexed(checks, key = { _, c -> c.title }) { i, c ->
                     val fixable = !c.ok && c.fix != null

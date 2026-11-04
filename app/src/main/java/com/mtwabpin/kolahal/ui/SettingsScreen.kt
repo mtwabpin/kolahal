@@ -205,7 +205,7 @@ fun SettingsScreen(
                     start = 16.dp, end = 16.dp,
                     top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 32.dp,
                 ),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().navigationBarScrim { shown.value },
             ) {
                 if (open != null) {
                     open.manage?.let { (title, subtitle, screen) ->

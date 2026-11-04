@@ -273,7 +273,7 @@ fun ScriptsScreen(
                     top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 96.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().navigationBarScrim(),
             ) {
                 item(key = "tabs") { FeatureTabs(vm, Screen.SCRIPTS) }
                 if (searching) {

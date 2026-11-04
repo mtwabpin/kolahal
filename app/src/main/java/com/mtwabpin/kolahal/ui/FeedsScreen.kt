@@ -298,7 +298,7 @@ private fun FeedListPage(
                 top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 96.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().navigationBarScrim(),
         ) {
             item(key = "tabs") { FeatureTabs(vm, Screen.FEEDS) }
             when {
@@ -618,7 +618,7 @@ private fun FeedItemsPage(
                 top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().navigationBarScrim(),
         ) {
             if (list != null && list.isEmpty()) {
                 item(key = "empty") {

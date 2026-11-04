@@ -79,7 +79,7 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                     top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().navigationBarScrim(),
             ) {
                 // Nothing until the rows are read: "Get more scripts" shown alone first stayed where it
                 // was as the rows came above it, so the list opened scrolled to its end.

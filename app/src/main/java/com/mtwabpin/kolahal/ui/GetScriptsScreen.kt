@@ -123,7 +123,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
                     top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().navigationBarScrim(),
             ) {
                 item(key = "search") {
                     TextField(
