@@ -15,9 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getAlignmentLinePosition
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -39,6 +44,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
@@ -135,6 +141,43 @@ class LogLineTest {
         assertEquals(listOf(command, first), timed())
         compose.runOnIdle { mode = TimeMode.OFF }
         assertEquals(emptyList<LogEntry>(), timed())
+    }
+
+    private fun part(e: LogEntry, text: String, substring: Boolean = false) =
+        compose.onNode(hasText(text, substring) and hasAnyAncestor(hasTestTag("line-${e.id}")), useUnmergedTree = true)
+
+    /** Where [line] of a part of a log line is, from the top. */
+    private fun SemanticsNodeInteraction.baseline(line: AlignmentLine) = getUnclippedBoundsInRoot().top + getAlignmentLinePosition(line)
+
+    /** The time sits on the first line's baseline, not halfway down a line that wraps. */
+    @Test fun theTimeSitsOnTheFirstLine() {
+        val long = entry("zq " + "a line long enough to wrap ".repeat(5))
+        show { Line(row(long), TimeMode.ALL) }
+        val text = part(long, "zq ", substring = true)
+        assertTrue("one line only", text.baseline(LastBaseline) - text.baseline(FirstBaseline) > 30.dp)
+        assertEquals(text.baseline(FirstBaseline).value, part(long, TIME).baseline(FirstBaseline).value, 0.5f)
+    }
+
+    /** The time makes no line taller, at the usual line height or one shorter than the text; a taller line keeps its text and time halfway down. */
+    @Test fun theTimeAddsNoHeight() {
+        val timed = entry("zq timed", LogKind.COMMAND)
+        val plain = entry("zq plain", LogKind.COMMAND)
+        show { Line(row(timed), TimeMode.ALL); Line(row(plain), TimeMode.OFF) }
+        fun height(e: LogEntry) = bounds(e).let { it.bottom - it.top }
+        try {
+            for (lineHeight in listOf(Keys.LOG_LINE_HEIGHT.default, 10)) {
+                compose.runOnIdle { Term.lineHeight = lineHeight }
+                assertEquals("at $lineHeight", height(plain).value, height(timed).value, 0.5f)
+            }
+            compose.runOnIdle { Term.lineHeight = Keys.LOG_LINE_HEIGHT.default; Term.tallerTaps = true }
+            val line = bounds(timed)
+            val text = part(timed, "zq timed", substring = true).getUnclippedBoundsInRoot()
+            assertEquals(((line.top + line.bottom) / 2).value, ((text.top + text.bottom) / 2).value, 1f)
+            assertEquals(part(timed, "zq timed", substring = true).baseline(FirstBaseline).value, part(timed, TIME).baseline(FirstBaseline).value, 0.5f)
+        } finally {
+            Term.lineHeight = Keys.LOG_LINE_HEIGHT.default
+            Term.tallerTaps = Keys.LOG_TALLER_TAPS.default
+        }
     }
 
     /** Swiped right past a third of its width, a line is copied, and goes back in place. */

@@ -113,7 +113,7 @@ internal fun PreviewCaption(text: String) {
 /** A log line in a preview; [time] in the right-hand column, as `log.time` puts it. */
 @Composable
 private fun Line(text: String, color: Color = Term.fg, bold: Boolean = false, source: String? = null, time: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Text(
             buildAnnotatedString {
                 append(text)
@@ -122,15 +122,15 @@ private fun Line(text: String, color: Color = Term.fg, bold: Boolean = false, so
             style = Term.text.copy(color = color, fontWeight = if (bold) FontWeight.Bold else null),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).alignByBaseline(),
         )
-        if (time != null) Text(time, style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp), modifier = Modifier.padding(start = 8.dp))
+        if (time != null) Text(time, style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp), modifier = Modifier.alignByBaseline().padding(start = 8.dp))
     }
 }
 
 @Composable
 private fun CommandLine(text: String, time: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(color = Term.prompt)) { append("$ ") }
@@ -138,9 +138,9 @@ private fun CommandLine(text: String, time: String? = null) {
             },
             style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold),
             maxLines = 1,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).alignByBaseline(),
         )
-        if (time != null) Text(time, style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp), modifier = Modifier.padding(start = 8.dp))
+        if (time != null) Text(time, style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp), modifier = Modifier.alignByBaseline().padding(start = 8.dp))
     }
 }
 

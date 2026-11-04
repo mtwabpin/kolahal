@@ -221,8 +221,9 @@ fun LogLine(
             textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End,
         )
     }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    // A line taller than its text (log.taller-taps) keeps the text halfway down.
+    Box(
+        contentAlignment = Alignment.CenterStart,
         modifier = Modifier
             .onSizeChanged { rowWidth = it.width.coerceAtLeast(1) }
             .offset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
@@ -274,7 +275,9 @@ fun LogLine(
             // Room for the gutter bar; without it the text lines up with the header and dividers.
             .padding(start = if (gutter) 10.dp else 0.dp, top = padding, bottom = padding),
     ) {
-        Box(Modifier.weight(1f)) {
+    // The time on the first line's baseline, however many lines wrap below it or a picture adds.
+    Row(Modifier.fillMaxWidth()) {
+        Box(Modifier.weight(1f).alignByBaseline()) {
             when {
                 // Parsed once per entry (it decodes JSON and looks up every app), and again when the
                 // apps change: a chip uninstalled or hidden from it goes.
@@ -297,11 +300,12 @@ fun LogLine(
             Spacer(Modifier.width(8.dp))
             Text(
                 remember(entry.ts, timeFormat) { timeFormat.format(Date(entry.ts)) },
-                style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp),
-                // Beside the text line, not halfway down the image.
-                modifier = Modifier.then(if (image != null) Modifier.align(Alignment.Top) else Modifier).padding(top = 2.dp),
+                // Trimmed as the line is, so it never makes the line taller.
+                style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense),
+                modifier = Modifier.alignByBaseline(),
             )
         }
+    }
     }
     }
 }
