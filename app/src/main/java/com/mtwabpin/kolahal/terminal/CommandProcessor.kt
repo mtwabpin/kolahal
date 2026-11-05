@@ -57,9 +57,13 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val appCommands = AppCommands(context, ::background)
     private val feedCommands = FeedCommands(context, appCommands, ui)
 
+    /** Runs [block] off the command's thread; what it prints is still the command's output. */
     private fun background(label: String, block: () -> Unit) {
+        val cause = logs.currentCause
         backgroundScope.launch {
-            runCatching(block).onFailure { error("$label: ${it.message ?: it.javaClass.simpleName}") }
+            logs.withCause(cause) {
+                runCatching(block).onFailure { error("$label: ${it.message ?: it.javaClass.simpleName}") }
+            }
         }
     }
 
@@ -80,7 +84,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
         // A command you run ends `log only`: what you typed, and what it prints, must show.
         if (!ScriptScheduler.runningSentCommand && typed.substringBefore(' ').lowercase() != "log") ui.filterLog(null)
-        // What it prints, now or later (a script, a feed fetch), is marked as its output.
+        // What it prints, now or later (a script, a feed fetch, a download), is marked as its output.
         logs.withCause(commandId) { runLogged(typed, expand) }
     }
 
@@ -91,18 +95,18 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val stages = if (expanded.substringBefore(' ').lowercase() == "alias") listOf(expanded) else Pipes.split(expanded)
         if (stages.size > 1) {
             // `cmd | grep x | head 5`: capture what the command prints right away, then filter it.
-            val (_, captured) = logs.capture { execute(stages[0], expand = false) }
+            val (_, captured) = logs.capture { execute(stages[0]) }
             Pipes.apply(captured, stages.drop(1)).fold(
                 onSuccess = { logs.addAll(it) },
                 onFailure = { logs.addAll(captured); error(it.message ?: "Invalid pipe") },
             )
             return@batched
         }
-        execute(typed, expand)
+        execute(expanded)
     }
 
-    private fun execute(typed: String, expand: Boolean) {
-        val trimmed = if (expand) expandAliases(typed) else typed
+    /** Runs one command, its aliases already expanded. */
+    private fun execute(trimmed: String) {
         // "= 6*7" is a quick calculator (any Lua expression).
         if (trimmed.startsWith("=")) return calc(trimmed.drop(1).trim())
         val name = trimmed.substringBefore(' ').lowercase()
@@ -134,9 +138,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                     error("This build updates through Google Play, so update isn't available")
                 }
                 "rss" -> feedCommands.rss(rest)
-                "feeds" -> if (args.isEmpty()) ui.openScreen(Screen.FEEDS) else feedCommands.feeds(args).also { runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) } }
-                // A feed added, removed, switched or given a new interval changes the schedule.
-                "feed" -> feedCommands.feeds(args).also { runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) } }
+                "feeds" -> if (args.isEmpty()) ui.openScreen(Screen.FEEDS) else feedCommands.feeds(args)
+                "feed" -> feedCommands.feeds(args)
                 "widgets" -> if (args.isEmpty()) ui.openScreen(Screen.WIDGETS) else widgets(args)
                 "widget" -> widgets(args)
                 "notifs", "notifications-feed" -> feedCommands.notifs(args)

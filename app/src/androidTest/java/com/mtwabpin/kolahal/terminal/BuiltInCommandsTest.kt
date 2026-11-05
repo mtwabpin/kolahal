@@ -237,6 +237,9 @@ class BuiltInCommandsTest {
         val line = printed(from, "the conversion") { it.endsWith(" EUR") }
         assertEquals("10 USD = 5 EUR", line.text)
         assertEquals("5", line.ctx.values[LogContext.COPY])
+        // Converted off the command's thread, it is still the command's output.
+        val command = logs.recent(100).last { it.id > from && it.kind == LogKind.COMMAND && it.text == "= 10 usd in eur" }
+        assertEquals(command.id.toString(), line.ctx.values[LogContext.FROM])
         from = logs.maxId()
         run("= 1,000 usd to inr")
         assertEquals("1,000 USD = 88,250 INR", printed(from, "the second conversion") { it.endsWith(" INR") }.text)

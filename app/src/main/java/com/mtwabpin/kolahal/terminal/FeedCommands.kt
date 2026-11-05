@@ -126,6 +126,7 @@ class FeedCommands(
                 if (id == null || minutes == null || minutes <= 0) return error("Usage: feed every <id> <30m|2h|…>")
                 if (repo.byId(id) == null) return error("No feed #$id — 'feeds' lists them")
                 repo.setInterval(id, minutes)
+                scheduler.sync(context)
                 info("Feed #$id every ${CommandParsing.formatInterval(minutes.coerceAtLeast(15))}")
             }
             "on", "off" -> {

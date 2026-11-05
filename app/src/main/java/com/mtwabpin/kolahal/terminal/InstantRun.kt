@@ -54,6 +54,8 @@ object InstantRun {
         "battery",
         "home",
         "system",
+        "alarms",
+        "stopwatch",
         "accessibility",
         "usage-access",
         "shade",

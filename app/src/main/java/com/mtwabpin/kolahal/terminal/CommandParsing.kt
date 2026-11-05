@@ -33,11 +33,11 @@ object CommandParsing {
     /** Longest timer or feed interval: a week, like backup import allows. */
     const val MAX_INTERVAL_MIN = 7L * 24 * 60
 
-    /** "30m", "2h", "1d", "45" (minutes), "off" -> minutes (0 = off). */
+    /** "30m", "2h", "1d", "45" (minutes), in any case; "off", "0" or "manual" -> 0 (off). */
     fun parseInterval(s: String?): Int? {
-        if (s == null) return null
-        if (s == "off" || s == "0" || s == "manual") return 0
-        val m = Regex("^(\\d+)([mhd]?)$").find(s.lowercase()) ?: return null
+        val w = s?.lowercase() ?: return null
+        if (w == "off" || w == "0" || w == "manual") return 0
+        val m = Regex("^(\\d+)([mhd]?)$").find(w) ?: return null
         // Capped before it's multiplied: `1500000d` must be rejected, not wrap to a negative
         // "timer off", nor a number so big it wraps round to a few hours.
         val n = m.groupValues[1].toLongOrNull()?.takeIf { it <= MAX_INTERVAL_MIN } ?: return null

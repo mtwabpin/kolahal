@@ -106,7 +106,7 @@ class Completer(private val context: Context, private val data: Data) {
             val about = if (cmd !in names) described(head, shown = cmds.take(3).mapTo(HashSet()) { it.label }) else emptyList()
             return (if (enterLaunches) listOf(apps.first().copy(enter = true)) + cmds.take(3) + apps.drop(1) + about else whole + options + cmds.take(3) + apps + about).distinctBy { it.key }
         }
-        // The Play build has no call log and no screen lock: nothing to offer.
+        // What this build leaves out (the Play build: the call log, the screen lock, `update`): nothing to offer.
         if (cmd in CommandCatalog.UNAVAILABLE) return emptyList()
         val specific = argSuggestions(cmd, head, parts, scriptList)
         // Commands without their own completer still get the options their usage line lists.
@@ -243,7 +243,8 @@ class Completer(private val context: Context, private val data: Data) {
                     .filter { last.isEmpty() || it.id.toString().startsWith(last) || (it.title ?: it.url).contains(last, ignoreCase = true) }
                     .take(cap).map { Suggestion.Completion("#${it.id} ${it.title ?: it.url}", "$head ${parts[1]} ${it.id}", icon = R.drawable.ic_rss) }
                 4 if parts[1] == "notify" -> words(listOf("on", "off"))
-                4 if parts[1] == "every" -> words(INTERVALS)
+                // A feed is switched off with `feed off`: `every` takes an interval only.
+                4 if parts[1] == "every" -> words(INTERVALS - "off")
                 else -> emptyList()
             }
             "usage", "unlocks" -> if (parts.size == 2) listOf("1", "7", "14", "30")
@@ -508,7 +509,7 @@ class Completer(private val context: Context, private val data: Data) {
         /** `script <sub>`: the subcommands that take no script name. */
         private val SCRIPT_NO_NAME = setOf("ls", "lib", "triggers", "dir", "export", "import", "new")
 
-        /** Timer intervals offered for `feed every` and `script every`. */
+        /** Timer intervals offered for `script every`, and but for "off" for `feed every`. */
         private val INTERVALS = listOf("15m", "30m", "1h", "2h", "6h", "12h", "1d", "off")
 
         /** An earlier line that named an item by its list number: not offered again, the numbers have moved. */

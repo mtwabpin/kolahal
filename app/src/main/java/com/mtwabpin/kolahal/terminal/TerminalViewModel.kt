@@ -1461,7 +1461,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         if (allow) {
             startActivity(com.mtwabpin.kolahal.notifications.NotificationActions.settingsIntent(context))
         } else {
-            logs.add(LogKind.INFO, "Notification access is off · tap to turn it on", ctx = LogContext.of(LogContext.RUN to "notifs enable"))
+            io { logs.add(LogKind.INFO, "Notification access is off · tap to turn it on", ctx = LogContext.of(LogContext.RUN to "notifs enable")) }
         }
     }
 
