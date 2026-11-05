@@ -18,12 +18,9 @@ class CommandParsingTest {
     }
 
     @Test fun everyKindOfSpaceIsAPlainOne() {
-        assertEquals("script secret x K v", CommandParsing.spaces("script\tsecret x K\nv"))
+        assertEquals("script secret x K v", CommandParsing.spaces("script\tsecret\u00A0x K\nv"))
         val plain = "already plain"
         assertTrue(plain === CommandParsing.spaces(plain))
-        // A no-break space too: `clear all` with one is still `clear all`, and a script may not send it.
-        assertEquals("clear all", CommandParsing.spaces("clear\u00A0all"))
-        assertTrue(InstantRun.isSensitive("clear\u00A0all"))
     }
 
     @Test fun parseInterval() {

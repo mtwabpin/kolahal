@@ -160,7 +160,7 @@ class InstantRunTest {
 
     @Test fun anyKindOfSpaceAfterTheNameStillCounts() {
         assertTrue(InstantRun.isSensitive("clear\tall"))
-        assertTrue(InstantRun.isSensitive("clear all"))
+        assertTrue(InstantRun.isSensitive("clear\u00A0all"))
         assertTrue(InstantRun.isSensitive("c\tall", mapOf("c" to "clear")))
     }
 
