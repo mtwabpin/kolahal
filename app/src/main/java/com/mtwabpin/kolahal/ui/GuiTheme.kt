@@ -76,7 +76,8 @@ fun segColors() = androidx.compose.material3.ListItemDefaults.segmentedColors(
 
 /**
  * Grouped rows (Android 16 style): large outer corners on the first/last row of a group, tight
- * inner corners. Applied to every state, since switch rows are "checked" list items.
+ * inner corners. The selected, focused and hovered states keep them too, since switch rows are
+ * "checked" list items; pressed rounds every corner, Material's press morph.
  */
 @Composable
 fun segShapes(index: Int, count: Int): androidx.compose.material3.ListItemShapes {

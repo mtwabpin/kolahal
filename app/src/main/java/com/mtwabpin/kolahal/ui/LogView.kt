@@ -165,6 +165,7 @@ fun LogLine(
         actionable -> lineHeight + 10.dp
         else -> lineHeight
     }
+    // The font settings aren't keys of their own: indents is built again from them, and carries the change.
     val lineText = if (isGrid || desc != null) null else remember(entry, Term.palette, indents, row.unread, iconKey, marks, row.showSource) {
         markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
     }

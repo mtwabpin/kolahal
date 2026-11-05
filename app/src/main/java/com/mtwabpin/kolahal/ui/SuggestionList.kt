@@ -86,6 +86,7 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
             .testTag("suggestions"),
     ) {
         itemsIndexed(items, key = { _, s -> s.key }) { index, s ->
+            // A row is 44 dp at the most (the chip height, capped below): the icon is 8 dp less.
             val iconSize = minOf(Term.fontSize + 10, minOf(44, Term.chipHeight) - 8).dp
             // Highlighted only when Enter does what it does.
             val first = index == 0 && s.enter

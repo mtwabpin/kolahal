@@ -6,7 +6,8 @@ import android.database.sqlite.SQLiteOpenHelper
 
 /**
  * Feed subscriptions and their fetched items. Kept apart from `kolahal.db` so the feed schema
- * can evolve without touching the log/script database. WAL lets the worker write while the UI reads.
+ * can evolve without touching the log/script database. WAL lets the fetch worker's thread write
+ * while home reads (both in the main process).
  */
 class FeedDb private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {

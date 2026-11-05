@@ -535,7 +535,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         )
         // Below the prompt, so it sits on the keyboard like an extra row of keys and the best
         // suggestion stays right above what's typed. It slides up into place and back down, as the
-        // header slides from the top; the prompt and the log follow the size change smoothly.
+        // pinned header expands from the top; the prompt and the log follow the size change smoothly.
         androidx.compose.animation.AnimatedVisibility(
             visible = keyBarOn && (!keyBarAuto || typing),
             enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Bottom) +

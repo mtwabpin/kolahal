@@ -5,7 +5,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 
-/** One HTTP client for the whole app (scripts, feeds, pictures in the log, the script library, currency rates). */
+/** One HTTP client for the whole app (scripts, feeds, pictures in the log, Get more scripts, `update`, currency rates). */
 object Net {
     const val USER_AGENT = "Kolahal-Launcher/0.1 (+https://github.com/mtwabpin)"
 
