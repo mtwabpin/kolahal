@@ -97,6 +97,9 @@ MainActivity (HOME) ── TerminalViewModel ── CommandProcessor
     front, as Android requires before a launcher may pause the work profile), and sets the next day's.
   - Event runs (=@on=) queue one after another per script (unique work), and an event queued before
     its switch went off doesn't run.
+  - Two runs of one script never overlap, however each started (timer, daily time, event, the
+    prompt, a pinned line's refresh): =ScriptRun= holds a lock per script in the =:script= process,
+    and the second waits for the first.
 - UI work :: One serial IO dispatcher with an exception handler, so a failed action is logged
   instead of crashing home. Log rows are pre-built off the main thread and rendered as immutable
   rows with cached text.

@@ -12,6 +12,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -46,12 +47,25 @@ class ScriptWorker(context: Context, params: WorkerParameters) : RemoteCoroutine
  * foreground) starts it, in the `:script` process.
  */
 internal object ScriptRun {
+    /**
+     * One run of a script at a time, whichever way it started (its timer, a daily time, an event,
+     * the prompt, a pinned line's refresh): two at once would share its store, and the later one to
+     * end would write rss.fresh's seen items over the other's, so items came back as new. Every run
+     * is in the :script process, so a lock here holds them all; the next one waits its turn.
+     */
+    private val running = java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
+
     /** Runs what [inputData] names ([ScriptWorker]'s keys); false when it names nothing runnable. */
     suspend fun run(ctx: Context, inputData: Data): Boolean {
+        val scriptId = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
+        if (scriptId < 0) return runOne(ctx, inputData, scriptId)
+        return running.getOrPut(scriptId) { kotlinx.coroutines.sync.Mutex() }.withLock { runOne(ctx, inputData, scriptId) }
+    }
+
+    private suspend fun runOne(ctx: Context, inputData: Data, scriptId: Long): Boolean {
         val logs = LogRepository.get(ctx)
         val scripts = ScriptRepository.get(ctx)
 
-        val scriptId = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
         val script = if (scriptId >= 0) scripts.byId(scriptId) ?: return true else null
         if (script != null && !script.enabled && inputData.getBoolean(ScriptWorker.KEY_SCHEDULED, false)) {
             return true
