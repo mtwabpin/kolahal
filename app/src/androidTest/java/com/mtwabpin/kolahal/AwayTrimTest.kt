@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal
 
 import android.content.ComponentCallbacks2
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.ui.LogImages
@@ -45,16 +46,6 @@ class AwayTrimTest {
 
     private fun trim(level: Int) = instrumentation.runOnMainSync { app.onTrimMemory(level) }
 
-    /** Waits up to [ms] for [done]. */
-    private fun within(ms: Long, done: () -> Boolean): Boolean {
-        val until = System.currentTimeMillis() + ms
-        while (System.currentTimeMillis() < until) {
-            if (done()) return true
-            Thread.sleep(50)
-        }
-        return done()
-    }
-
     @Test fun memoryPressureLetsThemGoAtOnce() {
         @Suppress("DEPRECATION") trim(ComponentCallbacks2.TRIM_MEMORY_BACKGROUND)
         assertNull(LogImages.cached(url, width))
@@ -65,7 +56,7 @@ class AwayTrimTest {
         trim(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
         // Not at once: a short visit to another app keeps them.
         assertNotNull(LogImages.cached(url, width))
-        assertTrue("still kept after the time away", within(5_000) { LogImages.cached(url, width) == null })
+        assertTrue("still kept after the time away", eventually(5_000) { LogImages.cached(url, width) == null })
     }
 
     /**
@@ -81,12 +72,14 @@ class AwayTrimTest {
 
     /** Hidden again: the wait starts over rather than ending at the first hide's time. */
     @Test fun hiddenAgainStartsTheWaitOver() {
-        app.awayTrimMs = 1_500
+        app.awayTrimMs = 3_000
         trim(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
-        Thread.sleep(1_000)
+        val first = SystemClock.uptimeMillis()
+        Thread.sleep(2_500)
         trim(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
-        Thread.sleep(1_000)
+        // Half a second past the first hide's time, and two seconds before the second's: room for a slow device.
+        Thread.sleep(maxOf(0L, first + 3_500 - SystemClock.uptimeMillis()))
         assertNotNull("let go at the first hide's time", LogImages.cached(url, width))
-        assertTrue("still kept after the second wait", within(5_000) { LogImages.cached(url, width) == null })
+        assertTrue("still kept after the second wait", eventually(10_000) { LogImages.cached(url, width) == null })
     }
 }

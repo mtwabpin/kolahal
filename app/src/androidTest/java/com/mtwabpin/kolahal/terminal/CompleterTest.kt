@@ -168,10 +168,17 @@ class CompleterTest {
         config.set(Keys.SUGGEST_IDLE, "on")
         // Most-used apps, never more than `suggestions`.
         val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL }
-        com.mtwabpin.kolahal.apps.AppPrefs.get(context).recordLaunch(app.key)
-        val idle = completer.suggestions("")
-        assertTrue(idle.toString(), idle.size <= config[Keys.SUGGESTIONS] && idle.all { it is Suggestion.App })
-        assertTrue(idle.toString(), idle.any { (it as Suggestion.App).app.key == app.key })
+        // The app's launches as they were, put back after: one more counts for good.
+        val usage = context.getSharedPreferences(com.mtwabpin.kolahal.apps.AppPrefs.USAGE_FILE, android.content.Context.MODE_PRIVATE)
+        val launchesBefore = usage.getString("launch:${app.key}", null)
+        try {
+            com.mtwabpin.kolahal.apps.AppPrefs.get(context).recordLaunch(app.key)
+            val idle = completer.suggestions("")
+            assertTrue(idle.toString(), idle.size <= config[Keys.SUGGESTIONS] && idle.all { it is Suggestion.App })
+            assertTrue(idle.toString(), idle.any { (it as Suggestion.App).app.key == app.key })
+        } finally {
+            usage.edit().putString("launch:${app.key}", launchesBefore).commit()
+        }
     }
 }
 

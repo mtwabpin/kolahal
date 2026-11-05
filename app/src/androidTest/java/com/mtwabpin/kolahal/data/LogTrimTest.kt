@@ -2,17 +2,21 @@ package com.mtwabpin.kolahal.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogKept
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** What the log keeps: `log.keep-lines`, typed commands counted apart, and each line's context whole. */
 @RunWith(AndroidJUnit4::class)
 class LogTrimTest {
+    // A trim here deletes the phone's older lines too: the whole log comes back after each test.
+    @get:Rule val logKept = LogKept()
     private val logs = LogRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val token = "trim${System.nanoTime()}"
     private val keepBefore = logs.keepLines

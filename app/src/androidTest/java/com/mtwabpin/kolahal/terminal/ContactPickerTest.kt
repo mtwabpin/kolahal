@@ -11,10 +11,10 @@ import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.contacts.Contact
 import com.mtwabpin.kolahal.contacts.ContactsRepository
-import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.LogContext
+import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import org.junit.After
 import org.junit.Assert.assertEquals

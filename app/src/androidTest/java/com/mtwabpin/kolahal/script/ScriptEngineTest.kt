@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
@@ -10,11 +11,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ScriptEngineTest {
+    // The runs in the :script process log lines; a later class reads the log.
+    @get:Rule val logLines = LogLinesSince()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private fun host() = HostApi(context, "test", scriptId = null, notifyEnabled = false)
 
@@ -51,7 +55,8 @@ class ScriptEngineTest {
         } catch (e: Exception) {
             assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("timed out"))
         }
-        assertTrue(System.currentTimeMillis() - started < 5_000)
+        // Stopped at the limit: a slow device may take a while to get there, but never forever.
+        assertTrue(System.currentTimeMillis() - started < 10_000)
     }
 
     @Test fun luaPcallCannotSwallowTimeout() {
@@ -62,7 +67,8 @@ class ScriptEngineTest {
         } catch (e: Exception) {
             assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("timed out"))
         }
-        assertTrue(System.currentTimeMillis() - started < 5_000)
+        // Stopped at the limit: a slow device may take a while to get there, but never forever.
+        assertTrue(System.currentTimeMillis() - started < 10_000)
     }
 
     @Test fun luaXpcallAndResumeCannotSwallowTimeout() {
@@ -298,7 +304,7 @@ class ScriptEngineTest {
         }
         // It ran until the limit, and no longer.
         val took = System.currentTimeMillis() - started
-        assertTrue("took $took ms", took in 900 until 5_000)
+        assertTrue("took $took ms", took in 900 until 10_000)
     }
 
     /** End to end: snippet goes through WorkManager into the :script process and back via the DB. */

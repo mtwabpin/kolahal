@@ -1,10 +1,9 @@
 package com.mtwabpin.kolahal.notifications
 
-import android.app.NotificationManager
-import android.content.ComponentName
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -40,28 +39,22 @@ class KolahalNotificationListenerTest {
     private val repo = ScriptRepository.get(app)
     private val prefs = NotifPrefs.get(app)
     private val mirror = KvStore(app, KolahalNotificationListener.MIRROR_SCOPE)
-    private val component = "${app.packageName}/${KolahalNotificationListener::class.java.name}"
     // Lines last, after tearDown: whatever went wrong in it.
     @get:Rule val logLines = LogLinesSince()
-    private var had = false
+    @get:Rule val access = NotificationAccess()
     private var shellWasMuted = false
     private val scripts = listOf("kn-reader", "kn-trigger")
 
-    /**
-     * Whether access is on, as the notification service has it: the setting the access screen reads
-     * is written after, so just after a change it can still say the old.
-     */
-    private fun granted() = app.getSystemService(NotificationManager::class.java)
-        .isNotificationListenerAccessGranted(ComponentName(app, KolahalNotificationListener::class.java))
-
+    /** Access on, and the listener bound. */
     private fun allow() {
-        shell("cmd notification allow_listener $component")
-        waitUntil("notification access", ms = 15_000) { granted() && KolahalNotificationListener.connected != null }
+        access.set(true)
+        waitUntil("notification access", ms = 15_000) { KolahalNotificationListener.connected != null }
     }
 
+    /** Access off, and the listener gone. */
     private fun disallow() {
-        shell("cmd notification disallow_listener $component")
-        waitUntil("notification access off", ms = 15_000) { !granted() && KolahalNotificationListener.connected == null }
+        access.set(false)
+        waitUntil("notification access off", ms = 15_000) { KolahalNotificationListener.connected == null }
     }
 
     /** Posts a notification from the shell, another app as far as Kolahal knows; no spaces in any part. */
@@ -83,7 +76,6 @@ class KolahalNotificationListenerTest {
     private fun settled() = instrumentation.runOnMainSync { }
 
     @Before fun setUp() {
-        had = granted()
         shellWasMuted = prefs.isMuted(SHELL)
         prefs.unmute(SHELL)
         allow()
@@ -103,7 +95,6 @@ class KolahalNotificationListenerTest {
         } finally {
             // Not on disk, the next process doesn't know the icon either.
             java.io.File(app.filesDir, "notif-icons/$freshIcon.png").delete()
-            if (!had) disallow()
         }
     }
 

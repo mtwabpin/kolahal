@@ -2,17 +2,21 @@ package com.mtwabpin.kolahal.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogKept
 import com.mtwabpin.kolahal.terminal.LogFilter
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Starred lines: kept past `log.keep-lines` and `log.keep-days` and through a clear, and found by a search. */
 @RunWith(AndroidJUnit4::class)
 class StarredLinesTest {
+    // A trim or a clear here deletes the phone's own lines too: the whole log comes back after each test.
+    @get:Rule val logKept = LogKept()
     private val logs = LogRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val token = "star${System.nanoTime()}"
 

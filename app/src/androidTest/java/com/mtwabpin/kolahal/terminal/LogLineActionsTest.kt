@@ -1,12 +1,10 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.app.Instrumentation
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -19,6 +17,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
@@ -35,8 +34,8 @@ import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.feeds.FeedRepository
 import com.mtwabpin.kolahal.feeds.FeedWorker
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
-import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.notifications.Notif
+import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.notifications.NotificationStore
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.script.Json
@@ -68,6 +67,7 @@ class LogLineActionsTest {
     private val feeds = FeedRepository.get(context)
     private val notifPrefs = NotifPrefs.get(context)
     @get:Rule val logLines = LogLinesSince()
+    @get:Rule val access = NotificationAccess()
     private val pinnedBefore = prefs.pinned()
     private val mutedBefore = notifPrefs.muted.value
     private val storeBefore = NotificationStore.items.value
@@ -294,8 +294,7 @@ class LogLineActionsTest {
     @Test fun tappingANotificationRunsItsOwnTapAction() {
         // With access, Android is asked for the notification, and this one isn't there. A listener
         // still bound just after access went can't ask, so the tap kept in the store is used.
-        val listener = ComponentName(context, KolahalNotificationListener::class.java)
-        assumeTrue("notification access is off", !context.getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(listener))
+        access.set(false)
         val s = settings()
         val action = "com.mtwabpin.kolahal.test.LLAT_TAP"
         val tapped = CountDownLatch(2)

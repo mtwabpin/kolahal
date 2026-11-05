@@ -33,14 +33,15 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.CrashReports
+import com.mtwabpin.kolahal.CrashReportsAside
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -62,9 +63,9 @@ class SettingsScreenTest {
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
     @get:Rule val configReset = ConfigReset()
+    @get:Rule val crashReports = CrashReportsAside()
 
     @After fun tearDown() {
-        CrashReports.clear(app)
         CustomThemes.delete(app, TEST_THEME)
     }
 
@@ -312,7 +313,6 @@ class SettingsScreenTest {
 
     /** About lists the crash reports kept on the phone; a tap offers email or delete, and delete takes that one. */
     @Test fun aboutCrashReportsCanBeDeletedOneByOne() {
-        CrashReports.clear(app)
         crashReport("20261022-090000", "IllegalStateException: first sttest")
         crashReport("20261022-100000", "IllegalStateException: second sttest")
         show(ABOUT_PAGE)
@@ -370,7 +370,6 @@ class SettingsScreenTest {
 
     /** A report's sheet: Share comes after Email and hands over the whole report, which stays kept. */
     @Test fun aCrashReportCanBeShared() = catching(Intent.ACTION_CHOOSER) { sheet ->
-        CrashReports.clear(app)
         crashReport("20261022-090000", "IllegalStateException: shared sttest")
         show(ABOUT_PAGE)
         compose.waitForText("1 report kept on this phone")

@@ -11,6 +11,7 @@ import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -19,6 +20,9 @@ import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
 import java.io.File
+import com.mtwabpin.kolahal.CrashReportsAside
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TableRows
 import com.mtwabpin.kolahal.ui.WallpaperMatch
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -39,8 +43,14 @@ class CommandFamiliesTest {
     private val prefs = AppPrefs.get(context)
     private val apps = AppRepository.get(context)
     private var cleared = 0
+    private val todoStore = com.mtwabpin.kolahal.productivity.TodoStore.get(context)
+    private val noteStore = com.mtwabpin.kolahal.productivity.NoteStore.get(context)
+    private val reminderStore = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
 
     @get:Rule val configReset = ConfigReset()
+    @get:Rule val crashReports = CrashReportsAside()
+    // Its commands and what they print, and the ↑ recall `clear history` empties.
+    @get:Rule val logLines = LogLinesSince()
     private val commands = CommandRunner(context, object : TerminalUiStub() {
         override fun clearScreen() { cleared++ }
     })
@@ -54,7 +64,6 @@ class CommandFamiliesTest {
 
     @After fun tearDown() {
         prefs.setAlias("tt", null)
-        crashDir.deleteRecursively()
         clearMine()
     }
 
@@ -105,28 +114,42 @@ class CommandFamiliesTest {
         assertTrue(out.toString(), out.single().contains("3.1"))
     }
 
+    /** [item]'s number in [list], as `todo`, `notes` and `reminders` number them: the phone's own may come first. */
+    private fun <T> numberOf(list: List<T>, item: (T) -> Boolean) = list.indexOfFirst(item) + 1
+
     @Test fun todoAddDoneClear() {
         assertTrue(run("todo cptest milk").any { it.endsWith("[ ] cptest milk") })
         assertTrue(run("todo").any { it.endsWith("[ ] cptest milk") })
-        run("todo done 1")
-        assertTrue(run("todo").single().startsWith("Nothing open"))
-        assertEquals(listOf("Cleared 1 finished todo"), run("todo clear"))
-        assertTrue(run("todo").single().startsWith("No todos"))
+        run("todo done ${numberOf(todoStore.all()) { it.text == "cptest milk" }}")
+        assertTrue(todoStore.all().single { it.text == "cptest milk" }.done)
+        assertTrue(run("todo").none { it.endsWith("cptest milk") })
+        // `todo clear` takes every finished todo: the phone's own are set aside meanwhile.
+        val others = TableRows.take(Db.get(context).writableDatabase, "todos", "done = 1 AND text != ?", "cptest milk")
+        others.rows.forEach { todoStore.remove(it.getAsLong("id")) }
+        try {
+            assertEquals(listOf("Cleared 1 finished todo"), run("todo clear"))
+        } finally {
+            others.putBack()
+        }
+        assertTrue(todoStore.all().none { it.text == "cptest milk" })
+        assertTrue(run("todo all").none { it.endsWith("cptest milk") })
     }
 
     @Test fun notesAddFindRemove() {
         assertTrue(run("note cptest idea").single().startsWith("Note saved"))
         assertTrue(run("notes").any { it.contains("cptest idea") })
         assertTrue(run("notes grep cptest").any { it.contains("cptest idea") })
-        assertTrue(run("notes rm 1").single().contains("cptest idea"))
-        assertTrue(run("notes").single().startsWith("No notes"))
+        assertTrue(run("notes rm ${numberOf(noteStore.all()) { "cptest idea" in it.text }}").single().contains("cptest idea"))
+        assertTrue(noteStore.all().none { "cptest idea" in it.text })
+        assertTrue(run("notes").none { it.contains("cptest idea") })
     }
 
     @Test fun remindListCancel() {
         assertTrue(run("remind 10m cptest tea").first().contains("cptest tea"))
         assertTrue(run("reminders").any { it.contains("cptest tea") })
-        assertEquals("Cancelled reminder: cptest tea", run("remind rm 1").single())
-        assertTrue(run("reminders").single().startsWith("No reminders"))
+        assertEquals("Cancelled reminder: cptest tea", run("remind rm ${numberOf(reminderStore.all()) { "cptest tea" in it.text }}").single())
+        assertTrue(reminderStore.all().none { "cptest tea" in it.text })
+        assertTrue(run("reminders").none { it.contains("cptest tea") })
         assertTrue(run("remind someday x").single().startsWith("Usage: remind"))
     }
 

@@ -22,11 +22,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import com.mtwabpin.kolahal.ConfigReset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -39,6 +40,7 @@ import org.junit.runner.RunWith
 class KeyBarTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
+    @get:Rule val logLines = LogLinesSince()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel

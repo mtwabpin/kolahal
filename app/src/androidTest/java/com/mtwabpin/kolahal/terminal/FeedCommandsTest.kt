@@ -9,21 +9,21 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.feeds.Feed
 import com.mtwabpin.kolahal.feeds.FeedRepository
 import com.mtwabpin.kolahal.feeds.FeedScheduler
 import com.mtwabpin.kolahal.feeds.FeedWorker
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
-import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.notifications.Notif
-import com.mtwabpin.kolahal.notifications.NotificationActions
+import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.notifications.NotificationStore
-import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -45,8 +45,7 @@ class FeedCommandsTest {
     private val notifPrefs = NotifPrefs.get(context)
     // Last, once the feeds are gone and nothing more can come from them; whatever went wrong before.
     @get:Rule val logLines = LogLinesSince()
-    private val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
-    private val accessBefore = NotificationActions.isEnabled(context)
+    @get:Rule val access = NotificationAccess()
     private val mutedBefore = notifPrefs.muted.value
     private val logToTerminalBefore = notifPrefs.logToTerminal
     private val storeBefore = NotificationStore.items.value
@@ -65,9 +64,7 @@ class FeedCommandsTest {
         (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
         notifPrefs.logToTerminal = logToTerminalBefore
         // Access first: a listener binding as it comes back replaces the list with what is showing.
-        if (NotificationActions.isEnabled(context) != accessBefore) {
-            shell("cmd notification ${if (accessBefore) "allow" else "disallow"}_listener $listener")
-        }
+        access.restore()
         settleListener()
         NotificationStore.clear()
         storeBefore.asReversed().forEach { NotificationStore.put(it, intentsBefore[it.key]) }
@@ -78,10 +75,7 @@ class FeedCommandsTest {
      * while after access goes, so a listener still there isn't a failure.
      */
     private fun settleListener(ms: Long = 5_000) {
-        val until = System.currentTimeMillis() + ms
-        while ((KolahalNotificationListener.connected != null) != NotificationActions.isEnabled(context) &&
-            System.currentTimeMillis() < until
-        ) Thread.sleep(50)
+        eventually(ms) { (KolahalNotificationListener.connected != null) == access.on }
     }
 
     private fun commandId(line: String) = commands.commandId(line)
@@ -124,8 +118,8 @@ class FeedCommandsTest {
 
     /** Access on and the listener bound, so its first list, from what is really showing, is in. */
     private fun allowNotifications() {
-        if (!NotificationActions.isEnabled(context)) shell("cmd notification allow_listener $listener")
-        waitUntil("notification access", ms = 15_000) { NotificationActions.isEnabled(context) && KolahalNotificationListener.connected != null }
+        access.set(true)
+        waitUntil("notification access", ms = 15_000) { KolahalNotificationListener.connected != null }
     }
 
     /** `feed add` subscribes, says it is fetching, and the failed fetch comes as the command's own line; the same address twice is one feed. */
@@ -353,11 +347,7 @@ class FeedCommandsTest {
 
     /** With notification access off, `notifs` says to tap to allow it, and `notifs enable` asks first. */
     @Test fun notifsNeedNotificationAccess() {
-        if (NotificationActions.isEnabled(context)) {
-            shell("cmd notification disallow_listener $listener")
-            waitUntil("access off") { !NotificationActions.isEnabled(context) }
-            settleListener()
-        }
+        access.set(false)
         for (typed in listOf("notifs", "notifs muted", "notifications-feed all")) {
             val off = lines(typed).single()
             assertEquals("Notification access is off — tap to allow it", off.text)

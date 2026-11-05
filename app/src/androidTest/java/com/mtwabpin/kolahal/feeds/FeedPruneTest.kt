@@ -12,7 +12,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FeedPruneTest {
     private val repo = FeedRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
-    private val feed = repo.add("https://example.com/prune-test-${System.nanoTime()}.xml")
+    // Switched off, so the scheduler doesn't fetch it from example.com meanwhile.
+    private val feed = repo.add("https://example.com/prune-test-${System.nanoTime()}.xml").also { repo.setEnabled(it.id, false) }
 
     @After fun tearDown() = repo.remove(feed.id)
 

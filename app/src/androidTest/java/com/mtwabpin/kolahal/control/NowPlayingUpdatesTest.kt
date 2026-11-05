@@ -6,15 +6,16 @@ import android.media.session.PlaybackState
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
-import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
@@ -24,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class NowPlayingUpdatesTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+    @get:Rule val access = NotificationAccess()
 
     /**
      * The same state five times, then a position 20 ms off (inside the margin a state told two ways
@@ -32,9 +34,8 @@ class NowPlayingUpdatesTest {
      * conflated away.
      */
     @Test fun aRepeatedStateIsNoNewValue() {
-        val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
-        val had = NotificationActions.isEnabled(context)
-        shell("cmd notification allow_listener $listener")
+        access.set(true)
+        val repository = MediaRepository.get(context)
         val session = MediaSession(context, "NowPlayingUpdatesTest")
         val scope = CoroutineScope(Dispatchers.Unconfined)
         try {
@@ -49,7 +50,6 @@ class NowPlayingUpdatesTest {
             title("Song")
             playing()
             session.isActive = true
-            val repository = MediaRepository.get(context)
             repository.start()
             waitUntil("playing") { repository.nowPlaying.value?.let { it.title == "Song" && it.playing } == true }
 
@@ -69,12 +69,8 @@ class NowPlayingUpdatesTest {
         } finally {
             scope.cancel()
             session.release()
-            if (!had) {
-                shell("cmd notification disallow_listener $listener")
-                // It can stay bound a while after access goes: wait a little, but don't fail on it.
-                val until = System.currentTimeMillis() + 5_000
-                while (KolahalNotificationListener.connected != null && System.currentTimeMillis() < until) Thread.sleep(50)
-            }
+            // No longer following players: access goes back as it was by the rule.
+            repository.stop()
         }
     }
 }

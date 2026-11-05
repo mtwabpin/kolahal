@@ -19,6 +19,8 @@ import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.CrashReports
+import com.mtwabpin.kolahal.CrashReportsAside
+import com.mtwabpin.kolahal.LogKept
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
@@ -73,8 +75,10 @@ class BuiltInCommandsTest {
     private val crashReport = File(crashDir, "20260101-120000-crash.txt")
     private val olderReport = File(crashDir, "20251231-120000-crash.txt")
     /** Reports already there (one Android recorded earlier in the run, say), set aside while a test reads the newest. */
-    private val setAside = File(context.cacheDir, "crash-set-aside")
+    @get:Rule val crashReports = CrashReportsAside()
     @get:Rule val logLines = LogLinesSince()
+    // The log `clear all` empties, put back after it.
+    @get:Rule val logKept = LogKept(eachTest = false)
     @get:Rule val configReset = ConfigReset()
 
     private val screens = CopyOnWriteArrayList<Screen>()
@@ -105,10 +109,6 @@ class BuiltInCommandsTest {
         prefs.aliases().keys.filter { it.startsWith("pca") }.forEach { prefs.setAlias(it, null) }
         scripts.all().filter { it.name.startsWith("pctest") }.forEach { ScriptScheduler.cancel(context, it.id); scripts.delete(it.id) }
         fx.set("USD", fxBefore)
-        crashReport.delete()
-        olderReport.delete()
-        setAside.listFiles()?.forEach { it.renameTo(File(crashDir, it.name)) }
-        setAside.delete()
     }
 
     /** Runs [line] and returns the non-command lines it printed. */
@@ -274,15 +274,7 @@ class BuiltInCommandsTest {
 
     /** `crashes share` hands the newest report, or the one named, to the share sheet. */
     @Test fun crashesShareSendsTheReport() {
-        // Only the test's own: one written earlier in the run is newer than these, and would be sent.
-        // Said in the log, so a run can tell what wrote it.
-        crashDir.listFiles()?.takeIf { it.isNotEmpty() }?.let { others ->
-            setAside.mkdirs()
-            others.forEach { f ->
-                android.util.Log.w("BuiltInCommandsTest", "set aside ${f.name}: ${f.readLines().take(8).joinToString(" | ")}")
-                f.renameTo(File(setAside, f.name))
-            }
-        }
+        // Only the test's own, the rest set aside: one written earlier in the run is newer than these, and would be sent.
         assertEquals(listOf("No crash reports"), run("crashes share"))
         crashDir.mkdirs()
         // The newest, as just written.
@@ -377,6 +369,7 @@ class BuiltInCommandsTest {
 
     /** `clear all` deletes the whole log, and ↑ history with it. */
     @Test fun clearAllEmptiesTheLog() {
+        logKept.keep()
         run("echo pctest-one")
         assertTrue(logs.commandHistory().contains("echo pctest-one"))
         val upTo = logs.maxId()

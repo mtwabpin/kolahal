@@ -27,8 +27,8 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.waitForNode
+import com.mtwabpin.kolahal.waitForText
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import org.json.JSONObject

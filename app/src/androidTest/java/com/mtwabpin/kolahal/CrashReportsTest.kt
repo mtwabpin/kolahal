@@ -6,9 +6,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogRepository
 import java.io.File
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -18,16 +18,15 @@ class CrashReportsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
     private val dir = File(context.filesDir, "crash")
+    // The phone's own reports aside, and what was announced of them: put back after.
+    @get:Rule val crashReports = CrashReportsAside()
+    // The notices the test's reports get.
+    @get:Rule val logLines = LogLinesSince()
 
     @Before fun setUp() {
-        dir.deleteRecursively()
         context.getSharedPreferences("crash", 0).edit(commit = true) { clear() }
         // The first look only notes where Android's own record of exits ends.
         CrashReports.announce(context)
-    }
-
-    @After fun tearDown() {
-        dir.deleteRecursively()
     }
 
     private fun report(id: String, error: String) {

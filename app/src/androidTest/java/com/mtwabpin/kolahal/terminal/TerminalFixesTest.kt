@@ -5,6 +5,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.Config
@@ -14,10 +16,7 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotifPrefs
-import com.mtwabpin.kolahal.notifications.NotificationActions
-import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -33,6 +32,9 @@ import org.junit.runner.RunWith
 class TerminalFixesTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val configReset = ConfigReset()
+    @get:Rule val access = NotificationAccess()
+    // Its aliases, echoes and scripts print lines a later class would read.
+    @get:Rule val logLines = LogLinesSince()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -50,7 +52,6 @@ class TerminalFixesTest {
         listOf("tfcat", "tftag").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
         AppPrefs.get(app).setAlias("tfhf", null)
         com.mtwabpin.kolahal.productivity.TodoStore.get(app).let { t -> t.all().filter { it.text.startsWith("tf ") || it.text.startsWith("clear out") || it.text.startsWith("all hands") }.forEach { t.remove(it.id) } }
-        logs.recent(100).filter { it.text.startsWith("tf ") || it.text.startsWith("echo tf ") || it.text.startsWith("tftag") }.forEach { logs.delete(it.id) }
         muted.unmute(gone)
     }
 
@@ -227,19 +228,12 @@ class TerminalFixesTest {
     }
 
     @Test fun unmuteTakesThePackageThatMutedLists() {
-        val listener = "${app.packageName}/${KolahalNotificationListener::class.java.name}"
-        val had = NotificationActions.isEnabled(app)
-        shell("cmd notification allow_listener $listener")
-        waitUntil("notification access") { NotificationActions.isEnabled(app) }
-        try {
-            muted.mute(gone)
-            // `notifs muted` lists an app no longer installed by its package, to unmute by tapping.
-            assertEquals("notifs unmute $gone", run("notifs muted").single { it.text == gone }.ctx.command)
-            run("notifs unmute $gone")
-            assertFalse(gone in muted.muted.value)
-        } finally {
-            if (!had) shell("cmd notification disallow_listener $listener")
-        }
+        access.set(true)
+        muted.mute(gone)
+        // `notifs muted` lists an app no longer installed by its package, to unmute by tapping.
+        assertEquals("notifs unmute $gone", run("notifs muted").single { it.text == gone }.ctx.command)
+        run("notifs unmute $gone")
+        assertFalse(gone in muted.muted.value)
     }
 
     @Test fun scriptCatKeepsOneCopyOfTheCode() {

@@ -1,6 +1,9 @@
 package com.mtwabpin.kolahal
 
+import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.compose.ui.test.ComposeTimeoutException
@@ -116,4 +119,38 @@ class CommandRunner(context: Context, ui: TerminalUi = TerminalUiStub()) {
 
     /** The id of the newest command line [line]. */
     fun commandId(line: String) = logs.recent(400).last { it.kind == LogKind.COMMAND && it.text == line }.id.toString()
+}
+
+/** Rows of a table as stored, every column, to [putBack] as they were, ids and all. */
+class TableRows private constructor(private val db: SQLiteDatabase, private val table: String, val rows: List<ContentValues>) {
+    /** Puts the rows back; one whose id is taken again meanwhile stays as it is now. */
+    fun putBack() = rows.forEach { db.insertWithOnConflict(table, null, it, SQLiteDatabase.CONFLICT_IGNORE) }
+
+    /** The largest value of [column] among the rows, 0 for none. */
+    fun maxOf(column: String): Long = rows.maxOfOrNull { it.getAsLong(column) ?: 0L } ?: 0L
+
+    companion object {
+        /** The rows of [table] that [where] (with [args]) takes, all of them without one. */
+        fun take(db: SQLiteDatabase, table: String, where: String? = null, vararg args: String): TableRows {
+            val rows = db.query(table, null, where, args.ifEmpty { null }, null, null, null).use { c ->
+                buildList {
+                    while (c.moveToNext()) {
+                        add(ContentValues().apply {
+                            for (i in 0 until c.columnCount) {
+                                val name = c.getColumnName(i)
+                                when (c.getType(i)) {
+                                    Cursor.FIELD_TYPE_INTEGER -> put(name, c.getLong(i))
+                                    Cursor.FIELD_TYPE_FLOAT -> put(name, c.getDouble(i))
+                                    Cursor.FIELD_TYPE_BLOB -> put(name, c.getBlob(i))
+                                    Cursor.FIELD_TYPE_NULL -> putNull(name)
+                                    else -> put(name, c.getString(i))
+                                }
+                            }
+                        })
+                    }
+                }
+            }
+            return TableRows(db, table, rows)
+        }
+    }
 }

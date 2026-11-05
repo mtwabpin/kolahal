@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -35,6 +36,7 @@ import kotlin.math.abs
 class FontModesTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
     @get:Rule val compose = createComposeRule()
+    @get:Rule val logLines = LogLinesSince()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
     private val terminalFont = Term.fontFamily

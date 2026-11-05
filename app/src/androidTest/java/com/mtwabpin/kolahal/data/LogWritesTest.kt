@@ -2,16 +2,21 @@ package com.mtwabpin.kolahal.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogKept
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** How lines reach the log: a command's output written together, and what home is told about lines that moved or went. */
 @RunWith(AndroidJUnit4::class)
 class LogWritesTest {
+    // A clear here purges the phone's own lines too: the whole log comes back after each test.
+    @get:Rule val logKept = LogKept()
     private val logs = LogRepository.get(InstrumentationRegistry.getInstrumentation().targetContext)
     private val token = "lw${System.nanoTime()}"
 
@@ -62,7 +67,8 @@ class LogWritesTest {
     @Test fun aBatchFlushesAsItGoes() {
         logs.batched {
             logs.add(LogKind.OUTPUT, "$token first")
-            Thread.sleep(400)
+            // Written by itself a moment later, while the batch goes on.
+            waitUntil("the first line, before the batch ends", 5_000) { mine().isNotEmpty() }
             logs.add(LogKind.OUTPUT, "$token second")
             assertEquals(listOf("$token first"), mine().map { it.text })
         }

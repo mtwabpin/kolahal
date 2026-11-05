@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.script
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.workDataOf
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
@@ -10,7 +11,6 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StatusLines
-import com.mtwabpin.kolahal.LogLinesSince
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals

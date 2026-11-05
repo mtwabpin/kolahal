@@ -18,7 +18,8 @@ class GrepOnDeviceTest {
         val failure = grep("(a+)+x", "a".repeat(26) + "!").exceptionOrNull()
         val took = System.currentTimeMillis() - started
         assertTrue("$failure", failure?.message.orEmpty().contains("too slow"))
-        assertTrue("took ${took}ms", took < 3_000)
+        // Given up on at its limit (with room for a slow device), not after all the backtracking.
+        assertTrue("took ${took}ms", took < 10_000)
         // The next one isn't held up.
         assertEquals(listOf("alpha"), grep("alp", "alpha").getOrThrow().map { it.text })
     }

@@ -30,12 +30,10 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
-import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
-import com.mtwabpin.kolahal.notifications.NotificationActions
-import com.mtwabpin.kolahal.shell
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -48,6 +46,7 @@ private const val DURATION = 10_000L
 @RunWith(AndroidJUnit4::class)
 class NowPlayingLineTest {
     @get:Rule val compose = createComposeRule()
+    @get:Rule val access = NotificationAccess()
     private var toggles = 0
     private var skips = 0
 
@@ -272,15 +271,13 @@ class NowPlayingLineTest {
      */
     @Test fun aRealSessionMovesTheBar() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
-        val had = NotificationActions.isEnabled(context)
-        shell("cmd notification allow_listener $listener")
+        access.set(true)
+        val repository = MediaRepository.get(context)
         val session = MediaSession(context, "NowPlayingLineTest")
         fun state(state: Int, position: Long) = session.setPlaybackState(
             PlaybackState.Builder().setState(state, position, if (state == PlaybackState.STATE_PLAYING) 1f else 0f, SystemClock.elapsedRealtime()).build(),
         )
         try {
-            compose.waitUntil(5_000) { NotificationActions.isEnabled(context) }
             session.setMetadata(
                 MediaMetadata.Builder()
                     .putString(MediaMetadata.METADATA_KEY_TITLE, "Song")
@@ -290,7 +287,6 @@ class NowPlayingLineTest {
             )
             state(PlaybackState.STATE_BUFFERING, 0)
             session.isActive = true
-            val repository = MediaRepository.get(context)
             repository.start()
             compose.setContent {
                 val np by repository.nowPlaying.collectAsState()
@@ -318,36 +314,31 @@ class NowPlayingLineTest {
             assertEquals("paused", 0.75f, filled(), 0.02f)
         } finally {
             session.release()
-            if (!had) shell("cmd notification disallow_listener $listener")
+            repository.stop()
         }
     }
 
     /** Notification access turned off and on again while Kolahal runs: it follows sessions again, with no restart. */
     @Test fun nowPlayingComesBackWhenAccessIsTurnedBackOn() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
-        val had = NotificationActions.isEnabled(context)
-        shell("cmd notification allow_listener $listener")
+        access.set(true)
+        val repository = MediaRepository.get(context)
         val session = MediaSession(context, "NowPlayingLineTest")
         fun title(title: String) = session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, title).build())
         try {
-            compose.waitUntil(5_000) { NotificationActions.isEnabled(context) }
             title("Before")
             session.setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 0, 1f, SystemClock.elapsedRealtime()).build())
             session.isActive = true
-            val repository = MediaRepository.get(context)
             repository.start()
             compose.waitUntil(5_000) { repository.nowPlaying.value?.title == "Before" }
 
-            shell("cmd notification disallow_listener $listener")
-            compose.waitUntil(5_000) { !NotificationActions.isEnabled(context) }
-            shell("cmd notification allow_listener $listener")
-            compose.waitUntil(5_000) { NotificationActions.isEnabled(context) }
+            access.set(false)
+            access.set(true)
             title("After")
             compose.waitUntil(10_000) { repository.nowPlaying.value?.title == "After" }
         } finally {
             session.release()
-            if (!had) shell("cmd notification disallow_listener $listener")
+            repository.stop()
         }
     }
 

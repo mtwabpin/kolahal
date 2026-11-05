@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.shell
@@ -31,6 +32,7 @@ class ControlCommandsTest {
     private val pkg = context.packageName
 
     @get:Rule val logLines = LogLinesSince()
+    @get:Rule val access = NotificationAccess()
     private val commands = CommandRunner(context)
 
     // As they were, put back after.
@@ -181,34 +183,13 @@ class ControlCommandsTest {
 
     /** Without notification access there's no media session to control: it says how to allow it. */
     @Test fun mediaNeedsNotificationAccess() {
-        val listener = "$pkg/com.mtwabpin.kolahal.notifications.KolahalNotificationListener"
-        val had = com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context)
-        try {
-            shell("cmd notification disallow_listener $listener")
-            waitUntil("access off") { !com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context) }
-            settleListener()
-            for (line in listOf("media", "mp", "next")) {
-                val asked = lines(line).single()
-                assertEquals(line, "Media control needs notification access — tap to allow it", asked.text)
-                assertEquals("notifs enable", asked.ctx.values[LogContext.RUN])
-            }
-            assertTrue(run("media loudly").single().startsWith("Usage: media"))
-        } finally {
-            if (had) shell("cmd notification allow_listener $listener")
-            settleListener()
+        access.set(false)
+        for (line in listOf("media", "mp", "next")) {
+            val asked = lines(line).single()
+            assertEquals(line, "Media control needs notification access — tap to allow it", asked.text)
+            assertEquals("notifs enable", asked.ctx.values[LogContext.RUN])
         }
-    }
-
-    /**
-     * Waits a few seconds at most for the notification listener to be bound as access says. It can
-     * stay bound a while after access goes, so one still there isn't a failure.
-     */
-    private fun settleListener() {
-        val until = System.currentTimeMillis() + 5_000
-        while ((com.mtwabpin.kolahal.notifications.KolahalNotificationListener.connected != null) !=
-            com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context) &&
-            System.currentTimeMillis() < until
-        ) Thread.sleep(50)
+        assertTrue(run("media loudly").single().startsWith("Usage: media"))
     }
 
     /** One line per toggle, each with what a tap does. */

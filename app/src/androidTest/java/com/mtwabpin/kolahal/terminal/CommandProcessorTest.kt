@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
@@ -34,6 +35,8 @@ class CommandProcessorTest {
     private val opened = mutableListOf<Script>()
 
     @get:Rule val configReset = ConfigReset()
+    // Its commands and what they print, and the screen its `clear` takes out of view.
+    @get:Rule val logLines = LogLinesSince()
     private val commands = CommandRunner(context, object : TerminalUiStub() {
         override fun openEditor(script: Script) { opened += script }
         override fun clearScreen() { logs.clearScreen() }
