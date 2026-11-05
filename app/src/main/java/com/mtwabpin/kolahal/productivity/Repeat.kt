@@ -50,7 +50,7 @@ object Repeat {
                 val month = p.first().toIntOrNull()
                 p.size == 2 && month in 1..12 && p[1].toIntOrNull() in 1..Month.of(month!!).maxLength()
             }
-            else -> rule.split(',').all { name -> name.isNotBlank() && DayOfWeek.entries.any { it.name.lowercase().startsWith(name) } }
+            else -> rule.split(',').all { dayNamed(it) != null }
         }
         return shape && runCatching {
             label(rule)
@@ -72,8 +72,11 @@ object Repeat {
         }
     }
 
-    private fun days(rule: String): List<DayOfWeek> =
-        rule.split(',').filter { it.isNotBlank() }.mapNotNull { name -> DayOfWeek.entries.firstOrNull { it.name.lowercase().startsWith(name) } }
+    private fun days(rule: String): List<DayOfWeek> = rule.split(',').mapNotNull(::dayNamed)
+
+    /** A day of the week as a rule names it: `mon`, `monday`, three letters at least, as `every` writes them. */
+    private fun dayNamed(name: String): DayOfWeek? =
+        name.takeIf { it.length >= 3 }?.let { n -> DayOfWeek.entries.firstOrNull { it.name.lowercase().startsWith(n) } }
 
     private fun ordinal(n: Int): String = n.toString() + when {
         n % 100 in 11..13 -> "th"

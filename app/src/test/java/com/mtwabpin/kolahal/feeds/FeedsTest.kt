@@ -84,6 +84,10 @@ class OpmlTest {
     @Test
     fun numericEntities() {
         assertEquals("a—b'", Opml.unescape("a&#8212;b&#x27;"))
+        // Half a character, or no character at all: left as written.
+        assertEquals("a&#xD800;b", Opml.unescape("a&#xD800;b"))
+        assertEquals("&#99999999;", Opml.unescape("&#99999999;"))
+        assertEquals("😀", Opml.unescape("&#x1F600;"))
     }
 }
 

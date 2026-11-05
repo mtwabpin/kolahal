@@ -8,6 +8,7 @@ import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.shortTime
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -153,9 +154,9 @@ object CrashReports {
         if (newest > seen) prefs.edit(commit = true) { putLong("exits_seen", newest) }
     }
 
-    /** "at 19:55" today, else "on 20 Oct at 19:55"; the time follows the phone's 12/24-hour setting. */
+    /** "at 19:55" today, else "on 20 Oct at 19:55"; the time follows `clock.24h`, as the log's do. */
     fun whenText(context: Context, time: Long): String {
-        val clock = android.text.format.DateFormat.getTimeFormat(context).format(Date(time))
+        val clock = com.mtwabpin.kolahal.data.Config.get(context).shortTime(time)
         val day = SimpleDateFormat("yyyyMMdd", Locale.US)
         return if (day.format(Date(time)) == day.format(Date())) "at $clock"
         else "on " + SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(time)) + " at $clock"

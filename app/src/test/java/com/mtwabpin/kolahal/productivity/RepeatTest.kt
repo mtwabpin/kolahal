@@ -14,7 +14,8 @@ class RepeatTest {
         for (rule in listOf("day", "weekdays", "weekend", "mon", "mon,thu", "month:1", "month:31", "year:03-14", "year:02-29")) {
             assertTrue(rule, Repeat.isValid(rule))
         }
-        for (rule in listOf("", "biweekly", "month:x", "month:0", "year:02", "year:x-y", "year:13-40", "year:00-10")) {
+        // Days are named with three letters at least: "t" could be Tuesday or Thursday.
+        for (rule in listOf("", "biweekly", "month:x", "month:0", "year:02", "year:x-y", "year:13-40", "year:00-10", "t", "s", "mo", "mon,t")) {
             assertFalse(rule, Repeat.isValid(rule))
         }
     }

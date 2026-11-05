@@ -72,7 +72,8 @@ object Opml {
             "apos" -> "'"
             else -> {
                 val code = if (e.startsWith("#x")) e.substring(2).toIntOrNull(16) else e.substring(1).toIntOrNull()
-                code?.takeIf { Character.isValidCodePoint(it) }?.let { String(Character.toChars(it)) } ?: m.value
+                // A surrogate on its own is half a character: kept as written.
+                code?.takeIf { Character.isValidCodePoint(it) && it !in 0xD800..0xDFFF }?.let { String(Character.toChars(it)) } ?: m.value
             }
         }
     }

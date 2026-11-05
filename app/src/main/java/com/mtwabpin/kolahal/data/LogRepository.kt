@@ -622,7 +622,7 @@ class LogRepository private constructor(private val context: Context) {
         val kept = LinkedHashMap<String, String>()
         var left = MAX_FIELD - 2
         for ((k, v) in ctx.values) {
-            val value = if (v.length > MAX_FIELD / 4) v.take(MAX_FIELD / 4 - 1) + "…" else v
+            val value = if (v.length > MAX_FIELD / 4) v.takeWhole(MAX_FIELD / 4 - 1) + "…" else v
             val size = jsonLength(mapOf(k to value)) - 1
             if (size > left) continue
             kept[k] = value
