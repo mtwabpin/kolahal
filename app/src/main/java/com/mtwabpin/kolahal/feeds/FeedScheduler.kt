@@ -51,7 +51,11 @@ object FeedScheduler {
         wm.enqueueUniquePeriodicWork(UNIQUE_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
-    /** Fetches [feedId] (or every enabled feed) right away, ignoring intervals. */
+    /**
+     * Fetches [feedId] (or every enabled feed) right away, ignoring intervals. One already waiting
+     * for a network or running keeps its place, and this one runs after it, so a second `feed fetch`
+     * or a changed address is fetched too (unchanged feeds answer the second time with "not modified").
+     */
     fun fetchNow(context: Context, feedId: Long? = null) {
         val request = OneTimeWorkRequestBuilder<FeedWorker>()
             .setConstraints(network)
@@ -65,7 +69,7 @@ object FeedScheduler {
             .addTag(UNIQUE_NAME)
             .build()
         val name = if (feedId == null) NOW_NAME else "$NOW_NAME-$feedId"
-        WorkManager.getInstance(context).enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(name, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     /** Whether [feed] should be fetched by a scheduled run at [now]. */
