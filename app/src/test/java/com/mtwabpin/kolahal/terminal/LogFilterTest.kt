@@ -1,8 +1,8 @@
 package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.logEntry
 import com.mtwabpin.kolahal.terminal.LogFilter.Kind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,7 +12,7 @@ import org.junit.Test
 
 class LogFilterTest {
     private fun line(kind: LogKind, source: String? = null, vararg ctx: Pair<String, String>) =
-        LogEntry(1, 0, kind, source, "a line", LogContext(ctx.toMap()))
+        logEntry(kind, "a line", source, LogContext(ctx.toMap()))
 
     private val typed = line(LogKind.COMMAND, null, LogContext.COMMAND to "xkcd random")
     private val printed = line(LogKind.OUTPUT, null, LogContext.FROM to "7")

@@ -2,7 +2,7 @@ package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
-import com.mtwabpin.kolahal.data.LogRepository.Pending
+import com.mtwabpin.kolahal.pending
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -10,7 +10,7 @@ import org.junit.Test
 import java.util.concurrent.CountDownLatch
 
 class PipesTest {
-    private fun lines(vararg t: String) = t.mapIndexed { i, s -> Pending(LogKind.OUTPUT, s, null, LogContext.EMPTY, i.toLong()) }
+    private fun lines(vararg t: String) = t.mapIndexed { i, s -> pending(LogKind.OUTPUT, s, ts = i.toLong()) }
     private fun run(stages: String, vararg t: String) = Pipes.apply(lines(*t), Pipes.split("x | $stages").drop(1)).getOrThrow().map { it.text }
 
     @Test fun splitOnlyOnKnownFilters() {
@@ -59,7 +59,7 @@ class PipesTest {
 
     /** A two-column row (help, config, script ls) is found by its description too. */
     @Test fun grepReadsTheDescriptionColumn() {
-        val row = Pending(LogKind.OUTPUT, "todo", null, LogContext.of(LogContext.DESC to "tasks"), 0)
+        val row = pending(LogKind.OUTPUT, "todo", LogContext.of(LogContext.DESC to "tasks"))
         val out = Pipes.apply(listOf(row) + lines("tasks aside", "other"), listOf("grep tasks")).getOrThrow()
         assertEquals(listOf("todo", "tasks aside"), out.map { it.text })
         assertEquals(listOf("other"), Pipes.apply(listOf(row) + lines("other"), listOf("grep -v tasks")).getOrThrow().map { it.text })
@@ -129,17 +129,17 @@ class PipesTest {
     }
 
     @Test fun errorsPassThrough() {
-        val input = lines("x") + Pending(LogKind.ERROR, "boom", null, LogContext.EMPTY, 5)
+        val input = lines("x") + pending(LogKind.ERROR, "boom", ts = 5)
         val out = Pipes.apply(input, listOf("grep nothing")).getOrThrow()
         assertEquals(listOf("boom"), out.map { it.text })
         // Ahead of what the filters leave, so it isn't cut away by head or tail.
-        val mixed = lines("a") + Pending(LogKind.ERROR, "boom", null, LogContext.EMPTY, 5) + lines("b", "c")
+        val mixed = lines("a") + pending(LogKind.ERROR, "boom", ts = 5) + lines("b", "c")
         assertEquals(listOf("boom", "c"), Pipes.apply(mixed, listOf("tail 1")).getOrThrow().map { it.text })
     }
 
     /** The command's own line isn't data either. */
     @Test fun theCommandLinePassesThrough() {
-        val mixed = lines("a") + Pending(LogKind.COMMAND, "help", null, LogContext.EMPTY, 5) + lines("b", "c")
+        val mixed = lines("a") + pending(LogKind.COMMAND, "help", ts = 5) + lines("b", "c")
         assertEquals(listOf("help"), Pipes.apply(mixed, listOf("grep nothing")).getOrThrow().map { it.text })
         assertEquals(listOf("help", "c"), Pipes.apply(mixed, listOf("tail 1")).getOrThrow().map { it.text })
         assertEquals(listOf("help", "3"), Pipes.apply(mixed, listOf("count")).getOrThrow().map { it.text })

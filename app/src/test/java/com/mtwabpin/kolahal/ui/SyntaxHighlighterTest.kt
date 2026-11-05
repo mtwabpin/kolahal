@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.text.AnnotatedString
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.withValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotSame
@@ -47,17 +48,14 @@ class SyntaxHighlighterTest {
 
     /** The last answer stands only for the theme it was coloured in. */
     @Test fun aNewThemeColoursAgain() {
-        val before = Term.palette
-        try {
-            Term.palette = Palettes.green
+        withValue(Term::palette, Palettes.green) {
             val h = SyntaxHighlighter(ScriptLang.LUA, null, null)
             val green = h.filter(AnnotatedString(lua))
-            Term.palette = Palettes.dracula
-            val dracula = h.filter(AnnotatedString(lua))
-            assertNotSame(green, dracula)
-            assertEquals(SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString(lua)).text, dracula.text)
-        } finally {
-            Term.palette = before
+            withValue(Term::palette, Palettes.dracula) {
+                val dracula = h.filter(AnnotatedString(lua))
+                assertNotSame(green, dracula)
+                assertEquals(SyntaxHighlighter(ScriptLang.LUA, null, null).filter(AnnotatedString(lua)).text, dracula.text)
+            }
         }
     }
 

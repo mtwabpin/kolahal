@@ -3,6 +3,8 @@ package com.mtwabpin.kolahal.terminal
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.logEntry
+import com.mtwabpin.kolahal.withDefaultZone
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -10,7 +12,7 @@ class LogRowsTest {
     private val t0 = System.currentTimeMillis()
 
     private fun line(id: Long, at: Long, kind: LogKind = LogKind.INFO, ctx: LogContext = LogContext.EMPTY, source: String? = null) =
-        LogEntry(id, t0 + at, kind, source, "line $id", ctx)
+        logEntry(kind, "line $id", source, ctx, id, t0 + at)
 
     private fun starts(vararg entries: LogEntry): List<Boolean> =
         buildRows(entries.toList()).filterIsInstance<LogRow.Entry>().map { it.blockStart }
@@ -148,11 +150,11 @@ class LogRowsTest {
         val zone = java.time.ZoneOffset.UTC
         val now = java.time.LocalDateTime.of(2026, 10, 24, 18, 0).toInstant(zone).toEpochMilli()
         fun at(d: Int, h: Int, m: Int, s: Int) = java.time.LocalDateTime.of(2026, 10, d, h, m, s).toInstant(zone).toEpochMilli()
-        val script = LogEntry(1, at(24, 6, 55, 12), LogKind.SCRIPT, "countdown", "x", LogContext.EMPTY)
+        val script = logEntry(LogKind.SCRIPT, source = "countdown", id = 1, ts = at(24, 6, 55, 12))
         assertEquals("countdown · today 06:55:12", lineDetail(script, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK))
-        val output = LogEntry(2, at(23, 18, 2, 11), LogKind.OUTPUT, null, "x", LogContext.EMPTY)
+        val output = logEntry(LogKind.OUTPUT, id = 2, ts = at(23, 18, 2, 11))
         assertEquals("yesterday 18:02:11", lineDetail(output, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK))
-        val old = LogEntry(3, at(20, 9, 5, 0), LogKind.SCRIPT, "hn", "x", LogContext.EMPTY)
+        val old = logEntry(LogKind.SCRIPT, source = "hn", id = 3, ts = at(20, 9, 5, 0))
         assertEquals("hn · Tue 20 Oct 09:05:00", lineDetail(old, clock24 = true, now = now, zone = zone, locale = java.util.Locale.UK))
     }
 
@@ -160,17 +162,14 @@ class LogRowsTest {
     @Test
     fun aLineTimeFormatKeepsTheZoneItWasMadeIn() {
         val at = java.util.Date(java.time.LocalDateTime.of(2026, 10, 24, 18, 5).toInstant(java.time.ZoneOffset.UTC).toEpochMilli())
-        val before = java.util.TimeZone.getDefault()
-        try {
-            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
+        withDefaultZone("UTC") {
             val old = lineTimeFormat(clock24 = true, locale = java.util.Locale.UK)
             assertEquals("18:05", old.format(at))
             assertEquals("6:05", lineTimeFormat(clock24 = false, locale = java.util.Locale.UK).format(at))
-            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Tokyo"))
-            assertEquals("18:05", old.format(at))
-            assertEquals("03:05", lineTimeFormat(clock24 = true, locale = java.util.Locale.UK).format(at))
-        } finally {
-            java.util.TimeZone.setDefault(before)
+            withDefaultZone("Asia/Tokyo") {
+                assertEquals("18:05", old.format(at))
+                assertEquals("03:05", lineTimeFormat(clock24 = true, locale = java.util.Locale.UK).format(at))
+            }
         }
     }
 
@@ -178,7 +177,7 @@ class LogRowsTest {
     @Test
     fun aLinesDayIsItsDayInTheZone() {
         val at = java.time.LocalDateTime.of(2020, 1, 15, 23, 30).toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
-        val entry = LogEntry(1, at, LogKind.INFO, null, "x", LogContext.EMPTY)
+        val entry = logEntry(LogKind.INFO, ts = at)
         fun day(zone: String) = buildRows(listOf(entry), zone = java.time.ZoneId.of(zone)).filterIsInstance<LogRow.Day>().single().day
         assertEquals(java.time.LocalDate.of(2020, 1, 15), day("UTC"))
         assertEquals(java.time.LocalDate.of(2020, 1, 16), day("Asia/Tokyo"))

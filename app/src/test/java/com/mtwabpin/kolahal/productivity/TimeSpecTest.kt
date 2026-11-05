@@ -1,10 +1,12 @@
 package com.mtwabpin.kolahal.productivity
 
+import com.mtwabpin.kolahal.withDefaultLocale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.util.Locale
 
 class TimeSpecTest {
     // Saturday 17 Oct 2026, 14:20
@@ -189,14 +191,10 @@ class TimeSpecTest {
 
     /** A yearly rule is stored in plain digits, whatever the phone's language: it's read back later. */
     @Test fun aYearlyRuleIsInPlainDigits() {
-        val before = java.util.Locale.getDefault()
         for (tag in listOf("fa", "ar", "bn")) {
-            try {
-                java.util.Locale.setDefault(java.util.Locale.forLanguageTag(tag))
+            withDefaultLocale(Locale.forLanguageTag(tag)) {
                 assertEquals(tag, "year:10-17", every("every year march madness")!!.rule)
                 assertEquals(tag, "year:03-14", every("every year mar 14 birthday")!!.rule)
-            } finally {
-                java.util.Locale.setDefault(before)
             }
         }
     }

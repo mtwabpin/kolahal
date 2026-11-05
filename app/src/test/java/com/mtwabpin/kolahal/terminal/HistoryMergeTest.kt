@@ -1,8 +1,8 @@
 package com.mtwabpin.kolahal.terminal
 
-import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.logEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -11,7 +11,7 @@ import kotlin.random.Random
 /** ↑ history kept up to date from the new lines, as reading it again from the log would give it. */
 class HistoryMergeTest {
     private var id = 0L
-    private fun line(kind: LogKind, text: String) = LogEntry(++id, 0, kind, null, text, LogContext.EMPTY)
+    private fun line(kind: LogKind, text: String) = logEntry(kind, text, id = ++id)
     private fun command(text: String) = line(LogKind.COMMAND, text)
 
     /** What [com.mtwabpin.kolahal.data.LogRepository.commandHistory]'s query reads: each command once, by its newest line. */
