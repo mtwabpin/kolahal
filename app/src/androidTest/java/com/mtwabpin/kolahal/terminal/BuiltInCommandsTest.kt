@@ -324,10 +324,11 @@ class BuiltInCommandsTest {
 
     /** A word these commands don't take says how they're used. */
     @Test fun wrongWordsSayTheUsage() {
-        assertEquals(listOf("Usage: log only <name|kind> · log all"), run("log bogus"))
-        assertEquals(listOf("Usage: backup [now|every daily|weekly|off|dir]"), run("backup bogus"))
+        // The usage lines help shows: what a wrong word says can't drift from them.
+        assertEquals(listOf("Usage: log [only <name|kind>|all]"), run("log bogus"))
+        assertEquals(listOf("Usage: backup [now|every <daily|weekly|off>|dir]"), run("backup bogus"))
         assertEquals(listOf("Usage: restart [scripts]"), run("restart bogus"))
-        assertEquals(listOf("Usage: clear [screen|history|all]"), run("clear bogus"))
+        assertEquals(listOf("Usage: clear [history|all]"), run("clear bogus"))
         assertEquals(listOf("Usage: widgets [ls] · widget add"), run("widget bogus"))
         if (BuildConfig.SELF_UPDATE) assertEquals(listOf("Usage: update [install]"), run("update bogus"))
         assertEquals(emptyList<Screen>(), screens.toList())

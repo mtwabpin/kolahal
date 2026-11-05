@@ -76,7 +76,7 @@ class Completer(private val context: Context, private val data: Data) {
         val cmd = InstantRun.canonical(head)
         val scriptList = data.scripts
         if (parts.size == 1) {
-            val names = CommandCatalog.COMMAND_NAMES - CommandCatalog.UNAVAILABLE +
+            val names = CommandCatalog.OFFERED_NAMES +
                 data.commandNames +
                 appPrefs.aliases().keys
             // Commands used lately come first, then the rest in their usual order.
@@ -235,7 +235,7 @@ class Completer(private val context: Context, private val data: Data) {
                 else Suggestion.Completion("$name = $command", "$head $name = $command")
             } else emptyList()
             // `help to`: the commands.
-            "help" -> if (parts.size == 2) (CommandCatalog.COMMAND_NAMES - CommandCatalog.UNAVAILABLE).filter { it.starts(last) }
+            "help" -> if (parts.size == 2) CommandCatalog.OFFERED_NAMES.filter { it.starts(last) }
                 .map { Suggestion.Completion(it, "$head $it", help = CommandCatalog.COMMANDS.firstOrNull { c -> c.name == it }?.help) } else emptyList()
             "status" -> if (parts.size == 3 && parts[1] == "clear") words(data.statusNames.toList() + "all", R.drawable.ic_code) else emptyList()
             "feed" -> when (parts.size) {

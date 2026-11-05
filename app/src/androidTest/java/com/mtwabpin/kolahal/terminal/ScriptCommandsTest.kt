@@ -236,7 +236,10 @@ class ScriptCommandsTest {
         assertNull(scripts.byName(to))
         assertEquals(listOf("No script named '$to' — 'script ls'"), run("script rm $to"))
         assertEquals(listOf("Script name required"), run("script run"))
-        assertTrue(run("script frobnicate x").single().startsWith("Usage: script [ls|new|"))
+        // Every subcommand, those that take no script's name too.
+        val said = run("script frobnicate x").single()
+        assertTrue(said, said.startsWith("Usage: script [ls|lib|install|new|") && said.endsWith("] <name>"))
+        for (sub in listOf("set", "dir", "export", "import")) assertTrue("$sub: $said", "|$sub|" in said || "|$sub]" in said)
     }
 
     /** The list says each script's timer, kind, events and switch; triggers name known and unknown events. */

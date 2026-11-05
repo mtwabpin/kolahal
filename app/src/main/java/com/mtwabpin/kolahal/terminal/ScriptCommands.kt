@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.shortTime
 import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.script.LineDiff
@@ -20,9 +21,6 @@ import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
-import com.mtwabpin.kolahal.script.ScriptTemplates
-import java.text.DateFormat
-import java.util.Date
 
 /**
  * `script …`, `status`, and `@command` scripts run by name. Kept out of [CommandProcessor] so
@@ -36,6 +34,7 @@ class ScriptCommands(
 ) : CommandGroup(context) {
     private val scripts = ScriptRepository.get(context)
     private val folder = ScriptFolder(context)
+    private val changes = ScriptChanges(context)
 
 
     /** Runs a `@command` script named [name]; returns null if there is none. */
@@ -74,7 +73,7 @@ class ScriptCommands(
                 logs.onStatusChanged()
                 info("Cleared status: $target")
             }
-            else -> error("Usage: status [clear <name|all>]")
+            else -> usage("status")
         }
     }
 
@@ -114,8 +113,7 @@ class ScriptCommands(
                             "'script install ${entry.name} --replace' replaces it (export it first to keep a copy)"
                     )
                 }
-                val s = lib.install(entry)
-                ScriptAccess.askForSecrets(context, s)
+                val s = changes.install(lib, entry)
                 info("Installed ${s.name}.${s.lang.ext}" + (if (entry.command) " — run it as '${s.name}'" else "") +
                     (if (s.intervalMin > 0) " · every ${CommandParsing.formatInterval(s.intervalMin)}" else ""), scriptCtx(s))
             }
@@ -132,8 +130,7 @@ class ScriptCommands(
                 val asCommand = "--cmd" in args || "cmd" in args
                 val chosen = args.drop(2).firstNotNullOfOrNull(ScriptLang::of) ?: lang ?: ScriptLang.LUA
                 if (scripts.byName(name) != null) return error("Script '$name' already exists — 'script edit $name'")
-                val template = if (asCommand) ScriptTemplates.command(chosen, name) else ScriptTemplates.forLang(chosen, name)
-                val script = scripts.create(name, chosen, template)
+                val script = changes.create(name, chosen, asCommand)
                 info("Created ${script.name}.${script.lang.ext}", scriptCtx(script))
                 ui.openEditor(script)
             }
@@ -146,13 +143,7 @@ class ScriptCommands(
             "every" -> withScript(target) { s ->
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
                     ?: return error("Usage: script every <name> <15m|30m|2h|1d|off>")
-                val effective = if (minutes > 0) minutes.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) else 0
-                scripts.setInterval(s.id, effective)
-                if (effective > 0 && !s.enabled) {
-                    scripts.setEnabled(s.id, true)
-                    scripts.byId(s.id)?.let { ScriptAccess.askForNew(context, it) }
-                }
-                scripts.byId(s.id)?.let { ScriptScheduler.sync(context, it) }
+                val effective = changes.interval(s, minutes)
                 info(
                     if (effective == 0) "${s.name}: timer off" else "${s.name}: runs every ${CommandParsing.formatInterval(effective)}" +
                         if (minutes in 1 until ScriptScheduler.MIN_INTERVAL_MIN) " (Android minimum is 15m)" else "",
@@ -165,12 +156,7 @@ class ScriptCommands(
                     is CommandParsing.DailyTimes.Bad -> return error("Invalid time '${read.word}' — use HH:mm")
                     is CommandParsing.DailyTimes.Times -> read.times
                 }
-                scripts.setAtTimes(s.id, times)
-                if (times.isNotEmpty() && !s.enabled) {
-                    scripts.setEnabled(s.id, true)
-                    scripts.byId(s.id)?.let { ScriptAccess.askForNew(context, it) }
-                }
-                scripts.byId(s.id)?.let { ScriptScheduler.sync(context, it) }
+                changes.times(s, times)
                 info(if (times.isEmpty()) "${s.name}: no daily times" else "${s.name}: daily at ${times.joinToString(", ")}", scriptCtx(s))
             }
             "notify" -> withScript(target) { s ->
@@ -186,8 +172,7 @@ class ScriptCommands(
             "on", "off", "enable", "disable" -> withScript(target) { s ->
                 val enabled = sub == "on" || sub == "enable"
                 // Typed by you: the go-ahead for what it declares, said in the next line.
-                scripts.setEnabled(s.id, enabled, grant = enabled)
-                scripts.byId(s.id)?.let { ScriptScheduler.sync(context, it) }
+                changes.enabled(s, enabled)
                 info("${s.name}: ${if (enabled) "turned on" else "turned off"}", scriptCtx(s))
                 // Switching a script on allows what it declares and nobody decided yet: say what it may use.
                 val grants = scripts.byId(s.id)?.grants
@@ -204,8 +189,7 @@ class ScriptCommands(
             "access" -> withScript(target) { listAccess(it) }
             "pin", "unpin" -> withScript(target) { s ->
                 if (!ScriptMeta.setsStatus(s.code)) return error("${s.name} has no status line to pin: it never calls status()")
-                scripts.setAccess(s.id, ScriptAccess.HEADER, sub == "pin")
-                logs.onStatusChanged()
+                changes.access(s, ScriptAccess.HEADER, sub == "pin")
                 info(if (sub == "pin") "${s.name}: pinned to the top" else "${s.name}: unpinned", scriptCtx(s))
             }
             "allow", "deny" -> withScript(target) { s ->
@@ -222,9 +206,7 @@ class ScriptCommands(
                 val to = args.getOrNull(2)?.lowercase()?.removeSuffix(".${s.lang.ext}")
                     ?: return error("Usage: script mv <name> <new-name>")
                 if (to == s.name) return info("${s.name} already has that name", scriptCtx(s))
-                ScriptNames.invalid(to) { scripts.byName(it) != null }?.let { return error(it) }
-                scripts.rename(s.id, to)
-                logs.onStatusChanged()
+                changes.rename(s, to)?.let { return error(it) }
                 val renamed = scripts.byId(s.id) ?: return
                 info(
                     "Renamed ${s.name}.${s.lang.ext} to ${renamed.name}.${renamed.lang.ext}" +
@@ -241,7 +223,8 @@ class ScriptCommands(
                 })
             }
             "diff" -> withScript(target) { s -> diff(s) }
-            else -> error("Usage: script [ls|new|edit|run|every|at|notify|on|off|get|access|allow|deny|pin|unpin|secret|triggers|mv|rm|cat|diff] <name>")
+            // Every subcommand completion offers, not the catalog's short `script <sub> <name>`.
+            else -> error("Usage: script [${SUBCOMMANDS.joinToString("|")}] <name>")
         }
     }
 
@@ -446,13 +429,13 @@ class ScriptCommands(
             info("No scripts yet — try 'script new hn' or 'script new news.js'")
             return
         }
-        val df = DateFormat.getTimeInstance(DateFormat.SHORT)
+        val config = com.mtwabpin.kolahal.data.Config.get(context)
         all.forEach { s ->
             val timer = listOfNotNull(
                 s.intervalMin.takeIf { it > 0 }?.let { "every ${CommandParsing.formatInterval(it)}" },
                 s.atTimes.takeIf { it.isNotEmpty() }?.let { "at " + it.joinToString(",") },
             ).joinToString(" ").ifEmpty { "manual" }
-            val last = s.lastRun?.let { "${df.format(Date(it))} ${s.lastStatus.orEmpty()}" } ?: "never run"
+            val last = s.lastRun?.let { "${config.shortTime(it)} ${s.lastStatus.orEmpty()}" } ?: "never run"
             val parts = buildList {
                 add(timer)
                 if (ScriptMeta.isCommand(s.code)) add("command")

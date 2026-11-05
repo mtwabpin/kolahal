@@ -16,6 +16,7 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.notify.Notifier
@@ -23,12 +24,9 @@ import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.Net
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.terminal.CommandCatalog.COMMANDS
-import com.mtwabpin.kolahal.terminal.CommandCatalog.COMMAND_NAMES
 import com.mtwabpin.kolahal.terminal.CommandCatalog.HELP_SECTIONS
 import com.mtwabpin.kolahal.terminal.CommandCatalog.PRODUCTIVITY
 import com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
-import com.mtwabpin.kolahal.terminal.CommandCatalog.UNAVAILABLE
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.widgets.listing
 import java.text.DateFormat
@@ -226,7 +224,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     }
 
     private fun unalias(args: List<String>) {
-        val name = args.firstOrNull() ?: return error("Usage: unalias <name>")
+        val name = args.firstOrNull() ?: return usage("unalias")
         if (prefs.alias(name) == null) return error("No alias '$name'")
         prefs.setAlias(name, null)
         info("Removed alias $name")
@@ -281,7 +279,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private fun notFound(text: String) {
         val head = text.substringBefore(' ').lowercase()
         val rest = text.substringAfter(' ', "")
-        val candidates = COMMAND_NAMES - UNAVAILABLE + prefs.aliases().keys +
+        val candidates = CommandCatalog.OFFERED_NAMES + prefs.aliases().keys +
             scripts.all().filter { ScriptMeta.isCommand(it.code) }.map { it.name }
         val best = candidates.filter { it.length > 1 }
             .map { it to CommandParsing.editDistance(head, it) }
@@ -334,21 +332,21 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     private fun eval(lang: ScriptLang, code: String) {
         if (code.isBlank()) {
-            error("Usage: ${lang.ext} <code>")
+            usage(lang.ext)
             return
         }
         if (!ScriptScheduler.eval(context, lang, code)) error("Snippet too long — use 'script new'")
     }
 
     private fun openUrl(raw: String) {
-        if (raw.isBlank()) return error("Usage: url <address>")
+        if (raw.isBlank()) return usage("url")
         val url = if (raw.contains("://")) raw else "https://$raw"
         startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
         info("Opened $url", LogContext.of(LogContext.URL to url))
     }
 
     private fun search(query: String, engine: String? = null) {
-        if (query.isBlank()) return error("Usage: search <query>")
+        if (query.isBlank()) return usage("search")
         val template = when (engine ?: conf[Keys.SEARCH_ENGINE]) {
             "google" -> "https://www.google.com/search?q=%s"
             "bing" -> "https://www.bing.com/search?q=%s"
@@ -425,7 +423,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 lines.forEach { (text, desc) -> out(text, LogContext.of(LogContext.RUN to "widgets", LogContext.DESC to desc)) }
             }
             "add" -> ui.openScreen(Screen.WIDGET_PICKER)
-            else -> error("Usage: widgets [ls] · widget add")
+            else -> usage("widgets", "widget")
         }
     }
 
@@ -466,7 +464,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 match.set(context, match.themeColour()) -> info("Home screen wallpaper set to this theme's colour. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
                 else -> error("Couldn't change the wallpaper on this phone")
             }
-            else -> error("Usage: wallpaper [match]")
+            else -> usage("wallpaper")
         }
     }
 
@@ -496,7 +494,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             "clear" -> com.mtwabpin.kolahal.CrashReports.clear(context).let { n ->
                 info(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports")
             }
-            else -> error("Usage: crashes [share|clear] [<n>]")
+            else -> usage("crashes")
         }
     }
 
@@ -505,7 +503,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         when (args.firstOrNull()) {
             "only" -> ui.filterLog(LogFilter.parse(args.drop(1).joinToString(" ")) ?: return error("Usage: log only <script, feed or app | commands, scripts, feeds, notifications, apps, calls, reminders, starred>"))
             "all" -> ui.filterLog(null)
-            else -> error("Usage: log only <name|kind> · log all")
+            else -> usage("log")
         }
     }
 
@@ -525,7 +523,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 info("Command history cleared")
             }
             "all", "log" -> logs.clearAll()
-            else -> error("Usage: clear [screen|history|all]")
+            else -> usage("clear")
         }
     }
 
@@ -546,14 +544,14 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             }
             "every", "auto" -> {
                 val value = when (val v = args.getOrNull(1)?.lowercase()) { "day" -> "daily"; "week" -> "weekly"; else -> v }
-                if (value == null || value !in Keys.BACKUP_AUTO.choices) return error("Usage: backup every daily|weekly|off")
+                if (value == null || value !in Keys.BACKUP_AUTO.choices) return error("Usage: backup every <daily|weekly|off>")
                 conf.set(Keys.BACKUP_AUTO, value)
                 if (value == "off") return info("Automatic backups off")
                 info("Backing up $value to ${auto.folderName(context) ?: "a folder you pick"}, keeping the newest ${conf[Keys.BACKUP_KEEP]} (backup.keep)")
                 if (auto.folder(context) == null) ui.askBackupFolder(thenBackUp = false)
             }
             "dir", "folder" -> ui.askBackupFolder(thenBackUp = false)
-            else -> error("Usage: backup [now|every daily|weekly|off|dir]")
+            else -> usage("backup")
         }
     }
 
@@ -580,7 +578,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                     info("Script process stopped; scheduled scripts will start it again")
                 }
             }
-            else -> error("Usage: restart [scripts]")
+            else -> usage("restart")
         }
     }
 
@@ -599,26 +597,29 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     private fun startSettings(action: String) = startActivity(Intent(action))
 
+    /** A command's line in help: its usage, a tap puts its name in the prompt, and what it does. */
+    private fun helpLine(spec: CommandSpec) = out(spec.usage, LogContext.of(LogContext.COMMAND to spec.name + " ", LogContext.DESC to spec.help))
+
+    /** A script command's line in help, as a built-in's. */
+    private fun helpLine(s: Script) {
+        val desc = ScriptMeta.description(s.code) ?: "${s.lang.ext} script"
+        out(ScriptMeta.usage(s.code, s.name) ?: s.name, LogContext.of(LogContext.COMMAND to s.name + " ", LogContext.SCRIPT to s.name, LogContext.DESC to desc))
+    }
+
     private fun help() {
-        val offered = COMMANDS.filter { it.name !in UNAVAILABLE }
-        val byName = offered.associateBy { it.name }
+        val byName = CommandCatalog.OFFERED.associateBy { it.name }
         val placed = HashSet<String>()
         for ((section, names) in HELP_SECTIONS) {
             info(section.replaceFirstChar { it.uppercase() })
             names.mapNotNull(byName::get).forEach { spec ->
                 placed += spec.name
-                out(spec.usage, LogContext.of(LogContext.COMMAND to spec.name + " ", LogContext.DESC to spec.help))
+                helpLine(spec)
             }
         }
-        offered.filter { it.name !in placed }.forEach { spec ->
-            out(spec.usage, LogContext.of(LogContext.COMMAND to spec.name + " ", LogContext.DESC to spec.help))
-        }
+        CommandCatalog.OFFERED.filter { it.name !in placed }.forEach(::helpLine)
         val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
         if (commandScripts.isNotEmpty()) info("Your script commands")
-        commandScripts.forEach { s ->
-            val desc = ScriptMeta.description(s.code) ?: "${s.lang.ext} script"
-            out(ScriptMeta.usage(s.code, s.name) ?: s.name, LogContext.of(LogContext.COMMAND to s.name + " ", LogContext.SCRIPT to s.name, LogContext.DESC to desc))
-        }
+        commandScripts.forEach(::helpLine)
         info("Anything else is matched against app names · tap a line to use it · long-press for more")
         info("Pipes: help | grep feed · history | tail 5 · contacts | count  (grep [-v], head, tail, sort, uniq, count)")
     }
@@ -626,24 +627,20 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     /** `help todo`: that command's usage and what it does, its other names, and where the guide says more. */
     private fun commandHelp(word: String) {
         val typed = word.lowercase()
-        val offered = COMMANDS.filter { it.name !in UNAVAILABLE }
-        fun line(spec: CommandSpec) = out(spec.usage, LogContext.of(LogContext.COMMAND to spec.name + " ", LogContext.DESC to spec.help))
+        val offered = CommandCatalog.OFFERED
         offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
-            line(spec)
+            helpLine(spec)
             val also = InstantRun.SYNONYMS.filterValues { it == spec.name }.keys
             if (also.isNotEmpty()) info("Also known as ${also.joinToString(", ")}")
             info("More in the guide's command list", LogContext.of(LogContext.URL to com.mtwabpin.kolahal.ui.GUIDE_URL + "reference/commands/"))
             return
         }
         prefs.alias(typed)?.let { return info("$typed is your alias for: $it", LogContext.of(LogContext.COMMAND to "$typed ")) }
-        scripts.all().firstOrNull { it.name == typed && ScriptMeta.isCommand(it.code) }?.let { s ->
-            val desc = ScriptMeta.description(s.code) ?: "${s.lang.ext} script"
-            return out(ScriptMeta.usage(s.code, s.name) ?: s.name, LogContext.of(LogContext.COMMAND to s.name + " ", LogContext.SCRIPT to s.name, LogContext.DESC to desc))
-        }
+        scripts.all().firstOrNull { it.name == typed && ScriptMeta.isCommand(it.code) }?.let { return helpLine(it) }
         // Not a command: those it may be the start of, or a typo of.
         val near = offered.filter { it.name.startsWith(typed) || CommandParsing.editDistance(typed, it.name) <= (if (it.name.length <= 4) 1 else 2) }
         if (near.isEmpty()) return error("No command called '$word' · help lists them all")
         info("No command called '$word'; nearest:")
-        near.take(8).forEach(::line)
+        near.take(8).forEach(::helpLine)
     }
 }

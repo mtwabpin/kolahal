@@ -267,7 +267,7 @@ class CommandFamiliesTest {
             assertTrue("scheduled: ${state()}", waitFor { state() in scheduled })
             // Over and done with, so its line can't turn up in the next test's output.
             waitFor(ms = 3_000) { logs.recent(50).any { it.id > before && it.text.startsWith(failed) } }
-            assertEquals(listOf("Usage: backup every daily|weekly|off"), said("backup every hourly"))
+            assertEquals(listOf("Usage: backup every <daily|weekly|off>"), said("backup every hourly"))
             assertEquals(listOf("Automatic backups off"), said("backup every off"))
             assertTrue("cancelled: ${state()}", waitFor { state() == androidx.work.WorkInfo.State.CANCELLED })
         } finally {

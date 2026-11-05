@@ -14,6 +14,9 @@ abstract class CommandGroup(protected val context: Context) {
     protected fun info(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.INFO, text, ctx = ctx) }
     protected fun error(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.ERROR, text, ctx = ctx) }
 
+    /** "Usage: " and the usage lines of the commands [names] from [CommandCatalog], the ones help shows, as an error. */
+    protected fun usage(vararg names: String) = error("Usage: " + names.joinToString(" · ") { CommandCatalog.COMMAND_USAGES.getValue(it) })
+
     protected fun startActivity(intent: Intent) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }

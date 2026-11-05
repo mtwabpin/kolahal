@@ -21,7 +21,7 @@ class FeedCommands(
 
     fun rss(url: String) {
         if (url.isBlank()) {
-            error("Usage: rss <feed url>")
+            usage("rss")
             return
         }
         val quoted = url.replace("\\", "\\\\").replace("\"", "\\\"")
@@ -38,6 +38,10 @@ class FeedCommands(
             name = "rss",
         )
     }
+
+    /** Whether feed [id] exists; when it doesn't, it says so. */
+    private fun exists(id: Long): Boolean =
+        (com.mtwabpin.kolahal.feeds.FeedRepository.get(context).byId(id) != null).also { if (!it) error("No feed #$id — 'feeds' lists them") }
 
     /** Built-in RSS/Atom subscriptions (no scripting needed). */
     fun feeds(args: List<String>) {
@@ -76,7 +80,7 @@ class FeedCommands(
             }
             "rm", "remove" -> {
                 id ?: return error("Usage: feed rm <id>")
-                if (repo.byId(id) == null) return error("No feed #$id — 'feeds' lists them")
+                if (!exists(id)) return
                 repo.remove(id)
                 scheduler.sync(context)
                 info("Removed feed #$id")
@@ -117,26 +121,26 @@ class FeedCommands(
             }
             "notify" -> {
                 id ?: return error("Usage: feed notify <id> on|off")
-                if (repo.byId(id) == null) return error("No feed #$id — 'feeds' lists them")
+                if (!exists(id)) return
                 repo.setNotify(id, args.getOrNull(2) != "off")
                 info("Feed #$id notifications ${args.getOrNull(2) ?: "on"}")
             }
             "every" -> {
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
                 if (id == null || minutes == null || minutes <= 0) return error("Usage: feed every <id> <30m|2h|…>")
-                if (repo.byId(id) == null) return error("No feed #$id — 'feeds' lists them")
+                if (!exists(id)) return
                 repo.setInterval(id, minutes)
                 scheduler.sync(context)
                 info("Feed #$id every ${CommandParsing.formatInterval(minutes.coerceAtLeast(15))}")
             }
             "on", "off" -> {
                 id ?: return error("Usage: feed ${args[0]} <id>")
-                if (repo.byId(id) == null) return error("No feed #$id — 'feeds' lists them")
+                if (!exists(id)) return
                 repo.setEnabled(id, args[0] == "on")
                 scheduler.sync(context)
                 info("Feed #$id ${args[0]}")
             }
-            else -> error("Usage: feed [ls|add <url>|url <id> <url>|rm|fetch|read|all|open|notify|every|on|off] [id]")
+            else -> usage("feed")
         }
     }
 
@@ -190,7 +194,7 @@ class FeedCommands(
                 com.mtwabpin.kolahal.notifications.KolahalNotificationListener.clearMirror(context)
                 info("Notifications cleared")
             }
-            else -> error("Usage: notifs [all|enable|mute <app>|unmute <app>|muted|log on|off|clear]")
+            else -> usage("notifs")
         }
     }
 

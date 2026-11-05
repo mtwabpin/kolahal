@@ -113,6 +113,10 @@ object CommandCatalog {
      */
     val UNAVAILABLE: Set<String> = FEATURE_COMMANDS.filterNot { it.first }.flatMap { it.second }.toSet()
 
+    /** The commands this build offers: what help lists and completion suggests. */
+    val OFFERED: List<CommandSpec> = COMMANDS.filter { it.name !in UNAVAILABLE }
+    val OFFERED_NAMES: Set<String> = OFFERED.mapTo(LinkedHashSet()) { it.name }
+
     /** Usage line per command name, for option completion and instant runs. */
     val COMMAND_USAGES: Map<String, String> = COMMANDS.associate { it.name to it.usage }
 

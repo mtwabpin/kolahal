@@ -322,7 +322,7 @@ class FeedCommandsTest {
         assertEquals(listOf("No feed #${f.id} — 'feeds' lists them"), run("feed remove ${f.id}"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm"))
         assertEquals(listOf("Usage: feed rm <id>"), run("feed rm first"))
-        assertEquals(listOf("Usage: feed [ls|add <url>|url <id> <url>|rm|fetch|read|all|open|notify|every|on|off] [id]"), run("feed bogus"))
+        assertEquals(listOf("Usage: feed [add <url>|url <id> <url>|ls|rm|fetch|read|all|open|notify|every|on|off] [<id>]"), run("feed bogus"))
     }
 
     /**
@@ -363,7 +363,7 @@ class FeedCommandsTest {
      * subscribes to nothing. (A feed it can read isn't tried: the tests reach no server.)
      */
     @Test fun rssWithNoAddressOrOneItCantRead() {
-        assertEquals(listOf("Usage: rss <feed url>"), run("rss"))
+        assertEquals(listOf("Usage: rss <url>"), run("rss"))
         val before = logs.maxId()
         processor.run("rss ${BASE}feed")
         val command = commandId("rss ${BASE}feed")
@@ -444,7 +444,7 @@ class FeedCommandsTest {
         assertFalse(notifPrefs.logToTerminal)
         assertEquals(listOf("Notifications appear in the log"), run("notifs log on"))
         assertTrue(notifPrefs.logToTerminal)
-        assertEquals(listOf("Usage: notifs [all|enable|mute <app>|unmute <app>|muted|log on|off|clear]"), run("notifs bogus"))
+        assertEquals(listOf("Usage: notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]"), run("notifs bogus"))
 
         // On already, `enable` opens Android's screen, to turn it off there.
         val opened = mutableListOf<Intent>()

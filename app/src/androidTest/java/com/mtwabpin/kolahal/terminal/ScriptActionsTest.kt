@@ -205,6 +205,9 @@ class ScriptActionsTest {
         assertTrue(now(s).enabled)
         assertFalse(now(s).grants.allows("apps"))
         assertTrue(newLines().any { it.text == "sa-one requests apps — tap to allow" })
+        // "off" takes them away, as `script at <name> off` does.
+        assertTrue(actions.setScriptTimes(s, "off"))
+        assertTrue(now(s).atTimes.isEmpty())
     }
 
     /** A time that isn't one refuses the lot: nothing is set, and the script stays off. */

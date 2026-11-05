@@ -19,7 +19,6 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.script.ScriptTemplates
 import com.mtwabpin.kolahal.script.SecretStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,31 +64,29 @@ class ScriptActions(
 
     fun refreshScripts() = io { scriptList.value = scripts.all() }
 
-    /** Applies a script change, reschedules it, and refreshes the manager list. */
-    private fun updateScript(s: Script, change: () -> Unit) = io {
-        change()
-        scripts.byId(s.id)?.let { ScriptScheduler.sync(context, it) }
+    private val changes = ScriptChanges(context)
+
+    /** Applies a script change off the main thread, and refreshes the manager list. */
+    private fun change(block: () -> Unit) = io {
+        block()
         scriptList.value = scripts.all()
     }
 
     /** The Scripts screen's switch: it asks first when there is anything to decide ([enableScript]). */
-    fun setScriptEnabled(s: Script, on: Boolean) = updateScript(s) {
-        scripts.setEnabled(s.id, on, grant = on)
+    fun setScriptEnabled(s: Script, on: Boolean) = change {
+        changes.enabled(s, on)
         if (on) scripts.byId(s.id)?.let { ScriptAccess.askForSecrets(context, it) }
     }
 
     /** Switches [s] on with the user's answers for what it asks to use ([choices]: item to allowed). */
-    fun enableScript(s: Script, choices: Map<String, Boolean>) = updateScript(s) {
+    fun enableScript(s: Script, choices: Map<String, Boolean>) = change {
         choices.forEach { (item, on) -> scripts.setAccess(s.id, item, on) }
-        scripts.setEnabled(s.id, true, grant = true)
+        changes.enabled(s, true)
         scripts.byId(s.id)?.let { ScriptAccess.askForSecrets(context, it) }
     }
 
     /** One access switch; pinning or unpinning shows at the top of home at once. */
-    fun setScriptAccess(s: Script, item: String, on: Boolean) = updateScript(s) {
-        scripts.setAccess(s.id, item, on)
-        if (item == ScriptAccess.HEADER) logs.onStatusChanged()
-    }
+    fun setScriptAccess(s: Script, item: String, on: Boolean) = change { changes.access(s, item, on) }
 
     /** Long-press on a pinned script's line at the top: run it, unpin it, or edit it. */
     fun statusActions(name: String): List<LogAction> {
@@ -106,32 +103,20 @@ class ScriptActions(
         )
     }
     fun setScriptNotify(s: Script, on: Boolean) {
-        updateScript(s) { scripts.setNotify(s.id, on) }
+        change { scripts.setNotify(s.id, on) }
         if (on) host.emit(UiEvent.RequestNotificationPermission)
     }
 
-    fun setScriptInterval(s: Script, minutes: Int) = updateScript(s) {
-        scripts.setInterval(s.id, if (minutes > 0) minutes.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) else 0)
-        // A timer switches it on, but allows nothing it asks for: that stays a tap away.
-        if (minutes > 0 && !s.enabled) {
-            scripts.setEnabled(s.id, true)
-            scripts.byId(s.id)?.let { ScriptAccess.askForNew(context, it) }
-        }
-    }
+    fun setScriptInterval(s: Script, minutes: Int) = change { changes.interval(s, minutes) }
 
-    /** "08:00, 18:30" -> daily times; returns false if any time is invalid. */
+    /** "08:00, 18:30" -> daily times, read as `script at` reads them ("off" or nothing: none); false if one isn't a time. */
     fun setScriptTimes(s: Script, raw: String): Boolean {
-        val parts = raw.split(',', ' ').filter { it.isNotBlank() }
-        val times = parts.mapNotNull(ScriptScheduler::normalizeTime)
-        if (times.size != parts.size) return false
-        updateScript(s) {
-            scripts.setAtTimes(s.id, times.distinct().sorted())
-            // Times switch it on, as a timer does, but allow nothing it asks for: that stays a tap away.
-            if (times.isNotEmpty() && !s.enabled) {
-                scripts.setEnabled(s.id, true)
-                scripts.byId(s.id)?.let { ScriptAccess.askForNew(context, it) }
-            }
+        val times = when (val read = CommandParsing.dailyTimes(CommandParsing.clockWords(listOf(raw)))) {
+            null -> emptyList()
+            is CommandParsing.DailyTimes.Bad -> return false
+            is CommandParsing.DailyTimes.Times -> read.times
         }
+        change { changes.times(s, times) }
         return true
     }
 
@@ -142,9 +127,7 @@ class ScriptActions(
 
     /** Renames [s] ([ScriptRepository.rename]); the sheet checks the name as it is typed. */
     fun renameScript(s: Script, to: String) = io {
-        ScriptNames.invalid(to) { scripts.byName(it) != null }?.let { return@io notice(it, error = true) }
-        scripts.rename(s.id, to)
-        logs.onStatusChanged()
+        changes.rename(s, to)?.let { return@io notice(it, error = true) }
         scriptList.value = scripts.all()
         notice("Renamed ${s.name}.${s.lang.ext} to $to.${s.lang.ext}")
     }
@@ -167,8 +150,7 @@ class ScriptActions(
         }
         io {
             if (scripts.byName(clean) != null) return@io notice("Script '$clean' already exists", error = true)
-            val code = if (asCommand) ScriptTemplates.command(lang, clean) else ScriptTemplates.forLang(lang, clean)
-            val s = scripts.create(clean, lang, code)
+            val s = changes.create(clean, lang, asCommand)
             scriptList.value = scripts.all()
             openEditor(s)
         }
@@ -211,8 +193,7 @@ class ScriptActions(
 
     fun installFromLibrary(entry: ScriptLibrary.Entry) {
         fileOp("install") {
-            val s = library.install(entry)
-            ScriptAccess.askForSecrets(context, s)
+            val s = changes.install(library, entry)
             refreshScriptCaches()
             notice("Installed ${s.name}.${s.lang.ext}" + if (entry.command) " — run it as '${s.name}'" else "")
         }
