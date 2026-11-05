@@ -105,8 +105,10 @@ class HostApi(
      * `secrets.get(name)`: a mark standing for the value you set for a declared `@secret` name (nil
      * until you set one), never the value itself. The script puts it where a request needs the
      * value, and [httpRequest] puts the value in its place only for the sites the `@secret` line
-     * names, over https: a script can't send a value it never sees anywhere else, however it
-     * changes or hides it. The mark holds this run's [nonce], so it means nothing outside the run.
+     * names, over https. The script never gets the value back from Kolahal: a mark can't be part of
+     * a site's name (the address lookup would carry the value in plain text, and its error would
+     * quote it), and what a failed request throws is masked ([masked]). Only a site the line names
+     * could send it back. The mark holds this run's [nonce], so it means nothing outside the run.
      */
     fun secretGet(name: String): String? {
         val s = secrets ?: throw IllegalStateException("secrets.get only works in saved scripts")
@@ -123,12 +125,18 @@ class HostApi(
 
     /**
      * [text] with this run's marks replaced by their values, for a request to [url]'s host: only a
-     * site the secret's `@secret` line names, over https; anywhere else stops the run.
+     * site the secret's `@secret` line names, over https, and never with a mark in the site's name
+     * or its user name; anything else stops the run.
      */
     internal fun fillSecrets(text: String, url: okhttp3.HttpUrl): String = marks.replace(text) { m ->
         val name = m.groupValues[1]
         val secret = secrets?.declared?.firstOrNull { it.name == name } ?: return@replace m.value
         val value = secrets.values[name] ?: return@replace m.value
+        // `https://<mark>.api.example.com` ends in an allowed site, but the value would go to the
+        // address lookup in plain text, and the lookup's error would hand it to the script.
+        if (listOf(url.host, url.username, url.password).any(marks::containsMatchIn)) {
+            throw java.io.IOException("$name can't be part of a site's name, only of its path, query, headers or body")
+        }
         if (!secret.allows(url.host)) throw java.io.IOException("$name may only be sent to ${secret.hosts.joinToString()}, not ${url.host}")
         if (!url.isHttps) throw java.io.IOException("$name may only be sent over https, not to http://${url.host}")
         value
@@ -144,6 +152,24 @@ class HostApi(
 
     /** [text] with this script's secrets masked, values and marks alike: what a run shows never shows a key. */
     fun redact(text: String): String = secretForms.fold(marks.replace(text, "••••")) { t, v -> t.replace(v, "••••") }
+
+    /**
+     * [e] as the script may see it: with this script's secrets masked in its message, or [e] itself
+     * when the message holds none. A request's error can quote an address or a header with a value
+     * in it (OkHttp names a bad character's header and value), and the script reads the message.
+     * The cause, which would carry the value on, is left out.
+     */
+    fun masked(e: Throwable): Throwable {
+        if (e is kotlinx.coroutines.CancellationException) return e
+        val message = e.message ?: return e
+        val shown = redact(message)
+        if (shown == message) return e
+        return when (e) {
+            is java.io.IOException -> java.io.IOException(shown)
+            is IllegalArgumentException -> IllegalArgumentException(shown)
+            else -> IllegalStateException(shown)
+        }
+    }
 
     /**
      * Private data is only for scripts that declare it: undeclared is a mistake in the script.
@@ -342,6 +368,24 @@ class HostApi(
             throw IllegalArgumentException("http: a request can't set its own Host header")
         }
         val target = url.toHttpUrlOrNull() ?: throw IllegalArgumentException("not a web address: ${redact(url)}")
+        // From here on the request holds the values: whatever it throws is masked.
+        try {
+            return sendFilled(url, target, method, body, bodyIsJson, contentType, headers)
+        } catch (e: Exception) {
+            throw masked(e)
+        }
+    }
+
+    /** [httpRequest] once its address is read: the secrets go in, and the request goes out. */
+    private fun sendFilled(
+        url: String,
+        target: okhttp3.HttpUrl,
+        method: String,
+        body: String?,
+        bodyIsJson: Boolean,
+        contentType: String?,
+        headers: Map<*, *>?,
+    ): Map<String, Any?> {
         // The secrets' values go in now, where the script put their marks, and only for their sites.
         val realUrl = fillSecrets(url, target)
         val realBody = body?.let { fillSecrets(it, target) }
@@ -381,8 +425,8 @@ class HostApi(
     /**
      * A secret goes only to the sites its `@secret` line names, and only over [https]: a request
      * carrying it ([carried]: the URL, body and headers) anywhere else, or over plain http, stops
-     * the run. A script could still disguise a value, so this guards against mistakes more than
-     * against a script written to leak.
+     * the run. A script holding the value (its site sent it back) could still disguise it, so this
+     * guards against mistakes more than against a script written to leak.
      */
     private fun checkSecrets(host: String, carried: List<String>, https: Boolean) {
         val s = secrets ?: return

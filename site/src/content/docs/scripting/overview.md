@@ -284,7 +284,8 @@ or with `script secret <name> <NAME>`, which opens a box the keyboard doesn't le
   out of the [backup file](/guides/backup/), Android's backups and exported scripts. Deleting a script deletes them.
 - `secrets.get` returns a placeholder for the value, never the value, or nil until the value is set.
   The script puts it where the request needs the key, and the value goes in its place only in a
-  request to a site the `@secret` line names, over https. A script that needs to work on the key
+  request to a site the `@secret` line names, over https. It can't be part of the site's name
+  (`https://<key>.example.com`), which goes to the address lookup unencrypted. A script that needs to work on the key
   itself (encode it, sign with it) can't. Reading a name without its `@secret` line stops the script
   with an error, and code typed at the prompt can't read secrets.
 - A value must be at least 4 characters and is never displayed: in log lines, the header, notifications, results and errors it appears as `••••`.

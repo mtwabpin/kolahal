@@ -53,6 +53,9 @@ class JsEngine : ScriptEngine {
             js.evaluate<Any?>("__kolahal_done(await (async () => {\n$code\n})());", filename = "$chunkName.js")
             return result?.let(::render)
         } finally {
+            // Over first: closing cancels the jobs still waiting, but a request one of them made
+            // (a call not awaited) answers later, on its own thread, and must change nothing then.
+            host.finish()
             // Closing waits for the engine: a run stuck in a job loop never gets past it, and the
             // watchdog, still on, stops it.
             watchdog.use { js.close() }
@@ -60,6 +63,17 @@ class JsEngine : ScriptEngine {
     }
 
     private fun bindHost(js: QuickJs, host: HostApi) {
+        /** A call that waits, in one of [httpSlots]; what it throws is masked as the script may see it. */
+        suspend fun <T> io(block: () -> T): T = httpSlots.withPermit {
+            withContext(Dispatchers.IO) {
+                try {
+                    block()
+                } catch (e: Exception) {
+                    throw host.masked(e)
+                }
+            }
+        }
+
         js.function("log") { args ->
             val (title, body, ctx) = logArgs(args)
             host.log(title, body, ctx)
@@ -158,7 +172,6 @@ class JsEngine : ScriptEngine {
     /** Network calls in flight for this run: `Promise.all` over hundreds of requests waits its turn. */
     private val httpSlots = Semaphore(4)
 
-    private suspend fun <T> io(block: () -> T): T = httpSlots.withPermit { withContext(Dispatchers.IO) { block() } }
 
     /** `(title, body?, ctx?)` as log and md.log take them; an object second is the ctx: log(title, ctx). */
     private fun logArgs(args: Array<Any?>): Triple<String, String?, Map<*, *>?> {

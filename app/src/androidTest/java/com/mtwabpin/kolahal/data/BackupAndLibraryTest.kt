@@ -503,6 +503,32 @@ class BackupAndLibraryTest {
         }
     }
 
+    /** What an export leaves out stays out of a restore, whatever the file holds: the notification copy, a store by id. */
+    @Test fun aBackupCantBringInTheNotificationCopyOrAStoreById() {
+        val script = scripts.create("bktest", ScriptLang.LUA, "log('x')")
+        val scope = com.mtwabpin.kolahal.notifications.KolahalNotificationListener.MIRROR_SCOPE
+        val key = com.mtwabpin.kolahal.notifications.KolahalNotificationListener.MIRROR_KEY
+        val mirror = KvStore(context, scope)
+        val was = mirror.get(key)
+        val store = KvStore(context, ScriptRepository.scopeOf(script.id))
+        store.set("mine", "kept")
+        try {
+            @Suppress("UNCHECKED_CAST") val data = FullBackup.export(context).toMutableMap()
+            @Suppress("UNCHECKED_CAST") val tables = (data["tables"] as Map<String, Any?>).toMutableMap()
+            @Suppress("UNCHECKED_CAST") val kv = tables["kv"] as List<Map<String, Any?>>
+            tables["kv"] = kv + listOf(
+                mapOf("scope" to scope, "k" to key, "v" to "[{\"title\":\"planted\"}]"),
+                mapOf("scope" to ScriptRepository.scopeOf(script.id), "k" to "mine", "v" to "planted"),
+            )
+            data["tables"] = tables
+            FullBackup.importRaw(context, data)
+            assertEquals(was, mirror.get(key))
+            assertEquals("kept", store.get("mine"))
+        } finally {
+            mirror.set(key, was)
+        }
+    }
+
     /** A library copy nobody edited follows the app's library; an edited one stays as it is. */
     @Test fun uneditedLibraryCopiesFollowTheApp() {
         val lib = ScriptLibrary(context)

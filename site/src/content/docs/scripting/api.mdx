@@ -422,8 +422,8 @@ store.set("list", JSON.stringify(["a", "b"]));
 ### secrets.get(name)
 
 A placeholder for the API key or token the script names with `@secret`, or `nil` / `null` until you
-set it: never the value itself. Put it where a request needs the key (a header, the URL, the body),
-as is or joined with other text, and Kolahal puts the value in its place when the request goes to a
+set it: never the value itself. Put it where a request needs the key (a header, the URL's path or
+query, the body; not the site's name), as is or joined with other text, and Kolahal puts the value in its place when the request goes to a
 site the `@secret` line names, over https; a request carrying it anywhere else stops the script
 ([API keys and other secrets](/scripting/overview/#api-keys-and-other-secrets)). It is shown as
 `••••`, and a script can't turn it into the value: encoded, reversed or cut up, it is just text.

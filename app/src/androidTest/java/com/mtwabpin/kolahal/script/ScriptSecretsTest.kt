@@ -204,4 +204,41 @@ class ScriptSecretsTest {
         assertTrue(scripts.byId(mine.id)!!.grants.allows(ScriptAccess.INTERNET))
         scripts.delete(mine.id)
     }
+
+    /**
+     * `https://<mark>.api.example.com` ends in the allowed site, but the value would go to the
+     * address lookup in plain text, and the lookup's error would hand it to the script.
+     */
+    @Test fun aMarkCantBePartOfTheSitesName() {
+        val h = host()
+        val mark = h.secretGet("KEY")!!
+        refused<java.io.IOException>("part of a site's name") { h.httpGet("https://$mark.api.example.com/") }
+        refused<java.io.IOException>("part of a site's name") { h.httpGet("https://user:$mark@api.example.com/") }
+        refused<java.io.IOException>("part of a site's name") { h.fillSecrets("k=$mark", "https://$mark.api.example.com/".toHttpUrl()) }
+    }
+
+    /** OkHttp quotes a header value it refuses: what the script catches, in either language, holds no secret. */
+    @Test fun aFailedRequestsErrorHoldsNoValue() {
+        // Outside ASCII, so OkHttp refuses it in a header, quoting it.
+        val odd = "kéy-value-123"
+        fun oddHost() = HostApi(context, "secrets-test", scriptId = null, notifyEnabled = false, secrets = HostApi.Secrets(listOf(key), mapOf("KEY" to odd)))
+        val h = oddHost()
+        try {
+            h.httpGet("https://api.example.com/", mapOf("X-Key" to h.secretGet("KEY")))
+            fail("expected OkHttp to refuse the header")
+        } catch (e: IllegalArgumentException) {
+            assertFalse(e.message, odd in e.message.orEmpty())
+            assertTrue(e.message, "X-Key value: ••••" in e.message.orEmpty())
+        }
+        val lua = kotlinx.coroutines.runBlocking {
+            LuaEngine().run("""local ok, err = pcall(http.get, "https://api.example.com/", { ["X-Key"] = secrets.get("KEY") }); return err""", "t", oddHost(), 5_000, false)
+        }.orEmpty()
+        assertFalse(lua, odd in lua)
+        assertTrue(lua, "••••" in lua)
+        val js = kotlinx.coroutines.runBlocking {
+            JsEngine().run("""try { await http.get("https://api.example.com/", { "X-Key": secrets.get("KEY") }); return "sent" } catch (e) { return String(e.message || e) }""", "t", oddHost(), 5_000, false)
+        }.orEmpty()
+        assertFalse(js, odd in js)
+        assertTrue(js, "••••" in js)
+    }
 }

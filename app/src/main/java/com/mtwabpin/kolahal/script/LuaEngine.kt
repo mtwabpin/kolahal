@@ -65,12 +65,37 @@ class LuaEngine : ScriptEngine {
             lua.toString(-1)
         } finally {
             // Close while the watchdog still runs: lua_close runs pending __gc finalizers, where the
-            // instruction hook is off, so a looping finalizer is only stopped by the watchdog.
+            // instruction hook is off, so a looping finalizer is only stopped by the watchdog. They
+            // can't call the host: LuaJava lets go of the state before closing it.
             watchdog.use { lua.close() }
         }
     }
 
     private fun bindHost(lua: Lua, host: HostApi) {
+        /** Kotlin exceptions become Lua errors instead of crossing JNI, masked as the script may see them. */
+        fun safe(fn: (Lua) -> Int) = JFunction { l ->
+            try {
+                fn(l)
+            } catch (e: Throwable) {
+                l.push(host.redact(e.message ?: e.javaClass.simpleName))
+                -1
+            }
+        }
+
+        fun Lua.global(name: String, fn: (Lua) -> Int) {
+            push(safe(fn))
+            setGlobal(name)
+        }
+
+        fun Lua.table(name: String, vararg fns: Pair<String, (Lua) -> Int>) {
+            newTable()
+            for ((key, fn) in fns) {
+                push(safe(fn))
+                setField(-2, key)
+            }
+            setGlobal(name)
+        }
+
         lua.global("log") { l ->
             val (title, body, ctx) = l.logArgs()
             host.log(title, body, ctx)
@@ -235,29 +260,6 @@ class LuaEngine : ScriptEngine {
         if (value == null) pushNil() else push(value, Lua.Conversion.FULL)
     }
 
-    private fun Lua.global(name: String, fn: (Lua) -> Int) {
-        push(safe(fn))
-        setGlobal(name)
-    }
-
-    private fun Lua.table(name: String, vararg fns: Pair<String, (Lua) -> Int>) {
-        newTable()
-        for ((key, fn) in fns) {
-            push(safe(fn))
-            setField(-2, key)
-        }
-        setGlobal(name)
-    }
-
-    /** Converts Kotlin exceptions into Lua errors instead of letting them cross JNI. */
-    private fun safe(fn: (Lua) -> Int) = JFunction { l ->
-        try {
-            fn(l)
-        } catch (e: Throwable) {
-            l.push(e.message ?: e.javaClass.simpleName)
-            -1
-        }
-    }
 
     private companion object {
         /** Native memory a run may add before the watchdog stops it: twice the Lua cap (64 MB). */

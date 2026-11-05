@@ -47,10 +47,11 @@ object FullBackup {
 
     /**
      * kv scopes about this phone: the last call and the apps it has seen (another phone's would log
-     * every app as installed or updated), daily notes and settings copied for the :script process.
-     * They don't go into a backup, and a restore keeps this phone's.
+     * every app as installed or updated), daily notes, settings copied for the :script process, and
+     * the copy of recent notifications kept for scripts. They don't go into a backup, a restore
+     * keeps this phone's, and one in a backup file is left out.
      */
-    private val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE)
+    private val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE, KolahalNotificationListener.MIRROR_SCOPE)
 
     fun export(context: Context): Map<String, Any?> {
         // Rows too big for a cursor would make the whole export fail.
@@ -63,8 +64,7 @@ object FullBackup {
             val rows = query(t.db(context), t.name)
             tables[t.name] = if (t.name == "logs") rows.filterNot { private(it, serials) } else if (t.name != "kv") rows else rows.filter { row ->
                 val scope = row["scope"] as? String ?: return@filter false
-                // The copy of recent notifications kept for scripts stays on the device.
-                if (scope == KolahalNotificationListener.MIRROR_SCOPE || scope in DEVICE_SCOPES) return@filter false
+                if (scope in DEVICE_SCOPES) return@filter false
                 // Script secrets never leave the phone (and only its Keystore key can read them anyway).
                 if (scope.startsWith(SecretStore.SCOPE_PREFIX)) return@filter false
                 if (!scope.startsWith(SCRIPT_SCOPE)) return@filter true
@@ -87,9 +87,11 @@ object FullBackup {
         var rows = 0
         val tables = data["tables"] as? Map<*, *>
         for (t in TABLES) {
-            // A backup never brings secrets: only this phone's are kept.
+            // What an export leaves out stays out, whatever the file holds: secrets (only this phone's
+            // are kept), this phone's own scopes, and script stores by id (another phone's ids name
+            // other scripts here; stores come by name, in scriptStores).
             val list = (tables?.get(t.name) as? List<*>)?.filterIsInstance<Map<*, *>>()
-                ?.filterNot { t.name == "kv" && it["scope"]?.toString().orEmpty().let { s -> s.startsWith(SecretStore.SCOPE_PREFIX) || s in DEVICE_SCOPES } } ?: continue
+                ?.filterNot { t.name == "kv" && it["scope"]?.toString().orEmpty().let { s -> s.startsWith(SecretStore.SCOPE_PREFIX) || s.startsWith(SCRIPT_SCOPE) || s in DEVICE_SCOPES } } ?: continue
             val db = t.db(context)
             db.transaction {
                 if (t.name == "kv") {
