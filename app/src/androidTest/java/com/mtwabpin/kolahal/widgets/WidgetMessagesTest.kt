@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.widgets
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogRepository
 import org.junit.After
@@ -9,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -18,13 +20,12 @@ class WidgetMessagesTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val widgets = WidgetHost.get(context)
     private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
     private val had = widgets.widgets.value.map { it.key }.toSet()
 
     @After fun tearDown() {
         while (widgets.takeMessage() != null) Unit
         widgets.widgets.value.filter { it.key !in had }.forEach { widgets.remove(it.key) }
-        logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
     /**
@@ -48,7 +49,7 @@ class WidgetMessagesTest {
         // An id Android never gave out, as on a new phone.
         widgets.place(Int.MAX_VALUE - 7, provider!!.info)
         widgets.prune()
-        val line = logs.recent(20).first { it.id > before && "adding again" in it.text }
+        val line = logs.recent(20).first { it.id > logLines.start && "adding again" in it.text }
         assertTrue(line.text, line.text.startsWith("1 widget needs adding again"))
         assertEquals("widgets", line.ctx.values[LogContext.RUN])
         assertTrue(widgets.widgets.value.any { it.key !in had && it.pending })

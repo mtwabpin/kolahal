@@ -5,10 +5,12 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -24,47 +26,32 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class HomeAwayTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule val logLines = LogLinesSince()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
     private val config = Config.get(app)
     private val token = "away${System.nanoTime()}"
-    private var before = 0L
 
     /** What the user had seen before the test: [away]'s pause writes the newest line over it. */
     private var seenUpTo = Long.MAX_VALUE
 
     @Before fun setUp() {
-        before = logs.maxId()
         seenUpTo = logs.seenUpTo
         // No tip line on return, which would land among the lines checked.
         config.set(Keys.LOG_TIPS, "off")
     }
 
     @After fun tearDown() {
-        try {
-            logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
-        } finally {
-            logs.seenUpTo = seenUpTo
-            // [back] started contacts' reloads; as a process with no home started has them.
-            com.mtwabpin.kolahal.contacts.ContactsRepository.get(app).setActive(false)
-            config.reset(Keys.LOG_TIPS)
-        }
+        logs.seenUpTo = seenUpTo
+        // [back] started contacts' reloads; as a process with no home started has them.
+        com.mtwabpin.kolahal.contacts.ContactsRepository.get(app).setActive(false)
+        config.reset(Keys.LOG_TIPS)
     }
 
-    private fun home(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
-        return vm
-    }
+    private fun home() = vms.terminal(app)
 
     private fun add(text: String) = logs.add(LogKind.OUTPUT, "$token $text")
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
 
     /** Types [text] at the prompt; with no screen showing it, Compose is told of the change by hand. */
     private fun type(vm: TerminalViewModel, text: String) = instrumentation.runOnMainSync {

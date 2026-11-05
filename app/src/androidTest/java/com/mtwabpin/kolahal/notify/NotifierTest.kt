@@ -11,16 +11,19 @@ import android.net.Uri
 import android.service.notification.StatusBarNotification
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.MainActivity
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.productivity.ReminderScheduler
 import com.mtwabpin.kolahal.productivity.ReminderStore
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -35,7 +38,7 @@ class NotifierTest {
     private val nm = context.getSystemService(NotificationManager::class.java)
     private val reminders = ReminderStore.get(context)
     private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
 
     @Before fun setUp() {
         // As the app asks for on first use. Not taken back after: Android stops an app whose permission is revoked.
@@ -49,18 +52,11 @@ class NotifierTest {
         mine().forEach { nm.cancel(it.tag, it.id) }
         nm.deleteNotificationChannel("kn-blocked")
         reminders.all().filter { it.text.startsWith("kn ") }.forEach { ReminderScheduler.cancel(context, it.id); reminders.remove(it.id) }
-        logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
     /** This test's notifications showing now. */
     private fun mine(): List<StatusBarNotification> =
         nm.activeNotifications.filter { it.tag?.startsWith("kn-") == true || (it.tag == Notifier.CHANNEL_REMINDERS && it.id in REMINDER_IDS) }
-
-    private fun waitUntil(what: String, ms: Long = 8_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
 
     private fun shown(tag: String, id: Int): StatusBarNotification? = nm.activeNotifications.firstOrNull { it.tag == tag && it.id == id }
 
@@ -167,7 +163,7 @@ class NotifierTest {
         waitUntil("set again") { reminders.all().any { it.text == "kn snooze" } }
         val again = reminders.all().single { it.text == "kn snooze" }
         assertTrue("${again.at - tapped} ms from now", again.at - tapped in 59 * 60_000L..61 * 60_000L)
-        waitUntil("the log says so") { logs.recent(50).any { it.id > before && it.text == "Snoozed for 1h: kn snooze" } }
+        waitUntil("the log says so") { logs.recent(50).any { it.id > logLines.start && it.text == "Snoozed for 1h: kn snooze" } }
     }
 
     private companion object {

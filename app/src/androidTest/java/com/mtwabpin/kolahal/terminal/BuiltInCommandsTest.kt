@@ -6,7 +6,6 @@ import android.app.Instrumentation
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.UserManager
 import android.provider.Settings
@@ -17,7 +16,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.mtwabpin.kolahal.BuildConfig
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.CrashReports
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.AutoBackup
 import com.mtwabpin.kolahal.data.Config
@@ -28,13 +31,14 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.gesture.LockService
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptWorker
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.widgets.TestWidgets
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.listing
@@ -50,6 +54,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -69,24 +74,20 @@ class BuiltInCommandsTest {
     private val olderReport = File(crashDir, "20251231-120000-crash.txt")
     /** Reports already there (one Android recorded earlier in the run, say), set aside while a test reads the newest. */
     private val setAside = File(context.cacheDir, "crash-set-aside")
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
+    @get:Rule val configReset = ConfigReset()
 
     private val screens = CopyOnWriteArrayList<Screen>()
     private val backupFolderAsked = CopyOnWriteArrayList<Boolean>()
     private var notificationsAsked = 0
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
+    private val ui = object : TerminalUiStub() {
         override fun openScreen(screen: Screen) { screens += screen }
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
         override fun requestNotificationPermission() { notificationsAsked++ }
-        override fun clearScreen() = Unit
         override fun askBackupFolder(thenBackUp: Boolean) { backupFolderAsked += thenBackUp }
     }
-    private val processor = CommandProcessor(context, ui)
+    private val commands = CommandRunner(context, ui)
+    private val processor = commands.processor
 
     /** The pages the commands open, kept here instead of shown: a browser, Settings, the share sheet. */
     private val opened = CopyOnWriteArrayList<Intent>()
@@ -96,9 +97,6 @@ class BuiltInCommandsTest {
             return Instrumentation.ActivityResult(0, null)
         }
     }
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
 
     @Before fun setUp() = instrumentation.addMonitor(monitor)
 
@@ -111,26 +109,14 @@ class BuiltInCommandsTest {
         olderReport.delete()
         setAside.listFiles()?.forEach { it.renameTo(File(crashDir, it.name)) }
         setAside.delete()
-        Keys.ALL.forEach(config::reset)
-        logs.recent(500).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
     /** Runs [line] and returns the non-command lines it printed. */
-    private fun run(line: String): List<String> {
-        val from = logs.maxId()
-        processor.run(line)
-        return logs.recent(400).filter { it.id > from && it.kind != LogKind.COMMAND }.map { it.text }
-    }
-
-    private fun waitFor(what: String, ms: Long = 10_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
+    private fun run(line: String) = commands.run(line)
 
     /** The newest line printed after [from] that [matches], once there is one. */
     private fun printed(from: Long, what: String, ms: Long = 10_000, matches: (String) -> Boolean): LogEntry {
-        waitFor(what, ms) { logs.recent(100).any { it.id > from && matches(it.text) } }
+        waitUntil(what, ms) { logs.recent(100).any { it.id > from && matches(it.text) } }
         return logs.recent(100).last { it.id > from && matches(it.text) }
     }
 
@@ -410,11 +396,11 @@ class BuiltInCommandsTest {
         printed(from, "the snippet's line", ms = 30_000) { it == "pctest-up" }
         // Its run over, so stopping the process can't cut it short (and have it run again later).
         val work = WorkManager.getInstance(context)
-        waitFor("the snippet's run finished") { work.getWorkInfosByTag(ScriptWorker::class.java.name).get().none { it.state == WorkInfo.State.RUNNING } }
+        waitUntil("the snippet's run finished") { work.getWorkInfosByTag(ScriptWorker::class.java.name).get().none { it.state == WorkInfo.State.RUNNING } }
         val pid = scriptPid()
         assertNotNull("the script process runs", pid)
         assertEquals(listOf("Script process stopped; scheduled scripts will start it again"), run("restart scripts"))
-        waitFor("process $pid gone") { scriptPid() != pid }
+        waitUntil("process $pid gone") { scriptPid() != pid }
     }
 
     /** `help` lists the scripts that are commands under a heading of their own, each with its usage and description; `help <name>` shows that one. */
@@ -422,7 +408,7 @@ class BuiltInCommandsTest {
         scripts.create("pctestcmd", ScriptLang.LUA, "-- @command\n-- @desc Says hello\n-- @usage pctestcmd <name>\nlog('hi ' .. argline)")
         scripts.create("pctestbare", ScriptLang.LUA, "-- @command\nlog('hi')")
         run("help")
-        val help = logs.recent(400).filter { it.id > before && it.kind != LogKind.COMMAND }
+        val help = logs.recent(400).filter { it.id > logLines.start && it.kind != LogKind.COMMAND }
         val start = help.indexOfFirst { it.text == "Your script commands" }
         assertTrue(help.map { it.text }.toString(), start >= 0)
         val mine = help.drop(start + 1).filter { it.ctx.values[LogContext.SCRIPT]?.startsWith("pctest") == true }

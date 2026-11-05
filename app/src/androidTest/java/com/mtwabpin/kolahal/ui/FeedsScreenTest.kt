@@ -38,6 +38,8 @@ import com.mtwabpin.kolahal.feeds.FeedScheduler
 import com.mtwabpin.kolahal.feeds.FeedWorker
 import com.mtwabpin.kolahal.terminal.CommandParsing
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitFor
+import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -97,17 +99,8 @@ class FeedsScreenTest {
     }
 
     private fun show() {
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         compose.setContent { FeedsScreen(vm, onRequestNotifications = { notificationsAsked++ }) }
-    }
-
-    private fun waitForText(text: String, substring: Boolean = false) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
-    }
-
-    private fun waitFor(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        compose.waitUntil(ms) { check() }
-        assertTrue(what, check())
     }
 
     /** [check] holds for a second: what a wrong change, still on its way, would undo. */
@@ -130,9 +123,9 @@ class FeedsScreenTest {
 
     /** Opens the sheet of the feed titled [title]. */
     private fun openSheet(title: String) {
-        waitForText(title)
+        compose.waitForText(title)
         compose.onNode(hasContentDescription("Feed options") and hasAnyAncestor(hasText(title))).performClick()
-        waitForText("Remove feed")
+        compose.waitForText("Remove feed")
     }
 
     private fun inDialog(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(isDialog()))
@@ -148,7 +141,7 @@ class FeedsScreenTest {
     @Test fun withNoFeedsItSaysHowToStart() {
         assumeTrue("no feeds of the phone's own", repo.all().isEmpty())
         show()
-        waitForText("No feeds yet", substring = true)
+        compose.waitForText("No feeds yet", substring = true)
         compose.onNodeWithText("RSS · Atom").assertExists()
         compose.onNodeWithContentDescription("Refresh all").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Export OPML").assertIsNotEnabled()
@@ -160,11 +153,11 @@ class FeedsScreenTest {
     @Test fun aFeedShowsWhatIsUnread() {
         feed("KT Alpha", unread = 2, read = 1)
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         compose.onNodeWithText("2 / 3").assertExists()
-        waitForText(subtitle())
+        compose.waitForText(subtitle())
         val unread = repo.all().filter { it.enabled }.sumOf { it.unread }
-        waitForText("Feeds · $unread")
+        compose.waitForText("Feeds · $unread")
         compose.onNodeWithContentDescription("Refresh all").assertIsEnabled()
     }
 
@@ -176,9 +169,9 @@ class FeedsScreenTest {
         compose.onNodeWithText(f.url).assertExists()
         compose.onNodeWithText("3 unread of 3 · fetched just now · ok").assertExists()
         compose.onNodeWithText("Mark all read").performClick()
-        waitForText("Marked KT Alpha read")
+        compose.waitForText("Marked KT Alpha read")
         assertEquals(0, repo.unreadCount(f.id))
-        waitForText("0 unread of 3", substring = true)
+        compose.waitForText("0 unread of 3", substring = true)
         compose.onNodeWithText("Mark all read").assertIsNotEnabled()
     }
 
@@ -188,13 +181,13 @@ class FeedsScreenTest {
         show()
         openSheet("KT Alpha")
         compose.onNodeWithText("Notifications").performClick()
-        waitFor("notify on") { repo.byId(f.id)!!.notify }
+        compose.waitFor("notify on") { repo.byId(f.id)!!.notify }
         assertEquals(1, notificationsAsked)
         // The second tap switches from what the sheet shows: wait for it to show on, as the row
         // under it does (the sheet's switch has no state to read).
-        waitForText("${every(f)} · notify", substring = true)
+        compose.waitForText("${every(f)} · notify", substring = true)
         compose.onNodeWithText("Notifications").performClick()
-        waitFor("notify off") { !repo.byId(f.id)!!.notify }
+        compose.waitFor("notify off") { !repo.byId(f.id)!!.notify }
         assertEquals(1, notificationsAsked)
     }
 
@@ -204,10 +197,10 @@ class FeedsScreenTest {
         show()
         openSheet("KT Alpha")
         compose.onNodeWithText("Enabled").performClick()
-        waitFor("switched off") { !repo.byId(f.id)!!.enabled }
-        waitForText("${every(f)} · off", substring = true)
+        compose.waitFor("switched off") { !repo.byId(f.id)!!.enabled }
+        compose.waitForText("${every(f)} · off", substring = true)
         // Its two unread items no longer count.
-        waitForText(subtitle())
+        compose.waitForText(subtitle())
     }
 
     /** Refresh every sets how often the feed is fetched, and its row says so. */
@@ -217,8 +210,8 @@ class FeedsScreenTest {
         openSheet("KT Alpha")
         compose.onNodeWithText("Refresh every").performClick()
         compose.onNodeWithText("6 hours").performClick()
-        waitFor("every 6 hours") { repo.byId(f.id)!!.intervalMin == 360 }
-        waitForText("every 6h", substring = true)
+        compose.waitFor("every 6 hours") { repo.byId(f.id)!!.intervalMin == 360 }
+        compose.waitForText("every 6h", substring = true)
     }
 
     /** Remove asks first: Cancel keeps the feed, Remove takes it and its items away. */
@@ -235,8 +228,8 @@ class FeedsScreenTest {
 
         compose.onNodeWithText("Remove feed").performClick()
         inDialog("Remove").performClick()
-        waitFor("removed") { repo.byId(f.id) == null }
-        waitForText("Removed KT Alpha")
+        compose.waitFor("removed") { repo.byId(f.id) == null }
+        compose.waitForText("Removed KT Alpha")
         compose.onNodeWithText("Remove feed").assertDoesNotExist()
     }
 
@@ -251,11 +244,11 @@ class FeedsScreenTest {
         val fixed = "http://127.0.0.1:9/$MARK/fixed.xml"
         box.performTextReplacement(fixed)
         inDialog("Save").performClick()
-        waitFor("moved") { repo.byId(f.id)?.url == fixed }
-        waitForText("KT Typo is at 127.0.0.1 now — fetching…")
+        compose.waitFor("moved") { repo.byId(f.id)?.url == fixed }
+        compose.waitForText("KT Typo is at 127.0.0.1 now — fetching…")
         compose.onNodeWithText("Feed URL").assertDoesNotExist()
         assertEquals(2, repo.itemCount(f.id))
-        waitFor("the fetch done", ms = 30_000) {
+        compose.waitFor("the fetch done", ms = 30_000) {
             WorkManager.getInstance(app).getWorkInfosForUniqueWork("feeds-now-${f.id}").get().all { it.state.isFinished }
         }
     }
@@ -267,7 +260,7 @@ class FeedsScreenTest {
         val url = "http://127.0.0.1:9/$MARK/added.xml"
         compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog())).performTextInput(url)
         inDialog("Subscribe").performClick()
-        waitForText("Subscribed to 127.0.0.1 — fetching…")
+        compose.waitForText("Subscribed to 127.0.0.1 — fetching…")
         val added = repo.byUrl(url)
         assertNotNull(added)
         compose.onNodeWithText("Feed URL").assertDoesNotExist()
@@ -276,10 +269,10 @@ class FeedsScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodes(row).fetchSemanticsNodes().isNotEmpty() }
         // The fetch it started fails at once (nothing listens there): over before the test is, its
         // last line, the failure, logged.
-        waitFor("the fetch's failure", ms = 30_000) {
+        compose.waitFor("the fetch's failure", ms = 30_000) {
             logs.recent(200).any { it.id > logStart && it.ctx.values[FeedWorker.CTX_FEED] == added!!.id.toString() }
         }
-        waitFor("the fetch done", ms = 10_000) {
+        compose.waitFor("the fetch done", ms = 10_000) {
             WorkManager.getInstance(app).getWorkInfosForUniqueWork("feeds-now-${added!!.id}").get().all { it.state.isFinished }
         }
     }
@@ -301,7 +294,7 @@ class FeedsScreenTest {
     @Test fun aFeedIsNotAddedTwice() {
         val f = feed("KT Alpha")
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         tapAddFeed()
         val box = compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog()))
         box.performTextInput(f.url)
@@ -314,18 +307,18 @@ class FeedsScreenTest {
     @Test fun aFeedOpensOnItsItems() {
         val f = feed("KT Alpha", unread = 2)
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         compose.onNodeWithText("KT Alpha").performClick()
-        waitForText("KT Alpha 1")
+        compose.waitForText("KT Alpha 1")
         val first = compose.onNodeWithText("KT Alpha 1").fetchSemanticsNode().boundsInRoot.top
         val second = compose.onNodeWithText("KT Alpha 2").fetchSemanticsNode().boundsInRoot.top
         assertTrue("the newest first: $first, $second", first < second)
         compose.onNodeWithText("2 unread · 127.0.0.1").assertExists()
         compose.onNodeWithContentDescription("Mark all read").performClick()
-        waitForText("0 unread · 127.0.0.1")
+        compose.waitForText("0 unread · 127.0.0.1")
         assertEquals(0, repo.unreadCount(f.id))
         compose.onNodeWithContentDescription("Back").performClick()
-        waitForText("Subscriptions")
+        compose.waitForText("Subscriptions")
         compose.onNodeWithText("KT Alpha 1").assertDoesNotExist()
     }
 
@@ -333,16 +326,16 @@ class FeedsScreenTest {
     @Test fun aSwipeMarksAnItemReadOrUnread() {
         val f = feed("KT Alpha", unread = 2)
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         compose.onNodeWithText("KT Alpha").performClick()
-        waitForText("KT Alpha 1")
+        compose.waitForText("KT Alpha 1")
         val newest = repo.items(feedId = f.id).first { it.title == "KT Alpha 1" }
         compose.onNodeWithText("KT Alpha 1").performTouchInput { swipeRight() }
-        waitFor("read") { repo.items(feedId = f.id).first { it.id == newest.id }.read }
-        waitForText("1 unread · 127.0.0.1")
+        compose.waitFor("read") { repo.items(feedId = f.id).first { it.id == newest.id }.read }
+        compose.waitForText("1 unread · 127.0.0.1")
         compose.onNodeWithText("KT Alpha 1").performTouchInput { swipeLeft() }
-        waitFor("unread again") { !repo.items(feedId = f.id).first { it.id == newest.id }.read }
-        waitForText("2 unread · 127.0.0.1")
+        compose.waitFor("unread again") { !repo.items(feedId = f.id).first { it.id == newest.id }.read }
+        compose.waitForText("2 unread · 127.0.0.1")
         // The row is back where it was, and the hint says how.
         compose.onNodeWithText("KT Alpha 1").assertIsDisplayed()
         compose.onNodeWithText("Tap an item to open it · swipe it to mark it read or unread").assertExists()
@@ -350,30 +343,30 @@ class FeedsScreenTest {
             node.config.getOrNull(SemanticsActions.CustomActions)?.any { it.label == "Mark read" } == true
         }).fetchSemanticsNodes()
         compose.runOnIdle { unread.first().config[SemanticsActions.CustomActions].first { it.label == "Mark read" }.action() }
-        waitFor("read by its action") { repo.unreadCount(f.id) == 1 }
+        compose.waitFor("read by its action") { repo.unreadCount(f.id) == 1 }
     }
 
     /** An item without a link says so, and counts as read. */
     @Test fun anItemWithoutALinkSaysSo() {
         val f = feed("KT Alpha", unread = 1)
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         compose.onNodeWithText("KT Alpha").performClick()
-        waitForText("KT Alpha 1")
+        compose.waitForText("KT Alpha 1")
         compose.onNodeWithText("KT Alpha 1").performClick()
-        waitForText("This item has no link")
-        waitFor("read") { repo.unreadCount(f.id) == 0 }
+        compose.waitForText("This item has no link")
+        compose.waitFor("read") { repo.unreadCount(f.id) == 0 }
     }
 
     /** An item whose link no app opens says so, and stays unread. */
     @Test fun anItemNoAppOpensStaysUnread() {
         val f = feed("KT Alpha", unread = 1) { "kolahal-test-nothing:item-$it" }
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         compose.onNodeWithText("KT Alpha").performClick()
-        waitForText("KT Alpha 1")
+        compose.waitForText("KT Alpha 1")
         compose.onNodeWithText("KT Alpha 1").performClick()
-        waitForText("No app can open kolahal-test-nothing:item-1")
+        compose.waitForText("No app can open kolahal-test-nothing:item-1")
         stays("still unread") { repo.unreadCount(f.id) == 1 }
     }
 
@@ -381,10 +374,10 @@ class FeedsScreenTest {
     @Test fun aFeedNeverFetchedSaysToRefresh() {
         val f = feed("KT Alpha", fetched = false)
         show()
-        waitForText("KT Alpha")
+        compose.waitForText("KT Alpha")
         compose.onNodeWithText("${every(f)} · never fetched", substring = true).assertExists()
         compose.onNodeWithText("KT Alpha").performClick()
-        waitForText("Not fetched yet. Tap refresh.")
+        compose.waitForText("Not fetched yet. Tap refresh.")
     }
 
     /** The feeds settings sit under the subscriptions, and a switch there changes the setting. */
@@ -394,7 +387,7 @@ class FeedsScreenTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(title))
         assertFalse(config[Keys.FEEDS_BACKLOG_READ])
         compose.onNodeWithText(title).performClick()
-        waitFor("feeds.backlog-read on") { config[Keys.FEEDS_BACKLOG_READ] }
+        compose.waitFor("feeds.backlog-read on") { config[Keys.FEEDS_BACKLOG_READ] }
     }
 
     private companion object {

@@ -2,20 +2,25 @@ package com.mtwabpin.kolahal.terminal
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.eventually
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -28,37 +33,24 @@ class CommandProcessorTest {
     private val apps = AppRepository.get(context)
     private val opened = mutableListOf<Script>()
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun requestCalendarPermission() = Unit
+    @get:Rule val configReset = ConfigReset()
+    private val commands = CommandRunner(context, object : TerminalUiStub() {
         override fun openEditor(script: Script) { opened += script }
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
         override fun clearScreen() { logs.clearScreen() }
-    }
-    private val processor = CommandProcessor(context, ui)
+    })
 
     @Before fun setUp() {
         apps.refresh()
-        val deadline = System.currentTimeMillis() + 5_000
-        while (apps.apps.value.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
 
     @After fun tearDown() {
         prefs.setAlias("tt", null)
-        Keys.ALL.forEach(config::reset)
         ScriptRepository.get(context).byName("cptest")?.let { ScriptRepository.get(context).delete(it.id) }
     }
 
     /** Runs [line] and returns the non-command lines it printed. */
-    private fun run(line: String): List<String> {
-        val before = logs.recent(1).lastOrNull()?.id ?: 0
-        processor.run(line)
-        return logs.recent(200).filter { it.id > before && it.kind != LogKind.COMMAND }.map { it.text }
-    }
+    private fun run(line: String) = commands.run(line)
 
     @Test fun echoAndUnknown() {
         assertEquals(listOf("hello world"), run("echo hello world"))
@@ -150,11 +142,7 @@ class CommandProcessorTest {
     }
 
     /** Waits up to 5 s for the kept app list to reload into what [done] wants. */
-    private fun appsUntil(done: () -> Boolean) {
-        val until = System.currentTimeMillis() + 5_000
-        while (!done() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue("the app list didn't reload", done())
-    }
+    private fun appsUntil(done: () -> Boolean) = waitUntil("the app list didn't reload", 5_000, done)
 
     @Test fun hideAndRenameApp() {
         val app = apps.apps.value.first { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }

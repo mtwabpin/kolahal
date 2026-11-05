@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
@@ -38,6 +40,8 @@ import com.mtwabpin.kolahal.notifications.Notif
 import com.mtwabpin.kolahal.notifications.NotificationStore
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.script.Json
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
@@ -48,6 +52,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -62,7 +67,7 @@ class LogLineActionsTest {
     private val scripts = ScriptRepository.get(context)
     private val feeds = FeedRepository.get(context)
     private val notifPrefs = NotifPrefs.get(context)
-    private val start = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
     private val pinnedBefore = prefs.pinned()
     private val mutedBefore = notifPrefs.muted.value
     private val storeBefore = NotificationStore.items.value
@@ -70,17 +75,7 @@ class LogLineActionsTest {
     private val usage = context.getSharedPreferences(AppPrefs.USAGE_FILE, Context.MODE_PRIVATE)
     private val launchesBefore = usage.all.filterKeys { it.startsWith("launch:") }
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
-    }
-    private val processor = CommandProcessor(context, ui)
+    private val processor = CommandProcessor(context, TerminalUiStub())
 
     /** Home's side of a tap, written down: the prompt, what it asked of the screen, what it opened. */
     private class Home : LogLineActions.Host {
@@ -125,22 +120,10 @@ class LogLineActionsTest {
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
     }
 
+    // The lines go after this, by the rule: also when a wait here times out.
     @After fun tearDown() {
-        try {
-            // Lines first: a wait below that times out mustn't leave them.
-            while (true) {
-                val mine = logs.recent(400, afterId = start)
-                if (mine.isEmpty()) break
-                mine.forEach { logs.delete(it.id) }
-            }
-        } finally {
-            restore()
-        }
-    }
-
-    private fun restore() {
         // A tap on an app's line leaves Settings in front.
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("am force-stop $SETTINGS")).use { it.readBytes() }
+        shell("am force-stop $SETTINGS")
         prefs.setAlias(ALIAS, null)
         scripts.byName(SCRIPT)?.let { scripts.delete(it.id) }
         feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
@@ -158,12 +141,6 @@ class LogLineActionsTest {
             apps.refresh()
             waitUntil("Settings shown again") { apps.apps.value.any { it.key == s.key && !it.hidden } }
         }
-    }
-
-    private fun waitUntil(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
     }
 
     /** Logs a line and returns it as the log reads it back. */
@@ -387,7 +364,7 @@ class LogLineActionsTest {
 
         action(command, "Delete command and output").run()
         val ids = setOf(command.id, one.id, two.id)
-        assertTrue(logs.recent(400, afterId = start).none { it.id in ids })
+        assertTrue(logs.recent(400, afterId = logLines.start).none { it.id in ids })
     }
 
     /** An output line's long-press offers the command that printed it, to run again or edit, and deletes just that line. */
@@ -407,7 +384,7 @@ class LogLineActionsTest {
         assertEquals("echo llat x", home.prompt)
         assertEquals(listOf(UiEvent.FocusPrompt), home.events)
         action(output, "Delete line").run()
-        val left = logs.recent(400, afterId = start).map { it.id }
+        val left = logs.recent(400, afterId = logLines.start).map { it.id }
         assertTrue(command.id in left && output.id !in left)
     }
 

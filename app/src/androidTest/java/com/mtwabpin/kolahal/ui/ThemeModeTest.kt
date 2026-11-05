@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -8,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.MainActivity
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.shell
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -20,9 +20,6 @@ class ThemeModeTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val config = Config.get(instrumentation.targetContext)
     private var night = "yes"
-
-    private fun shell(command: String): String =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
 
     @Before fun setUp() {
         // "Night mode: yes"

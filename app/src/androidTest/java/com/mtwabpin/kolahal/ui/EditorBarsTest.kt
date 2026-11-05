@@ -28,6 +28,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.waitForText
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -71,14 +72,11 @@ class EditorBarsTest {
         return found.map { it.start }.sorted() to found.firstOrNull { it.item.color == Term.bg }?.start
     }
 
-    private fun waitForText(text: String) =
-        compose.waitUntil(3_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-
     /** Opens find and types [query]; matches are found a beat after typing. */
     private fun find(query: String, count: String) {
         compose.onNodeWithContentDescription("Find").performClick()
         compose.onNodeWithTag("find").performTextInput(query)
-        waitForText(count)
+        compose.waitForText(count)
     }
 
     private fun openReplace(with: String) {
@@ -93,16 +91,16 @@ class EditorBarsTest {
         assertEquals(TextRange(0, 5), selection())
         assertEquals(listOf(0, 17, 23) to 0, marks())
         compose.onNodeWithText("↓").performClick()
-        waitForText("2/3")
+        compose.waitForText("2/3")
         assertEquals(TextRange(17, 22), selection())
         assertEquals(listOf(0, 17, 23) to 17, marks())
         compose.onNodeWithTag("find").performImeAction()
-        waitForText("3/3")
+        compose.waitForText("3/3")
         assertEquals(TextRange(23, 28), selection())
         compose.onNodeWithText("↓").performClick()
-        waitForText("1/3")
+        compose.waitForText("1/3")
         compose.onNodeWithText("↑").performClick()
-        waitForText("3/3")
+        compose.waitForText("3/3")
         assertEquals(TextRange(23, 28), selection())
     }
 
@@ -111,10 +109,10 @@ class EditorBarsTest {
         show()
         find("apple", "1/3")
         compose.onNodeWithText("Aa").performClick()
-        waitForText("1/2")
+        compose.waitForText("1/2")
         assertEquals(listOf(0, 17) to 0, marks())
         compose.onNodeWithText("Aa").performClick()
-        waitForText("1/3")
+        compose.waitForText("1/3")
     }
 
     /**
@@ -125,7 +123,7 @@ class EditorBarsTest {
         show()
         find("apple", "1/3")
         compose.onNodeWithTag("find").performTextReplacement("plum")
-        waitForText("0/0")
+        compose.waitForText("0/0")
         assertEquals(emptyList<Int>() to null, marks())
     }
 
@@ -145,9 +143,9 @@ class EditorBarsTest {
         openReplace("pear")
         compose.onNodeWithText("[all]").performClick()
         assertEquals("pear pie\nbanana pear\npear cider", text())
-        waitForText("Replaced 3")
+        compose.waitForText("Replaced 3")
         compose.onNodeWithText("edbars.lua *").assertExists()
-        waitForText("0/0")
+        compose.waitForText("0/0")
     }
 
     /** Replace changes the selected match and selects the next; Enter in the replace box does the same. */
@@ -171,7 +169,7 @@ class EditorBarsTest {
         find("plum", "0/0")
         openReplace("pear")
         compose.onNodeWithText("[all]").performClick()
-        waitForText("No matches to replace")
+        compose.waitForText("No matches to replace")
         assertEquals(code, text())
         compose.onNodeWithText("edbars.lua").assertExists()
     }
@@ -208,7 +206,7 @@ class EditorBarsTest {
         show()
         cursorAt(10)
         compose.onNodeWithText("[?]").performClick()
-        waitForText("API reference · Lua")
+        compose.waitForText("API reference · Lua")
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("log(title, body?, ctx?)"))
         compose.onNodeWithText("log(title, body?, ctx?)").performClick()
         compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
@@ -221,7 +219,7 @@ class EditorBarsTest {
         // Inside the second line.
         cursorAt(13)
         compose.onNodeWithText("[?]").performClick()
-        waitForText("API reference · Lua")
+        compose.waitForText("API reference · Lua")
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("-- @command"))
         compose.onNodeWithText("-- @command").performClick()
         assertEquals("apple pie\n-- @command\nbanana apple\nApple cider", text())

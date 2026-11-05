@@ -42,13 +42,14 @@ import com.mtwabpin.kolahal.terminal.Gutter
 import com.mtwabpin.kolahal.terminal.LogFilter
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.TimeZone
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -69,18 +70,11 @@ class LogSearchResultsTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
     private val config = Config.get(app)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
+    @get:Rule val configReset = ConfigReset()
     private val opened = ArrayList<LogEntry>()
     private val pressed = ArrayList<LogEntry>()
     private var ids = 0L
-
-    @After fun tearDown() {
-        try {
-            logs.recent(200, afterId = before).forEach { logs.delete(it.id) }
-        } finally {
-            Keys.ALL.forEach(config::reset)
-        }
-    }
 
     private fun entry(text: String, kind: LogKind = LogKind.OUTPUT, source: String? = null, ctx: Map<String, String> = emptyMap()) =
         LogEntry(++ids, AT, kind, source, text, LogContext(ctx))
@@ -240,8 +234,7 @@ class LogSearchResultsTest {
         val second = logs.add(LogKind.OUTPUT, "$token second")
         // More than a screen after them: the tap has to bring the first back into view.
         val last = (1..60).map { logs.add(LogKind.OUTPUT, "lsr filler $it") }.last()
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) { TerminalScreen(vm, onPickFolder = {}) }

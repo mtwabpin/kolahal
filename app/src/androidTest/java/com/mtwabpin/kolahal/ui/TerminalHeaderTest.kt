@@ -24,10 +24,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.status.Status
+import com.mtwabpin.kolahal.ConfigReset
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -46,7 +46,7 @@ class TerminalHeaderTest {
     private var todos by mutableIntStateOf(2)
     private var version by mutableIntStateOf(0)
 
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
+    @get:Rule val configReset = ConfigReset()
 
     /** The header, drawn once; [status], [todos] and settings (with [version]) change it after. */
     private fun show(width: Dp = 400.dp) = compose.setContent {

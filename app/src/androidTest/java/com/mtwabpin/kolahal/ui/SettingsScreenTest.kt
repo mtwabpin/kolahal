@@ -40,6 +40,8 @@ import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,9 +61,9 @@ class SettingsScreenTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
+    @get:Rule val configReset = ConfigReset()
 
     @After fun tearDown() {
-        Keys.ALL.forEach(config::reset)
         CrashReports.clear(app)
         CustomThemes.delete(app, TEST_THEME)
     }
@@ -70,10 +72,6 @@ class SettingsScreenTest {
         val dir = java.io.File(app.filesDir, "crash").apply { mkdirs() }
         java.io.File(dir, "$id-crash.txt").writeText("Kolahal crash report\nKolahal\nAndroid\nWhen: x\nWhat: crash in test, thread main\n\n$error\n\tat a.b(c:1)\n")
     }
-
-    /** Waits for text that appears after a read off the main thread (crash reports). */
-    private fun waitForText(text: String, substring: Boolean = false) =
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
 
     /** Settings open on [page] (null: the main page), on a phone-sized frame, as MainActivity shows it. */
     private fun show(page: String?) {
@@ -319,9 +317,9 @@ class SettingsScreenTest {
         crashReport("20261022-100000", "IllegalStateException: second sttest")
         show(ABOUT_PAGE)
         compose.onNodeWithText(VERSION_TEXT, substring = true).assertExists()
-        waitForText("2 reports kept on this phone")
+        compose.waitForText("2 reports kept on this phone")
         compose.onNode(hasText("Crash reports") and hasText("2 reports kept on this phone")).performClick()
-        waitForText("second sttest", substring = true)
+        compose.waitForText("second sttest", substring = true)
 
         compose.onNodeWithText("second sttest", substring = true).performClick()
         compose.onNodeWithText("Email us").assertIsDisplayed()
@@ -375,9 +373,9 @@ class SettingsScreenTest {
         CrashReports.clear(app)
         crashReport("20261022-090000", "IllegalStateException: shared sttest")
         show(ABOUT_PAGE)
-        waitForText("1 report kept on this phone")
+        compose.waitForText("1 report kept on this phone")
         compose.onNode(hasText("Crash reports") and hasText("1 report kept on this phone")).performClick()
-        waitForText("shared sttest", substring = true)
+        compose.waitForText("shared sttest", substring = true)
         compose.onNodeWithText("shared sttest", substring = true).performClick()
 
         val email = compose.onNodeWithText("Email us").getUnclippedBoundsInRoot()

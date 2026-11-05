@@ -2,17 +2,18 @@ package com.mtwabpin.kolahal.terminal
 
 import android.app.Instrumentation
 import android.content.Intent
-import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.UserManager
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.feeds.Feed
 import com.mtwabpin.kolahal.feeds.FeedRepository
 import com.mtwabpin.kolahal.feeds.FeedScheduler
@@ -22,12 +23,15 @@ import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.notifications.Notif
 import com.mtwabpin.kolahal.notifications.NotificationActions
 import com.mtwabpin.kolahal.notifications.NotificationStore
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -39,7 +43,8 @@ class FeedCommandsTest {
     private val logs = LogRepository.get(context)
     private val feeds = FeedRepository.get(context)
     private val notifPrefs = NotifPrefs.get(context)
-    private val start = logs.maxId()
+    // Last, once the feeds are gone and nothing more can come from them; whatever went wrong before.
+    @get:Rule val logLines = LogLinesSince()
     private val listener = "${context.packageName}/${KolahalNotificationListener::class.java.name}"
     private val accessBefore = NotificationActions.isEnabled(context)
     private val mutedBefore = notifPrefs.muted.value
@@ -49,36 +54,23 @@ class FeedCommandsTest {
 
     private var asked = 0
     private val screens = mutableListOf<Screen>()
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
+    private val commands = CommandRunner(context, object : TerminalUiStub() {
         override fun openScreen(screen: Screen) { screens += screen }
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
         override fun askNotificationAccess() { asked++ }
-    }
-    private val processor = CommandProcessor(context, ui)
+    })
 
     @After fun tearDown() {
-        try {
-            feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
-            FeedScheduler.sync(context)
-            (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
-            notifPrefs.logToTerminal = logToTerminalBefore
-            // Access first: a listener binding as it comes back replaces the list with what is showing.
-            if (NotificationActions.isEnabled(context) != accessBefore) {
-                shell("cmd notification ${if (accessBefore) "allow" else "disallow"}_listener $listener")
-            }
-            settleListener()
-            NotificationStore.clear()
-            storeBefore.asReversed().forEach { NotificationStore.put(it, intentsBefore[it.key]) }
-        } finally {
-            // Last, once the feeds are gone and nothing more can come from them; whatever went wrong above.
-            logs.recent(400, afterId = start).forEach { logs.delete(it.id) }
+        feeds.feeds().filter { it.url.startsWith(BASE) }.forEach { feeds.remove(it.id) }
+        FeedScheduler.sync(context)
+        (notifPrefs.muted.value - mutedBefore).forEach(notifPrefs::unmute)
+        notifPrefs.logToTerminal = logToTerminalBefore
+        // Access first: a listener binding as it comes back replaces the list with what is showing.
+        if (NotificationActions.isEnabled(context) != accessBefore) {
+            shell("cmd notification ${if (accessBefore) "allow" else "disallow"}_listener $listener")
         }
+        settleListener()
+        NotificationStore.clear()
+        storeBefore.asReversed().forEach { NotificationStore.put(it, intentsBefore[it.key]) }
     }
 
     /**
@@ -92,25 +84,10 @@ class FeedCommandsTest {
         ) Thread.sleep(50)
     }
 
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
-
-    private fun waitUntil(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
-
-    /** The id of the newest command line [line]. */
-    private fun commandId(line: String) = logs.recent(400).last { it.kind == LogKind.COMMAND && it.text == line }.id.toString()
+    private fun commandId(line: String) = commands.commandId(line)
 
     /** Runs [line] and returns the lines it printed: the ones marked as its output. */
-    private fun lines(line: String): List<LogEntry> {
-        val before = logs.maxId()
-        processor.run(line)
-        val command = commandId(line)
-        return logs.recent(400).filter { it.id > before && it.kind != LogKind.COMMAND && it.ctx.values[LogContext.FROM] == command }
-    }
+    private fun lines(line: String) = commands.ownLines(line)
 
     private fun run(line: String): List<String> = lines(line).map { it.text }
 
@@ -365,7 +342,7 @@ class FeedCommandsTest {
     @Test fun rssWithNoAddressOrOneItCantRead() {
         assertEquals(listOf("Usage: rss <url>"), run("rss"))
         val before = logs.maxId()
-        processor.run("rss ${BASE}feed")
+        commands.processor.run("rss ${BASE}feed")
         val command = commandId("rss ${BASE}feed")
         fun failed() = logs.recent(200, afterId = before).firstOrNull { it.kind == LogKind.ERROR && it.source == "rss" }
         waitUntil("the script's error", ms = 30_000) { failed() != null }

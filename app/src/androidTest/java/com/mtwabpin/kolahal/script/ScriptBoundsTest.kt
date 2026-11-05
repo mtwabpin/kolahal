@@ -7,11 +7,13 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.LogLinesSince
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -23,13 +25,12 @@ class ScriptBoundsTest {
     private val status = KvStore(context, HostApi.STATUS_SCOPE)
 
     private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
 
     @After fun tearDown() {
         scripts.byName("bounds")?.let { scripts.delete(it.id) }
         status.set("bounds", null)
-        // Its lines and notifications too: a later run of this class counts them.
-        logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
+        // Its notifications too, and its lines by the rule: a later run of this class counts them.
         val notifications = context.getSystemService(android.app.NotificationManager::class.java)
         notifications.activeNotifications.filter { it.tag == "bounds" }.forEach { notifications.cancel(it.tag, it.id) }
     }
@@ -79,7 +80,7 @@ class ScriptBoundsTest {
         val host = HostApi(context, "bounds", scriptId = null, notifyEnabled = true)
         repeat(12) { host.notify("t$it", "b") }
         host.flush()
-        val said = logs.recent(50).count { it.id > before && "more than ${HostApi.MAX_NOTIFY_PER_RUN} notifications" in it.text }
+        val said = logs.recent(50).count { it.id > logLines.start && "more than ${HostApi.MAX_NOTIFY_PER_RUN} notifications" in it.text }
         assertEquals(1, said)
     }
 
@@ -91,7 +92,7 @@ class ScriptBoundsTest {
         )
         for (cmd in listOf("search my clipboard", "g words", "yt words", "maps a place", "wiki words")) assertTrue(cmd, !off.runCommand(cmd))
         off.flush()
-        assertTrue(logs.recent(50).any { it.id > before && "sends text to a website" in it.text })
+        assertTrue(logs.recent(50).any { it.id > logLines.start && "sends text to a website" in it.text })
     }
 
     /** Nor to a `@command` script that goes online: it runs with its own switches, so it could send them on. */

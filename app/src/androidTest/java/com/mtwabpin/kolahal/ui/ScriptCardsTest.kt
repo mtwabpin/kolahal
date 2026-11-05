@@ -21,6 +21,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitFor
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,18 +48,12 @@ class ScriptCardsTest {
     }
 
     private fun show(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         compose.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
         compose.waitUntil(5_000) { vm.scriptList.value.isNotEmpty() }
         // Every card's details.
         compose.onAllNodesWithContentDescription("Show details")[0].performClick()
         return vm
-    }
-
-    private fun waitFor(what: String, check: () -> Boolean) {
-        compose.waitUntil(5_000) { check() }
-        assertTrue(what, check())
     }
 
     @Test fun aPillSwitchesWhatTheScriptMayDo() {
@@ -67,13 +62,13 @@ class ScriptCardsTest {
         show()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("internet"))
         compose.onNodeWithText("internet").performClick()
-        waitFor("internet off") { !scripts.byId(s.id)!!.grants.allows("internet") }
+        compose.waitFor("internet off") { !scripts.byId(s.id)!!.grants.allows("internet") }
         compose.onNodeWithText("clipboard").performClick()
-        waitFor("clipboard off") { !scripts.byId(s.id)!!.grants.allows("clipboard") }
+        compose.waitFor("clipboard off") { !scripts.byId(s.id)!!.grants.allows("clipboard") }
         compose.onNodeWithText("internet").performClick()
-        waitFor("internet on again") { scripts.byId(s.id)!!.grants.allows("internet") }
+        compose.waitFor("internet on again") { scripts.byId(s.id)!!.grants.allows("internet") }
         compose.onNodeWithText("notifies").performClick()
-        waitFor("notifies on") { scripts.byId(s.id)!!.notify }
+        compose.waitFor("notifies on") { scripts.byId(s.id)!!.notify }
     }
 
     /**
@@ -100,8 +95,7 @@ class ScriptCardsTest {
      */
     @Test fun aScriptChangedWhileThePageWasAwayShowsItsNewCode() {
         val s = scripts.create("scpills", ScriptLang.LUA, "-- @on unlock\nreturn 1")
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         var shown by androidx.compose.runtime.mutableStateOf(true)
         compose.setContent { if (shown) ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
         fun details(event: String) {
@@ -147,7 +141,7 @@ class ScriptCardsTest {
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
         assertFalse(scripts.byId(s.id)!!.code == library.code(entry))
         compose.onNodeWithText("Reset").performClick()
-        waitFor("the library version") { scripts.byId(s.id)!!.code == library.code(entry) }
+        compose.waitFor("the library version") { scripts.byId(s.id)!!.code == library.code(entry) }
         assertEquals(ScriptLibrary.State.INSTALLED, library.state(entry, scripts.all()))
     }
 
@@ -167,6 +161,6 @@ class ScriptCardsTest {
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
         compose.onNodeWithText("-- mine").assertDoesNotExist()
         compose.onNodeWithText("Reset").performClick()
-        waitFor("the library version") { scripts.byId(s.id)!!.code == library.code(entry) }
+        compose.waitFor("the library version") { scripts.byId(s.id)!!.code == library.code(entry) }
     }
 }

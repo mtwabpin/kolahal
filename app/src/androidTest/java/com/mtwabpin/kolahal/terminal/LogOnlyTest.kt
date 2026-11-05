@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -36,22 +37,12 @@ class LogOnlyTest {
         logs.recent(200).filter { it.text.startsWith("lo ") || it.text.startsWith("log ") || it.text.startsWith("echo lo") }.forEach { logs.delete(it.id) }
     }
 
-    private fun viewModel(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
-        return vm
-    }
+    private fun viewModel() = vms.terminal(app)
 
     /** Types [text] at the prompt; with no screen showing it, Compose is told of the change by hand. */
     private fun type(vm: TerminalViewModel, text: String) = instrumentation.runOnMainSync {
         vm.onInputChange(TextFieldValue(text, TextRange(text.length)))
         androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
-    }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 5_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
     }
 
     @Test fun logOnlyShowsOneSourceUntilACommandRuns() {

@@ -26,7 +26,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import org.junit.After
+import com.mtwabpin.kolahal.ConfigReset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -46,7 +46,7 @@ class KeyBarTest {
     @Before fun show() {
         config.set(Keys.KEYBAR_SHOW, "on")
         config.set(Keys.KEYBAR_AUTO, "off")
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
@@ -57,7 +57,7 @@ class KeyBarTest {
         compose.waitForIdle()
     }
 
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
+    @get:Rule val configReset = ConfigReset()
 
     private fun put(text: String, cursor: Int = text.length) {
         compose.runOnIdle { vm.onInputChange(TextFieldValue(text, TextRange(cursor))) }

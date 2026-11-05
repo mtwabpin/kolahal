@@ -2,9 +2,9 @@ package com.mtwabpin.kolahal.notifications
 
 import android.app.NotificationManager
 import android.content.ComponentName
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
@@ -14,12 +14,16 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitForValue
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -37,25 +41,11 @@ class KolahalNotificationListenerTest {
     private val prefs = NotifPrefs.get(app)
     private val mirror = KvStore(app, KolahalNotificationListener.MIRROR_SCOPE)
     private val component = "${app.packageName}/${KolahalNotificationListener::class.java.name}"
-    private val before = logs.maxId()
+    // Lines last, after tearDown: whatever went wrong in it.
+    @get:Rule val logLines = LogLinesSince()
     private var had = false
     private var shellWasMuted = false
     private val scripts = listOf("kn-reader", "kn-trigger")
-
-    private fun shell(command: String): String =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
-
-    private fun waitUntil(what: String, ms: Long = 10_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
-
-    private fun <T : Any> waitFor(what: String, ms: Long = 10_000, find: () -> T?): T {
-        var found: T? = null
-        waitUntil(what, ms) { find().also { found = it } != null }
-        return found!!
-    }
 
     /**
      * Whether access is on, as the notification service has it: the setting the access screen reads
@@ -87,7 +77,7 @@ class KolahalNotificationListenerTest {
 
     private fun inFeed(title: String): Notif? = NotificationStore.items.value.firstOrNull { it.pkg == SHELL && it.title == title }
 
-    private fun lines(text: String): List<LogEntry> = logs.recent(400).filter { it.id > before && StyledText.plain(it.text) == text }
+    private fun lines(text: String): List<LogEntry> = logs.recent(400).filter { it.id > logLines.start && StyledText.plain(it.text) == text }
 
     /** Once this has run on the main thread, where the listener hears of posts, a post seen in the feed has been handled whole. */
     private fun settled() = instrumentation.runOnMainSync { }
@@ -111,7 +101,6 @@ class KolahalNotificationListenerTest {
             posted().forEach { listener.cancelNotification(it.key) }
             waitUntil("the test's notifications go") { posted().isEmpty() }
         } finally {
-            logs.recent(400).filter { it.id > before }.forEach { logs.delete(it.id) }
             // Not on disk, the next process doesn't know the icon either.
             java.io.File(app.filesDir, "notif-icons/$freshIcon.png").delete()
             if (!had) disallow()
@@ -126,11 +115,11 @@ class KolahalNotificationListenerTest {
     @Test fun aNotificationIsALineEndingInItsIcon() {
         assertFalse("the icon was saved before the test", NotifIcons.has(app, freshIcon))
         post("kn-tag-1", "kn-title-1", "kn-text-1", icon = "ic_menu_compass")
-        val n = waitFor("in the feed") { inFeed("kn-title-1") }
+        val n = waitForValue("in the feed") { inFeed("kn-title-1") }
         assertEquals("kn-text-1", n.text)
         assertFalse(n.removed)
         var savedAsItShowed = false
-        val line = waitFor("its line") {
+        val line = waitForValue("its line") {
             lines("kn-title-1 — kn-text-1").singleOrNull()?.also { savedAsItShowed = NotifIcons.has(app, freshIcon) }
         }
         assertTrue("the icon saved by the time its line shows", savedAsItShowed)
@@ -149,7 +138,7 @@ class KolahalNotificationListenerTest {
     /** Dismissed, it stays in the feed marked removed; posted again later with the same text, it is a new line. */
     @Test fun dismissedItIsMarkedAndAgainIsANewLine() {
         post("kn-tag-2", "kn-daily", "kn-same")
-        val n = waitFor("in the feed") { inFeed("kn-daily") }
+        val n = waitForValue("in the feed") { inFeed("kn-daily") }
         waitUntil("its line") { lines("kn-daily — kn-same").size == 1 }
 
         KolahalNotificationListener.connected!!.cancelNotification(n.key)
@@ -165,7 +154,7 @@ class KolahalNotificationListenerTest {
     @Test fun aMutedAppStaysOutOfTheLog() {
         prefs.mute(SHELL)
         post("kn-tag-3", "kn-muted", "kn-quiet")
-        waitFor("in the feed") { inFeed("kn-muted") }
+        waitForValue("in the feed") { inFeed("kn-muted") }
         settled()
         prefs.unmute(SHELL)
         post("kn-tag-4", "kn-heard", "kn-loud")
@@ -176,7 +165,7 @@ class KolahalNotificationListenerTest {
     /** An update within half a minute (a count going up) keeps its first line; the feed shows the new text. */
     @Test fun anUpdateSoonAfterKeepsItsFirstLine() {
         post("kn-tag-5", "kn-upd", "kn-one")
-        val n = waitFor("in the feed") { inFeed("kn-upd") }
+        val n = waitForValue("in the feed") { inFeed("kn-upd") }
         waitUntil("its line") { lines("kn-upd — kn-one").isNotEmpty() }
         post("kn-tag-5", "kn-upd", "kn-two")
         waitUntil("the feed has the update") { NotificationStore.find(n.key)?.text == "kn-two" }
@@ -226,7 +215,7 @@ class KolahalNotificationListenerTest {
         post("kn-tag-11", "kn-early", "kn-text")
         waitUntil("it shows") { showing("kn-tag-11") }
         allow()
-        val n = waitFor("in the feed") { inFeed("kn-early") }
+        val n = waitForValue("in the feed") { inFeed("kn-early") }
         assertEquals("kn-text", n.text)
         assertFalse(n.removed)
         post("kn-tag-12", "kn-after", "kn-text")
@@ -243,7 +232,7 @@ class KolahalNotificationListenerTest {
         waitUntil("its line") { lines("kn-steady — kn-text").size == 1 }
         disallow()
         allow()
-        waitFor("in the feed again") { inFeed("kn-steady")?.takeIf { !it.removed } }
+        waitForValue("in the feed again") { inFeed("kn-steady")?.takeIf { !it.removed } }
         post("kn-tag-14", "kn-steady", "kn-text")
         settled()
         post("kn-tag-15", "kn-next", "kn-text")
@@ -255,7 +244,7 @@ class KolahalNotificationListenerTest {
     @Test fun aScriptOnNotificationRunsWithIt() {
         repo.create("kn-trigger", ScriptLang.LUA, "-- @on notification\n-- @uses notifications\nlog('kn saw ' .. event.title)")
         post("kn-tag-13", "kn-trig", "kn-text")
-        waitUntil("the script's line", ms = 30_000) { logs.recent(400).any { it.id > before && it.source == "kn-trigger" && StyledText.plain(it.text) == "kn saw kn-trig" } }
+        waitUntil("the script's line", ms = 30_000) { logs.recent(400).any { it.id > logLines.start && it.source == "kn-trigger" && StyledText.plain(it.text) == "kn saw kn-trig" } }
     }
 
     private companion object {

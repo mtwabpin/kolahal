@@ -8,7 +8,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.notifications.NotificationActions
-import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assume.assumeFalse
@@ -39,8 +38,7 @@ class NotificationAccessTest {
     /** `notifs enable` with access off asks before anything opens; Not now leaves a line to ask again. */
     @Test fun notifsEnableAsksFirst() {
         assumeFalse("notification access is already on here", NotificationActions.isEnabled(app))
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         val logs = LogRepository.get(app)
         val before = logs.recent(1).lastOrNull()?.id ?: 0
         compose.runOnUiThread { vm.runCommand("notifs enable") }

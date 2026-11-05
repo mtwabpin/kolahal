@@ -3,13 +3,16 @@ package com.mtwabpin.kolahal.productivity
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
@@ -23,11 +26,10 @@ class ReminderFiringTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val store = ReminderStore.get(context)
     private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
 
     @After fun tearDown() {
         store.all().filter { it.text.startsWith("firing-") }.forEach { ReminderScheduler.cancel(context, it.id); store.remove(it.id) }
-        logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
     private fun localTime(at: Long) = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).toLocalTime()
@@ -36,28 +38,22 @@ class ReminderFiringTest {
         Intent(context, ReminderReceiver::class.java).putExtra(ReminderScheduler.EXTRA_ID, id).setPackage(context.packageName),
     )
 
-    private fun waitFor(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
-
     @Test fun aRuleItCantReadFiresOnceAndGoes() {
         val r = store.add(System.currentTimeMillis() - 1_000, "firing-bad", "biweekly")
         fire(r.id)
-        waitFor("gone") { store.byId(r.id) == null }
-        waitFor("and it says so") {
-            logs.recent(50).any { it.id > before && it.kind == LogKind.ERROR && "firing-bad" in it.text && "won't repeat" in it.text }
+        waitUntil("gone") { store.byId(r.id) == null }
+        waitUntil("and it says so") {
+            logs.recent(50).any { it.id > logLines.start && it.kind == LogKind.ERROR && "firing-bad" in it.text && "won't repeat" in it.text }
         }
         // Logged after the notification is posted, a moment after the line above.
-        waitFor("it still reminds") { logs.recent(50).any { it.id > before && it.text == "Reminder: firing-bad" } }
+        waitUntil("it still reminds") { logs.recent(50).any { it.id > logLines.start && it.text == "Reminder: firing-bad" } }
     }
 
     @Test fun aRepeatingOneIsSetForItsNextTime() {
         val at = System.currentTimeMillis() - 1_000
         val r = store.add(at, "firing-good", "day")
         fire(r.id)
-        waitFor("moved on") { store.byId(r.id)?.at != at }
+        waitUntil("moved on") { store.byId(r.id)?.at != at }
         assertNotNull(store.byId(r.id))
         assertEquals("day", store.byId(r.id)!!.repeat)
         assertNotEquals(at, store.byId(r.id)!!.at)
@@ -69,7 +65,7 @@ class ReminderFiringTest {
     @Test fun aRepeatingOneKeepsTheTimeAskedFor() {
         val r = store.add(System.currentTimeMillis() - 1_000, "firing-asked", "day", "02:30")
         fire(r.id)
-        waitFor("moved on") { store.byId(r.id)!!.at > System.currentTimeMillis() }
+        waitUntil("moved on") { store.byId(r.id)!!.at > System.currentTimeMillis() }
         assertEquals(LocalTime.of(2, 30), localTime(store.byId(r.id)!!.at))
     }
 

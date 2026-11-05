@@ -25,6 +25,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.eventually
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -40,8 +41,7 @@ class AppSelectorTest {
 
     @Before fun setUp() {
         apps.refresh()
-        val until = System.currentTimeMillis() + 5_000
-        while (apps.apps.value.size < 5 && System.currentTimeMillis() < until) Thread.sleep(50)
+        eventually(5_000) { apps.apps.value.size >= 5 }
     }
 
     @Volatile private var launched: AppEntry? = null

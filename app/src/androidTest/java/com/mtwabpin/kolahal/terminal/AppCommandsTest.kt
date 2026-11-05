@@ -4,10 +4,12 @@ import android.app.Instrumentation
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.ParcelFileDescriptor
 import android.os.Process
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
@@ -20,14 +22,16 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.Json
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -40,29 +44,12 @@ class AppCommandsTest {
     private val config = Config.get(context)
     private val prefs = AppPrefs.get(context)
     private val apps = AppRepository.get(context)
-    private val start = logs.maxId()
+    // The lines go after the test by the rule, also when a wait in tearDown times out.
+    @get:Rule val logLines = LogLinesSince()
+    @get:Rule val configReset = ConfigReset()
     private val pinnedBefore = prefs.pinned()
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
-    }
-    private val processor = CommandProcessor(context, ui)
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
-
-    private fun waitUntil(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
+    private val commands = CommandRunner(context)
 
     @Before fun setUp() {
         apps.refresh()
@@ -71,25 +58,15 @@ class AppCommandsTest {
     }
 
     @After fun tearDown() {
-        try {
-            // Lines first: a wait below that times out mustn't leave them.
-            while (true) {
-                val mine = logs.recent(400, afterId = start)
-                if (mine.isEmpty()) break
-                mine.forEach { logs.delete(it.id) }
-            }
-        } finally {
-            // `open` and `info` leave Settings or its App info page in front.
-            shell("am force-stop $SETTINGS")
-            Keys.ALL.forEach(config::reset)
-            prefs.pinned().forEach { prefs.setPinned(it, false) }
-            pinnedBefore.forEach { prefs.setPinned(it, true) }
-            apps.apps.value.firstOrNull { it.pkg == SETTINGS }?.let { s ->
-                prefs.setHidden(s.key, false)
-                prefs.setLabel(s.key, null)
-                apps.refresh()
-                waitUntil("Settings as it was") { apps.apps.value.any { it.key == s.key && !it.hidden && it.label == it.originalLabel } }
-            }
+        // `open` and `info` leave Settings or its App info page in front.
+        shell("am force-stop $SETTINGS")
+        prefs.pinned().forEach { prefs.setPinned(it, false) }
+        pinnedBefore.forEach { prefs.setPinned(it, true) }
+        apps.apps.value.firstOrNull { it.pkg == SETTINGS }?.let { s ->
+            prefs.setHidden(s.key, false)
+            prefs.setLabel(s.key, null)
+            apps.refresh()
+            waitUntil("Settings as it was") { apps.apps.value.any { it.key == s.key && !it.hidden && it.label == it.originalLabel } }
         }
     }
 
@@ -102,12 +79,7 @@ class AppCommandsTest {
     }
 
     /** Runs [line] and returns the lines it printed: the ones marked as its output. */
-    private fun lines(line: String): List<LogEntry> {
-        val before = logs.maxId()
-        processor.run(line)
-        val command = logs.recent(400).last { it.kind == LogKind.COMMAND && it.text == line }.id.toString()
-        return logs.recent(400).filter { it.id > before && it.kind != LogKind.COMMAND && it.ctx.values[LogContext.FROM] == command }
-    }
+    private fun lines(line: String) = commands.ownLines(line)
 
     private fun run(line: String): List<String> = lines(line).map { it.text }
 
@@ -259,7 +231,7 @@ class AppCommandsTest {
             val resumed = Regex("ResumedActivity.{0,120}${Regex.escape(SETTINGS)}/")
             waitUntil("Settings in front", ms = 10_000) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
             assertEquals(listOf("Launched Settings"), run("launch Settings"))
-            assertEquals(1, logs.recent(400, afterId = start).count { it.text == "Launched Settings" })
+            assertEquals(1, logs.recent(400, afterId = logLines.start).count { it.text == "Launched Settings" })
             assertEquals(listOf("App info: Settings"), run("info Settings"))
             assertEquals(listOf("No app matches 'zzqqxx'"), run("open zzqqxx"))
             assertEquals(listOf("No app matches 'zzqqxx'"), run("launch zzqqxx -p"))
@@ -291,7 +263,7 @@ class AppCommandsTest {
         val component = ComponentName("com.example.kolahal.llat", "com.example.kolahal.llat.Main")
         fun launch(app: AppEntry): LogEntry {
             val before = logs.maxId()
-            processor.launch(app)
+            commands.processor.launch(app)
             return logs.recent(50).single { it.id > before && app.label in it.text }
         }
         val work = launch(AppEntry("Llat Work", component, Profile(me, 4242, ProfileKind.WORK, quiet = true)))

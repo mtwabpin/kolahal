@@ -3,7 +3,6 @@ package com.mtwabpin.kolahal.ui
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
@@ -34,9 +33,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
-import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
+import com.mtwabpin.kolahal.shell
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -265,11 +264,6 @@ class NowPlayingLineTest {
         compose.runOnUiThread { owner.registry.currentState = Lifecycle.State.RESUMED }
         play(100)
         assertTrue("${filled()}", filled() >= stopped + 0.05f)
-    }
-
-    private fun shell(command: String) {
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes() }
     }
 
     /**

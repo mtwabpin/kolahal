@@ -2,9 +2,9 @@ package com.mtwabpin.kolahal.unlock
 
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.shell
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
@@ -18,9 +18,6 @@ import java.time.ZoneId
 class UnlockCountTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
 
     /** Usage access as it was, put back after: `allow`, `ignore`, … or `default`. */
     private val accessBefore = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"

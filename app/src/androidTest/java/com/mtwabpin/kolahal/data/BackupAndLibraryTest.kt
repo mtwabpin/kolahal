@@ -8,6 +8,8 @@ import com.mtwabpin.kolahal.calls.CallEvents
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.script.ScriptLibrary
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.eventually
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -16,6 +18,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import party.iroiro.luajava.lua54.Lua54
@@ -28,8 +31,9 @@ class BackupAndLibraryTest {
     private val prefs = AppPrefs.get(context)
     private val scripts = ScriptRepository.get(context)
 
+    @get:Rule val configReset = ConfigReset()
+
     @After fun tearDown() {
-        Keys.ALL.forEach(config::reset)
         prefs.setAlias("bk", null)
         listOf("bktest", "bknew").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
         // What the round trip adds, also when it fails half way.
@@ -229,8 +233,7 @@ class BackupAndLibraryTest {
     @Test fun aScriptNamedLikeAnAppComesBack() {
         val apps = com.mtwabpin.kolahal.apps.AppRepository.get(context)
         apps.refresh()
-        val until = System.currentTimeMillis() + 5_000
-        while (apps.apps.value.isEmpty() && System.currentTimeMillis() < until) Thread.sleep(50)
+        eventually(5_000) { apps.apps.value.isNotEmpty() }
         val name = apps.apps.value.map { it.label.lowercase().replace(Regex("[^a-z0-9]"), "") }
             .first { it.length in 3..40 && it !in com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES && scripts.byName(it) == null }
         assertNotNull(com.mtwabpin.kolahal.script.ScriptNames.clash(context, name))

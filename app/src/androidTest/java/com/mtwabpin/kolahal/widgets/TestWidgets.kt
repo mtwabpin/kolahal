@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.widgets
 
-import android.os.ParcelFileDescriptor
 import android.os.Process
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
@@ -106,11 +105,6 @@ class TestWidgets {
         if (revoked) shell("appwidget grantbind --package ${context.packageName} --user $userId")
     }
 
-    private fun shell(command: String): String {
-        val (out, input, err) = instrumentation.uiAutomation.executeShellCommandRwe(command)
-        input.close()
-        val text = ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().use { it.readText() }
-        val error = ParcelFileDescriptor.AutoCloseInputStream(err).bufferedReader().use { it.readText() }
-        return text + error
-    }
+    /** What [command] printed, its errors too. */
+    private fun shell(command: String) = com.mtwabpin.kolahal.shell(command, errors = true)
 }

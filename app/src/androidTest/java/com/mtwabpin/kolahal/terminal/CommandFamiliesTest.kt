@@ -4,6 +4,9 @@ import android.app.WallpaperManager
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
@@ -12,7 +15,9 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.eventually
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import java.io.File
 import com.mtwabpin.kolahal.ui.WallpaperMatch
 import org.junit.After
@@ -21,6 +26,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -34,29 +40,20 @@ class CommandFamiliesTest {
     private val apps = AppRepository.get(context)
     private var cleared = 0
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
+    @get:Rule val configReset = ConfigReset()
+    private val commands = CommandRunner(context, object : TerminalUiStub() {
         override fun clearScreen() { cleared++ }
-    }
-    private val processor = CommandProcessor(context, ui)
+    })
     private val crashDir = File(context.filesDir, "crash")
 
     @Before fun setUp() {
         clearMine()
         apps.refresh()
-        val deadline = System.currentTimeMillis() + 5_000
-        while (apps.apps.value.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
 
     @After fun tearDown() {
         prefs.setAlias("tt", null)
-        Keys.ALL.forEach(config::reset)
         crashDir.deleteRecursively()
         clearMine()
     }
@@ -75,11 +72,7 @@ class CommandFamiliesTest {
     }
 
     /** Runs [line] and returns the non-command lines it printed. */
-    private fun run(line: String): List<String> {
-        val before = logs.recent(1).lastOrNull()?.id ?: 0
-        processor.run(line)
-        return logs.recent(400).filter { it.id > before && it.kind != LogKind.COMMAND }.map { it.text }
-    }
+    private fun run(line: String) = commands.run(line)
 
     @Test fun helpListsEveryCommandAndPipesFilterIt() {
         val help = run("help")
@@ -196,11 +189,6 @@ class CommandFamiliesTest {
     @Test fun aRepeatingReminderComesBack() {
         val store = com.mtwabpin.kolahal.productivity.ReminderStore.get(context)
         fun mine() = store.all().filter { it.text == "cptest pills" }
-        fun waitFor(what: String, ok: () -> Boolean) {
-            val until = System.currentTimeMillis() + 10_000
-            while (!ok() && System.currentTimeMillis() < until) Thread.sleep(100)
-            assertTrue(what, ok())
-        }
         try {
             assertTrue(run("remind every day 8:00 cptest pills").first().contains("then every day: cptest pills"))
             val r = mine().single()
@@ -212,7 +200,7 @@ class CommandFamiliesTest {
                 android.content.Intent(context, com.mtwabpin.kolahal.productivity.ReminderReceiver::class.java)
                     .putExtra(com.mtwabpin.kolahal.productivity.ReminderScheduler.EXTRA_ID, r.id),
             )
-            waitFor("set for the next day") { mine().singleOrNull()?.at?.let { it > r.at } == true }
+            waitUntil("set for the next day") { mine().singleOrNull()?.at?.let { it > r.at } == true }
             val next = java.time.Instant.ofEpochMilli(mine().single().at).atZone(java.time.ZoneId.systemDefault())
             assertEquals(java.time.LocalTime.of(8, 0), next.toLocalTime())
 
@@ -223,7 +211,7 @@ class CommandFamiliesTest {
                     .putExtra(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_TEXT, "cptest pills")
                     .putExtra(com.mtwabpin.kolahal.productivity.ReminderActionReceiver.EXTRA_MINUTES, 10),
             )
-            waitFor("a snoozed copy") { mine().size == 2 }
+            waitUntil("a snoozed copy") { mine().size == 2 }
             val snoozed = mine().single { it.repeat == null }
             assertTrue(kotlin.math.abs(snoozed.at - (System.currentTimeMillis() + 600_000)) < 60_000)
         } finally {
@@ -250,11 +238,6 @@ class CommandFamiliesTest {
     @Test fun backupEverySchedulesBackups() {
         val wm = androidx.work.WorkManager.getInstance(context)
         fun state() = wm.getWorkInfosForUniqueWork("auto-backup").get().lastOrNull()?.state
-        fun waitFor(ms: Long = 5_000, check: () -> Boolean): Boolean {
-            val until = System.currentTimeMillis() + ms
-            while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-            return check()
-        }
         // The first backup starts by itself, at any moment from here on. With no folder it fails, and says
         // so in the log: not a line of the command this test ran.
         val failed = "Automatic backup failed"
@@ -264,12 +247,12 @@ class CommandFamiliesTest {
             assertTrue(said("backup every weekly").first().startsWith("Backing up weekly to "))
             assertEquals("weekly", config[Keys.BACKUP_AUTO])
             val scheduled = setOf(androidx.work.WorkInfo.State.ENQUEUED, androidx.work.WorkInfo.State.RUNNING)
-            assertTrue("scheduled: ${state()}", waitFor { state() in scheduled })
+            assertTrue("scheduled: ${state()}", eventually(5_000) { state() in scheduled })
             // Over and done with, so its line can't turn up in the next test's output.
-            waitFor(ms = 3_000) { logs.recent(50).any { it.id > before && it.text.startsWith(failed) } }
+            eventually(3_000) { logs.recent(50).any { it.id > before && it.text.startsWith(failed) } }
             assertEquals(listOf("Usage: backup every <daily|weekly|off>"), said("backup every hourly"))
             assertEquals(listOf("Automatic backups off"), said("backup every off"))
-            assertTrue("cancelled: ${state()}", waitFor { state() == androidx.work.WorkInfo.State.CANCELLED })
+            assertTrue("cancelled: ${state()}", eventually(5_000) { state() == androidx.work.WorkInfo.State.CANCELLED })
         } finally {
             config.reset(Keys.BACKUP_AUTO)
         }
@@ -328,8 +311,6 @@ class CommandFamiliesTest {
      * the newest call first.
      */
     @Test fun callsPrintsCallLines() {
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        fun shell(command: String) = android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes() }
         val older = "5550142"
         val newer = "5550143"
         shell("pm grant ${context.packageName} android.permission.READ_CALL_LOG")
@@ -338,7 +319,7 @@ class CommandFamiliesTest {
         shell("content insert --uri content://call_log/calls --bind number:s:$newer --bind type:i:2 --bind date:l:$now --bind duration:l:7")
         val before = logs.maxId()
         try {
-            processor.run("calls 5")
+            commands.processor.run("calls 5")
             val lines = logs.recent(50).filter { it.id > before && it.kind != LogKind.COMMAND }
             val numbers = lines.mapNotNull { it.ctx.values[LogContext.PHONE] }
             assertTrue(lines.toString(), older in numbers && newer in numbers)

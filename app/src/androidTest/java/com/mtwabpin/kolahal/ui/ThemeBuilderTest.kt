@@ -32,6 +32,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.ConfigReset
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -49,13 +50,13 @@ class ThemeBuilderTest {
     @get:Rule val compose = createComposeRule()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
+    @get:Rule val configReset = ConfigReset()
     private lateinit var vm: TerminalViewModel
 
     @After fun tearDown() {
         Term.palette = Palettes.green
         listOf("tb-test", "tb-test-2", "tb-renamed").forEach { CustomThemes.delete(app, it) }
         shared.delete()
-        Keys.ALL.forEach(config::reset)
     }
 
     /** The builder for [name] (null: a new theme), on a phone-sized frame, as Settings opens it. */

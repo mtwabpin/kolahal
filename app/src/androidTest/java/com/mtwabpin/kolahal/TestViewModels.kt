@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal
 
 import android.app.Application
+import android.os.Looper
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -18,8 +19,13 @@ class TestViewModels : ExternalResource() {
     private val store = ViewModelStore()
     private var made = 0
 
-    /** A new [TerminalViewModel], cleared after the test. */
+    /** A new [TerminalViewModel], cleared after the test; made on the main thread, as the activity makes it. */
     fun terminal(app: Application): TerminalViewModel {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            lateinit var vm: TerminalViewModel
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { vm = terminal(app) }
+            return vm
+        }
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = TerminalViewModel(app, SavedStateHandle()) as T

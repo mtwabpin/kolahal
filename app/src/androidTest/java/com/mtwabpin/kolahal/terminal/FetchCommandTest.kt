@@ -3,45 +3,25 @@ package com.mtwabpin.kolahal.terminal
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.BuildConfig
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogEntry
-import com.mtwabpin.kolahal.data.LogKind
-import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.StyledText
-import org.junit.After
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** `fetch` (and `neofetch`, `fastfetch`): this phone and Kolahal, lined up to fit the log. */
 @RunWith(AndroidJUnit4::class)
 class FetchCommandTest {
+    @get:Rule val logLines = LogLinesSince()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val logs = LogRepository.get(context)
-    private val printed = mutableListOf<Long>()
+    private val commands = CommandRunner(context)
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
-    }
-    private val processor = CommandProcessor(context, ui)
-
-    @After fun tearDown() = printed.forEach(logs::delete)
-
-    private fun run(line: String): List<LogEntry> {
-        val before = logs.maxId()
-        processor.run(line)
-        return logs.recent(100).filter { it.id > before }.also { lines -> printed += lines.map { it.id } }.filter { it.kind != LogKind.COMMAND }
-    }
+    private fun run(line: String) = commands.lines(line)
 
     @Test fun fetchShowsThePhoneAndKolahal() {
         val lines = run("fetch")

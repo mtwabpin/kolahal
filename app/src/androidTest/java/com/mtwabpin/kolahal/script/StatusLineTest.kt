@@ -10,6 +10,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StatusLines
+import com.mtwabpin.kolahal.LogLinesSince
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -17,6 +18,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -29,7 +31,7 @@ class StatusLineTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val scripts = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
 
     @After fun tearDown() {
         for (name in listOf("liner", "liner2")) {
@@ -39,7 +41,6 @@ class StatusLineTest {
             }
             StatusLines.clear(context, name)
         }
-        logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
     private fun script(code: String = "status('x')", lang: ScriptLang = ScriptLang.LUA) = scripts.create("liner", lang, code)
@@ -171,7 +172,7 @@ class StatusLineTest {
             ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_SCHEDULED to true,
             ScriptWorker.KEY_EVENT to "{\"name\":\"${ScriptScheduler.REFRESH}\"}",
         )
-        fun lines(text: String) = logs.recent(100).count { it.id > before && it.text.contains(text) }
+        fun lines(text: String) = logs.recent(100).count { it.id > logLines.start && it.text.contains(text) }
         repeat(3) { runBlocking { ScriptRun.run(context, refresh) } }
         assertEquals(1, lines("liner: offline"))
         assertTrue(scripts.byId(s.id)!!.lastStatus.orEmpty().startsWith("error: offline"))

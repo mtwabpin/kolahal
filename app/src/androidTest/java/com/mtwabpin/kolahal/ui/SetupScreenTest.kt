@@ -29,6 +29,8 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.SetupCheck
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitForText
+import com.mtwabpin.kolahal.LogLinesSince
 import java.util.concurrent.CopyOnWriteArrayList
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -46,7 +48,7 @@ class SetupScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val logs = LogRepository.get(instrumentation.targetContext)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
     private lateinit var vm: TerminalViewModel
 
     /** System pages a fix opened: caught, so none really opens over the test. */
@@ -78,7 +80,6 @@ class SetupScreenTest {
 
     @After fun tearDown() {
         instrumentation.removeMonitor(monitor)
-        logs.recent(200, afterId = before).forEach { logs.delete(it.id) }
         if (!toured) launcher.edit().remove("intro_shown").commit()
     }
 
@@ -100,11 +101,6 @@ class SetupScreenTest {
         return checks
     }
 
-    /** The title bar draws its lines twice, once for each of its heights: [text] showing at all. */
-    private fun waitForText(text: String) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-    }
-
     private fun scrollTo(check: SetupCheck) {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(check.title))
     }
@@ -113,7 +109,7 @@ class SetupScreenTest {
 
     private fun fixButton(check: SetupCheck) = compose.onNode(hasText("Fix") and hasAnyAncestor(hasText(check.title)))
 
-    private fun commands() = logs.recent(200, afterId = before).filter { it.kind == LogKind.COMMAND }.map { it.text }
+    private fun commands() = logs.recent(200, afterId = logLines.start).filter { it.kind == LogKind.COMMAND }.map { it.text }
 
     /** The first check that can be fixed by opening a page this test knows, if any is still to do here. */
     private fun fixable(checks: List<SetupCheck>): SetupCheck {
@@ -127,7 +123,7 @@ class SetupScreenTest {
         show()
         val checks = checks()
         val done = checks.count { it.ok || it.fix == null }
-        waitForText("$done of ${checks.size} done")
+        compose.waitForText("$done of ${checks.size} done")
         compose.onAllNodesWithText("Checking…").assertCountEquals(0)
     }
 
@@ -190,10 +186,10 @@ class SetupScreenTest {
 
     /** While the checks load, it says so, and the button isn't Done: none are done yet. */
     @Test fun beforeTheChecksComeItIsntDone() {
-        compose.runOnUiThread { vm = vms.terminal(compose.activity.application) }
+        vm = vms.terminal(compose.activity.application)
         // Not opened as `setup` opens it, nothing reads the checks: they stay loading.
         compose.setContent { KolahalTheme { Box(Modifier.size(360.dp, 720.dp)) { SetupScreen(vm) } } }
-        waitForText("Checking…")
+        compose.waitForText("Checking…")
         compose.onNodeWithText("Continue to terminal").assertExists()
         compose.onAllNodesWithText("Done").assertCountEquals(0)
     }

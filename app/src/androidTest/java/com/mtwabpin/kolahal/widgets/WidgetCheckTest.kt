@@ -2,10 +2,13 @@ package com.mtwabpin.kolahal.widgets
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -16,23 +19,13 @@ class WidgetCheckTest {
     private val logs = LogRepository.get(instrumentation.targetContext)
     private val t = TestWidgets()
     private val widgets = t.host
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
 
     @After fun tearDown() {
-        try {
-            logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
-        } finally {
-            // As a process with no home started has it: left listening, the next MainActivity's
-            // start would skip its check.
-            instrumentation.runOnMainSync { widgets.stopListening() }
-            t.close()
-        }
-    }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
+        // As a process with no home started has it: left listening, the next MainActivity's
+        // start would skip its check.
+        instrumentation.runOnMainSync { widgets.stopListening() }
+        t.close()
     }
 
     @Test fun aLostIdWaitsToBeAddedAgain() {
@@ -54,6 +47,6 @@ class WidgetCheckTest {
             widgets.widgets.value.any { it.pending && it.provider == placed.provider && it.order == placed.order }
         }
         assertNull(widgets.widgets.value.firstOrNull { it.id == lost })
-        waitUntil("and the log says so") { logs.recent(20).any { it.id > before && "needs adding again" in it.text } }
+        waitUntil("and the log says so") { logs.recent(20).any { it.id > logLines.start && "needs adding again" in it.text } }
     }
 }

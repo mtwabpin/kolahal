@@ -1,11 +1,11 @@
 package com.mtwabpin.kolahal.apps
 
 import android.content.pm.LauncherApps
-import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.UserHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.shell
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
@@ -22,9 +22,6 @@ class ProfileKindTest {
     private val context = instrumentation.targetContext
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
     private val created = ArrayList<Int>()
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
 
     /** The ids of this phone's users of [type], from what Android reports of them. */
     private fun usersOfType(type: String): List<Int> =

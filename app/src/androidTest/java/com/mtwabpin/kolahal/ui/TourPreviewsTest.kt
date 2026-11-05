@@ -12,7 +12,6 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -37,8 +36,7 @@ class TourPreviewsTest {
 
     /** The typing demo plays only while it shows: behind another app it would wake twice a second and search the apps. */
     @Test fun theTypingDemoStopsOffScreen() {
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         val owner = object : LifecycleOwner {
             val registry = LifecycleRegistry.createUnsafe(this).apply { currentState = Lifecycle.State.RESUMED }
             override val lifecycle: Lifecycle get() = registry

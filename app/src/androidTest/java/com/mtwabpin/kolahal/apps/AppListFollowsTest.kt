@@ -1,8 +1,9 @@
 package com.mtwabpin.kolahal.apps
 
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -17,16 +18,7 @@ class AppListFollowsTest {
     /** A system app nothing else here needs: the camera. */
     private val pkg = "com.android.camera2"
 
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
-
     private fun listed() = apps.apps.value.any { it.pkg == pkg }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 10_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(100)
-        assertTrue(what, check())
-    }
 
     @Test fun anAppTurnedOffAndOnLeavesAndComesBack() {
         apps.refresh()

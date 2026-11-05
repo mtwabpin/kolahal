@@ -3,18 +3,18 @@ package com.mtwabpin.kolahal.control
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
@@ -24,15 +24,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 class NowPlayingUpdatesTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
-
-    private fun waitUntil(what: String, ms: Long = 8_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
 
     /**
      * The same state five times, then a position 20 ms off (inside the margin a state told two ways

@@ -22,7 +22,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -47,8 +46,7 @@ class FontModesTest {
     /** Home on a phone-sized frame, with [sans] as MainActivity sets it from `font.sans`. */
     private fun show(sans: Term.Sans) {
         Term.sans = sans
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {

@@ -7,11 +7,11 @@ import android.content.IntentFilter
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.contacts.Contact
 import com.mtwabpin.kolahal.contacts.ContactsRepository
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogEntry
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
@@ -43,18 +43,9 @@ class ContactPickerTest {
     private var picking: ((Contact) -> Unit)? = null
     private var picks = 0
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
+    private val commands = CommandRunner(app, object : TerminalUiStub() {
         override fun pickContact(then: (Contact) -> Unit) { picking = then; picks++ }
-    }
-    private val processor = CommandProcessor(app, ui)
+    })
 
     private val mum = contact("Kolahal Test Mum", "+15550100")
     private val sam = contact("Kolahal Test Sam", "+15550111")
@@ -77,11 +68,7 @@ class ContactPickerTest {
         listOf(dial, sms).forEach(instrumentation::removeMonitor)
     }
 
-    private fun run(line: String): List<LogEntry> {
-        val before = logs.maxId()
-        processor.run(line)
-        return logs.recent(100).filter { it.id > before && it.kind != LogKind.COMMAND }
-    }
+    private fun run(line: String) = commands.lines(line)
 
     private fun caught(monitor: Instrumentation.ActivityMonitor, hits: Int) {
         val until = System.currentTimeMillis() + 5_000
@@ -181,8 +168,7 @@ class ContactPickerTest {
         contacts.remember(listOf(mum))
         val config = Config.get(app)
         try {
-            lateinit var vm: TerminalViewModel
-            instrumentation.runOnMainSync { vm = vms.terminal(app) }
+            val vm = vms.terminal(app)
             // The rows the prompt shows for what's typed, as a tap or Tab takes them.
             fun callRows(typed: String): List<Suggestion.Completion> {
                 instrumentation.runOnMainSync { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue(typed)) }

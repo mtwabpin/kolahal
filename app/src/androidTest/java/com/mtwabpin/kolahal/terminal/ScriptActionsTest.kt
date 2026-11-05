@@ -22,6 +22,8 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptTemplates
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -31,6 +33,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -42,7 +45,7 @@ class ScriptActionsTest {
     private val repo = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
     private val status = KvStore(context, HostApi.STATUS_SCOPE)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
     private val host = RecordingHost()
     private val state = SavedStateHandle()
     private val scope = CoroutineScope(SupervisorJob())
@@ -66,7 +69,6 @@ class ScriptActionsTest {
             status.set(name, null)
         }
         status.set("sa-gone", null)
-        logs.recent(400).filter { it.id > before }.forEach { logs.delete(it.id) }
         files.deleteRecursively()
         if (catalogWas != null) catalogFile.writeText(catalogWas) else catalogFile.delete()
         catalogPrefs.edit(commit = true) { putLong("fetched", fetchedWas) }
@@ -76,18 +78,12 @@ class ScriptActionsTest {
 
     private fun now(s: Script) = repo.byId(s.id)!!
 
-    private fun newLines(): List<LogEntry> = logs.recent(400).filter { it.id > before }
+    private fun newLines(): List<LogEntry> = logs.recent(400).filter { it.id > logLines.start }
 
     private fun work(s: Script): List<WorkInfo.State> =
         WorkManager.getInstance(context).getWorkInfosForUniqueWork("script-${s.id}").get().map { it.state }
 
     private fun file(name: String, text: String) = File(files.apply { mkdirs() }, name).apply { writeText(text) }
-
-    private fun waitUntil(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
 
     /** Switched on, a script may use what it asks for, and a key it needs gets a line to set it; the list shows it on. */
     @Test fun theSwitchTurnsItOnAndAsksForItsKey() {

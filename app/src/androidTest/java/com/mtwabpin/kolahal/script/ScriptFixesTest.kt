@@ -9,7 +9,7 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.SharedSettings
-import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,12 +32,6 @@ class ScriptFixesTest {
         config.reset(Keys.LOG_KEEP_LINES)
         // Its daily times are alarms: cancelled with it.
         scripts.byName("sftimes")?.let { com.mtwabpin.kolahal.script.ScriptScheduler.cancel(app, it.id); scripts.delete(it.id) }
-    }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 5_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
     }
 
     /** The :script process trims the log too: it reads `log.keep-lines` where home copies it. */
@@ -96,8 +90,7 @@ class ScriptFixesTest {
     @Test fun timersTypedInTheEditorApply() {
         val name = "sfedit${System.nanoTime() % 1_000_000}"
         val s = scripts.create(name, ScriptLang.LUA, "log(1)")
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         fun save(code: String): String? {
             val done = java.util.concurrent.CompletableFuture<String?>()
             instrumentation.runOnMainSync { vm.saveScript(scripts.byId(s.id)!!, code) { _, changed -> done.complete(changed) } }
@@ -120,8 +113,7 @@ class ScriptFixesTest {
     @Test fun closingTheEditorAppliesItsTimers() {
         val name = "sfclose${System.nanoTime() % 1_000_000}"
         val s = scripts.create(name, ScriptLang.LUA, "log(1)")
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         fun close(code: String) = instrumentation.runOnMainSync {
             vm.openEditorAt(scripts.byId(s.id)!!, null)
             vm.closeEditor(code)
@@ -140,8 +132,7 @@ class ScriptFixesTest {
 
     @Test fun dailyTimesSwitchAScriptOn() {
         val s = scripts.create("sftimes", ScriptLang.LUA, "return 1", enabled = false)
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         assertFalse(vm.scriptActions.setScriptTimes(s, "8:00, 25:00"))
         assertTrue(vm.scriptActions.setScriptTimes(s, "18:30, 8:00"))
         waitUntil("switched on") { scripts.byId(s.id)!!.enabled }

@@ -6,6 +6,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
@@ -19,6 +21,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.ui.HeaderTarget
 import com.mtwabpin.kolahal.ui.KeyBarKey
+import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +50,8 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class TerminalViewModelTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule val logLines = LogLinesSince()
+    @get:Rule val configReset = ConfigReset()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -74,26 +79,14 @@ class TerminalViewModelTest {
     @After fun tearDown() {
         try {
             collectors.cancel()
-            logs.recent(400).filter { it.id > before }.forEach { logs.delete(it.id) }
         } finally {
-            Keys.ALL.forEach(config::reset)
             if (!toured) launcher.edit().remove("intro_shown").commit()
         }
     }
 
-    private fun home(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
-        return vm
-    }
+    private fun home() = vms.terminal(app)
 
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
-
-    private fun waitUntil(what: String, ms: Long = 8_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
 
     /** [check] holds for about a second. */
     private fun staysTrue(what: String, check: () -> Boolean) {

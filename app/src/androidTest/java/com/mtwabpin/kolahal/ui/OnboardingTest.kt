@@ -27,7 +27,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import org.junit.After
+import com.mtwabpin.kolahal.ConfigReset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -44,7 +44,7 @@ class OnboardingTest {
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
 
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
+    @get:Rule val configReset = ConfigReset()
 
     /** The tour, opened from home, on a phone-sized frame. */
     private fun show() {
@@ -192,7 +192,7 @@ class OnboardingTest {
     }
 
     @Test fun tourOpensIt() {
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         vm.runCommand("tour")
         compose.waitUntil(5_000) { vm.screen.value == Screen.ONBOARDING }
     }

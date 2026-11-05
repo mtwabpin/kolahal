@@ -1,22 +1,24 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.app.Application
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.notifications.NotificationActions
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -30,6 +32,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TerminalFixesTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
+    @get:Rule val configReset = ConfigReset()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
     private val logs = LogRepository.get(app)
@@ -38,21 +41,11 @@ class TerminalFixesTest {
     private val muted = NotifPrefs.get(app)
     private val gone = "com.example.kolahal.gone"
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun requestCalendarPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
+    private val commands = CommandRunner(app, object : TerminalUiStub() {
         override fun clearScreen() { logs.clearScreen() }
-    }
-    private val processor = CommandProcessor(app, ui)
+    })
 
     @After fun tearDown() {
-        Keys.ALL.forEach(config::reset)
         listOf("text", "pins", "updates").forEach { AppPrefs.get(app).setAlias(it, null) }
         listOf("tfcat", "tftag").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
         AppPrefs.get(app).setAlias("tfhf", null)
@@ -62,26 +55,9 @@ class TerminalFixesTest {
     }
 
     /** Runs [line] and returns the lines it printed, the command line left out. */
-    private fun run(line: String): List<LogEntry> {
-        val before = logs.maxId()
-        processor.run(line)
-        return logs.recent(200).filter { it.id > before && it.kind != LogKind.COMMAND }
-    }
+    private fun run(line: String) = commands.lines(line)
 
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
-
-    private fun viewModel(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
-        return vm
-    }
-
-    private fun waitUntil(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
+    private fun viewModel() = vms.terminal(app)
 
     @Test fun didYouMeanFillsThePromptInsteadOfRunning() {
         // Even where a tap runs whole command lines.
@@ -119,7 +95,7 @@ class TerminalFixesTest {
             listOf("b", "c").map { feeds.add("https://kolahal-test-$it.invalid/feed.xml", title = "tf-broken-$it") }
         try {
             val before = logs.maxId()
-            processor.run("feed fetch")
+            commands.processor.run("feed fetch")
             fun failed() = logs.recent(100).filter { it.id > before && it.kind == LogKind.ERROR && it.text.startsWith("tf-broken-") }
             waitUntil("the failures", ms = 20_000) { failed().size == 3 }
             assertEquals(listOf("a", "b", "c"), failed().map { it.text.substringAfter("tf-broken-").substringBefore(':') })
@@ -320,8 +296,8 @@ class TerminalFixesTest {
     @Test fun outputIsMarkedWithItsCommand() {
         scripts.create("tftag", ScriptLang.LUA, "-- @command\nlog('tf tagged ' .. argline)")
         val before = logs.maxId()
-        processor.run("echo tf echoed")
-        processor.run("tftag x")
+        commands.processor.run("echo tf echoed")
+        commands.processor.run("tftag x")
         val commands = logs.recent(50).filter { it.id > before && it.kind == LogKind.COMMAND }.associate { it.text to it.id.toString() }
         assertEquals(commands["echo tf echoed"], logs.recent(50).single { it.text == "tf echoed" }.ctx.values[LogContext.FROM])
         waitUntil("the script's line", ms = 20_000) { logs.recent(50).any { it.text == "tf tagged x" } }

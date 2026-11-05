@@ -1,9 +1,10 @@
 package com.mtwabpin.kolahal.contacts
 
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.BuildConfig
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -22,10 +23,6 @@ class ContactsAwayTest {
     private val contacts = ContactsRepository.get(context)
     private val account = "kolahal-away-${System.nanoTime()}"
 
-    /** Run without a shell: arguments are split at spaces, and quotes are kept as they are. */
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
-
     /** The names [add] gave, so [tearDown] waits for them to leave the list. */
     private val added = mutableListOf<String>()
 
@@ -41,12 +38,6 @@ class ContactsAwayTest {
     }
 
     private fun known(name: String) = contacts.contacts.value.any { it.name == name }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(100)
-        assertTrue(what, check())
-    }
 
     @Before fun setUp() {
         assumeTrue("the Play build has no READ_CONTACTS", BuildConfig.CONTACTS)

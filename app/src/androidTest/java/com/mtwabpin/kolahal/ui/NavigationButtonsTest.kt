@@ -3,7 +3,6 @@ package com.mtwabpin.kolahal.ui
 import android.app.Application
 import android.content.Context
 import android.graphics.Color
-import android.os.ParcelFileDescriptor
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -26,6 +25,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.shell
 import org.junit.After
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
@@ -62,10 +62,6 @@ class NavigationButtonsTest {
         /** The navigation overlay and mode the emulator had, put back after. */
         private var overlay: String? = null
         private var mode = ""
-
-        private fun shell(command: String) =
-            ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command))
-                .bufferedReader().use { it.readText() }
 
         private fun navigationMode() = shell("settings get secure navigation_mode").trim()
 

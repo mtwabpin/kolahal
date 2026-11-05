@@ -10,6 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,12 +32,6 @@ class WidgetBinderTest {
     private val added = mutableListOf<PlacedWidget>()
 
     @After fun tearDown() = t.close()
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 5_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
 
     /** A test activity with a binder made before it starts, as MainActivity makes its own; [saved] is what Android kept. */
     private fun withBinder(saved: Bundle? = null, block: (ActivityScenario<ComponentActivity>, WidgetBinder) -> Unit) {

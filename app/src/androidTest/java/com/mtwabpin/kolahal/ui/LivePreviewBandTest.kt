@@ -17,9 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
-import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import org.junit.After
+import com.mtwabpin.kolahal.ConfigReset
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -36,7 +35,7 @@ class LivePreviewBandTest {
     private lateinit var vm: TerminalViewModel
 
     @Before fun show() {
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
@@ -47,7 +46,7 @@ class LivePreviewBandTest {
         compose.waitForIdle()
     }
 
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
+    @get:Rule val configReset = ConfigReset()
 
     private fun type(line: String) {
         compose.runOnUiThread { vm.onInputChange(TextFieldValue(line)) }

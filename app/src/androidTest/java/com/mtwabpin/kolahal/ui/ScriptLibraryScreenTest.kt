@@ -23,6 +23,7 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -61,7 +62,7 @@ class ScriptLibraryScreenTest {
     }
 
     private fun show() {
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         compose.setContent { ScriptLibraryScreen(vm) }
         // In a full run, with the log and scripts earlier classes left, the first load is slower.
         runCatching { compose.waitUntil(15_000) { compose.onAllNodesWithText("Countdowns").fetchSemanticsNodes().isNotEmpty() } }
@@ -70,10 +71,6 @@ class ScriptLibraryScreenTest {
 
     private fun shownTexts() = compose.onAllNodes(SemanticsMatcher("any node") { true }).fetchSemanticsNodes()
         .flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty().map { t -> t.text } }.distinct().take(40)
-
-    private fun waitForText(text: String) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-    }
 
     /** A button in the countdown row. */
     private fun inCountdownRow(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasText("Countdowns")))
@@ -110,7 +107,7 @@ class ScriptLibraryScreenTest {
         show()
         inCountdownRow("Install").performClick()
         compose.waitUntil(5_000) { scripts.byName("countdown") != null }
-        waitForText("Installed countdown.lua — run it as 'countdown'")
+        compose.waitForText("Installed countdown.lua — run it as 'countdown'")
         countdownRowSays("Installed")
         inCountdownRow("Install").assertDoesNotExist()
         val s = scripts.byName("countdown")!!
@@ -151,7 +148,7 @@ class ScriptLibraryScreenTest {
 
     /** Back returns to the page the library was opened from. */
     @Test fun backReturnsToScripts() {
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         compose.runOnUiThread { vm.openScreen(Screen.SCRIPTS); vm.openScreen(Screen.SCRIPT_LIBRARY) }
         compose.setContent { ScriptLibraryScreen(vm) }
         compose.onNodeWithContentDescription("Back").performClick()

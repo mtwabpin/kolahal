@@ -2,7 +2,6 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import android.content.Context
-import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -28,6 +27,8 @@ import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitForText
+import com.mtwabpin.kolahal.waitForNode
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -142,21 +143,13 @@ class GetScriptsScreenTest {
     private fun row(title: String, vararg texts: String): SemanticsMatcher =
         texts.fold(hasText(title) and hasClickAction()) { m, t -> m and hasText(t) }
 
-    /** Waits [ms] for [matcher], and looks once more at the deadline: one slow frame doesn't fail it. */
-    private fun waitFor(matcher: SemanticsMatcher, ms: Long = 5_000) {
-        val shown = { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
-        try { compose.waitUntil(ms) { shown() } } catch (e: ComposeTimeoutException) { if (!shown()) throw e }
-    }
-
-    private fun waitForText(text: String) = waitFor(hasText(text))
-
     /**
      * Taps the button [label] once it can be tapped: a sheet's buttons wait for the script's code,
      * read off the main thread, and in a full run that can take a while.
      */
     private fun tapWhenEnabled(label: String) {
         val button = hasText(label) and hasClickAction() and isEnabled()
-        waitFor(button, 15_000)
+        compose.waitForNode(button, 15_000)
         compose.onNode(button).performScrollTo().performClick()
     }
 
@@ -169,10 +162,10 @@ class GetScriptsScreenTest {
     @Test fun theListShowsEachScriptAndHowItRuns() {
         listed(tide, joke, newer, taken)
         show()
-        waitFor(row("Help me", "help.lua", "Its name is a command's · Name taken"))
-        waitFor(row("Tide times", "gstide.lua · command", "The next high and low tide"))
-        waitFor(row("Joke of the day", "gsjoke.js · every 1d · daily 07:00 · on unlock", "A joke each morning"))
-        waitFor(row("From the future", "gsnewer.lua", "Needs a newer Kolahal · Needs Kolahal 99.0"))
+        compose.waitForNode(row("Help me", "help.lua", "Its name is a command's · Name taken"))
+        compose.waitForNode(row("Tide times", "gstide.lua · command", "The next high and low tide"))
+        compose.waitForNode(row("Joke of the day", "gsjoke.js · every 1d · daily 07:00 · on unlock", "A joke each morning"))
+        compose.waitForNode(row("From the future", "gsnewer.lua", "Needs a newer Kolahal · Needs Kolahal 99.0"))
         compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} on GitHub").assertExists()
     }
 
@@ -183,7 +176,7 @@ class GetScriptsScreenTest {
     @Test fun theSearchMatchesNamesAuthorsAndTags() {
         listed(tide, joke)
         show()
-        waitForText("Tide times")
+        compose.waitForText("Tide times")
         search("sea")
         compose.onNodeWithText("Tide times").assertExists()
         compose.onNodeWithText("Joke of the day").assertDoesNotExist()
@@ -208,7 +201,7 @@ class GetScriptsScreenTest {
         lateinit var vm: TerminalViewModel
         compose.runOnUiThread { vm = vms.terminal(app); vm.openScreen(Screen.GET_SCRIPTS) }
         compose.setContent { GetScriptsScreen(vm) }
-        waitForText("No scripts shared yet.")
+        compose.waitForText("No scripts shared yet.")
     }
 
     /**
@@ -219,13 +212,13 @@ class GetScriptsScreenTest {
     @Test fun aListThatCantBeReadSaysWhyAndShowsTheLastOne() {
         listed(tide)
         val vm = show()
-        waitForText("Tide times")
+        compose.waitForText("Tide times")
         compose.runOnUiThread {
             @Suppress("UNCHECKED_CAST")
             val shared = ScriptActions::class.java.getDeclaredField("_shared").apply { isAccessible = true }.get(vm.scriptActions) as MutableStateFlow<ScriptActions.SharedScripts>
             shared.value = ScriptActions.SharedScripts(shared.value.entries, error = "HTTP 503 from mtwabpin.github.io")
         }
-        waitForText("Can't read the list: HTTP 503 from mtwabpin.github.io")
+        compose.waitForText("Can't read the list: HTTP 503 from mtwabpin.github.io")
         compose.onNodeWithText("Try again").assertExists()
         compose.onNodeWithText("Tide times").assertExists()
     }
@@ -234,14 +227,14 @@ class GetScriptsScreenTest {
     @Test fun aScriptsSheetShowsItBeforeInstalling() {
         listed(tide)
         show(tide)
-        waitForText("Tide times")
+        compose.waitForText("Tide times")
         compose.onNodeWithText("Tide times").performClick()
-        waitForText("gstide.lua · v1.0 · by ann")
+        compose.waitForText("gstide.lua · v1.0 · by ann")
         compose.onNodeWithText("Runs: command").assertExists()
         compose.onNodeWithText("Uses: nothing private").assertExists()
         compose.onNodeWithText("Tags: sea, weather").assertExists()
         // The code is read for the sheet: once it's there, Install can be tapped.
-        waitForText(tide.code)
+        compose.waitForText(tide.code)
         compose.onNodeWithText(tide.code).performScrollTo().assertExists()
         compose.onNodeWithText("Install").performScrollTo().assertIsEnabled()
         assertTrue(scripts.byName(tide.name) == null)
@@ -251,34 +244,34 @@ class GetScriptsScreenTest {
     @Test fun installingOneThatUsesNothingPrivateTakesOneTap() {
         listed(tide)
         show(tide)
-        waitForText("Tide times")
+        compose.waitForText("Tide times")
         compose.onNodeWithText("Tide times").performClick()
         tapWhenEnabled("Install")
         // Said once the install is done: the script is made off and switched on after.
-        waitForText("Installed gstide.lua — run it as 'gstide'")
+        compose.waitForText("Installed gstide.lua — run it as 'gstide'")
         val s = scripts.byName(tide.name)!!
         assertEquals(tide.code, s.code)
         assertTrue(s.enabled)
-        waitFor(hasText("Installed") and hasClickAction())
+        compose.waitForNode(hasText("Installed") and hasClickAction())
         compose.onNode(hasText("Installed") and hasClickAction()).assertIsNotEnabled()
-        waitForText("The next high and low tide · Installed")
+        compose.waitForText("The next high and low tide · Installed")
     }
 
     /** Installs [clip] from its sheet, switching clipboard off in the dialog when [switchOff]. */
     private fun installClip(switchOff: Boolean) {
         listed(clip)
         show(clip)
-        waitForText("Clipboard cleaner")
+        compose.waitForText("Clipboard cleaner")
         compose.onNodeWithText("Clipboard cleaner").performClick()
-        waitForText("Uses: clipboard")
+        compose.waitForText("Uses: clipboard")
         tapWhenEnabled("Install")
-        waitForText("Install gsclip.lua?")
+        compose.waitForText("Install gsclip.lua?")
         compose.onNodeWithText("It requests:").assertExists()
         if (switchOff) compose.onNode(hasText("Clipboard") and hasClickAction()).performClick()
         val inDialog = hasAnyAncestor(hasAnyDescendant(hasText("It requests:")))
         compose.onNode(hasText("Install") and hasClickAction() and inDialog).performClick()
         // Said once the install is done, with its answers and its switch in.
-        waitForText("Installed gsclip.lua")
+        compose.waitForText("Installed gsclip.lua")
     }
 
     /** One that asks for something lists it to switch off before installing; it installs with that answer. */
@@ -303,13 +296,13 @@ class GetScriptsScreenTest {
         catalog.install(tide.entry(), tide.code)
         listed(tideNext)
         show(tideNext)
-        waitForText("The next high and low tide · Update to 1.1")
+        compose.waitForText("The next high and low tide · Update to 1.1")
         compose.onNodeWithText("Tide times").performClick()
-        waitForText("gstide.lua · v1.1 · by ann")
+        compose.waitForText("gstide.lua · v1.1 · by ann")
         tapWhenEnabled("Update to 1.1")
         compose.waitUntil(5_000) { scripts.byName(tide.name)?.code == tideNext.code }
-        waitForText("Updated gstide.lua to 1.1")
-        waitForText("The next high and low tide · Installed")
+        compose.waitForText("Updated gstide.lua to 1.1")
+        compose.waitForText("The next high and low tide · Installed")
     }
 
     /** A copy you edited is replaced only after asking: Cancel keeps your edits, Replace brings the shared code. */
@@ -319,17 +312,17 @@ class GetScriptsScreenTest {
         scripts.saveCode(installed.id, mine, byUser = true)
         listed(tide)
         show(tide)
-        waitForText("The next high and low tide · Installed, edited")
+        compose.waitForText("The next high and low tide · Installed, edited")
         compose.onNodeWithText("Tide times").performClick()
-        waitForText("gstide.lua · v1.0 · by ann")
+        compose.waitForText("gstide.lua · v1.0 · by ann")
         tapWhenEnabled("Replace your edited copy")
-        waitForText("Replace gstide.lua?")
+        compose.waitForText("Replace gstide.lua?")
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Replace gstide.lua?").assertDoesNotExist()
         assertEquals(mine, scripts.byName(tide.name)!!.code)
         compose.onNodeWithText("Replace your edited copy").performClick()
         compose.onNodeWithText("Replace").performClick()
         compose.waitUntil(5_000) { scripts.byName(tide.name)?.code == tide.code }
-        waitForText("The next high and low tide · Installed")
+        compose.waitForText("The next high and low tide · Installed")
     }
 }

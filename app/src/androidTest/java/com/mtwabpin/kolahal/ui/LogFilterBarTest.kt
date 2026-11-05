@@ -31,8 +31,7 @@ class LogFilterBarTest {
     }
 
     private fun show(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(compose.activity.application) }
+        val vm = vms.terminal(compose.activity.application)
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp)) {

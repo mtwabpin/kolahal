@@ -2,17 +2,19 @@ package com.mtwabpin.kolahal.terminal
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.productivity.Todo
-import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -44,13 +46,12 @@ class CompleterTest {
         assertEquals(listOf("log only feeds"), completer.suggestions("log only fe").map { (it as Suggestion.Completion).replacement })
     }
 
+    @get:Rule val configReset = ConfigReset()
+
     @Before fun setUp() {
         apps.refresh()
-        val deadline = System.currentTimeMillis() + 5_000
-        while (apps.apps.value.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
-
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
 
     private fun labels(text: String) = completer.suggestions(text).map { it.label }
     private fun lines(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>().map { it.replacement.trim() }
@@ -63,8 +64,7 @@ class CompleterTest {
         try {
             prefs.setLabel(b.key, a.label)
             apps.refresh()
-            val deadline = System.currentTimeMillis() + 5_000
-            while (apps.apps.value.count { it.label == a.label } < 2 && System.currentTimeMillis() < deadline) Thread.sleep(50)
+            eventually(5_000) { apps.apps.value.count { it.label == a.label } >= 2 }
             val got = lines("uninstall ${a.label}")
             assertTrue(got.toString(), "uninstall ${a.pkg}" in got && "uninstall ${b.pkg}" in got)
             // And a package names its app exactly.
@@ -179,7 +179,6 @@ class CompleterTest {
 @RunWith(AndroidJUnit4::class)
 class CompleterReviewTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val config = Config.get(context)
     private val apps = AppRepository.get(context)
 
     private var history = emptyList<String>()
@@ -204,13 +203,12 @@ class CompleterReviewTest {
         override val sharedNames get() = shared
     })
 
+    @get:Rule val configReset = ConfigReset()
+
     @Before fun setUp() {
         apps.refresh()
-        val deadline = System.currentTimeMillis() + 5_000
-        while (apps.apps.value.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        eventually(5_000) { apps.apps.value.isNotEmpty() }
     }
-
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
 
     private fun rows(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
     private fun lines(text: String) = rows(text).map { it.replacement.trim() }

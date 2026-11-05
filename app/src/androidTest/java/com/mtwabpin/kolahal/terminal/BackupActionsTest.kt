@@ -6,11 +6,12 @@ import androidx.core.content.edit
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.AutoBackup
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptScheduler
@@ -24,6 +25,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -35,8 +37,8 @@ class BackupActionsTest {
     private val config = Config.get(context)
     private val prefs = AppPrefs.get(context)
     private val repo = ScriptRepository.get(context)
-    private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
+    @get:Rule val logLines = LogLinesSince()
+    @get:Rule val configReset = ConfigReset()
     private val host = RecordingHost()
     private val scope = CoroutineScope(SupervisorJob())
     private val scripts = ScriptActions(context, SavedStateHandle(), scope, MutableStateFlow<List<Script>>(emptyList()), host)
@@ -54,10 +56,8 @@ class BackupActionsTest {
 
     @After fun tearDown() {
         scope.cancel()
-        Keys.ALL.forEach(config::reset)
         listOf("ba-al", "ba-al2", "help").forEach { prefs.setAlias(it, null) }
         listOf("ba-bk", "ba-bk2").forEach { n -> repo.byName(n)?.let { ScriptScheduler.cancel(context, it.id); repo.delete(it.id) } }
-        logs.recent(400).filter { it.id > before }.forEach { logs.delete(it.id) }
         files.deleteRecursively()
         autoBackup.edit(commit = true) {
             if (folderWas != null) putString("folder", folderWas) else remove("folder")

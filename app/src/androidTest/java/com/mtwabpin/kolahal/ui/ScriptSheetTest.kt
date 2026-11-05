@@ -38,6 +38,8 @@ import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitFor
+import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -85,7 +87,7 @@ class ScriptSheetTest {
 
     /** The Scripts tab, as it opens. */
     private fun showScripts() {
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        vm = vms.terminal(app)
         compose.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = { exported = it }) }
     }
 
@@ -96,16 +98,7 @@ class ScriptSheetTest {
         compose.waitUntil(5_000) { compose.onAllNodes(card).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(card)
         compose.onNode(card).performClick()
-        waitForText("Runs every")
-    }
-
-    private fun waitForText(text: String, substring: Boolean = false) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
-    }
-
-    private fun waitFor(what: String, ms: Long = 5_000, check: () -> Boolean) {
-        compose.waitUntil(ms) { check() }
-        assertTrue(what, check())
+        compose.waitForText("Runs every")
     }
 
     /** [check] holds for a second: what a wrong change, still on its way, would undo. */
@@ -151,10 +144,10 @@ class ScriptSheetTest {
         openSheet()
         compose.onNodeWithText("Runs on its timers and events").assertExists()
         compose.onNodeWithText("Enabled").performClick()
-        waitFor("off") { !script().enabled }
+        compose.waitFor("off") { !script().enabled }
         waitForSwitch(on = false)
         compose.onNodeWithText("Enabled").performClick()
-        waitFor("on again") { script().enabled }
+        compose.waitFor("on again") { script().enabled }
         waitForSwitch(on = true)
     }
 
@@ -172,7 +165,7 @@ class ScriptSheetTest {
         compose.onNodeWithText("Enabled").performClick()
         inDialog("Clipboard", title = "Turn on sstest.lua?").performClick()
         inDialog("Turn on").performClick()
-        waitFor("on") { script().enabled }
+        compose.waitFor("on") { script().enabled }
         assertEquals(false, script().access["clipboard"])
         assertFalse(script().grants.allows("clipboard"))
     }
@@ -182,13 +175,13 @@ class ScriptSheetTest {
         create("-- @uses clipboard\n-- @on unlock\nif false then notify(\"a\", http.get(\"https://example.com\").body) end")
         openSheet()
         compose.onNodeWithText("Internet").performScrollTo().performClick()
-        waitFor("internet off") { !script().grants.allows("internet") }
+        compose.waitFor("internet off") { !script().grants.allows("internet") }
         compose.onNodeWithText("Clipboard").performScrollTo().performClick()
-        waitFor("clipboard off") { !script().grants.allows("clipboard") }
+        compose.waitFor("clipboard off") { !script().grants.allows("clipboard") }
         compose.onNodeWithText("Post notifications").performScrollTo().performClick()
-        waitFor("notifications on") { script().notify }
+        compose.waitFor("notifications on") { script().notify }
         compose.onNodeWithText("Runs on unlock").performScrollTo().performClick()
-        waitFor("unlock off") { !script().grants.allows("unlock") }
+        compose.waitFor("unlock off") { !script().grants.allows("unlock") }
     }
 
     /** Runs every sets the script's timer. */
@@ -197,7 +190,7 @@ class ScriptSheetTest {
         openSheet()
         compose.onNodeWithText("Runs every").performScrollTo().performClick()
         compose.onNodeWithText("1 hour").performClick()
-        waitFor("every hour") { script().intervalMin == 60 }
+        compose.waitFor("every hour") { script().intervalMin == 60 }
     }
 
     /** Daily at takes times as typed, sorted, and says what is wrong with one it can't read. */
@@ -213,7 +206,7 @@ class ScriptSheetTest {
         box.performTextReplacement("18:30, 08:00")
         compose.onNodeWithText("Use HH:mm, separated by commas").assertDoesNotExist()
         box.performImeAction()
-        waitFor("two daily times") { script().atTimes == listOf("08:00", "18:30") }
+        compose.waitFor("two daily times") { script().atTimes == listOf("08:00", "18:30") }
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText("08:00, 18:30")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Set times").assertDoesNotExist()
     }
@@ -232,7 +225,7 @@ class ScriptSheetTest {
         compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Add") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
         inDialog("Add").performClick()
-        waitFor("three daily times") { script().atTimes == listOf("08:00", "18:30", "21:00") }
+        compose.waitFor("three daily times") { script().atTimes == listOf("08:00", "18:30", "21:00") }
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText("08:00, 18:30, 21:00")).fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -249,8 +242,8 @@ class ScriptSheetTest {
 
         compose.onNodeWithText("Delete").performScrollTo().performClick()
         inDialog("Delete", title = "Delete sstest.lua?").performClick()
-        waitFor("deleted") { scripts.byName("sstest") == null }
-        waitForText("Deleted sstest")
+        compose.waitFor("deleted") { scripts.byName("sstest") == null }
+        compose.waitForText("Deleted sstest")
         compose.onNodeWithText("Runs every").assertDoesNotExist()
     }
 
@@ -270,9 +263,9 @@ class ScriptSheetTest {
         inDialog("Rename").assertIsNotEnabled()
         box.performTextReplacement("sstnew")
         inDialog("Rename").assertIsEnabled().performClick()
-        waitFor("renamed") { scripts.byName("sstnew") != null }
+        compose.waitFor("renamed") { scripts.byName("sstnew") != null }
         assertNull(scripts.byName("sstest"))
-        waitForText("Renamed sstest.lua to sstnew.lua")
+        compose.waitForText("Renamed sstest.lua to sstnew.lua")
     }
 
     /** A secret it declares is set in a masked box, then shows as set; Clear forgets it. */
@@ -290,13 +283,13 @@ class ScriptSheetTest {
         compose.onNodeWithContentDescription("Show it").performClick()
         compose.onNodeWithContentDescription("Hide it").assertExists()
         inDialog("Save").assertIsEnabled().performClick()
-        waitFor("set") { SecretStore(app).isSet("sstest", secret) }
+        compose.waitFor("set") { SecretStore(app).isSet("sstest", secret) }
         compose.waitUntil(5_000) { compose.onAllNodes(row and hasText("Set")).fetchSemanticsNodes().isNotEmpty() }
 
         compose.onNode(row).performClick()
         inDialog("Set · type a new one to replace it").assertExists()
         inDialog("Clear").performClick()
-        waitFor("cleared") { !SecretStore(app).isSet("sstest", secret) }
+        compose.waitFor("cleared") { !SecretStore(app).isSet("sstest", secret) }
         compose.waitUntil(5_000) { compose.onAllNodes(row and hasText("Not set")).fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -313,19 +306,19 @@ class ScriptSheetTest {
         inDialog("Reset").assertDoesNotExist()
         compose.onNodeWithTag("option-value").performTextReplacement("9")
         inDialog("Save").performClick()
-        waitFor("count 9") { value("count") == "9" }
+        compose.waitFor("count 9") { value("count") == "9" }
         compose.waitUntil(5_000) { compose.onAllNodes(count and hasText("9")).fetchSemanticsNodes().isNotEmpty() }
 
         compose.onNode(count).performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Reset") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
         inDialog("Reset").performClick()
-        waitFor("count back to 5") { value("count") == "5" && "count" !in ScriptOptions(app).changed("sstest", declared) }
+        compose.waitFor("count back to 5") { value("count") == "5" && "count" !in ScriptOptions(app).changed("sstest", declared) }
 
         val units = hasText("units") and hasText("Units to use")
         compose.onNode(units and hasText("metric")).performScrollTo().performClick()
         inDialog("imperial").performClick()
         inDialog("Save").performClick()
-        waitFor("imperial") { value("units") == "imperial" }
+        compose.waitFor("imperial") { value("units") == "imperial" }
         compose.waitUntil(5_000) { compose.onAllNodes(units and hasText("imperial")).fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -336,13 +329,13 @@ class ScriptSheetTest {
         scripts.saveCode(s.id, library.code(entry) + "\n-- mine", byUser = true)
         openSheet("countdown")
         // Whether it differs from the library is worked out after the sheet opens.
-        waitForText("Compare")
+        compose.waitForText("Compare")
         compose.onNodeWithText("Compare").performScrollTo().assertExists()
         compose.onNodeWithText("Reset to library version").performScrollTo().performClick()
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
         stays("your edits kept while it asks") { script("countdown").code.endsWith("-- mine") }
         inDialog("Reset").performClick()
-        waitFor("the library version") { script("countdown").code == library.code(entry) }
+        compose.waitFor("the library version") { script("countdown").code == library.code(entry) }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Reset to library version").fetchSemanticsNodes().isEmpty() }
     }
 
@@ -362,9 +355,9 @@ class ScriptSheetTest {
         create("local x = 1")
         openSheet()
         compose.onNodeWithText("Run").performClick()
-        waitForText("Running sstest…")
-        waitFor("a run", ms = 30_000) { script().lastRun != null }
-        waitForText("Last run just now · ok", substring = true)
+        compose.waitForText("Running sstest…")
+        compose.waitFor("a run", ms = 30_000) { script().lastRun != null }
+        compose.waitForText("Last run just now · ok", substring = true)
     }
 
     /** New script checks the name as it is typed, and creates the script in the language and kind chosen. */
@@ -374,7 +367,7 @@ class ScriptSheetTest {
         // The button's label is a node of its own, unmerged.
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Add script", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Add script", useUnmergedTree = true).performClick()
-        waitForText("New script")
+        compose.waitForText("New script")
         compose.onNodeWithText("New script").performClick()
         val box = compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog()))
         box.performTextInput("echo")
@@ -388,12 +381,12 @@ class ScriptSheetTest {
         compose.onAllNodes(isToggleable() and hasAnyAncestor(isDialog()))
             .filterToOne(!hasTestTag("choice Lua") and !hasTestTag("choice JavaScript")).performClick()
         inDialog("Create").assertIsEnabled().performClick()
-        waitFor("created") { scripts.byName("sstnew") != null }
+        compose.waitFor("created") { scripts.byName("sstnew") != null }
         val made = script("sstnew")
         assertEquals(ScriptLang.JS, made.lang)
         assertTrue(made.code, ScriptMeta.isCommand(made.code))
         // Opened in the editor once it's made, a moment after.
-        waitFor("open in the editor") { vm.editing.value?.id == made.id }
+        compose.waitFor("open in the editor") { vm.editing.value?.id == made.id }
     }
 
     private companion object {

@@ -2,7 +2,6 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import android.os.Build
-import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,13 +45,14 @@ import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.lineTimeFormat
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.ConfigReset
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
 import java.util.TimeZone
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -69,12 +69,11 @@ class HomeScreenTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
 
-    @After fun tearDown() = Keys.ALL.forEach(config::reset)
+    @get:Rule val configReset = ConfigReset()
 
     private fun show(width: Dp, height: Dp): TerminalViewModel {
         // On the main thread, as the activity makes it.
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         compose.setContent {
             // The frame is all the room there is: the keyboard (the emulator shows one for the
             // focused prompt) and the system bars are taken out of the window, not of the frame.
@@ -155,8 +154,7 @@ class HomeScreenTest {
      * typing); text in the prompt still does.
      */
     private fun showResting(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        compose.runOnUiThread { vm = vms.terminal(app) }
+        val vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp)) {
@@ -238,10 +236,6 @@ class HomeScreenTest {
         }
     }
 
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command))
-            .bufferedReader().use { it.readText() }
-
     /** Sets the phone's time zone; false if this device won't let a test do that. */
     private fun setZone(id: String): Boolean {
         shell("cmd alarm set-timezone $id")
@@ -296,8 +290,7 @@ class HomeScreenTest {
         val line = logs.recent(limit = 10).single { it.text == "tz away" }.id
         try {
             assumeTrue("this device can't set its time zone from a test", setZone("Pacific/Kiritimati"))
-            lateinit var vm: TerminalViewModel
-            compose.runOnUiThread { vm = vms.terminal(app) }
+            val vm = vms.terminal(app)
             val onHome = androidx.compose.runtime.mutableStateOf(true)
             compose.setContent { KolahalTheme { if (onHome.value) TerminalScreen(vm, onPickFolder = {}) } }
             fun shows(zone: String) {

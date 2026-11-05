@@ -8,12 +8,13 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Bundle
-import android.os.ParcelFileDescriptor
 import androidx.compose.ui.graphics.toArgb
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.MainActivity
+import com.mtwabpin.kolahal.eventually
+import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import org.junit.After
@@ -37,9 +38,6 @@ class WallpaperMatchTest {
     private val system = WallpaperManager.FLAG_SYSTEM
     private val lock = WallpaperManager.FLAG_LOCK
     private var night = "yes"
-
-    private fun shell(command: String): String =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
 
     private fun solid(colour: Int) = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(colour) }
 
@@ -67,9 +65,7 @@ class WallpaperMatchTest {
     }
 
     private fun waitFor(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        if (!check()) fail("$what; matched ${WallpaperMatch.isMatched(context)}, set to ${Integer.toHexString(colourSet())}, picture ${picture(system)?.let(Integer::toHexString)}")
+        if (!eventually(8_000, check)) fail("$what; matched ${WallpaperMatch.isMatched(context)}, set to ${Integer.toHexString(colourSet())}, picture ${picture(system)?.let(Integer::toHexString)}")
     }
 
     /** The colour of the wallpaper Kolahal last finished setting. */

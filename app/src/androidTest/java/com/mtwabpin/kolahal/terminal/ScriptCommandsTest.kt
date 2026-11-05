@@ -2,10 +2,11 @@ package com.mtwabpin.kolahal.terminal
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogEntry
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
@@ -20,6 +21,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,40 +35,26 @@ class ScriptCommandsTest {
     private val asked = mutableListOf<Pair<String, String>>()
     private val opened = mutableListOf<String>()
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
+    private val commands = CommandRunner(context, object : TerminalUiStub() {
         override fun openEditor(script: Script) { opened += script.name }
         override fun askSecret(script: Script, name: String) { asked += script.name to name }
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
-    }
-    private val processor = CommandProcessor(context, ui)
+    })
 
     /** Every script made here starts with this, so [tearDown] finds them. */
     private val prefix = "sctest"
 
-    /** The log's newest line before the test: [tearDown] deletes what came after, commands (the history) too. */
-    private val start = logs.maxId()
+    /**
+     * Lines last, after [tearDown], once the scripts and their timers are gone: commands (the history)
+     * too, as a later class reads the log and the history built from it.
+     */
+    @get:Rule val logLines = LogLinesSince()
 
     @After fun tearDown() {
-        try {
-            for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
-                ScriptScheduler.cancel(context, s.id)
-                scripts.delete(s.id)
-                com.mtwabpin.kolahal.data.StatusLines.clear(context, s.name)
-                SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
-            }
-        } finally {
-            // Lines last, once the scripts and their timers are gone: a later class reads the log and
-            // the history built from it.
-            while (true) {
-                val mine = logs.recent(400, afterId = start)
-                if (mine.isEmpty()) break
-                mine.forEach { logs.delete(it.id) }
-            }
+        for (s in scripts.all().filter { it.name.startsWith(prefix) }) {
+            ScriptScheduler.cancel(context, s.id)
+            scripts.delete(s.id)
+            com.mtwabpin.kolahal.data.StatusLines.clear(context, s.name)
+            SecretStore(context).let { store -> com.mtwabpin.kolahal.script.ScriptMeta.secrets(s.code).forEach { store.set(s.name, it.name, null, it.hosts) } }
         }
     }
 
@@ -74,13 +62,9 @@ class ScriptCommandsTest {
         scripts.create(prefix + suffix, lang, code, enabled)
 
     /** Runs [line] and returns the lines it printed, its own line aside. */
-    private fun lines(line: String): List<LogEntry> {
-        val before = logs.maxId()
-        processor.run(line)
-        return logs.recent(400).filter { it.id > before && it.kind != LogKind.COMMAND }
-    }
+    private fun lines(line: String) = commands.lines(line)
 
-    private fun run(line: String): List<String> = lines(line).map { it.text }
+    private fun run(line: String) = commands.run(line)
 
     /** `status` shows what the header shows: lines of scripts that are on and may set one. */
     @Test fun statusListsShownLinesAndClearsThem() {
@@ -184,7 +168,7 @@ class ScriptCommandsTest {
         val value = "zq7Kx9secret"
         assertEquals(listOf("API_KEY must be at least ${SecretStore.MIN_LENGTH} characters"), run("script secret ${s.name} API_KEY $short"))
         assertTrue(run("script secret ${s.name} API_KEY $value").single().startsWith("${s.name}: API_KEY set"))
-        val logged = logs.recent(400, afterId = start)
+        val logged = logs.recent(400, afterId = logLines.start)
         assertTrue(logged.joinToString { it.text }, logged.none { e -> short in e.text || e.ctx.values.values.any { short in it } })
         val history = logs.commandHistory()
         assertTrue(history.toString(), history.none { short in it })
@@ -265,7 +249,7 @@ class ScriptCommandsTest {
         assertEquals("script on ${s.name}", said.single().ctx.values[LogContext.RUN])
         // Nothing is coming, so there's nothing to wait on: give a wrong run the time to show.
         Thread.sleep(2_000)
-        val later = logs.recent(400, afterId = start)
+        val later = logs.recent(400, afterId = logLines.start)
         assertTrue(later.joinToString { it.text }, later.none { it.text == "sctest-cmd ran" || it.source == s.name })
         assertNull(scripts.byId(s.id)!!.lastRun)
     }

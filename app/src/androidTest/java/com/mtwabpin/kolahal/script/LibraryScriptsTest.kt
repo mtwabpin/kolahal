@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.shownText
+import com.mtwabpin.kolahal.shell
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -196,10 +197,6 @@ class LibraryScriptsTest {
     private val nm = context.getSystemService(android.app.NotificationManager::class.java)
 
     private fun at(time: String) = mapOf("name" to "at", "time" to time)
-
-    private fun shell(command: String) =
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command))
-            .bufferedReader().use { it.readText() }
 
     /**
      * Do Not Disturb as you set it ([mode]: off, priority, alarms), waiting for Android to apply it.

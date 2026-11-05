@@ -2,18 +2,20 @@ package com.mtwabpin.kolahal.terminal
 
 import android.app.Instrumentation
 import android.content.Intent
-import android.os.ParcelFileDescriptor
 import android.provider.AlarmClock
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.LogLinesSince
+import com.mtwabpin.kolahal.TerminalUiStub
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.notify.Notifier
+import com.mtwabpin.kolahal.shell
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.productivity.NoteStore
 import com.mtwabpin.kolahal.productivity.ReminderScheduler
@@ -32,6 +34,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -45,22 +48,15 @@ class ProductivityCommandsTest {
     private val todos = TodoStore.get(context)
     private val notes = NoteStore.get(context)
     private val reminders = ReminderStore.get(context)
-    private val before = logs.maxId()
     private var calendarAsked = 0
     private var calendar: String? = null
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
+    @get:Rule val logLines = LogLinesSince()
+    @get:Rule val configReset = ConfigReset()
+    private val ui = object : TerminalUiStub() {
         override fun requestCalendarPermission() { calendarAsked++ }
     }
-    private val processor = CommandProcessor(context, ui)
+    private val commands = CommandRunner(context, ui)
 
     /** The screens the commands open, kept here instead of shown: the clock app, Settings. */
     private val opened = CopyOnWriteArrayList<Intent>()
@@ -70,9 +66,6 @@ class ProductivityCommandsTest {
             return Instrumentation.ActivityResult(0, null)
         }
     }
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
 
     @Before fun setUp() = instrumentation.addMonitor(monitor)
 
@@ -84,16 +77,9 @@ class ProductivityCommandsTest {
         // Its events go with it.
         // Every test calendar, one an aborted run left too.
         if (calendar != null) shell("content delete --uri $CALENDARS --where account_name='pctest'")
-        Keys.ALL.forEach(config::reset)
-        logs.recent(500).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
-    /** Runs [line] and returns the non-command lines it printed. */
-    private fun run(line: String): List<String> {
-        val from = logs.maxId()
-        processor.run(line)
-        return logs.recent(400).filter { it.id > from && it.kind != LogKind.COMMAND }.map { it.text }
-    }
+    private fun run(line: String) = commands.run(line)
 
     private fun todo(text: String) = todos.all().single { it.text == text }
 

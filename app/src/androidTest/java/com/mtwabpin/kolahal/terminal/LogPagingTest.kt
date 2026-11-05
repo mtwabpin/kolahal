@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -31,17 +32,7 @@ class LogPagingTest {
 
     private var hid = false
 
-    private fun viewModel(): TerminalViewModel {
-        lateinit var vm: TerminalViewModel
-        instrumentation.runOnMainSync { vm = vms.terminal(app) }
-        return vm
-    }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 8_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
+    private fun viewModel() = vms.terminal(app)
 
     private fun add(text: String): Long = logs.add(LogKind.OUTPUT, text).also { first = minOf(first, it) }
 

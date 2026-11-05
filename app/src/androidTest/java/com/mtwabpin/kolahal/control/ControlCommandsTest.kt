@@ -3,51 +3,35 @@ package com.mtwabpin.kolahal.control
 import android.app.NotificationManager
 import android.media.AudioManager
 import android.os.Build
-import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.CommandRunner
+import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
-import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
-import com.mtwabpin.kolahal.terminal.CommandProcessor
-import com.mtwabpin.kolahal.terminal.Screen
-import com.mtwabpin.kolahal.terminal.TerminalUi
+import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** The device commands: what each says, what it changes, and what it asks for first. Everything goes back as it was. */
 @RunWith(AndroidJUnit4::class)
 class ControlCommandsTest {
-    private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val context = instrumentation.targetContext
-    private val logs = LogRepository.get(context)
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val audio = context.getSystemService(AudioManager::class.java)
     private val notifications = context.getSystemService(NotificationManager::class.java)
     private val resolver = context.contentResolver
     private val pkg = context.packageName
 
-    private val ui = object : TerminalUi {
-        override fun pickScriptFolder() = Unit
-        override fun requestFontImport() = Unit
-        override fun openScreen(screen: Screen) = Unit
-        override fun requestContactsPermission() = Unit
-        override fun openEditor(script: Script) = Unit
-        override fun askSecret(script: Script, name: String) = Unit
-        override fun requestNotificationPermission() = Unit
-        override fun clearScreen() = Unit
-    }
-    private val processor = CommandProcessor(context, ui)
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes().decodeToString() }
+    @get:Rule val logLines = LogLinesSince()
+    private val commands = CommandRunner(context)
 
     // As they were, put back after.
     private var volume = 0
@@ -59,7 +43,6 @@ class ControlCommandsTest {
     private var rotation = 0
     private var timeout = 0L
     private var writeMode = "default"
-    private var before = 0L
 
     @Before fun setUp() {
         volume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -71,7 +54,6 @@ class ControlCommandsTest {
         rotation = Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0)
         timeout = Settings.System.getLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT, 30_000L)
         writeMode = Regex("WRITE_SETTINGS: (\\w+)").find(shell("appops get $pkg WRITE_SETTINGS"))?.groupValues?.get(1) ?: "default"
-        before = logs.maxId()
     }
 
     @After fun tearDown() {
@@ -91,23 +73,10 @@ class ControlCommandsTest {
         if (!policy) shell("cmd notification disallow_dnd $pkg")
         audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
         audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (muted) AudioManager.ADJUST_MUTE else AudioManager.ADJUST_UNMUTE, 0)
-        logs.recent(200).filter { it.id > before }.forEach { logs.delete(it.id) }
     }
 
-    /** Runs [line]; the lines it printed, its own aside. */
-    private fun lines(line: String): List<LogEntry> {
-        val from = logs.maxId()
-        processor.run(line)
-        return logs.recent(100).filter { it.id > from && it.kind != LogKind.COMMAND }
-    }
-
-    private fun run(line: String) = lines(line).map { it.text }
-
-    private fun waitUntil(what: String, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + 5_000
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
+    private fun lines(line: String) = commands.lines(line)
+    private fun run(line: String) = commands.run(line)
 
     @Test fun volumeSetsAndSaysTheLevel() {
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)

@@ -3,13 +3,13 @@ package com.mtwabpin.kolahal.script
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.shell
 import java.net.InetAddress
 import java.net.ServerSocket
 import kotlin.concurrent.thread
@@ -27,10 +27,6 @@ class ScriptAlarmsTest {
     private val scripts = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
     private val name = "at${System.nanoTime() % 1_000_000}"
-
-    private fun shell(command: String) =
-        ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command))
-            .bufferedReader().use { it.readText() }
 
     /** The script alarms waiting: dumpsys also lists ones gone, in its histories further down. */
     private fun alarms() = shell("dumpsys alarm").substringBefore("Allow while idle history").substringBefore("Removal history")
