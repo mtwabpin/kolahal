@@ -21,6 +21,9 @@ class CommandParsingTest {
         assertEquals("script secret x K v", CommandParsing.spaces("script\tsecret x K\nv"))
         val plain = "already plain"
         assertTrue(plain === CommandParsing.spaces(plain))
+        // A no-break space too: `clear all` with one is still `clear all`, and a script may not send it.
+        assertEquals("clear all", CommandParsing.spaces("clear\u00A0all"))
+        assertTrue(InstantRun.isSensitive("clear\u00A0all"))
     }
 
     @Test fun parseInterval() {
@@ -36,6 +39,7 @@ class CommandParsingTest {
         assertEquals("30m", CommandParsing.formatInterval(30))
         assertEquals("2h", CommandParsing.formatInterval(120))
         assertEquals("1d", CommandParsing.formatInterval(1440))
+        assertEquals("not whole hours", "90m", CommandParsing.formatInterval(90))
     }
 
     /** A week at most; a number too big to multiply is refused, not wrapped round to some other time. */

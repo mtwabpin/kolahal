@@ -57,6 +57,22 @@ class PipesTest {
         assertEquals("bad regex falls back to a literal", listOf("a(b"), run("grep a(", "a(b", "ab"))
     }
 
+    /** A two-column row (help, config, script ls) is found by its description too. */
+    @Test fun grepReadsTheDescriptionColumn() {
+        val row = Pending(LogKind.OUTPUT, "todo", null, LogContext.of(LogContext.DESC to "tasks"), 0)
+        val out = Pipes.apply(listOf(row) + lines("tasks aside", "other"), listOf("grep tasks")).getOrThrow()
+        assertEquals(listOf("todo", "tasks aside"), out.map { it.text })
+        assertEquals(listOf("other"), Pipes.apply(listOf(row) + lines("other"), listOf("grep -v tasks")).getOrThrow().map { it.text })
+    }
+
+    @Test fun grepWithoutAPatternSaysHow() {
+        for (stage in listOf("grep", "grep -v")) {
+            val failure = Pipes.apply(lines("a"), listOf(stage)).exceptionOrNull()
+            assertTrue(stage, failure is IllegalArgumentException)
+            assertEquals(stage, "Usage: … | grep [-v] <pattern>", failure!!.message)
+        }
+    }
+
     /** A quick match gives its result; one that fails says why. */
     @Test fun aMatchWithinTheLimit() {
         val limit = MatchLimit(ms = 5_000, maxThreads = 2)
@@ -103,6 +119,10 @@ class PipesTest {
         assertEquals(listOf("3"), run("tail 1", "1", "2", "3"))
         assertEquals(listOf("2"), run("grep a | count", "a", "b", "ca"))
         assertEquals(listOf("a", "b", "c"), run("sort", "c", "a", "b"))
+        assertEquals("either case", listOf("C", "b", "a"), run("sort -r", "b", "a", "C"))
+        assertEquals("nothing to count", listOf("0"), run("grep z | count", "a", "b"))
+        assertEquals(listOf("0"), Pipes.apply(emptyList(), listOf("wc")).getOrThrow().map { it.text })
+        assertEquals("ten without a number", (1..10).map { "l$it" }, run("head", *(1..12).map { "l$it" }.toTypedArray()))
         assertEquals(listOf("a", "b"), run("uniq", "a", "a", "b"))
         // Every repeat, not only one next to its first, as Unix's uniq would.
         assertEquals(listOf("a", "b"), run("uniq", "a", "b", "a"))
@@ -115,6 +135,14 @@ class PipesTest {
         // Ahead of what the filters leave, so it isn't cut away by head or tail.
         val mixed = lines("a") + Pending(LogKind.ERROR, "boom", null, LogContext.EMPTY, 5) + lines("b", "c")
         assertEquals(listOf("boom", "c"), Pipes.apply(mixed, listOf("tail 1")).getOrThrow().map { it.text })
+    }
+
+    /** The command's own line isn't data either. */
+    @Test fun theCommandLinePassesThrough() {
+        val mixed = lines("a") + Pending(LogKind.COMMAND, "help", null, LogContext.EMPTY, 5) + lines("b", "c")
+        assertEquals(listOf("help"), Pipes.apply(mixed, listOf("grep nothing")).getOrThrow().map { it.text })
+        assertEquals(listOf("help", "c"), Pipes.apply(mixed, listOf("tail 1")).getOrThrow().map { it.text })
+        assertEquals(listOf("help", "3"), Pipes.apply(mixed, listOf("count")).getOrThrow().map { it.text })
     }
 
     @Test fun unknownStageFails() {

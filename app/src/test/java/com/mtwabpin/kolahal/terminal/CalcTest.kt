@@ -222,7 +222,26 @@ class CalcTest {
     }
 
     @Test fun noAnswerSaysWhy() {
-        assertEquals("can't divide by zero", assertThrows(ArithmeticException::class.java) { a("1/0") }.message)
-        assertEquals("not a real number", assertThrows(ArithmeticException::class.java) { a("sqrt(-1)") }.message)
+        fun why(text: String) = assertThrows(ArithmeticException::class.java) { a(text) }.message
+        assertEquals("can't divide by zero", why("1/0"))
+        assertEquals("not a real number", why("sqrt(-1)"))
+        assertEquals("too big", why("2^2000"))
+        assertEquals("too big", why("171!"))
+        assertEquals("! needs a whole number", why("0.5!"))
     }
+
+    @Test fun factorials() {
+        assertEquals("1", a("0!"))
+        assertEquals("120", a("5!"))
+        assertEquals("the biggest a double holds", "7.257415615e+306", a("170!"))
+    }
+
+    /** Very small and very big answers are written with an exponent, a sign kept. */
+    @Test fun exponents() {
+        assertEquals("3.333333333e-13", a("1/3e12"))
+        assertEquals("-1e+20", a("-10^20"))
+    }
+
+    /** An unclosed bracket isn't answered here, as a line that isn't arithmetic isn't. */
+    @Test fun anUnclosedBracket() = assertNull(a("(2+3"))
 }

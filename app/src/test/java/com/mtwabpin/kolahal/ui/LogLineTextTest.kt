@@ -63,6 +63,13 @@ class LogLineTextTest {
         assertEquals(Term.profileColor(ProfileKind.WORK), text.at("[W]").color)
         assertEquals(FontWeight.Bold, text.at("[W]").fontWeight)
         assertEquals(Term.fg, text.at("Chrome").color)
+        // Or before a last word with no space in it, as an update's ↻.
+        val updated = render(line(LogKind.INFO, "Updated Maps [W] ↻"))
+        assertEquals("Updated Maps [W] ↻", updated.text)
+        assertEquals(Term.profileColor(ProfileKind.WORK), updated.at("[W]").color)
+        assertEquals(FontWeight.Bold, updated.at("[W]").fontWeight)
+        assertEquals(Term.info, updated.at("Updated Maps").color)
+        assertEquals(Term.info, updated.at("↻").color)
         // Only at the end: a bracket in the middle is text.
         val middle = render(line(LogKind.OUTPUT, "a [W] b c"))
         assertTrue(middle.spanStyles.none { it.item.color == Term.profileColor(ProfileKind.WORK) })

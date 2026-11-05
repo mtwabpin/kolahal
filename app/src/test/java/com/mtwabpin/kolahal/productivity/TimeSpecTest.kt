@@ -84,6 +84,12 @@ class TimeSpecTest {
         assertEquals(TimeSpec.Repeating("mon,thu", LocalDateTime.of(2026, 10, 19, 19, 0), 4), every("every thu,monday at 19:00 bins"))
         assertEquals(TimeSpec.Repeating("weekend", LocalDateTime.of(2026, 10, 17, 18, 0), 3), every("every weekend 6pm run"))
         assertEquals(TimeSpec.Repeating("month:1", LocalDateTime.of(2026, 11, 1, 9, 0), 3), every("every month 1st rent"))
+        // No day: today's, from next month once today's 09:00 has gone.
+        assertEquals(TimeSpec.Repeating("month:17", LocalDateTime.of(2026, 11, 17, 9, 0), 2), every("every month rent"))
+        assertEquals(
+            TimeSpec.Repeating("month:17", LocalDateTime.of(2026, 10, 17, 9, 0), 2),
+            TimeSpec.parseRepeat("every month rent".split(" "), now.withHour(7)),
+        )
         assertEquals(TimeSpec.Repeating("year:03-14", LocalDateTime.of(2027, 3, 14, 9, 0), 4), every("every year mar 14 mum's birthday"))
         assertNull(every("every blue moon"))
         assertNull(every("every day at nonsense"))
@@ -130,6 +136,8 @@ class TimeSpecTest {
     @Test fun clocks() {
         assertEquals(LocalTime.of(0, 5), TimeSpec.parseClock("12:05am"))
         assertEquals(LocalTime.of(12, 0), TimeSpec.parseClock("12pm"))
+        assertEquals(LocalTime.of(0, 0), TimeSpec.parseClock("12:00am"))
+        assertEquals("a dot for the colon", LocalTime.of(7, 30), TimeSpec.parseClock("7.30"))
         assertEquals(LocalTime.of(7, 0), TimeSpec.parseClock("7", allowBareHour = true))
         assertNull(TimeSpec.parseClock("7"))
         assertNull(TimeSpec.parseClock("24:00"))

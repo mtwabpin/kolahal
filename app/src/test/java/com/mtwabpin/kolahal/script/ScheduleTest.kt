@@ -27,6 +27,18 @@ class ScheduleTest {
         assertEquals(11 * 60 * 60_000L, ScriptScheduler.millisUntil("08:00", berlin))
     }
 
+    /** Clocks go forward at 02:00 on 2027-03-28 in Berlin: 02:30 isn't that night, so it's 03:30, an hour and a half on. */
+    @Test fun aTimeTheClocksSkipIsJustAfterThem() {
+        val berlin = ZonedDateTime.of(2027, 3, 28, 1, 0, 0, 0, ZoneId.of("Europe/Berlin"))
+        assertEquals(90 * 60_000L, ScriptScheduler.millisUntil("02:30", berlin))
+    }
+
+    /** Clocks go back at 03:00 on 2026-10-25 in Berlin, so 02:30 comes twice: the first one. */
+    @Test fun aTimeThatComesTwiceIsTheFirst() {
+        val berlin = ZonedDateTime.of(2026, 10, 25, 1, 0, 0, 0, ZoneId.of("Europe/Berlin"))
+        assertEquals(90 * 60_000L, ScriptScheduler.millisUntil("02:30", berlin))
+    }
+
     @Test fun commandsSentByScriptsMarkTheRunsTheyStart() {
         assertFalse(ScriptScheduler.runningSentCommand)
         assertEquals("ran", ScriptScheduler.sentByScript {
