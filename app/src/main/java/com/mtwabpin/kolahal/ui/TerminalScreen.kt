@@ -154,9 +154,11 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val currentHasHardwareKeyboard by rememberUpdatedState(hasHardwareKeyboard)
     if (preview == null) LaunchedEffect(Unit) {
         // Home pressed on another page: scroll and focus now that the terminal is here.
+        // The list's scrolls are requested for its next layout, never forced inside this one:
+        // scrollToItem measures at once, which can land inside a layout pass under the test clock.
         vm.consumeArrival()?.let { a ->
             followNewest = true
-            runCatching { listState.scrollToItem(0) }
+            listState.requestScrollToItem(0)
             if (a.focus) {
                 androidx.compose.runtime.withFrameNanos { } // the prompt's focus target is attached after the first frame
                 runCatching { focus.requestFocus() }
@@ -165,7 +167,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         }
         vm.events.collect { e ->
             when (e) {
-                UiEvent.ScrollToBottom -> { followNewest = true; listState.scrollToItem(0) }
+                UiEvent.ScrollToBottom -> { followNewest = true; listState.requestScrollToItem(0) }
                 // Handled by MainActivity so it works from every page (setup, script manager).
                 UiEvent.RequestNotificationPermission, UiEvent.RequestContactsPermission, UiEvent.PickContact, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
                 UiEvent.PickFont, UiEvent.PickBackupFolder -> Unit
@@ -197,8 +199,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         }
     }
     // Keyed on the newest *row* (rows are built after entries), so the scroll targets the new line.
+    // Not under a finger or a fling still going: a forced scroll gave way to those, and so does this.
     LaunchedEffect(reversedRows.firstOrNull()?.key) {
-        if (followNewest) listState.scrollToItem(0)
+        if (followNewest && !listState.isScrollInProgress) listState.requestScrollToItem(0)
     }
     // Near the oldest loaded line (top of the reversed list): load the next page.
     LaunchedEffect(listState) {
@@ -224,7 +227,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         if (index < 0) return@LaunchedEffect
         // One of the newest lines: still following new ones.
         followNewest = index <= 3
-        runCatching { listState.scrollToItem((index - 3).coerceAtLeast(0)) }
+        listState.requestScrollToItem((index - 3).coerceAtLeast(0))
         vm.jumpDone()
         flash = id
     }

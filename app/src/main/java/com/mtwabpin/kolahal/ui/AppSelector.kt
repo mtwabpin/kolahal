@@ -598,7 +598,8 @@ fun AppSelector(
                     val top = ((h - exclusionPx) / 2).coerceAtLeast(0f)
                     Rect(0f, top, c.size.width.toFloat(), min(h, top + exclusionPx))
                 }
-                .pointerInput(entries, rowPx, listHPx, topPx, stripTopPx, stripHPx, zoneTopPx, left, actions, aimStepPx, aimSpeed, byLetter, onlyLetter) {
+                // Everything the gesture reads that can change, the width too (a multi-window divider moved).
+                .pointerInput(entries, rowPx, listHPx, topPx, stripTopPx, stripHPx, zoneTopPx, containerW, left, actions, aimStepPx, aimSpeed, byLetter, onlyLetter) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         down.consume()

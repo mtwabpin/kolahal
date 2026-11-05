@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -266,7 +267,9 @@ internal fun Header(
         if (barTop > 0 || band == 0) emptyList()
         else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }.map { it.left..it.right }
     }
-    val originX = remember { floatArrayOf(0f) }
+    // The line's x in the window, for the cutout's zones: known once it's placed, so read in the
+    // measure below as state, which measures again when it changes (the first measure has 0).
+    val originX = remember { mutableFloatStateOf(0f) }
 
     /** One part of the line: as tall as it, with room to tap. */
     @Composable
@@ -336,7 +339,7 @@ internal fun Header(
             .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
             .testTag("header")
             .height(height)
-            .onPlaced { originX[0] = it.positionInWindow().x }
+            .onPlaced { originX.floatValue = it.positionInWindow().x }
             // Swiping down on the line pulls the notification shade.
             .pointerInput(Unit) {
                 var total = 0f
@@ -348,7 +351,7 @@ internal fun Header(
     ) { measurables, constraints ->
         val h = constraints.maxHeight
         val parts = measurables.map { it.measure(Constraints(minHeight = h, maxHeight = h)) }
-        val shift = originX[0].toInt()
+        val shift = originX.floatValue.toInt()
         val zones = HeaderLayout.zones(constraints.maxWidth, 8.dp.roundToPx(), cutouts.map { (it.first - shift)..(it.last - shift) }, CUTOUT_GAP.roundToPx())
         val places = HeaderLayout.place(zones, parts[0].width, parts[1].width, parts.drop(2).map { it.width }, HEADER_SPACING.roundToPx())
         layout(constraints.maxWidth, h) {

@@ -95,10 +95,12 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
         spec.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { token -> KeyBarKey.of(token) to token }
     }
     val haptics = LocalHapticFeedback.current
+    // Read through updated state: a key's gesture below outlives the composition that made it.
     val currentOnKey by rememberUpdatedState(onKey)
+    val currentOnText by rememberUpdatedState(onText)
     val press: (KeyBarKey?, String) -> Unit = { named, token ->
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        if (named != null) currentOnKey(named) else onText(token)
+        if (named != null) currentOnKey(named) else currentOnText(token)
     }
     val bar = Modifier
         .fillMaxWidth()

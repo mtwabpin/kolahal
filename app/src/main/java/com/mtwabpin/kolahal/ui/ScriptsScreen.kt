@@ -111,6 +111,9 @@ internal class ScriptInfo(val script: Script, code: ScriptCode) {
  */
 private class ScriptState(val needsKey: Boolean, val differs: Boolean)
 
+/** A script's `@secret` names: those with no value yet, and those set, in the order declared. */
+private class SecretNames(val missing: List<String>, val set: List<String>)
+
 /** A filter chip: its name and the scripts it keeps. */
 private class ScriptFilter(val id: String, val label: String, val keeps: (info: ScriptInfo, state: ScriptState) -> Boolean)
 
@@ -197,24 +200,27 @@ fun ScriptsScreen(
         keptCodes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
         scripts.map { s -> ScriptInfo(s, keptCodes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
     }
-    // Declared secrets with no value yet, by script name.
+    // Declared secrets with and without a value, by script name: the same lists each time the
+    // page is built again, so a card can skip when nothing of its own changed.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
-    val missingKeys by produceState(emptyMap(), infos, secretsVersion) {
+    val secretNames by produceState(emptyMap<String, SecretNames>(), infos, secretsVersion) {
         value = withContext(Dispatchers.IO) {
-            infos.filter { it.secrets.isNotEmpty() }
-                .associate { i -> i.script.name to (i.secrets.map { it.name } - vm.scriptActions.secretsSet(i.script)) }
-                .filterValues { it.isNotEmpty() }
+            infos.filter { it.secrets.isNotEmpty() }.associate { i ->
+                val declared = i.secrets.map { it.name }
+                val set = vm.scriptActions.secretsSet(i.script)
+                i.script.name to SecretNames(missing = declared.filter { it !in set }, set = declared.filter { it in set })
+            }
         }
     }
     fun stateOf(info: ScriptInfo) = ScriptState(
-        info.script.name in missingKeys,
+        secretNames[info.script.name]?.missing.orEmpty().isNotEmpty(),
         libByName[info.script.name]?.state.let { it == ScriptLibrary.State.MODIFIED || it == ScriptLibrary.State.UPDATE_AVAILABLE },
     )
     // Only chips something matches, with how many; a selected one stays, so it can be unselected.
-    val chips = remember(infos, statuses, missingKeys, libByName, filters) {
+    val chips = remember(infos, statuses, secretNames, libByName, filters) {
         SCRIPT_FILTERS.map { f -> f to infos.count { f.keeps(it, stateOf(it)) } }.filter { it.second > 0 || it.first.id in filters }
     }
-    val shown = remember(infos, statuses, missingKeys, libByName, filters, query) {
+    val shown = remember(infos, statuses, secretNames, libByName, filters, query) {
         val active = SCRIPT_FILTERS.filter { it.id in filters }
         val words = query.lowercase().split(' ').filter { it.isNotBlank() }
         infos.filter { info ->
@@ -328,8 +334,8 @@ fun ScriptsScreen(
                         ScriptCard(
                             info,
                             line = statuses[s.name],
-                            missingKeys = missingKeys[s.name].orEmpty(),
-                            secretsSet = info.secrets.map { it.name } - missingKeys[s.name].orEmpty().toSet(),
+                            missingKeys = secretNames[s.name]?.missing.orEmpty(),
+                            secretsSet = secretNames[s.name]?.set.orEmpty(),
                             expanded = expandAll != (s.id in flipped),
                             updateAvailable = libByName[s.name]?.state == ScriptLibrary.State.UPDATE_AVAILABLE || s.name in sharedUpdates,
                             library = libByName[s.name]?.state?.takeIf { it != ScriptLibrary.State.NOT_INSTALLED },

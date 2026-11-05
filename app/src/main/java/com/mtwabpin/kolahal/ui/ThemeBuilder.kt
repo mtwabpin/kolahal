@@ -172,10 +172,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                ThemePreview(
-                    Palettes.fromColors(if (light) CustomThemes.light(draft) ?: draft else draft),
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
-                )
+                DraftPreview(draft, light, Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth())
                 // Every theme has a dark and a light version: the phone's dark mode picks one.
                 Box(Modifier.padding(horizontal = 16.dp)) {
                     ConnectedChoices(listOf("Dark", "Light"), if (light) "Light" else "Dark", tagPrefix = "version ") { light = it == "Light" }
@@ -271,6 +268,15 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             )
         }
     }
+}
+
+/**
+ * [ThemePreview] of [draft]'s dark or [light] version. It reads the draft in a scope of its own, so
+ * each step of a colour slider redraws the preview, not the page around it.
+ */
+@Composable
+private fun DraftPreview(draft: Map<String, Int>, light: Boolean, modifier: Modifier) {
+    ThemePreview(Palettes.fromColors(if (light) CustomThemes.light(draft) ?: draft else draft), modifier)
 }
 
 /** "my-theme", or "my-theme-2" and so on when that is taken. */
