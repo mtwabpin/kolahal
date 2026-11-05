@@ -10,6 +10,7 @@ import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.StyledText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -171,9 +172,10 @@ class KolahalNotificationListener : NotificationListenerService() {
             pkg = sbn.packageName,
             userSerial = serial,
             app = labelOf(sbn.packageName, serial),
-            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+            // Another app's text can't style a log line.
+            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.let(StyledText::strip),
             text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
-                ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString(),
+                ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.let(StyledText::strip),
             postTime = sbn.postTime,
             icon = NotifIcons.key(this, sbn.packageName, sbn.notification.smallIcon),
         )
@@ -188,7 +190,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         AppRepository.get(this).find(pkg, null, serial)?.label
             ?: AppRepository.get(this).find(pkg, null, null)?.label
             ?: runCatching {
-                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+                StyledText.strip(packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString())
             }.getOrDefault(pkg)
 
     private fun maybeLog(n: Notif, message: Boolean, iconSaved: kotlinx.coroutines.Job) {

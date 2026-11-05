@@ -158,7 +158,8 @@ class AppRepository private constructor(private val context: Context) {
                 runCatching { launcherApps.getActivityList(null, profile.user) }
                     .getOrDefault(emptyList())
                     .map { info ->
-                        val original = info.label.toString()
+                        // An app's name can't style a log line.
+                        val original = com.mtwabpin.kolahal.data.StyledText.strip(info.label.toString())
                         val key = keyOf(info.componentName, profile)
                         AppEntry(
                             label = prefs.label(key) ?: original,

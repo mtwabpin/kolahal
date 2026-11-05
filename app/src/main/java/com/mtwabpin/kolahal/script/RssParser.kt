@@ -35,7 +35,8 @@ object RssParser {
     fun parse(xml: String): Feed {
         val parser = Xml.newPullParser().apply {
             setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
-            setInput(StringReader(xml))
+            // A feed's text can't style a log line.
+            setInput(StringReader(com.mtwabpin.kolahal.data.StyledText.strip(xml)))
         }
         var feedTitle: String? = null
         var feedLink: String? = null

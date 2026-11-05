@@ -129,7 +129,7 @@ class PackageEvents private constructor(private val context: Context) {
                 }.getOrNull()?.let { Asked(info.sourceDir.orEmpty(), apkTime, it.versionName.orEmpty(), it.longVersionCode, it.lastUpdateTime) }
                     ?.also { if (info.sourceDir != null) asked[key] = it }
                 out[key] = Pkg(
-                    label = a.label.toString(),
+                    label = com.mtwabpin.kolahal.data.StyledText.strip(a.label.toString()),
                     version = pi?.version.orEmpty(),
                     code = pi?.code ?: 0L,
                     // Other profiles: the app's install-time stamp is not readable; the APK's

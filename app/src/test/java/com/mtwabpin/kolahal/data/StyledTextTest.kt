@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.data
 import com.mtwabpin.kolahal.data.StyledText.Style
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -56,5 +57,15 @@ class StyledTextTest {
         assertEquals("1. eggs\n2. tea", StyledText.plain(numbered))
         assertEquals(listOf("1.", "2."), StyledText.lines(numbered).map { it.prefix })
         assertEquals("  ◦ skim", StyledText.plain(StyledText.list(listOf("skim"), numbered = false, level = 2)))
+    }
+
+    /** Text from outside loses every marker, and nothing else: no bullet for an item mark, emoji kept. */
+    @Test fun stripTakesOutTheMarkersOnly() {
+        val styled = StyledText.wrap(Style.BOLD, "Win") + " a " + StyledText.colour(StyledText.Colour.BAD, "prize") + " 😀"
+        assertEquals("Win a prize 😀", StyledText.strip(styled))
+        assertEquals("milk", StyledText.strip(StyledText.list(listOf("milk"), numbered = false)).trim())
+        assertFalse(StyledText.has(StyledText.strip(styled)))
+        val plain = "No styles here 😀"
+        assertSame(plain, StyledText.strip(plain))
     }
 }

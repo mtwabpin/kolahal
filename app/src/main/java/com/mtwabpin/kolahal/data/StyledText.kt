@@ -3,9 +3,9 @@ package com.mtwabpin.kolahal.data
 /**
  * Styled text in a log line: invisible markers around its styled parts, put there by a script's
  * `fmt.*` functions, or by `md.log` from Markdown. The markers are private-use characters from
- * Unicode's plane 16, which text from the web doesn't use, so a feed title can't turn styling on.
- * The log draws them; everywhere else (notifications, status lines, Copy text, search) they are
- * stripped ([plain]).
+ * Unicode's plane 16. Text from outside has any taken out as it comes in ([strip]): feeds, other
+ * apps' notifications and app names, so none of them can turn styling on. The log draws them;
+ * everywhere else (notifications, status lines, Copy text, search) they are stripped ([plain]).
  */
 object StyledText {
     enum class Style { BOLD, ITALIC, UNDERLINE, STRIKE, CODE }
@@ -121,6 +121,19 @@ object StyledText {
             }
         }
         return out
+    }
+
+    /** [text] with every marker taken out and nothing put in its place: for text from outside. */
+    fun strip(text: String): String {
+        if (!has(text)) return text
+        val out = StringBuilder(text.length)
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            if (cp !in BASE..LAST) out.appendCodePoint(cp)
+            i += Character.charCount(cp)
+        }
+        return out.toString()
     }
 
     /** [text] as plain text, as it reads: no styles, list items with their bullet or number. */
