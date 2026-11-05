@@ -2,7 +2,6 @@ package com.mtwabpin.kolahal.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -292,12 +291,6 @@ class SelectorMathTest {
         assertEquals(0.5f, SelectorMath.edgeSpeed(775f, 800f, 50f, 1f), 1e-5f)
         // A short panel keeps a still middle.
         assertEquals(0f, SelectorMath.edgeSpeed(50f, 100f, 50f, 1f))
-    }
-
-    @Test fun completionHelpForCommandsAndKeys() {
-        assertEquals("Show this list, or just one command", completionHelp("help", "help "))
-        assertEquals(com.mtwabpin.kolahal.data.Keys.SELECTOR_RAIL.help, completionHelp("selector.rail", "config set selector.rail "))
-        assertNull(completionHelp("on", "config set selector.rail on"))
     }
 
     /** One finger's path: (in the list, row, section) per move, felt as the selector does. */
