@@ -124,8 +124,12 @@ class CalcTest {
         assertEquals("1.5", a("1,5"))
         assertEquals("2.5", a("2,50"))
         assertEquals("1000.5", a("1,000.5"))
-        listOf("1,500", "1,000,000", "1,00,000", "12,34,567", "0,500", "1,5", "2,50", "1,000.5", "1234,500", "1,23,45,678").forEach {
-            assertEquals(it, Units.number(it), Calc.eval(it))
+        for ((typed, value) in listOf(
+            "1,500" to 1500.0, "1,000,000" to 1_000_000.0, "1,00,000" to 100_000.0, "12,34,567" to 1_234_567.0, "0,500" to 0.5,
+            "1,5" to 1.5, "2,50" to 2.5, "1,000.5" to 1000.5, "1234,500" to 1234.5, "1,23,45,678" to 12_345_678.0,
+        )) {
+            assertEquals(typed, value, Calc.eval(typed))
+            assertEquals(typed, value, Units.number(typed))
         }
         assertEquals("3000", a("1,500 * 2"))
         assertEquals("4", a("1,5 + 2,5"))
