@@ -136,7 +136,7 @@ class MediaRepository private constructor(private val context: Context) {
 
     fun start() {
         if (!hasAccess()) {
-            if (listening) main.post { stop() }
+            if (listening) stop()
             return
         }
         if (listening) return
@@ -171,8 +171,13 @@ class MediaRepository private constructor(private val context: Context) {
         }
     }
 
-    /** Main thread. Access was turned off: nothing to follow, and nothing playing. */
-    private fun stop() {
+    /** Stops following players, as when access is turned off (and when a test is done with them). */
+    fun stop() {
+        main.post { unlisten() }
+    }
+
+    /** Main thread. Nothing to follow, and nothing playing. */
+    private fun unlisten() {
         listening = false
         runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
         onSessions(emptyList())
@@ -182,7 +187,7 @@ class MediaRepository private constructor(private val context: Context) {
         val list = runCatching { manager.getActiveSessions(component) }.getOrNull()
         if (list == null) {
             // Access was revoked.
-            stop()
+            unlisten()
             return
         }
         onSessions(list)

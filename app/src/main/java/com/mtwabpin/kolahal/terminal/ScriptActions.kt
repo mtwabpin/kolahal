@@ -150,9 +150,7 @@ class ScriptActions(
     }
 
     fun deleteScript(s: Script) = io {
-        ScriptScheduler.cancel(context, s.id)
         scripts.delete(s.id)
-        StatusLines.clear(context, s.name)
         scriptList.value = scripts.all()
         notice("Deleted ${s.name}")
     }

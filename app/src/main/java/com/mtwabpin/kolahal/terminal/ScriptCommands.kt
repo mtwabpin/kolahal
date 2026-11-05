@@ -214,9 +214,7 @@ class ScriptCommands(
                 setAccess(s, items, sub == "allow")
             }
             "rm", "delete" -> withScript(target) { s ->
-                ScriptScheduler.cancel(context, s.id)
                 scripts.delete(s.id)
-                StatusLines.clear(context, s.name)
                 logs.onStatusChanged()
                 info("Deleted ${s.name}")
             }

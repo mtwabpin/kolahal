@@ -212,10 +212,12 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     fun delete(id: Long) {
-        // Its secrets and options go with it.
+        // Its timers, secrets, options and status line go with it.
+        ScriptScheduler.cancel(context, id)
         byId(id)?.let {
             SecretStore(context).clear(it.name)
             db.writableDatabase.delete("kv", "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(it.name)))
+            StatusLines.clear(context, it.name)
             forgetOrigin(it.name)
         }
         db.writableDatabase.delete("scripts", "id = ?", arrayOf(id.toString()))
