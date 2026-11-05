@@ -54,8 +54,8 @@ object FullBackup {
     private val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE, KolahalNotificationListener.MIRROR_SCOPE)
 
     fun export(context: Context): Map<String, Any?> {
-        // Rows too big for a cursor would make the whole export fail.
-        runCatching { KvStore.repairOversized(context) }
+        // Rows too big for a cursor would make the whole export fail: they're from old versions, which
+        // the start after an update repairs (KvStore.repairOversized), and nothing writes them since.
         val scriptNames = ScriptRepository.get(context).all().associate { ScriptRepository.scopeOf(it.id) to it.name }
         val tables = LinkedHashMap<String, Any?>()
         val scriptKv = LinkedHashMap<String, MutableMap<String, String?>>()

@@ -101,7 +101,8 @@ class LauncherApp : Application(), Configuration.Provider {
             runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
             runCatching { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
             runCatching { LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS]) }
-            // A whole-table scan: once per app version is enough (it repairs rows from old versions).
+            // A whole-table scan: once per app version is enough (it repairs rows from old versions,
+            // before anything reads them; a backup's export counts on it).
             runCatching {
                 val prefs = getSharedPreferences("launcher", MODE_PRIVATE)
                 val version = packageManager.getPackageInfo(packageName, 0).longVersionCode
