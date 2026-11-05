@@ -149,6 +149,8 @@ dependencies {
     implementation(libs.quickjs)
 
     testImplementation(libs.junit)
+    // The real org.json for JVM tests: android.jar has only stubs of it.
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     // Compose UI tests of the home screen (the test activity comes with ui-test-manifest, debug only).
