@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.apps
 
 import android.content.Context
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,7 +122,7 @@ class AppPrefs private constructor(context: Context) {
         _version.update { it + 1 }
     }
 
-    companion object {
+    companion object : Singleton<AppPrefs>(::AppPrefs) {
         const val USAGE_FILE = "app_usage"
         private const val LN2 = 0.6931471805599453
         private const val HALF_LIFE_DAYS = 7.0
@@ -129,12 +130,5 @@ class AppPrefs private constructor(context: Context) {
         /** [score] after [ageMs] of halving every [HALF_LIFE_DAYS]. */
         internal fun decayed(score: Double, ageMs: Long): Double =
             score * exp(-(ageMs.coerceAtLeast(0) / 86_400_000.0) * LN2 / HALF_LIFE_DAYS)
-
-        @Volatile
-        private var instance: AppPrefs? = null
-
-        fun get(context: Context): AppPrefs = instance ?: synchronized(this) {
-            instance ?: AppPrefs(context.applicationContext).also { instance = it }
-        }
     }
 }

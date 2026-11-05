@@ -146,15 +146,8 @@ class ScriptFolder(private val context: Context) {
                 }
             }
             // A new script without settings in kolahal.json gets the timers its code suggests; a changed
-            // one keeps its own, unless its `@every` or `@at` lines changed, as when it's edited.
-            if (isNew && settings[name] == null) {
-                if (existing == null) {
-                    scripts.applySuggested(script.id, code)
-                } else {
-                    scripts.setInterval(script.id, ScriptMeta.intervalAfter(existing.code, code, existing.intervalMin))
-                    scripts.setAtTimes(script.id, ScriptMeta.timesAfter(existing.code, code, existing.atTimes))
-                }
-            }
+            // one keeps its own, unless its `@every` or `@at` lines changed (replaceCode sees to that).
+            if (existing == null && settings[name] == null) scripts.applySuggested(script.id, code)
             // New scripts from a folder arrive switched off, like from a backup: review them before
             // they run on a timer.
             if (isNew) scripts.setEnabled(script.id, false)

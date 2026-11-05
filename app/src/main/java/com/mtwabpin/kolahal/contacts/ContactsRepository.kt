@@ -1,7 +1,6 @@
 package com.mtwabpin.kolahal.contacts
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.database.ContentObserver
@@ -12,6 +11,7 @@ import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.BuildConfig
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -230,21 +230,12 @@ class ContactsRepository private constructor(private val context: Context) {
             .toList()
     }
 
-    companion object {
+    companion object : Singleton<ContactsRepository>(::ContactsRepository) {
         private const val RELOAD_DEBOUNCE_MS = 1_000L
         /** Picked contacts' prefs: left out of cloud backups (data_extraction_rules.xml). */
         private const val PICKED = "picked_contacts"
         private const val KEY_PICKED = "list"
         private const val MAX_PICKED = 200
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: ContactsRepository? = null
-
-        fun get(context: Context): ContactsRepository = instance ?: synchronized(this) {
-            instance ?: ContactsRepository(context.applicationContext).also { instance = it }
-        }
 
         fun looksLikeNumber(s: String) = s.isNotBlank() && s.all { it.isDigit() || it in "+-() *#" } && s.count { it.isDigit() } >= 3
     }

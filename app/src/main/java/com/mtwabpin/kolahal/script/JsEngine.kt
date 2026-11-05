@@ -102,18 +102,7 @@ class JsEngine : ScriptEngine {
             asyncFunction("request") { args ->
                 val opts = args.getOrNull(0) as? Map<*, *>
                     ?: throw IllegalArgumentException("http.request expects an options object")
-                io {
-                    toJs(
-                        host.httpRequest(
-                            url = opts["url"]?.toString() ?: throw IllegalArgumentException("url is required"),
-                            method = opts["method"]?.toString() ?: "GET",
-                            body = opts["body"]?.let { it as? String ?: Json.stringify(it) },
-                            bodyIsJson = opts["body"].let { it != null && it !is String },
-                            contentType = opts["contentType"]?.toString(),
-                            headers = opts["headers"] as? Map<*, *>,
-                        )
-                    )
-                }
+                io { toJs(host.httpRequest(opts)) }
             }
         }
         js.define("clipboard") {

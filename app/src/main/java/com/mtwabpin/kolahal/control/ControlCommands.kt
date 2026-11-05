@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.core.net.toUri
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.productivity.TimeSpec
 import com.mtwabpin.kolahal.terminal.CommandGroup
 import com.mtwabpin.kolahal.terminal.CommandSpec
@@ -169,12 +170,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
         fun known(): Boolean? = on
 
-        companion object {
-            @Volatile private var instance: Torch? = null
-            fun get(context: Context): Torch = instance ?: synchronized(this) {
-                instance ?: Torch(context.applicationContext).also { instance = it }
-            }
-        }
+        companion object : Singleton<Torch>(::Torch)
     }
 
     // ---- sound ------------------------------------------------------------------------------

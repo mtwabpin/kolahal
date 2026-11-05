@@ -15,17 +15,25 @@ object Files {
 
     fun readText(context: Context, uri: Uri, maxBytes: Int = MAX_BYTES): String {
         val stream = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("can't open the file")
-        stream.use { input ->
-            // Manual loop: InputStream.readNBytes needs API 33.
-            val out = java.io.ByteArrayOutputStream()
-            val buffer = ByteArray(16 * 1024)
-            while (true) {
-                val n = input.read(buffer)
-                if (n < 0) break
-                out.write(buffer, 0, n)
-                if (out.size() > maxBytes) throw IllegalStateException("File is larger than ${maxBytes / (1024 * 1024)} MB")
-            }
-            return out.toString(Charsets.UTF_8.name())
+        val out = java.io.ByteArrayOutputStream()
+        if (!stream.use { copyLimited(it, out, maxBytes.toLong()) }) throw IllegalStateException("File is larger than ${maxBytes / (1024 * 1024)} MB")
+        return out.toString(Charsets.UTF_8.name())
+    }
+
+    /**
+     * Copies [input] to [out] while it holds at most [max] bytes: false, with the copy stopped, when
+     * there's more. For files, feeds and pictures, whose stated length can be missing or wrong.
+     * A loop of its own: InputStream.readNBytes needs API 33.
+     */
+    fun copyLimited(input: java.io.InputStream, out: java.io.OutputStream, max: Long): Boolean {
+        val buffer = ByteArray(16 * 1024)
+        var total = 0L
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) return true
+            total += n
+            if (total > max) return false
+            out.write(buffer, 0, n)
         }
     }
 

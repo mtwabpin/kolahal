@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.productivity
 import android.content.ContentValues
 import android.content.Context
 import com.mtwabpin.kolahal.data.Db
+import com.mtwabpin.kolahal.data.Singleton
 
 data class Todo(val id: Long, val text: String, val done: Boolean)
 data class Note(val id: Long, val text: String, val created: Long)
@@ -62,12 +63,7 @@ class TodoStore private constructor(context: Context) {
     /** Deletes finished items; returns how many. */
     fun clearDone(): Int = db.writableDatabase.delete("todos", "done = 1", null)
 
-    companion object {
-        @Volatile private var instance: TodoStore? = null
-        fun get(context: Context): TodoStore = instance ?: synchronized(this) {
-            instance ?: TodoStore(context.applicationContext).also { instance = it }
-        }
-    }
+    companion object : Singleton<TodoStore>(::TodoStore)
 }
 
 /** Quick notes, newest first. */
@@ -89,12 +85,7 @@ class NoteStore private constructor(context: Context) {
 
     fun remove(id: Long) = db.writableDatabase.delete("notes", "id = ?", arrayOf(id.toString()))
 
-    companion object {
-        @Volatile private var instance: NoteStore? = null
-        fun get(context: Context): NoteStore = instance ?: synchronized(this) {
-            instance ?: NoteStore(context.applicationContext).also { instance = it }
-        }
-    }
+    companion object : Singleton<NoteStore>(::NoteStore)
 }
 
 /** Pending reminders, soonest first. A reminder is deleted once it fires (unless it repeats) or is cancelled. */
@@ -133,10 +124,5 @@ class ReminderStore private constructor(context: Context) {
 
     fun remove(id: Long) = db.writableDatabase.delete("reminders", "id = ?", arrayOf(id.toString()))
 
-    companion object {
-        @Volatile private var instance: ReminderStore? = null
-        fun get(context: Context): ReminderStore = instance ?: synchronized(this) {
-            instance ?: ReminderStore(context.applicationContext).also { instance = it }
-        }
-    }
+    companion object : Singleton<ReminderStore>(::ReminderStore)
 }

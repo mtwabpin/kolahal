@@ -70,16 +70,7 @@ class Config private constructor(private val prefs: SharedPreferences) {
 
     fun <T> display(key: ConfigKey<T>): String = key.format(get(key))
 
-    companion object {
-        @Volatile
-        private var instance: Config? = null
-
-        fun get(context: Context): Config = instance ?: synchronized(this) {
-            instance ?: Config(
-                context.applicationContext.getSharedPreferences("config", Context.MODE_PRIVATE)
-            ).also { instance = it }
-        }
-    }
+    companion object : Singleton<Config>({ Config(it.getSharedPreferences("config", Context.MODE_PRIVATE)) })
 }
 
 /** "22:40" or "10:40 PM" per [Keys.CLOCK_24H], for log lines written outside the UI (workers). */

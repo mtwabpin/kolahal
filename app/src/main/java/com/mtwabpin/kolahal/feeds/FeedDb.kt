@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.feeds
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.mtwabpin.kolahal.data.Singleton
 
 /**
  * Feed subscriptions and their fetched items. Kept apart from `kolahal.db` so the feed schema
@@ -56,17 +57,11 @@ class FeedDb private constructor(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
 
-    companion object {
+    companion object : Singleton<FeedDb>(::FeedDb) {
         private const val NAME = "feeds.db"
         private const val VERSION = 1
 
         /** Items kept per feed; the oldest read ones go first. */
         const val MAX_ITEMS_PER_FEED = 300
-
-        @Volatile
-        private var instance: FeedDb? = null
-
-        fun get(context: Context): FeedDb =
-            instance ?: synchronized(this) { instance ?: FeedDb(context).also { instance = it } }
     }
 }

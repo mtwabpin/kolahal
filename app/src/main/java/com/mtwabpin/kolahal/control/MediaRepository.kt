@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.control
 
-import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.media.MediaMetadata
@@ -10,6 +9,7 @@ import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -317,16 +317,8 @@ class MediaRepository private constructor(private val context: Context) {
         return snapshot(c.packageName, Track.of(c.metadata), c.playbackState, System.currentTimeMillis())
     }
 
-    companion object {
+    companion object : Singleton<MediaRepository>(::MediaRepository) {
         /** Two positions this close, worked out to the same moment, are the same. */
         private const val SAME_POSITION_MS = 50L
-
-        @SuppressLint("StaticFieldLeak") // application context only
-        @Volatile
-        private var instance: MediaRepository? = null
-
-        fun get(context: Context): MediaRepository = instance ?: synchronized(this) {
-            instance ?: MediaRepository(context.applicationContext).also { instance = it }
-        }
     }
 }

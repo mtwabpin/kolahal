@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.unlock
 
-import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageEventsQuery
@@ -14,6 +13,7 @@ import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -135,13 +135,5 @@ class UnlockCounter private constructor(private val context: Context) {
 
     private fun dayKey(day: LocalDate) = "d:$day"
 
-    companion object {
-        @SuppressLint("StaticFieldLeak") // application context only
-        @Volatile
-        private var instance: UnlockCounter? = null
-
-        fun get(context: Context): UnlockCounter = instance ?: synchronized(this) {
-            instance ?: UnlockCounter(context.applicationContext).also { instance = it }
-        }
-    }
+    companion object : Singleton<UnlockCounter>(::UnlockCounter)
 }

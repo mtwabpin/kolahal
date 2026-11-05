@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.data
 
-import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
@@ -122,6 +121,9 @@ class ScriptRepository private constructor(private val context: Context) {
             put("enabled", 0)
             put("access", ScriptAccess.encode(s.access.filterValues { !it } + newInternet(s, code).associateWith { false }))
         }
+        // Its timers follow a changed `@every` or `@at` line, as after an edit; one set in its sheet stays.
+        setInterval(id, ScriptMeta.intervalAfter(s.code, code, s.intervalMin))
+        setAtTimes(id, ScriptMeta.timesAfter(s.code, code, s.atTimes))
         forgetRemovedSecrets(s.name, code)
         StatusLines.clear(context, s.name)
     }
@@ -256,7 +258,7 @@ class ScriptRepository private constructor(private val context: Context) {
         )
     }
 
-    companion object {
+    companion object : Singleton<ScriptRepository>(::ScriptRepository) {
         /**
          * Longest last-run status kept (an error's first line): a row past the 2 MB cursor window
          * can't be read back, and every script list would fail on it.
@@ -267,14 +269,5 @@ class ScriptRepository private constructor(private val context: Context) {
 
         /** Bumped on every write made in this process; caches compare it to know when to reload. */
         val version = java.util.concurrent.atomic.AtomicLong()
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: ScriptRepository? = null
-
-        fun get(context: Context): ScriptRepository = instance ?: synchronized(this) {
-            instance ?: ScriptRepository(context.applicationContext).also { instance = it }
-        }
     }
 }

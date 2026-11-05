@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.widgets
 
-import android.annotation.SuppressLint
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
@@ -22,6 +21,7 @@ import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -396,17 +396,10 @@ class WidgetHost private constructor(context: Context) {
      */
     fun importWidgets(list: List<Map<String, Any?>>) = update { WidgetCodec.mergePending(it, WidgetOrder.onePage(WidgetCodec.fromExport(list))) }
 
-    companion object {
+    companion object : Singleton<WidgetHost>(::WidgetHost) {
         /** "KO". */
         const val HOST_ID = 0x4B4F
         private const val KEY = "placed"
-
-        @SuppressLint("StaticFieldLeak") // application context only
-        @Volatile private var instance: WidgetHost? = null
-
-        fun get(context: Context): WidgetHost = instance ?: synchronized(this) {
-            instance ?: WidgetHost(context).also { instance = it }
-        }
     }
 }
 

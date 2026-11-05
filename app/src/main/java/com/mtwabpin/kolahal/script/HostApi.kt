@@ -457,6 +457,16 @@ class HostApi(
 
     fun httpGet(url: String, headers: Map<*, *>? = null) = httpRequest(url, headers = headers)
 
+    /** `http.request(opts)`: `{ url, method, body, headers, contentType }`; a body that isn't text goes as JSON. */
+    fun httpRequest(opts: Map<*, *>): Map<String, Any?> = httpRequest(
+        url = opts["url"]?.toString() ?: throw IllegalArgumentException("url is required"),
+        method = opts["method"]?.toString() ?: "GET",
+        body = opts["body"]?.let { it as? String ?: Json.stringify(it) },
+        bodyIsJson = opts["body"].let { it != null && it !is String },
+        contentType = opts["contentType"]?.toString(),
+        headers = opts["headers"] as? Map<*, *>,
+    )
+
     fun rssParse(xml: String): Map<String, Any?> = RssParser.parse(xml).toMap()
 
     fun rssFetch(url: String): Map<String, Any?> = fetchFeed(url).toMap()

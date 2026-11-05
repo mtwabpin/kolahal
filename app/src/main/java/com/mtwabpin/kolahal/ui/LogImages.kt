@@ -26,8 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
-import java.io.InputStream
-import java.io.OutputStream
 import java.security.MessageDigest
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -111,7 +109,7 @@ object LogImages {
             val request = okhttp3.Request.Builder().url(httpUrl).header("User-Agent", Net.USER_AGENT).build()
             Net.client.newCall(request).execute().use { resp ->
                 resp.isSuccessful && resp.body.contentLength() <= MAX_BYTES &&
-                    resp.body.byteStream().use { input -> tmp.outputStream().use { out -> copyLimited(input, out) } }
+                    resp.body.byteStream().use { input -> tmp.outputStream().use { out -> com.mtwabpin.kolahal.script.Files.copyLimited(input, out, MAX_BYTES) } }
             }
         }.getOrDefault(false)
         if (!ok || !tmp.renameTo(file)) {
@@ -122,18 +120,6 @@ object LogImages {
         return file
     }
 
-    /** Copies at most [MAX_BYTES]; false when there is more (the length header can be missing or wrong). */
-    private fun copyLimited(input: InputStream, out: OutputStream): Boolean {
-        val buf = ByteArray(64 * 1024)
-        var total = 0L
-        while (true) {
-            val n = input.read(buf)
-            if (n < 0) return true
-            total += n
-            if (total > MAX_BYTES) return false
-            out.write(buf, 0, n)
-        }
-    }
 
     private fun trim(dir: File) {
         val files = dir.listFiles()?.sortedByDescending { it.lastModified() } ?: return

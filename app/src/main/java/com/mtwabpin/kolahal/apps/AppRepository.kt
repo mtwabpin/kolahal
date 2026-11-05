@@ -13,6 +13,7 @@ import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
 import androidx.core.content.ContextCompat
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -315,7 +316,7 @@ class AppRepository private constructor(private val context: Context) {
         }.getOrDefault(false).also { refresh() }
     }
 
-    companion object {
+    companion object : Singleton<AppRepository>(::AppRepository) {
         /**
          * How [q] matches an app by its folded label ([lower]), the label's [words], its package and
          * package/activity: 0 exact, 1 prefix, 2 word prefix, 3 substring, 4 subsequence, null not at
@@ -370,14 +371,6 @@ class AppRepository private constructor(private val context: Context) {
 
         /** Any app name: what Android adds to it for a profile is what tells. */
         private const val PROBE_LABEL = "Kolahal"
-
-        @SuppressLint("StaticFieldLeak") // application context only
-        @Volatile
-        private var instance: AppRepository? = null
-
-        fun get(context: Context): AppRepository = instance ?: synchronized(this) {
-            instance ?: AppRepository(context.applicationContext).also { instance = it }
-        }
     }
 }
 

@@ -136,7 +136,7 @@ class Db private constructor(context: Context) :
         }
     }
 
-    companion object {
+    companion object : Singleton<Db>(::Db) {
         private const val NAME = "kolahal.db"
         private const val VERSION = 8
 
@@ -146,11 +146,9 @@ class Db private constructor(context: Context) :
         /** Run headers (`── hn · 22:40 ──`) are gone (version 5): every line shows its time and its script. */
         internal fun dropRunHeaders(db: SQLiteDatabase): Int =
             db.delete("logs", "kind = ? AND ctx LIKE ?", arrayOf(LogKind.INFO.key, "%\"${LogContext.RUN_HEADER}\"%"))
-
-        @Volatile
-        private var instance: Db? = null
-
-        fun get(context: Context): Db =
-            instance ?: synchronized(this) { instance ?: Db(context).also { instance = it } }
     }
 }
+
+/** The number [sql] answers (a count, the largest id): its first row's first column, 0 for no row. */
+fun SQLiteDatabase.number(sql: String, vararg args: String): Long =
+    rawQuery(sql, args).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }

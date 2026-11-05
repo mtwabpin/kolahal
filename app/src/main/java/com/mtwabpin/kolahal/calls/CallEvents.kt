@@ -1,7 +1,6 @@
 package com.mtwabpin.kolahal.calls
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.database.ContentObserver
@@ -13,6 +12,7 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.shortTime
 import com.mtwabpin.kolahal.productivity.TimeSpec
 import java.util.concurrent.Executors
@@ -86,7 +86,7 @@ class CallEvents private constructor(private val context: Context) {
         store.set(LAST, calls.first().id.toString())
     }
 
-    companion object {
+    companion object : Singleton<CallEvents>(::CallEvents) {
         const val SOURCE = "calls"
         private const val LAST = "last"
         private const val SETTLE_MS = 1_500L
@@ -157,14 +157,5 @@ class CallEvents private constructor(private val context: Context) {
         fun ctx(c: Call): LogContext =
             if (c.number.isBlank() || c.presentation != CallLog.Calls.PRESENTATION_ALLOWED) LogContext.EMPTY
             else LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number)
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: CallEvents? = null
-
-        fun get(context: Context): CallEvents = instance ?: synchronized(this) {
-            instance ?: CallEvents(context.applicationContext).also { instance = it }
-        }
     }
 }

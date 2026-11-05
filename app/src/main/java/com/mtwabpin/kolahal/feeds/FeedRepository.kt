@@ -1,11 +1,12 @@
 package com.mtwabpin.kolahal.feeds
 
-import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import androidx.core.database.sqlite.transaction
+import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.number
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -205,8 +206,7 @@ class FeedRepository private constructor(private val context: Context) {
     /** Unread items, optionally of one feed (same scope as [items] with unreadOnly). */
     fun unreadCount(feedId: Long?): Int {
         val (clause, args) = if (feedId == null) "" to emptyArray() else " AND feed_id = ?" to arrayOf(feedId.toString())
-        return db.readableDatabase.rawQuery("SELECT COUNT(*) FROM items WHERE read = 0$clause", args)
-            .use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+        return db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE read = 0$clause", *args).toInt()
     }
 
     /** Marks every item read, or only those of [feedId]. */
@@ -221,9 +221,7 @@ class FeedRepository private constructor(private val context: Context) {
     }
 
     /** Stored items of [feedId], read or not. 0 means no fetch has succeeded yet. */
-    fun itemCount(feedId: Long): Int = db.readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM items WHERE feed_id = ?", arrayOf(feedId.toString()),
-    ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+    fun itemCount(feedId: Long): Int = db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE feed_id = ?", feedId.toString()).toInt()
 
     // ---- used by FeedFetcher ----
 
@@ -349,16 +347,7 @@ class FeedRepository private constructor(private val context: Context) {
 
     private fun changed() = _version.update { it + 1 }
 
-    companion object {
+    companion object : Singleton<FeedRepository>(::FeedRepository) {
         private const val ITEM_COLUMNS = "id, feed_id, guid, title, link, published_text, summary, fetched_at, read"
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: FeedRepository? = null
-
-        fun get(context: Context): FeedRepository = instance ?: synchronized(this) {
-            instance ?: FeedRepository(context.applicationContext).also { instance = it }
-        }
     }
 }

@@ -130,15 +130,7 @@ class FeedFetcher(context: Context) {
         val body = resp.body
         if (body.contentLength() > MAX_BODY_BYTES) throw IOException("feed too large")
         val out = ByteArrayOutputStream()
-        body.byteStream().use { input ->
-            val buf = ByteArray(16 * 1024)
-            while (true) {
-                val n = input.read(buf)
-                if (n < 0) break
-                out.write(buf, 0, n)
-                if (out.size() > MAX_BODY_BYTES) throw IOException("feed too large (> 3 MB)")
-            }
-        }
+        if (!body.byteStream().use { com.mtwabpin.kolahal.script.Files.copyLimited(it, out, MAX_BODY_BYTES.toLong()) }) throw IOException("feed too large (> 3 MB)")
         val bytes = out.toByteArray()
         val charset = body.contentType()?.charset() ?: bomCharset(bytes) ?: xmlDeclaredCharset(bytes) ?: Charsets.UTF_8
         return String(bytes, charset).removePrefix("\uFEFF")

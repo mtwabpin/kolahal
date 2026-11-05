@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.notifications
 
 import android.content.Context
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,15 +35,8 @@ class NotifPrefs private constructor(context: Context) {
         prefs.edit { putStringSet(KEY_MUTED, set) }
     }
 
-    companion object {
+    companion object : Singleton<NotifPrefs>(::NotifPrefs) {
         private const val KEY_LOG = "log_to_terminal"
         private const val KEY_MUTED = "muted"
-
-        @Volatile
-        private var instance: NotifPrefs? = null
-
-        fun get(context: Context): NotifPrefs = instance ?: synchronized(this) {
-            instance ?: NotifPrefs(context.applicationContext).also { instance = it }
-        }
     }
 }

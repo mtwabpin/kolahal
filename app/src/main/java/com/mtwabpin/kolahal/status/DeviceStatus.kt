@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.status
 
-import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,6 +10,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import androidx.core.content.ContextCompat
+import com.mtwabpin.kolahal.data.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -97,13 +97,5 @@ class DeviceStatus private constructor(private val context: Context) {
         _status.update { it.copy(nextAlarm = am.nextAlarmClock?.triggerTime) }
     }
 
-    companion object {
-        @SuppressLint("StaticFieldLeak") // application context only
-        @Volatile
-        private var instance: DeviceStatus? = null
-
-        fun get(context: Context): DeviceStatus = instance ?: synchronized(this) {
-            instance ?: DeviceStatus(context.applicationContext).also { instance = it }
-        }
-    }
+    companion object : Singleton<DeviceStatus>(::DeviceStatus)
 }

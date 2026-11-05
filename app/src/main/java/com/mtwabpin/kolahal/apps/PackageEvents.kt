@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.apps
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Handler
@@ -11,6 +10,7 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.script.Json
 import java.util.concurrent.Executors
 
@@ -234,7 +234,7 @@ class PackageEvents private constructor(private val context: Context) {
         }))
     }
 
-    companion object {
+    companion object : Singleton<PackageEvents>(::PackageEvents) {
         /** An uninstall + reinstall (or the remove/add pair of an update) inside this window is one update. */
         private const val SETTLE_MS = 4_000L
         /** A missing app that reappears within this window was reinstalled: logged as an update. */
@@ -311,15 +311,6 @@ class PackageEvents private constructor(private val context: Context) {
                 }
             }
             return Plan(events, next, seen - gone + fresh, nextCheck.takeIf { it != Long.MAX_VALUE })
-        }
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: PackageEvents? = null
-
-        fun get(context: Context): PackageEvents = instance ?: synchronized(this) {
-            instance ?: PackageEvents(context.applicationContext).also { instance = it }
         }
     }
 }

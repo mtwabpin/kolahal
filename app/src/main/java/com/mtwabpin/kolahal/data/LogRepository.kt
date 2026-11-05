@@ -1,9 +1,9 @@
 package com.mtwabpin.kolahal.data
 
-import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import androidx.core.content.edit
 import androidx.core.database.sqlite.transaction
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -238,22 +238,10 @@ class LogRepository private constructor(private val context: Context) {
     fun recent(limit: Int = 400, afterId: Long = 0L, beforeId: Long = Long.MAX_VALUE): List<LogEntry> {
         val out = ArrayList<LogEntry>()
         db.readableDatabase.rawQuery(
-            // substr: a row over the 2 MB cursor window (written before lines were capped) can't be
-            // read at all, and would break loading the log for good.
-            "SELECT id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD), starred FROM logs WHERE id > ? AND id < ? ORDER BY id DESC LIMIT ?",
+            "SELECT $ENTRY_COLUMNS FROM logs WHERE id > ? AND id < ? ORDER BY id DESC LIMIT ?",
             arrayOf(maxOf(visibleAfter(), afterId).toString(), beforeId.toString(), limit.toString()),
         ).use { c ->
-            while (c.moveToNext()) {
-                out += LogEntry(
-                    id = c.getLong(0),
-                    ts = c.getLong(1),
-                    kind = LogKind.of(c.getString(2)),
-                    source = c.getString(3),
-                    text = c.getString(4),
-                    ctx = LogContext.fromJson(c.getString(5)),
-                    starred = c.getInt(6) != 0,
-                )
-            }
+            while (c.moveToNext()) out += c.entry()
         }
         out.reverse()
         return out
@@ -301,7 +289,7 @@ class LogRepository private constructor(private val context: Context) {
             }
         }
         db.readableDatabase.rawQuery(
-            "SELECT id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD), starred FROM logs WHERE $where ORDER BY id DESC",
+            "SELECT $ENTRY_COLUMNS FROM logs WHERE $where ORDER BY id DESC",
             args.toTypedArray(),
         ).use { c ->
             while (c.moveToNext()) {
@@ -324,7 +312,7 @@ class LogRepository private constructor(private val context: Context) {
                     searched++
                     continue
                 }
-                val e = LogEntry(c.getLong(0), c.getLong(1), LogKind.of(c.getString(2)), source, text, LogContext.fromJson(c.getString(5)), c.getInt(6) != 0)
+                val e = c.entry()
                 if (skip?.invoke(e) == true) {
                     skipped++
                     continue
@@ -338,7 +326,7 @@ class LogRepository private constructor(private val context: Context) {
         }
         // The lines the database ruled out were searched too.
         if (narrow) {
-            val all = db.readableDatabase.rawQuery("SELECT COUNT(*) FROM logs WHERE $KEPT", arrayOf(from)).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+            val all = db.readableDatabase.number("SELECT COUNT(*) FROM logs WHERE $KEPT", from).toInt()
             searched = maxOf(searched, all - skipped)
         }
         return Found(found, total, searched)
@@ -363,9 +351,8 @@ class LogRepository private constructor(private val context: Context) {
     fun isHidden(id: Long): Boolean = id <= prefs.getLong(KEY_HIDDEN_UP_TO, 0L) && id > prefs.getLong(KEY_CLEARED_UP_TO, 0L)
 
     /** How many visible lines there are from [id] to the newest: the page that reaches back to it. */
-    fun countFrom(id: Long): Int = db.readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM logs WHERE id >= ? AND id > ?", arrayOf(id.toString(), visibleAfter().toString()),
-    ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+    fun countFrom(id: Long): Int =
+        db.readableDatabase.number("SELECT COUNT(*) FROM logs WHERE id >= ? AND id > ?", id.toString(), visibleAfter().toString()).toInt()
 
     /** Distinct commands, most recent first, for history navigation. */
     fun commandHistory(limit: Int = HISTORY_LIMIT): List<String> {
@@ -409,8 +396,7 @@ class LogRepository private constructor(private val context: Context) {
 
     /** Empties ↑ recall; the log itself (commands and their output) stays as it is. */
     fun clearHistory() {
-        val maxId = db.readableDatabase.rawQuery("SELECT COALESCE(MAX(id), 0) FROM logs", null)
-            .use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+        val maxId = maxId()
         prefs.edit { putLong(KEY_HISTORY_FROM, maxId) }
         restructured()
     }
@@ -446,9 +432,7 @@ class LogRepository private constructor(private val context: Context) {
         val cleared = prefs.getLong(KEY_CLEARED_UP_TO, 0L)
         val hidden = prefs.getLong(KEY_HIDDEN_UP_TO, 0L)
         if (hidden <= cleared) return 0
-        return db.readableDatabase.rawQuery(
-            "SELECT COUNT(*) FROM logs WHERE id > ? AND id <= ?", arrayOf(cleared.toString(), hidden.toString()),
-        ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+        return db.readableDatabase.number("SELECT COUNT(*) FROM logs WHERE id > ? AND id <= ?", cleared.toString(), hidden.toString()).toInt()
     }
 
     /** The newest line, to avoid logging the same command twice in a row with nothing in between. */
@@ -467,8 +451,7 @@ class LogRepository private constructor(private val context: Context) {
     fun clearScreen(): Cleared {
         purgeCleared()
         val before = prefs.getLong(KEY_CLEARED_UP_TO, 0L)
-        val maxId = db.readableDatabase.rawQuery("SELECT COALESCE(MAX(id), 0) FROM logs", null)
-            .use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+        val maxId = maxId()
         prefs.edit { putLong(KEY_CLEARED_UP_TO, maxId).putLong(KEY_PURGE_UP_TO, maxId) }
         restructured()
         return Cleared(before, maxId)
@@ -543,10 +526,10 @@ class LogRepository private constructor(private val context: Context) {
         w.transaction {
             for (kind in listOf("!=", "=")) {
                 // The starred lines, few, are counted on their own index and taken off.
-                val count = w.rawQuery(
+                val count = w.number(
                     "SELECT (SELECT COUNT(*) FROM logs WHERE kind $kind ?) - (SELECT COUNT(*) FROM logs WHERE kind $kind ? AND starred = 1)",
-                    arrayOf(command, command),
-                ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+                    command, command,
+                ).toInt()
                 if (count <= keep) continue
                 val cut = w.rawQuery(
                     "SELECT id FROM logs WHERE kind $kind ? AND starred = 0 ORDER BY id LIMIT 1 OFFSET ?", arrayOf(command, (count - keep - 1).toString()),
@@ -558,8 +541,7 @@ class LogRepository private constructor(private val context: Context) {
         if (maxAgeDays != null) {
             val cutoff = System.currentTimeMillis() - maxAgeDays * 86_400_000L
             // Commands are kept (↑ history); only their output ages out.
-            val last = w.rawQuery("SELECT COALESCE(MAX(id), 0) FROM logs WHERE ts < ? AND kind != ? AND starred = 0", arrayOf(cutoff.toString(), command))
-                .use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+            val last = w.number("SELECT COALESCE(MAX(id), 0) FROM logs WHERE ts < ? AND kind != ? AND starred = 0", cutoff.toString(), command)
             if (last > 0) {
                 removed += w.delete("logs", "ts < ? AND kind != ? AND starred = 0", arrayOf(cutoff.toString(), command))
                 upTo = maxOf(upTo, last)
@@ -568,8 +550,7 @@ class LogRepository private constructor(private val context: Context) {
         if (removed > 0) trimmed(upTo)
     }
 
-    fun maxId(): Long = db.readableDatabase.rawQuery("SELECT COALESCE(MAX(id), 0) FROM logs", null)
-        .use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+    fun maxId(): Long = db.readableDatabase.number("SELECT COALESCE(MAX(id), 0) FROM logs")
 
     /** Newest log id the user has seen (set when home is left), for unread markers. */
     var seenUpTo: Long
@@ -631,9 +612,19 @@ class LogRepository private constructor(private val context: Context) {
         return LogContext(kept)
     }
 
-    companion object {
+    /** The [LogEntry] at the cursor of a query for [ENTRY_COLUMNS]. */
+    private fun Cursor.entry() =
+        LogEntry(getLong(0), getLong(1), LogKind.of(getString(2)), getString(3), getString(4), LogContext.fromJson(getString(5)), getInt(6) != 0)
+
+    companion object : Singleton<LogRepository>(::LogRepository) {
         /** Characters kept per stored field; far below the 2 MB SQLite cursor window. */
         const val MAX_FIELD = 64 * 1024
+
+        /**
+         * A line's columns as the log reads them ([entry]). substr: a row over the 2 MB cursor window
+         * (written before lines were capped) can't be read at all, and would break loading the log for good.
+         */
+        private const val ENTRY_COLUMNS = "id, ts, kind, source, substr(text, 1, $MAX_FIELD), substr(ctx, 1, $MAX_FIELD), starred"
 
         /** Commands ↑ goes back through. */
         const val HISTORY_LIMIT = 200
@@ -676,14 +667,5 @@ class LogRepository private constructor(private val context: Context) {
 
         /** Removals remembered for [removedSince]; more than home can fall behind by between two looks. */
         private const val REMOVALS_KEPT = 500
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: LogRepository? = null
-
-        fun get(context: Context): LogRepository = instance ?: synchronized(this) {
-            instance ?: LogRepository(context.applicationContext).also { instance = it }
-        }
     }
 }

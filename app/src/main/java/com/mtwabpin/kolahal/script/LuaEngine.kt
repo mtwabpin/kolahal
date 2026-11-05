@@ -132,17 +132,7 @@ class LuaEngine : ScriptEngine {
             // No lifetime, or nil, is the documented 600 s (nil read as a number would be 0: never cached).
             "cached" to { l: Lua -> l.pushValue(host.httpCached(l.checkString(), if (l.isNumber(2)) l.toInteger(2).toInt() else 600)); 1 },
             "request" to { l: Lua ->
-                val opts = l.mapArg(1) ?: throw IllegalArgumentException("http.request expects a table")
-                l.pushValue(
-                    host.httpRequest(
-                        url = opts["url"]?.toString() ?: throw IllegalArgumentException("url is required"),
-                        method = opts["method"]?.toString() ?: "GET",
-                        body = opts["body"]?.let { it as? String ?: Json.stringify(it) },
-                        bodyIsJson = opts["body"].let { it != null && it !is String },
-                        contentType = opts["contentType"]?.toString(),
-                        headers = opts["headers"] as? Map<*, *>,
-                    )
-                )
+                l.pushValue(host.httpRequest(l.mapArg(1) ?: throw IllegalArgumentException("http.request expects a table")))
                 1
             },
         )

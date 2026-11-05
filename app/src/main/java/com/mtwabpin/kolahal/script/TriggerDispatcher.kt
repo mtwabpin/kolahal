@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.script
 
-import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,6 +16,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.takeWhole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -209,18 +209,9 @@ class TriggerDispatcher private constructor(private val context: Context) {
         fire("boot", mapOf("uptime" to SystemClock.elapsedRealtime() / 1000))
     }
 
-    companion object {
+    companion object : Singleton<TriggerDispatcher>(::TriggerDispatcher) {
         const val DEBOUNCE_MS = 30_000L
         private const val OFFLINE_CONFIRM_MS = 3_000L
         private const val MAX_TEXT = 2_000
-
-        @SuppressLint("StaticFieldLeak") // application context only
-
-        @Volatile
-        private var instance: TriggerDispatcher? = null
-
-        fun get(context: Context): TriggerDispatcher = instance ?: synchronized(this) {
-            instance ?: TriggerDispatcher(context.applicationContext).also { instance = it }
-        }
     }
 }

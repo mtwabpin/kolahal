@@ -314,6 +314,18 @@ class ScriptActionsTest {
         assertTrue(host.commandList!!.any { it.name == "sa-imp" })
     }
 
+    /** A file whose `@every` line changed brings its timer, as an edit does; the same line keeps the one set by hand. */
+    @Test fun aFileWithANewEveryLineBringsItsTimer() {
+        val s = create("sa-upd", "-- @every 1h\nreturn 1")
+        repo.setInterval(s.id, 60)
+        actions.importScriptFiles(listOf(Uri.fromFile(file("sa-upd.lua", "-- @every 2h\nreturn 2"))))
+        assertEquals(120, now(s).intervalMin)
+        repo.setInterval(s.id, 30)
+        actions.importScriptFiles(listOf(Uri.fromFile(file("sa-upd.lua", "-- @every 2h\nreturn 3"))))
+        assertEquals("return 3", now(s).code.lines().last())
+        assertEquals(30, now(s).intervalMin)
+    }
+
     /** Nothing that could be imported, or nothing new: it says so, as an error; no files at all does nothing. */
     @Test fun importingNothingNewSaysSo() {
         actions.importScriptFiles(emptyList())
