@@ -23,7 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -88,6 +87,14 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import kotlin.time.Duration.Companion.milliseconds
 
+/** [WidgetHost]'s messages as a snackbar: each waiting one once, oldest first, whichever widget screen is open. */
+@Composable
+internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
+    return snackbar
+}
+
 /**
  * Widgets page (Material 3 Expressive): every placed widget, live, laid out as on the widgets page
  * ([WidgetFlow]). Long-press a widget, or tap Edit and then a widget, for its toolbar at the bottom:
@@ -107,9 +114,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     var editing by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf<PlacedWidget?>(null) }
-    val snackbar = remember { SnackbarHostState() }
-    // Each waiting message once, oldest first, whichever widget screen is open.
-    LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
+    val snackbar = rememberWidgetMessages(widgets)
     BackHandler { if (editing || selected != null) { editing = false; selected = null } else vm.closeScreen() }
 
     val panel = remember(all) { WidgetOrder.inLocation(all, WidgetLocation.PANEL) }
@@ -211,12 +216,9 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     }
                 }
                 if (panel.isEmpty() && pending.isEmpty()) {
-                    Text(
+                    EmptyNote(
                         if (pageOff) "No widgets yet." else "No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = inset.fillMaxWidth().padding(vertical = 32.dp),
+                        inset,
                     )
                     Box(inset) {
                     ActionGroup(
@@ -261,31 +263,19 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     }
                 }
                 if (panel.isNotEmpty()) {
-                    Text(
-                        "Long-press a widget, or tap ✎ and then a widget, to resize and move it. Terminal: widgets ls · widget add",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = inset.padding(start = 16.dp, top = 16.dp, end = 16.dp),
-                    )
+                    PageHint("Long-press a widget, or tap ✎ and then a widget, to resize and move it. Terminal: widgets ls · widget add", inset)
                 }
             }
         }
 
         confirmRemove?.let { w ->
-            AlertDialog(
-                onDismissRequest = { confirmRemove = null },
-                icon = { Icon(painterResource(R.drawable.ic_delete), null) },
-                title = { Text("Remove ${labels[w.key] ?: "widget"}?") },
-                text = { Text("The widget is deleted; add it again from the picker any time.") },
-                confirmButton = {
-                    TextButton(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = { confirmRemove = null; selected = null; widgets.remove(w.key) },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text("Remove") }
-                },
-                dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmRemove = null }) { Text("Cancel") } },
-            )
+            ConfirmDialog(
+                "Remove ${labels[w.key] ?: "widget"}?",
+                "The widget is deleted; add it again from the picker any time.",
+                "Remove",
+                icon = R.drawable.ic_delete,
+                onDismiss = { confirmRemove = null },
+            ) { confirmRemove = null; selected = null; widgets.remove(w.key) }
         }
     }
 }

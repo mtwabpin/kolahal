@@ -17,7 +17,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,26 +25,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -57,12 +48,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -143,9 +132,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
         value = withContext(Dispatchers.IO) { loadGroups(context, widgets, profiles, iconPx) }
     }
     var query by rememberSaveable { mutableStateOf("") }
-    val snackbar = remember { SnackbarHostState() }
-    // Each waiting message once, oldest first, whichever widget screen is open.
-    LaunchedEffect(Unit) { widgets.messages.collect { if (it.isNotEmpty()) widgets.takeMessage()?.let { m -> snackbar.showSnackbar(m) } } }
+    val snackbar = rememberWidgetMessages(widgets)
     BackHandler { vm.closeScreen() }
     // Its pictures are let go with it, and when Android asks: hidden behind another app or short of
     // memory, Kolahal is likelier to be closed the more it holds. Cards decode theirs again on return.
@@ -168,65 +155,43 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     }
 
     GuiTheme {
-        val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-        Scaffold(
-            modifier = Modifier.imePadding().nestedScroll(scroll.nestedScrollConnection),
-            containerColor = MaterialTheme.colorScheme.surface,
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = {
-                LargeFlexibleTopAppBar(
-                    title = { Text("Add widget") },
-                    subtitle = { Text(if (pageOff) "Added to the widgets page, which is off" else "Added to the widgets page") },
-                    navigationIcon = { BackButton { vm.closeScreen() } },
-                    scrollBehavior = scroll,
-                )
-            },
-        ) { padding ->
-            val shown = remember(groups, query) {
-                val q = query.trim().lowercase()
-                groups?.let { all ->
-                    if (q.isEmpty()) all else all.mapNotNull { g ->
-                        if (g.label.lowercase().contains(q)) g
-                        else g.providers.indices.filter { g.names[it].contains(q) }
-                            .takeIf { it.isNotEmpty() }?.let { found -> ProviderGroup(g.key, g.label, g.icon, g.work, found.map(g.providers::get), found.map(g.names::get), found.map(g.texts::get)) }
-                    }
+        val shown = remember(groups, query) {
+            val q = query.trim().lowercase()
+            groups?.let { all ->
+                if (q.isEmpty()) all else all.mapNotNull { g ->
+                    if (g.label.lowercase().contains(q)) g
+                    else g.providers.indices.filter { g.names[it].contains(q) }
+                        .takeIf { it.isNotEmpty() }?.let { found -> ProviderGroup(g.key, g.label, g.icon, g.work, found.map(g.providers::get), found.map(g.names::get), found.map(g.texts::get)) }
                 }
             }
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp,
-                    top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize().navigationBarScrim(),
-            ) {
-                item(key = "search") {
-                    TextField(
-                        shape = TextFieldDefaults.roundedShape,
-                        colors = fieldColors(),
-                        value = query,
-                        onValueChange = { query = it },
-                        singleLine = true,
-                        placeholder = { Text("Search widgets") },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+        }
+        GuiListPage(
+            title = { Text("Add widget") },
+            subtitle = { Text(if (pageOff) "Added to the widgets page, which is off" else "Added to the widgets page") },
+            onBack = { vm.closeScreen() },
+            snackbar = snackbar,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "search") {
+                TextField(
+                    shape = TextFieldDefaults.roundedShape,
+                    colors = fieldColors(),
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    placeholder = { Text("Search widgets") },
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            when {
+                shown == null -> Unit
+                shown.isEmpty() -> item(key = "empty") {
+                    EmptyNote(if (query.isBlank()) "No apps offer widgets." else "Nothing matches “$query”.")
                 }
-                when {
-                    shown == null -> Unit
-                    shown.isEmpty() -> item(key = "empty") {
-                        Text(
-                            if (query.isBlank()) "No apps offer widgets." else "Nothing matches “$query”.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                        )
-                    }
-                    else -> shown.forEach { g ->
-                        item(key = "g:${g.key}") { AppHeader(g) }
-                        itemsIndexed(g.providers, key = { _, p -> "p:${g.key}:${p.flat}" }) { i, p -> ProviderCard(p, g.texts[i], widgets) { onPick(p) } }
-                    }
+                else -> shown.forEach { g ->
+                    item(key = "g:${g.key}") { AppHeader(g) }
+                    itemsIndexed(g.providers, key = { _, p -> "p:${g.key}:${p.flat}" }) { i, p -> ProviderCard(p, g.texts[i], widgets) { onPick(p) } }
                 }
             }
         }

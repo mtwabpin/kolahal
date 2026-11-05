@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.items
@@ -17,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +26,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,7 +34,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,7 +81,7 @@ internal fun ScriptSheet(
     onEdit: () -> Unit,
     onExport: () -> Unit,
 ) {
-    val state = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    val state = rememberExpandedSheetState()
     var confirmDelete by remember(s.id) { mutableStateOf(false) }
     var confirmReplace by remember(s.id) { mutableStateOf(false) }
     var comparing by remember(s.id) { mutableStateOf(false) }
@@ -157,19 +153,13 @@ internal fun ScriptSheet(
             Spacer(Modifier.height(16.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.runScriptNow(s) }) {
-                    Icon(painterResource(R.drawable.ic_play), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Run")
+                    IconLabel(R.drawable.ic_play, "Run")
                 }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) {
-                    Icon(painterResource(R.drawable.ic_edit), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Edit")
+                    IconLabel(R.drawable.ic_edit, "Edit")
                 }
                 OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = onExport) {
-                    Icon(painterResource(R.drawable.ic_download), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Export")
+                    IconLabel(R.drawable.ic_download, "Export")
                 }
             }
 
@@ -295,9 +285,7 @@ internal fun ScriptSheet(
                     onClick = { confirmDelete = true },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
-                    Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Delete")
+                    IconLabel(R.drawable.ic_delete, "Delete")
                 }
             }
         }
@@ -334,20 +322,13 @@ internal fun ScriptSheet(
     }
 
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            icon = { Icon(painterResource(R.drawable.ic_delete), null) },
-            title = { Text("Delete ${s.name}.${s.lang.ext}?") },
-            text = { Text("Its timers, stored data and status line are removed too. Export it first to keep a copy.") },
-            confirmButton = {
-                TextButton(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = { confirmDelete = false; onDismiss(); vm.scriptActions.deleteScript(s) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Delete") }
-            },
-            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = false }) { Text("Cancel") } },
-        )
+        ConfirmDialog(
+            "Delete ${s.name}.${s.lang.ext}?",
+            "Its timers, stored data and status line are removed too. Export it first to keep a copy.",
+            "Delete",
+            icon = R.drawable.ic_delete,
+            onDismiss = { confirmDelete = false },
+        ) { confirmDelete = false; onDismiss(); vm.scriptActions.deleteScript(s) }
     }
 }
 

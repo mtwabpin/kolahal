@@ -28,7 +28,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,24 +40,18 @@ import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -134,9 +127,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         editing?.let { vm.exportTheme(it, uri) }
     }
-    val notice by vm.notice.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it.text) } }
+    val snackbar = rememberNoticeSnackbar(vm)
 
     GuiTheme {
         Scaffold(
@@ -247,25 +238,18 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
         }
 
         if (confirmDelete && editing != null) {
-            AlertDialog(
-                onDismissRequest = { confirmDelete = false },
-                icon = { Icon(painterResource(R.drawable.ic_delete), null) },
-                title = { Text("Delete $editing?") },
-                text = { Text("If it is in use, Kolahal switches to the green theme.") },
-                confirmButton = {
-                    TextButton(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = {
-                            val inUse = vm.config[Keys.THEME] == editing
-                            CustomThemes.delete(context, editing)
-                            if (inUse) vm.resetConfig(Keys.THEME)
-                            vm.closeScreen()
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text("Delete") }
-                },
-                dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = false }) { Text("Cancel") } },
-            )
+            ConfirmDialog(
+                "Delete $editing?",
+                "If it is in use, Kolahal switches to the green theme.",
+                "Delete",
+                icon = R.drawable.ic_delete,
+                onDismiss = { confirmDelete = false },
+            ) {
+                val inUse = vm.config[Keys.THEME] == editing
+                CustomThemes.delete(context, editing)
+                if (inUse) vm.resetConfig(Keys.THEME)
+                vm.closeScreen()
+            }
         }
     }
 }
@@ -351,7 +335,7 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ColourSheet(role: String, colour: Int, swatches: List<Int>, onChange: (Int) -> Unit, onDismiss: () -> Unit) {
-    val state = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    val state = rememberExpandedSheetState()
     val start = remember(role) { FloatArray(3).also { ColorUtils.colorToHSL(colour, it) } }
     var h by remember(role) { mutableFloatStateOf(start[0]) }
     var s by remember(role) { mutableFloatStateOf(start[1]) }

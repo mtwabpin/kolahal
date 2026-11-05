@@ -54,14 +54,12 @@ import com.mtwabpin.kolahal.terminal.CommandCatalog
 /** Resetting an edited library script to the library version: the edits go, so it asks first. */
 @Composable
 internal fun ResetDialog(lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Reset ${lib.entry.file}?") },
-        text = { Text("Your copy differs from the library version. Its code is replaced by the library version and your changes are lost; its timers and switches are kept. Export it first to keep a copy.") },
-        confirmButton = {
-            TextButton(shapes = ButtonDefaults.shapes(), onClick = onReset, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
-        },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+    ConfirmDialog(
+        "Reset ${lib.entry.file}?",
+        "Your copy differs from the library version. Its code is replaced by the library version and your changes are lost; its timers and switches are kept. Export it first to keep a copy.",
+        "Reset",
+        onDismiss = onDismiss,
+        onConfirm = onReset,
     )
 }
 

@@ -4,15 +4,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonDefaults
@@ -22,19 +18,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallExtendedFloatingActionButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -43,9 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
@@ -66,6 +55,17 @@ internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minute
 
 /** A library script with its state against what is installed, and its `@on` events. */
 internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>)
+
+/** The library's scripts against [scripts]: their files and directives come from assets, read off the main thread (null until then). */
+@Composable
+internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): State<List<LibRow>?> =
+    produceState<List<LibRow>?>(null, vm.scriptActions.library, scripts) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                vm.scriptActions.library.entries.map { LibRow(it, vm.scriptActions.library.state(it, scripts), ScriptMeta.events(vm.scriptActions.library.code(it))) }
+            }.getOrDefault(emptyList())
+        }
+    }
 
 /** What a script's code says, for its card and the filters: read once per version of the code. */
 internal class ScriptCode(code: String, name: String) {
@@ -146,7 +146,6 @@ fun ScriptsScreen(
 ) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     val statuses by vm.statuses.collectAsStateWithLifecycle()
-    val notice by vm.notice.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var sheetId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -177,14 +176,7 @@ fun ScriptsScreen(
         if (row.state == ScriptLibrary.State.MODIFIED) resetting = row else vm.scriptActions.installFromLibrary(row.entry)
     }
 
-    // The library scripts and their directives come from assets; read them off the main thread.
-    val library by produceState<List<LibRow>?>(null, vm.scriptActions.library, scripts) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                vm.scriptActions.library.entries.map { LibRow(it, vm.scriptActions.library.state(it, scripts), ScriptMeta.events(vm.scriptActions.library.code(it))) }
-            }.getOrDefault(emptyList())
-        }
-    }
+    val library by rememberLibraryRows(vm, scripts)
     val libByName = remember(library) { library.orEmpty().associateBy { it.entry.name } }
     // Shared scripts with a newer version, from the list kept by Get more scripts (no download here).
     val sharedUpdates by produceState(emptyMap(), scripts) {
@@ -231,38 +223,29 @@ fun ScriptsScreen(
     val on = scripts.count { it.enabled }
 
     GuiTheme {
-        val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-        val snackbar = remember { SnackbarHostState() }
-        LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it.text) } }
+        val snackbar = rememberNoticeSnackbar(vm)
 
-        Scaffold(
-            modifier = Modifier.imePadding().nestedScroll(scroll.nestedScrollConnection),
-            containerColor = MaterialTheme.colorScheme.surface,
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = {
-                LargeFlexibleTopAppBar(
-                    title = { Text("Scripts") },
-                    subtitle = {
-                        Text(
-                            if (scripts.isEmpty()) "Lua 5.4 · JavaScript"
-                            else listOfNotNull("$on on", (scripts.size - on).takeIf { it > 0 }?.let { "$it off" }).joinToString(" · ")
-                        )
-                    },
-                    navigationIcon = { BackButton(vm::closeScreen) },
-                    actions = {
-                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { searching = !searching; if (!searching) query = "" }) {
-                            Icon(painterResource(R.drawable.ic_search), contentDescription = "Search scripts")
-                        }
-                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { expandAll = !expandAll; flipped = emptyList() }) {
-                            Icon(
-                                painterResource(R.drawable.ic_expand_more),
-                                contentDescription = if (expandAll) "Hide details" else "Show details",
-                                modifier = Modifier.rotate(if (expandAll) 180f else 0f),
-                            )
-                        }
-                    },
-                    scrollBehavior = scroll,
+        GuiListPage(
+            title = { Text("Scripts") },
+            subtitle = {
+                Text(
+                    if (scripts.isEmpty()) "Lua 5.4 · JavaScript"
+                    else listOfNotNull("$on on", (scripts.size - on).takeIf { it > 0 }?.let { "$it off" }).joinToString(" · ")
                 )
+            },
+            onBack = vm::closeScreen,
+            snackbar = snackbar,
+            actions = {
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { searching = !searching; if (!searching) query = "" }) {
+                    Icon(painterResource(R.drawable.ic_search), contentDescription = "Search scripts")
+                }
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { expandAll = !expandAll; flipped = emptyList() }) {
+                    Icon(
+                        painterResource(R.drawable.ic_expand_more),
+                        contentDescription = if (expandAll) "Hide details" else "Show details",
+                        modifier = Modifier.rotate(if (expandAll) 180f else 0f),
+                    )
+                }
             },
             floatingActionButton = {
                 SmallExtendedFloatingActionButton(
@@ -271,94 +254,77 @@ fun ScriptsScreen(
                     text = { Text("Add script") },
                 )
             },
-        ) { padding ->
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp,
-                    top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 96.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize().navigationBarScrim(),
-            ) {
-                item(key = "tabs") { FeatureTabs(vm, Screen.SCRIPTS) }
-                if (searching) {
-                    item(key = "search") {
-                        TextField(
-                            colors = fieldColors(),
-                            value = query,
-                            onValueChange = { query = it },
-                            placeholder = { Text("Search by name, title or description") },
-                            leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                            singleLine = true,
-                            shape = TextFieldDefaults.roundedShape,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+            top = 0.dp,
+            bottom = 96.dp,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "tabs") { FeatureTabs(vm, Screen.SCRIPTS) }
+            if (searching) {
+                item(key = "search") {
+                    TextField(
+                        colors = fieldColors(),
+                        value = query,
+                        onValueChange = { query = it },
+                        placeholder = { Text("Search by name, title or description") },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
+                        singleLine = true,
+                        shape = TextFieldDefaults.roundedShape,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                if ((scripts.size > 1 && chips.isNotEmpty()) || filters.isNotEmpty()) {
-                    // One row, scrolled sideways: the chips grow with what scripts use.
-                    item(key = "chips") {
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for ((f, count) in chips) {
-                                val selected = f.id in filters
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = { filters = if (selected) filters - f.id else filters + f.id },
-                                    label = { Text("${f.label} $count") },
-                                )
-                            }
-                        }
-                    }
-                }
-                when {
-                    scripts.isEmpty() -> item(key = "empty") {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text(
-                                "No scripts yet. Write one, add one from the library, get a shared one, or import a file.",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+            }
+            if ((scripts.size > 1 && chips.isNotEmpty()) || filters.isNotEmpty()) {
+                // One row, scrolled sideways: the chips grow with what scripts use.
+                item(key = "chips") {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for ((f, count) in chips) {
+                            val selected = f.id in filters
+                            FilterChip(
+                                selected = selected,
+                                onClick = { filters = if (selected) filters - f.id else filters + f.id },
+                                label = { Text("${f.label} $count") },
                             )
-                            ActionGroup(addActions(vm, onNew = { creating = true }, onImportFiles = onImportFiles))
                         }
-                    }
-                    shown.isEmpty() -> item(key = "nomatch") {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("No script matches", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(shapes = ButtonDefaults.shapes(), onClick = { filters = emptyList(); query = "" }) { Text("Show all") }
-                        }
-                    }
-                    else -> items(shown, key = { it.script.id }) { info ->
-                        val s = info.script
-                        ScriptCard(
-                            info,
-                            line = statuses[s.name],
-                            missingKeys = secretNames[s.name]?.missing.orEmpty(),
-                            secretsSet = secretNames[s.name]?.set.orEmpty(),
-                            expanded = expandAll != (s.id in flipped),
-                            updateAvailable = libByName[s.name]?.state == ScriptLibrary.State.UPDATE_AVAILABLE || s.name in sharedUpdates,
-                            library = libByName[s.name]?.state?.takeIf { it != ScriptLibrary.State.NOT_INSTALLED },
-                            onExpand = { flipped = if (s.id in flipped) flipped - s.id else flipped + s.id },
-                            onClick = { sheetId = s.id },
-                            onEnabled = { setEnabled(s, it) },
-                            onRun = { vm.scriptActions.runScriptNow(s) },
-                            onAccess = { item, on -> vm.scriptActions.setScriptAccess(s, item, on) },
-                            onNotify = { vm.scriptActions.setScriptNotify(s, it) },
-                            onCompare = { comparing = s.id },
-                            onReset = { libByName[s.name]?.let(::resetFromLibrary) },
-                        )
                     }
                 }
-                if (scripts.isNotEmpty()) {
-                    item(key = "hint") {
-                        Text(
-                            "Tap a script for its timers, access, code and more. The arrow shows its details here.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
-                        )
+            }
+            when {
+                scripts.isEmpty() -> item(key = "empty") {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        EmptyNote("No scripts yet. Write one, add one from the library, get a shared one, or import a file.", top = 24.dp, bottom = 0.dp)
+                        ActionGroup(addActions(vm, onNew = { creating = true }, onImportFiles = onImportFiles))
                     }
+                }
+                shown.isEmpty() -> item(key = "nomatch") {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text("No script matches", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = { filters = emptyList(); query = "" }) { Text("Show all") }
+                    }
+                }
+                else -> items(shown, key = { it.script.id }) { info ->
+                    val s = info.script
+                    ScriptCard(
+                        info,
+                        line = statuses[s.name],
+                        missingKeys = secretNames[s.name]?.missing.orEmpty(),
+                        secretsSet = secretNames[s.name]?.set.orEmpty(),
+                        expanded = expandAll != (s.id in flipped),
+                        updateAvailable = libByName[s.name]?.state == ScriptLibrary.State.UPDATE_AVAILABLE || s.name in sharedUpdates,
+                        library = libByName[s.name]?.state?.takeIf { it != ScriptLibrary.State.NOT_INSTALLED },
+                        onExpand = { flipped = if (s.id in flipped) flipped - s.id else flipped + s.id },
+                        onClick = { sheetId = s.id },
+                        onEnabled = { setEnabled(s, it) },
+                        onRun = { vm.scriptActions.runScriptNow(s) },
+                        onAccess = { item, on -> vm.scriptActions.setScriptAccess(s, item, on) },
+                        onNotify = { vm.scriptActions.setScriptNotify(s, it) },
+                        onCompare = { comparing = s.id },
+                        onReset = { libByName[s.name]?.let(::resetFromLibrary) },
+                    )
+                }
+            }
+            if (scripts.isNotEmpty()) {
+                item(key = "hint") {
+                    PageHint("Tap a script for its timers, access, code and more. The arrow shows its details here.", top = 4.dp)
                 }
             }
         }

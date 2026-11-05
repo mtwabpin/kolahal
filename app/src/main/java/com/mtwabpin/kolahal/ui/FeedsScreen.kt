@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,8 +19,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -34,15 +31,10 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SmallExtendedFloatingActionButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -52,8 +44,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -71,7 +61,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -79,7 +68,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -291,37 +279,29 @@ private fun FeedListPage(
     onOpenFeed: (FeedInfo) -> Unit,
     onFeedMenu: (FeedInfo) -> Unit,
 ) {
-    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val unread = feeds?.filter { it.enabled }?.sumOf { it.unread } ?: 0
-    Scaffold(
-        modifier = Modifier.imePadding().nestedScroll(scroll.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.surface,
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text("Feeds") },
-                subtitle = {
-                    Text(
-                        when {
-                            feeds.isNullOrEmpty() -> "RSS · Atom"
-                            else -> "${feeds.size} feed${if (feeds.size == 1) "" else "s"} · $unread unread"
-                        }
-                    )
-                },
-                navigationIcon = { BackButton(onBack) },
-                actions = {
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty()) {
-                        Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh all")
-                    }
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onImport) {
-                        Icon(painterResource(R.drawable.ic_upload), contentDescription = "Import OPML")
-                    }
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onExport, enabled = !feeds.isNullOrEmpty()) {
-                        Icon(painterResource(R.drawable.ic_download), contentDescription = "Export OPML")
-                    }
-                },
-                scrollBehavior = scroll,
+    GuiListPage(
+        title = { Text("Feeds") },
+        subtitle = {
+            Text(
+                when {
+                    feeds.isNullOrEmpty() -> "RSS · Atom"
+                    else -> "${feeds.size} feed${if (feeds.size == 1) "" else "s"} · $unread unread"
+                }
             )
+        },
+        onBack = onBack,
+        snackbar = snackbar,
+        actions = {
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty()) {
+                Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh all")
+            }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onImport) {
+                Icon(painterResource(R.drawable.ic_upload), contentDescription = "Import OPML")
+            }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onExport, enabled = !feeds.isNullOrEmpty()) {
+                Icon(painterResource(R.drawable.ic_download), contentDescription = "Export OPML")
+            }
         },
         floatingActionButton = {
             SmallExtendedFloatingActionButton(
@@ -330,56 +310,37 @@ private fun FeedListPage(
                 text = { Text("Add feed") },
             )
         },
-    ) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 16.dp, end = 16.dp,
-                top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 96.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-            modifier = Modifier.fillMaxSize().navigationBarScrim(),
-        ) {
-            item(key = "tabs") { FeatureTabs(vm, Screen.FEEDS) }
-            when {
-                feeds == null -> Unit // first load; the list appears within a frame or two
-                feeds.isEmpty() -> {
-                    item(key = "empty") {
-                        Text(
-                            "No feeds yet. Tap “Add feed” or import an OPML file from another reader.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                        )
-                    }
-                    item(key = "import") {
-                        ActionGroup(
-                            listOf(
-                                Action(R.drawable.ic_add, "Add a feed", "Paste a site or feed address (RSS or Atom)", onClick = onAdd),
-                                Action(R.drawable.ic_upload, "Import OPML", "Subscriptions exported from another feed reader", onClick = onImport),
-                            )
-                        )
-                    }
+        bottom = 96.dp,
+    ) {
+        item(key = "tabs") { FeatureTabs(vm, Screen.FEEDS) }
+        when {
+            feeds == null -> Unit // first load; the list appears within a frame or two
+            feeds.isEmpty() -> {
+                item(key = "empty") {
+                    EmptyNote("No feeds yet. Tap “Add feed” or import an OPML file from another reader.")
                 }
-                else -> {
-                    item(key = "h:subs") { GroupHeader("Subscriptions") }
-                    itemsIndexed(feeds, key = { _, f -> f.id }) { i, f ->
-                        FeedRow(f, i, feeds.size, onClick = { onOpenFeed(f) }, onMenu = { onFeedMenu(f) })
-                    }
-                    item(key = "hint") {
-                        Text(
-                            "Tap a feed to read it. Terminal: feed add <url> · feed read · feed fetch",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+                item(key = "import") {
+                    ActionGroup(
+                        listOf(
+                            Action(R.drawable.ic_add, "Add a feed", "Paste a site or feed address (RSS or Atom)", onClick = onAdd),
+                            Action(R.drawable.ic_upload, "Import OPML", "Subscriptions exported from another feed reader", onClick = onImport),
                         )
-                    }
+                    )
                 }
             }
-            // The feed settings live here, with the feeds; Settings search finds them too.
-            item(key = "h:settings") { GroupHeader("Settings") }
-            categorySettings(vm, FEEDS_CATEGORY, configVersion, applicable)
+            else -> {
+                item(key = "h:subs") { GroupHeader("Subscriptions") }
+                itemsIndexed(feeds, key = { _, f -> f.id }) { i, f ->
+                    FeedRow(f, i, feeds.size, onClick = { onOpenFeed(f) }, onMenu = { onFeedMenu(f) })
+                }
+                item(key = "hint") {
+                    PageHint("Tap a feed to read it. Terminal: feed add <url> · feed read · feed fetch")
+                }
+            }
         }
+        // The feed settings live here, with the feeds; Settings search finds them too.
+        item(key = "h:settings") { GroupHeader("Settings") }
+        categorySettings(vm, FEEDS_CATEGORY, configVersion, applicable)
     }
 }
 
@@ -470,7 +431,7 @@ private fun FeedSheet(
     onEditAddress: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    val state = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    val state = rememberExpandedSheetState()
     var confirmRemove by remember(feed.id) { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -500,14 +461,10 @@ private fun FeedSheet(
             Spacer(Modifier.height(16.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(shapes = ButtonDefaults.shapes(), onClick = onRefresh) {
-                    Icon(painterResource(R.drawable.ic_refresh), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Refresh now")
+                    IconLabel(R.drawable.ic_refresh, "Refresh now")
                 }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
-                    Icon(painterResource(R.drawable.ic_done_all), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Mark all read")
+                    IconLabel(R.drawable.ic_done_all, "Mark all read")
                 }
             }
 
@@ -523,38 +480,27 @@ private fun FeedSheet(
             Spacer(Modifier.height(16.dp))
             Row {
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress) {
-                    Icon(painterResource(R.drawable.ic_edit), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Edit address")
+                    IconLabel(R.drawable.ic_edit, "Edit address")
                 }
                 TextButton(
                     shapes = ButtonDefaults.shapes(),
                     onClick = { confirmRemove = true },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
-                    Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text("Remove feed")
+                    IconLabel(R.drawable.ic_delete, "Remove feed")
                 }
             }
         }
     }
 
     if (confirmRemove) {
-        AlertDialog(
-            onDismissRequest = { confirmRemove = false },
-            icon = { Icon(painterResource(R.drawable.ic_delete), null) },
-            title = { Text("Remove ${feed.displayTitle()}?") },
-            text = { Text("Unsubscribes and deletes its ${feed.total} stored items. Export OPML first to keep your list.") },
-            confirmButton = {
-                TextButton(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = { confirmRemove = false; onRemove() },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Remove") }
-            },
-            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmRemove = false }) { Text("Cancel") } },
-        )
+        ConfirmDialog(
+            "Remove ${feed.displayTitle()}?",
+            "Unsubscribes and deletes its ${feed.total} stored items. Export OPML first to keep your list.",
+            "Remove",
+            icon = R.drawable.ic_delete,
+            onDismiss = { confirmRemove = false },
+        ) { confirmRemove = false; onRemove() }
     }
 }
 
@@ -641,59 +587,31 @@ private fun FeedItemsPage(
     val items by produceState<List<FeedItem>?>(null, feed.id, version) {
         value = withContext(Dispatchers.IO) { repo.items(feedId = feed.id, limit = ITEM_LIMIT) }
     }
-    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Scaffold(
-        modifier = Modifier.imePadding().nestedScroll(scroll.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.surface,
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(feed.displayTitle(), maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                subtitle = { Text("${feed.unread} unread · ${hostOf(feed.url)}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { BackButton(onBack) },
-                actions = {
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefresh) {
-                        Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh feed")
-                    }
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
-                        Icon(painterResource(R.drawable.ic_done_all), contentDescription = "Mark all read")
-                    }
-                },
-                scrollBehavior = scroll,
-            )
+    val list = items
+    GuiListPage(
+        title = { Text(feed.displayTitle(), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        subtitle = { Text("${feed.unread} unread · ${hostOf(feed.url)}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        onBack = onBack,
+        snackbar = snackbar,
+        actions = {
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefresh) {
+                Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh feed")
+            }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
+                Icon(painterResource(R.drawable.ic_done_all), contentDescription = "Mark all read")
+            }
         },
-    ) { padding ->
-        val list = items
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 16.dp, end = 16.dp,
-                top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-            modifier = Modifier.fillMaxSize().navigationBarScrim(),
-        ) {
-            if (list != null && list.isEmpty()) {
-                item(key = "empty") {
-                    Text(
-                        if (feed.lastFetch == null) "Not fetched yet. Tap refresh." else "No items in this feed.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                    )
-                }
+    ) {
+        if (list != null && list.isEmpty()) {
+            item(key = "empty") {
+                EmptyNote(if (feed.lastFetch == null) "Not fetched yet. Tap refresh." else "No items in this feed.")
             }
-            if (list != null) itemsIndexed(list, key = { _, it -> it.id }) { i, item ->
-                ItemRow(item, i, list.size, onClick = { onOpenItem(item) }, onToggleRead = { onToggleRead(item) })
-            }
-            if (!list.isNullOrEmpty()) item(key = "hint") {
-                Text(
-                    "Tap an item to open it · swipe it to mark it read or unread",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
-                )
-            }
+        }
+        if (list != null) itemsIndexed(list, key = { _, it -> it.id }) { i, item ->
+            ItemRow(item, i, list.size, onClick = { onOpenItem(item) }, onToggleRead = { onToggleRead(item) })
+        }
+        if (!list.isNullOrEmpty()) item(key = "hint") {
+            PageHint("Tap an item to open it · swipe it to mark it read or unread")
         }
     }
 }

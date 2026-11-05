@@ -2,33 +2,24 @@ package com.mtwabpin.kolahal.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,47 +36,32 @@ fun SetupScreen(vm: TerminalViewModel) {
     BackHandler { vm.closeScreen() }
 
     GuiTheme {
-        val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
         val done = checks.count { it.ok || it.fix == null }
-        Scaffold(
-            modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
-            containerColor = MaterialTheme.colorScheme.surface,
-            topBar = {
-                LargeFlexibleTopAppBar(
-                    title = { Text("Setup") },
-                    subtitle = { Text(if (checks.isEmpty()) "Checking…" else "$done of ${checks.size} done") },
-                    navigationIcon = { BackButton(vm::closeScreen) },
-                    scrollBehavior = scroll,
-                )
-            },
+        GuiListPage(
+            title = { Text("Setup") },
+            subtitle = { Text(if (checks.isEmpty()) "Checking…" else "$done of ${checks.size} done") },
+            onBack = vm::closeScreen,
             bottomBar = {
                 Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
                     Button(shapes = ButtonDefaults.shapes(), onClick = vm::closeScreen) { Text(if (checks.isNotEmpty() && done == checks.size) "Done" else "Continue to terminal") }
                 }
             },
-        ) { padding ->
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp,
-                    top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 16.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                modifier = Modifier.fillMaxSize().navigationBarScrim(),
-            ) {
-                itemsIndexed(checks, key = { _, c -> c.title }) { i, c ->
-                    val fixable = !c.ok && c.fix != null
-                    SegmentedListItem(
-                        onClick = { if (fixable) vm.fixSetup(c) },
-                        enabled = true,
-                        shapes = segShapes(i, checks.size),
-                        colors = segColors(),
-                        leadingContent = { StatusDot(c.ok, c.fix == null) },
-                        supportingContent = { Text(c.detail) },
-                        trailingContent = if (fixable) {
-                            { FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.fixSetup(c) }) { Text("Fix") } }
-                        } else null,
-                    ) { Text(c.title) }
-                }
+            imePadding = false,
+            bottom = 16.dp,
+        ) {
+            itemsIndexed(checks, key = { _, c -> c.title }) { i, c ->
+                val fixable = !c.ok && c.fix != null
+                SegmentedListItem(
+                    onClick = { if (fixable) vm.fixSetup(c) },
+                    enabled = true,
+                    shapes = segShapes(i, checks.size),
+                    colors = segColors(),
+                    leadingContent = { StatusDot(c.ok, c.fix == null) },
+                    supportingContent = { Text(c.detail) },
+                    trailingContent = if (fixable) {
+                        { FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.fixSetup(c) }) { Text("Fix") } }
+                    } else null,
+                ) { Text(c.title) }
             }
         }
     }

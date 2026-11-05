@@ -4,21 +4,15 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,25 +20,16 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -52,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,7 +61,6 @@ import kotlinx.coroutines.withContext
 fun GetScriptsScreen(vm: TerminalViewModel) {
     val shared by vm.scriptActions.sharedScripts.collectAsStateWithLifecycle()
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
-    val notice by vm.notice.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler { vm.closeScreen() }
@@ -95,80 +78,59 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
     }
 
     GuiTheme {
-        val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-        val snackbar = remember { SnackbarHostState() }
-        LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it.text) } }
+        val snackbar = rememberNoticeSnackbar(vm)
 
-        Scaffold(
-            modifier = Modifier.imePadding().nestedScroll(scroll.nestedScrollConnection),
-            containerColor = MaterialTheme.colorScheme.surface,
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = {
-                LargeFlexibleTopAppBar(
-                    title = { Text("Get more scripts") },
-                    subtitle = { Text("Shared in ${ScriptCatalog.SOURCE} on GitHub") },
-                    navigationIcon = { BackButton(vm::closeScreen) },
-                    actions = {
-                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading) {
-                            Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh the list")
-                        }
-                    },
-                    scrollBehavior = scroll,
-                )
+        GuiListPage(
+            title = { Text("Get more scripts") },
+            subtitle = { Text("Shared in ${ScriptCatalog.SOURCE} on GitHub") },
+            onBack = vm::closeScreen,
+            snackbar = snackbar,
+            actions = {
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading) {
+                    Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh the list")
+                }
             },
-        ) { padding ->
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp,
-                    top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 32.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                modifier = Modifier.fillMaxSize().navigationBarScrim(),
-            ) {
-                item(key = "search") {
-                    TextField(
-                        shape = TextFieldDefaults.roundedShape,
-                        colors = fieldColors(),
-                        value = query,
-                        onValueChange = { query = it },
-                        placeholder = { Text("Search by name, author or tag") },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    )
-                }
-                if (shared.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp)) }
-                shared.error?.let { error ->
-                    item(key = "error") {
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Text("Can't read the list: $error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                            TextButton(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }) { Text("Try again") }
-                        }
+        ) {
+            item(key = "search") {
+                TextField(
+                    shape = TextFieldDefaults.roundedShape,
+                    colors = fieldColors(),
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Search by name, author or tag") },
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
+            }
+            if (shared.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp)) }
+            shared.error?.let { error ->
+                item(key = "error") {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text("Can't read the list: $error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        TextButton(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }) { Text("Try again") }
                     }
                 }
-                itemsIndexed(shown, key = { _, e -> e.name }) { i, e ->
-                    SharedRow(e, states[e.name], i, shown.size) { open = e.name }
-                }
-                if (!shared.loading && shown.isEmpty() && shared.error == null) {
-                    item(key = "none") {
-                        Text(
-                            if (query.isBlank()) "No scripts shared yet." else "No script matches “$query”.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-                }
-                item(key = "about") {
+            }
+            itemsIndexed(shown, key = { _, e -> e.name }) { i, e ->
+                SharedRow(e, states[e.name], i, shown.size) { open = e.name }
+            }
+            if (!shared.loading && shown.isEmpty() && shared.error == null) {
+                item(key = "none") {
                     Text(
-                        "Every script here is reviewed before it is added. When you install one, you choose what it can " +
-                            "use; its Access switches change that later. Share your own at " +
-                            "github.com/mtwabpin/${ScriptCatalog.SOURCE}.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+                        if (query.isBlank()) "No scripts shared yet." else "No script matches “$query”.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
                     )
                 }
+            }
+            item(key = "about") {
+                PageHint(
+                    "Every script here is reviewed before it is added. When you install one, you choose what it can " +
+                        "use; its Access switches change that later. Share your own at " +
+                        "github.com/mtwabpin/${ScriptCatalog.SOURCE}.",
+                )
             }
         }
 
@@ -232,7 +194,7 @@ private fun SharedRow(e: ScriptCatalog.Entry, state: ScriptCatalog.State?, index
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: ScriptCatalog.State?, onDismiss: () -> Unit) {
-    val sheet = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    val sheet = rememberExpandedSheetState()
     var asking by remember(e.name) { mutableStateOf(false) }
     var confirmReplace by remember(e.name) { mutableStateOf(false) }
     // The file, downloaded and checked against the list, so you can read it before installing.
@@ -272,9 +234,7 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
                         onClick = { if (uses.isEmpty()) vm.scriptActions.installSharedScript(e) else asking = true },
                         enabled = code?.isSuccess == true,
                     ) {
-                        Icon(painterResource(R.drawable.ic_download), null, Modifier.size(ButtonDefaults.IconSize))
-                        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                        Text("Install")
+                        IconLabel(R.drawable.ic_download, "Install")
                     }
                     ScriptCatalog.State.UPDATE_AVAILABLE -> Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.installSharedScript(e) }, enabled = code?.isSuccess == true) {
                         Text("Update to ${e.version}")
@@ -325,19 +285,12 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
         }
     }
     if (confirmReplace) {
-        AlertDialog(
-            onDismissRequest = { confirmReplace = false },
-            title = { Text("Replace ${e.name}.${e.lang.ext}?") },
-            text = { Text("Your copy differs from the shared one. Its code is replaced and your changes are lost. Export it first to keep a copy.") },
-            confirmButton = {
-                TextButton(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = { confirmReplace = false; vm.scriptActions.installSharedScript(e, replace = true) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Replace") }
-            },
-            dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirmReplace = false }) { Text("Cancel") } },
-        )
+        ConfirmDialog(
+            "Replace ${e.name}.${e.lang.ext}?",
+            "Your copy differs from the shared one. Its code is replaced and your changes are lost. Export it first to keep a copy.",
+            "Replace",
+            onDismiss = { confirmReplace = false },
+        ) { confirmReplace = false; vm.scriptActions.installSharedScript(e, replace = true) }
     }
 }
 
