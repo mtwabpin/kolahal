@@ -52,9 +52,13 @@ object ReminderScheduler {
         pi.cancel()
     }
 
-    /** App start and boot: alarms don't survive a reboot (or a force stop). */
-    /** Alarms for the earliest [MAX_ALARMS] reminders; each one fired makes room for the next. */
+    /**
+     * App start, boot and a restore: alarms don't survive a reboot or a force stop. Alarms for the
+     * earliest [MAX_ALARMS] reminders; each one fired makes room for the next. A zone changed while
+     * Kolahal wasn't running, when nothing heard about it, moves the repeating ones first.
+     */
     fun rescheduleAll(context: Context) {
+        if (zoneChanged(context)) moveToZone(context)
         ReminderStore.get(context).all().sortedBy { it.at }.take(MAX_ALARMS).forEach { schedule(context, it) }
     }
 
@@ -74,6 +78,27 @@ object ReminderScheduler {
      * has no time of its own, stays.
      */
     fun followZone(context: Context) {
+        zoneChanged(context)
+        if (moveToZone(context)) rescheduleAll(context)
+    }
+
+    /** The zone the reminders were last moved to: the phone's, unless it changed with Kolahal not running. */
+    internal const val KEY_ZONE = "zone"
+    internal const val PREFS = "reminders"
+
+    /** Whether the phone's zone differs from the one the reminders follow; either way it's theirs now. */
+    private fun zoneChanged(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = ZoneId.systemDefault().id
+        val was = prefs.getString(KEY_ZONE, null)
+        if (was == now) return false
+        prefs.edit().putString(KEY_ZONE, now).apply()
+        // The first time, there's nothing to compare with.
+        return was != null
+    }
+
+    /** [followZone]'s moves, without setting the alarms; true when one moved. */
+    private fun moveToZone(context: Context): Boolean {
         val store = ReminderStore.get(context)
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
@@ -89,7 +114,7 @@ object ReminderScheduler {
             store.setAt(r.id, next)
             moved = true
         }
-        if (moved) rescheduleAll(context)
+        return moved
     }
 }
 

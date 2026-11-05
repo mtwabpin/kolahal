@@ -85,4 +85,29 @@ class ReminderFiringTest {
         assertEquals(LocalTime.of(9, 0), localTime(store.byId(asked.id)!!.at))
         assertEquals(elsewhere, store.byId(older.id)!!.at)
     }
+
+    /**
+     * A zone changed while Kolahal wasn't running: nothing heard about it, so the next start
+     * (rescheduleAll) moves them, once. The phone's zone itself isn't changed: the one they
+     * followed is set to another.
+     */
+    @Test fun aZoneChangedWhileKolahalWasntRunningMovesThemAtTheNextStart() {
+        val prefs = context.getSharedPreferences(ReminderScheduler.PREFS, android.content.Context.MODE_PRIVATE)
+        val was = prefs.getString(ReminderScheduler.KEY_ZONE, null)
+        val other = if (ZoneId.systemDefault().id == "Asia/Kolkata") "Europe/London" else "Asia/Kolkata"
+        try {
+            val elsewhere = LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val asked = store.add(elsewhere, "firing-zone", "day", "09:00")
+            // The same zone as before: nothing moves.
+            prefs.edit().putString(ReminderScheduler.KEY_ZONE, ZoneId.systemDefault().id).commit()
+            ReminderScheduler.rescheduleAll(context)
+            assertEquals(elsewhere, store.byId(asked.id)!!.at)
+            prefs.edit().putString(ReminderScheduler.KEY_ZONE, other).commit()
+            ReminderScheduler.rescheduleAll(context)
+            assertEquals(LocalTime.of(9, 0), localTime(store.byId(asked.id)!!.at))
+            assertEquals(ZoneId.systemDefault().id, prefs.getString(ReminderScheduler.KEY_ZONE, null))
+        } finally {
+            prefs.edit().putString(ReminderScheduler.KEY_ZONE, was).commit()
+        }
+    }
 }
