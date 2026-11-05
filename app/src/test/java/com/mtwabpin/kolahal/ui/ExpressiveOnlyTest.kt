@@ -1,13 +1,13 @@
 package com.mtwabpin.kolahal.ui
 
-import java.io.File
+import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Material screens use Material 3 Expressive components only: docs/developing.org has what to use instead. */
 class ExpressiveOnlyTest {
-    private val root = File("src/main/java/com/mtwabpin/kolahal")
+    private val root = sourceFile("src/main/java/com/mtwabpin/kolahal")
 
     /** Part of the terminal, which draws its own look in its own colours. */
     private val terminal = setOf("SuggestionList.kt")

@@ -1,10 +1,10 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /** Keeps [ApiDocs] in sync with the functions the engines actually bind (parsed from their sources). */
 class ApiDocsTest {
@@ -14,11 +14,7 @@ class ApiDocsTest {
     }
 
 
-    private fun source(name: String): List<String> {
-        val rel = "src/main/java/com/mtwabpin/kolahal/script/$name"
-        val file = listOf(File(rel), File("app/$rel")).first { it.exists() }
-        return file.readLines()
-    }
+    private fun source(name: String): List<String> = sourceFile("src/main/java/com/mtwabpin/kolahal/script/$name").readLines()
 
     private fun luaBindings(): Set<String> {
         val out = mutableSetOf<String>()

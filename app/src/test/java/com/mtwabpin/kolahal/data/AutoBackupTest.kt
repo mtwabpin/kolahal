@@ -4,7 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AutoBackupTest {
-    private fun day(n: Int) = "kolahal-backup-2026-10-%02d.json".format(n)
+    /** Plain digits, as [java.time.LocalDate] writes them, whatever the language: `%02d` would write Persian or Bengali ones. */
+    private fun day(n: Int) = "kolahal-backup-2026-10-${n.toString().padStart(2, '0')}.json"
 
     /** A folder Kolahal can't use gets a tap to pick one; a backup too big doesn't, as no folder fixes that. */
     @Test fun onlyAFolderProblemOffersTheFolderPicker() {

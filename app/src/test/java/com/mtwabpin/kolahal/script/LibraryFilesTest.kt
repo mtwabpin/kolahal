@@ -1,13 +1,13 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.io.File
 
 /** The scripts bundled in assets/library, read as the editor reads them. */
 class LibraryFilesTest {
-    private val files = File("src/main/assets/library").listFiles().orEmpty()
+    private val files = sourceFile("src/main/assets/library").listFiles().orEmpty()
         .mapNotNull { f -> ScriptLang.of(f.extension)?.let { f to it } }.sortedBy { it.first.name }
 
     @Test fun theyAreAllThere() {
