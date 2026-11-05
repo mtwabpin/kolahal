@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import android.content.Context
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -141,16 +142,21 @@ class GetScriptsScreenTest {
     private fun row(title: String, vararg texts: String): SemanticsMatcher =
         texts.fold(hasText(title) and hasClickAction()) { m, t -> m and hasText(t) }
 
-    private fun waitFor(matcher: SemanticsMatcher) {
-        compose.waitUntil(5_000) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+    /** Waits [ms] for [matcher], and looks once more at the deadline: one slow frame doesn't fail it. */
+    private fun waitFor(matcher: SemanticsMatcher, ms: Long = 5_000) {
+        val shown = { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+        try { compose.waitUntil(ms) { shown() } } catch (e: ComposeTimeoutException) { if (!shown()) throw e }
     }
 
     private fun waitForText(text: String) = waitFor(hasText(text))
 
-    /** Taps the button [label] once it can be tapped: a sheet's buttons wait for the script's code. */
+    /**
+     * Taps the button [label] once it can be tapped: a sheet's buttons wait for the script's code,
+     * read off the main thread, and in a full run that can take a while.
+     */
     private fun tapWhenEnabled(label: String) {
         val button = hasText(label) and hasClickAction() and isEnabled()
-        waitFor(button)
+        waitFor(button, 15_000)
         compose.onNode(button).performScrollTo().performClick()
     }
 
@@ -299,6 +305,7 @@ class GetScriptsScreenTest {
         show(tideNext)
         waitForText("The next high and low tide · Update to 1.1")
         compose.onNodeWithText("Tide times").performClick()
+        waitForText("gstide.lua · v1.1 · by ann")
         tapWhenEnabled("Update to 1.1")
         compose.waitUntil(5_000) { scripts.byName(tide.name)?.code == tideNext.code }
         waitForText("Updated gstide.lua to 1.1")
@@ -314,6 +321,7 @@ class GetScriptsScreenTest {
         show(tide)
         waitForText("The next high and low tide · Installed, edited")
         compose.onNodeWithText("Tide times").performClick()
+        waitForText("gstide.lua · v1.0 · by ann")
         tapWhenEnabled("Replace your edited copy")
         waitForText("Replace gstide.lua?")
         compose.onNodeWithText("Cancel").performClick()
