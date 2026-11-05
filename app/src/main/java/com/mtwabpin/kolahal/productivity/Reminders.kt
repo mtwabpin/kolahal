@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -92,7 +93,7 @@ object ReminderScheduler {
         val now = ZoneId.systemDefault().id
         val was = prefs.getString(KEY_ZONE, null)
         if (was == now) return false
-        prefs.edit().putString(KEY_ZONE, now).apply()
+        prefs.edit { putString(KEY_ZONE, now) }
         // The first time, there's nothing to compare with.
         return was != null
     }
