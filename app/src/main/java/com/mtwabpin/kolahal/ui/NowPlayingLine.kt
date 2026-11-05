@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -55,8 +54,6 @@ internal fun NowPlayingLine(
     onNext: () -> Unit,
     endPadding: Dp = 0.dp,
 ) {
-    val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
-
     // How far along: worked out every 250 ms, but stored only when the bar's filled part changes by a
     // pixel, and read only to draw the bar. An hour-long track moves it a pixel every few seconds,
     // and each change used to build and measure the whole line again.
@@ -123,7 +120,7 @@ internal fun NowPlayingLine(
 
                 Text(
                     np.line,
-                    style = small.copy(color = Term.dim),
+                    style = Term.small,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

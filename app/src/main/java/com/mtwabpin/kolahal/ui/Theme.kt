@@ -244,7 +244,17 @@ object Term {
     }
 
     /** The terminal's text: [fontFamily], or the phone's font with `font.sans all`. */
-    val text: TextStyle get() = style(if (sans == Sans.ALL) FontFamily.Default else fontFamily)
+    val text: TextStyle get() = style(textFamily)
+
+    /** [text] a size smaller, in [dim]: the quieter lines, as a day's divider or a search's count. */
+    val small: TextStyle get() {
+        val family = textFamily
+        // Read first: it empties both caches when the palette or the size changed.
+        val base = style(family)
+        return smallStyles.getOrPut(family) { base.copy(color = dim, fontSize = (fontSize - 1).sp) }
+    }
+
+    private val textFamily: FontFamily get() = if (sans == Sans.ALL) FontFamily.Default else fontFamily
 
     /** Always [fontFamily]: the script editor, and lists that line columns up with spaces. */
     val code: TextStyle get() = style(fontFamily)
@@ -258,6 +268,7 @@ object Term {
     private var cachedPalette: Palette? = null
     private var cachedSize = 0
     private val styles = HashMap<FontFamily, TextStyle>()
+    private val smallStyles = HashMap<FontFamily, TextStyle>()
 
     /** Base text style in [family], rebuilt only when the palette or font size changes. */
     private fun style(family: FontFamily): TextStyle {
@@ -265,6 +276,7 @@ object Term {
         val size = fontSize
         if (cachedPalette !== p || cachedSize != size) {
             styles.clear()
+            smallStyles.clear()
             cachedPalette = p
             cachedSize = size
         }

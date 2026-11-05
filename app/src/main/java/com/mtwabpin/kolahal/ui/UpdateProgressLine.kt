@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.terminal.UpdateCommands
 
@@ -27,17 +26,16 @@ internal fun UpdateProgressLine() {
 /** "Downloading update  4 MB / 10 MB  40%" over a bar, like [NowPlayingLine]. */
 @Composable
 internal fun UpdateProgressLine(progress: UpdateCommands.Progress) {
-    val small = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp)
     Column(Modifier.fillMaxWidth().testTag("update-progress").padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth()) {
             Text(
                 "Downloading update",
-                style = small,
+                style = Term.small,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Text("${progress.downloaded / MB} MB / ${progress.total / MB} MB  ${progress.percent}%", style = small, maxLines = 1)
+            Text("${progress.downloaded / MB} MB / ${progress.total / MB} MB  ${progress.percent}%", style = Term.small, maxLines = 1)
         }
         ProgressTrack(progress.percent / 100f)
     }

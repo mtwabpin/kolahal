@@ -2,7 +2,6 @@ package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
-import androidx.compose.material3.SheetValue
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
@@ -11,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +24,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,18 +49,27 @@ data class ActionMenu(
     val detail: String? = null,
 )
 
-/** Long-press actions as a compact bottom sheet: the line on top, destructive actions last in red. */
+/**
+ * A bottom sheet of the terminal's: its surface colour, rounded only at the top, no drag handle.
+ * It opens all the way.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
-    val state = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+internal fun TermSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = state,
+        sheetState = rememberExpandedSheetState(),
         containerColor = Term.surface,
         dragHandle = null,
         shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-    ) {
+        content = content,
+    )
+}
+
+/** Long-press actions as a compact bottom sheet: the line on top, destructive actions last in red. */
+@Composable
+fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
+    TermSheet(onDismiss) {
         // Scrolls when there are more actions than fit, so the last one can be reached.
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(vertical = 8.dp)) {
             // Sized with the terminal's text, like the icons.

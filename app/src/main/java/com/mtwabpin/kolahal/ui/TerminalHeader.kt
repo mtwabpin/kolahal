@@ -40,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
@@ -252,8 +251,7 @@ internal fun Header(
     val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm", Locale.getDefault()) }
     val dayFmt = remember(zone) { SimpleDateFormat("EEE ", Locale.getDefault()) }
     val chosen = remember(version) { listOf(config[Keys.HEADER_ITEM_1], config[Keys.HEADER_ITEM_2]) }
-    val small = Term.text.copy(fontSize = (Term.fontSize - 1).sp)
-    val bold = small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
+    val bold = Term.small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
     val iconSize = (Term.fontSize + 1).dp
 
     // The band beside the camera: the cutout's height, with the status bar hidden.
@@ -331,7 +329,7 @@ internal fun Header(
     Layout(
         content = {
             Part("time", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(timeFmt.format(now), style = bold, maxLines = 1) }
-            Part("date", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(dateFmt.format(now), style = small.copy(color = Term.dim), maxLines = 1) }
+            Part("date", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(dateFmt.format(now), style = Term.small, maxLines = 1) }
             items.forEach { it() }
         },
         modifier = Modifier

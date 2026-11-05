@@ -79,7 +79,7 @@ fun DayDivider(row: LogRow.Day, today: LocalDate) {
         else row.day.format(DateTimeFormatter.ofPattern("EEE d MMM", LocalConfiguration.current.locales[0]))
     Text(
         "── $label ──",
-        style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp),
+        style = Term.small,
         modifier = Modifier.padding(top = 14.dp, bottom = 4.dp),
     )
 }

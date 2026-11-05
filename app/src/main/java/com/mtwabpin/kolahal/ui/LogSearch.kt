@@ -151,7 +151,7 @@ fun LogSearchSummary(search: TerminalViewModel.LogSearch, modifier: Modifier = M
     }
     Text(
         text,
-        style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp),
+        style = Term.small,
         modifier = modifier.fillMaxWidth().testTag("log-search-summary").padding(horizontal = 12.dp, vertical = 4.dp),
     )
 }
@@ -169,7 +169,7 @@ fun LogFilterBar(filter: LogFilter, count: Int, onClear: () -> Unit, modifier: M
                 withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append(filter.label) }
                 append(" · $count line" + if (count == 1) "" else "s")
             },
-            style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp),
+            style = Term.small,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),

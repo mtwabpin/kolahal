@@ -42,7 +42,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -196,7 +195,7 @@ private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (Str
                 withStyle(SpanStyle(color = Term.dim)) { append("${line.name} ▸ ") }
                 withStyle(SpanStyle(color = Term.script)) { append(line.text) }
             },
-            style = Term.text.copy(fontSize = (Term.fontSize - 1).sp),
+            style = Term.small,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
