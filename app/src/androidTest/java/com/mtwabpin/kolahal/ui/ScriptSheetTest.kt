@@ -39,6 +39,7 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.waitFor
+import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -223,7 +224,8 @@ class ScriptSheetTest {
         box.performScrollTo().assert(hasText("18:30"))
         box.performTextReplacement("18:30, 21:00")
         compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Add") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
+        // The picker is a window of its own: in a full run it can take a while to show.
+        compose.waitForNode(hasText("Add") and hasAnyAncestor(isDialog()), 15_000)
         inDialog("Add").performClick()
         compose.waitFor("three daily times") { script().atTimes == listOf("08:00", "18:30", "21:00") }
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText("08:00, 18:30, 21:00")).fetchSemanticsNodes().isNotEmpty() }
