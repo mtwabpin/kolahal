@@ -81,6 +81,15 @@ class PipesTest {
         assertEquals("broken", failure.message)
     }
 
+    /**
+     * A match that has given its answer has let go of its place: the next one, straight after, has
+     * room. A place given back after the answer could still look taken (GitHub's runner hit it).
+     */
+    @Test fun aFinishedMatchFreesItsPlaceAtOnce() {
+        val limit = MatchLimit(ms = 5_000, maxThreads = 1)
+        repeat(5_000) { assertEquals(it, limit.run { it }) }
+    }
+
     /** The real regex engine is native, so `GrepOnDeviceTest` runs a real pattern: this one just takes too long. */
     @Test fun aSlowMatchStopsBeingWaitedFor() {
         val release = CountDownLatch(1)

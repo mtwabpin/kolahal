@@ -105,11 +105,16 @@ internal class MatchLimit(private val ms: Long, private val maxThreads: Int) {
             running.decrementAndGet()
             throw IllegalArgumentException("grep: earlier patterns are still running; restart stops them")
         }
-        val task = FutureTask(match)
-        val thread = Thread {
-            task.run()
-            running.decrementAndGet()
-        }.apply { isDaemon = true; start() }
+        // Given back inside the task, before its answer is: a caller that has its answer can start
+        // the next match at once. Given back after, the place could still look taken by then.
+        val task = FutureTask {
+            try {
+                match()
+            } finally {
+                running.decrementAndGet()
+            }
+        }
+        val thread = Thread(task).apply { isDaemon = true; start() }
         return try {
             task.get(ms, TimeUnit.MILLISECONDS)
         } catch (e: TimeoutException) {
