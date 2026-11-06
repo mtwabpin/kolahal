@@ -89,6 +89,9 @@ Anything else after `=` is evaluated as a **Lua expression**:
 Long names and plurals work too (`kilometers`, `pounds`, `celsius`, …). `in` is both a unit and a
 connecting word: `= 5 in to cm`, `= 12 cm in in`. Long-press a result to copy the number.
 
+Answers up to 15 digits are written in full, with commas and at most four decimals: `= 1 gb in b`
+gives `1 GB = 1,000,000,000 B`. Smaller than 0.0001, or bigger, they're written as `1.000e+15`.
+
 ## Currency
 
 Three-letter codes that aren't units are treated as currencies:

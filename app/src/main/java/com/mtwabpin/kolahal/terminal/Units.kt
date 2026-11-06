@@ -1,5 +1,8 @@
 package com.mtwabpin.kolahal.terminal
 
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.util.Locale
 import kotlin.math.abs
 
@@ -124,11 +127,18 @@ object Units {
         }
     }
 
+    /**
+     * An amount as a conversion prints it: in full with separators up to 10^15, as far as the
+     * calculator writes numbers in full (`1 GB = 1,000,000,000 B`); a whole number exactly, others
+     * to at most 4 decimals and 15 significant digits, past which a double's digits are noise.
+     * Smaller than 0.0001, or from 10^15, in scientific notation.
+     */
     fun format(v: Double): String = when {
         v == 0.0 -> "0"
-        abs(v) !in 1e-4..<1e9 -> String.format(Locale.ROOT, "%.4g", v)
+        abs(v) !in 1e-4..<1e15 -> String.format(Locale.ROOT, "%.4g", v)
         v % 1.0 == 0.0 -> String.format(Locale.ROOT, "%,.0f", v)
-        else -> String.format(Locale.ROOT, "%,.4f", v).trimEnd('0').trimEnd('.')
+        else -> BigDecimal(v).round(MathContext(15)).setScale(4, RoundingMode.HALF_UP).stripTrailingZeros()
+            .let { String.format(Locale.ROOT, "%,.${it.scale().coerceAtLeast(0)}f", it) }
     }
 
     /** Three-letter currency codes, for deciding whether to try an exchange-rate lookup. */

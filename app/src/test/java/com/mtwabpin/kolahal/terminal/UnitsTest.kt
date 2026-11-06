@@ -16,6 +16,22 @@ class UnitsTest {
     @Test fun kelvin() = assertEquals("0 K = -273.15 °C", conv("0 k in c"))
     @Test fun mass() = assertEquals("1 kg = 2.2046 lb", conv("1 kg in lb"))
     @Test fun data() = assertEquals("1 GiB = 1,073.7418 MB", conv("1 gib in mb"))
+
+    /** Up to 10^15 an amount is written in full, with separators; from there, in scientific notation. */
+    @Test fun bigAmountsInFull() {
+        assertEquals("1 GB = 1,000,000,000 B", conv("1 gb in b"))
+        assertEquals("999 TB = 999,000,000,000,000 B", conv("999 tb in b"))
+        assertEquals("10,000 TB = 9,536,743,164.0625 MiB", conv("10000 tb in mib"))
+        assertEquals("1,000 TB = 1.000e+15 B", conv("1000 tb in b"))
+    }
+
+    /** Four decimals at the most, and no digits past what a double holds. */
+    @Test fun decimalsAreCut() {
+        assertEquals("0.3333", Units.format(1.0 / 3))
+        assertEquals("1,234,567,890,123.4", Units.format(1234567890123.4))
+        assertEquals("0.3", Units.format(0.1 + 0.2))
+        assertEquals("1.000e-05", Units.format(0.00001))
+    }
     @Test fun currencyIsParsedButNotConverted() {
         assertEquals(Triple(100.0, "usd", "inr"), Units.parse("100 usd in inr"))
         assertNull(conv("100 usd in inr"))
