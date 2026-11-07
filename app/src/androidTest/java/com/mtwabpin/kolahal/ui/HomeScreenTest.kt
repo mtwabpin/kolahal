@@ -388,6 +388,9 @@ class HomeScreenTest {
             compose.runOnIdle { vm.clearScreen() }
             compose.waitUntil(5_000) { compose.onAllNodesWithText("Screen cleared").fetchSemanticsNodes().isNotEmpty() }
             compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isEmpty() }
+            // The empty log's hint: what to do on a line of its own, the other tips under it.
+            compose.onNodeWithText("Type an app name or a command").assertExists()
+            compose.onNodeWithText("help lists everything", substring = true).assertExists()
             compose.onNodeWithText("Undo").performClick()
             compose.waitUntil(5_000) { compose.onAllNodesWithText(mark).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Screen cleared").assertDoesNotExist()

@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
@@ -412,13 +413,17 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
         ) {
             if (reversedRows.isEmpty() && hiddenLines == 0) {
+                // An empty log: what to do, in the text colour, then the other tips dim, one per line.
                 item(key = "empty-hint") {
-                    Text(
-                        "Type an app name or a command · help lists everything · ↑ recalls history · " +
-                            "/ searches the log · tap a line to use it, long-press for more · ⚙ settings",
-                        style = Term.text.copy(color = Term.dim),
-                        modifier = Modifier.padding(vertical = 12.dp),
-                    )
+                    Column(Modifier.padding(vertical = 12.dp).testTag("empty-hint")) {
+                        Text("Type an app name or a command", style = Term.text)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "help lists everything\n↑ recalls history\n/ searches the log\n" +
+                                "Tap a line to use it, long-press for more\n⚙ settings",
+                            style = Term.text.copy(color = Term.dim),
+                        )
+                    }
                 }
             }
             items(reversedRows, key = { it.key }, contentType = { if (it is LogRow.Entry) it.entry.kind else it.javaClass }) { row ->
