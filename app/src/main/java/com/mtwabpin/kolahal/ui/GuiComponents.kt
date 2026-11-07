@@ -75,9 +75,9 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.terminal.CommandParsing
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
-/** Single-select connected button group (Material 3 Expressive). */
+/** Single-select connected button group (Material 3 Expressive). [label] gives the words shown for a choice; the test tag keeps the choice itself. */
 @Composable
-fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String = "choice ", onPick: (String) -> Unit) {
+fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String = "choice ", label: (String) -> String = { it }, onPick: (String) -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         modifier = Modifier.fillMaxWidth(),
@@ -93,7 +93,7 @@ fun ConnectedChoices(choices: List<String>, selected: String, tagPrefix: String 
                 },
                 modifier = Modifier.weight(1f).testTag(tagPrefix + choice),
             ) {
-                Text(choice, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label(choice), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

@@ -17,9 +17,9 @@
 -- The words after the name: `args` is a table of them, `argline` the same words as one string.
 local name = argline ~= "" and argline or "world"
 
--- log(title, body, ctx) adds a line under this run's header: the title in bold, the body (if any)
--- muted under it. The table at the end decides what tapping and long-pressing the line do: url
--- opens a link, copy is what "Copy text" copies.
+-- log(title, body, ctx) adds a line to the log: the title, and the body (if any) muted under it.
+-- With a body, the title is bold, as a heading. The table at the end decides what tapping and
+-- long-pressing the line do: url opens a link, copy is what "Copy text" copies.
 log("Hello, " .. name .. "!", "You gave " .. #args .. (#args == 1 and " word" or " words"), { copy = name })
 
 -- md.log is log reading Markdown: **bold**, *italic*, `code`, and lists in the body.

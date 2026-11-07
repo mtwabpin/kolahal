@@ -452,7 +452,7 @@ class SettingsScreenTest {
      */
     @Test fun lookPreviewsAreNotLazy() {
         show("look")
-        compose.onNodeWithText(Keys.THEME.choices.last()).assertExists()
+        compose.onNodeWithText(ChoiceLabels.theme(Keys.THEME.choices.last())).assertExists()
         scrollTo(Keys.FONT)
         compose.onNodeWithText(TermFonts.label(TermFonts.names.last { it != TermFonts.CUSTOM })).assertExists()
     }

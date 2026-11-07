@@ -25,7 +25,7 @@ if event.name == "charger" then
   status(string.format("Charging from %d%%", event.level))
 elseif event.name == "unplug" then
   local from, at = tonumber(store.get("from")), tonumber(store.get("at"))
-  status(nil) -- clears its header line
+  status(nil) -- clears its status line
   if from and at and event.level then
     local minutes = math.floor((os.time() - at) / 60 + 0.5)
     log("Charged " .. fmt.color("good", string.format("+%d%%", event.level - from)), string.format("%d%% → %d%% in %dm", from, event.level, minutes))

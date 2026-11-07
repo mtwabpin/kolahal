@@ -7,8 +7,9 @@
 -- @tags template, github
 -- @requires 0.4.1
 --
--- A starting point for a script that calls an API with a key. This one shows your GitHub followers
--- in the header. Talks to: api.github.com.
+-- A starting point for a script that calls an API with a key. This one keeps your GitHub followers
+-- as its status line: pin it (`script pin template-api-key`) to see it at the top of home.
+-- Talks to: api.github.com.
 --
 -- The @secret line names the key (GITHUB_TOKEN), the site it may be sent to, and what it is. You
 -- set the value on the phone: Scripts → tap this script → Secrets, or

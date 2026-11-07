@@ -13,8 +13,8 @@
 //
 // Talks to: geocoding-api.open-meteo.com and air-quality-api.open-meteo.com (free, no key), and
 // api.waqi.info when you set a WAQI token. `aqi Delhi`, or `aqi` for its city option (`script set
-// aqi city Pune`); `script set aqi scale in` for India's index. On a timer (no arguments) it pins
-// the latest figure in the header.
+// aqi city Pune`); `script set aqi scale in` for India's index. On a timer (no arguments) it keeps
+// the latest figure as its status line: pin it (`script pin aqi`) to see it at the top of home.
 //
 // Where the numbers come from:
 // - Without a token, or with scale in or eu: Open-Meteo's model (CAMS, on a grid tens of km wide),

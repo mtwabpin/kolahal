@@ -196,7 +196,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                                 ) {
                                     Box(Modifier.size(16.dp).background(p.prompt, CircleShape).border(3.dp, p.bg, CircleShape))
                                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                                    Text(other)
+                                    Text(ChoiceLabels.theme(other))
                                 }
                             }
                         }

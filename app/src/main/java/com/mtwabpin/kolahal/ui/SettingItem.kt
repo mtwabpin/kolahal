@@ -133,9 +133,9 @@ internal fun SettingItem(
                         } else if (key == Keys.FONT) {
                             FontChoices(value, { vm.setConfig(key, it) }, onImportFont)
                         } else if (key.choices.size > 4) {
-                            ChipChoices(key.choices, value) { vm.setConfig(key, it) }
+                            ChipChoices(key.choices, value, label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                         } else {
-                            ConnectedChoices(key.choices, value) { vm.setConfig(key, it) }
+                            ConnectedChoices(key.choices, value, label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                         }
                     }
                 },
@@ -227,12 +227,12 @@ internal fun SettingItem(
     }
 }
 
-/** For many options: single-select filter chips that wrap. */
+/** For many options: single-select filter chips that wrap. [label] gives the words shown for a choice. */
 @Composable
-fun ChipChoices(choices: List<String>, selected: String, onPick: (String) -> Unit) {
+fun ChipChoices(choices: List<String>, selected: String, label: (String) -> String = { it }, onPick: (String) -> Unit) {
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         choices.forEach { c ->
-            androidx.compose.material3.FilterChip(selected = c == selected, onClick = { onPick(c) }, label = { Text(c) })
+            androidx.compose.material3.FilterChip(selected = c == selected, onClick = { onPick(c) }, label = { Text(label(c)) })
         }
     }
 }
@@ -269,7 +269,7 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
                     }
                     Spacer(Modifier.height(10.dp))
                     Text("$ ls", color = p.prompt, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace))
-                    Text(name, color = p.fg, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(ChoiceLabels.theme(name), color = p.fg, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

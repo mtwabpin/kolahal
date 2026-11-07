@@ -31,7 +31,8 @@ if r.status == 404 then return log(fmt.color("muted", REPO .. " has no releases 
 if not r.ok then error("GitHub answered HTTP " .. r.status) end
 local release = json.decode(r.body)
 
--- status() pins one line in the header; tapping it runs the script again.
+-- status() sets its status line. Pin the script (`script pin template-timer`) to see it at the top
+-- of home; tapping it there runs the script again.
 status(REPO:match("[^/]+$") .. " " .. release.tag_name)
 
 -- store keeps strings between runs, for this script only: here, the newest release it has seen.

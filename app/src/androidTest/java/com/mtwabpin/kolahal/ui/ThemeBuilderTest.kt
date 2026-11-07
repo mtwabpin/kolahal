@@ -91,7 +91,7 @@ class ThemeBuilderTest {
 
     @Test fun startFromCopiesAnotherTheme() {
         open(null)
-        compose.onNodeWithText("gruvbox").performScrollTo().performClick()
+        compose.onNodeWithText("Gruvbox").performScrollTo().performClick()
         name("tb-test")
         save.performClick()
         assertEquals(Palettes.themeColors("gruvbox"), CustomThemes.colors("tb-test"))
