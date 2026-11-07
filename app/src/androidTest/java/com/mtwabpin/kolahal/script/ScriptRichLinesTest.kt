@@ -142,6 +142,12 @@ class ScriptRichLinesTest {
         assertEquals("{}", js("""({})""", repl = true))
     }
 
+    /** Setting a line to what it already shows changes nothing and doesn't count toward the limit. */
+    @Test fun theSameTextAgainIsFree() {
+        lua("""local l = log("same") for i = 1, ${HostApi.MAX_SETS_PER_RUN + 50} do l.set("same") end l.set("last")""")
+        assertEquals("last", lines().single().shownText)
+    }
+
     /** After the run, set is an error; past the limit, changes are ignored. */
     @Test fun setHasLimits() {
         val h = host()

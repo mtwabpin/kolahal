@@ -321,7 +321,12 @@ fun LogLine(
                     }
                     // A long line folds (log.fold). Only a line long enough to need it is measured
                     // for it, and never a typed command or a search result (its words must show).
-                    val mayFold = remember(entry) { entry.kind != LogKind.COMMAND && mayFold(entry) } && marks.isEmpty()
+                    // A character of the terminal font is 0.6 of its size wide; the log loses about
+                    // 60 dp to its padding, the gutter and the time.
+                    val screen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+                    val charDp = with(density) { (Term.fontSize * 0.6f).sp.toDp().value }
+                    val lineChars = ((screen - 60) / charDp).toInt().coerceAtLeast(16)
+                    val mayFold = remember(entry, lineChars, Term.foldLines) { entry.kind != LogKind.COMMAND && mayFold(entry, lineChars) } && marks.isEmpty()
                     if (image == null && richRest == null && !mayFold) words()
                     else Column {
                         Foldable(entry.id, style, enabled = mayFold) {
@@ -395,21 +400,26 @@ private val ACTIONABLE_KEYS = setOf(
     LogContext.PHONE, LogContext.SHORTCUT, "notif", LogContext.NOTE, LogContext.EVENT, LogContext.REMINDER,
 )
 
-/** Rows of `help`, `config` and `script ls`: the name on the left, the description wrapping on the right. */
 /**
- * Whether [entry] could be tall enough to fold (`log.fold`): many lines, or much text. Shorter
- * lines skip the fold's measuring. A table row or a bar is a line of its own.
+ * Whether [entry] could be tall enough to fold (`log.fold`), from an estimate of its lines as
+ * they show ([lineChars] characters fit on a line). Only such a line pays for the fold's
+ * measuring; the fold itself then decides from the real height.
+ * - It counts the text as it reads ([StyledText.plain]): no style marks, no link addresses.
+ * - Each line wraps at [lineChars], and a little sooner, because lines break between words.
+ * - A table row or a bar is a line of its own.
+ * - A line that just fits stays out: the fold needs more than log.fold + 2 lines.
  */
-private fun mayFold(entry: LogEntry): Boolean {
+private fun mayFold(entry: LogEntry, lineChars: Int): Boolean {
     val lines = Term.foldLines
     if (lines <= 0) return false
-    val text = entry.text.length + (entry.ctx.body?.length ?: 0)
-    val breaks = entry.text.count { it == '\n' } + (entry.ctx.body?.count { it == '\n' } ?: 0)
-    return breaks >= lines || text > lines * FOLD_CHARS_PER_LINE
+    val shown = listOfNotNull(entry.text, entry.ctx.body).joinToString("\n").let(StyledText::plain)
+    // A rough upper bound, cheap enough for every line: 1.15 for the words that wrap early.
+    val estimate = shown.splitToSequence('\n').sumOf { maxOf(1, (it.length + lineChars - 1) / lineChars) } * 1.15
+    return estimate > lines + FOLD_SLACK_LINES
 }
 
-/** Fewer characters than fit on a line of a narrow phone, so a line that wraps that much is measured for its fold. */
-private const val FOLD_CHARS_PER_LINE = 20
+/** As [Foldable] has it: a fold hides at least this many lines more than log.fold. */
+private const val FOLD_SLACK_LINES = 2
 
 /** A row of two columns (help, config, usage). A [bar] goes in the second column, before its text, so the bars of rows line up. */
 @Composable

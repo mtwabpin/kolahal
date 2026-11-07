@@ -207,8 +207,8 @@ class EditorBarsTest {
         cursorAt(10)
         compose.onNodeWithText("[?]").performClick()
         compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasText("log(title, body?, ctx?)"))
-        compose.onNodeWithText("log(title, body?, ctx?)").performClick()
+        compose.onNodeWithTag("apiref").performScrollToNode(hasText("log(title, body?, ctx?) -> line"))
+        compose.onNodeWithText("log(title, body?, ctx?) -> line").performClick()
         compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
         assertEquals("apple pie\nlog(banana apple\nApple cider", text())
     }

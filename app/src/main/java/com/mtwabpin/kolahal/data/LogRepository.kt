@@ -179,18 +179,29 @@ class LogRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Changes line [id]'s text and context in place (a script's `line.set`). It keeps its place and
-     * its time. Home reads it again ([updatedSince]). False if the line is gone.
+     * Changes lines in place (a script's `line.set`), each to its text and context. They keep their
+     * places and times. All are written in one transaction and announced once, so home reads them
+     * again together ([updatedSince]). Lines that are gone are skipped. Returns the ids changed.
      */
-    fun update(id: Long, text: String, ctx: LogContext): Boolean {
-        val values = ContentValues().apply {
-            put("text", clip(text))
-            put("ctx", clip(ctx).toJson())
+    fun updateAll(changes: Map<Long, Pair<String, LogContext>>): List<Long> {
+        if (changes.isEmpty()) return emptyList()
+        val w = db.writableDatabase
+        val done = ArrayList<Long>(changes.size)
+        w.transaction {
+            for ((id, change) in changes) {
+                val values = ContentValues().apply {
+                    put("text", clip(change.first))
+                    put("ctx", clip(change.second).toJson())
+                }
+                if (w.update("logs", values, "id = ?", arrayOf(id.toString())) > 0) done += id
+            }
         }
-        if (db.writableDatabase.update("logs", values, "id = ?", arrayOf(id.toString())) == 0) return false
-        noteUpdated(listOf(id))
-        return true
+        noteUpdated(done)
+        return done
     }
+
+    /** [updateAll] for one line. False if the line is gone. */
+    fun update(id: Long, text: String, ctx: LogContext): Boolean = updateAll(mapOf(id to (text to ctx))).isNotEmpty()
 
     /** The lines with these [ids] (those that still exist), in no set order. */
     fun byIds(ids: Collection<Long>): List<LogEntry> {

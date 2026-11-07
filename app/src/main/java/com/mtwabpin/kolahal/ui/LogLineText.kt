@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.TextUnit
@@ -192,7 +191,9 @@ internal fun AnnotatedString.Builder.appendSpans(spans: List<StyledText.Span>, b
         val start = length
         if (url != null) {
             // A link in the text (fmt.link): a tap on it opens its address, through home's LocalUriHandler.
-            withLink(LinkAnnotation.Url(url, TextLinkStyles(shown.merge(SpanStyle(color = Term.link, textDecoration = TextDecoration.Underline))))) { append(text) }
+            // Its look is a plain style on the text, not the link's own styles: those cost each link an
+            // effect, a coroutine and a second composition of the line.
+            withLink(LinkAnnotation.Url(url)) { withStyle(shown.merge(SpanStyle(color = Term.link, textDecoration = TextDecoration.Underline))) { append(text) } }
         } else withStyle(shown) { append(text) }
         if (tag) addStringAnnotation(TAG_CHIP, (shown.color.takeIf { it.isSpecified } ?: Term.prompt).toArgb().toString(), start, length)
     }

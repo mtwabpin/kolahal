@@ -236,9 +236,10 @@ class HostApi(
 
     /**
      * A line this run logged, which the script can change with `line.set` ([setLine]): where it
-     * waits in [pending] ([slot], -1 once written), its id once written, and its length as stored.
+     * waits in [pending] ([slot], -1 once written), its id once written, its length as stored, and
+     * its text and context as last logged or set.
      */
-    private class RunLine(var slot: Int, var length: Int, var id: Long = 0)
+    private class RunLine(var slot: Int, var length: Int, var text: String, var ctx: LogContext, var id: Long = 0)
 
     /** The lines this run logged with `log` or `md.log`, in order. A script's line handle is its number here, from 1. */
     private val runLines = ArrayList<RunLine>()
@@ -263,7 +264,7 @@ class HostApi(
                 return 0
             }
             pending += LogRepository.Pending(kind, text, scriptName, ctx, System.currentTimeMillis())
-            val line = if (kind == LogKind.SCRIPT) RunLine(pending.size - 1, size).also { runLines += it } else null
+            val line = if (kind == LogKind.SCRIPT) RunLine(pending.size - 1, size, text, ctx).also { runLines += it } else null
             pendingLines += line
             val number = if (line != null) runLines.size else 0
             if (pending.size >= 50 || System.currentTimeMillis() - lastFlush > 300) flushLocked()
@@ -288,7 +289,8 @@ class HostApi(
         }
         pending.clear()
         pendingLines.clear()
-        for ((line, change) in changes) if (line.id > 0) logs.update(line.id, change.first, change.second)
+        // The changes of this flush in one write, and one notice to home.
+        logs.updateAll(changes.entries.filter { it.key.id > 0 }.associate { (line, change) -> line.id to change })
         changes.clear()
         lastFlush = System.currentTimeMillis()
     }
@@ -325,7 +327,11 @@ class HostApi(
         val line = runLines.getOrNull(number - 1) ?: throw IllegalArgumentException("line.set: not a line this run logged")
         val (text, lineCtx) = if (markdown) lineOf(Markdown.inline(redact(raw)), body?.let { Markdown.block(redact(it)) }, ctx) else lineOf(raw, body, ctx)
         synchronized(pending) {
+            // The same text again changes nothing, and doesn't count.
+            if (text == line.text && lineCtx == line.ctx) return
             if (full || over || ++sets > MAX_SETS_PER_RUN) return
+            line.text = text
+            line.ctx = lineCtx
             // Only what the line grew by counts toward the run's characters.
             val size = stored(text, lineCtx)
             chars += maxOf(0, size - line.length)

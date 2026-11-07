@@ -64,39 +64,48 @@ internal fun RichText(
     softWrap: Boolean = true,
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
-    val chips = remember(text) { text.getStringAnnotations(TAG_CHIP, 0, text.length) }
+    // Each tag's range and colour, read once for this text.
+    val chips = remember(text) { text.getStringAnnotations(TAG_CHIP, 0, text.length).mapNotNull { a -> a.item.toIntOrNull()?.let { Chip(a.start, a.end, Color(it)) } } }
     if (chips.isEmpty()) {
         Text(text, modifier, style = style, inlineContent = inlineContent, maxLines = maxLines, softWrap = softWrap, overflow = overflow)
         return
     }
-    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    // The text's layout, for the chips. Not state: the text lays out before it draws, and a new
+    // layout redraws the text and its chips together, so reading it in draw needs no extra frame.
+    val layout = remember { LayoutHolder() }
     val dark = Term.bg.luminance() < 0.5f
     val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
     Text(
         text,
-        modifier.drawBehind { layout?.let { drawChips(it, chips, dark, (size * TAG_SIZE).toPx()) } },
+        modifier.drawBehind { layout.value?.let { drawChips(it, chips, dark, (size * TAG_SIZE).toPx()) } },
         style = style,
         inlineContent = inlineContent,
         maxLines = maxLines,
         softWrap = softWrap,
         overflow = overflow,
-        onTextLayout = { layout = it },
+        onTextLayout = { layout.value = it },
     )
 }
 
 private fun TextUnit.isSpecified() = this != TextUnit.Unspecified
 
+/** A tag's range in its text and its colour ([TAG_CHIP]). */
+private class Chip(val start: Int, val end: Int, val colour: Color)
+
+/** Holds a text's last layout, outside the snapshot system: see [RichText]. */
+private class LayoutHolder(var value: TextLayoutResult? = null)
+
 /**
  * The chip behind each tag: a rounded box a little wider than its text, shaded in the tag's
  * colour, on each row the tag covers. [em] is the tag's text size in pixels.
  */
-private fun DrawScope.drawChips(layout: TextLayoutResult, chips: List<AnnotatedString.Range<String>>, dark: Boolean, em: Float) {
+private fun DrawScope.drawChips(layout: TextLayoutResult, chips: List<Chip>, dark: Boolean, em: Float) {
     val padX = 3.dp.toPx()
     val radius = CornerRadius(4.dp.toPx())
     val length = layout.layoutInput.text.length
     for (chip in chips) {
         if (chip.start >= chip.end || chip.end > length) continue
-        val colour = chip.item.toIntOrNull()?.let(::Color) ?: continue
+        val colour = chip.colour
         val fill = colour.copy(alpha = if (dark) 0.24f else 0.14f)
         val first = layout.getLineForOffset(chip.start)
         val last = layout.getLineForOffset(chip.end - 1)
@@ -311,16 +320,19 @@ internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, conte
     val lines = Term.foldLines
     if (!enabled || lines <= 0) return content()
     var open by rememberSaveable(id) { mutableStateOf(false) }
+    val toggle = remember(id) { { open = !open } }
     val density = LocalDensity.current
     val line = with(density) { (style.lineHeight.takeIf { it.isSp } ?: (Term.fontSize * TEXT_LINE).sp).toPx() }
     SubcomposeLayout(Modifier.testTag("fold-$id")) { constraints ->
         val loose = constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
-        val body = subcompose(FoldSlot.BODY) { Box { content() } }.first().measure(loose)
+        // content is given as it is, so a measure without a new content recomposes nothing. It is one
+        // layout (LogLine passes a Column).
+        val body = subcompose(FoldSlot.BODY, content).first().measure(loose)
         val limit = (line * lines).roundToInt()
         val folds = body.height > limit + line * FOLD_SLACK
         val shown = if (folds && !open) limit else body.height
         val hidden = ceil((body.height - limit) / line).toInt()
-        val link = if (!folds) null else subcompose(FoldSlot.LINK) { FoldLink(open, hidden) { open = !open } }.first().measure(constraints.copy(minHeight = 0))
+        val link = if (!folds) null else subcompose(FoldSlot.LINK) { FoldLink(open, hidden, toggle) }.first().measure(constraints.copy(minHeight = 0))
         layout(maxOf(body.width, link?.width ?: 0), shown + (link?.height ?: 0)) {
             if (shown < body.height) body.placeWithLayer(0, 0) { clip = true; shape = TopPart(shown.toFloat()) } else body.place(0, 0)
             link?.place(0, shown)
@@ -330,8 +342,8 @@ internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, conte
 
 private enum class FoldSlot { BODY, LINK }
 
-/** Clips to the top [height] pixels: the part of a folded line that shows. */
-private class TopPart(private val height: Float) : Shape {
+/** Clips to the top [height] pixels: the part of a folded line that shows. Equal ones are equal, so placing it again changes no outline. */
+private data class TopPart(private val height: Float) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
         Outline.Rectangle(Rect(0f, 0f, size.width, minOf(height, size.height)))
 }

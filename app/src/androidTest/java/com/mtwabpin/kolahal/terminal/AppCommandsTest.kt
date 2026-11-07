@@ -353,10 +353,11 @@ class AppCommandsTest {
             assertTrue(first, Regex("Screen time $said: $duration").matches(first))
             val perApp = shown.drop(1)
             assertTrue(typed, perApp.size in 1..12)
-            assertTrue(perApp.toString(), perApp.all { Regex("$duration  █+").matches(it.ctx.values[LogContext.DESC].orEmpty()) })
+            assertTrue(perApp.toString(), perApp.all { Regex(duration).matches(it.ctx.values[LogContext.DESC].orEmpty()) })
             assertTrue(perApp.toString(), perApp.none { it.ctx.pkg == context.packageName })
-            val bars = perApp.map { it.ctx.values.getValue(LogContext.DESC).count { c -> c == '█' } }
-            assertEquals(typed, 12, bars.first())
+            // A drawn bar on one scale (LogContext.BAR, "0,share,"): the most-used app fills its bar.
+            val bars = perApp.map { it.ctx.values.getValue(LogContext.BAR).split(",")[1].toDouble() }
+            assertEquals(typed, 1.0, bars.first(), 0.0)
             assertEquals(typed, bars.sortedDescending(), bars)
         }
         assumeTrue("no app usage recorded in 30 days, so no list to check", listed)

@@ -71,6 +71,26 @@ class LogOnlyTest {
         assertNull(logs.filter)
     }
 
+    /**
+     * A line a script changes in place (line.set) shows changed under `log only` too, where it is,
+     * and a changed line of another source stays out; the count holds.
+     */
+    @Test fun aLineChangedInPlaceChangesUnderTheFilter() {
+        val vm = viewModel()
+        vm.runCommand("log only loxkcd")
+        waitUntil("only its lines") { vm.entries.value.map { it.text } == listOf("lo first comic", "lo second comic") }
+        val first = vm.entries.value.first()
+        assertTrue(logs.update(first.id, "lo first comic, changed", first.ctx))
+        waitUntil("changed where it is") { vm.entries.value.map { it.text } == listOf("lo first comic, changed", "lo second comic") }
+        val release = logs.recent(200).single { it.text == "lo a release" }
+        assertTrue(logs.update(release.id, "lo a release, changed", release.ctx))
+        logs.add(LogKind.SCRIPT, "lo third comic", "loxkcd", LogContext.of(LogContext.SCRIPT to "loxkcd"))
+        waitUntil("the next line") { vm.entries.value.lastOrNull()?.text == "lo third comic" }
+        assertEquals(listOf("lo first comic, changed", "lo second comic", "lo third comic"), vm.entries.value.map { it.text })
+        assertEquals(3, vm.filterCount.value)
+        vm.runCommand("log all")
+    }
+
     @Test fun aLinesLongPressFiltersToItsScript() {
         val vm = viewModel()
         waitUntil("the lines load") { vm.entries.value.any { it.text == "lo a release" } }

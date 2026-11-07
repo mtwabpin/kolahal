@@ -444,14 +444,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
             removed != null && updated != null && now - fullAt < FULL_RELOAD_MS
         val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
+        // Lines changed in place since the last reload, read again once for the page and for `log only …`.
+        val again: Map<Long, LogEntry> = if (incremental && changed.isNotEmpty()) logs.byIds(changed).associateBy { it.id } else emptyMap()
         var start = logStart
         val all = if (!incremental) {
             start = fresh.size < limit
             fresh
         } else {
             val left = if (gone.isEmpty()) loaded else loaded.filterNot { it.id in gone }
-            // Lines a script changed in place (line.set), read again where they are.
-            val again = if (changed.isEmpty()) emptyMap() else logs.byIds(changed.filter { id -> left.any { it.id == id } }).associateBy { it.id }
+            // Lines a script changed in place (line.set), read again where they are. Ids not on the page are ignored.
             val kept = if (again.isEmpty()) left else left.map { again[it.id] ?: it }
             val have = kept.size + fresh.size
             // After scrolling back (or showing a search result): read the lines before the page, up to the new limit.
@@ -491,10 +492,17 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         var count = _filterCount.value
         val shown = when {
             filter == null -> list
-            incremental && filter == filteredFor && limit <= filteredLimit && gone.isEmpty() && changed.isEmpty() -> {
+            // Lines changed in place: patched where they are, or dropped once they no longer match. Only
+            // a changed line that now matches but wasn't shown needs the whole log searched again.
+            incremental && filter == filteredFor && limit <= filteredLimit && gone.isEmpty() &&
+                (again.isEmpty() || filtered.map { it.id }.toHashSet().let { shownIds -> again.values.none { it.id !in shownIds && it.ctx.userSerial !in locked && filter.matches(it) } }) -> {
+                val patched = if (again.isEmpty()) filtered else filtered.mapNotNull { e ->
+                    val now = again[e.id] ?: return@mapNotNull e
+                    if (filter.matches(now)) now else null.also { count-- }
+                }
                 val more = (if (locked.isEmpty()) fresh else fresh.filterNot { it.ctx.userSerial in locked }).filter(filter::matches)
                 count += more.size
-                (filtered + more).takeLast(limit)
+                (patched + more).takeLast(limit)
             }
             else -> {
                 val job = currentCoroutineContext()[kotlinx.coroutines.Job]

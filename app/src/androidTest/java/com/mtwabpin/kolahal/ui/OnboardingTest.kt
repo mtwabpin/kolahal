@@ -106,7 +106,7 @@ class OnboardingTest {
         assertEquals("all", config[Keys.LAUNCH_INSTANT])
         next(); next()
         shows("Make it yours")
-        tap("amber")
+        tap("Amber")
         assertEquals("amber", config[Keys.THEME])
         tap("16")
         assertEquals(16, config[Keys.FONT_SIZE])
