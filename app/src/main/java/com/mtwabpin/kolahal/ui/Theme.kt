@@ -222,8 +222,8 @@ object Term {
     /** How tables in script lines look (`log.tables`): boxed, on a shaded box with lines between rows, or plain columns. */
     var boxedTables by mutableStateOf(true)
 
-    /** Minimum height (dp) of suggestion and app-grid chips (`chips.height`). */
-    var chipHeight by mutableIntStateOf(48)
+    /** Minimum height (dp) of suggestion chips, suggestion list rows and app chips in the log (`chips.height`). */
+    var chipHeight by mutableIntStateOf(44)
 
     val bg get() = palette.bg
 

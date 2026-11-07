@@ -89,8 +89,8 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
             .testTag("suggestions"),
     ) {
         itemsIndexed(items, key = { _, s -> s.key }) { index, s ->
-            // A row is at most 44 dp tall (the chip height, capped below). The icon is 8 dp smaller.
-            val iconSize = minOf(Term.fontSize + 10, minOf(44, Term.chipHeight) - 8).dp
+            // A row is the chip height (chips.height) tall, or taller for large text. The icon is 8 dp smaller.
+            val iconSize = minOf(Term.fontSize + 10, Term.chipHeight - 8).dp
             // Highlight the first row only when Enter would act on it.
             val first = index == 0 && s.enter
             val color = when (s) {
@@ -101,7 +101,7 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = minOf(44, Term.chipHeight).dp)
+                    .heightIn(min = Term.chipHeight.dp)
                     .alpha(if (s is Suggestion.App && s.app.profile.quiet) 0.45f else 1f)
                     .background(if (first) color.copy(alpha = 0.16f) else Color.Transparent)
                     .combinedClickable(
@@ -110,7 +110,7 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
                     ),
             ) {
                 // A bar marks the row that Enter / TAB act on.
-                Box(Modifier.width(3.dp).heightIn(min = minOf(44, Term.chipHeight).dp).background(if (first) color else Color.Transparent))
+                Box(Modifier.width(3.dp).heightIn(min = Term.chipHeight.dp).background(if (first) color else Color.Transparent))
                 Spacer(Modifier.width(9.dp))
                 when (s) {
                     is Suggestion.App -> {
