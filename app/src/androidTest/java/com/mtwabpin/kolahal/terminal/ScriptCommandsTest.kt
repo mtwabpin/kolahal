@@ -88,7 +88,8 @@ class ScriptCommandsTest {
         assertTrue("${s.name} ▸ NZ 136/8" in run("status"))
         assertEquals(listOf("${s.name}: pinned to the top"), run("script pin ${s.name}"))
         assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
-        assertTrue("${s.name} ▸ NZ 136/8 · pinned" in run("status"))
+        // Pinned: a tag after the line.
+        assertTrue("${s.name} ▸ NZ 136/8 pinned" in run("status").map(com.mtwabpin.kolahal.data.StyledText::plain))
         assertEquals(listOf("${s.name}: unpinned"), run("script unpin ${s.name}"))
         assertFalse(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
         // Its line stays: only the top of home no longer shows it.

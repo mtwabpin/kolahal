@@ -140,6 +140,14 @@ class LogLineActions(private val context: Context, private val processor: Comman
             actions += LogAction("Copy link") { copy(url) }
         }
         ctx.image?.takeIf { it != ctx.url }?.let { image -> actions += LogAction("Open image") { openUrl(image) } }
+        // Links in the text (fmt.link), by what each one shows. A script checked them when it logged the line.
+        if (entry.kind == LogKind.SCRIPT) {
+            val links = StyledText.linkTexts(listOfNotNull(entry.text, ctx.body).joinToString("\n")).filter { it.second != ctx.url }
+            for ((text, url) in links.take(MAX_LINK_ACTIONS)) {
+                val name = text.ifEmpty { url }.let { if (it.length > 40) it.take(39) + "…" else it }
+                actions += LogAction("Open “$name”") { com.mtwabpin.kolahal.script.Net.webUrl(url)?.let(::openUrl) }
+            }
+        }
         ctx.script?.let { name ->
             host.scripts.firstOrNull { it.name == name }?.let { s ->
                 actions += LogAction("Run $name now") { host.io { ScriptScheduler.runNow(context, s) } }
@@ -337,5 +345,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
 
     companion object {
         private const val NOTIF = com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY
+        /** The most links in a line's text that its long-press menu offers to open. */
+        private const val MAX_LINK_ACTIONS = 4
     }
 }

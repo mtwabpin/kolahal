@@ -234,38 +234,119 @@ class HostApi(
     private var chars = 0
     private var full = false
 
-    private fun buffer(kind: LogKind, text: String, ctx: LogContext) {
+    /**
+     * A line this run logged, which the script can change with `line.set` ([setLine]): where it
+     * waits in [pending] ([slot], -1 once written), its id once written, and its length as stored.
+     */
+    private class RunLine(var slot: Int, var length: Int, var id: Long = 0)
+
+    /** The lines this run logged with `log` or `md.log`, in order. A script's line handle is its number here, from 1. */
+    private val runLines = ArrayList<RunLine>()
+    /** The line in [runLines] that each entry of [pending] is, if any. */
+    private val pendingLines = ArrayList<RunLine?>()
+    /** Changes to written lines, waiting for the next flush. */
+    private val changes = LinkedHashMap<RunLine, Pair<String, LogContext>>()
+    private var sets = 0
+
+    /** Returns the line's number for `line.set` (from 1) when it is a [LogKind.SCRIPT] line that will be logged, or 0. */
+    private fun buffer(kind: LogKind, text: String, ctx: LogContext): Int {
         synchronized(pending) {
-            if (full || over) return
+            if (full || over) return 0
             lines++
-            chars += minOf(text.length, LogRepository.MAX_FIELD) + minOf(ctx.values.entries.sumOf { (k, v) -> k.length + v.length }, LogRepository.MAX_FIELD)
+            val size = stored(text, ctx)
+            chars += size
             if (lines > MAX_LINES_PER_RUN || chars > MAX_CHARS_PER_RUN) {
                 full = true
                 val what = if (lines > MAX_LINES_PER_RUN) "$MAX_LINES_PER_RUN lines" else "${MAX_CHARS_PER_RUN / 1024}K characters"
                 pending += LogRepository.Pending(LogKind.INFO, "More than $what in one run: the rest aren't logged", scriptName, LogContext(baseCtx), System.currentTimeMillis())
-                return
+                pendingLines += null
+                return 0
             }
             pending += LogRepository.Pending(kind, text, scriptName, ctx, System.currentTimeMillis())
+            val line = if (kind == LogKind.SCRIPT) RunLine(pending.size - 1, size).also { runLines += it } else null
+            pendingLines += line
+            val number = if (line != null) runLines.size else 0
             if (pending.size >= 50 || System.currentTimeMillis() - lastFlush > 300) flushLocked()
+            return number
         }
     }
 
-    /** Writes buffered lines. The worker calls this when the run ends (success or failure). */
+    /** The characters a line takes as stored, as the run's limit counts them. */
+    private fun stored(text: String, ctx: LogContext) =
+        minOf(text.length, LogRepository.MAX_FIELD) + minOf(ctx.values.entries.sumOf { (k, v) -> k.length + v.length }, LogRepository.MAX_FIELD)
+
+    /** Writes buffered lines, and the changes to lines already written. The worker calls this when the run ends (success or failure). */
     fun flush() = synchronized(pending) { flushLocked() }
 
     private fun flushLocked() {
-        logs.addAll(pending.toList())
+        // Null when the lines aren't written yet (a pipe's capture): those lines can't be changed later.
+        val ids = logs.addAll(pending.toList())
+        pendingLines.forEachIndexed { i, line ->
+            line ?: return@forEachIndexed
+            line.slot = -1
+            line.id = ids?.getOrNull(i) ?: 0
+        }
         pending.clear()
+        pendingLines.clear()
+        for ((line, change) in changes) if (line.id > 0) logs.update(line.id, change.first, change.second)
+        changes.clear()
         lastFlush = System.currentTimeMillis()
     }
 
-    /** `log(title, body?, ctx?)`: a bold title line, with [body] (any number of lines) muted under it. */
-    fun log(raw: String, body: String? = null, ctx: Map<*, *>? = null) {
+    /**
+     * `log(title, body?, ctx?)`: a bold title line, with [body] (any number of lines) muted under it.
+     * Returns the line's number for `line.set` ([setLine]), or 0 when it isn't logged (past the run's limits).
+     */
+    fun log(raw: String, body: String? = null, ctx: Map<*, *>? = null): Int {
         effects++
-        val text = redact(raw)
-        val under = body?.let(::redact)?.takeIf { it.isNotEmpty() }
+        val (text, lineCtx) = lineOf(raw, body, ctx)
+        return buffer(LogKind.SCRIPT, text, lineCtx)
+    }
+
+    /** A script line's text and context, as [log] stores them: links checked ([safeLinks]), secrets masked, only the context a script may set. */
+    private fun lineOf(raw: String, body: String?, ctx: Map<*, *>?): Pair<String, LogContext> {
+        val text = redact(safeLinks(raw))
+        val under = body?.let { redact(safeLinks(it)) }?.takeIf { it.isNotEmpty() }
         val title = mapOf(LogContext.TITLE to "1") + (under?.let { mapOf(LogContext.BODY to it) } ?: emptyMap())
-        buffer(LogKind.SCRIPT, text, LogContext(baseCtx + title + safeCtx(ctx, listOfNotNull(text, under).joinToString("\n")).entries.associate { (k, v) -> redact(k) to redact(v) }))
+        return text to LogContext(baseCtx + title + safeCtx(ctx, listOfNotNull(text, under).joinToString("\n")).entries.associate { (k, v) -> redact(k) to redact(v) })
+    }
+
+    /**
+     * `line.set(title, body?, ctx?)` on line [number] of this run (what `log` returned): the line
+     * changes in place, where it is in the log. [markdown]: it was logged with `md.log`, so the new
+     * text is Markdown too.
+     * - It works only during the run. After the run, the line stays as it was last set.
+     * - A run can change its lines [MAX_SETS_PER_RUN] times. Later changes are ignored, as are
+     *   changes after the run's limits were reached.
+     * - Changes are written together with new lines, at most about every 300 ms, and before a request.
+     */
+    fun setLine(number: Int, markdown: Boolean, raw: String, body: String? = null, ctx: Map<*, *>? = null) {
+        live()
+        val line = runLines.getOrNull(number - 1) ?: throw IllegalArgumentException("line.set: not a line this run logged")
+        val (text, lineCtx) = if (markdown) lineOf(Markdown.inline(redact(raw)), body?.let { Markdown.block(redact(it)) }, ctx) else lineOf(raw, body, ctx)
+        synchronized(pending) {
+            if (full || over || ++sets > MAX_SETS_PER_RUN) return
+            // Only what the line grew by counts toward the run's characters.
+            val size = stored(text, lineCtx)
+            chars += maxOf(0, size - line.length)
+            line.length = size
+            when {
+                line.slot >= 0 -> pending[line.slot] = pending[line.slot].copy(text = text, ctx = lineCtx)
+                line.id > 0 -> changes[line] = text to lineCtx
+            }
+            if (System.currentTimeMillis() - lastFlush > 300) flushLocked()
+        }
+    }
+
+    /**
+     * [text] with each link (`fmt.link`, `[text](url)` in `md.log`) checked as a line's `url` is
+     * ([safeCtx]): only web links, none with internet switched off for the script, and none that
+     * carries a secret anywhere but the sites its `@secret` line names. A link that fails keeps its
+     * text, as plain text.
+     */
+    private fun safeLinks(text: String): String = StyledText.mapLinks(text) { link ->
+        Net.webUrl(link)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) }
+            ?.also { web -> web.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(web), it.isHttps) } }
     }
 
     /** `logs(titles)`: one title line for each, with no bodies. */
@@ -275,7 +356,7 @@ class HostApi(
      * `md.log(title, body?, ctx?)`: [log], with Markdown read in the title (styles) and the body
      * (styles and list items). Secrets are hidden first, so Markdown can't split one apart.
      */
-    fun logMarkdown(title: String, body: String? = null, ctx: Map<*, *>? = null) =
+    fun logMarkdown(title: String, body: String? = null, ctx: Map<*, *>? = null): Int =
         log(Markdown.inline(redact(title)), body?.let { Markdown.block(redact(it)) }, ctx)
 
     /**
@@ -321,7 +402,9 @@ class HostApi(
     }
 
     /** `console.error`, and calls the launcher refuses. They count with the run's other lines. */
-    fun logError(text: String) = buffer(LogKind.ERROR, redact(text), LogContext(baseCtx))
+    fun logError(text: String) {
+        buffer(LogKind.ERROR, redact(text), LogContext(baseCtx))
+    }
 
     /** The watchdog's last line before it stops the process. It is written at once, whatever the run logged. */
     fun logStopped(text: String) {
@@ -827,6 +910,9 @@ class HostApi(
         const val MAX_NOTIFY_PER_RUN = 10
         /** The most status line writes one run may make. */
         const val MAX_STATUS_PER_RUN = 20
+
+        /** How many times a run can change its lines with `line.set`. Later changes are ignored. */
+        const val MAX_SETS_PER_RUN = 300
         /** The longest text clipboard.set accepts (characters). */
         const val MAX_CLIP = 100_000
     }

@@ -65,7 +65,23 @@ try {
   const minutes = secs != null ? Math.round(secs / 60) : null;
   const length = minutes != null ? ` · ${Math.floor(minutes / 60)}h ${minutes % 60}m of daylight` : "";
 
-  log(store.get("place") || `${lat}, ${lng}`, `Sunrise ${fmt.bold(rise)} · sunset ${fmt.bold(set)}${length}`);
+  // How much of today's daylight has gone, as a bar, at the place's own time (Kolahal 0.4.16 has
+  // fmt.bars). The times are the place's clock, so they're read as UTC and compared with now moved
+  // by the place's offset from UTC.
+  let bar = "";
+  if (typeof fmt.bars === "function" && d.sunrise[0] && d.sunset[0]) {
+    const at = (iso) => Date.parse(iso.length === 16 ? `${iso}:00Z` : `${iso}Z`);
+    const from = at(d.sunrise[0]);
+    const to = at(d.sunset[0]);
+    const now = Date.now() + (data.utc_offset_seconds || 0) * 1000;
+    if (to > from) {
+      const left = Math.round((to - now) / 60000);
+      const text = now < from ? "not up yet" : now >= to ? "set" : `${Math.floor(left / 60)}h ${left % 60}m left`;
+      bar = "\n" + fmt.bars([["Daylight", Math.min(1, Math.max(0, (now - from) / (to - from))), text]], { max: 1, color: "warn" });
+    }
+  }
+
+  log(store.get("place") || `${lat}, ${lng}`, `Sunrise ${fmt.bold(rise)} · sunset ${fmt.bold(set)}${length}${bar}`);
   status(`Sun ${rise}–${set}`);
 } catch (e) {
   return fail("No sun times", `${e.message || e}`);

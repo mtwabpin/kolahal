@@ -46,11 +46,24 @@ class MarkdownTest {
     @Test fun escapedTextComesOutAsWritten() {
         for (text in listOf(
             "Show HN: *nix tools in __50__ lines", "- not a list", "  1. nor this", "12) or this",
-            "C++ ~~ `tick` \\ back", "a_b_c **x**", "-5 degrees", "1.5 GB",
+            "C++ ~~ `tick` \\ back", "a_b_c **x**", "-5 degrees", "1.5 GB", "[not](https://a.link)",
         )) {
             val shown = Markdown.block(Markdown.escape(text))
             assertFalse(text, StyledText.has(shown))
             assertEquals(text, text, shown)
         }
+    }
+
+    /** [text](address): a link, with styles in its text. Brackets in the address pair up; a space ends it. */
+    @Test fun links() {
+        val spans = StyledText.lines(Markdown.inline("see [**Lua**](https://en.wikipedia.org/wiki/Lua_(programming_language)) now")).single().spans
+        assertEquals(listOf("see ", "Lua", " now"), spans.map { it.text })
+        assertEquals(listOf(null, "https://en.wikipedia.org/wiki/Lua_(programming_language)", null), spans.map { it.url })
+        assertEquals(setOf(Style.BOLD), spans[1].styles)
+        for (text in listOf("[a](no space)", "[](https://x)", "[a] (https://x)", "[a](https://x")) {
+            assertEquals(text, emptyList<String>(), StyledText.links(Markdown.inline(text)))
+        }
+        // In "[a [b](x)" the inner one is the link.
+        assertEquals(listOf("https://x"), StyledText.links(Markdown.inline("[a [b](https://x)")))
     }
 }

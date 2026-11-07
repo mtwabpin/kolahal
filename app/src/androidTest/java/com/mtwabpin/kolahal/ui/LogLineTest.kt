@@ -35,6 +35,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -375,5 +376,82 @@ class LogLineTest {
         assertTrue(bars.toString(), Color.Black !in bars)
         compose.runOnIdle { gutter = false }
         assertEquals(listOf(Color.Black, Color.Black, Color.Black), lines.map { edge(it.second) })
+    }
+
+    /**
+     * A body taller than log.fold lines folds under "▾ N more lines"; a tap shows it all, and
+     * "▴ Show less" folds it again. A line just over the limit doesn't fold, nor does a search result.
+     */
+    @Test fun aLongLineFolds() {
+        val body = (1..30).joinToString("\n") { "line $it" }
+        val long = entry("Long", LogKind.SCRIPT, ctx = mapOf(LogContext.TITLE to "1", LogContext.BODY to body))
+        val near = entry("Near", LogKind.SCRIPT, ctx = mapOf(LogContext.TITLE to "1", LogContext.BODY to (1..9).joinToString("\n") { "near $it" }))
+        val found = entry("Found", LogKind.SCRIPT, ctx = mapOf(LogContext.TITLE to "1", LogContext.BODY to body))
+        compose.runOnIdle { Term.foldLines = 8 }
+        show {
+            Line(row(long))
+            Line(row(near))
+            LogLine(
+                row(found), TimeMode.OFF, TIMES, false, topGap = 0.dp, indents = INDENTS, highlighted = false, apps = { emptyList() },
+                onTap = {}, onLongPress = {}, onAppTap = {}, onAppLongPress = {}, marks = listOf("line 30"),
+            )
+        }
+        fun height(e: LogEntry) = bounds(e).let { it.bottom - it.top }
+        val folded = height(long)
+        // Title and 7 lines, then the link: well short of 31 lines.
+        assertTrue("folded to $folded", folded < 260.dp)
+        compose.onNode(hasText("▾ 23 more lines") and hasAnyAncestor(hasTestTag("line-${long.id}")), useUnmergedTree = true).assertExists().performClick()
+        compose.waitForIdle()
+        assertTrue("opened to ${height(long)}", height(long) > folded + 300.dp)
+        compose.onNode(hasText("▴ Show less") and hasAnyAncestor(hasTestTag("line-${long.id}")), useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        assertEquals(folded.value, height(long).value, 1f)
+        // 10 lines in all: two over the limit, so it shows whole.
+        compose.onAllNodes(hasTestTag("fold-link") and hasAnyAncestor(hasTestTag("line-${near.id}")), useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(hasTestTag("fold-link") and hasAnyAncestor(hasTestTag("line-${found.id}")), useUnmergedTree = true).assertCountEquals(0)
+        // log.fold 0: nothing folds.
+        compose.runOnIdle { Term.foldLines = 0 }
+        compose.onAllNodes(hasTestTag("fold-link"), useUnmergedTree = true).assertCountEquals(0)
+        compose.runOnIdle { Term.foldLines = Keys.LOG_FOLD.default }
+    }
+
+    /** Bars in a body line up in columns; a screen reader hears each row's texts, or a lone bar as a percentage. */
+    @Test fun barsShowUnderTheirLine() {
+        val st = com.mtwabpin.kolahal.data.StyledText
+        val ranges = st.ranges(listOf(com.mtwabpin.kolahal.data.StyledText.RangeRow("Sat", 23.0, 31.0), com.mtwabpin.kolahal.data.StyledText.RangeRow("Sun", 22.0, 30.0)), unit = "°")
+        val e = entry("Pune", LogKind.SCRIPT, ctx = mapOf(LogContext.TITLE to "1", LogContext.BODY to "above\n$ranges\n${st.bar(0.25)}\nbelow"))
+        show { Line(row(e)) }
+        val bars = compose.onAllNodes(hasTestTag("log-bars"), useUnmergedTree = true)
+        bars.assertCountEquals(1)
+        bars[0].assert(hasContentDescription("Sat 23° 31°. Sun 22° 30°. 25 percent"))
+        compose.onNode(hasText("below"), useUnmergedTree = true).assertExists()
+    }
+
+    /** A built-in command's bar (unlocks) sits after the line's text, and lines up with the next line's. */
+    @Test fun aCommandsBarFollowsItsText() {
+        val a = entry("Today      12 unlocks", ctx = LogContext.ALIGNED + LogContext.bar(0.25))
+        val b = entry("Yesterday  48 unlocks", ctx = LogContext.ALIGNED + LogContext.bar(1.0))
+        show { Line(row(a)); Line(row(b)) }
+        val text = part(a, "Today      12 unlocks").getUnclippedBoundsInRoot()
+        assertTrue("the text keeps its width", text.right - text.left > 150.dp)
+        assertEquals(bounds(a).bottom - bounds(a).top, bounds(b).bottom - bounds(b).top)
+    }
+
+    /** A tag shows its text; a link in the text opens through LocalUriHandler, not as a tap on the line. */
+    @Test fun aLinkInTheTextOpensItself() {
+        val st = com.mtwabpin.kolahal.data.StyledText
+        val e = entry("412 " + st.link("https://example.org/s", "A story") + " " + st.tag(com.mtwabpin.kolahal.data.StyledText.Colour.BAD, "LIVE"), LogKind.SCRIPT, ctx = mapOf(LogContext.TITLE to "1"))
+        val opened = CopyOnWriteArrayList<String>()
+        show {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalUriHandler provides object : androidx.compose.ui.platform.UriHandler { override fun openUri(uri: String) { opened += uri } },
+            ) { Line(row(e)) }
+        }
+        assertTrue(texts(e).joinToString(), texts(e).joinToString().contains("412 A story LIVE"))
+        // "412 " is four characters of the terminal font; the link starts after them, past the gutter's 10 dp.
+        line(e).performTouchInput { click(Offset(70.dp.toPx(), 10.dp.toPx())) }
+        compose.waitForIdle()
+        assertEquals(listOf("https://example.org/s"), opened.toList())
+        assertTrue("the line's own tap didn't run: $tapped", tapped.isEmpty())
     }
 }

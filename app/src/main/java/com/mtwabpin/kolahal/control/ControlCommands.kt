@@ -16,6 +16,7 @@ import androidx.core.net.toUri
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.productivity.TimeSpec
 import com.mtwabpin.kolahal.terminal.CommandGroup
 import com.mtwabpin.kolahal.terminal.CommandSpec
@@ -175,12 +176,13 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     // ---- sound ------------------------------------------------------------------------------
 
-    private fun volumeLine(): String {
+    /** "Volume 40%" (or "Volume muted"), with the level as a bar after it. */
+    private fun volumeLine(): Pair<String, LogContext> {
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val cur = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         val muted = audio.isStreamMute(AudioManager.STREAM_MUSIC)
         val pct = ControlArgs.toPercent(cur, max)
-        return "Volume ${ControlArgs.bar(if (muted) 0 else pct)} ${if (muted) "muted" else "$pct%"}"
+        return "Volume ${if (muted) "muted" else "$pct%"}" to LogContext(LogContext.bar(if (muted) 0.0 else pct / 100.0))
     }
 
     private fun volume(arg: String?) {
@@ -199,7 +201,8 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 ControlArgs.Level.Auto -> Unit
             }
         }.onFailure { return error("Volume: ${it.message ?: it.javaClass.simpleName}") }
-        out(volumeLine(), LogContext.of(LogContext.COMMAND to "volume "))
+        val (line, bar) = volumeLine()
+        out(line, bar + mapOf(LogContext.COMMAND to "volume "))
     }
 
     private fun ringLabel() = when (audio.ringerMode) {
@@ -299,7 +302,8 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun brightnessShort() = "${brightnessPct()}%" + if (brightnessAuto()) " · auto" else ""
 
-    private fun brightnessLine() = "Brightness ${ControlArgs.bar(brightnessPct())} ${brightnessShort()}"
+    /** "Brightness 50% · auto", with the level as a bar after it. */
+    private fun brightnessLine() = "Brightness ${brightnessShort()}" to LogContext(LogContext.bar(brightnessPct() / 100.0))
 
     private fun brightness(arg: String?) {
         if (arg == "access") return open(writeSettingsIntent(), "modify system settings")
@@ -322,7 +326,8 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, target.coerceAtLeast(1))
             }
         }
-        out(brightnessLine(), LogContext.of(LogContext.COMMAND to "brightness "))
+        val (line, bar) = brightnessLine()
+        out(line, bar + mapOf(LogContext.COMMAND to "brightness "))
     }
 
     private fun rotationOn() = Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0) == 1
@@ -378,8 +383,14 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     /** Shows one line per toggle. A tap on a line toggles it, or opens its panel. */
     private fun toggles() {
+        // "on" and "off" are tags, in the good and muted colours, so a row reads at a glance.
+        fun shown(value: String) = when {
+            value == "on" || value.startsWith("on ") -> StyledText.tag(StyledText.Colour.GOOD, "on") + value.removePrefix("on")
+            value == "off" -> StyledText.tag(StyledText.Colour.MUTED, "off")
+            else -> value
+        }
         fun row(name: String, value: String, run: String, hint: String) =
-            out(name.padEnd(15) + value, LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED)
+            out(name.padEnd(15) + shown(value), LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED)
 
         val torch = Torch.get(context)
         if (torch.cameraId != null) {

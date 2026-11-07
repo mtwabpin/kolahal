@@ -48,9 +48,10 @@ class JsEngine : ScriptEngine {
                 filename = "args.js",
             )
             js.evaluate<Any?>(GUARD, filename = "guard.js")
-            if (repl) return js.evaluate<Any?>(code, filename = "$chunkName.js")?.let(::render)
+            // A REPL line that ends with log(…) has its line's handle as its value, which reads as {}: it prints nothing.
+            if (repl) return js.evaluate<Any?>(code, filename = "$chunkName.js")?.takeUnless { it is Map<*, *> && it.isEmpty() && host.effects > 0 }?.let(::render)
             // Wrapped so that scripts may `return`. Top-level await makes evaluate() wait until the script completes.
-            js.evaluate<Any?>("__kolahal_done(await (async () => {\n$code\n})());", filename = "$chunkName.js")
+            js.evaluate<Any?>("__kolahal_done(__kolahal_out(await (async () => {\n$code\n})()));", filename = "$chunkName.js")
             return result?.let(::render)
         } finally {
             // Finish first. Closing cancels the jobs still waiting, but a request that one of them made
@@ -74,9 +75,15 @@ class JsEngine : ScriptEngine {
             }
         }
 
+        // log and md.log return the line's number; guard.js turns it into the line's handle (line.set).
         js.function("log") { args ->
             val (title, body, ctx) = logArgs(args)
-            host.log(title, body, ctx)
+            host.log(title, body, ctx).takeIf { it > 0 }
+        }
+        js.function("__kolahal_set") { args ->
+            val number = (args.getOrNull(0) as? Number)?.toInt() ?: 0
+            val (title, body, ctx) = logArgs(args.drop(2).toTypedArray())
+            host.setLine(number, markdown = args.getOrNull(1) == true, title, body, ctx)
         }
         js.function("logs") { args ->
             // logs(["a", "b"]) or logs("a", "b"): one title line for each.
@@ -89,7 +96,7 @@ class JsEngine : ScriptEngine {
             host.notify(args.str(0) ?: "", args.str(1) ?: "", args.getOrNull(2) as? Map<*, *>)
         }
         js.define("console") {
-            function("log") { args -> host.log(args.joinToString(" ") { render(it) }) }
+            function("log") { args -> host.log(args.joinToString(" ") { render(it) }); Unit }
             function("error") { args -> host.logError(args.joinToString(" ") { render(it) }) }
         }
         js.define("http") {
@@ -132,7 +139,7 @@ class JsEngine : ScriptEngine {
             function("set") { args -> host.storeSet(args.req(), args.str(1)) }
         }
         js.define("md") {
-            function("log") { args -> logArgs(args).let { (title, body, ctx) -> host.logMarkdown(title, body, ctx) } }
+            function("log") { args -> logArgs(args).let { (title, body, ctx) -> host.logMarkdown(title, body, ctx).takeIf { it > 0 } } }
             function("escape") { args -> Markdown.escape(args.str(0).orEmpty()) }
         }
         js.define("fmt") {
@@ -158,6 +165,12 @@ class JsEngine : ScriptEngine {
                 val opts = args.getOrNull(1) as? Map<*, *>
                 StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty())
             }
+            val fmt = Fmt(::render)
+            function("tag") { args -> fmt.tag(args.toList()) }
+            function("link") { args -> fmt.link(args.toList()) }
+            function("bar") { args -> fmt.bar(args.toList()) }
+            function("bars") { args -> fmt.bars(args.toList()) }
+            function("ranges") { args -> fmt.ranges(args.toList()) }
             function("plain") { args -> StyledText.plain(args.str(0).orEmpty()) }
         }
         js.define("secrets") {
@@ -265,7 +278,7 @@ class JsEngine : ScriptEngine {
                 if (o[k] !== wrapped) throw new Error("guard.js: could not wrap " + k);
               };
               const g = globalThis;
-              for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done"]) install(g, name, false);
+              for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set"]) install(g, name, false);
               install(g, "sleep", true);
               const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets"];
               for (const ns of spaces) {
@@ -273,6 +286,32 @@ class JsEngine : ScriptEngine {
                 const ks = names(o);
                 for (let i = 0; i < ks.length; i++) install(o, ks[i], ns === "http" || (ns === "rss" && ks[i] !== "parse"));
               }
+              // log and md.log return the line they logged, as a handle: line.set(title, body?, ctx?)
+              // changes it in place. A handle has no properties of its own (set is on its prototype,
+              // its line in a WeakMap), so a REPL line `log("x")` reads it as {} and prints nothing,
+              // and a script's result that is a handle isn't logged.
+              const setLine = g.__kolahal_set, lines = new WeakMap(), freeze = Object.freeze, create = Object.create, TypeErr = TypeError;
+              const proto = freeze({
+                set(...a) {
+                  const line = lines.get(this);
+                  if (!line) throw new TypeErr("set changes a line that log returned: line.set(title, body)");
+                  setLine(line[0], line[1], ...a);
+                  return this;
+                },
+              });
+              const handle = (n, md) => {
+                if (typeof n !== "number") return undefined;
+                const h = freeze(create(proto));
+                lines.set(h, [n, md]);
+                return h;
+              };
+              const wrap = (o, k, md) => {
+                const d = describe(o, k), raw = d.value;
+                define(o, k, { value: (...a) => handle(raw(...a), md), writable: d.writable, enumerable: d.enumerable, configurable: d.configurable });
+              };
+              wrap(g, "log", false);
+              wrap(g.md, "log", true);
+              define(g, "__kolahal_out", { value: (v) => (v !== null && typeof v === "object" && lines.has(v) ? undefined : v) });
             })();
         """.trimIndent()
     }

@@ -63,7 +63,9 @@ class ScriptCommands(
                 if (lines.isEmpty()) return info("No status lines — scripts set them with status(text)")
                 lines.forEach { l ->
                     val pinned = on.getValue(l.name).grants.allows(ScriptAccess.HEADER)
-                    out("${l.name} ▸ ${l.text}" + if (pinned) " · pinned" else "", LogContext.of(LogContext.SCRIPT to l.name))
+                    // Pinned ones get a tag, and a line with a bar (status(text, { progress })) shows it, in its colour.
+                    val bar = l.progress?.let { LogContext.bar(it.toDouble(), l.colour?.role) }.orEmpty()
+                    out("${l.name} ▸ ${l.text}" + if (pinned) " " + StyledText.tag(StyledText.Colour.ACCENT, "pinned") else "", LogContext.of(LogContext.SCRIPT to l.name) + bar)
                 }
                 if (lines.none { on.getValue(it.name).grants.allows(ScriptAccess.HEADER) }) info("None pinned — script pin <name>, or long-press one, shows it at the top")
             }

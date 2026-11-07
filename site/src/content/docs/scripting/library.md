@@ -75,14 +75,16 @@ None of the network scripts need an API key.
 ## hn
 
 **Hacker News**: new front-page stories with 50 or more points since the last run (from
-hnrss.org), up to 10 lines. It notifies you about the top new story. It keeps no status line, so it has nothing to pin.
+hnrss.org), up to 10 lines, each with its points and a link to its comments. A tap on the rest of the line
+opens the story. It notifies you about the top new story. It keeps no status line, so it has nothing to pin.
 Options: `points` (`0` for every story) and `lines`.
 
 ## releases
 
 **GitHub releases**: watches repositories through their release Atom feeds and notifies you about
 each new release. By default it watches Kolahal, Neovim and Termux. The first check of a repository
-only records the releases that exist, so you don't get a flood of notifications.
+only records the releases that exist (tagged *latest*), so you don't get a flood of notifications. New
+releases are tagged *new*.
 
 ```sh
 releases                     # check now
@@ -94,7 +96,8 @@ releases list                # the watched repos; tap one for its releases
 ## reddit
 
 **Reddit top posts**: today's top 5 posts of a subreddit, with scores and comment counts. If Reddit
-blocks anonymous JSON requests, it uses the subreddit's RSS feed instead.
+blocks anonymous JSON requests, it uses the subreddit's RSS feed instead. A tap on a post opens its
+discussion; a post that links to another site ends with a link to it.
 
 - `reddit` shows the subreddit in its `subreddit` option (r/android by default).
 - `reddit linux` shows r/linux.
@@ -113,7 +116,8 @@ script set weather city Pune # the city when you type none
 
 ## forecast
 
-**3-day forecast** from Open-Meteo: conditions, lowest and highest temperature, and chance of rain.
+**3-day forecast** from Open-Meteo: a bar for each day from its lowest to its highest temperature,
+all on one scale, with the sky as a symbol and the chance of rain from 30%.
 On a timer, it sets today's summary as its status line.
 
 - `forecast` uses its `city` option (London if the option is empty).
@@ -124,7 +128,8 @@ On a timer, it sets today's summary as its status line.
 
 **Air quality**: the US, Indian or European air quality index for a city, from Open-Meteo, with
 the last hour, the last 24 hours and the readings behind them, as a table. Each figure is in its
-band's colour.
+band's colour, and a bar under the table shows the first one on the scale. A typed `aqi` shows
+"Fetching…" at once, which turns into the answer.
 
 ```sh
 aqi Delhi
@@ -141,7 +146,8 @@ script pin aqi                 # at the top of home, with a coloured bar
 ## sun
 
 **Sunrise and sunset**, and the length of the day, from Open-Meteo, in the location's own time
-zone. `sun Lisbon` or `sun 12.97 77.59` saves the location. After that, just type `sun`.
+zone, with a bar of how much of today's daylight has gone. `sun Lisbon` or `sun 12.97 77.59` saves the
+location. After that, just type `sun`.
 
 ## crypto
 
@@ -217,7 +223,9 @@ cricket live                 # every live match, as a table
 script pin cricket           # the score at the top of home
 ```
 
-- `cricket <team>` shows the match, then a table of each side's score. If the match is live, the
+- `cricket <team>` shows the match with a tag (LIVE, RESULT or UPCOMING), then a table of each
+  side's score and, while it's on, the overs as a bar. A typed command shows "Fetching scores…" at
+  once, which turns into the answer. If the match is live, the
   script follows that match until it ends, and its result stays 2 hours.
 - A team matches its name or its abbreviation. A name also matches teams whose name starts with it:
   `India` matches India A too. Use the abbreviation (`IND`, `NZ`) to pick the senior side.
@@ -227,7 +235,8 @@ script pin cricket           # the score at the top of home
 ## football
 
 **Live football** from one league: a team's live match as its status line, to pin at the top of
-home, with the minutes played as a bar. It uses ESPN's scores, like `cricket`.
+home, with the minutes played as a bar. It uses ESPN's scores, like `cricket`. `football <team>` shows
+the match with a tag (LIVE, FT or UPCOMING) and, while it's on, the minutes played as a bar.
 
 ```sh
 football Arsenal             # Arsenal's match, followed while it's on
@@ -243,7 +252,7 @@ football live                # the league's live matches, as a table
 **Charge reminder**: runs when you plug in the charger and when you unplug it. It has no timer and
 doesn't use the network.
 
-- It logs how much charge each session added.
+- It logs how much charge each session added, with the battery as a bar.
 - It notifies you when you unplug below 30% (its `low` option).
 - When you run it yourself, it shows the last session.
 

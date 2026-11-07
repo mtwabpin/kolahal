@@ -222,6 +222,9 @@ object Term {
     /** How tables in script lines look (`log.tables`): boxed, on a shaded box with lines between rows, or plain columns. */
     var boxedTables by mutableStateOf(true)
 
+    /** `log.fold`: a log line taller than this many lines of text folds, with a tap to show the rest. 0: never. */
+    var foldLines by mutableIntStateOf(8)
+
     /** Minimum height (dp) of suggestion chips, suggestion list rows and app chips in the log (`chips.height`). */
     var chipHeight by mutableIntStateOf(44)
 

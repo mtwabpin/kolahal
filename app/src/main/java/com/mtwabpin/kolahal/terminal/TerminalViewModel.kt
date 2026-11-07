@@ -395,6 +395,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private var loadedTrimmed = -1L
     /** The last removal ([LogRepository.removedSeq]) already dropped from the page. */
     private var removedSeen = 0L
+    /** The last change in place ([LogRepository.updatedSeq]) already read again. */
+    private var updatedSeen = 0L
     /** True when no visible line is older than the page's first line, so scrolling back has nothing more to read. */
     private var logStart = false
     private var fullAt = 0L
@@ -429,6 +431,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val removedSeq = logs.removedSeq
         val removed = logs.removedSince(removedSeen)
         val gone = removed ?: emptySet()
+        // The same for lines changed in place.
+        val updatedSeq = logs.updatedSeq
+        val updated = logs.updatedSince(updatedSeen)
+        val changed = updated ?: emptySet()
         // Use one limit for this reload. loadOlder may raise pageLimit while this reload is suspended.
         // The reload it requests must then read the longer page, not find this one already at that size.
         val limit = pageLimit
@@ -436,14 +442,17 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // Trims keep starred lines. So the oldest non-starred line tells whether a trim reached into the page.
         val oldest = loaded.firstOrNull { !it.starred }?.id ?: Long.MAX_VALUE
         val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
-            removed != null && now - fullAt < FULL_RELOAD_MS
+            removed != null && updated != null && now - fullAt < FULL_RELOAD_MS
         val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
         var start = logStart
         val all = if (!incremental) {
             start = fresh.size < limit
             fresh
         } else {
-            val kept = if (gone.isEmpty()) loaded else loaded.filterNot { it.id in gone }
+            val left = if (gone.isEmpty()) loaded else loaded.filterNot { it.id in gone }
+            // Lines a script changed in place (line.set), read again where they are.
+            val again = if (changed.isEmpty()) emptyMap() else logs.byIds(changed.filter { id -> left.any { it.id == id } }).associateBy { it.id }
+            val kept = if (again.isEmpty()) left else left.map { again[it.id] ?: it }
             val have = kept.size + fresh.size
             // After scrolling back (or showing a search result): read the lines before the page, up to the new limit.
             val before = (kept.firstOrNull() ?: fresh.firstOrNull())?.id
@@ -482,7 +491,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         var count = _filterCount.value
         val shown = when {
             filter == null -> list
-            incremental && filter == filteredFor && limit <= filteredLimit && gone.isEmpty() -> {
+            incremental && filter == filteredFor && limit <= filteredLimit && gone.isEmpty() && changed.isEmpty() -> {
                 val more = (if (locked.isEmpty()) fresh else fresh.filterNot { it.ctx.userSerial in locked }).filter(filter::matches)
                 count += more.size
                 (filtered + more).takeLast(limit)
@@ -506,6 +515,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
         loadedTrimmed = trimmed
         removedSeen = removedSeq
+        updatedSeen = updatedSeq
         logStart = start
         loaded = all
         // The newest line, with or without a filter. A pause records it as seen. It is kept when the
@@ -1002,6 +1012,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun swipeDelete(entry: LogEntry) {
         viewModelScope.launch(deleteIo) { runCatching { logs.delete(entry.id) } }
         offerUndo(UndoOffer("Line deleted") { viewModelScope.launch(deleteIo) { runCatching { logs.restore(entry) } } })
+    }
+
+    /** A tap on a link in a line's text (`fmt.link`). Only web links open: scripts can link to nothing else. */
+    fun openUrl(url: String) {
+        val web = com.mtwabpin.kolahal.script.Net.webUrl(url) ?: return
+        startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(web)))
     }
 
     /** Swipe right on a log line. */

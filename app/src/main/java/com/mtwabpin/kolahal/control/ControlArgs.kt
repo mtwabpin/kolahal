@@ -72,10 +72,4 @@ object ControlArgs {
         val root = java.util.Locale.ROOT
         return if (h > 0) String.format(root, "%d:%02d:%02d", h, m, s) else String.format(root, "%d:%02d", m, s)
     }
-
-    /** A 10-cell bar for a percentage: "████░░░░░░". */
-    fun bar(pct: Int): String {
-        val filled = ((pct.coerceIn(0, 100) * 10 + 50) / 100)
-        return "█".repeat(filled) + "░".repeat(10 - filled)
-    }
 }

@@ -85,6 +85,7 @@ The `theme` and `font` commands didn't change.
 | `log.line-height` | number 10–56 | `22` | minimum height of a log line, in sp. 22 is 22 dp at the default text size, and it scales with the phone's text size. With `log.taller-taps`, lines you can tap get +10, and two-column rows get +14. A line has up to 3 dp of padding above and below. The padding gets smaller as the height gets close to one line of text (19 at text size 14), and there is none at that height. A line is never shorter than its text. Script status lines in the header also use this height |
 | `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height |
 | `log.tables` | choice: `boxed` `plain` | `boxed` | how tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only); wider tables scroll sideways |
+| `log.fold` | number 0–60 | `8` | fold a log line taller than this many lines of text, under "▾ N more lines"; a tap shows the rest. A line only a line or two longer shows whole. `0`: never fold |
 | `log.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the log, in percent. `0` is none. A higher number shows less of the theme's colour |
 | `chips.height` | number 20–64 | `44` | height (dp) of suggestion chips, the suggestion list's rows and app chips in the log |
 | `log.keep-days` | number 1–365 | `60` | delete log lines older than this many days (checked at least twice a day). Starred lines are kept |

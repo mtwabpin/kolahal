@@ -53,7 +53,6 @@ class ControlArgsTest {
     @Test fun formatting() {
         assertEquals("1:23", ControlArgs.clock(83_000))
         assertEquals("1:02:03", ControlArgs.clock(3_723_000))
-        assertEquals("█████░░░░░", ControlArgs.bar(50))
     }
 
     @Test fun onOff() {

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -183,9 +184,11 @@ fun LogLine(
     // A dimmed line whose parts can't overlap fades part by part; this draws the same pixels as
     // fading it whole. A picture is a single draw placed below its text, not behind it, so it is
     // fine. The apps grid is excluded because its chips put text on a coloured background.
-    // A script's table and what follows it, drawn under the line's text (TableBody).
-    val tableRest = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) entry.ctx.body?.let { StyledText.splitAtTable(it).second } else null }
-    val byPart = dim && row.dimmed && !highlighted && !isGrid && tableRest == null && marks.isEmpty() &&
+    // A script's tables and bars and what follows them, drawn under the line's text (RichBody).
+    val richRest = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) entry.ctx.body?.let { StyledText.splitAtBlocks(it).second } else null }
+    // A built-in command's bar after the line's text (unlocks, usage, volume).
+    val bar = remember(entry.ctx) { if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) lineBar(entry.ctx.values[LogContext.BAR]) else null }
+    val byPart = dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && marks.isEmpty() &&
         remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
     // While the line is pressed, focused or under a pointer, and for a moment after, it fades whole.
     // Fading part by part would fade the ripple or highlight over the letters too, and the shade
@@ -308,16 +311,29 @@ fun LogLine(
                     val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
                     AppGrid(remember(entry.id, entry.ctx, installed) { apps(entry) }, onAppTap, onAppLongPress)
                 }
-                desc != null -> TwoColumns(entry, desc, marks, dense)
+                desc != null -> TwoColumns(entry, desc, marks, dense, bar)
                 else -> {
                     val text = lineText!!
-                    if (image == null && tableRest == null) Text(text, style = entry.style().dense(dense), inlineContent = inline)
+                    val style = entry.style().dense(dense)
+                    val words: @Composable () -> Unit = {
+                        if (bar != null) WithBar(bar) { RichText(text, style = style, inlineContent = inline) }
+                        else RichText(text, style = style, inlineContent = inline)
+                    }
+                    // A long line folds (log.fold). Only a line long enough to need it is measured
+                    // for it, and never a typed command or a search result (its words must show).
+                    val mayFold = remember(entry) { entry.kind != LogKind.COMMAND && mayFold(entry) } && marks.isEmpty()
+                    if (image == null && richRest == null && !mayFold) words()
                     else Column {
-                        if (entry.text.isNotEmpty()) Text(text, style = entry.style().dense(dense), inlineContent = inline)
-                        tableRest?.let { rest ->
-                            val start = with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
-                            TableBody(rest, entry.style().dense(dense).copy(color = Term.dim), start, indents.bullet)
+                        Foldable(entry.id, style, enabled = mayFold) {
+                            Column {
+                                if (entry.text.isNotEmpty()) words()
+                                richRest?.let { rest ->
+                                    val start = with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
+                                    RichBody(rest, style.copy(color = Term.dim), start, indents.bullet)
+                                }
+                            }
                         }
+                        // The picture stays in sight under a folded line.
                         image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
                     }
                 }
@@ -380,15 +396,39 @@ private val ACTIONABLE_KEYS = setOf(
 )
 
 /** Rows of `help`, `config` and `script ls`: the name on the left, the description wrapping on the right. */
+/**
+ * Whether [entry] could be tall enough to fold (`log.fold`): many lines, or much text. Shorter
+ * lines skip the fold's measuring. A table row or a bar is a line of its own.
+ */
+private fun mayFold(entry: LogEntry): Boolean {
+    val lines = Term.foldLines
+    if (lines <= 0) return false
+    val text = entry.text.length + (entry.ctx.body?.length ?: 0)
+    val breaks = entry.text.count { it == '\n' } + (entry.ctx.body?.count { it == '\n' } ?: 0)
+    return breaks >= lines || text > lines * FOLD_CHARS_PER_LINE
+}
+
+/** Fewer characters than fit on a line of a narrow phone, so a line that wraps that much is measured for its fold. */
+private const val FOLD_CHARS_PER_LINE = 20
+
+/** A row of two columns (help, config, usage). A [bar] goes in the second column, before its text, so the bars of rows line up. */
 @Composable
-private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = emptyList(), dense: Boolean = false) {
+private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = emptyList(), dense: Boolean = false, bar: StyledText.Meter? = null) {
     Row(Modifier.fillMaxWidth()) {
-        Text(
-            markMatches(AnnotatedString(entry.text), marks),
+        RichText(
+            markMatches(remember(entry.text, Term.palette) { styledText(entry.text) }, marks),
             style = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense),
             modifier = Modifier.weight(0.46f).padding(end = 8.dp),
         )
-        Text(markMatches(AnnotatedString(desc), marks), style = Term.text.copy(color = Term.dim).dense(dense), modifier = Modifier.weight(0.54f))
+        val descText = @Composable { modifier: Modifier ->
+            Text(markMatches(AnnotatedString(desc), marks), style = Term.text.copy(color = Term.dim).dense(dense), modifier = modifier)
+        }
+        if (bar == null) descText(Modifier.weight(0.54f))
+        else Row(Modifier.weight(0.54f), verticalAlignment = Alignment.CenterVertically) {
+            Track(bar, Modifier.weight(0.5f).height(6.dp))
+            Spacer(Modifier.width(8.dp))
+            descText(Modifier.weight(0.5f))
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 // @title Air quality
 // @desc Air quality: aqi [city], without one its city option (US, Indian or European index; the nearest station's with a WAQI token)
 // @author Kolahal
-// @version 1.3
+// @version 1.4
 // @command
 // @usage [<city>]
 // @at 08:00
@@ -32,7 +32,7 @@
 //   Open-Meteo and says why. WAQI gives only the US scale, so in and eu stay on Open-Meteo.
 
 // A failure: what didn't work, in the theme's bad colour, and why under it.
-const fail = (what, why) => log(fmt.color("bad", what), why);
+const fail = (what, why) => show(fmt.color("bad", what), why);
 
 const line = (argline || "").trim();
 
@@ -45,6 +45,13 @@ if (setDefault) {
 // A city saved with --default still counts until the option is set.
 const city = line || (options.city || "").trim() || store.get("city");
 if (!city) return log(fmt.color("muted", "No city yet: aqi <city>, or script set aqi city <city> to keep one"));
+
+// From Kolahal 0.4.16: "Fetching…" at once, which turns into the answer in place (log returns the
+// line). An older Kolahal has no fmt.bar, and logs the answer when it comes, as before.
+const pending = typeof fmt.bar === "function" ? log(fmt.color("muted", `Fetching the air quality for ${city}…`)) : null;
+function show(...a) {
+  return pending ? pending.set(...a) : log(...a);
+}
 
 async function getJson(url) {
   const r = await http.get(url);
@@ -215,7 +222,11 @@ const tint = (i, text) => (i < figures.length ? fmt.color(band(figures[i][1])[1]
 const where = [place.name, place.country_code].filter(Boolean).join(", ");
 if (newer) {
   const table = fmt.table(rows.map(([n, value, unit], i) => [n, tint(i, value), unit]), { align: "lrl" });
-  log(`${where} · ${name}`, [table, ...notes].join("\n"), { url });
+  // From Kolahal 0.4.16 a bar under the table too: the first figure on the scale, up to the top of
+  // its second-worst band (300 US, 400 India, 100 Europe), in its band's colour.
+  const worst = BANDS[scale][BANDS[scale].length - 2][0];
+  const bar = typeof fmt.bar === "function" ? fmt.bar(figures[0][1], { max: worst, color: band(figures[0][1])[1] }) : "";
+  show(`${where} · ${name}`, [table, bar, ...notes].filter(Boolean).join("\n"), { url });
 } else {
   const nameWidth = Math.max(...rows.map((r) => r[0].length));
   const valueWidth = Math.max(...rows.map((r) => r[1].length));
@@ -223,7 +234,7 @@ if (newer) {
     .map(([n, value, unit], i) => tint(i, `${n.padEnd(nameWidth)}  ${value.padStart(valueWidth)}  ${unit}`))
     .concat(notes)
     .join("\n");
-  log(`${where} · ${name}`, body, { url, mono: "1" });
+  show(`${where} · ${name}`, body, { url, mono: "1" });
 }
 
 // Once, without a token: how to get the nearest station's reading instead of the model's.

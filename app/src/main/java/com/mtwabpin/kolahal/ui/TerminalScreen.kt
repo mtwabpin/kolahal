@@ -377,7 +377,10 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 else Modifier
             )
         ) {
+        // A tap on a link in a line's text (fmt.link) opens it as a tap on a linked line does.
+        val linkOpener = remember(vm) { object : androidx.compose.ui.platform.UriHandler { override fun openUri(uri: String) = vm.openUrl(uri) } }
         val results = search?.takeIf { !it.isEmpty && preview == null }
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalUriHandler provides linkOpener) {
         if (results != null) LogSearchResults(
             search = results,
             timeFormat = lineTimeFormat,
@@ -463,6 +466,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                     )
                 }
             }
+        }
         }
         // When scrolled away from the newest lines, a small chip above the prompt jumps back down with
         // one tap. It sits in the middle, so it covers little of a line, and its tap area is a full

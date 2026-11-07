@@ -38,43 +38,6 @@ import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.data.StyledText
 
 /**
- * The part of a script line's body from its first table on ([StyledText.splitAtTable]), drawn under
- * the line's text: each table as a [LogTable], and the text between and after them as body text.
- * [start] lines it up with the title; [bullet] is the width of "• ", for list items.
- */
-@Composable
-internal fun TableBody(rest: String, style: TextStyle, start: Dp, bullet: TextUnit) {
-    val blocks = remember(rest) { blocks(rest) }
-    Column(Modifier.padding(start = start)) {
-        for (block in blocks) when (block) {
-            is Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
-            is Block.Text -> Text(remember(block.raw, Term.palette) { buildAnnotatedString { appendBody(block.raw, 0.sp, bullet) } }, style = style)
-        }
-    }
-}
-
-private sealed interface Block {
-    class Table(val rows: List<StyledText.Row>) : Block
-    class Text(val raw: String) : Block
-}
-
-/** [rest] as tables and runs of text, in order. */
-private fun blocks(rest: String): List<Block> {
-    val out = ArrayList<Block>()
-    val text = ArrayList<String>()
-    val rows = ArrayList<StyledText.Row>()
-    fun endText() { if (text.isNotEmpty()) out += Block.Text(text.joinToString("\n")); text.clear() }
-    fun endTable() { if (rows.isNotEmpty()) out += Block.Table(rows.toList()); rows.clear() }
-    for (raw in rest.split('\n')) {
-        val row = if (StyledText.hasTable(raw)) StyledText.lines(raw).single().row else null
-        if (row != null) { endText(); rows += row } else { endTable(); text += raw }
-    }
-    endText()
-    endTable()
-    return out
-}
-
-/**
  * A table in a script line (`fmt.table`), in the terminal font so its columns line up.
  * - `log.tables boxed` (the default): on the theme's surface colour, with lines between rows.
  * - `log.tables plain`: columns only.
@@ -129,7 +92,7 @@ internal fun LogTable(rows: List<StyledText.Row>, style: TextStyle, modifier: Mo
                 for (row in rows) for (c in 0 until columns) {
                     val cell = row.cells.getOrNull(c)
                     val base = SpanStyle(color = if (row.header) Term.dim else Term.fg)
-                    Text(
+                    RichText(
                         remember(cell, row.header, Term.palette) { buildAnnotatedString { cell?.let { appendSpans(it.spans, base, Term.fg) } } },
                         style = style,
                         maxLines = 1,

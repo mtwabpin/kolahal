@@ -321,8 +321,11 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         // Pad the labels so the counts line up. The log uses a monospaced font.
         val labelWidth = rows.maxOf { it.first.length }
         val countWidth = rows.maxOf { it.second.toString().length }
+        // A bar after each count, on one scale: the busiest day fills its bar. "unlock" gets a no-break
+        // space, which a line keeps at its end, so its bar starts where the others do.
+        val most = rows.maxOf { it.second }.coerceAtLeast(1)
         rows.forEach { (label, count) ->
-            out("${label.padEnd(labelWidth)}  ${count.toString().padStart(countWidth)} ${if (count == 1) "unlock" else "unlocks"}", LogContext(LogContext.ALIGNED))
+            out("${label.padEnd(labelWidth)}  ${count.toString().padStart(countWidth)} ${if (count == 1) "unlock\u00A0" else "unlocks"}", LogContext(LogContext.ALIGNED + LogContext.bar(count.toDouble() / most)))
         }
     }
 

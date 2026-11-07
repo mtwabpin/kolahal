@@ -294,10 +294,10 @@ class AppCommands(
         totals.take(12).forEach { (pkg, ms) ->
             val app = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
                 ?: apps.apps.value.firstOrNull { it.pkg == pkg }
-            val bar = "█".repeat((ms * 12 / max).toInt().coerceAtLeast(1))
             out(
                 app?.label ?: pkg,
-                (if (app != null) appCtx(app) else LogContext.EMPTY) + mapOf(LogContext.DESC to "${duration(ms)}  $bar"),
+                // A bar on one scale before the time: the most-used app fills its bar.
+                (if (app != null) appCtx(app) else LogContext.EMPTY) + mapOf(LogContext.DESC to duration(ms)) + LogContext.bar(ms.toDouble() / max),
             )
         }
     }

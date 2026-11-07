@@ -20,6 +20,11 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -152,9 +157,9 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
             appendStyled(entry.text.substringAfter('\n'), SpanStyle(color = Term.dim), strong = Term.fg)
         }
     }
-    // A script line's body, below its title and aligned with it. A table and what follows it are
-    // drawn under the text ([TableBody]), so only the part above the table is text here.
-    val body = entry.ctx.body?.let { StyledText.splitAtTable(it).first }
+    // A script line's body, below its title and aligned with it. Tables and bars, and what follows
+    // them, are drawn under the text ([RichBody]), so only the part above them is text here.
+    val body = entry.ctx.body?.let { StyledText.splitAtBlocks(it).first }
     if (entry.kind == LogKind.SCRIPT && !body.isNullOrEmpty()) appendBody(body, indent, indents.bullet)
 }
 
@@ -178,9 +183,18 @@ private fun AnnotatedString.Builder.appendStyled(text: String, base: SpanStyle, 
 }
 
 internal fun AnnotatedString.Builder.appendSpans(spans: List<StyledText.Span>, base: SpanStyle, strong: Color?) {
-    for ((text, styles, colour) in spans) {
-        if (styles.isEmpty() && colour == null) withStyle(base) { append(text) }
-        else withStyle(base.merge(styleOf(styles, strong)).merge(SpanStyle(color = colourOf(colour)))) { append(text) }
+    for ((text, styles, colour, url) in spans) {
+        val style = if (styles.isEmpty() && colour == null) base else base.merge(styleOf(styles, strong)).merge(SpanStyle(color = colourOf(colour)))
+        // A tag: in its colour (the accent colour without one), bold and a little smaller, on a
+        // rounded chip that RichText draws behind it.
+        val tag = StyledText.Style.TAG in styles
+        val shown = if (!tag) style else style.merge(SpanStyle(color = colourOf(colour ?: StyledText.Colour.ACCENT), fontWeight = FontWeight.Bold, fontSize = TAG_SIZE.em))
+        val start = length
+        if (url != null) {
+            // A link in the text (fmt.link): a tap on it opens its address, through home's LocalUriHandler.
+            withLink(LinkAnnotation.Url(url, TextLinkStyles(shown.merge(SpanStyle(color = Term.link, textDecoration = TextDecoration.Underline))))) { append(text) }
+        } else withStyle(shown) { append(text) }
+        if (tag) addStringAnnotation(TAG_CHIP, (shown.color.takeIf { it.isSpecified } ?: Term.prompt).toArgb().toString(), start, length)
     }
 }
 
@@ -251,3 +265,13 @@ internal fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, 
         i++
     }
 }
+
+/** A tag's text size, against the line's ([StyledText.Style.TAG]). */
+internal const val TAG_SIZE = 0.82f
+
+/** Marks a tag's text with its colour (ARGB), so [RichText] can draw its chip. */
+internal const val TAG_CHIP = "tag-chip"
+
+/** [text] with its [StyledText] styles (tags, colours, links), in the style its [Text] gives; plain text as it is. */
+internal fun styledText(text: String): AnnotatedString =
+    if (!StyledText.has(text)) AnnotatedString(text) else buildAnnotatedString { appendStyled(text, SpanStyle(), Term.fg) }

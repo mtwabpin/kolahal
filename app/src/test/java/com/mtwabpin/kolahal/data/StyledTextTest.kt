@@ -90,8 +90,8 @@ class StyledTextTest {
     /** A body splits before its table: the text above it, then the table and what follows. */
     @Test fun aBodySplitsAtItsTable() {
         val table = StyledText.table(listOf(listOf("a")), header = false)
-        assertEquals("plain" to null, StyledText.splitAtTable("plain"))
-        assertEquals("above" to "$table\nbelow", StyledText.splitAtTable("above\n$table\nbelow"))
+        assertEquals("plain" to null, StyledText.splitAtBlocks("plain"))
+        assertEquals("above" to "$table\nbelow", StyledText.splitAtBlocks("above\n$table\nbelow"))
         assertTrue(StyledText.hasTable(table))
         assertFalse(StyledText.hasTable(StyledText.list(listOf("a"), numbered = false)))
         assertEquals("", StyledText.table(emptyList(), header = true))
@@ -115,5 +115,118 @@ class StyledTextTest {
         assertFalse(StyledText.has(StyledText.strip(styled)))
         val plain = "No styles here 😀"
         assertSame(plain, StyledText.strip(plain))
+    }
+}
+
+/** fmt.tag, fmt.link, fmt.bar, fmt.bars and fmt.ranges: what the log draws, and the plain text everything else sees. */
+class StyledTextBlocksTest {
+    private val good = StyledText.Colour.GOOD
+
+    @Test fun aTagIsAStyleWithAColour() {
+        val text = StyledText.tag(StyledText.Colour.BAD, "LIVE\nnow") + " IND v NZ"
+        val (tag, rest) = StyledText.lines(text).single().spans
+        assertEquals("LIVE now", tag.text)
+        assertEquals(setOf(Style.TAG), tag.styles)
+        assertEquals(StyledText.Colour.BAD, tag.colour)
+        assertEquals(" IND v NZ", rest.text)
+        assertEquals("LIVE now IND v NZ", StyledText.plain(text))
+    }
+
+    @Test fun aLinkCarriesItsAddressAndShowsItsText() {
+        val text = "412 " + StyledText.link("https://example.org/a b", "A story") + " · " + StyledText.link("https://news.ycombinator.com/item?id=1", "138 comments")
+        val spans = StyledText.lines(text).single().spans
+        assertEquals(listOf("412 ", "A story", " · ", "138 comments"), spans.map { it.text })
+        assertEquals(listOf(null, "https://example.org/ab", null, "https://news.ycombinator.com/item?id=1"), spans.map { it.url })
+        assertEquals("412 A story · 138 comments", StyledText.plain(text))
+        assertEquals("412 A story · 138 comments", StyledText.strip(text))
+        assertEquals(listOf("https://example.org/ab", "https://news.ycombinator.com/item?id=1"), StyledText.links(text))
+    }
+
+    /** Styles work inside a link's text; a link inside a link's text is dropped. */
+    @Test fun linksKeepStylesAndDontNest() {
+        val inner = StyledText.link("https://b.example", "inner")
+        val text = StyledText.link("https://a.example", StyledText.wrap(Style.BOLD, "bold") + " and " + inner)
+        val spans = StyledText.lines(text).single().spans
+        assertEquals(listOf("bold", " and inner"), spans.map { it.text })
+        assertEquals(setOf("https://a.example"), spans.map { it.url }.toSet())
+        assertEquals(setOf(Style.BOLD), spans[0].styles)
+    }
+
+    /** The log checks each address: one it keeps can change, one it drops leaves its text as plain text. */
+    @Test fun mapLinksChangesOrDropsAddresses() {
+        val text = StyledText.link("javascript:alert(1)", "bad") + " " + StyledText.link("https://ok.example", "ok") + " end"
+        val mapped = StyledText.mapLinks(text) { if (it.startsWith("https://")) "$it/" else null }
+        val spans = StyledText.lines(mapped).single().spans
+        assertEquals(listOf("bad ", "ok", " end"), spans.map { it.text })
+        assertEquals(listOf(null, "https://ok.example/", null), spans.map { it.url })
+        assertEquals(listOf("https://ok.example/"), StyledText.links(mapped))
+    }
+
+    @Test fun aBarIsALineWithNoText() {
+        val body = "Unhealthy\n" + StyledText.bar(168.0, 300.0, StyledText.Colour.BAD)
+        val (text, bar) = StyledText.lines(body)
+        assertEquals("Unhealthy", text.spans.single().text)
+        val m = bar.meter!!
+        assertEquals(0f, m.from)
+        assertEquals(0.56f, m.to, 0.001f)
+        assertEquals(StyledText.Colour.BAD, m.colour)
+        assertEquals("Unhealthy", StyledText.plain(body))
+        assertEquals("Unhealthy" to StyledText.bar(168.0, 300.0, StyledText.Colour.BAD), StyledText.splitAtBlocks(body))
+        assertTrue(StyledText.hasBlock(body))
+        assertFalse(StyledText.hasTable(body))
+    }
+
+    /** Past the end, below zero, not a number, no scale: the bar stays between empty and full. */
+    @Test fun aBarStaysInItsTrack() {
+        fun to(s: String) = StyledText.lines(s).single().meter!!.to
+        assertEquals(1f, to(StyledText.bar(5.0)))
+        assertEquals(0f, to(StyledText.bar(-1.0)))
+        assertEquals(0f, to(StyledText.bar(Double.NaN)))
+        assertEquals(0f, to(StyledText.bar(3.0, 0.0)))
+        assertEquals(0.5f, to(StyledText.bar(0.5)))
+    }
+
+    @Test fun barsShareOneScale() {
+        val body = StyledText.bars(listOf(StyledText.BarRow("Mon", 42.0), StyledText.BarRow("Tue", 21.0, "21 unlocks")), colour = good)
+        val meters = StyledText.lines(body).map { it.meter!! }
+        assertEquals(listOf(1f, 0.5f), meters.map { it.to })
+        assertEquals(listOf("Mon", "Tue"), meters.map { m -> m.label.joinToString("") { it.text } })
+        assertEquals(listOf("42", "21 unlocks"), meters.map { m -> m.end.joinToString("") { it.text } })
+        assertEquals(setOf(good), meters.map { it.colour }.toSet())
+        assertEquals("Mon\t42\nTue\t21 unlocks", StyledText.plain(body))
+        // A set top.
+        assertEquals(0.42f, StyledText.lines(StyledText.bars(listOf(StyledText.BarRow("a", 42.0)), max = 100.0)).single().meter!!.to, 0.001f)
+    }
+
+    @Test fun rangesRunFromLowToHigh() {
+        val body = StyledText.ranges(
+            listOf(StyledText.RangeRow("Sat", 23.0, 31.0), StyledText.RangeRow("Sun", 30.0, 22.0), StyledText.RangeRow("Mon", 20.0, 25.0)),
+            unit = "°",
+        )
+        val meters = StyledText.lines(body).map { it.meter!! }
+        // The scale runs from the lowest low (20) to the highest high (31). A row given high first is turned round.
+        assertEquals(3f / 11, meters[0].from, 0.001f)
+        assertEquals(1f, meters[0].to, 0.001f)
+        assertEquals(2f / 11, meters[1].from, 0.001f)
+        assertEquals(10f / 11, meters[1].to, 0.001f)
+        assertEquals(0f, meters[2].from)
+        assertEquals("Sat\t23°\t31°\nSun\t22°\t30°\nMon\t20°\t25°", StyledText.plain(body))
+    }
+
+    /** A bar's texts are one line each and can't start rows or bars; more than 50 rows end with "+N more". */
+    @Test fun barsHaveLimits() {
+        val body = StyledText.bars(List(60) { StyledText.BarRow("row\n$it" + StyledText.bar(1.0), it.toDouble()) })
+        val lines = StyledText.lines(body)
+        assertEquals(51, lines.size)
+        assertEquals("row 0", lines.first().meter!!.label.joinToString("") { it.text })
+        assertEquals("+10 more", lines.last().spans.single().text)
+        assertEquals("", StyledText.bars(emptyList()))
+    }
+
+    @Test fun numbersReadAsWritten() {
+        assertEquals("42", StyledText.number(42.0))
+        assertEquals("3.5", StyledText.number(3.5))
+        assertEquals("0.125", StyledText.number(0.1249999))
+        assertEquals("-2", StyledText.number(-2.0))
     }
 }

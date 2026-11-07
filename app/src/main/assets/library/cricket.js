@@ -1,7 +1,7 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.3
+// @version 1.4
 // @command
 // @usage [live|<team>]
 // @every 15m
@@ -20,8 +20,10 @@
 // `cricket India` shows India's match and follows it if it's on; `cricket live` lists every live
 // match.
 //
-// From Kolahal 0.4.16, `cricket live` and a team's match show as tables (fmt.table); an older
-// Kolahal shows them as lines, as before.
+// From Kolahal 0.4.16, `cricket live` and a team's match show as tables (fmt.table), a match with a
+// tag for how it stands (LIVE, RESULT, UPCOMING) and the overs as a bar; a typed command shows
+// "Fetching scores…" at once, which turns into the answer. An older Kolahal shows them as lines, as
+// before.
 
 const PANEL = "https://site.web.api.espn.com/apis/site/v2/sports/cricket/scorepanel";
 const BOARD = (league) => `https://site.web.api.espn.com/apis/site/v2/sports/cricket/${league}/scoreboard`;
@@ -83,20 +85,27 @@ function line(event) {
   return sides.join(" v ") + (summary ? ` · ${summary}` : "");
 }
 
-// How far the batting side's innings is, 0 to 1, from its overs out of the most it may bowl; null
-// without a limit (a Test).
+// The batting side's overs: how far its innings is, 0 to 1, and as written ("40.2/50"); null without
+// a limit (a Test).
 // - The batting side: the one chasing a target, if there is one; else the first with overs.
-// - All out (10 wickets: runs alone, "185 (42.3/47 ov)", or "185/10"): its innings is over, so the
-//   bar is full, however many overs were left.
-function progress(event) {
-  const overs = /\((\d+)(?:\.(\d))?\/(\d+) ov/;
+// - All out (10 wickets: runs alone, "185 (42.3/47 ov)", or "185/10"): its innings is over, so it is
+//   full, however many overs were left.
+function overs(event) {
+  const re = /\((\d+)(?:\.(\d))?\/(\d+) ov/;
   const scores = teams(event).map((c) => (c.score || "").trim());
-  const batting = scores.find((s) => s.includes("target") && overs.test(s)) || scores.find((s) => overs.test(s));
+  const batting = scores.find((s) => s.includes("target") && re.test(s)) || scores.find((s) => re.test(s));
   if (!batting) return null;
-  if (/^\d+\s*\(/.test(batting) || /\/10\b/.test(batting)) return 1;
-  const m = batting.match(overs);
-  return Math.min(1, (Number(m[1]) * 6 + Number(m[2] || 0)) / (Number(m[3]) * 6));
+  const m = batting.match(re);
+  const text = `${m[1]}${m[2] ? "." + m[2] : ""}/${m[3]}`;
+  if (/^\d+\s*\(/.test(batting) || /\/10\b/.test(batting)) return { share: 1, text: `all out, ${text}` };
+  return { share: Math.min(1, (Number(m[1]) * 6 + Number(m[2] || 0)) / (Number(m[3]) * 6)), text };
 }
+
+// How far the batting side's innings is, 0 to 1, for the status line's bar; null without a limit.
+const progress = (event) => {
+  const o = overs(event);
+  return o ? o.share : null;
+};
 
 // Its status line: the match's line, its bar when there's a limit, and runs again while it's live.
 function showMatch(event) {
@@ -171,11 +180,18 @@ if (!words) {
   return;
 }
 
+// From Kolahal 0.4.16: a tag for how the match stands, a bar for the overs, and "Fetching scores…"
+// at once, which turns into the answer in place (log returns the line). An older Kolahal has no
+// fmt.bar, and gets lines as before.
+const rich = typeof fmt.bar === "function";
+const pending = rich ? log(fmt.color("muted", "Fetching scores…")) : null;
+const show = (...a) => (pending ? pending.set(...a) : log(...a));
+
 let matches;
 try {
   matches = await allMatches();
 } catch (e) {
-  return log(fmt.color("bad", "No cricket scores"), `${e.message || e}`);
+  return show(fmt.color("bad", "No cricket scores"), `${e.message || e}`);
 }
 
 // Tables need Kolahal 0.4.16. An older one has no fmt.table, and gets lines as before.
@@ -185,7 +201,7 @@ const summary = (event) => (event.status && event.status.summary) || "";
 
 if (words.toLowerCase() === "live") {
   const live = matches.filter((m) => state(m.event) === "in");
-  if (!live.length) return log(fmt.color("muted", "No live matches"));
+  if (!live.length) return show(fmt.color("muted", "No live matches"));
   if (!tables) return logs(live.map((m) => line(m.event)));
   // One row a match: who plays, the scores, and how it stands.
   const rows = live.map((m) => {
@@ -195,20 +211,24 @@ if (words.toLowerCase() === "live") {
     const scores = each.some(Boolean) ? each.map((s) => s || "–").join(" · ") : "";
     return [sides.map(abbr).join(" v "), scores, summary(m.event)];
   });
-  return log(`${live.length} live`, fmt.table([["Match", "Score", "Status"], ...rows], { header: true }));
+  return show(`${live.length} live`, fmt.table([["Match", "Score", "Status"], ...rows], { header: true }));
 }
 
 // A team: its live match first, then the latest or next one.
 const theirs = matchesOf(matches, words);
 const found = theirs.find((m) => state(m.event) === "in") || theirs[0];
-if (!found) return log(fmt.color("muted", `No match for ${words}`), "cricket live lists the live ones");
+if (!found) return show(fmt.color("muted", `No match for ${words}`), "cricket live lists the live ones");
 const e = found.event;
 const when = state(e) === "pre" ? `Starts ${new Date(e.date).toLocaleString()}` : (e.status && e.status.type && e.status.type.detail) || "";
 const about = [e.competitions && e.competitions[0] && e.competitions[0].description, when].filter(Boolean).join(" · ");
 if (tables) {
-  // The match as its title, how it stands, then each side's score.
+  // The match as its title, after a tag for how it stands; then the summary, each side's score and,
+  // while it's on, the batting side's overs as a bar.
+  const tag = rich ? { in: fmt.tag("bad", "LIVE"), post: fmt.tag("muted", "RESULT"), pre: fmt.tag("info", "UPCOMING") }[state(e)] : "";
   const card = fmt.table([["Team", "Score"], ...teams(e).map((c) => [(c.team && c.team.displayName) || abbr(c), c.score || "—"])], { header: true });
-  log(e.name || line(e), [summary(e), card, about].filter(Boolean).join("\n"));
+  const o = rich && state(e) === "in" ? overs(e) : null;
+  const bar = o ? fmt.bars([["Overs", o.share, o.text]], { max: 1, color: "good" }) : "";
+  show([tag, e.name || line(e)].filter(Boolean).join(" "), [summary(e), card, bar, about].filter(Boolean).join("\n"));
 } else {
   log(line(e), [e.name, about].filter(Boolean).join(" · "));
 }

@@ -95,6 +95,16 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val END = "end"
         /** The line aligns columns with spaces, so it is drawn in the terminal font even with `font.sans all`. */
         const val MONO = "mono"
+        /**
+         * A bar after a built-in command's line, as `from,to,role` (fractions from 0 to 1, and a
+         * colour role, which may be empty): `unlocks`, `usage`, `volume`. Scripts can't set it;
+         * they put bars in a body with `fmt.bar`.
+         */
+        const val BAR = "bar"
+
+        /** [BAR] filled to [fraction] (0 to 1), in [role] (null: the accent colour). */
+        fun bar(fraction: Double, role: String? = null): Map<String, String> =
+            mapOf(BAR to "0,${StyledText.number(if (fraction.isNaN()) 0.0 else fraction.coerceIn(0.0, 1.0))},${role.orEmpty()}")
 
         val EMPTY = LogContext()
 

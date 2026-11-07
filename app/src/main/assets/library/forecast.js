@@ -70,7 +70,7 @@ const names = ["Today", "Tomorrow"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const where = [place.name, place.country_code].filter(Boolean).join(", ");
 
-// The place is the title; one line per day under it, in columns: the day, the sky, the temperatures, rain.
+// The place is the title; one row per day under it.
 const rows = [];
 let todayLine = "";
 for (let i = 0; i < d.time.length; i++) {
@@ -78,15 +78,31 @@ for (let i = 0; i < d.time.length; i++) {
   const hi = Math.round(d.temperature_2m_max[i]);
   const lo = Math.round(d.temperature_2m_min[i]);
   const rain = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
-  rows.push({ label, sky: describe(d.weather_code[i]), temp: `${lo}–${hi}°C`, rain });
+  rows.push({ label, code: d.weather_code[i], lo, hi, rain });
   if (i === 0) todayLine = `${place.name}: ${describe(d.weather_code[i])} ${lo}–${hi}°C`;
 }
-// One table: a likely-rain day's chance in the warning colour.
+
+// WMO weather codes -> a symbol for the sky.
+function icon(code) {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "⛅";
+  if (code === 3) return "☁️";
+  if (code <= 48) return "🌫️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "❄️";
+  if (code <= 82) return "🌦️";
+  if (code <= 86) return "🌨️";
+  return "⛈️";
+}
+
+// One bar a day, from its low to its high, all on one scale, so the days compare at a glance: the
+// day and its sky, the low, the bar, the high, and a chance of rain from 30% (in the warning colour
+// from 60%).
 const days = rows.map((r) => {
-  const rainText = r.rain != null ? `${r.rain}%` : "";
-  return [r.label, r.sky, r.temp, r.rain != null && r.rain >= 60 ? fmt.color("warn", rainText) : rainText];
+  const rain = r.rain != null && r.rain >= 30 ? " " + fmt.color(r.rain >= 60 ? "warn" : "muted", `☂ ${r.rain}%`) : "";
+  return [`${r.label} ${icon(r.code)}`, r.lo, r.hi, `${r.lo}°`, `${r.hi}°${rain}`];
 });
-log(where, fmt.table([["Day", "Sky", "Temp", "Rain"], ...days], { header: true, align: "llrr" }), {
+log(where, fmt.ranges(days, { color: "warn" }), {
   url: `https://open-meteo.com/en/docs#latitude=${place.latitude}&longitude=${place.longitude}`,
 });
 

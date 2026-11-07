@@ -45,8 +45,12 @@ if event.name == "unplug" then
     detail = "after " .. minutes(since)
   end
   store.set("last", os.date("%H:%M") .. " · " .. line .. (detail and (" (" .. detail .. ")") or ""))
-  -- Below the low mark in the warning colour, otherwise the good one; how much it added under it.
-  log(fmt.color(level and level < LOW and "warn" or "good", line), detail and (detail:sub(1, 1):upper() .. detail:sub(2)))
+  -- Below the low mark in the warning colour, otherwise the good one; how much it added under it,
+  -- and the battery as a bar in the same colour.
+  local colour = level and level < LOW and "warn" or "good"
+  local body = detail and (detail:sub(1, 1):upper() .. detail:sub(2))
+  if level then body = (body and (body .. "\n") or "") .. fmt.bar(level, { max = 100, color = colour }) end
+  log(fmt.color(colour, line), body)
   if level and level < LOW then
     notify("Battery at " .. pct(level), "Unplugged before it was charged — plug in again soon")
   end

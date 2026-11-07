@@ -1,7 +1,7 @@
 // @title Live football
 // @desc Live football scores from one league: the team option's live match as its status line, to pin at the top of home; football live lists them all
 // @author Kolahal
-// @version 1.3
+// @version 1.4
 // @command
 // @usage [live|<team>]
 // @every 15m
@@ -21,8 +21,9 @@
 // ends, its result stays two hours. `football Arsenal` shows Arsenal's match in the league and
 // follows it if it's on; `football live` lists the league's live matches.
 //
-// From Kolahal 0.4.16, `football live` shows as a table (fmt.table); an older Kolahal shows lines,
-// as before.
+// From Kolahal 0.4.16, `football live` shows as a table (fmt.table), a match with a tag for how it
+// stands (LIVE, FT, UPCOMING) and the minutes played as a bar; a typed command shows "Fetching
+// scores…" at once, which turns into the answer. An older Kolahal shows lines, as before.
 
 const league = (options.league || "eng.1").trim();
 const BOARD = `https://site.api.espn.com/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard`;
@@ -144,16 +145,23 @@ if (!words) {
   return;
 }
 
+// From Kolahal 0.4.16: a tag for how the match stands, a bar for the minutes played, and "Fetching
+// scores…" at once, which turns into the answer in place (log returns the line). An older Kolahal
+// has no fmt.bar, and gets lines as before.
+const rich = typeof fmt.bar === "function";
+const pending = rich ? log(fmt.color("muted", "Fetching scores…")) : null;
+const show = (...a) => (pending ? pending.set(...a) : log(...a));
+
 let all;
 try {
   all = await matches();
 } catch (e) {
-  return log(fmt.color("bad", "No football scores"), `${e.message || e}`);
+  return show(fmt.color("bad", "No football scores"), `${e.message || e}`);
 }
 
 if (words.toLowerCase() === "live") {
   const live = all.filter((e) => state(e) === "in");
-  if (!live.length) return log(fmt.color("muted", `No live matches in ${league}`), "script set football league <code> picks another league");
+  if (!live.length) return show(fmt.color("muted", `No live matches in ${league}`), "script set football league <code> picks another league");
   if (typeof fmt.table !== "function") return logs(live.map(line));
   // One row a match: home, the score, away and the clock. Tables need Kolahal 0.4.16; an older one
   // gets the lines above.
@@ -164,13 +172,17 @@ if (words.toLowerCase() === "live") {
     const clock = type.shortDetail !== "HT" ? (e.status && e.status.displayClock) || "" : "HT";
     return [abbr(home), `${home.score ?? ""}–${away.score ?? ""}`, abbr(away), clock];
   });
-  return log(`${live.length} live in ${league}`, fmt.table(rows, { align: "rllr" }));
+  return show(`${live.length} live in ${league}`, fmt.table(rows, { align: "rllr" }));
 }
 
-// A team: its live match first, then the latest or next one.
+// A team: its live match first, then the latest or next one. A tag says how it stands, and while it's
+// on, a bar shows the minutes played.
 const theirs = matchesOf(all, words);
 const found = theirs.find((e) => state(e) === "in") || theirs[0];
-if (!found) return log(fmt.color("muted", `No match for ${words} in ${league}`), "football live lists the live ones");
+if (!found) return show(fmt.color("muted", `No match for ${words} in ${league}`), "football live lists the live ones");
 const when = state(found) === "pre" ? `Starts ${new Date(found.date).toLocaleString()}` : "";
-log(line(found), [found.name, when].filter(Boolean).join(" · "));
+const tag = rich ? { in: fmt.tag("bad", "LIVE"), post: fmt.tag("muted", "FT"), pre: fmt.tag("info", "UPCOMING") }[state(found)] : "";
+const p = rich && state(found) === "in" ? progress(found) : null;
+const bar = p == null ? "" : fmt.bars([["Minute", p, (found.status && found.status.displayClock) || ""]], { max: 1, color: "good" });
+show([tag, line(found)].filter(Boolean).join(" "), [[found.name, when].filter(Boolean).join(" · "), bar].filter(Boolean).join("\n"));
 if (state(found) === "in") follow(found);

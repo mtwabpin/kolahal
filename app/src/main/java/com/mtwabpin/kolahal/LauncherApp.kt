@@ -121,9 +121,11 @@ class LauncherApp : Application(), Configuration.Provider {
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val trimmed = intent.getLongExtra(LogRepository.EXTRA_TRIMMED_UP_TO, 0L)
+                val updated = intent.getLongArrayExtra(LogRepository.EXTRA_UPDATED)
                 when {
                     intent.getBooleanExtra(LogRepository.EXTRA_RESTRUCTURE, false) -> logs.onExternalRestructure()
                     trimmed > 0 -> logs.onExternalTrim(trimmed)
+                    updated != null && updated.isNotEmpty() -> logs.onExternalUpdate(updated)
                     else -> logs.onExternalChange()
                 }
             }

@@ -47,6 +47,9 @@ class LibraryScriptsTest {
 
     private fun colourOf(text: String) = StyledText.lines(text).single().spans.map { it.colour }.distinct().singleOrNull()
 
+    /** [only], with its body as plain text: without a bar, which reads as nothing. */
+    private fun plainOnly() = only().let { (title, body, colour) -> Triple(title, body?.let(StyledText::plain), colour) }
+
     @After fun tearDown() {
         lines().forEach { logs.delete(it.id) }
         store.all().keys.forEach { store.set(it, null) }
@@ -138,7 +141,8 @@ class LibraryScriptsTest {
     @Test fun sunsDayLengthRoundsAsAWhole() {
         fun length(secs: Int): String {
             run("sun.js", "12.97 77.59", before = standIns("""{"daily":{"sunrise":["2026-10-16T06:12"],"sunset":["2026-10-16T17:12"],"daylight_duration":[$secs]}}"""))
-            return only().second.orEmpty().let(StyledText::plain).substringAfterLast(" · ")
+            // The body's first line: a bar of the daylight gone comes under it.
+            return only().second.orEmpty().let(StyledText::plain).lineSequence().first().substringAfterLast(" · ")
         }
         assertEquals("11h 0m of daylight", length(39_570))
         assertEquals("10h 50m of daylight", length(39_000))
@@ -184,7 +188,7 @@ class LibraryScriptsTest {
         run("releases.lua", before = feed)
         // One line a repo, with no body: a list in normal weight, not a heading for each.
         assertEquals(
-            listOf("mtwabpin/kolahal  latest v3", "neovim/neovim  latest v3", "termux/termux-app  latest v3"),
+            listOf("mtwabpin/kolahal latest v3", "neovim/neovim latest v3", "termux/termux-app latest v3"),
             lines().map { StyledText.plain(it.text) },
         )
         assertEquals(listOf(null), lines().map { it.ctx.body }.distinct())
@@ -199,11 +203,15 @@ class LibraryScriptsTest {
         assertEquals(true, status.get(name)?.startsWith("Charging since "))
         // Unplugged still below 30%: the warning colour, and how much it added under it.
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"))
-        assertEquals(Triple("Unplugged at 20%", "+5% in 0m", StyledText.Colour.WARN), only())
+        assertEquals(Triple("Unplugged at 20%", "+5% in 0m", StyledText.Colour.WARN), plainOnly())
+        // The battery as a bar under it, in the same colour.
+        val bar = StyledText.lines(lines().single().ctx.body!!).last().meter!!
+        assertEquals(0.2f, bar.to, 0.001f)
+        assertEquals(StyledText.Colour.WARN, bar.colour)
         assertNull(status.get(name))
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 20, "plug" to "ac"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 90, "plug" to "ac"))
-        assertEquals(Triple("Unplugged at 90%", "+70% in 0m", StyledText.Colour.GOOD), only())
+        assertEquals(Triple("Unplugged at 90%", "+70% in 0m", StyledText.Colour.GOOD), plainOnly())
 
         run("charge-reminder.lua")
         val (title, body) = only()
@@ -213,7 +221,7 @@ class LibraryScriptsTest {
         // Its low option: 20% is fine above 10%.
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 15, "plug" to "usb"), options = mapOf("low" to "10"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"), options = mapOf("low" to "10"))
-        assertEquals(Triple("Unplugged at 20%", "+5% in 0m", StyledText.Colour.GOOD), only())
+        assertEquals(Triple("Unplugged at 20%", "+5% in 0m", StyledText.Colour.GOOD), plainOnly())
     }
 
     private val nm = context.getSystemService(android.app.NotificationManager::class.java)

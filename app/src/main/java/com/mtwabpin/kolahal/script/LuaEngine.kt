@@ -96,9 +96,16 @@ class LuaEngine : ScriptEngine {
             setGlobal(name)
         }
 
+        // log and md.log return the line's number; the prelude turns it into the line's handle (line.set).
         lua.global("log") { l ->
             val (title, body, ctx) = l.logArgs()
-            host.log(title, body, ctx)
+            l.pushLine(host.log(title, body, ctx))
+            1
+        }
+        lua.global("__kolahal_set") { l ->
+            val number = if (l.isNumber(1)) l.toInteger(1).toInt() else 0
+            val (title, body, ctx) = l.logArgs(from = 3)
+            host.setLine(number, markdown = l.toBoolean(2), title, body, ctx)
             0
         }
         lua.global("logs") { l ->
@@ -180,9 +187,10 @@ class LuaEngine : ScriptEngine {
         )
         lua.table(
             "md",
-            "log" to { l: Lua -> l.logArgs().let { (title, body, ctx) -> host.logMarkdown(title, body, ctx) }; 0 },
+            "log" to { l: Lua -> l.logArgs().let { (title, body, ctx) -> l.pushLine(host.logMarkdown(title, body, ctx)) }; 1 },
             "escape" to { l: Lua -> l.pushValue(Markdown.escape(l.str(1) ?: "")); 1 },
         )
+        val fmt = Fmt(::cellText)
         lua.table(
             "fmt",
             "bold" to { l: Lua -> l.styled(StyledText.Style.BOLD); 1 },
@@ -217,6 +225,11 @@ class LuaEngine : ScriptEngine {
                 l.pushValue(StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty()))
                 1
             },
+            "tag" to { l: Lua -> l.pushValue(fmt.tag(l.args())); 1 },
+            "link" to { l: Lua -> l.pushValue(fmt.link(l.args())); 1 },
+            "bar" to { l: Lua -> l.pushValue(fmt.bar(l.args())); 1 },
+            "bars" to { l: Lua -> l.pushValue(fmt.bars(l.args())); 1 },
+            "ranges" to { l: Lua -> l.pushValue(fmt.ranges(l.args())); 1 },
             "plain" to { l: Lua -> l.pushValue(StyledText.plain(l.str(1) ?: "")); 1 },
         )
         lua.table(
@@ -261,11 +274,28 @@ class LuaEngine : ScriptEngine {
         pushValue(StyledText.wrap(style, str(1) ?: "nil"))
     }
 
-    /** `(title, body?, ctx?)`, as log and md.log take them. If the second argument is a table, it is the ctx: log(title, ctx). */
-    private fun Lua.logArgs(): Triple<String, String?, Map<*, *>?> {
-        val tableSecond = top >= 2 && isTable(2)
-        val body = if (top >= 2 && !tableSecond) str(2) else null
-        return Triple(str(1) ?: "nil", body, mapArg(if (tableSecond) 2 else 3))
+    /**
+     * `(title, body?, ctx?)` from argument [from] on, as log, md.log and line.set take them. If the
+     * second is a table, it is the ctx: log(title, ctx).
+     */
+    private fun Lua.logArgs(from: Int = 1): Triple<String, String?, Map<*, *>?> {
+        val tableSecond = top >= from + 1 && isTable(from + 1)
+        val body = if (top >= from + 1 && !tableSecond) str(from + 1) else null
+        return Triple(str(from) ?: "nil", body, mapArg(if (tableSecond) from + 1 else from + 2))
+    }
+
+    /** The line's number that log returned, for the prelude to make a handle of; nil when nothing was logged. */
+    private fun Lua.pushLine(number: Int) = if (number > 0) push(number.toLong()) else pushNil()
+
+    /** Every argument as a Kotlin value (nil, a number, text, true/false, or a table as a list or a map), for [Fmt]. */
+    private fun Lua.args(): List<Any?> = (1..top).map { i ->
+        when (type(i)) {
+            Lua.LuaType.NUMBER -> toNumber(i)
+            Lua.LuaType.STRING -> toString(i)
+            Lua.LuaType.BOOLEAN -> toBoolean(i)
+            Lua.LuaType.TABLE -> Json.normalizeLua(toMap(i))
+            else -> null
+        }
     }
 
     private fun Lua.mapArg(index: Int): Map<*, *>? =
@@ -361,6 +391,24 @@ class LuaEngine : ScriptEngine {
               return realload(chunk, name, "t")
             end
 
+            -- log and md.log return the line they logged, as a handle: line.set(title, body?, ctx?) or
+            -- line:set(…) changes it in place. A script's result that is a handle isn't logged.
+            local rawlog, rawmdlog, setline = log, md.log, __kolahal_set
+            __kolahal_set = nil
+            local handles = setmetatable({}, { __mode = "k" })
+            local function handle(n, ismd)
+              if n == nil then return nil end
+              local h = {}
+              h.set = function(a, ...)
+                if a == h then setline(n, ismd, ...) else setline(n, ismd, a, ...) end
+                return h
+              end
+              handles[h] = true
+              return h
+            end
+            log = function(...) return handle(rawlog(...), false) end
+            md.log = function(...) return handle(rawmdlog(...), true) end
+
             print = function(...)
               local t = table.pack(...)
               for i = 1, t.n do t[i] = tostring(t[i]) end
@@ -384,6 +432,8 @@ class LuaEngine : ScriptEngine {
               if not fn then fn, err = realload(src, "=" .. name, "t") end
               if not fn then error(err, 0) end
               local res = pack(fn())
+              -- A line's handle (a REPL line `log("x")`, or `return log(…)`) is no result.
+              if res.n == 1 and handles[res[1]] then return nil end
               if res.n == 0 or (res.n == 1 and res[1] == nil) then return nil end
               local out = {}
               for i = 1, res.n do out[i] = render(res[i]) end

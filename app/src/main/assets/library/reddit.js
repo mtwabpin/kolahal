@@ -47,8 +47,11 @@ if (r.ok) {
   if (posts.length === 0) return log(fmt.color("muted", `r/${sub}: no posts today`));
   for (const p of posts.slice(0, LIMIT)) {
     const link = "https://www.reddit.com" + p.permalink;
-    // One line a post: the title, then its points and comments, muted.
-    log(`${p.title} ${fmt.color("muted", `· ${short(p.score)} points · ${p.num_comments} comments`)}`, { url: link, copy: link });
+    // One line a post: the title (a tap opens the discussion), then its points and comments, muted.
+    // A post that links elsewhere ends with a link to that site, which opens the article itself.
+    const out = /^https?:\/\//.test(p.url || "") && !p.is_self && !(p.url || "").startsWith(link) ? p.url : null;
+    const site = out ? ` · ${fmt.link(p.domain || "article", out)}` : "";
+    log(`${p.title} ${fmt.color("muted", `· ${short(p.score)} points · ${p.num_comments} comments`)}${site}`, { url: link, copy: link });
   }
   return;
 }

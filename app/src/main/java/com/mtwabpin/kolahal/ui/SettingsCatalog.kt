@@ -35,6 +35,7 @@ internal val TITLES = mapOf(
     "log.line-height" to "Line height",
     "log.taller-taps" to "Taller tappable lines",
     "log.tables" to "Tables",
+    "log.fold" to "Fold long lines after (lines)",
     "log.wallpaper" to "Transparency (%)",
     "log.keep-days" to "Keep log for (days)",
     "log.fresh" to "Clean screen after (minutes away)",
@@ -214,6 +215,7 @@ private val CATEGORIES = listOf(
                 Keys.LOG_LINE_HEIGHT,
                 Keys.LOG_TALLER_TAPS,
                 Keys.LOG_TABLES,
+                Keys.LOG_FOLD,
                 Keys.LOG_WALLPAPER,
             ),
             "History" to listOf(

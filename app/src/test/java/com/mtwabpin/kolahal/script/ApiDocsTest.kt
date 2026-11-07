@@ -33,7 +33,8 @@ class ApiDocsTest {
             }
             member.findAll(line).forEach { out += "$table.${it.groupValues[1]}" }
         }
-        return out
+        // Names that start with __ are the preludes' own, not the API.
+        return out.filterNot { it.startsWith("__") }.toSet()
     }
 
     private fun jsBindings(): Set<String> {

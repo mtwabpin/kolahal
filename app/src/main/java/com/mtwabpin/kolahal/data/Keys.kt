@@ -120,6 +120,7 @@ object Keys {
     val LOG_WALLPAPER = ConfigKey.Num("log.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour")
     val LOG_TALLER_TAPS = ConfigKey.Bool("log.taller-taps", false, "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height")
     val LOG_TABLES = ConfigKey.Choice("log.tables", "boxed", listOf("boxed", "plain"), "How tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only)")
+    val LOG_FOLD = ConfigKey.Num("log.fold", 8, 0..60, "Fold a log line taller than this many lines of text, with a tap to show the rest (0: never fold)")
     val CHIP_HEIGHT = ConfigKey.Num("chips.height", 44, 20..64, "Height (dp) of suggestion chips, the suggestion list's rows and app chips in the log")
     val LOG_KEEP_DAYS = ConfigKey.Num("log.keep-days", 60, 1..365, "Delete log lines older than this many days; starred lines are kept")
     val LOG_KEEP_LINES = ConfigKey.Num("log.keep-lines", 5000, 500..50_000, "Delete the oldest log lines past this many; typed commands are counted separately, so ↑ history is kept, and starred lines are kept and not counted")
@@ -210,6 +211,7 @@ object Keys {
         LOG_LINE_HEIGHT,
         LOG_TALLER_TAPS,
         LOG_TABLES,
+        LOG_FOLD,
         LOG_WALLPAPER,
         CHIP_HEIGHT,
         LOG_KEEP_DAYS,

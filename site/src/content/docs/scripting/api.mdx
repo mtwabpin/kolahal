@@ -19,11 +19,15 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 
 | Call | Returns |
 | --- | --- |
-| [`log(title, body?, ctx?)`](#logtitle-body-ctx) | nothing; adds a line |
+| [`log(title, body?, ctx?)`](#logtitle-body-ctx) | the line, which [`line.set`](#lineset) changes |
 | [`logs(titles)`](#logstitles) | nothing; adds a line for each title |
-| [`md.log(title, body?, ctx?)`](#mdlogtitle-body-ctx) | nothing; adds a line, with Markdown |
+| [`md.log(title, body?, ctx?)`](#mdlogtitle-body-ctx) | the line; adds it with Markdown |
 | [`fmt.bold(text)` and the other styles](#styles-fmt) | the text, styled for the log |
 | [`fmt.table(rows, opts?)`](#tables) | a table, for a body |
+| [`fmt.link(text, url)`](#links) | text that opens a link |
+| [`fmt.tag(role?, text)`](#tags) | a label on a shaded chip |
+| [`fmt.bar(value, opts?)`, `fmt.bars`, `fmt.ranges`](#bars) | bars, for a body |
+| [`line.set(title, body?, ctx?)`](#lineset) | changes a line in place |
 | [`notify(title, body, ctx?)`](#notifytitle-body-ctx) | `true` if a notification was posted |
 | [`status(text, opts?)`](#statustext-opts) | nothing; sets or clears its status line |
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
@@ -62,6 +66,8 @@ Adds a line to the log.
 - Each line a script logs is a title. To log several lines, call `log` for each one, or use
   [`logs`](#logstitles).
 - `log(title, ctx)` also works, without a body.
+- `log` returns the line. While the script runs, [`line.set`](#lineset) changes it in place.
+- A body taller than `log.fold` lines (8 by default) folds, with a tap to show the rest.
 
 `ctx` is an optional table / object of strings. It sets what happens when you tap or long-press the
 line:
@@ -131,14 +137,15 @@ Works like [`log`](#logtitle-body-ctx), but shows Markdown in the title and the 
 
 - `**bold**` (or `__bold__`), `*italic*` (or `_italic_`), `~~strike~~`, `++underline++` and
   `` `code` ``.
+- `[text](https://…)` is a [link](#links): the text opens the address when tapped.
 - In the body, a line that starts with `- `, `* ` or `+ ` is a bulleted item. A line that starts
   with `1. ` is a numbered item. Two spaces before it make a second level.
 
 `log` itself never shows Markdown. So text from the web that you log with `log` always appears
 exactly as written.
 
-`md.escape(text)` puts a backslash before every Markdown mark in `text`. Use it to put text from the
-web inside `md.log`, so that it still shows exactly as written.
+`md.escape(text)` puts a backslash before every Markdown mark in `text`, `[` included. Use it to put
+text from the web inside `md.log`, so that it still shows exactly as written.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -169,6 +176,8 @@ Nothing else in the line is read as a style.
 | `fmt.strike(text)` | struck through |
 | `fmt.code(text)` | on a shaded chip, in the terminal font |
 | `fmt.color(role, text)` | in one of the theme's colours: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` |
+| `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) |
+| `fmt.link(text, url)` | text that opens a link: see [Links](#links) |
 | `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. |
 | `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) |
 | `fmt.plain(text)` | the text without its styles |
@@ -239,6 +248,143 @@ log("Prices in USD", fmt.table([
   ["BTC", "64,210", fmt.color("good", "▲ 2.1%")],
   ["ETH", "3,118", fmt.color("bad", "▼ 0.8%")],
 ], { header: true, align: "lrr" }));
+```
+</TabItem>
+</Tabs>
+
+### Links
+
+`fmt.link(text, url)` makes `text` a link: a tap on it opens `url`. A tap anywhere else on the
+line does what a tap on the line does (opens its `url`, if it has one).
+
+- A line can have several links, in its title and its body: a story and its comments, release
+  notes and a diff.
+- Links are in the link colour and underlined.
+- They follow the rules of a line's `url`: web links only (http and https), none when internet is
+  off for the script, and none that carries a secret anywhere but the sites its `@secret` line
+  names. A link that breaks a rule shows its text as plain text.
+- Long-press the line for **Open "…"** for each link (up to 4).
+- In `md.log`, `[text](https://…)` makes a link too.
+- Everywhere else (Copy text, search, notifications) only the text shows.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+log(item.title .. " · " .. fmt.link("138 comments", item.comments), { url = item.link })
+md.log("New in [neovim](https://github.com/neovim/neovim/releases)")
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+log(`${item.title} · ${fmt.link("138 comments", item.comments)}`, { url: item.link });
+md.log("New in [neovim](https://github.com/neovim/neovim/releases)");
+```
+</TabItem>
+</Tabs>
+
+### Tags
+
+`fmt.tag(role, text)` shows a short label on a chip shaded in one of the theme's colours, by role,
+as [`fmt.color`](#styles-fmt) takes it. `fmt.tag(text)` uses the accent colour.
+
+- Use it for a state or a version: LIVE, NEW, pre-release, v0.12.0. For code, use `fmt.code`.
+- A tag is one line, in bold and a little smaller than the text around it.
+- Put a space between two tags, and between a tag and the text next to it.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+log(fmt.tag("bad", "LIVE") .. " IND v NZ")
+log("neovim/neovim " .. fmt.tag("v0.12.0") .. " " .. fmt.tag("warn", "pre-release"))
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+log(`${fmt.tag("bad", "LIVE")} IND v NZ`);
+log(`neovim/neovim ${fmt.tag("v0.12.0")} ${fmt.tag("warn", "pre-release")}`);
+```
+</TabItem>
+</Tabs>
+
+### Bars
+
+Three functions make bars for a body. Each bar is a line of its own, like a table row. Bars on
+lines that follow each other line up in columns: the labels, the texts before the bars, the bars,
+and the texts after them.
+
+| Function | Shows |
+| --- | --- |
+| `fmt.bar(value, opts?)` | one bar as wide as the line: `value` out of `opts.max` (1 by default) |
+| `fmt.bars(rows, opts?)` | a bar for each row `{ label, value, text? }`, all on one scale from 0 to `opts.max` (by default the largest value), so the rows compare at a glance. `text` shows after the bar; by default it is the value with `opts.unit` |
+| `fmt.ranges(rows, opts?)` | for each row `{ label, low, high, lowText?, highText? }`, a bar from low to high, all on one scale from `opts.min` to `opts.max` (by default the lowest low and the highest high). The low shows before the bar and the high after it |
+
+- `opts.color` is the bars' colour, by role (`accent` by default). The unfilled part of a bar is
+  a light shade of the same colour.
+- `opts.unit` goes after each number that the bar shows itself, such as `°` or `%`.
+- A value past the scale fills its bar, and one below it leaves it empty.
+- Up to 50 rows. More end with a "+N more" line.
+- Say the number in the text too: some people can't see a bar's length, and a screen reader
+  reads only the texts.
+- A wrong argument is an error that says what to pass, and so is an option that doesn't exist (a
+  typo such as `colour`).
+- Copy text copies the rows' texts with tabs between them. A bar alone copies nothing.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+log("Pune · AQI 168", "Unhealthy\n" .. fmt.bar(168, { max = 300, color = "bad" }))
+log("Unlocks", fmt.bars({ { "Mon", 42 }, { "Tue", 21 } }, { color = "good" }))
+log("Pune · 3 days", fmt.ranges({ { "Today", 23, 31 }, { "Tomorrow", 22, 30 } }, { unit = "°", color = "warn" }))
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+log("Pune · AQI 168", "Unhealthy\n" + fmt.bar(168, { max: 300, color: "bad" }));
+log("Unlocks", fmt.bars([["Mon", 42], ["Tue", 21]], { color: "good" }));
+log("Pune · 3 days", fmt.ranges([["Today", 23, 31], ["Tomorrow", 22, 30]], { unit: "°", color: "warn" }));
+```
+</TabItem>
+</Tabs>
+
+### line.set
+
+`log` and `md.log` return the line they added. `line.set(title, body?, ctx?)` changes that line
+in place, where it is in the log. In Lua, `line:set(…)` works too.
+
+- Show something at once, then the answer in the same place: "Fetching…" turns into the result.
+  A slow script then doesn't look stuck, and leaves one line, not two.
+- Show progress: "Checking 3 of 5 sites…", with a [bar](#bars).
+- It takes what `log` takes. A line from `md.log` reads Markdown again.
+- It works only while the script runs. After that, the line stays as it was last set.
+- A run can change its lines 300 times. Later changes are ignored.
+- Changes show about every 300 ms, and before each request.
+- Kolahal versions before 0.4.16 return nothing from `log`. A script for those too can check
+  `typeof fmt.bar === "function"` (JavaScript) or `fmt.bar ~= nil` (Lua) first.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+local line = log(fmt.color("muted", "Checking…"))
+local up = 0
+for i, site in ipairs(sites) do
+  line.set("Checking " .. i .. " of " .. #sites .. "…", fmt.bar(i - 1, { max = #sites }))
+  local ok, r = pcall(http.get, site)
+  if ok and r.ok then up = up + 1 end
+end
+line.set(up .. " of " .. #sites .. " sites up")
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+const line = log(fmt.color("muted", "Checking…"));
+let up = 0;
+for (const [i, site] of sites.entries()) {
+  line.set(`Checking ${i + 1} of ${sites.length}…`, fmt.bar(i, { max: sites.length }));
+  try {
+    if ((await http.get(site)).ok) up++;
+  } catch (e) {}
+}
+line.set(`${up} of ${sites.length} sites up`);
 ```
 </TabItem>
 </Tabs>

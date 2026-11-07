@@ -317,6 +317,7 @@ class MainActivity : ComponentActivity() {
         Term.lineHeight = vm.config[Keys.LOG_LINE_HEIGHT]
         Term.tallerTaps = vm.config[Keys.LOG_TALLER_TAPS]
         Term.boxedTables = vm.config[Keys.LOG_TABLES] == "boxed"
+        Term.foldLines = vm.config[Keys.LOG_FOLD]
         Term.chipHeight = vm.config[Keys.CHIP_HEIGHT]
         // log.wallpaper, widgets.wallpaper: the window shows the phone's wallpaper, and each home page
         // draws its colour over it, as faintly as its setting says (Modifier.page).

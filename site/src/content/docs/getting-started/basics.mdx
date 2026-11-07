@@ -218,6 +218,12 @@ Hide the bar with `log.gutter off`. Output older than the latest command is dimm
   - `commands`: only on lines you type.
   - `off`: no times.
 - **Columns and grids.** `help`, `config` and `script ls` show their output in two columns. `apps` shows a grid of chips you can tap.
+- **Bars, tags and links.** Some lines draw a bar after or under their text: `unlocks`, `usage`, `volume`, `brightness`,
+  `status` (for a status line with a bar) and scripts such as `forecast` and `aqi`. `toggles` shows on and off as tags, and
+  scripts can show tags too (LIVE, new). A script's line can have links in its text: a tap on a link opens it, and a tap
+  anywhere else does what a tap on the line does.
+- **Long lines fold.** A line taller than 8 lines of text (`log.fold`) folds under "▾ N more lines". Tap it to see the rest,
+  and "▴ Show less" to fold it again.
 - **Sources.** Script, feed and notification lines show their source at the end, dimmed (`Show HN: … · Hacker News`). The source
   appears on the first line of each run from that source. Lines directly below the command that ran them don't show it, because
   the command already names it. Long-press a line to see where it came from and its exact time.

@@ -113,12 +113,14 @@ class LogRepository private constructor(private val context: Context) {
         }
     }
 
-    /** Inserts [lines] in one transaction and announces them once. */
-    private fun write(lines: List<Pending>) {
+    /** Inserts [lines] in one transaction and announces them once. Returns their ids, in order. */
+    private fun write(lines: List<Pending>): List<Long> {
         val w = db.writableDatabase
-        w.transaction { for (p in lines) insert(w, p) }
+        val ids = ArrayList<Long>(lines.size)
+        w.transaction { for (p in lines) ids += insert(w, p) }
         writes.addAndGet(lines.size)
         changed()
+        return ids
     }
 
     /** The command line being run on this thread ([withCause]). Lines added in the meantime carry its id. */
@@ -158,20 +160,79 @@ class LogRepository private constructor(private val context: Context) {
         }
     }
 
-    /** Inserts several lines in one transaction with a single change notification. */
-    fun addAll(lines: List<Pending>) {
-        if (lines.isEmpty()) return
+    /**
+     * Inserts several lines in one transaction with a single change notification. Returns their ids
+     * in order, or null when they were not written yet (inside [capture] or [batched]).
+     */
+    fun addAll(lines: List<Pending>): List<Long>? {
+        if (lines.isEmpty()) return emptyList()
         val tagged = lines.map { it.copy(ctx = caused(it.ctx)) }
         capture.get()?.let { buffer ->
             buffer += tagged
-            return
+            return null
         }
         batch.get()?.let { b ->
             tagged.forEach(b::add)
-            return
+            return null
         }
-        write(tagged)
+        return write(tagged)
     }
+
+    /**
+     * Changes line [id]'s text and context in place (a script's `line.set`). It keeps its place and
+     * its time. Home reads it again ([updatedSince]). False if the line is gone.
+     */
+    fun update(id: Long, text: String, ctx: LogContext): Boolean {
+        val values = ContentValues().apply {
+            put("text", clip(text))
+            put("ctx", clip(ctx).toJson())
+        }
+        if (db.writableDatabase.update("logs", values, "id = ?", arrayOf(id.toString())) == 0) return false
+        noteUpdated(listOf(id))
+        return true
+    }
+
+    /** The lines with these [ids] (those that still exist), in no set order. */
+    fun byIds(ids: Collection<Long>): List<LogEntry> {
+        if (ids.isEmpty()) return emptyList()
+        val out = ArrayList<LogEntry>()
+        db.readableDatabase.rawQuery("SELECT $ENTRY_COLUMNS FROM logs WHERE id IN (${ids.joinToString(",")})", null).use { c ->
+            while (c.moveToNext()) out += c.entry()
+        }
+        return out
+    }
+
+    /**
+     * Lines changed in place ([update]), as removals are tracked: home reads them again instead of
+     * the whole page. The last [REMOVALS_KEPT] are remembered.
+     */
+    private val updates = ArrayDeque<Pair<Long, Long>>()
+
+    /** The number of the latest change in place, or 0 before any. */
+    @Volatile var updatedSeq = 0L
+        private set
+
+    /** Ids changed in place after change number [since], or null when that is too long ago to know. Then the page must be read again. */
+    @Synchronized fun updatedSince(since: Long): Set<Long>? {
+        if (since < updatedSeq - updates.size) return null
+        return updates.filter { (seq, _) -> seq > since }.mapTo(HashSet()) { (_, id) -> id }
+    }
+
+    private fun noteUpdated(ids: Collection<Long>) {
+        if (ids.isEmpty()) return
+        // Another process (a script) tells home which lines changed.
+        if (!inMainProcess) return changed(updated = ids)
+        synchronized(this) {
+            for (id in ids) {
+                updates.addLast(++updatedSeq to id)
+                if (updates.size > REMOVALS_KEPT) updates.removeFirst()
+            }
+        }
+        changed()
+    }
+
+    /** Another process changed these lines in place. */
+    fun onExternalUpdate(ids: LongArray) = noteUpdated(ids.toList())
 
     /**
      * Incremented by a change in the middle of the log that home can't apply to its page by itself
@@ -589,14 +650,15 @@ class LogRepository private constructor(private val context: Context) {
     /** Makes home look again without a new line, because a script run's result was recorded after its last line. */
     fun touch() = changed()
 
-    private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L) {
+    private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList()) {
         _version.value++
         // Other processes (scripts) tell home. Home's own writes already incremented the version above.
         if (!inMainProcess) {
             context.sendBroadcast(
                 Intent(ACTION_LOGS_CHANGED).setPackage(context.packageName)
                     .putExtra(EXTRA_RESTRUCTURE, restructure)
-                    .putExtra(EXTRA_TRIMMED_UP_TO, trimmedUpTo),
+                    .putExtra(EXTRA_TRIMMED_UP_TO, trimmedUpTo)
+                    .putExtra(EXTRA_UPDATED, updated.toLongArray()),
             )
         }
     }
@@ -671,6 +733,8 @@ class LogRepository private constructor(private val context: Context) {
         const val ACTION_LOGS_CHANGED = "com.mtwabpin.kolahal.LOGS_CHANGED"
         const val EXTRA_RESTRUCTURE = "restructure"
         const val EXTRA_TRIMMED_UP_TO = "trimmed_up_to"
+        /** Lines another process changed in place ([update]). */
+        const val EXTRA_UPDATED = "updated"
 
         /** A batched command's output reaches the log at least this often while it runs. */
         private const val BATCH_MS = 250L
