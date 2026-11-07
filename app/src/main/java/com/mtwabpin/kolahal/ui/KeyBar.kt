@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -77,8 +78,8 @@ private val REPEATING = setOf(KeyBarKey.UP, KeyBarKey.DOWN, KeyBarKey.LEFT, KeyB
 
 /**
  * On-screen keys that touch keyboards don't have: history, cursor movement and a few symbols.
- * - Up to [FILL_MAX] keys share the width. With more keys, the row scrolls, and a fade shows that
- *   more keys are hidden.
+ * - The keys share the width while each gets at least [SHARED_KEY_MIN]. With more keys, the row
+ *   scrolls, and a fade shows that more keys are hidden.
  * - Arrows and backspace repeat while held.
  * - Dragging sideways across a row that is not scrolling moves the cursor.
  */
@@ -162,39 +163,44 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
         }
     }
 
-    if (keys.size <= FILL_MAX) {
-        Row(
-            bar.pointerInput(Unit) {
-                var acc = 0f
-                val step = 14.dp.toPx()
-                detectHorizontalDragGestures(onDragStart = { acc = 0f }) { change, dx ->
-                    change.consume()
-                    acc += dx
-                    while (acc >= step) { currentOnKey(KeyBarKey.RIGHT); acc -= step }
-                    while (acc <= -step) { currentOnKey(KeyBarKey.LEFT); acc += step }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth / keys.size >= SHARED_KEY_MIN) {
+            Row(
+                bar.pointerInput(Unit) {
+                    var acc = 0f
+                    val step = 14.dp.toPx()
+                    detectHorizontalDragGestures(onDragStart = { acc = 0f }) { change, dx ->
+                        change.consume()
+                        acc += dx
+                        while (acc >= step) { currentOnKey(KeyBarKey.RIGHT); acc -= step }
+                        while (acc <= -step) { currentOnKey(KeyBarKey.LEFT); acc += step }
+                    }
                 }
+            ) {
+                keys.forEach { (named, token) -> Key(named, token, Modifier.weight(1f)) }
             }
-        ) {
-            keys.forEach { (named, token) -> Key(named, token, Modifier.weight(1f)) }
-        }
-    } else {
-        Box(bar) {
-            LazyRow(Modifier.fillMaxSize()) {
-                itemsIndexed(keys) { _, (named, token) ->
-                    Key(named, token, Modifier.widthIn(min = 48.dp))
+        } else {
+            Box(bar) {
+                LazyRow(Modifier.fillMaxSize()) {
+                    itemsIndexed(keys) { _, (named, token) ->
+                        Key(named, token, Modifier.widthIn(min = 48.dp))
+                    }
                 }
+                // A fade on the right edge shows that more keys are available by scrolling.
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(24.dp)
+                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Term.surface)))
+                )
             }
-            // A fade on the right edge shows that more keys are available by scrolling.
-            Box(
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .width(24.dp)
-                    .background(Brush.horizontalGradient(listOf(Color.Transparent, Term.surface)))
-            )
         }
     }
 }
 
-// Up to this many keys share the row width. On a 360dp screen, 7 keys are each at least 48dp wide.
-private const val FILL_MAX = 7
+/**
+ * The narrowest a key gets while the keys share the row: about a keyboard key's width. On a 360 dp
+ * screen, 10 keys fit; the default row has 9.
+ */
+private val SHARED_KEY_MIN = 36.dp

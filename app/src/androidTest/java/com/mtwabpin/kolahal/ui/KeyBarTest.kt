@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -89,18 +90,35 @@ class KeyBarTest {
     private val text get() = compose.runOnIdle { vm.input.text }
     private val cursor get() = compose.runOnIdle { vm.input.selection.end }
 
+    /** One row by default, its 9 keys sharing the width of a 360 dp screen: none scrolled out of sight. */
     @Test fun oneRowByDefault() {
         compose.onAllNodesWithTag("keybar", useUnmergedTree = true).assertCountEquals(1)
+        for (key in listOf("/", "@", "|", "=", "+", "-", "*")) compose.onAllNodesWithText(key, useUnmergedTree = true).onLast().assertIsDisplayed()
+        for (key in listOf("up", "down")) compose.onNodeWithContentDescription(key, useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun theSymbolsGoInAtTheCursor() {
         put("ab", 1)
-        for (key in listOf("/", "|", "=")) press(key)
-        assertEquals("a/|=b", text)
-        assertEquals(4, cursor)
+        for (key in listOf("/", "@", "|", "=", "+", "-", "*")) press(key)
+        assertEquals("a/@|=+-*b", text)
+        assertEquals(8, cursor)
     }
 
+    /**
+     * A row too long to share the width (keys under 36 dp each) scrolls: its first keys show, its
+     * last ones are out of sight until the row is scrolled.
+     */
+    @Test fun aLongRowScrolls() {
+        config.set(Keys.KEYBAR, "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p")
+        compose.waitForIdle()
+        compose.onAllNodesWithText("a", useUnmergedTree = true).onLast().assertIsDisplayed()
+        compose.onAllNodesWithText("p", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** LEFT and RIGHT aren't in the default row any more; a row that has them moves the cursor. */
     @Test fun theArrowsMoveTheCursor() {
+        config.set(Keys.KEYBAR, "LEFT,UP,DOWN,RIGHT")
+        compose.waitForIdle()
         put("abc", 1)
         press("left")
         assertEquals(0, cursor)

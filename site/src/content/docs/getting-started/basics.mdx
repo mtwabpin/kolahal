@@ -437,11 +437,12 @@ The key bar appears only while the on-screen keyboard is open for the prompt. So
 The main page of an on-screen keyboard doesn't have some keys that a terminal needs. So Kolahal adds a row of them:
 
 ```
-/  |  =  ←  ↑  ↓  →
+/  @  |  =  +  -  *  ↑  ↓
 ```
 
 - `/` starts a [log search](#searching-the-log), `|` starts a [pipe](#pipes) and `=` starts the calculator.
-- `←` / `→` move the cursor. `↑` / `↓` move through the command history.
+- `@`, `+`, `-` and `*` type themselves: for addresses and for sums (`= 12*4+3`).
+- `↑` / `↓` move through the command history. For cursor keys, add `LEFT` and `RIGHT` to a row.
 - Arrows and backspace repeat while you hold them. Drag sideways across the bar to move the cursor.
 - To change the bar, set `keybar.row1` and `keybar.row2` to keys separated by commas. Use keys from `ESC TAB UP DOWN
   LEFT RIGHT HOME END BKSP ENTER SPACE KBD`, or any text. `KBD` shows the on-screen keyboard.

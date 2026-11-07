@@ -371,7 +371,9 @@ internal fun headerParts(raw: String): String? {
 internal fun headerSide(value: String): List<String> = value.split(',').filter { it in Keys.HEADER_PARTS }
 
 // What a keyboard's letters page doesn't have. The rest (`.`, backspace, Enter) is right below the bar.
-private const val DEFAULT_KEYBAR = "/,|,=,LEFT,UP,DOWN,RIGHT"
+// From 0.4.16: the calculator's signs and @ instead of the left and right arrows (dragging across
+// the bar moves the cursor).
+private const val DEFAULT_KEYBAR = "/,@,|,=,+,-,*,UP,DOWN"
 private const val DEFAULT_KEYBAR2 = ""
 
 // The Play build has no screen lock to offer.
