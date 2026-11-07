@@ -65,6 +65,21 @@ class TerminalHeaderTest {
         version++
     }
 
+    /** One line of the header's text (or its icon, if taller), without the padding. */
+    private fun line() = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 1).dp) }
+
+    /** header.padding is the space above and below the text: the header is the line and twice it. */
+    @Test fun thePaddingSetsTheHeight() {
+        show()
+        compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 12.dp)
+        set(Keys.HEADER_PADDING to "2")
+        compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 4.dp)
+        set(Keys.HEADER_PADDING to "12")
+        compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 24.dp)
+        // The parts stay on the one line, as tall as the header.
+        compose.onNodeWithTag("header-time").assertHeightIsEqualTo(line() + 24.dp)
+    }
+
     /** By default: the time and date, the next alarm, the open todos and the battery, in one line. */
     @Test fun theDefaultsShowInOneLine() {
         status = Status(batteryPct = 50, nextAlarm = System.currentTimeMillis() + 3_600_000L)
@@ -73,7 +88,7 @@ class TerminalHeaderTest {
         compose.onNodeWithTag("header-alarm").assertExists()
         compose.onNodeWithTag("header-todo").assertExists()
         compose.onNodeWithText("50%").assertExists()
-        compose.onNodeWithTag("header").assertHeightIsEqualTo(32.dp)
+        compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 12.dp)
         // All on the one line.
         val tops = listOf("header-time", "header-date", "header-alarm", "header-todo", "header-battery")
             .map { compose.onNodeWithTag(it).getUnclippedBoundsInRoot().top }
@@ -137,7 +152,7 @@ class TerminalHeaderTest {
     @Test fun itStaysOneLineWithLittleRoom() {
         config.set(Keys.HEADER_RIGHT, "unlocks,todo,battery")
         show(width = 300.dp)
-        compose.onNodeWithTag("header").assertHeightIsEqualTo(32.dp)
+        compose.onNodeWithTag("header").assertHeightIsEqualTo(line() + 12.dp)
         compose.onNodeWithTag("header-battery").assertExists()
         // Each part is on the line or left out: none drawn past its end.
         val line = compose.onNodeWithTag("header").getUnclippedBoundsInRoot()

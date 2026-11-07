@@ -164,9 +164,6 @@ internal fun rememberNow(): Pair<Date, Int> {
     return HomeClock.now to HomeClock.zone
 }
 
-/** Height of the header when there is no camera band to fill: one line of text with room to tap it. */
-private val HEADER_MIN = 32.dp
-
 /** Room kept clear on each side of the camera's cutout. */
 private val CUTOUT_GAP = 4.dp
 
@@ -284,6 +281,7 @@ internal fun Header(
     val leftKinds = remember(version) { headerSide(config[Keys.HEADER_LEFT]) }
     val rightKinds = remember(version) { headerSide(config[Keys.HEADER_RIGHT]).filter { it !in leftKinds } }
     val belowBar = remember(version) { config[Keys.HEADER_BELOW_BAR] }
+    val textPadding = remember(version) { config[Keys.HEADER_PADDING].dp }
     val bold = Term.small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
     val iconSize = (Term.fontSize + 1).dp
 
@@ -293,7 +291,9 @@ internal fun Header(
     val band = if (preview || belowBar) 0 else (WindowInsets.displayCutout.getTop(density) - barTop).coerceAtLeast(0)
     // Below the bar: keep the status bar's space (shown or hidden) and the camera's space clear above the line.
     val topInsets = if (belowBar) WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout) else WindowInsets.statusBars
-    val height = with(density) { maxOf(band.toDp(), HEADER_MIN) }
+    // One line of text (or an icon, if taller) with `header.padding` above and below it; beside the
+    // camera, at least the band's height.
+    val height = with(density) { maxOf(band.toDp(), maxOf(Term.small.lineHeight.toDp(), iconSize) + textPadding * 2) }
     val view = LocalView.current
     // The cutout's x ranges across the line. When the status bar is shown, the bar avoids the cutout, so there are none.
     val cutouts = remember(band, barTop, view) {

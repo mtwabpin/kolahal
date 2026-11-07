@@ -53,6 +53,7 @@ The `theme` and `font` commands didn't change.
 | --- | --- | --- | --- |
 | `header.show` | bool | `off` | show the [header](/getting-started/basics/#the-header), the line at the top of home, with the parts you chose on each side. When off, only the [pinned header](/getting-started/basics/#the-pinned-header) is at the top, and you open settings with `settings` |
 | `header.below-bar` | bool | `on` | in full screen, put the header below the status bar's area instead of next to the camera. When the status bar is shown, the header is always below it |
+| `header.padding` | number 0–24 | `6` | space (dp) above and below the header's text. The header is one line of text with this much above and below it (31 dp at font size 14). Not in Settings |
 | `header.left` | parts separated by commas, or `none` | `time,date` | the parts on the header's left side, from left to right. Any of `time` `date` `battery` `alarm` `todo` `network` `unlocks` `profiles` `settings`. Each part can be on one side only. Also in Settings → Header → Arrange the header |
 | `header.right` | as `header.left` | `alarm,todo,battery` | the parts on the header's right side, from left to right. If they don't fit, parts in the middle are left out first |
 | `header.pinned-seconds` | number 2–60 | `5` | how many seconds each item in the pinned header shows before the next one. Not in Settings |

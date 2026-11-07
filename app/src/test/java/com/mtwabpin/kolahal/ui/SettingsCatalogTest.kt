@@ -31,7 +31,7 @@ class SettingsCatalogTest {
     /** The header is one line: its settings are a few, each with a title, and the full and one-line headers' are gone. */
     @Test fun theHeaderHasAFewSettings() {
         val header = Keys.ALL.filter { it.key.startsWith("header.") }
-        assertEquals(listOf("header.show", "header.below-bar", "header.left", "header.right", "header.pinned-seconds", "header.pinned-dots", "header.pinned-bar-above", "header.pinned-bar-below"), header.map { it.key })
+        assertEquals(listOf("header.show", "header.below-bar", "header.padding", "header.left", "header.right", "header.pinned-seconds", "header.pinned-dots", "header.pinned-bar-above", "header.pinned-bar-below"), header.map { it.key })
         assertTrue(header.all { it.key in TITLES })
         assertTrue(Keys.REMOVED.keys.filter { it.startsWith("header.compact.") }.size == 12)
     }

@@ -42,6 +42,7 @@ object Keys {
     val HEADER_PARTS = listOf("time", "date", "battery", "alarm", "todo", "network", "unlocks", "profiles", "settings")
     val HEADER_SHOW = ConfigKey.Bool("header.show", false, "Show the header, the line at the top of home: the time, the date, the battery and the parts you chose (off: only the pinned header, while music plays or a script is pinned; open settings with the settings command)")
     val HEADER_BELOW_BAR = ConfigKey.Bool("header.below-bar", true, "In full screen, put the header below the status bar's area instead of beside the camera (with the status bar shown it is always below it)")
+    val HEADER_PADDING = ConfigKey.Num("header.padding", 6, 0..24, "Space (dp) above and below the header's text: the header is one line of text with this much above and below it")
     // The header's two sides. Each is a list of parts in the order they show; none leaves a side empty.
     val HEADER_LEFT = ConfigKey.Text("header.left", "time,date", "The header's left side, from the left: $HEADER_PARTS_HELP", ::headerParts)
     val HEADER_RIGHT = ConfigKey.Text("header.right", "alarm,todo,battery", "The header's right side, from the left: $HEADER_PARTS_HELP", ::headerParts)
@@ -156,6 +157,7 @@ object Keys {
     val ALL: List<ConfigKey<*>> = listOf(
         HEADER_SHOW,
         HEADER_BELOW_BAR,
+        HEADER_PADDING,
         HEADER_LEFT,
         HEADER_RIGHT,
         HEADER_PINNED_SECONDS,
@@ -239,7 +241,7 @@ object Keys {
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header).
      */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT)
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT)
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {

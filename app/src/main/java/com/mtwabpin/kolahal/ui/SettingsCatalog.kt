@@ -16,6 +16,7 @@ internal val TITLES = mapOf(
     "font.size" to "Text size",
     "header.show" to "Show the header",
     "header.below-bar" to "Below the status bar area",
+    "header.padding" to "Padding",
     "header.left" to "Left side",
     "header.right" to "Right side",
     "header.pinned-seconds" to "Seconds per item",
