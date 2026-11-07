@@ -50,6 +50,8 @@ class PinnedHeaderTest {
     @After fun tearDown() {
         config.reset(Keys.HEADER_PINNED_SECONDS)
         config.reset(Keys.HEADER_PINNED_DOTS)
+        config.reset(Keys.HEADER_PINNED_BAR_ABOVE)
+        config.reset(Keys.HEADER_PINNED_BAR_BELOW)
     }
 
     private fun pin(name: String, text: String = "$name text", progress: Float? = null, refresh: Int? = null) =
@@ -183,17 +185,36 @@ class PinnedHeaderTest {
         assertEquals(listOf("cricket"), presses)
     }
 
+    /** One line of the small text: the pinned row at the test's font size. */
+    private fun row() = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
+
     /**
-     * The line is short (PINNED_ROW, the bar and 2 dp above and below: 30 dp), and all of it takes
-     * the tap: the padding above the text and the bar under it too.
+     * The line is short (4 dp, the text row, 3 dp, the 2 dp bar, 2 dp: 30 dp at font size 14), and
+     * all of it takes the tap: the space above the text and the bar under it too.
      */
     @Test fun theWholeShortLineTakesTheTap() {
         show(pin("cricket", progress = 0.5f))
-        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_ROW + 6.dp)
+        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_TOP + row() + 3.dp + 2.dp + 2.dp)
         compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, 1f)) }
         compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
         compose.mainClock.advanceTimeBy(1_000)
         assertEquals(listOf("cricket", "cricket"), taps)
+    }
+
+    /**
+     * header.pinned-bar-above and -below set the space over and under the bar, and the bar stays
+     * at the item's bottom; a change shows at once.
+     */
+    @Test fun theBarsGapsComeFromConfig() {
+        show(pin("cricket", progress = 0.5f))
+        config.set(Keys.HEADER_PINNED_BAR_ABOVE, "10")
+        config.set(Keys.HEADER_PINNED_BAR_BELOW, "6")
+        version++
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_TOP + row() + 10.dp + 2.dp + 6.dp)
+        compose.onNodeWithTag("pinned-cricket").assertHeightIsEqualTo(row() + 10.dp + 2.dp)
+        val half = filled("cricket")
+        assertTrue("$half filled", half in 0.45f..0.55f)
     }
 
     /** How much of the item's width its bar's filled part takes, 0 to 1, read from its pixels. */

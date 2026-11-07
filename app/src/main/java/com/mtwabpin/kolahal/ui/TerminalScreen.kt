@@ -74,6 +74,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.R
@@ -475,19 +476,23 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                     .testTag("jump-latest")
                     .heightIn(min = 48.dp)
                     .clickable(onClickLabel = "scroll to the bottom") { followNewest = true; scope.launch { listState.animateScrollToItem(0) } }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
             ) {
                 // The chip: a soft pill, no border, lifted off the log by a shadow. Its colour is the
                 // surface's, a touch toward the text colour, so it stands out on a dark theme too, where
-                // the surface is close to the background.
+                // the surface is close to the background. About 40 dp tall at font size 14.
                 Box(
                     Modifier
-                        .shadow(4.dp, RoundedCornerShape(50))
+                        .shadow(6.dp, RoundedCornerShape(50))
                         .background(lerp(Term.surface, Term.fg, 0.06f), RoundedCornerShape(50))
-                        .padding(horizontal = 14.dp, vertical = 5.dp),
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
-                    // In the system font: it is a button over the log, not a line of it.
-                    Text("↓ Scroll to bottom", style = Term.small.copy(color = Term.prompt, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Default))
+                    // In the system font: it is a button over the log, not a line of it. One size
+                    // up from the log's text, so it is easy to see and to hit.
+                    Text(
+                        "↓ Scroll to bottom",
+                        style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Default, fontSize = (Term.fontSize + 1).sp),
+                    )
                 }
             }
         }

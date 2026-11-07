@@ -117,14 +117,15 @@ class NowPlayingLineTest {
     }
 
     /**
-     * The bar goes under the line, the whole width. The line is as short as a pinned script's
-     * (PINNED_ROW and the bar), and the next button keeps its 48 dp width.
+     * The bar goes under the line, the whole width. The line is as short as a pinned script's (the
+     * text row, the default 3 dp gap and the 2 dp bar), and the next button keeps its 48 dp width.
      */
     @Test fun theBarLeavesTheTapsTheirRoom() {
         show { track() }
-        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(PINNED_ROW + 2.dp)
-        compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(PINNED_ROW).assertWidthIsAtLeast(48.dp)
-        compose.onNodeWithText("Song — Band").assertHeightIsAtLeast(PINNED_ROW)
+        val row = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
+        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(row + 3.dp + 2.dp)
+        compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(row).assertWidthIsAtLeast(48.dp)
+        compose.onNodeWithText("Song — Band").assertHeightIsAtLeast(row)
     }
 
     /** A tap just under the text, on the bar, still toggles: the bar is part of the tap area. */

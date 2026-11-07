@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
+import com.mtwabpin.kolahal.data.Keys
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
@@ -49,6 +50,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * - A long press or ⏭ skips to the next track.
  * - [endPadding] keeps the end of the line free for the pinned header's dots. The bar continues
  *   under them.
+ * - Its row is [pinnedRow] tall and the bar [barAbove] under it, as a pinned script's line.
  */
 @Composable
 internal fun NowPlayingLine(
@@ -56,6 +58,7 @@ internal fun NowPlayingLine(
     onToggle: () -> Unit,
     onNext: () -> Unit,
     endPadding: Dp = 0.dp,
+    barAbove: Dp = Keys.HEADER_PINNED_BAR_ABOVE.default.dp,
 ) {
     // The track progress. It is computed every 250 ms, but stored only when the filled part of the
     // bar changes by at least a pixel, and it is read only when drawing the bar. An hour-long track
@@ -84,6 +87,7 @@ internal fun NowPlayingLine(
         }
     }
 
+    val row = pinnedRow()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -103,7 +107,7 @@ internal fun NowPlayingLine(
                         onClick = onToggle,
                         onLongClick = onNext
                     )
-                    .heightIn(min = PINNED_ROW)
+                    .heightIn(min = row)
             ) {
                 if (np.playing) {
                     TintedIcon(
@@ -138,7 +142,7 @@ internal fun NowPlayingLine(
                         onClickLabel = "next track",
                         onClick = onNext
                     )
-                    .heightIn(min = PINNED_ROW)
+                    .heightIn(min = row)
                     .widthIn(min = 48.dp)
             ) {
                 TintedIcon(
@@ -150,6 +154,7 @@ internal fun NowPlayingLine(
             }
         }
 
+        Spacer(Modifier.height(barAbove))
         // The playback progress bar. When the width changes, it redraws at once, without waiting for the
         // next pixel of progress.
         ProgressTrack({ progress }, Modifier.onSizeChanged { barWidth[0] = it.width; progress = np.progressNow() })

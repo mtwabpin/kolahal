@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -94,13 +95,22 @@ internal object PinnedTurns {
 }
 
 /**
- * Height of a pinned item's text row. The now playing line uses it too, so the items take turns
- * without moving the log. With the bar and the padding, the whole line is 30 dp.
- * - It is short, so the bar sits just under the text.
- * - Taps on the padding still reach the item: Compose sends a tap near a small target to it, when
- *   nothing else is under the finger.
+ * A pinned line, from the top:
+ * - [PINNED_TOP] of space,
+ * - the text row ([pinnedRow]),
+ * - `header.pinned-bar-above` of space, the 2 dp bar, `header.pinned-bar-below` of space.
+ * At font size 14 and the default gaps that is 4 + 19 + 3 + 2 + 2 = 30 dp.
+ * Taps on the space still reach the item: Compose sends a tap near a small target to it, when
+ * nothing else is under the finger.
  */
-internal val PINNED_ROW = 24.dp
+internal val PINNED_TOP = 4.dp
+
+/**
+ * Height of a pinned item's text row: one line of the small text, or the now playing line's
+ * largest icon if that is taller. Every item uses it, so the items take turns without moving the log.
+ */
+@Composable
+internal fun pinnedRow(): Dp = with(LocalDensity.current) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
 
 /**
  * The pinned header: a line under the header (or at the top, when the header is off). It shows what
@@ -128,6 +138,9 @@ internal fun PinnedHeader(
     val (now, _) = rememberNow()
     val seconds = remember(version) { config[Keys.HEADER_PINNED_SECONDS] }
     val dotsUpTo = remember(version) { config[Keys.HEADER_PINNED_DOTS] }
+    val barAbove = remember(version) { config[Keys.HEADER_PINNED_BAR_ABOVE].dp }
+    val barBelow = remember(version) { config[Keys.HEADER_PINNED_BAR_BELOW].dp }
+    val row = pinnedRow()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     val refresh by rememberUpdatedState(onRefresh)
@@ -178,7 +191,7 @@ internal fun PinnedHeader(
                     }
                 }
             }
-            .padding(horizontal = 12.dp, vertical = 2.dp),
+            .padding(start = 12.dp, end = 12.dp, top = PINNED_TOP, bottom = barBelow),
     ) {
         AnimatedContent(
             targetState = items[index],
@@ -187,11 +200,11 @@ internal fun PinnedHeader(
             label = "pinned",
         ) { item ->
             when (item) {
-                is PinnedItem.Media -> NowPlayingLine(item.np, onMediaToggle, onMediaNext, endPadding = dotsRoom)
-                is PinnedItem.Script -> PinLine(item.line, onPinTap, onPinLongPress, dotsRoom)
+                is PinnedItem.Media -> NowPlayingLine(item.np, onMediaToggle, onMediaNext, endPadding = dotsRoom, barAbove = barAbove)
+                is PinnedItem.Script -> PinLine(item.line, onPinTap, onPinLongPress, dotsRoom, row, barAbove)
             }
         }
-        if (dots) PinnedDots(items.size, index, Modifier.align(Alignment.TopEnd).height(PINNED_ROW))
+        if (dots) PinnedDots(items.size, index, Modifier.align(Alignment.TopEnd).height(row))
     }
 }
 
@@ -201,7 +214,7 @@ internal fun PinnedHeader(
  * when there is a progress value.
  */
 @Composable
-private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp) {
+private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp, row: Dp, barAbove: Dp) {
     // The whole item takes the tap, the bar too: the row is short.
     Column(
         Modifier
@@ -217,10 +230,11 @@ private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (Str
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = PINNED_ROW)
+                .heightIn(min = row)
                 .wrapContentHeight()
                 .padding(end = endPadding),
         )
+        Spacer(Modifier.height(barAbove))
         // Keep the bar's space even without a bar, so every item has the same height and the log does not move.
         val progress = line.progress
         if (progress != null) ProgressTrack(progress, line.colour?.let(::colourOf) ?: Term.prompt) else Spacer(Modifier.height(2.dp))

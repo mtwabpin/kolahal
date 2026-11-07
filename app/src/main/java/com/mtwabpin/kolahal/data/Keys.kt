@@ -47,6 +47,8 @@ object Keys {
     val HEADER_RIGHT = ConfigKey.Text("header.right", "alarm,todo,battery", "The header's right side, from the left: $HEADER_PARTS_HELP", ::headerParts)
     val HEADER_PINNED_SECONDS = ConfigKey.Num("header.pinned-seconds", 5, 2..60, "How many seconds each item in the pinned header shows before the next one")
     val HEADER_PINNED_DOTS = ConfigKey.Num("header.pinned-dots", 3, 0..10, "Dots at the end of the pinned header showing which item is on screen, for up to this many items (0: never)")
+    val HEADER_PINNED_BAR_ABOVE = ConfigKey.Num("header.pinned-bar-above", 3, 0..16, "Space (dp) between the pinned header's text and its progress bar")
+    val HEADER_PINNED_BAR_BELOW = ConfigKey.Num("header.pinned-bar-below", 2, 0..16, "Space (dp) under the pinned header's progress bar, before the log")
     // The name in name@device: no @ of its own and no spaces, like usernames.
     val USER_NAME = ConfigKey.Text(
         "user.name", "kolahal",
@@ -158,6 +160,8 @@ object Keys {
         HEADER_RIGHT,
         HEADER_PINNED_SECONDS,
         HEADER_PINNED_DOTS,
+        HEADER_PINNED_BAR_ABOVE,
+        HEADER_PINNED_BAR_BELOW,
         USER_NAME,
         CLOCK_24H,
         KEYBAR_SHOW,
@@ -235,7 +239,7 @@ object Keys {
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header).
      */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_LEFT, HEADER_RIGHT)
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT)
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {

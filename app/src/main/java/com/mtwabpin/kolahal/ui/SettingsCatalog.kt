@@ -20,6 +20,8 @@ internal val TITLES = mapOf(
     "header.right" to "Right side",
     "header.pinned-seconds" to "Seconds per item",
     "header.pinned-dots" to "Dots up to",
+    "header.pinned-bar-above" to "Space above the bar",
+    "header.pinned-bar-below" to "Space below the bar",
     "clock.24h" to "24-hour clock",
     "user.name" to "Your name",
     "widgets.page" to "Widgets page (swipe sideways)",
