@@ -8,9 +8,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -178,6 +181,19 @@ class PinnedHeaderTest {
         compose.onNodeWithTag("pinned-cricket").performTouchInput { longClick() }
         compose.mainClock.advanceTimeBy(1_000)
         assertEquals(listOf("cricket"), presses)
+    }
+
+    /**
+     * The line is short (PINNED_ROW, the bar and 2 dp above and below: 30 dp), and all of it takes
+     * the tap: the padding above the text and the bar under it too.
+     */
+    @Test fun theWholeShortLineTakesTheTap() {
+        show(pin("cricket", progress = 0.5f))
+        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_ROW + 6.dp)
+        compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, 1f)) }
+        compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
+        compose.mainClock.advanceTimeBy(1_000)
+        assertEquals(listOf("cricket", "cricket"), taps)
     }
 
     /** How much of the item's width its bar's filled part takes, 0 to 1, read from its pixels. */

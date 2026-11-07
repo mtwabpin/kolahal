@@ -93,8 +93,14 @@ internal object PinnedTurns {
     }
 }
 
-/** Height of the pinned header line. It is the same as the now playing line. */
-private val PINNED_ROW = 48.dp
+/**
+ * Height of a pinned item's text row. The now playing line uses it too, so the items take turns
+ * without moving the log. With the bar and the padding, the whole line is 30 dp.
+ * - It is short, so the bar sits just under the text.
+ * - Taps on the padding still reach the item: Compose sends a tap near a small target to it, when
+ *   nothing else is under the finger.
+ */
+internal val PINNED_ROW = 24.dp
 
 /**
  * The pinned header: a line under the header (or at the top, when the header is off). It shows what
@@ -196,7 +202,14 @@ internal fun PinnedHeader(
  */
 @Composable
 private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp) {
-    Column(Modifier.fillMaxWidth().testTag("pinned-${line.name}")) {
+    // The whole item takes the tap, the bar too: the row is short.
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("pinned-${line.name}")
+            .combinedClickable(onLongClickLabel = "actions", onLongClick = { onLongPress(line.name) }) { onTap(line.name) }
+            .semantics { contentDescription = "${line.name}: ${line.text}" },
+    ) {
         Text(
             line.text,
             style = Term.small.copy(color = Term.script),
@@ -204,8 +217,6 @@ private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (Str
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(onLongClickLabel = "actions", onLongClick = { onLongPress(line.name) }) { onTap(line.name) }
-                .semantics { contentDescription = "${line.name}: ${line.text}" }
                 .heightIn(min = PINNED_ROW)
                 .wrapContentHeight()
                 .padding(end = endPadding),

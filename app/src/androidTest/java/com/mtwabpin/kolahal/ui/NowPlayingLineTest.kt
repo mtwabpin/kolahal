@@ -12,10 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -112,12 +116,22 @@ class NowPlayingLineTest {
         compose.runOnIdle { assertEquals(0, toggles); assertEquals(1, skips) }
     }
 
-    /** The bar goes under the line: the whole width, and the taps keep their 48 dp. */
+    /**
+     * The bar goes under the line, the whole width. The line is as short as a pinned script's
+     * (PINNED_ROW and the bar), and the next button keeps its 48 dp width.
+     */
     @Test fun theBarLeavesTheTapsTheirRoom() {
         show { track() }
-        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsAtLeast(50.dp)
-        compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(48.dp)
-        compose.onNodeWithText("Song — Band").assertHeightIsAtLeast(48.dp)
+        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(PINNED_ROW + 2.dp)
+        compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(PINNED_ROW).assertWidthIsAtLeast(48.dp)
+        compose.onNodeWithText("Song — Band").assertHeightIsAtLeast(PINNED_ROW)
+    }
+
+    /** A tap just under the text, on the bar, still toggles: the bar is part of the tap area. */
+    @Test fun aTapOnTheBarStillToggles() {
+        show { track() }
+        compose.onNodeWithTag("header-media").performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
+        compose.runOnIdle { assertEquals(1, toggles); assertEquals(0, skips) }
     }
 
     @Test fun theBarIsEmptyAtTheStart() {

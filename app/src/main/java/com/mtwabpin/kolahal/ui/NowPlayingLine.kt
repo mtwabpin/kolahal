@@ -103,7 +103,7 @@ internal fun NowPlayingLine(
                         onClick = onToggle,
                         onLongClick = onNext
                     )
-                    .heightIn(min = 48.dp)
+                    .heightIn(min = PINNED_ROW)
             ) {
                 if (np.playing) {
                     TintedIcon(
@@ -138,7 +138,7 @@ internal fun NowPlayingLine(
                         onClickLabel = "next track",
                         onClick = onNext
                     )
-                    .heightIn(min = 48.dp)
+                    .heightIn(min = PINNED_ROW)
                     .widthIn(min = 48.dp)
             ) {
                 TintedIcon(
