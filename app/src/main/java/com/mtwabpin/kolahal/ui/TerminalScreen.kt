@@ -70,6 +70,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -485,7 +486,8 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                         .background(lerp(Term.surface, Term.fg, 0.06f), RoundedCornerShape(50))
                         .padding(horizontal = 14.dp, vertical = 5.dp),
                 ) {
-                    Text("↓ Scroll to bottom", style = Term.small.copy(color = Term.prompt, fontWeight = FontWeight.Bold))
+                    // In the system font: it is a button over the log, not a line of it.
+                    Text("↓ Scroll to bottom", style = Term.small.copy(color = Term.prompt, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Default))
                 }
             }
         }
