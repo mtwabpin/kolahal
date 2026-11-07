@@ -360,7 +360,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 version = configVersion,
                 onMediaToggle = vm::mediaToggle,
                 onMediaNext = vm::mediaNext,
-                onPinTap = vm::runScriptNamed,
+                onPinTap = vm::onPinTap,
                 onPinLongPress = { name -> showMenu("$name ▸ ${pinnedLines.firstOrNull { it.name == name }?.text.orEmpty()}", null) { vm.scriptActions.statusActions(name) } },
                 onRefresh = vm::refreshPinned,
             )

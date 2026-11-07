@@ -99,7 +99,7 @@ internal object PinnedTurns {
  * - [PINNED_TOP] of space,
  * - the text row ([pinnedRow]),
  * - `header.pinned-bar-above` of space, the 2 dp bar, `header.pinned-bar-below` of space.
- * At font size 14 and the default gaps that is 4 + 19 + 3 + 2 + 2 = 30 dp.
+ * At font size 14 and the default gaps that is 4 + 19 + 5 + 2 + 5 = 35 dp.
  * Taps on the space still reach the item: Compose sends a tap near a small target to it, when
  * nothing else is under the finger.
  */

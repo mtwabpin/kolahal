@@ -38,6 +38,7 @@ import com.mtwabpin.kolahal.NotificationAccess
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -118,12 +119,12 @@ class NowPlayingLineTest {
 
     /**
      * The bar goes under the line, the whole width. The line is as short as a pinned script's (the
-     * text row, the default 3 dp gap and the 2 dp bar), and the next button keeps its 48 dp width.
+     * text row, the default gap and the 2 dp bar), and the next button keeps its 48 dp width.
      */
     @Test fun theBarLeavesTheTapsTheirRoom() {
         show { track() }
         val row = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
-        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(row + 3.dp + 2.dp)
+        compose.onNodeWithTag("header-media").assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(row + Keys.HEADER_PINNED_BAR_ABOVE.default.dp + 2.dp)
         compose.onNodeWithContentDescription("Next").assertHeightIsAtLeast(row).assertWidthIsAtLeast(48.dp)
         compose.onNodeWithText("Song — Band").assertHeightIsAtLeast(row)
     }

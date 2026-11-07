@@ -47,8 +47,8 @@ object Keys {
     val HEADER_RIGHT = ConfigKey.Text("header.right", "alarm,todo,battery", "The header's right side, from the left: $HEADER_PARTS_HELP", ::headerParts)
     val HEADER_PINNED_SECONDS = ConfigKey.Num("header.pinned-seconds", 5, 2..60, "How many seconds each item in the pinned header shows before the next one")
     val HEADER_PINNED_DOTS = ConfigKey.Num("header.pinned-dots", 3, 0..10, "Dots at the end of the pinned header showing which item is on screen, for up to this many items (0: never)")
-    val HEADER_PINNED_BAR_ABOVE = ConfigKey.Num("header.pinned-bar-above", 3, 0..16, "Space (dp) between the pinned header's text and its progress bar")
-    val HEADER_PINNED_BAR_BELOW = ConfigKey.Num("header.pinned-bar-below", 2, 0..16, "Space (dp) under the pinned header's progress bar, before the log")
+    val HEADER_PINNED_BAR_ABOVE = ConfigKey.Num("header.pinned-bar-above", 5, 0..16, "Space (dp) between the pinned header's text and its progress bar")
+    val HEADER_PINNED_BAR_BELOW = ConfigKey.Num("header.pinned-bar-below", 5, 0..16, "Space (dp) under the pinned header's progress bar, before the log")
     // The name in name@device: no @ of its own and no spaces, like usernames.
     val USER_NAME = ConfigKey.Text(
         "user.name", "kolahal",

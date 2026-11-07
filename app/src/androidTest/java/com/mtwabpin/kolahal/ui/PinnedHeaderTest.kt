@@ -189,12 +189,12 @@ class PinnedHeaderTest {
     private fun row() = with(compose.density) { maxOf(Term.small.lineHeight.toDp(), (Term.fontSize + 4).dp) }
 
     /**
-     * The line is short (4 dp, the text row, 3 dp, the 2 dp bar, 2 dp: 30 dp at font size 14), and
+     * The line is short (4 dp, the text row, the gaps and the 2 dp bar: 35 dp at font size 14), and
      * all of it takes the tap: the space above the text and the bar under it too.
      */
     @Test fun theWholeShortLineTakesTheTap() {
         show(pin("cricket", progress = 0.5f))
-        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_TOP + row() + 3.dp + 2.dp + 2.dp)
+        compose.onNodeWithTag("pinned-header").assertHeightIsEqualTo(PINNED_TOP + row() + Keys.HEADER_PINNED_BAR_ABOVE.default.dp + 2.dp + Keys.HEADER_PINNED_BAR_BELOW.default.dp)
         compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, 1f)) }
         compose.onNodeWithTag("pinned-header").performTouchInput { click(Offset(width * 0.3f, height - 1f)) }
         compose.mainClock.advanceTimeBy(1_000)

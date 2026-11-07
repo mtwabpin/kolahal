@@ -1087,15 +1087,27 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         logs.recent(limit = 200).filter { it.source == script && it.ts >= since }
     }
 
+    /**
+     * Header and pinned items that run a command or a script, or log a line: each runs at most once
+     * in 2 seconds, so quick repeated taps log once. Items that only open a screen, and the music
+     * controls, are not held back.
+     */
+    private val itemTaps = TapGate(2_000) { android.os.SystemClock.elapsedRealtime() }
+
     fun onHeaderTap(target: HeaderTarget) {
         when (target) {
             HeaderTarget.CLOCK, HeaderTarget.ALARM -> startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS))
-            HeaderTarget.UNLOCKS -> runCommand("unlocks 7")
+            HeaderTarget.UNLOCKS -> if (itemTaps.allow("header:unlocks")) runCommand("unlocks 7")
             HeaderTarget.BATTERY -> startActivity(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
             HeaderTarget.NETWORK -> startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
             HeaderTarget.SETTINGS -> openScreen(Screen.SETTINGS)
-            HeaderTarget.TODO -> runCommand("todo")
+            HeaderTarget.TODO -> if (itemTaps.allow("header:todo")) runCommand("todo")
         }
+    }
+
+    /** A tap on a pinned script's line: runs the script, at most once in 2 seconds ([itemTaps]). */
+    fun onPinTap(name: String) {
+        if (itemTaps.allow("pin:$name")) runScriptNamed(name)
     }
 
     /**
@@ -1143,6 +1155,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** Resuming is harmless, so it runs at once. Pausing needs a second tap, on the logged line. */
     fun onProfileTap(profile: Profile) {
+        if (!itemTaps.allow("profile:${profile.kind}")) return
         val cmd = if (profile.kind == ProfileKind.PRIVATE) "private" else "work"
         if (profile.quiet) {
             runCommand("$cmd on")

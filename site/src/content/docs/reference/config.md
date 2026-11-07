@@ -57,8 +57,8 @@ The `theme` and `font` commands didn't change.
 | `header.right` | as `header.left` | `alarm,todo,battery` | the parts on the header's right side, from left to right. If they don't fit, parts in the middle are left out first |
 | `header.pinned-seconds` | number 2–60 | `5` | how many seconds each item in the pinned header shows before the next one. Not in Settings |
 | `header.pinned-dots` | number 0–10 | `3` | dots at the end of the pinned header that show which item is on the screen, for up to this many items. `0`: never. Not in Settings |
-| `header.pinned-bar-above` | number 0–16 | `3` | space (dp) between the pinned header's text and its progress bar. Not in Settings |
-| `header.pinned-bar-below` | number 0–16 | `2` | space (dp) under the pinned header's progress bar, before the log. Not in Settings |
+| `header.pinned-bar-above` | number 0–16 | `5` | space (dp) between the pinned header's text and its progress bar. Not in Settings |
+| `header.pinned-bar-below` | number 0–16 | `5` | space (dp) under the pinned header's progress bar, before the log. Not in Settings |
 | `clock.24h` | bool | `off` | use 24-hour time in the header and log |
 | `user.name` | text | `kolahal` | your name in `name@device`, in `fetch`. Up to 32 characters, with no spaces or `@` |
 
