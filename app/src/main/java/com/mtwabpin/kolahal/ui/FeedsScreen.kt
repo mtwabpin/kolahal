@@ -92,10 +92,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URI
 
-/** Per-feed refresh presets (minutes). */
+/** Refresh interval presets for a feed, in minutes. */
 private val FEED_INTERVALS = listOf(15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 720 to "12 hours", 1440 to "24 hours")
 
-/** Items shown per feed (the database keeps at most [com.mtwabpin.kolahal.feeds.FeedDb.MAX_ITEMS_PER_FEED]). */
+/** Number of items shown per feed. The database keeps at most [com.mtwabpin.kolahal.feeds.FeedDb.MAX_ITEMS_PER_FEED]. */
 private const val ITEM_LIMIT = 300
 
 private fun hostOf(url: String): String =
@@ -104,10 +104,14 @@ private fun hostOf(url: String): String =
 private fun FeedInfo.displayTitle(): String = title?.takeIf { it.isNotBlank() } ?: hostOf(url)
 
 /**
- * Feed manager (Material 3 Expressive): subscriptions with unread counts, per-feed settings in a
- * bottom sheet, an item list per feed, and OPML import/export. Reads and writes go to
- * [FeedRepository] on [Dispatchers.IO]; lists re-query whenever [FeedRepository.version] changes
- * (the fetch worker runs in this process, so new items show up live).
+ * The feed manager (Material 3 Expressive). It shows:
+ * - subscriptions with unread counts;
+ * - per-feed settings in a bottom sheet;
+ * - an item list per feed;
+ * - OPML import and export.
+ *
+ * Reads and writes go to [FeedRepository] on [Dispatchers.IO]. Lists query again whenever
+ * [FeedRepository.version] changes. The fetch worker runs in this process, so new items show up live.
  */
 @Composable
 fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
@@ -120,7 +124,7 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
     val feeds by produceState<List<FeedInfo>?>(null, repoVersion) {
         value = withContext(Dispatchers.IO) { repo.all() }
     }
-    // The feeds settings, shown under the subscriptions; read here, not in the list's content.
+    // The feeds settings, shown under the subscriptions. They are read here, not inside the list's content.
     val configVersion = vm.config.version.collectAsStateWithLifecycle()
     val applicable by remember { derivedStateOf { configVersion.value; Keys.ALL.filterTo(HashSet()) { applies(it, vm.config) } } }
     var openFeedId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -130,7 +134,7 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
 
     BackHandler { if (openFeedId != null) openFeedId = null else vm.closeScreen() }
 
-    /** Runs [block] off the main thread and shows its result (or failure) as a snackbar. */
+    /** Runs [block] off the main thread and shows its result, or its failure, in a snackbar. */
     fun io(label: String, block: suspend () -> String?) {
         scope.launch {
             val msg = withContext(Dispatchers.IO) {
@@ -254,7 +258,7 @@ private fun openItem(context: Context, scope: CoroutineScope, repo: FeedReposito
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {
-            // No handler, a malformed link, or a SecurityException from the target activity.
+            // No app can handle it, the link is malformed, or the target activity threw a SecurityException.
             scope.launch { snackbar.showSnackbar("No app can open $link") }
             return
         }
@@ -338,7 +342,7 @@ private fun FeedListPage(
                 }
             }
         }
-        // The feed settings live here, with the feeds; Settings search finds them too.
+        // The feed settings are here, next to the feeds. Settings search finds them too.
         item(key = "h:settings") { GroupHeader("Settings") }
         categorySettings(vm, FEEDS_CATEGORY, configVersion, applicable)
     }
@@ -399,7 +403,7 @@ private fun FeedRow(f: FeedInfo, index: Int, count: Int, onClick: () -> Unit, on
     }
 }
 
-/** "unread / total" pill; filled when anything is unread. */
+/** An "unread / total" pill. It is filled when any item is unread. */
 @Composable
 private fun UnreadBadge(unread: Int, total: Int) {
     val active = unread > 0
@@ -475,8 +479,9 @@ private fun FeedSheet(
             Spacer(Modifier.height(12.dp))
             IntervalSelector("Refresh every", feed.intervalMin, onInterval, FEED_INTERVALS)
 
-            // What changes the subscription itself, together at the end: its address (a typo, a feed
-            // that moved) rather than removing it and adding it again, and removing it.
+            // Actions that change the subscription itself are grouped at the end:
+            // - Edit address, to fix a typo or follow a feed that moved, without removing and adding it again.
+            // - Remove feed.
             Spacer(Modifier.height(16.dp))
             Row {
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress) {
@@ -507,8 +512,9 @@ private fun FeedSheet(
 // ---- address dialog -----------------------------------------------------------------------------
 
 /**
- * A feed's address, to add one or to change one's ([initial] filled in). [onSubmit] runs off the main
- * thread with the address normalised and returns what to say; what it throws shows under the field.
+ * A dialog for a feed's address, to add a feed or to change its address ([initial] is filled in).
+ * [onSubmit] runs off the main thread with the normalised address and returns the message to show.
+ * If it throws, the error shows under the field.
  */
 @Composable
 private fun FeedAddressDialog(
@@ -617,8 +623,11 @@ private fun FeedItemsPage(
 }
 
 /**
- * An item: tap opens it, a swipe either way marks it read, or unread again when it is. The row comes
- * back once let go; a screen reader has the same as an action.
+ * One feed item.
+ * - A tap opens it.
+ * - A swipe in either direction marks it read, or unread if it is already read. The row moves
+ *   back when released.
+ * - Screen readers get the same toggle as an action.
  */
 @Composable
 private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit, onToggleRead: () -> Unit) {
@@ -627,8 +636,8 @@ private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit,
     val swipe = rememberSwipeToDismissBoxState()
     val scope = rememberCoroutineScope()
     val label = if (item.read) "Mark unread" else "Mark read"
-    // One callback for the row's life: the box runs it again whenever it's a new one while the row is
-    // still out, and each run would toggle the item once more.
+    // Keep one callback for the whole life of the row. The box runs the callback again each time it
+    // changes while the row is still swiped out, and each run would toggle the item again.
     val toggle by rememberUpdatedState(onToggleRead)
     val dismissed = remember(swipe, scope) {
         { _: SwipeToDismissBoxValue ->
@@ -640,7 +649,7 @@ private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit,
     SwipeToDismissBox(
         state = swipe,
         backgroundContent = {
-            // What letting go does, on the side the row was pulled from.
+            // Shows what releasing the row does, on the side it was pulled from.
             Row(
                 horizontalArrangement = if (swipe.dismissDirection == SwipeToDismissBoxValue.EndToStart) Arrangement.End else Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically,
@@ -664,7 +673,7 @@ private fun ItemRow(item: FeedItem, index: Int, count: Int, onClick: () -> Unit,
             shapes = shapes,
             colors = segColors(),
             leadingContent = {
-                // Unread dot; a fixed-size slot keeps titles aligned when it's hidden.
+                // Unread dot. Its slot has a fixed size, so titles stay aligned when the dot is hidden.
                 Box(Modifier.size(10.dp).then(
                     if (!item.read) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape) else Modifier
                 ))

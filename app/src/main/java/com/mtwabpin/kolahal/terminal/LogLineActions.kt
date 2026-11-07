@@ -25,13 +25,13 @@ import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 
 /**
- * What a tap or a long-press on a log line does; the line's saved [LogContext] decides. The view
- * model owns the prompt and the command queue and lends them through [Host].
+ * Decides what a tap or a long-press on a log line does, based on the line's saved [LogContext].
+ * The view model owns the prompt and the command queue, and gives access to them through [Host].
  */
 class LogLineActions(private val context: Context, private val processor: CommandProcessor, private val host: Host) {
     /** What the actions need from the view model. */
     interface Host {
-        /** The log as loaded, oldest first (a command's block is the lines after it). */
+        /** The loaded log, oldest first. A command's block is the lines after it. */
         val entries: List<LogEntry>
         val scripts: List<Script>
         /** Runs [block] on the serial command queue. */
@@ -43,7 +43,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
         fun runCommand(cmd: String)
         fun openEditorAt(script: Script, line: Int?)
         fun startActivity(intent: Intent)
-        /** `log only …` from a line's long-press. */
+        /** Runs `log only …` from a line's long-press menu. */
         fun filterLog(filter: LogFilter?)
     }
 
@@ -52,7 +52,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
     private val appPrefs = AppPrefs.get(context)
     private val scripts = ScriptRepository.get(context)
 
-    /** Single tap: the most likely action for this line. */
+    /** Single tap: runs the most likely action for this line. */
     fun onTap(entry: LogEntry) {
         val ctx = entry.ctx
         val errorLine = ctx.values[LogContext.LINE]?.toIntOrNull()
@@ -63,7 +63,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
             }
             ctx.values[LogContext.NOTE] != null -> copy(ctx.copy ?: entry.text)
             ctx.values[LogContext.EVENT] != null -> ProductivityCommands.eventIntent(ctx)?.let(host::startActivity)
-            // Cancelling takes Enter (or the long-press "Cancel reminder").
+            // A tap only fills the prompt. To cancel, the user presses Enter (or uses the long-press "Cancel reminder").
             ctx.values[LogContext.REMINDER] != null -> {
                 host.setText("remind rm #${ctx.values.getValue(LogContext.REMINDER)}")
                 host.emit(UiEvent.FocusPrompt)
@@ -84,7 +84,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
                 }
             }
             ctx.values[NOTIF] != null -> {
-                // The notification's own tap action if it's still live, otherwise just the app.
+                // Use the notification's own tap action if it is still active. Otherwise, just open the app.
                 if (!NotificationActions.open(context, ctx.values.getValue(NOTIF))) appFor(ctx)?.let { app -> host.io { processor.launch(app) } }
             }
             ctx.values[LogContext.SHORTCUT] != null && appFor(ctx) != null -> {
@@ -98,7 +98,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
         }
     }
 
-    /** Long-press: every action that makes sense for the saved context. Destructive ones come last. */
+    /** Long-press: returns every action that makes sense for the saved context. Destructive ones come last. */
     fun actionsFor(entry: LogEntry): List<LogAction> {
         val ctx = entry.ctx
         val actions = ArrayList<LogAction>()
@@ -108,7 +108,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
             actions += LogAction("Run again") { host.setText(command); host.submit() }
             actions += LogAction("Edit in prompt") { host.setText(command); host.emit(UiEvent.FocusPrompt) }
         } else if (entry.kind != LogKind.SCRIPT || LogContext.FROM in ctx.values) {
-            // Output, a script's too when a command started its run: offer the command that printed it.
+            // For output (also a script's output, when a command started the run), offer the command that printed it.
             producingCommand(entry)?.let { cmd ->
                 actions += LogAction("Run '${cmd.text}' again") { host.setText(cmd.text); host.submit() }
                 actions += LogAction("Edit '${cmd.text}' in prompt") { host.setText(cmd.text); host.emit(UiEvent.FocusPrompt) }
@@ -143,7 +143,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
         ctx.script?.let { name ->
             host.scripts.firstOrNull { it.name == name }?.let { s ->
                 actions += LogAction("Run $name now") { host.io { ScriptScheduler.runNow(context, s) } }
-                // For a script with a status line: show it at the top of home, or no longer.
+                // For a script with a status line: pin it to the top of home, or unpin it.
                 if (ScriptMeta.setsStatus(s.code)) {
                     val pinned = s.grants.allows(ScriptAccess.HEADER)
                     actions += LogAction(if (pinned) "Unpin $name" else "Pin $name to the top") {
@@ -187,19 +187,19 @@ class LogLineActions(private val context: Context, private val processor: Comman
                 host.io { ids.forEach(logs::delete) }
             }
         }
-        // Only this line's script, feed or app (or its kind), until the bar's ✕.
+        // Shows only this line's script, feed or app (or its kind), until the user taps ✕ on the filter bar.
         LogFilter.forLine(entry)?.let { f -> actions += LogAction("Show only ${f.label}") { host.filterLog(f) } }
-        // Kept for good, past the log's limits and through a clear; `/@starred` finds it.
+        // A starred line is kept forever, beyond the log's limits and through a clear. `/@starred` finds it.
         actions += LogAction(if (entry.starred) "Unstar line" else "Star line") { host.io { logs.setStarred(entry.id, !entry.starred) } }
         actions += LogAction("Copy text") { copy(ctx.copy?.let(StyledText::plain) ?: entry.shownText, sensitive(entry)) }
         danger += LogAction("Delete line", destructive = true) { host.io { logs.delete(entry.id) } }
         return actions + danger
     }
 
-    /** Actions for one app (log lines and grid chips). */
+    /** The actions for one app, for log lines and grid chips. */
     fun appActions(app: AppEntry): List<LogAction> = buildList {
         add(LogAction("Launch ${app.label} [${app.profile.kind.tag}]") { host.io { processor.launch(app) } })
-        // The app's own shortcuts (e.g. "New message"), when Kolahal is the default launcher.
+        // The app's own shortcuts (e.g. "New message"). They are available when Kolahal is the default launcher.
         appsRepo.shortcuts(app).take(5).forEach { s ->
             add(LogAction("${app.label} › ${s.shortLabel}") { host.io { runCatching { appsRepo.startShortcut(app, s.id) } } })
         }
@@ -220,9 +220,12 @@ class LogLineActions(private val context: Context, private val processor: Comman
     }
 
     /**
-     * The command line that printed [entry]: the one it is marked with, or, for a line from before
-     * the marks, the command its group starts with (a pause longer than [GROUP_GAP_MS] ends the
-     * group, as the log draws it). A line that came on its own, a tap launch or a call, has none.
+     * Returns the command line that printed [entry]:
+     * - the command that the line is marked with; or
+     * - for an older line without a mark, the command at the start of its group. A pause longer
+     *   than [GROUP_GAP_MS] ends the group, as in the log display.
+     *
+     * A line that came on its own (a tap launch, a call) has no command.
      */
     private fun producingCommand(entry: LogEntry): LogEntry? {
         val all = host.entries
@@ -234,15 +237,15 @@ class LogLineActions(private val context: Context, private val processor: Comman
             val e = all[i]
             if (next.ts - e.ts > GROUP_GAP_MS) return null
             if (e.kind == LogKind.COMMAND) return e
-            // Timer script lines can land inside a block; they are not part of it.
+            // Timer script lines can appear inside a block, but they are not part of it.
             if (e.kind != LogKind.SCRIPT) next = e
         }
         return null
     }
 
     /**
-     * A command line plus its output: the lines marked as its output ([LogContext.FROM]), wherever
-     * they landed (a script's lines come when its run is done, after other lines).
+     * Returns a command line plus its output: the lines marked as its output ([LogContext.FROM]),
+     * wherever they are in the log. (A script's lines arrive when its run is done, after other lines.)
      */
     private fun blockOf(command: LogEntry): List<LogEntry> {
         val all = host.entries
@@ -252,8 +255,8 @@ class LogLineActions(private val context: Context, private val processor: Comman
         val id = command.id.toString()
         val marked = after.filter { it.ctx.values[LogContext.FROM] == id }
         if (marked.isNotEmpty()) return listOf(command) + marked
-        // Lines from before 0.4.2 carry no mark: the ones that followed it, up to the next command
-        // or a pause longer than [GROUP_GAP_MS], as the log groups them; script lines left out.
+        // Lines from before 0.4.2 have no mark. Take the lines that followed the command, up to the next
+        // command or a pause longer than [GROUP_GAP_MS], as the log groups them. Leave out script lines.
         val block = arrayListOf(command)
         var previous = command
         for (e in after) {
@@ -264,7 +267,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
         return block
     }
 
-    /** Apps referenced by a grid line (`ctx.apps` = JSON list of {pkg, cls, user}). */
+    /** Returns the apps in a grid line. `ctx.apps` is a JSON list of {pkg, cls, user}. */
     fun appsOf(entry: LogEntry): List<AppEntry> {
         val raw = entry.ctx.values[LogContext.APPS] ?: return emptyList()
         val list = runCatching { Json.parse(raw) as? List<*> }.getOrNull().orEmpty()
@@ -279,7 +282,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
 
     private fun openUrl(url: String) = host.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
 
-    /** Opens a line's link; a feed item counts as read once you have opened it. */
+    /** Opens a line's link. A feed item is marked as read once you open it. */
     private fun openLink(ctx: LogContext) {
         openUrl(ctx.url ?: return)
         ctx.values[com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM]?.toLongOrNull()?.let { id ->
@@ -297,11 +300,11 @@ class LogLineActions(private val context: Context, private val processor: Comman
     /** Swipe right on a log line. */
     fun swipeCopy(entry: LogEntry) = copy(entry.shownText, sensitive(entry))
 
-    /** Notification and call lines: other people's messages, codes and numbers. */
+    /** True for notification and call lines. They contain other people's messages, codes and numbers. */
     private fun sensitive(entry: LogEntry) =
         entry.ctx.values.containsKey(NOTIF) || entry.source == com.mtwabpin.kolahal.calls.CallEvents.SOURCE
 
-    /** [sensitive] text is marked so the keyboard's clipboard preview and history hide it. */
+    /** Copies [text]. [sensitive] text is marked, so the keyboard's clipboard preview and history hide it. */
     private fun copy(text: String, sensitive: Boolean = false) {
         val clip = ClipData.newPlainText("kolahal", text)
         if (sensitive) clip.description.extras = android.os.PersistableBundle().apply {
@@ -310,7 +313,7 @@ class LogLineActions(private val context: Context, private val processor: Comman
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
     }
 
-    /** Long-press entries for todo, note and reminder lines (destructive ones go to [danger]). */
+    /** Adds the long-press entries for todo, note, reminder and event lines. Destructive ones go to [danger]. */
     private fun productivityActions(ctx: LogContext, actions: MutableList<LogAction>, danger: MutableList<LogAction>) {
         ctx.values[LogContext.TODO]?.let { id ->
             val done = ctx.values[LogContext.TODO_DONE] == "1"

@@ -2,39 +2,42 @@ package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.data.Script
 
-/** Full-screen GUI pages besides the terminal (the script editor is separate). */
-enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, THEME_BUILDER }
+/** Full-screen GUI pages other than the terminal. The script editor is separate. */
+enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, THEME_BUILDER, HEADER_PARTS }
 
-/** UI-only operations the processor cannot do from an application context. */
+/** Operations that only the UI can do. The processor cannot do them from an application context. */
 interface TerminalUi {
     fun requestContactsPermission()
-    /** Android's contact picker (the Play build, without READ_CONTACTS); [then] gets the contact picked, if one is. */
+    /** Opens Android's contact picker (used by the Play build, which has no READ_CONTACTS). [then] gets the picked contact, if any. */
     fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit) {}
     fun openScreen(screen: Screen)
     fun pickScriptFolder()
-    /** File picker for `font import` (a .ttf/.otf). */
+    /** Opens the file picker for `font import` (a .ttf/.otf file). */
     fun requestFontImport()
     fun openEditor(script: Script)
-    /** `script secret <name> <NAME>`: a masked box for that secret's value. */
+    /** For `script secret <name> <NAME>`: shows a masked box for that secret's value. */
     fun askSecret(script: Script, name: String)
     fun requestNotificationPermission()
     fun clearScreen()
-    /** `fresh`: hide what is on screen now, as `log.fresh` does after a while away. */
+    /** For `fresh`: hides what is on screen now. `log.fresh` does the same after you are away for a while. */
     fun freshScreen() {}
-    /** READ_CALENDAR for `agenda`. */
+    /** Asks for READ_CALENDAR, for `agenda`. */
     fun requestCalendarPermission() {}
-    /** READ_CALL_LOG for calls in the log and `calls`. */
+    /** Asks for READ_CALL_LOG, for calls in the log and for `calls`. */
     fun requestCallLogPermission() {}
     /**
-     * `notifs enable` with access off: what notification access reads and what for, with a choice,
-     * before Android's Notification access screen opens.
+     * For `notifs enable` when access is off. Explains what notification access reads and why,
+     * and lets the user choose, before Android's Notification access screen opens.
      */
     fun askNotificationAccess() {}
-    /** `log only …` ([filter]) or `log all` (null): the lines the log shows. */
+    /** Sets the lines the log shows: `log only …` ([filter]) or `log all` (null). */
     fun filterLog(filter: LogFilter?) {}
-    /** The log's width on screen (px), for output laid out to fit it; null before home has shown. */
+    /** The log's width on screen in px, so output can be laid out to fit. Null until home has been shown. */
     fun logWidthPx(): Int? = null
-    /** `backup dir`: a folder for backups; [thenBackUp] writes one once it is picked (`backup` with none yet). */
+    /**
+     * For `backup dir`: asks for a backup folder.
+     * If [thenBackUp] is true, writes a backup once the folder is picked (used by `backup` when no folder is set yet).
+     */
     fun askBackupFolder(thenBackUp: Boolean) {}
 }
 

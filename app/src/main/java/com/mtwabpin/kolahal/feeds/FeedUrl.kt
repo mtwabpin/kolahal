@@ -4,12 +4,16 @@ import com.mtwabpin.kolahal.data.takeWhole
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
 
-/** Pure URL helpers for feeds (no Android APIs, unit-tested on the JVM). */
+/** Pure URL helpers for feeds. They use no Android APIs, so they are unit-tested on the JVM. */
 object FeedUrl {
     /**
-     * Normalises a user-typed feed address: trims, defaults to https, maps `feed://` to https,
-     * lowercases scheme and host, drops the fragment and a default port. Returns null when the
-     * result isn't an http(s) URL with a host.
+     * Normalises a feed address that the user typed:
+     * - trims spaces
+     * - adds https when there is no scheme, and maps `feed://` to https
+     * - lowercases the scheme and host
+     * - drops the fragment and a default port
+     *
+     * Returns null when the result isn't an http(s) URL with a host.
      */
     fun normalize(raw: String): String? {
         var s = raw.trim()
@@ -22,7 +26,7 @@ object FeedUrl {
         val uri = runCatching { URI(s) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase() ?: return null
         if (scheme != "http" && scheme != "https") return null
-        // java.net.URI reads no host in an international name (bücher.de): OkHttp does, as punycode.
+        // java.net.URI finds no host in an international name (bücher.de). OkHttp finds it, as punycode.
         val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: s.toHttpUrlOrNull()?.host ?: return null
         val port = uri.port.takeUnless { it == -1 || (scheme == "http" && it == 80) || (scheme == "https" && it == 443) }
         return buildString {
@@ -35,8 +39,10 @@ object FeedUrl {
         }
     }
 
-    /** Short label for log lines: the feed title, else the host without `www.`; at most [max] chars.
-     *  A subtitle after ": " or " - " is dropped ("Hacker News: Front Page" → "Hacker News"). */
+    /**
+     * Short label for log lines, at most [max] chars. It is the feed title, or else the host without `www.`.
+     * A subtitle after ": " or " - " is dropped ("Hacker News: Front Page" → "Hacker News").
+     */
     fun shortName(title: String?, url: String, max: Int = 16): String {
         val base = title?.trim()?.split(": ", " - ", " | ", " – ")?.first()?.trim()?.takeIf { it.isNotEmpty() }
             ?: runCatching { URI(url).host }.getOrNull()?.removePrefix("www.")

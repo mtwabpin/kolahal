@@ -61,20 +61,20 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** A label and its value on a script's sheet, whether the script is yours or from the shared list. */
+/** A label and its value on a script's sheet. Used for the user's scripts and for shared ones. */
 @Composable
 internal fun Fact(label: String, value: String) {
     Text("$label: $value", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** Everything about one script: run, edit, export, on/off, notifications, timers, library and delete. */
+/** The sheet for one script: run, edit, export, on/off, notifications, timers, library and delete. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ScriptSheet(
     vm: TerminalViewModel,
     s: Script,
     lib: LibRow?,
-    /** The shared version, when it is newer than this unedited copy. */
+    /** The shared version, if it is newer than this copy and this copy is unedited. */
     sharedUpdate: ScriptCatalog.Entry?,
     onEnabled: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -85,7 +85,8 @@ internal fun ScriptSheet(
     var confirmDelete by remember(s.id) { mutableStateOf(false) }
     var confirmReplace by remember(s.id) { mutableStateOf(false) }
     var comparing by remember(s.id) { mutableStateOf(false) }
-    // Back to the library version: an edited copy's edits go, so it asks first; an older copy of yours had none.
+    // Go back to the library version. For an edited copy, this loses the edits, so ask first.
+    // An older, unedited copy has no edits to lose, so install at once.
     fun resetFromLibrary(row: LibRow) {
         if (row.state == ScriptLibrary.State.MODIFIED) confirmReplace = true else vm.scriptActions.installFromLibrary(row.entry)
     }
@@ -95,7 +96,7 @@ internal fun ScriptSheet(
     val isCommand = remember(s.code) { ScriptMeta.isCommand(s.code) }
     val desc = remember(s.code) { ScriptMeta.description(s.code) }
     val title = remember(s.code) { ScriptMeta.title(s.code) }
-    // `@version` and `@author`, when it says: v1.2 · by Someone
+    // `@version` and `@author`, if the script has them: v1.2 · by Someone
     val byLine = remember(s.code) {
         listOfNotNull(ScriptMeta.version(s.code)?.let { "v$it" }, ScriptMeta.author(s.code)?.let { "by $it" }).joinToString(" · ").ifEmpty { null }
     }
@@ -170,8 +171,11 @@ internal fun ScriptSheet(
                 s.enabled,
             ) { onEnabled(it) }
 
-            // What it may use: internet, pinned at the top and notifications when its code uses them, and
-            // what it declares with @uses; then, in a group of their own, the events of its @on lines.
+            // What the script may use, in this order:
+            // - internet and the pinned header;
+            // - notifications, if its code posts them;
+            // - what it declares with @uses.
+            // The events of its @on lines follow in a separate group.
             val (events, uses) = access.partition { it in ScriptMeta.EVENTS }
             if (uses.isNotEmpty() || notifies) {
                 Spacer(Modifier.height(16.dp))
@@ -189,7 +193,7 @@ internal fun ScriptSheet(
                 events.forEach { item -> SwitchRow(ScriptAccess.label(item), ScriptAccess.help(item), grants.allows(item)) { vm.scriptActions.setScriptAccess(s, item, it) } }
             }
 
-            // Keys and tokens it declares with @secret: set here, never in its code.
+            // Keys and tokens it declares with @secret. The user sets them here, never in the code.
             if (secrets.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 Text("Secrets", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -202,7 +206,8 @@ internal fun ScriptSheet(
                 secrets.forEach { d -> SecretRow(d, isSet = d.name in secretsSet) { editingSecret = d } }
             }
 
-            // Settings it declares with @option: changed here, not in its code, so its updates keep them.
+            // Settings it declares with @option. The user changes them here, not in the code, so
+            // updates to the script keep them.
             if (options.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 Text("Options", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -228,7 +233,7 @@ internal fun ScriptSheet(
                 onValueChange = { times = it; timesError = false },
                 label = { Text("Daily at") },
                 placeholder = { Text("08:00, 18:30") },
-                // Or pick one on a clock: added to the times and set at once.
+                // Or pick a time on a clock. It is added to the times and saved at once.
                 leadingIcon = {
                     IconButton(shapes = IconButtonDefaults.shapes(), onClick = { pickingTime = true }) { Icon(painterResource(R.drawable.ic_alarm), "Add a time") }
                 },
@@ -261,7 +266,7 @@ internal fun ScriptSheet(
                     confirmButton = {
                         TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                             val picked = "%02d:%02d".format(clock.hour, clock.minute)
-                            // With what the box holds now, saved or not.
+                            // Add it to the current text in the box, saved or not.
                             times = (times.split(',', ' ').filter { it.isNotBlank() } + picked).distinct().sorted().joinToString(", ")
                             timesError = !vm.scriptActions.setScriptTimes(s, times)
                             pickingTime = false
@@ -332,7 +337,7 @@ internal fun ScriptSheet(
     }
 }
 
-/** One option in a script's sheet: its name, what it is for, and its value (muted while it is the default). */
+/** One option on a script's sheet: its name, what it is for, and its value (muted while it is the default). */
 @Composable
 private fun OptionRow(option: ScriptMeta.Option, value: String, changed: Boolean, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
@@ -356,7 +361,7 @@ private fun OptionRow(option: ScriptMeta.Option, value: String, changed: Boolean
     }
 }
 
-/** One secret in a script's sheet: its name, what it is for, where it goes, and whether it is set. */
+/** One secret on a script's sheet: its name, what it is for, where it is sent, and whether it is set. */
 @Composable
 private fun SecretRow(secret: ScriptMeta.Secret, isSet: Boolean, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {

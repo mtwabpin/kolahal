@@ -33,6 +33,32 @@ class ScriptFormattingTest {
         KvStore(context, HostApi.STATUS_SCOPE).set(name, null)
     }
 
+
+    /** A table that holds itself: logging or encoding it ends with an error for the script, not a crash. */
+    @Test fun aTableThatHoldsItselfIsAnErrorNotACrash() {
+        val logged = runCatching { lua("local t = {} t.a = t log('loop', t)") }
+        val encoded = runCatching { lua("local t = {} t.a = t log(json.encode(t))") }
+        // The run fails, and the process (other scripts) carries on: this test would crash with it otherwise.
+        assertTrue("$logged", logged.isFailure)
+        assertTrue("$encoded", encoded.isFailure)
+    }
+
+    /** fmt.table in Lua and JavaScript: a body of rows, the header marked, numbers as written, cells on their side. */
+    @Test fun fmtTableMakesABodyOfRows() {
+        lua("log('Prices', fmt.table({ { 'Coin', 'Price' }, { 'BTC', 64210 }, { 'ETH', fmt.color('good', '3,118') } }, { header = true, align = 'lr' }))")
+        js("log('Prices', fmt.table([['Coin', 'Price'], ['BTC', 64210], ['ETH', fmt.color('good', '3,118')]], { header: true, align: 'lr' }))")
+        for (line in lines()) {
+            val rows = StyledText.lines(line.ctx.body!!).map { it.row!! }
+            assertEquals(listOf(true, false, false), rows.map { it.header })
+            assertEquals("Coin\tPrice\nBTC\t64210\nETH\t3,118", StyledText.plain(line.ctx.body!!))
+            assertEquals(listOf(false, true), rows[1].cells.map { it.right })
+        }
+        assertEquals(2, lines().size)
+        // Not a list of rows: an error for the script.
+        assertTrue(runCatching { lua("log('x', fmt.table('nope'))") }.isFailure)
+        assertTrue(runCatching { js("log('x', fmt.table('nope'))") }.isFailure)
+    }
+
     @Test fun mdLogReadsMarkdownInTheTitleAndBody() {
         lua("""md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119", { url = "https://example.com/r" })""")
         val e = lines().single()

@@ -38,6 +38,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,6 +66,7 @@ import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.terminal.Gutter
 import com.mtwabpin.kolahal.terminal.LogRow
 import java.text.SimpleDateFormat
@@ -67,13 +74,13 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Date
 
-/** How a line shows its time, from `log.time`: `groups` on a group's first line and when the minute changes. */
+/** Which lines show their time, from `log.time`. With `groups`, a group's first line shows it, and so does a line where the minute changes. */
 enum class TimeMode { OFF, COMMANDS, GROUPS, ALL }
 
-/** [today]: [rememberToday], so "Yesterday" moves at midnight under a launcher that stays on screen for days. */
+/** [today] comes from [rememberToday], so "Yesterday" moves at midnight even when the launcher stays on screen for days. */
 @Composable
 fun DayDivider(row: LogRow.Day, today: LocalDate) {
-    // Made each time, not remembered: the dividers follow a change of language.
+    // Built on each composition, not remembered, so the dividers follow a change of language.
     val label =
         if (row.day == today.minusDays(1)) "Yesterday"
         else row.day.format(DateTimeFormatter.ofPattern("EEE d MMM", LocalConfiguration.current.locales[0]))
@@ -94,7 +101,7 @@ fun UnreadDivider(row: LogRow.Unread) {
     )
 }
 
-/** A stable colour per script name, so interleaved feeds are easy to tell apart. */
+/** A fixed colour for each script name, so mixed feeds are easy to tell apart. */
 fun scriptColor(name: String?): Color {
     if (name == null) return Term.script
     val p = Term.palette
@@ -103,8 +110,10 @@ fun scriptColor(name: String?): Color {
 }
 
 /**
- * One log entry. A thin gutter bar groups command blocks (prompt colour), timer output (script
- * colour) and errors; old output is dimmed; the time sits right-aligned so it never shifts text.
+ * One log entry.
+ * - A thin gutter bar marks command blocks (prompt colour), timer output (script colour) and errors.
+ * - Old output is dimmed.
+ * - The time is right-aligned, so it never shifts the text.
  */
 @Composable
 fun LogLine(
@@ -123,11 +132,11 @@ fun LogLine(
     onAppLongPress: (AppEntry) -> Unit,
     onSwipeCopy: (LogEntry) -> Unit = {},
     onSwipeDelete: (LogEntry) -> Unit = {},
-    /** Words a log search found: marked where the line shows them. */
+    /** Words a log search found. They are highlighted where the line shows them. */
     marks: List<String> = emptyList(),
 ) {
     val entry = row.entry
-    // Swipe right: copy. Swipe left: delete (the terminal offers Undo). Past a third of the width.
+    // Swipe right to copy, left to delete (the terminal offers Undo). The swipe must pass a third of the width.
     val swipe = remember { androidx.compose.animation.core.Animatable(0f) }
     val swipeScope = androidx.compose.runtime.rememberCoroutineScope()
     var rowWidth by remember { androidx.compose.runtime.mutableIntStateOf(1) }
@@ -142,18 +151,20 @@ fun LogLine(
     val desc = entry.ctx.values[LogContext.DESC]
     val isGrid = entry.ctx.values[LogContext.APPS] != null
     val image = entry.ctx.image
-    // A notification line's saved status-bar icon replaces its app name at the end.
+    // On a notification line, the saved status-bar icon replaces the app name at the end.
     val context = LocalContext.current
     val iconKey = entry.ctx.values[LogContext.ICON]?.takeIf { row.showSource && entry.kind == LogKind.SCRIPT && NotifIcons.has(context, it) }
     val inline = remember(iconKey) { iconKey?.let(::notifIconContent) ?: emptyMap() }
 
-    // log.line-height sets the padding above and below a line too: up to 3dp each, less as the
-    // height nears one line of text, none at it. Below that, the leading above the first line and
-    // under the last goes as well, so lines get as short as the text itself allows.
+    // log.line-height also sets the padding above and below a line:
+    // - up to 3dp on each side;
+    // - less as the height gets close to one line of text, and none when it equals it;
+    // - below that, the space above the first line and under the last is removed too, so lines
+    //   become as short as the text allows.
     val density = androidx.compose.ui.platform.LocalDensity.current
     val textLine = with(density) { (Term.fontSize * TEXT_LINE).sp.toDp() }
-    // In sp: the line height follows the phone's text size, as the text does, so a larger system
-    // text size doesn't squeeze the lines (22 is 22dp at the usual size).
+    // The line height is in sp, so it follows the phone's text size like the text does. A larger
+    // system text size then doesn't squeeze the lines. At the default size, 22 is 22dp.
     val lineHeight = with(density) { Term.lineHeight.sp.toDp() }
     val padding = ((lineHeight - textLine) / 2).coerceIn(0.dp, LINE_PADDING.dp)
     val dense = lineHeight + 0.5.dp < textLine
@@ -165,20 +176,24 @@ fun LogLine(
         actionable -> lineHeight + 10.dp
         else -> lineHeight
     }
-    // The font settings aren't keys of their own: indents is built again from them, and carries the change.
+    // The font settings are not keys here: indents is rebuilt from them, so it carries the change.
     val lineText = if (isGrid || desc != null) null else remember(entry, Term.palette, indents, row.unread, iconKey, marks, row.showSource) {
         markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
     }
-    // A dimmed line whose parts can't overlap fades part by part, which draws the same pixels. A
-    // picture is one draw, under its text, not behind it; the apps grid's chips put text on colour.
-    val byPart = dim && row.dimmed && !highlighted && !isGrid && marks.isEmpty() &&
+    // A dimmed line whose parts can't overlap fades part by part; this draws the same pixels as
+    // fading it whole. A picture is a single draw placed below its text, not behind it, so it is
+    // fine. The apps grid is excluded because its chips put text on a coloured background.
+    // A script's table and what follows it, drawn under the line's text (TableBody).
+    val tableRest = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) entry.ctx.body?.let { StyledText.splitAtTable(it).second } else null }
+    val byPart = dim && row.dimmed && !highlighted && !isGrid && tableRest == null && marks.isEmpty() &&
         remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
-    // Pressed, focused or under a pointer, and for a moment after: the ripple or highlight drawn over
-    // the letters would fade with them part by part, a shade off. Faded whole meanwhile, as it was.
+    // While the line is pressed, focused or under a pointer, and for a moment after, it fades whole.
+    // Fading part by part would fade the ripple or highlight over the letters too, and the shade
+    // would be slightly wrong.
     val touch = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     var touched by remember { androidx.compose.runtime.mutableStateOf(false) }
     if (byPart) androidx.compose.runtime.LaunchedEffect(touch) {
-        // Started again (the line dimmed anew): nothing is pressed yet.
+        // Restarted because the line was dimmed again: nothing is pressed yet.
         touched = false
         var active = 0
         var settle: kotlinx.coroutines.Job? = null
@@ -195,16 +210,16 @@ fun LogLine(
             }
             settle?.cancel()
             if (active > 0) touched = true
-            // A quick tap's ripple finishes growing, then fades: done well within this.
+            // A quick tap's ripple grows, then fades. Both finish well within this delay.
             else settle = launch { kotlinx.coroutines.delay(RIPPLE_DONE_MS); touched = false }
         }
     }
-    // Which way the line is swiped, if at all: what it shows changes only when this does, not on
-    // every frame the line moves (the offset and the reveal read the swipe as they lay out and draw).
+    // The swipe direction (or 0). The content changes only when the direction changes, not on every
+    // frame the line moves. The offset and the reveal read the swipe value during layout and draw.
     val swiped by remember { androidx.compose.runtime.derivedStateOf { kotlin.math.sign(swipe.value) } }
     Box(Modifier.padding(top = topGap)) {
-    // What the swipe will do, revealed as the line moves: drawn only where the line has moved away
-    // from, so the line needs no background of its own and home's page (or wallpaper) shows through.
+    // The swipe action label, revealed as the line moves. It is drawn only in the space the line has
+    // left, so the line needs no background of its own and home's page (or wallpaper) shows through.
     if (swiped != 0f) {
         Text(
             if (swiped > 0) "⧉ Copy" else "Delete ✕",
@@ -222,7 +237,7 @@ fun LogLine(
             textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End,
         )
     }
-    // A line taller than its text (log.taller-taps) keeps the text halfway down.
+    // When a line is taller than its text (log.taller-taps), the text stays centred vertically.
     Box(
         contentAlignment = Alignment.CenterStart,
         modifier = Modifier
@@ -263,7 +278,7 @@ fun LogLine(
                 drawRect(gutterColor, topLeft = Offset.Zero, size = Size(2.dp.toPx(), size.height))
             })
             .combinedClickable(
-                // Only where it's watched: without one, the ripple is made at the first press, not as the line shows.
+                // Pass a source only when it is watched. Without one, the ripple is created at the first press, not when the line appears.
                 interactionSource = if (byPart) touch else null,
                 indication = androidx.compose.foundation.LocalIndication.current,
                 onLongClickLabel = "actions",
@@ -273,15 +288,22 @@ fun LogLine(
                     onLongPress(entry)
                 },
             )
-            // Room for the gutter bar; without it the text lines up with the header and dividers.
+            // Room for the gutter bar. Without the bar, the text lines up with the header and dividers.
             .padding(start = if (gutter) 10.dp else 0.dp, top = padding, bottom = padding),
     ) {
-    // The time on the first line's baseline, however many lines wrap below it or a picture adds.
+    // The time sits on the first line's baseline, even when text wraps or a picture is added below.
+    // The row doesn't align by baseline: asking a line with inline icons for its baseline, as a line
+    // scrolled into view, crashed Compose ("LayoutNode not found in RectList"). Both texts start at
+    // the top, and the time moves down by the difference between the two fonts' first baselines,
+    // measured once for each pair of styles (TimeShift).
+    val lineStyle = entry.style().dense(dense)
+    val timeStyle = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense)
+    val timeShift = TimeShift.of(lineStyle, timeStyle)
     Row(Modifier.fillMaxWidth()) {
-        Box(Modifier.weight(1f).alignByBaseline()) {
+        Box(Modifier.weight(1f)) {
             when {
                 // Parsed once per entry (it decodes JSON and looks up every app), and again when the
-                // apps change: a chip uninstalled or hidden from it goes.
+                // apps change, so a chip for an app that was uninstalled or hidden disappears.
                 isGrid -> {
                     val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
                     AppGrid(remember(entry.id, entry.ctx, installed) { apps(entry) }, onAppTap, onAppLongPress)
@@ -289,10 +311,14 @@ fun LogLine(
                 desc != null -> TwoColumns(entry, desc, marks, dense)
                 else -> {
                     val text = lineText!!
-                    if (image == null) Text(text, style = entry.style().dense(dense), inlineContent = inline)
+                    if (image == null && tableRest == null) Text(text, style = entry.style().dense(dense), inlineContent = inline)
                     else Column {
                         if (entry.text.isNotEmpty()) Text(text, style = entry.style().dense(dense), inlineContent = inline)
-                        LogImage(image, Modifier.padding(vertical = 4.dp))
+                        tableRest?.let { rest ->
+                            val start = with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
+                            TableBody(rest, entry.style().dense(dense).copy(color = Term.dim), start, indents.bullet)
+                        }
+                        image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
                     }
                 }
             }
@@ -301,9 +327,9 @@ fun LogLine(
             Spacer(Modifier.width(8.dp))
             Text(
                 remember(entry.ts, timeFormat) { timeFormat.format(Date(entry.ts)) },
-                // Trimmed as the line is, so it never makes the line taller.
-                style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense),
-                modifier = Modifier.alignByBaseline(),
+                // Trimmed like the line, so it never makes the line taller.
+                style = timeStyle,
+                modifier = Modifier.padding(top = timeShift),
             )
         }
     }
@@ -311,34 +337,35 @@ fun LogLine(
     }
 }
 
-/** The bar beside a line: commands in the prompt colour, timer output in the script colour, errors red. */
+/** The colour of the bar beside a line: prompt colour for commands, script colour for timer output, error colour (red) for errors. */
 fun gutterColor(gutter: Gutter): Color = when (gutter) {
     Gutter.COMMAND -> Term.prompt
     Gutter.SCRIPT -> Term.script
     Gutter.ERROR -> Term.error
 }.copy(alpha = 0.45f)
 
-/** How much of a dimmed line (log.dim) shows. */
+/** The opacity of a dimmed line (log.dim). */
 private const val DIM_ALPHA = 0.62f
 
-/** A dimmed line: drawn whole into a buffer, then faded. */
+/** A dimmed line: drawn whole into a buffer, then the buffer is faded. */
 private val DIMMED = Modifier.alpha(DIM_ALPHA)
 
 /**
- * A dimmed line drawn faded part by part, with no buffer: the buffer is drawn again on every frame
- * the log moves, a couple of dozen times a frame with a screen of dimmed lines. Only for a line
- * whose parts don't overlap ([fadesByPart]), where both ways give the same pixels.
+ * A dimmed line where each part is faded on its own, with no buffer. A buffer is redrawn on every
+ * frame the log moves: a couple of dozen times per frame when the screen is full of dimmed lines.
+ * Use this only for a line whose parts don't overlap ([fadesByPart]); there both ways give the
+ * same pixels.
  */
 private val DIMMED_BY_PART = Modifier.graphicsLayer(alpha = DIM_ALPHA, clip = true, compositingStrategy = CompositingStrategy.ModulateAlpha)
 
-/** How long after a press, focus or pointer leaves a dimmed line it fades whole: its ripple's growing and fading. */
+/** How long a dimmed line keeps fading whole after a press, focus or pointer leaves it: the time its ripple takes to grow and fade. */
 private const val RIPPLE_DONE_MS = 450L
 
 /**
- * Whether [text] can be faded part by part and look as faded whole: letters that never overlap
- * (plain Latin, digits, common punctuation, not joined scripts or accents built from marks, not box
- * drawing, nor slanted into the next as italics can be), and nothing drawn over or under them (a
- * background, an underline, a shadow).
+ * Whether [text] looks the same faded part by part as faded whole. This needs:
+ * - letters that never overlap: plain Latin, digits, common punctuation. Not joined scripts,
+ *   accents built from marks, box drawing, or italics (which can lean into the next letter);
+ * - nothing drawn over or under the letters: no background, underline or shadow.
  */
 internal fun fadesByPart(text: AnnotatedString): Boolean =
     text.text.all { c -> c == '\n' || c in ' '..'~' || c in '\u00A0'..'\u024F' || c in '\u2010'..'\u2027' } &&
@@ -352,7 +379,7 @@ private val ACTIONABLE_KEYS = setOf(
     LogContext.PHONE, LogContext.SHORTCUT, "notif", LogContext.NOTE, LogContext.EVENT, LogContext.REMINDER,
 )
 
-/** `help`, `config` and `script ls` rows: name on the left, description wrapping on the right. */
+/** Rows of `help`, `config` and `script ls`: the name on the left, the description wrapping on the right. */
 @Composable
 private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = emptyList(), dense: Boolean = false) {
     Row(Modifier.fillMaxWidth()) {
@@ -415,4 +442,38 @@ internal fun NotifIcon(key: String) {
         if (value == null) value = withContext(Dispatchers.IO) { NotifIcons.load(context.applicationContext, key) }
     }
     icon?.let { Image(it, contentDescription = null, colorFilter = ColorFilter.tint(Term.dim), modifier = Modifier.fillMaxSize()) }
+}
+
+/**
+ * How far down the time goes so its baseline meets the line's first one: the first baselines of
+ * the two styles, measured on a "0", apart.
+ * - Kept for each pair of styles, so a scroll measures nothing. A measurer is made only for a pair
+ *   not seen yet.
+ * - Colours don't move a baseline, so they are left out of the key: a new theme measures nothing.
+ */
+internal object TimeShift {
+    private data class Key(val line: TextStyle, val time: TextStyle, val density: Float, val fontScale: Float, val direction: LayoutDirection)
+
+    private val cache = HashMap<Key, Dp>()
+
+    /** Most pairs seen in a session: a few kinds of line, times each font size pinched to. */
+    private const val MAX_PAIRS = 64
+
+    @Composable
+    fun of(line: TextStyle, time: TextStyle): Dp {
+        val density = LocalDensity.current
+        val fonts = LocalFontFamilyResolver.current
+        val direction = LocalLayoutDirection.current
+        val key = Key(line.copy(color = Color.Unspecified), time.copy(color = Color.Unspecified), density.density, density.fontScale, direction)
+        return synchronized(cache) {
+            cache[key] ?: run {
+                val measurer = TextMeasurer(fonts, density, direction, cacheSize = 0)
+                val gap = measurer.measure("0", line).firstBaseline - measurer.measure("0", time).firstBaseline
+                with(density) { gap.coerceAtLeast(0f).toDp() }.also {
+                    if (cache.size >= MAX_PAIRS) cache.clear()
+                    cache[key] = it
+                }
+            }
+        }
+    }
 }

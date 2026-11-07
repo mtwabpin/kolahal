@@ -9,13 +9,14 @@ object Json {
     fun parse(text: String): Any? = fromOrg(JSONTokener(text).nextValue())
 
     /**
-     * [parse] for scripts (`json.decode`): JSON only. Android's reader also takes a bare word or
-     * trailing text, which would turn an HTML error page into a string instead of an error.
+     * [parse] for scripts (`json.decode`). It accepts only JSON.
+     * Android's reader also accepts a bare word or trailing text. That would turn an HTML error page
+     * into a string instead of an error.
      */
     fun decode(text: String): Any? {
         val tokener = JSONTokener(text)
         val value = tokener.nextValue()
-        // Says what it got without quoting it: the text may hold something a site sent back, a key even.
+        // The message says what kind of text it got, but does not quote it. The text may hold something a site sent back, even a key.
         if (value is String && !text.trimStart().startsWith('"')) {
             throw org.json.JSONException(if (text.trimStart().startsWith('<')) "Not JSON: an HTML or XML page" else "Not JSON: ${text.trim().length} characters of text")
         }
@@ -42,7 +43,7 @@ object Json {
         is Map<*, *> -> JSONObject().also { o -> v.forEach { (k, value) -> o.put(k.toString(), toOrg(value)) } }
         is Collection<*> -> JSONArray().also { a -> v.forEach { a.put(toOrg(it)) } }
         is Array<*> -> JSONArray().also { a -> v.forEach { a.put(toOrg(it)) } }
-        // NaN and infinity aren't JSON: null, as JSON.stringify writes them.
+        // NaN and infinity are not valid JSON. They become null, as JSON.stringify writes them.
         is Double -> if (v.isNaN() || v.isInfinite()) JSONObject.NULL else if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong() else v
         is Float -> toOrg(v.toDouble())
         is Number, is Boolean, is String -> v
@@ -50,7 +51,7 @@ object Json {
     }
 
     /**
-     * Lua tables arrive as maps with numeric keys; turn sequence-like ones (1..n) into lists.
+     * Lua tables arrive as maps with numeric keys. This turns sequence-like ones (keys 1..n) into lists.
      */
     fun normalizeLua(v: Any?): Any? = when (v) {
         is Map<*, *> -> {
@@ -73,7 +74,7 @@ object Json {
         else -> v
     }
 
-    /** Flattens an arbitrary context object into string values for [com.mtwabpin.kolahal.data.LogContext]. */
+    /** Flattens any context object into string values for [com.mtwabpin.kolahal.data.LogContext]. */
     fun toStringMap(v: Any?): Map<String, String> = when (v) {
         is Map<*, *> -> v.entries.mapNotNull { (k, value) ->
             if (k == null || value == null) null

@@ -69,17 +69,34 @@ class LibraryScriptsTest {
         assertEquals(Triple("Trip: in 30 days", "Saved · ${today.plusDays(30)}", null), only())
 
         run("countdown.lua")
-        // The list lines up: the labels padded to the longest, in the terminal font.
-        assertEquals(listOf("1. Past  10 days ago", "2. Now   today", "3. Soon  in 3 days", "4. Trip  in 30 days"), lines().map { StyledText.plain(it.text) })
-        assertEquals(true, lines().all { it.ctx.values[com.mtwabpin.kolahal.data.LogContext.MONO] == "1" })
-        assertEquals(listOf(today.minusDays(10), today, today.plusDays(3), today.plusDays(30)).map(LocalDate::toString), lines().map { it.ctx.body })
+        // The list is one table: the number `rm` takes, the countdown, its date and when it is.
+        val list = lines().single()
+        assertEquals("Countdowns", list.text)
+        assertEquals(
+            listOf(
+                "#\tCountdown\tDate\tWhen",
+                "1\tPast\t${today.minusDays(10)}\t10 days ago",
+                "2\tNow\t$today\ttoday",
+                "3\tSoon\t${today.plusDays(3)}\tin 3 days",
+                "4\tTrip\t${today.plusDays(30)}\tin 30 days",
+            ),
+            StyledText.plain(list.ctx.body!!).lines(),
+        )
+        // "When" is coloured by how near it is, as a single countdown is; a past one is muted throughout.
+        val rows = StyledText.lines(list.ctx.body!!).map { it.row!! }
+        assertEquals(
+            listOf(StyledText.Colour.MUTED, StyledText.Colour.GOOD, StyledText.Colour.WARN, null),
+            rows.drop(1).map { it.cells[3].spans.single().colour },
+        )
+        assertEquals(StyledText.Colour.MUTED, rows[1].cells[1].spans.single().colour)
         // The nearest one not past is its status line.
         assertEquals("Now: today", status.get(name))
 
         run("countdown.lua", "rm 1")
         val removed = lines().single()
         assertEquals("Removed Past", removed.shownText.lines().first())
-        assertEquals(listOf(null, setOf(StyledText.Style.BOLD)), StyledText.lines(removed.text).single().spans.map { it.styles.ifEmpty { null } })
+        // The line has a body (the date), so it is a bold heading already: the label needs no bold of its own.
+        assertEquals(listOf(null), StyledText.lines(removed.text).single().spans.map { it.styles.ifEmpty { null } })
         run("countdown.lua", "rm 9")
         assertEquals(Triple("No countdown #9: countdown lists them", null, StyledText.Colour.MUTED), only())
         run("countdown.lua", "add someday Trip")
@@ -88,8 +105,9 @@ class LibraryScriptsTest {
         // A date on its own is counted, not saved.
         run("countdown.lua", "${today.plusDays(5)}")
         assertEquals("${today.plusDays(5)}: in 5 days", only().first)
+        // Not saved: the list still has the three left.
         run("countdown.lua")
-        assertEquals(3, lines().size)
+        assertEquals(3, StyledText.lines(lines().single().ctx.body!!).count { it.row?.header == false })
     }
 
     /** 5 November comes before the 20th, and is the nearest, however it was typed. */
@@ -98,7 +116,7 @@ class LibraryScriptsTest {
         run("countdown.lua", "add $year-11-20 Later")
         run("countdown.lua", "add $year-11-5 Sooner")
         run("countdown.lua")
-        assertEquals(listOf("1. Sooner", "2. Later"), lines().map { it.text.let(StyledText::plain).substringBeforeLast("  ").trim() })
+        assertEquals(listOf("1\tSooner", "2\tLater"), StyledText.plain(lines().single().ctx.body!!).lines().drop(1).map { it.split('\t').take(2).joinToString("\t") })
         assertEquals(true, status.get(name).orEmpty().contains("Sooner"))
     }
 
@@ -164,8 +182,12 @@ class LibraryScriptsTest {
         assertEquals(true, cut.exceptionOrNull()?.message?.contains("cut short"))
 
         run("releases.lua", before = feed)
-        assertEquals(listOf("mtwabpin/kolahal", "neovim/neovim", "termux/termux-app"), lines().map { it.text })
-        assertEquals(listOf("Latest: v3"), lines().map { it.ctx.body?.let(StyledText::plain) }.distinct())
+        // One line a repo, with no body: a list in normal weight, not a heading for each.
+        assertEquals(
+            listOf("mtwabpin/kolahal  latest v3", "neovim/neovim  latest v3", "termux/termux-app  latest v3"),
+            lines().map { StyledText.plain(it.text) },
+        )
+        assertEquals(listOf(null), lines().map { it.ctx.body }.distinct())
     }
 
     @Test fun chargeReminderSumsUpASession() {

@@ -9,8 +9,8 @@ import party.iroiro.luajava.lua54.Lua54
 import com.mtwabpin.kolahal.data.StyledText
 
 /**
- * Native Lua 5.4 through LuaJava. Each run gets a fresh, sandboxed state:
- * no `java` bridge, `io`, `package`/`require`, `debug`, or process-level `os` functions.
+ * Native Lua 5.4 through LuaJava. Each run gets a fresh, sandboxed state with no `java` bridge,
+ * `io`, `package`/`require`, `debug`, or process-level `os` functions.
  * An instruction-count hook enforces the timeout and coroutine cancellation.
  */
 class LuaEngine : ScriptEngine {
@@ -29,11 +29,11 @@ class LuaEngine : ScriptEngine {
         val lua = Lua54()
         host.startClock(timeoutMs)
         // The hook cannot interrupt long-running C functions (e.g. pathological string.find patterns), and
-        // withContext cannot cancel blocking JNI. As a last resort, kill the isolated :script process.
-        // The hook checks memory every thousand instructions, but a few huge allocations (`s = s .. s`
-        // in a loop doubles a string every few instructions) outrun any count: the watchdog also
-        // stops a run whose native memory grows past NATIVE_LIMIT_MB, looking often enough that it
-        // overshoots by about one doubling. LuaJava gives no say over Lua's allocator itself.
+        // withContext cannot cancel blocking JNI. As a last resort, the watchdog kills the isolated :script process.
+        // The hook checks memory every thousand instructions. But a few huge allocations outrun any count
+        // (`s = s .. s` in a loop doubles a string every few instructions). So the watchdog also stops a
+        // run whose native memory grows past NATIVE_LIMIT_MB. It checks often enough to overshoot by about
+        // one doubling. LuaJava gives no control over Lua's allocator itself.
         val watchdog = RunWatchdog(host, timeoutMs, NATIVE_LIMIT_MB)
         try {
             lua.openLibraries()
@@ -64,15 +64,15 @@ class LuaEngine : ScriptEngine {
             lua.pCall(1, 1)
             lua.toString(-1)
         } finally {
-            // Close while the watchdog still runs: lua_close runs pending __gc finalizers, where the
-            // instruction hook is off, so a looping finalizer is only stopped by the watchdog. They
-            // can't call the host: LuaJava lets go of the state before closing it.
+            // Close while the watchdog still runs. lua_close runs pending __gc finalizers, where the
+            // instruction hook is off, so only the watchdog can stop a looping finalizer. Finalizers
+            // can't call the host, because LuaJava releases the state before closing it.
             watchdog.use { lua.close() }
         }
     }
 
     private fun bindHost(lua: Lua, host: HostApi) {
-        /** Kotlin exceptions become Lua errors instead of crossing JNI, masked as the script may see them. */
+        /** Turns Kotlin exceptions into Lua errors instead of letting them cross JNI. They are masked, as the script may see them. */
         fun safe(fn: (Lua) -> Int) = JFunction { l ->
             try {
                 fn(l)
@@ -102,9 +102,9 @@ class LuaEngine : ScriptEngine {
             0
         }
         lua.global("logs") { l ->
-            // logs({ "a", "b" }) or logs("a", "b"): one title line each.
+            // logs({ "a", "b" }) or logs("a", "b"): one title line for each.
             val titles = if (l.isTable(1)) {
-                // An empty table is an empty list (it has no keys to tell them apart).
+                // An empty table counts as an empty list, because it has no keys to tell.
                 when (val t = Json.normalizeLua(l.toMap(1))) {
                     is List<*> -> t.map { it.toString() }
                     is Map<*, *> -> if (t.isEmpty()) emptyList() else throw IllegalArgumentException("logs expects a list of titles")
@@ -129,7 +129,7 @@ class LuaEngine : ScriptEngine {
         lua.table(
             "http",
             "get" to { l: Lua -> l.pushValue(host.httpGet(l.checkString(), l.mapArg(2))); 1 },
-            // No lifetime, or nil, is the documented 600 s (nil read as a number would be 0: never cached).
+            // No lifetime, or nil, means the documented 600 s. (Reading nil as a number would give 0: never cached.)
             "cached" to { l: Lua -> l.pushValue(host.httpCached(l.checkString(), if (l.isNumber(2)) l.toInteger(2).toInt() else 600)); 1 },
             "request" to { l: Lua ->
                 l.pushValue(host.httpRequest(l.mapArg(1) ?: throw IllegalArgumentException("http.request expects a table")))
@@ -175,7 +175,7 @@ class LuaEngine : ScriptEngine {
         lua.table(
             "store",
             "get" to { l: Lua -> l.pushValue(host.storeGet(l.checkString())); 1 },
-            // A boolean or a table is kept as text (true, JSON), not dropped as nil.
+            // A boolean or a table is stored as text (true, JSON), not dropped as nil.
             "set" to { l: Lua -> host.storeSet(l.checkString(), l.str(2)); 0 },
         )
         lua.table(
@@ -200,6 +200,23 @@ class LuaEngine : ScriptEngine {
                 l.pushValue(StyledText.list(items, numbered = l.top >= 2 && l.toBoolean(2)))
                 1
             },
+            "table" to { l: Lua ->
+                val bad = "fmt.table expects a list of rows, each a list of cells"
+                val rows = (if (!l.isTable(1)) null else when (val v = Json.normalizeLua(l.toMap(1))) {
+                    is List<*> -> v
+                    is Map<*, *> -> if (v.isEmpty()) emptyList<Any?>() else null
+                    else -> null
+                })?.map { r ->
+                    when (r) {
+                        is List<*> -> r.map(::cellText)
+                        is Map<*, *> -> if (r.isEmpty()) emptyList() else throw IllegalArgumentException(bad)
+                        else -> throw IllegalArgumentException(bad)
+                    }
+                } ?: throw IllegalArgumentException(bad)
+                val opts = if (l.top >= 2 && l.isTable(2)) Json.normalizeLua(l.toMap(2)) as? Map<*, *> else null
+                l.pushValue(StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty()))
+                1
+            },
             "plain" to { l: Lua -> l.pushValue(StyledText.plain(l.str(1) ?: "")); 1 },
         )
         lua.table(
@@ -214,9 +231,17 @@ class LuaEngine : ScriptEngine {
     }
 
     /**
-     * Argument [index] as text, as `tostring` shows it: a boolean as true/false and a table as
-     * JSON (lua_tostring gives nil for both), a number as Lua writes it; null for nil or none.
+     * Argument [index] as text, as `tostring` shows it. Null for nil or none.
+     * - A boolean becomes true/false and a table becomes JSON (lua_tostring gives nil for both).
+     * - A number is written as Lua writes it.
      */
+    /** A table cell from Lua: text as it is, a whole number without ".0", nothing as an empty cell. */
+    private fun cellText(v: Any?): String = when (v) {
+        null -> ""
+        is Double -> if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong().toString() else v.toString()
+        else -> v.toString()
+    }
+
     private fun Lua.str(index: Int): String? = when {
         top < index || isNil(index) -> null
         isBoolean(index) -> toBoolean(index).toString()
@@ -227,16 +252,16 @@ class LuaEngine : ScriptEngine {
     private fun Lua.checkString(): String =
         toString(1) ?: throw IllegalArgumentException("argument #1 must be a string")
 
-    /** `fmt.color(role, text)`'s role, or an error naming the ones there are. */
+    /** The role for `fmt.color(role, text)`, or an error that lists the existing roles. */
     private fun colourNamed(role: String?): StyledText.Colour = role?.let(StyledText.Colour::named)
         ?: throw IllegalArgumentException("fmt.color: no colour '$role'; use ${StyledText.Colour.entries.joinToString { it.role }}")
 
-    /** `fmt.<style>(text)`: the text with [style] on it. */
+    /** `fmt.<style>(text)`: the text with [style] applied. */
     private fun Lua.styled(style: StyledText.Style) {
         pushValue(StyledText.wrap(style, str(1) ?: "nil"))
     }
 
-    /** `(title, body?, ctx?)` as log and md.log take them; a table second is the ctx: log(title, ctx). */
+    /** `(title, body?, ctx?)`, as log and md.log take them. If the second argument is a table, it is the ctx: log(title, ctx). */
     private fun Lua.logArgs(): Triple<String, String?, Map<*, *>?> {
         val tableSecond = top >= 2 && isTable(2)
         val body = if (top >= 2 && !tableSecond) str(2) else null

@@ -33,7 +33,7 @@ data class Contact(
     val starred: Boolean,
     val lookupUri: Uri,
 ) {
-    /** What [ContactsRepository.search] compares, worked out at its first search rather than on every key. */
+    /** Values that [ContactsRepository.search] compares. They are computed at the first search, not on every key press. */
     internal val lowerName: String by lazy(LazyThreadSafetyMode.PUBLICATION) { name.lowercase() }
     internal val nameWords: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { lowerName.split(' ') }
     internal val digits: String by lazy(LazyThreadSafetyMode.PUBLICATION) { number.filter { it.isDigit() } }
@@ -41,10 +41,11 @@ data class Contact(
 
 /**
  * Contacts with phone numbers, cached in memory for instant `call` / `sms` suggestions.
- * Empty until READ_CONTACTS is granted; refreshes when the contacts database changes.
+ * The list is empty until READ_CONTACTS is granted. It refreshes when the contacts database changes.
  *
- * The Play build ([picker]) has no READ_CONTACTS: its contacts are the ones picked with Android's
- * contact picker ([ContactPicker]), remembered on the phone so a name works again without picking.
+ * The Play build ([picker]) has no READ_CONTACTS. Its contacts are the ones the user picked with
+ * Android's contact picker ([ContactPicker]). They are saved on the phone, so a name works again
+ * without picking it again.
  */
 class ContactsRepository private constructor(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
@@ -53,30 +54,33 @@ class ContactsRepository private constructor(private val context: Context) {
     private var observing = false
 
     /**
-     * Home is started: a change in the contacts reloads them as it comes. Not before home first
-     * starts: a process started for a job (a feed, a reminder) has no home to show them.
+     * True while home is started. Then a change in the contacts reloads them right away. It stays
+     * false until home first starts, because a process started for a job (a feed, a reminder) has no
+     * home to show them.
      */
     @Volatile private var active = false
 
-    /** A change came while home wasn't started: the list is reloaded on return, or when a command needs it. */
+    /** True when a change came while home wasn't started. The list is reloaded on return, or when a command needs it. */
     @Volatile private var stale = false
 
     /**
-     * Home started or stopped. Away, a sync's bursts of changes don't each reload every number. Back,
-     * the reload waits as long as one for a change does, past the return's own work.
+     * Call when home starts or stops.
+     * - While home is away, each burst of changes from a sync doesn't reload every number.
+     * - When home is back, the reload waits as long as a reload after a change does. So it runs
+     *   after the work of returning home.
      */
     fun setActive(on: Boolean) {
         active = on
         if (on && stale) reload(RELOAD_DEBOUNCE_MS)
     }
 
-    /** The contacts as they are now: read again first if they changed while home wasn't started. */
+    /** Returns the current contacts. If they changed while home wasn't started, it reads them again first. */
     fun current(): List<Contact> {
         if (stale && Looper.myLooper() != Looper.getMainLooper()) runCatching { reloadNow() }
         return _contacts.value
     }
 
-    /** Contacts come from Android's contact picker, not READ_CONTACTS: the Play build. */
+    /** True when contacts come from Android's contact picker, not READ_CONTACTS. This is the Play build. */
     var picker = !BuildConfig.CONTACTS
         internal set(value) { field = value; _contacts.value = emptyList(); refresh() }
 
@@ -87,7 +91,7 @@ class ContactsRepository private constructor(private val context: Context) {
 
     fun refresh() {
         if (picker) {
-            // In step with remember and forget, so a load that started first can't land after them.
+            // Use the same lock as remember and forget, so a load that started earlier can't finish after them.
             scope.launch { synchronized(this@ContactsRepository) { _contacts.value = loadPicked() } }
             return
         }
@@ -97,7 +101,7 @@ class ContactsRepository private constructor(private val context: Context) {
             context.contentResolver.registerContentObserver(
                 ContactsContract.Contacts.CONTENT_URI, true,
                 object : ContentObserver(Handler(Looper.getMainLooper())) {
-                    // Sync adapters fire bursts of changes; coalesce them into one reload.
+                    // Sync adapters send bursts of changes. Combine them into one reload.
                     override fun onChange(selfChange: Boolean) {
                         if (active) reload(RELOAD_DEBOUNCE_MS) else stale = true
                     }
@@ -119,7 +123,7 @@ class ContactsRepository private constructor(private val context: Context) {
         }
     }
 
-    /** One load at a time, under a lock of its own: [reload], on the main thread, never waits for one. */
+    /** Lock that allows one load at a time. It is separate, so [reload] on the main thread never waits for a load. */
     private val loading = Any()
 
     /** Reads every number again, on the caller's thread. */
@@ -151,7 +155,7 @@ class ContactsRepository private constructor(private val context: Context) {
                 val id = c.getLong(0)
                 val name = c.getString(1) ?: continue
                 val number = c.getString(2)?.trim() ?: continue
-                // Same number stored twice (e.g. synced from two accounts): keep one.
+                // The same number can be stored twice (for example, synced from two accounts). Keep one.
                 if (!seen.add("$id:${number.filter { it.isDigit() || it == '+' }}")) continue
                 val label = ContactsContract.CommonDataKinds.Phone.getTypeLabel(
                     context.resources, c.getInt(3), c.getString(4),
@@ -169,7 +173,7 @@ class ContactsRepository private constructor(private val context: Context) {
         return out
     }
 
-    /** Picker: remembers the numbers of a contact just picked, replacing what was kept for it. */
+    /** Picker build: saves the numbers of a contact just picked. They replace the numbers saved for that name. */
     @Synchronized
     fun remember(picked: List<Contact>) {
         if (picked.isEmpty()) return
@@ -177,7 +181,7 @@ class ContactsRepository private constructor(private val context: Context) {
         savePicked(picked + loadPicked().filter { it.name !in names })
     }
 
-    /** Picker: forgets every number kept under [name]; false when none was. */
+    /** Picker build: forgets every number saved under [name]. Returns false when there was none. */
     @Synchronized
     fun forget(name: String): Boolean {
         val all = loadPicked()
@@ -187,7 +191,7 @@ class ContactsRepository private constructor(private val context: Context) {
         return true
     }
 
-    /** Newest pick first, like the list it was saved from. */
+    /** Returns the saved picks, newest first, in the order of the saved list. */
     private fun loadPicked(): List<Contact> = runCatching {
         val a = JSONArray(prefs.getString(KEY_PICKED, "[]"))
         (0 until a.length()).map { i ->
@@ -206,7 +210,7 @@ class ContactsRepository private constructor(private val context: Context) {
         prefs.edit { putString(KEY_PICKED, a.toString()) }
     }
 
-    /** Name or number matches, the best match first and favourites first among equals. */
+    /** Returns contacts whose name or number matches. Best matches come first, and favourites first among equal matches. */
     fun search(query: String, limit: Int = 12): List<Contact> {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
@@ -232,7 +236,7 @@ class ContactsRepository private constructor(private val context: Context) {
 
     companion object : Singleton<ContactsRepository>(::ContactsRepository) {
         private const val RELOAD_DEBOUNCE_MS = 1_000L
-        /** Picked contacts' prefs: left out of cloud backups (data_extraction_rules.xml). */
+        /** Prefs file for picked contacts. Cloud backups leave it out (data_extraction_rules.xml). */
         private const val PICKED = "picked_contacts"
         private const val KEY_PICKED = "list"
         private const val MAX_PICKED = 200

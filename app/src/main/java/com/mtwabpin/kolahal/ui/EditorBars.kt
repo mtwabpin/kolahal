@@ -65,9 +65,10 @@ internal fun EditorButton(label: String, onLongClick: (() -> Unit)? = null, onCl
 }
 
 /**
- * The editor's Run with (a long press on run): the words to run it with, as `args` when it runs as
- * a command, and an event to run it as, with made-up values ([com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent]): its `@on`
- * events and `@at` times, or none.
+ * The editor's Run with dialog (a long press on run). The user can set:
+ * - the words to pass as `args`, as when the script runs as a command;
+ * - an event to simulate: one of its `@on` events or `@at` times, or none. The event gets
+ *   made-up values ([com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent]).
  */
 @Composable
 internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<String>, Map<String, Any?>?) -> Unit) {
@@ -241,8 +242,8 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
     val line = text.trim().toIntOrNull()?.takeIf { it in 1..lineCount }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    // The GUI theme's full colour scheme: the editor's own sets only a few roles, and a dialog drawn
-    // with the rest is unreadable on a light theme.
+    // Use the GUI theme's full colour scheme. The editor's own scheme sets only a few roles, so a
+    // dialog drawn with it is unreadable on a light theme.
     GuiTheme { AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Go to line") },
@@ -273,8 +274,9 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
 }
 
 /**
- * Full API reference for the script's language, then its `@` lines (directives); tapping an entry
- * inserts it at the cursor, a directive as a whole comment line ([onDirective]).
+ * The full API reference for the script's language, followed by its `@` lines (directives).
+ * Tapping an entry inserts it at the cursor. A directive is inserted as a whole comment line
+ * ([onDirective]).
  */
 @Composable
 internal fun ApiReferenceSheet(lang: ScriptLang, onDismiss: () -> Unit, onPick: (ApiDoc) -> Unit, onDirective: (String) -> Unit) {

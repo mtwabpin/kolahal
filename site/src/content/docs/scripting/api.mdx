@@ -5,21 +5,25 @@ description: Every function scripts can call, in Lua and JavaScript, with return
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Both engines expose the same API. In JavaScript, the network calls (`http.*`, `rss.fetch`,
-`rss.fresh`) and `sleep` return promises, so `await` them. Everything else is synchronous in both
-languages. Lua calls simply block, since scripts never run on the UI thread.
+Both languages have the same API.
 
-Tables in Lua and objects in JS are interchangeable in the descriptions below: `{ status, ok }`
-means a table with those keys in Lua and an object with those properties in JS.
+- In JavaScript, the network calls (`http.*`, `rss.fetch`, `rss.fresh`) and `sleep` return
+  promises, so you `await` them.
+- Everything else is synchronous in both languages.
+- In Lua, calls simply block. This is fine, because scripts never run on the UI thread.
+
+In the descriptions below, a Lua table and a JS object mean the same thing. For example,
+`{ status, ok }` means a table with those keys in Lua, and an object with those properties in JS.
 
 ## Quick list
 
 | Call | Returns |
 | --- | --- |
-| [`log(title, body?, ctx?)`](#logtitle-body-ctx) | nothing; appends a line |
-| [`logs(titles)`](#logstitles) | nothing; appends a line per title |
-| [`md.log(title, body?, ctx?)`](#mdlogtitle-body-ctx) | nothing; appends a line, rendering Markdown |
+| [`log(title, body?, ctx?)`](#logtitle-body-ctx) | nothing; adds a line |
+| [`logs(titles)`](#logstitles) | nothing; adds a line for each title |
+| [`md.log(title, body?, ctx?)`](#mdlogtitle-body-ctx) | nothing; adds a line, with Markdown |
 | [`fmt.bold(text)` and the other styles](#styles-fmt) | the text, styled for the log |
+| [`fmt.table(rows, opts?)`](#tables) | a table, for a body |
 | [`notify(title, body, ctx?)`](#notifytitle-body-ctx) | `true` if a notification was posted |
 | [`status(text, opts?)`](#statustext-opts) | nothing; sets or clears its status line |
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
@@ -41,7 +45,7 @@ means a table with those keys in Lua and an object with those properties in JS.
 | [`launcher.run(command)`](#launcherruncommand) | `true` if sent |
 | [`sleep(ms)`](#sleepms) | nothing |
 | [`args`, `argline`](#args-and-argline) | arguments of a command run |
-| [`event`](#event) | what triggered an event run |
+| [`event`](#event) | what started an event run |
 | [`options`](#options) | its `@option` settings |
 | [`device.work()` / `device.setWork(on)`](#devicework--devicesetworkon) | the work profile |
 
@@ -49,24 +53,33 @@ means a table with those keys in Lua and an object with those properties in JS.
 
 ### log(title, body?, ctx?)
 
-Appends a line to the log. `title` shows in bold, in
-the script's colour (the link colour with a `url`). A run's first line ends with the script's name,
-muted (`… · weather`), unless it's right under the command that ran it. `body`, if given, appears muted under it, on as many lines as it needs. Every
-line a script logs is a title: to log several, call `log` for each, or use [`logs`](#logstitles).
-`log(title, ctx)` works too, without a body.
-`ctx` is an optional table / object of strings that decides what tapping and long-pressing do:
+Adds a line to the log.
+
+- `title` shows in the script's colour (in the link colour if the line has a `url`). With a `body`, the title is bold, as a heading over the body. On its own it is in normal weight, so a list of lines stays easy to read.
+- The first line of a run ends with the script's name, muted (`… · weather`), unless the line is
+  right under the command that ran it.
+- `body` is optional. It shows muted under the title, on as many lines as it needs.
+- Each line a script logs is a title. To log several lines, call `log` for each one, or use
+  [`logs`](#logstitles).
+- `log(title, ctx)` also works, without a body.
+
+`ctx` is an optional table / object of strings. It sets what happens when you tap or long-press the
+line:
 
 | Key | Effect |
 | --- | --- |
-| `url` | tap opens the link; long-press offers open, share and copy |
-| `copy` | what "Copy text" copies instead of the title and body: all or part of what the line shows, or its `url`; anything else is dropped |
-| `image` | an image URL (http or https): the picture shows under the line, as wide as the log; long-press offers "Open image" |
-| `mono` | `"1"`: the line keeps the terminal font even with `font.sans all`, so columns padded with spaces line up |
+| `url` | Tap opens the link. Long-press offers open, share and copy. |
+| `copy` | What "Copy text" copies instead of the title and body. It must be all or part of what the line shows, or its `url`. Anything else is dropped. |
+| `image` | An image URL (http or https). The picture shows under the line, as wide as the log. Long-press offers "Open image". |
+| `mono` | `"1"`: the line keeps the terminal font even with `font.sans all`, so columns padded with spaces line up. |
 
-A link or a picture counts as a network request: with internet switched off for the script, both are removed from the line, and one that contains a secret must go to the site its `@secret` line names, over https.
+A link or a picture counts as a network request:
 
-Other keys are dropped: a script can't add a line that runs a command or dials a number when
-tapped, whatever keys the launcher uses itself.
+- If internet is switched off for the script, both are removed from the line.
+- If one contains a secret, it must go over https to the site that the `@secret` line names.
+
+Other keys are dropped. Whatever keys the launcher uses itself, a script can't add a line that runs
+a command or dials a number when you tap it.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -94,8 +107,8 @@ console.error("logged as an error line");
 
 ### logs(titles)
 
-One title line per item, without bodies: a list (a table in Lua, an array in JavaScript), or the
-titles as separate arguments.
+Adds one title line for each item, without bodies. Pass a list (a table in Lua, an array in
+JavaScript), or pass the titles as separate arguments.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -114,13 +127,18 @@ logs("milk", "bread");
 
 ### md.log(title, body?, ctx?)
 
-Like [`log`](#logtitle-body-ctx), but renders Markdown in the title and the body: `**bold**` (or
-`__bold__`), `*italic*` (or `_italic_`), `~~strike~~`, `++underline++` and `` `code` ``. In the
-body, a line starting `- `, `* ` or `+ ` is a bulleted item and one starting `1. ` a numbered one;
-two spaces before it make a second level. `log` itself never renders Markdown, so text from the web logged with it always appears exactly as written.
+Works like [`log`](#logtitle-body-ctx), but shows Markdown in the title and the body:
 
-`md.escape(text)` puts a backslash before every Markdown mark in `text`, so text from the web can
-go inside `md.log` and still show exactly as written.
+- `**bold**` (or `__bold__`), `*italic*` (or `_italic_`), `~~strike~~`, `++underline++` and
+  `` `code` ``.
+- In the body, a line that starts with `- `, `* ` or `+ ` is a bulleted item. A line that starts
+  with `1. ` is a numbered item. Two spaces before it make a second level.
+
+`log` itself never shows Markdown. So text from the web that you log with `log` always appears
+exactly as written.
+
+`md.escape(text)` puts a backslash before every Markdown mark in `text`. Use it to put text from the
+web inside `md.log`, so that it still shows exactly as written.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -139,7 +157,9 @@ md.log("**HN** " + md.escape(item.title), null, { url: item.link });
 
 ### Styles: fmt
 
-Use these for lines that include text from the web, where Markdown would need escaping. Each function returns styled text that you can join with other text in any `log`, `logs` or `md.log`. Nothing else in the line is treated as a style.
+Use these for lines that include text from the web, where Markdown would need escaping. Each
+function returns styled text. You can join it with other text in any `log`, `logs` or `md.log`.
+Nothing else in the line is read as a style.
 
 | Function | Shows |
 | --- | --- |
@@ -149,16 +169,26 @@ Use these for lines that include text from the web, where Markdown would need es
 | `fmt.strike(text)` | struck through |
 | `fmt.code(text)` | on a shaded chip, in the terminal font |
 | `fmt.color(role, text)` | in one of the theme's colours: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` |
-| `fmt.list(items, numbered?)` | one item per line, bulleted, or numbered `1.`, `2.` … with `true`: for a body |
+| `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. |
+| `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) |
 | `fmt.plain(text)` | the text without its styles |
 
-Colours are set by role, never by value: the theme picks each one, in its dark and its light version, so a line is readable on every theme. `good` is for up, done or passing, `warn` for something short of
-an error, `bad` for down or failed (the theme's error colour). Show it in the text too (`▲`, `▼`, "down"): a colour alone is easy to miss.
+Colours:
 
-Styles appear only in the log: notifications, status lines, Copy text and search use the plain text.
-A styled string is ordinary text with invisible marks around the styled parts, so shorten text
-before styling it; if text is cut in the middle of a mark, the style continues to the end of the line. Use
-`fmt.plain` before storing or sending a styled string anywhere else.
+- You choose a colour by its role, never by its value. The theme picks each colour, in a dark and a
+  light version, so the line is readable on every theme.
+- `good` is for up, done or passing. `warn` is for something less than an error. `bad` is for down
+  or failed (the theme's error colour).
+- Also show the meaning in the text (`▲`, `▼`, "down"). People can easily miss a colour alone.
+
+Where styles work:
+
+- Styles appear only in the log. Notifications, status lines, Copy text and search use the plain
+  text.
+- A styled string is normal text with invisible marks around the styled parts. So shorten text
+  before you style it. If text is cut in the middle of a mark, the style continues to the end of the
+  line.
+- Use `fmt.plain` before you store a styled string or send it anywhere else.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -177,12 +207,54 @@ log(`BTC 67,120 USD ${fmt.color("good", "▲ 1.2%")}`);
 </TabItem>
 </Tabs>
 
+### Tables
+
+`fmt.table(rows, opts?)` makes a table to use as a line's body. Each row is a list of cells.
+
+- `opts.header`: `true` makes the first row the header. It names the columns and shows muted.
+- `opts.align`: one letter for each column, `l` (left) or `r` (right). Numbers read best on the
+  right. Columns without a letter are on the left.
+- A cell is one line: a line break in it becomes a space. Cells take the other `fmt` styles and colours.
+- Up to 8 columns and 50 rows besides the header. More rows end with a "+N more" line.
+- The table shows in the terminal font, so its columns line up. A table wider than the screen
+  scrolls sideways.
+- How it looks is the user's choice (`log.tables`): boxed (the default) or plain columns.
+- **Copy text** copies the table with tabs between the cells, so it pastes into a spreadsheet.
+- Text can come before and after the table in the same body: join them with `"\n"`.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+log("Prices in USD", fmt.table({
+  { "Coin", "Price", "24h" },
+  { "BTC", "64,210", fmt.color("good", "▲ 2.1%") },
+  { "ETH", "3,118", fmt.color("bad", "▼ 0.8%") },
+}, { header = true, align = "lrr" }))
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+log("Prices in USD", fmt.table([
+  ["Coin", "Price", "24h"],
+  ["BTC", "64,210", fmt.color("good", "▲ 2.1%")],
+  ["ETH", "3,118", fmt.color("bad", "▼ 0.8%")],
+], { header: true, align: "lrr" }));
+```
+</TabItem>
+</Tabs>
+
 ### notify(title, body, ctx?)
 
-Posts an Android notification, if notifications are enabled **for this script** (`script notify
-<name> on` or the switch in the script manager) and allowed for Kolahal. `ctx.url` is opened when
-the notification is tapped. Returns `true` if a notification was posted. A run posts at most 10:
-Android keeps about 50 for an app, and Kolahal's own reminders need room.
+Posts an Android notification. This works only if:
+
+- notifications are on **for this script** (`script notify <name> on`, or the switch in the script
+  manager), and
+- notifications are allowed for Kolahal.
+
+Tapping the notification opens `ctx.url`. Returns `true` if a notification was posted.
+
+A run posts at most 10 notifications. Android keeps about 50 for each app, and Kolahal's own
+reminders need room.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -199,39 +271,52 @@ notify("Build finished", "main is green", { url: "https://ci.example.org" });
 
 ### status(text, opts?)
 
-Sets this script's status line (first line of `text`, at most 80 characters): it shows on the
-script's card in Scripts and in `status`, and in the
-[pinned header](/getting-started/basics/#the-pinned-header) at the top of home once you pin the
-script (`script pin <name>`, or **Pin to the top** in its menus); a script can't pin itself.
-`status(nil)` / `status(null)` or an empty string clears it. It only works in saved scripts, since
-it is keyed by the script's name. Tapping the line at the top runs the script. A run changes it at
-most 20 times; setting the line it already shows doesn't count.
+Sets this script's status line. Kolahal uses the first line of `text`, at most 80 characters.
+
+- The line shows on the script's card in Scripts and in `status`.
+- After you pin the script, it also shows in the
+  [pinned header](/getting-started/basics/#the-pinned-header) at the top of home. Pin it with
+  `script pin <name>` or **Pin to the top** in its menus. A script can't pin itself.
+- `status(nil)` / `status(null)` or an empty string clears the line.
+- It works only in saved scripts, because the line is stored under the script's name.
+- Tapping the line at the top runs the script.
+- A run can change the line at most 20 times. Setting the same line again doesn't count.
 
 `opts` can have:
 
-- `progress`: how far along, from 0 to 1, drawn as a bar under the line at the top. Without it,
-  there's no bar.
+- `progress`: how far along, from 0 to 1. It is drawn as a bar under the line at the top. Without
+  it, there is no bar.
+- `color`: the bar's colour, by role, as [`fmt.color`](#styles-fmt) takes it: `good`, `warn`, `bad`, `info`,
+  `accent` (the default), `link`, `muted` or `text`. The theme picks the colour, so it reads on
+  every theme. For example, an air quality bar in `warn` or `bad` when the air is poor. Kolahal
+  versions before 0.4.16 ignore it.
 - `refresh`: run the script again every this many seconds (10 at the fastest, up to 3600) while
-  home shows the line at the top, to keep it current. That run's [`event.name`](#event) is
-  `"refresh"`, so it can skip what only a typed command needs. It runs only while home is on
-  screen and the script is pinned: set the line without `refresh` once it stops changing. An
-  error in those runs shows once until a run works again, and what a run returns isn't logged; its
-  own `log` lines are.
+  home shows the line at the top. This keeps the line current.
+  - In these runs, [`event.name`](#event) is `"refresh"`. The script can use this to skip work that
+    only a typed command needs.
+  - These runs happen only while home is on screen and the script is pinned.
+  - When the line stops changing, set it without `refresh`.
+  - If these runs fail, the error shows once, until a run works again.
+  - What these runs return isn't logged. Their own `log` lines are.
 
-Any other key, or a value that isn't a number, is an error. Kolahal before 0.4.14 ignores `opts`.
+Any other key, a `progress` or `refresh` that isn't a number, or a `color` that isn't a role, is an
+error. Kolahal versions before 0.4.14 ignore
+`opts`.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-status("HN: " .. count .. " new")
+status("Pune: 24°C")
 status("NZ 136/8 (33.2 ov) v IND", { progress = 200 / 300, refresh = 30 })
+status("AQI 168", { progress = 168 / 300, color = "bad" })
 status(nil)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-status(`HN: ${count} new`);
+status("Pune: 24°C");
 status("NZ 136/8 (33.2 ov) v IND", { progress: 200 / 300, refresh: 30 });
+status("AQI 168", { progress: 168 / 300, color: "bad" });
 status(null);
 ```
 </TabItem>
@@ -239,12 +324,20 @@ status(null);
 
 ### allowed(what)
 
-Whether this script may use `what`: `"internet"`, `"header"`, `"notifications"`, `"apps"`,
-`"clipboard"`, `"commands"`, `"dnd"`, an `@on` event such as `"unlock"`, or `"work"`. You switch these per script
-([switching access off](/scripting/overview/#switching-access-off)); with one off, a script can do
-something else instead. A script has `"internet"` only if its code uses `http`, `rss`, `url`,
-`image` or `launcher.run`. `"header"` is whether you pinned it, so its status line shows at the top
-of home; a script has it only if it calls `status`. Code typed at the prompt gets `true` for everything.
+Returns whether this script may use `what`. `what` is one of:
+
+- `"internet"`, `"header"`, `"notifications"`, `"apps"`, `"clipboard"`, `"commands"`, `"dnd"`,
+  `"work"`,
+- an `@on` event, such as `"unlock"`.
+
+You switch these on and off for each script
+([switching access off](/scripting/overview/#switching-access-off)). When one is off, the script
+can do something else instead.
+
+- A script has `"internet"` only if its code uses `http`, `rss`, `url`, `image` or `launcher.run`.
+- `"header"` means you pinned the script, so its status line shows at the top of home. A script has
+  it only if it calls `status`.
+- Code typed at the prompt gets `true` for everything.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -261,17 +354,31 @@ if (allowed("header")) status(text); else log(text);
 
 ### Return value
 
-Whatever the script returns is printed as an output line (tables and objects as JSON; long-press
-copies it). A one-liner run with `lua` / `js` that produces nothing prints `nil`.
+Whatever the script returns is printed as an output line. Tables and objects are printed as JSON.
+Long-press the line to copy it. If a one-liner run with `lua` / `js` produces nothing, it prints
+`nil`.
 
 ## HTTP
 
-Responses are `{ status, ok, body, headers }`: the numeric status, `ok` for 2xx, the body as a string
-(read up to 4 MB) and response headers with lowercase names. A `User-Agent` of
-`Kolahal-Launcher/0.1 (+https://github.com/mtwabpin)` is sent unless you set your own. Network errors raise an error (Lua) or
-reject the promise (JS). An HTTP error status does **not**, so check `ok`. Plain `http://` URLs are
-allowed. A request can go to any address: this phone, your local network (a router, a home server) and a VPN address like Tailscale's 100.x are all allowed. On Android 17 and newer,
-Android itself blocks your local network, and those requests fail after a timeout. A JavaScript run makes at most 4 requests at a time; more are queued, and with 64 requests and sleeps waiting at once, another call fails.
+A response is `{ status, ok, body, headers }`:
+
+- `status`: the status code, as a number.
+- `ok`: true for 2xx.
+- `body`: the body as a string (up to 4 MB is read).
+- `headers`: the response headers, with lowercase names.
+
+Requests:
+
+- Kolahal sends the `User-Agent` `Kolahal-Launcher/0.1 (+https://github.com/mtwabpin)` unless you
+  set your own.
+- A network error raises an error (Lua) or rejects the promise (JS).
+- An HTTP error status does **not**, so check `ok`.
+- Plain `http://` URLs are allowed.
+- A request can go to any address. This phone, your local network (a router, a home server) and a
+  VPN address such as Tailscale's 100.x are all allowed. On Android 17 and newer, Android itself
+  blocks your local network, and those requests fail after a timeout.
+- A JavaScript run makes at most 4 requests at a time. More requests wait in a queue. When 64
+  requests and sleeps are waiting at once, another call fails.
 
 ### http.get(url, headers?)
 
@@ -295,10 +402,13 @@ return JSON.parse(r.body).stargazers_count;
 
 ### http.request(opts)
 
-Any method. `opts` = `{ url, method, body, contentType, headers }`; only `url` is required and
-`method` defaults to `GET`. A string `body` is sent as is, as `text/plain; charset=utf-8`; a
-table / object body is encoded as JSON and sent as `application/json`. `contentType`, or a
-`Content-Type` header, sets the type instead.
+Sends a request with any method. `opts` is `{ url, method, body, contentType, headers }`.
+
+- Only `url` is required.
+- `method` defaults to `GET`.
+- A string `body` is sent as it is, as `text/plain; charset=utf-8`.
+- A table / object `body` is encoded as JSON and sent as `application/json`.
+- `contentType`, or a `Content-Type` header, sets a different type.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -335,10 +445,17 @@ const r2 = await http.request({
 
 ### http.cached(url, seconds?)
 
-A GET that reuses this script's stored response while it is less than `seconds` old (default 600).
-The result has an extra `cached` field (`true` when it came from the cache). Only successful
-responses are cached, and only their body: a cached result has `status` 200 and empty `headers`.
-Cached responses count toward the script's [store](#storegetkey--storesetkey-value) limits; when the store is full, the script's other cached responses are deleted to make room.
+A GET request that reuses this script's stored response while the response is less than `seconds`
+old (default 600).
+
+- The result has an extra `cached` field. It is `true` when the result came from the cache.
+- Only successful responses are cached, and only their body. A cached result has `status` 200 and
+  empty `headers`.
+- A response is not cached when:
+  - its body is half the store's value limit or more (512 KB of text), or
+  - its body contains one of the script's secrets.
+- Cached responses count toward the script's [store](#storegetkey--storesetkey-value) limits. When
+  the store is full, the script's other cached responses are deleted to make room.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -355,9 +472,9 @@ const r = await http.cached("https://open.er-api.com/v6/latest/USD", 6 * 3600);
 
 ## RSS and Atom
 
-Feeds come back as `{ title, link, items }`, where each item is
-`{ title, link, id, date, summary }`. `rss.fetch` and `rss.fresh` raise an error on an HTTP failure,
-so wrap them in `pcall` / `try` if you want a friendly message.
+A feed is returned as `{ title, link, items }`. Each item is `{ title, link, id, date, summary }`.
+`rss.fetch` and `rss.fresh` raise an error when the HTTP request fails. To show a friendly message,
+wrap them in `pcall` / `try`.
 
 ### rss.fetch(url)
 
@@ -365,13 +482,16 @@ Downloads and parses a feed.
 
 ### rss.parse(xml)
 
-Parses feed XML you already have. Synchronous in both languages.
+Parses feed XML that you already have. It is synchronous in both languages.
 
 ### rss.fresh(url)
 
-Like `rss.fetch`, but returns only items this script hasn't seen before (by item id; the last 500
-ids per URL are remembered). Items are only marked as seen **if the run succeeds**, so a script that
-fails halfway sees the same items next time.
+Works like `rss.fetch`, but returns only the items this script hasn't seen before.
+
+- Items are matched by their id. Kolahal remembers the last 500 ids for each URL. For a longer feed
+  it remembers more: the feed's item count plus 100.
+- Items are marked as seen only **if the run succeeds**. So if a script fails halfway, it gets the
+  same items next time.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -395,12 +515,22 @@ for (const item of feed.items.slice(0, 5)) log(item.title, { url: item.link });
 
 ### store.get(key) / store.set(key, value)
 
-Persistent strings, private to each script. `store.get` returns `nil` / `null` for a missing key;
-`store.set(key, nil)` deletes it. Store anything structured as JSON. Deleting a script deletes its
-store; one-liners typed at the prompt share one scratch store. A value holds up to 1 MB and a key
-up to 512 characters, and a script's store up to 1,000 keys and 16 MB, keys included, counted as
-stored (an accented letter or a CJK character takes more than one byte); past those `store.set`
-raises an error ("value too large", "key too long" or "store full"). It rejects a secret, because a store is included in backups.
+Strings that are kept between runs. Each script has its own private store.
+
+- `store.get` returns `nil` / `null` for a missing key.
+- `store.set(key, nil)` deletes the key.
+- To store structured data, encode it as JSON.
+- Deleting a script deletes its store.
+- One-liners typed at the prompt share one scratch store.
+
+Limits:
+
+- A value can hold up to 1 MB.
+- A key can be up to 512 characters.
+- A script's store can hold up to 1,000 keys and 16 MB, keys included.
+- Sizes are counted as stored: an accented letter or a CJK character takes more than one byte.
+- Past these limits, `store.set` raises an error: "value too large", "key too long" or "store full".
+- `store.set` rejects a secret, because the store is included in backups.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -421,13 +551,19 @@ store.set("list", JSON.stringify(["a", "b"]));
 
 ### secrets.get(name)
 
-A placeholder for the API key or token the script names with `@secret`, or `nil` / `null` until you
-set it: never the value itself. Put it where a request needs the key (a header, the URL's path or
-query, the body; not the site's name), as is or joined with other text, and Kolahal puts the value in its place when the request goes to a
-site the `@secret` line names, over https; a request carrying it anywhere else stops the script
-([API keys and other secrets](/scripting/overview/#api-keys-and-other-secrets)). It is shown as
-`••••`, and a script can't turn it into the value: encoded, reversed or cut up, it is just text.
-Reading a name without its `@secret` line is an error, and code typed at the prompt can't read secrets.
+Returns a placeholder for the API key or token that the script names with `@secret`. It never
+returns the value itself. Until you set the value, it returns `nil` / `null`.
+
+- Put the placeholder where the request needs the key: a header, the URL's path or query, or the
+  body. You can use it alone or joined with other text. It can't be in the site's name.
+- Kolahal puts the value in its place when the request goes over https to a site that the
+  `@secret` line names.
+- A request that carries it anywhere else stops the script
+  ([API keys and other secrets](/scripting/overview/#api-keys-and-other-secrets)).
+- The placeholder shows as `••••`. A script can't turn it into the value: if the script encodes,
+  reverses or cuts it, it is just text.
+- Reading a name that has no `@secret` line is an error.
+- Code typed at the prompt can't read secrets.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -450,9 +586,11 @@ const r = await http.get("https://api.github.com/notifications", { Authorization
 
 ### json.encode(v) / json.decode(s)
 
-Lua only; JavaScript has the built-in `JSON`. `json.decode` turns objects into tables and arrays
-into 1-based sequences, and raises an error when `s` isn't JSON (an HTML error page, say): wrap it
-in `pcall` when the text comes from a site.
+Lua only. JavaScript has the built-in `JSON`.
+
+- `json.decode` turns objects into tables, and arrays into sequences that start at 1.
+- It raises an error when `s` isn't JSON (for example, an HTML error page). Wrap it in `pcall` when
+  the text comes from a site.
 
 ```lua
 local data = json.decode('{"ip":"203.0.113.7"}')
@@ -464,8 +602,10 @@ return json.encode({ ip = data.ip, ok = true })
 ### clipboard.get() / clipboard.set(text)
 
 Needs `@uses clipboard` ([what a script may use](/scripting/overview/#what-a-script-may-use)).
-Android only lets the focused app read the clipboard, so `clipboard.get()` usually returns `nil` in
-timer runs. `clipboard.set` works any time, for up to 100,000 characters, and rejects a secret.
+
+- Android lets only the focused app read the clipboard. So `clipboard.get()` usually returns `nil`
+  in timer runs.
+- `clipboard.set` works at any time, for up to 100,000 characters. It rejects a secret.
 
 ```lua
 -- @uses clipboard
@@ -474,15 +614,16 @@ clipboard.set("copied by a script")
 
 ### device.battery()
 
-`{ level, charging }`: `level` is 0–100 (or nil if unknown), `charging` is true when plugged in.
+Returns `{ level, charging }`. `level` is 0–100 (or nil if unknown). `charging` is true when the
+phone is plugged in.
 
 ### device.network()
 
-The active network: `"wifi"`, `"cell"`, `"eth"`, `"net"` (something else) or `"offline"`.
+Returns the active network: `"wifi"`, `"cell"`, `"eth"`, `"net"` (any other kind) or `"offline"`.
 
 ### device.unlocks()
 
-Today's unlock count, as in the header.
+Returns how many times you unlocked the phone today, as in the header.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -502,11 +643,14 @@ return `${b.level}% ${b.charging ? "charging" : ""} · ${device.network()} · ${
 
 ### device.dnd() / device.setDnd(mode)
 
-`device.dnd()` returns the current Do Not Disturb mode: `"off"`, `"priority"`, `"alarms"` or `"none"` (total
-silence). `device.setDnd(mode)` sets it to one of those (`"on"` is `"priority"`) and returns `true`,
-or `false` when Kolahal has no Do Not Disturb access: run `dnd access` once to grant it. Since Android
-15, what a script turns on is Kolahal's own Do Not Disturb mode, beside yours: turning it off again
-never turns off one you turned on yourself. Needs `@uses dnd`.
+Needs `@uses dnd`.
+
+- `device.dnd()` returns the current Do Not Disturb mode: `"off"`, `"priority"`, `"alarms"` or
+  `"none"` (total silence).
+- `device.setDnd(mode)` sets one of those modes (`"on"` means `"priority"`). It returns `true`, or
+  `false` when Kolahal has no Do Not Disturb access. Run `dnd access` once to give it access.
+- Since Android 15, a script turns on Kolahal's own Do Not Disturb mode, separate from yours. When
+  the script turns it off again, it never turns off one that you turned on yourself.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -525,9 +669,11 @@ if (device.dnd() === "off") device.setDnd("on");
 
 ### apps.list()
 
-Launchable apps in your personal profile and in a work or clone profile that is on, sorted by label:
-`[{ label, pkg, profile }]`, where `profile` is `"personal"` or `"other"`. Apps in a paused profile or
-the private space are left out. Needs `@uses apps`.
+Needs `@uses apps`. Returns the apps you can launch, sorted by label: `[{ label, pkg, profile }]`.
+
+- It includes apps in your personal profile, and in a work or clone profile that is on.
+- `profile` is `"personal"` or `"other"`.
+- It leaves out apps in a paused profile or in the private space.
 
 ```js
 // @uses apps
@@ -537,10 +683,13 @@ return `${work.length} apps outside the personal profile`;
 
 ### notifications.recent(n?)
 
-The most recent notifications, newest first: `[{ pkg, app, title, text, time }]` (`time` in
-milliseconds since the epoch). `n` defaults to 20, at most 50. Needs
-[notification access](/guides/notifications/); returns an empty list without it. Needs
-`@uses notifications`.
+Needs `@uses notifications` and [notification access](/guides/notifications/). Without
+notification access, it returns an empty list.
+
+Returns the most recent notifications, newest first: `[{ pkg, app, title, text, time }]`.
+
+- `time` is in milliseconds since the epoch.
+- `n` defaults to 20. The maximum is 50.
 
 ```lua
 -- @uses notifications
@@ -553,11 +702,19 @@ end
 
 ### launcher.run(command)
 
-Runs a terminal command, as if typed, including another script's command. Needs `@uses commands`.
-**Only when the script was started from the prompt** (a command script, `script run`, or a
-one-liner); in timer and event runs it logs an error and returns `false`. Sensitive commands
-(`clear`, `uninstall`, `work`, `notifs`, `script` and the like) must be typed: for those it logs
-an error and returns `false`. The same applies to `search`, `yt`, `wiki`, `maps` and `play` with search words, and to another `@command` script that goes online when given words, unless the script has internet access: they send the words to a site. A run sends at most 10 commands, and a script that another script started this way can't send any.
+Runs a terminal command as if you typed it. This includes another script's command. Needs
+`@uses commands`.
+
+- It works **only when the script was started from the prompt**: a command script, `script run`, or
+  a one-liner. In timer and event runs, it logs an error and returns `false`.
+- Sensitive commands (`clear`, `uninstall`, `work`, `notifs`, `script` and similar) must be typed by
+  you. For these, it logs an error and returns `false`.
+- The same applies when the script has no internet access, to:
+  - `search`, `yt`, `wiki`, `maps` and `play` with search words,
+  - another `@command` script that goes online when it gets words.
+
+  These send the words to a site.
+- A run sends at most 10 commands. A script started this way by another script can't send any.
 
 ```lua
 -- @command
@@ -569,12 +726,16 @@ launcher.run("open news")
 
 ### sleep(ms)
 
-Pauses for up to 5000 ms per call. In JS: `await sleep(1000)`.
+Pauses for up to 5000 ms per call. In JS, use `await sleep(1000)`.
 
 ### args and argline
 
-When a script runs as a command, `args` holds the words after its name (a table in Lua, an array in
-JS; quotes group words) and `argline` the same words joined by spaces. Both are empty in timer runs.
+When a script runs as a command:
+
+- `args` holds the words after its name (a table in Lua, an array in JS). Quotes group words.
+- `argline` holds the same words joined by spaces.
+
+Both are empty in timer runs.
 
 ```js
 // @command
@@ -584,8 +745,9 @@ return `hello, ${argline || "world"} (${args.length} args)`;
 
 ### options
 
-The script's [`@option`](/scripting/overview/#options) settings by name, as text: the value you set
-in its sheet or with `script set`, or the default its line gives. Empty in code typed at the prompt.
+The script's [`@option`](/scripting/overview/#options) settings by name, as text. Each value is the
+one you set in its sheet or with `script set`, or else the default from its line. In code typed at
+the prompt, `options` is empty.
 
 ```lua
 -- @option city London The city to show
@@ -595,8 +757,8 @@ log("Weather for " .. options.city)
 ### event
 
 In a run started by an [`@on` trigger](/scripting/overview/#event-triggers), `event` describes what
-happened. `event.name` is the event (`unlock`, `charger`, `unplug`, `wifi`, `offline`,
-`notification`, `boot`, `headset`). Some events add more:
+happened. `event.name` is the event: `unlock`, `charger`, `unplug`, `wifi`, `offline`,
+`notification`, `boot` or `headset`. Some events add more fields:
 
 | Event | Other fields |
 | --- | --- |
@@ -606,23 +768,37 @@ happened. `event.name` is the event (`unlock`, `charger`, `unplug`, `wifi`, `off
 | `wifi` | `network` (`wifi`) |
 | `boot` | `uptime` (seconds) |
 
-`unlock` and `offline` carry only `name`. Text over 2,000 characters is truncated.
+`unlock` and `offline` have only `name`. Text over 2,000 characters is cut short.
 
-A run at one of the script's [daily times](/scripting/overview/#running-scripts) gets `event.name`
-`"at"` and `event.time`, the scheduled time (`"23:00"`), even when it runs late: a script with two
-times can tell them apart. A run a [status line](#statustext-opts) asks for with `refresh` gets `event.name`
-`"refresh"`. Other runs get nil (null in JavaScript).
+Other runs:
+
+- A run at one of the script's [daily times](/scripting/overview/#running-scripts) gets
+  `event.name` `"at"` and `event.time`, the scheduled time (`"23:00"`). This is true even when the
+  run is late. A script with two times can tell them apart.
+- A run that a [status line](#statustext-opts) asks for with `refresh` gets `event.name`
+  `"refresh"`.
+- All other runs get nil (null in JavaScript).
 
 ## Work profile
 
 ### device.work() / device.setWork(on)
 
-`device.work()` returns the work profile's state: `"on"`, `"paused"`, or nil (null in JavaScript) when the phone
-has none. `device.setWork(true)` (or `"on"`) resumes it and `device.setWork(false)` (or `"off"`) pauses it, returning `true`
-when Android accepted the request. Android lets only the default launcher do this, only while it is in the foreground, and from Android 10. A script run at one of its [daily times](/scripting/overview/#running-scripts)
-counts as in the foreground when Kolahal may set exact alarms; one on an interval or an event usually doesn't,
-and gets `false`. Resuming returns `false` too when your work profile asks for its PIN: Android
-asks you for it. Needs `@uses work`.
+Needs `@uses work`.
+
+- `device.work()` returns the work profile's state: `"on"`, `"paused"`, or nil (null in
+  JavaScript) when the phone has no work profile.
+- `device.setWork(true)` (or `"on"`) resumes it. `device.setWork(false)` (or `"off"`) pauses it.
+  It returns `true` when Android accepted the request.
+
+Android limits this:
+
+- Only the default launcher can do it, only while it is in the foreground, and only on Android 10
+  and newer.
+- A script run at one of its [daily times](/scripting/overview/#running-scripts) counts as in the
+  foreground when Kolahal may set exact alarms.
+- A run on an interval or an event usually doesn't count, and gets `false`.
+- Resuming also returns `false` when your work profile asks for its PIN. Android then asks you for
+  it.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">

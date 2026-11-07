@@ -41,10 +41,10 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.CommandCatalog
 import com.mtwabpin.kolahal.terminal.Suggestion
 
-/** A profile tag at the end of a completion's label (`Maps [W]`), as app rows show it. */
+/** Matches a profile tag at the end of a completion's label (`Maps [W]`), the same tag app rows show. */
 private val LABEL_TAG = Regex(" \\[([PWSC])]$")
 
-/** [label] with a trailing profile tag in that profile's colour, small and bold, as app rows draw theirs. */
+/** Returns [label] with its trailing profile tag drawn small, bold and in the profile's colour, like app rows draw it. */
 @Composable
 private fun taggedLabel(label: String): androidx.compose.ui.text.AnnotatedString {
     val tag = LABEL_TAG.find(label) ?: return androidx.compose.ui.text.AnnotatedString(label)
@@ -57,7 +57,7 @@ private fun taggedLabel(label: String): androidx.compose.ui.text.AnnotatedString
     }
 }
 
-/** Short help shown next to a completion: a command's description, or a config key's. */
+/** Short help shown next to a completion: the description of a command or of a config key. */
 internal fun completionHelp(label: String, replacement: String): String? {
     // Top-level command completions replace the whole input with "name ".
     if (replacement.trim() == label) CommandCatalog.COMMANDS.firstOrNull { it.name == label }?.let { return it.help }
@@ -65,16 +65,19 @@ internal fun completionHelp(label: String, replacement: String): String? {
 }
 
 /**
- * `suggestions.style list`: matches stacked above the prompt, best one at the bottom nearest the
- * thumb (TAB takes it; it is highlighted when Enter acts on it too). At most ~40% of the screen tall,
- * and no taller than the room above the prompt; more scroll. Tap picks; long-press an app for its actions.
+ * `suggestions.style list`: matches stacked above the prompt.
+ * - The best match is at the bottom, nearest the thumb. TAB takes it. It is highlighted when Enter
+ *   also acts on it.
+ * - The list is at most ~40% of the screen tall, and no taller than the space above the prompt.
+ *   Extra matches scroll.
+ * - Tap picks a match. Long-press an app to open its actions.
  */
 @Composable
 fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppLongPress: (AppEntry) -> Unit, icons: Boolean = false, wrapHelp: Boolean = false) {
     if (items.isEmpty()) return
     val maxHeight = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * 0.4f).toDp() }
-    // A lazy list keeps its first visible item in place when the data changes; the best match
-    // (what Enter acts on) must always be in view, so jump back to it when it changes.
+    // A lazy list keeps its first visible item in place when the data changes. But the best match
+    // (what Enter acts on) must always be visible, so scroll back to it when it changes.
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     androidx.compose.runtime.LaunchedEffect(items.first().key) { state.scrollToItem(0) }
     LazyColumn(
@@ -86,9 +89,9 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
             .testTag("suggestions"),
     ) {
         itemsIndexed(items, key = { _, s -> s.key }) { index, s ->
-            // A row is 44 dp at the most (the chip height, capped below): the icon is 8 dp less.
+            // A row is at most 44 dp tall (the chip height, capped below). The icon is 8 dp smaller.
             val iconSize = minOf(Term.fontSize + 10, minOf(44, Term.chipHeight) - 8).dp
-            // Highlighted only when Enter does what it does.
+            // Highlight the first row only when Enter would act on it.
             val first = index == 0 && s.enter
             val color = when (s) {
                 is Suggestion.App -> Term.profileColor(s.app.profile.kind)
@@ -106,18 +109,18 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
                         onLongClick = (s as? Suggestion.App)?.let { app -> { onAppLongPress(app.app) } },
                     ),
             ) {
-                // A bar marks the row Enter / TAB act on.
+                // A bar marks the row that Enter / TAB act on.
                 Box(Modifier.width(3.dp).heightIn(min = minOf(44, Term.chipHeight).dp).background(if (first) color else Color.Transparent))
                 Spacer(Modifier.width(9.dp))
                 when (s) {
                     is Suggestion.App -> {
-                        // suggestions.icons: the app's icon first (its badge marks work / private apps).
+                        // suggestions.icons: the app's icon comes first. Its badge marks work / private apps.
                         if (icons) {
                             AppIcon(s.app, iconSize)
                             Spacer(Modifier.width(8.dp))
                         }
                         val kind = s.app.profile.kind
-                        // The profile tag goes after the name, so every name starts in the same column.
+                        // The profile tag goes after the name, so all names start in the same column.
                         Text(
                             androidx.compose.ui.text.buildAnnotatedString {
                                 append(s.label)
@@ -134,10 +137,11 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
                         )
                     }
                     is Suggestion.Completion -> {
-                        // suggestions.wrap: the whole description in its own column, as many lines as it
-                        // needs, with the name on its first line; otherwise one line, cut short.
+                        // With suggestions.wrap, the full description goes in its own column, on as many
+                        // lines as it needs, and the name aligns with its first line. Without it, the
+                        // description is one line, cut short.
                         val firstLine = if (wrapHelp) Modifier.alignBy(FirstBaseline) else Modifier
-                        // With icons on, a terminal icon takes the `$`'s place so labels line up with apps.
+                        // With icons on, a terminal icon replaces the `$`, so labels line up with app labels.
                         if (icons) {
                             when {
                                 s.app != null -> AppIcon(s.app, iconSize)
@@ -183,9 +187,9 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
 internal fun SuggestionStrip(items: List<Suggestion>, rows: Int, onPick: (Suggestion) -> Unit, icons: Boolean = false) {
     if (items.isEmpty()) return
     val key = { _: Int, s: Suggestion -> s.key }
-    // Keep the first chip (what TAB takes) in view when the matches change.
+    // Keep the first chip (the one TAB takes) visible when the matches change.
     val first = items.first().key
-    // suggestions.rows 2: twice as many chips in reach before any sideways scrolling.
+    // suggestions.rows 2: two rows show twice as many chips before the user must scroll sideways.
     if (rows >= 2 && items.size > 3) {
         val gridState = androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState()
         LaunchedEffect(first) { gridState.scrollToItem(0) }
@@ -232,13 +236,13 @@ private fun SuggestionChip(s: Suggestion, onPick: (Suggestion) -> Unit, icons: B
                 modifier = Modifier
                     .heightIn(min = Term.chipHeight.dp)
                     .alpha(if (s is Suggestion.App && s.app.profile.quiet) 0.45f else 1f)
-                    // The chip Enter acts on (the first, when Enter does what it does): fill it so that is visible.
+                    // Fill the chip that Enter acts on (the first one, when Enter acts on it), so the user can see it.
                     .background(if (s.enter) color.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(4.dp))
                     .border(1.dp, color.copy(alpha = if (s.enter) 0.9f else 0.6f), RoundedCornerShape(4.dp))
                     .clickable { onPick(s) }
                     .padding(horizontal = 12.dp, vertical = (if (Term.chipHeight < 40) 2 else 8).dp),
             ) {
-                // suggestions.icons: the app's icon first (its badge marks work / private apps).
+                // suggestions.icons: the app's icon comes first. Its badge marks work / private apps.
                 val iconSize = minOf(Term.fontSize + 6, Term.chipHeight - 4).dp
                 if (icons) {
                     val app = (s as? Suggestion.App)?.app ?: (s as? Suggestion.Completion)?.app
@@ -250,13 +254,13 @@ private fun SuggestionChip(s: Suggestion, onPick: (Suggestion) -> Unit, icons: B
                     }
                     Spacer(Modifier.width(6.dp))
                 }
-                // Commands carry the prompt's `$`, so "maps" (command) and "Maps" (app) read apart.
-                // (With icons on, the terminal icon above takes its place.)
+                // Commands show the prompt's `$`, so "maps" (command) and "Maps" (app) look different.
+                // With icons on, the terminal icon above replaces it.
                 if (s is Suggestion.Completion && !icons) {
                     Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold))
                 }
                 Text(taggedLabel(s.label), style = Term.text.copy(color = if (s is Suggestion.App) Term.fg else Term.dim))
-                // The profile tag follows the name, as in the log.
+                // The profile tag goes after the name, as in the log.
                 if (tag != null && tag != ProfileKind.PERSONAL.tag) {
                     Spacer(Modifier.width(6.dp))
                     Text(tag, style = Term.text.copy(color = color, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize - 2).sp))

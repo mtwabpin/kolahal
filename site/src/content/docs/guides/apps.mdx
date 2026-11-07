@@ -8,9 +8,9 @@ import grid from '../../../assets/app-grid.png';
 
 ## Launching
 
-Type part of an app name and press Enter. The [basics](/getting-started/basics/#the-prompt)
-page explains exactly which app Enter picks. `open <app>` (alias `launch`) does the same
-explicitly and takes profile flags:
+To open an app, type part of its name and press Enter. The [basics](/getting-started/basics/#the-prompt)
+page explains which app Enter picks. You can also use `open <app>` (alias `launch`). It does the same thing,
+and it accepts profile flags:
 
 ```sh
 open maps
@@ -27,13 +27,21 @@ apps -a              # include hidden apps
 apps work            # one profile: work, personal, private
 ```
 
-Tap a chip to launch it; long-press for launch, shortcuts, app info, copy package name, hide, uninstall and launching the copy in another profile.
+Tap a chip to open the app. Long-press a chip to see more actions:
+
+- launch
+- shortcuts
+- app info
+- copy package name
+- hide
+- uninstall
+- launch the copy in another profile
 
 <Image src={grid} alt="The apps grid: personal apps, then work apps marked W" class="shot shot-single" width={320} />
 
 ## Favourites
 
-With **Favourites & most-used on empty prompt** (`suggestions.idle`, off by default), pinned apps appear first in the suggestions whenever the prompt is empty, in the order you pinned them, followed by your most-used apps.
+You can turn on **Favourites & most-used on empty prompt** (`suggestions.idle`, off by default). Then, when the prompt is empty, the suggestions show your pinned apps first, in the order you pinned them. Your most-used apps come after them.
 
 ```sh
 pin maps                     # or long-press an app → Pin to favourites
@@ -41,7 +49,7 @@ pins                         # grid of pinned apps
 unpin maps
 ```
 
-Pins are part of the [backup file](/guides/backup/).
+Pins are saved in the [backup file](/guides/backup/).
 
 ## Hide and rename
 
@@ -54,19 +62,19 @@ rename yt =                  # empty restores the original label
 rename chrome -w = work web  # flags pick the profile
 ```
 
-Hidden apps and custom labels are part of the [backup file](/guides/backup/).
+Hidden apps and custom labels are saved in the [backup file](/guides/backup/).
 
 ## App shortcuts
 
-Launcher shortcuts (the menu you get by long-pressing an icon in other launchers) work too. They
-need Kolahal as the default home app.
+Kolahal supports app shortcuts. In other launchers, you see these when you long-press an app icon.
+They only work when Kolahal is your default home app.
 
 ```sh
 shortcuts maps               # list them; tap one to start it
 open maps:home               # start the shortcut whose label best matches "home"
 ```
 
-They also appear in every app's action sheet.
+Shortcuts also appear in the action sheet of every app.
 
 ## Aliases
 
@@ -77,8 +85,8 @@ alias m                      # show one
 unalias m                    # remove
 ```
 
-Aliases expand the first word (up to five levels, without cycles). A built-in command name can't
-be an alias.
+An alias replaces the first word of a command. Aliases can use other aliases, up to five levels deep,
+but they can't form a loop. You can't use a built-in command name as an alias.
 
 ## App info and uninstall
 
@@ -89,12 +97,18 @@ uninstall some-game -w
 
 ### Install, update and uninstall log
 
-Installs, updates and uninstalls show up in the log: the app name, then its package name and its version
-on dimmed lines below, with a profile tag and `+` / `↻` / `−` at the end of the first line
-(`Updated Maps [W] ↻`). An update is always one line, and so is an uninstall followed by
-a reinstall within 20 seconds. Because of that window, an uninstall line appears about 20 seconds
-after the app is gone, or as soon as you come back to the home screen after that. Changes made while the launcher wasn't running are logged when it next starts. `installs [<n>]` lists the recent history
-with dates.
+When you install, update or uninstall an app, the log shows a line for it:
+
+- The first line has the app name, a profile tag and a sign at the end: `+` for install, `↻` for update,
+  `−` for uninstall. Example: `Updated Maps [W] ↻`.
+- The package name and version appear on dimmed lines below.
+
+An update always shows as one line. If you uninstall an app and reinstall it within 20 seconds, that also shows as one line.
+Because of this 20-second wait, an uninstall line appears about 20 seconds after the app is removed.
+If you return to the home screen after those 20 seconds, it appears then.
+
+If apps change while the launcher isn't running, Kolahal logs the changes the next time it starts.
+`installs [<n>]` lists the recent history with dates.
 
 ## Screen time and unlocks
 
@@ -105,5 +119,5 @@ unlocks          # today's unlock count
 unlocks 7        # one line per day for the last week (1–30)
 ```
 
-`usage` needs **Usage access** (`usage-access`). Unlock counts use usage access when granted and
-fall back to counting `ACTION_USER_PRESENT` broadcasts while the launcher is running.
+`usage` needs **Usage access** (`usage-access`). To count unlocks, Kolahal uses usage access if you granted it.
+If not, it counts `ACTION_USER_PRESENT` broadcasts, but only while the launcher is running.

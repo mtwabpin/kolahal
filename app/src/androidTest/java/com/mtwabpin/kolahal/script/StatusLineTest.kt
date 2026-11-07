@@ -155,10 +155,28 @@ class StatusLineTest {
         assertNull(KvStore(context, StatusLines.EXTRAS_SCOPE).get("liner2"))
     }
 
+    /** The bar's colour is a role, as fmt.color takes it; a name that isn't one is an error. */
+    @Test fun theBarTakesAColourByRole() {
+        val s = script()
+        host(s).status("AQI 168", mapOf("progress" to 0.56, "color" to "bad"))
+        assertEquals(StatusLine("liner", "AQI 168", 0.56f, null, com.mtwabpin.kolahal.data.StyledText.Colour.BAD), stored())
+        assertTrue(runCatching { host(s).status("AQI 168", mapOf("color" to "red")) }.exceptionOrNull() is IllegalArgumentException)
+        assertNull(StatusLines.decodeExtras("{\"color\":\"red\"}").colour)
+        assertNull(StatusLines.decodeExtras("not json").colour)
+    }
+
+    /** Code that no longer sets a status line leaves none behind: its card and the pinned header have nothing old to show. */
+    @Test fun codeWithoutAStatusLineClearsTheOldOne() {
+        val s = script("status('HN: 3 new')")
+        host(s).status("HN: 3 new")
+        scripts.saveCode(s.id, "log('no line now')")
+        assertNull(stored())
+    }
+
     @Test fun whatIsntAnOptionIsLeftOut() {
-        assertEquals(null to null, StatusLines.decodeExtras("not json"))
-        assertEquals(null to StatusLines.MIN_REFRESH, StatusLines.decodeExtras("{\"refresh\":5}"))
-        assertEquals(1f to null, StatusLines.decodeExtras("{\"progress\":3}"))
+        assertEquals(StatusLines.Extras(), StatusLines.decodeExtras("not json"))
+        assertEquals(StatusLines.Extras(refresh = StatusLines.MIN_REFRESH), StatusLines.decodeExtras("{\"refresh\":5}"))
+        assertEquals(StatusLines.Extras(progress = 1f), StatusLines.decodeExtras("{\"progress\":3}"))
         assertNull(StatusLines.encodeExtras(null, null))
     }
 

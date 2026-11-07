@@ -31,18 +31,19 @@ private const val SAMPLE_PROMPT = "$ ls ~"
 private const val SAMPLE_GLYPHS = "0Oo1lI {}=>"
 
 /**
- * Horizontally scrolling font previews in the terminal colours; the last card imports a font file.
- * The custom card shows once a font has been imported (or while `font = custom`).
+ * A horizontal row of font previews in the terminal colours.
+ * - The last card imports a font file.
+ * - The custom card shows after a font is imported (or while `font = custom`).
  */
 @Composable
 fun FontChoices(selected: String, onPick: (String) -> Unit, onImport: () -> Unit) {
     val context = LocalContext.current
     val p = Term.palette
-    // Re-read when the selection changes, which is what an import does.
+    // Read again when the selection changes. An import changes the selection.
     val custom = remember(selected, TermFonts.revision) { TermFonts.customFamily(context) }
     val names = TermFonts.names.filter { it != TermFonts.CUSTOM || custom != null || selected == TermFonts.CUSTOM }
-    // A plain scrolling row: a lazy one inside a Settings row crashed Compose when Settings measured
-    // that row ahead of time while scrolling ("LayoutNode … not found in RectList").
+    // A plain scrolling row, not a lazy one. A lazy row inside a Settings row crashed Compose when
+    // Settings measured that row early while scrolling ("LayoutNode … not found in RectList").
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         names.forEach { name ->
             val family = if (name == TermFonts.CUSTOM) custom ?: FontFamily.Monospace else TermFonts.family(context, name) ?: FontFamily.Monospace

@@ -1,8 +1,13 @@
 package com.mtwabpin.kolahal.ui
 
+import android.app.Activity
+import android.content.Intent
 import android.content.res.Configuration
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,9 +53,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.mtwabpin.kolahal.terminal.SetupChecks
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,12 +87,13 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/** What the prompt shows when home is seen from Settings as if typing: one letter matches plenty. */
+/** The text the prompt shows when Settings previews home while typing. One letter matches many items. */
 private const val PREVIEW_INPUT = "s"
 
 /**
- * selector.rail: the fluid full-list app selector on an edge of home, keyboard down only: over the
- * log, and over the widgets page when home opens on it (widgets.start). [showList]: open, to see its rows.
+ * selector.rail: the fluid full-list app selector on an edge of home. It shows only while the
+ * keyboard is down, over the log, and over the widgets page when home opens on it (widgets.start).
+ * When [showList] is true, the list is open so its rows are visible.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -98,7 +108,7 @@ internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.k
     AppSelector(
         apps = apps,
         pinned = pinnedKeys,
-        // Kept while the keyboard is up, only hidden: its list stays built for when it goes down.
+        // While the keyboard is up, the selector is only hidden, not removed, so its list stays built for when the keyboard goes down.
         active = !WindowInsets.isImeVisible,
         onLaunch = vm::launchApp,
         onLongPress = onLongPress,
@@ -119,17 +129,18 @@ internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.k
     )
 }
 
-/** Whether the terminal is the page showing (false while the widgets page beside it is). */
+/** Whether the terminal page is showing. False while the widgets page beside it is showing. */
 val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
 
 /**
- * Home. [preview]: drawn under Settings while a look setting is changed (TerminalViewModel.Peek):
- * it doesn't take focus, the keyboard or events, and with `typing` it looks as if [PREVIEW_INPUT] were typed.
+ * Home. With [preview], it is drawn under Settings while the user changes a look setting
+ * (TerminalViewModel.Peek). A preview takes no focus, keyboard or events. With `typing`, it looks as
+ * if [PREVIEW_INPUT] were typed.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: TerminalViewModel.Peek? = null) {
-    // An install or update may change icons: suggestions.icons loads those apps' again.
+    // An install or update may change icons, so suggestions.icons loads the icons of those apps again.
     val appsRepo = com.mtwabpin.kolahal.apps.AppRepository.get(androidx.compose.ui.platform.LocalContext.current)
     val packageChanges by appsRepo.packageChanges.collectAsStateWithLifecycle()
     if (preview == null) LaunchedEffect(packageChanges) { AppIcons.sync(packageChanges, appsRepo.takeChanged()) }
@@ -149,13 +160,13 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val keyboard = LocalSoftwareKeyboardController.current
     val hasHardwareKeyboard = LocalConfiguration.current.keyboard != Configuration.KEYBOARD_NOKEYS
 
-    // Read through updated state so a keyboard attached later (configChanges=keyboard) is seen.
+    // Read through updated state, so a keyboard attached later (configChanges=keyboard) is seen.
     val currentKeyboard by rememberUpdatedState(keyboard)
     val currentHasHardwareKeyboard by rememberUpdatedState(hasHardwareKeyboard)
     if (preview == null) LaunchedEffect(Unit) {
-        // Home pressed on another page: scroll and focus now that the terminal is here.
-        // The list's scrolls are requested for its next layout, never forced inside this one:
-        // scrollToItem measures at once, which can land inside a layout pass under the test clock.
+        // Home was pressed on another page: scroll and focus now that the terminal is shown.
+        // Scrolls are requested for the list's next layout, never forced inside this one.
+        // scrollToItem measures at once, which can happen inside a layout pass under the test clock.
         vm.consumeArrival()?.let { a ->
             followNewest = true
             listState.requestScrollToItem(0)
@@ -168,7 +179,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         vm.events.collect { e ->
             when (e) {
                 UiEvent.ScrollToBottom -> { followNewest = true; listState.requestScrollToItem(0) }
-                // Handled by MainActivity so it works from every page (setup, script manager).
+                // MainActivity handles these, so they work from every page (setup, script manager).
                 UiEvent.RequestNotificationPermission, UiEvent.RequestContactsPermission, UiEvent.PickContact, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
                 UiEvent.PickFont, UiEvent.PickBackupFolder -> Unit
                 UiEvent.ShowQuick -> Unit // opened by the collector below, where the menu lives
@@ -182,50 +193,51 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         }
     }
     // Follow the newest line (index 0 with reverseLayout) unless the user scrolled up.
-    // Only user scrolls change `followNewest`: inserting items shifts the anchor and must not stop following.
+    // Only user scrolls change `followNewest`. Inserting items shifts the anchor, and that must not stop following.
     LaunchedEffect(listState) {
         snapshotFlow {
             listState.isScrollInProgress to
                 (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 48)
         }.collect { (scrolling, atBottom) ->
-            // Settled at the bottom too: a fling the newest line stops can end in the same frame it
-            // arrives, with no scrolling-and-at-bottom state in between. Inserts can't settle a list.
+            // Also check when the list has stopped at the bottom. A fling that stops at the newest
+            // line can end in the same frame it arrives, with no "scrolling and at bottom" state
+            // between. Inserting items does not count as the list stopping.
             if (scrolling) followNewest = atBottom
             else if (atBottom) {
                 followNewest = true
-                // Settled back at the newest lines: older pages loaded on the way up can go.
+                // Back at the newest lines: older pages loaded while scrolling up can be dropped.
                 vm.atNewest()
             }
         }
     }
     // Keyed on the newest *row* (rows are built after entries), so the scroll targets the new line.
-    // Not under a finger or a fling still going: a forced scroll gave way to those, and so does this.
+    // Skip it while a finger or a fling is still scrolling: a forced scroll would yield to those too.
     LaunchedEffect(reversedRows.firstOrNull()?.key) {
         if (followNewest && !listState.isScrollInProgress) listState.requestScrollToItem(0)
     }
-    // Near the oldest loaded line (top of the reversed list): load the next page.
+    // Near the oldest loaded line (the top of the reversed list), load the next page.
     LaunchedEffect(listState) {
         snapshotFlow {
             val info = listState.layoutInfo
             info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 5
         }.collect { nearTop -> if (nearTop) vm.loadOlder() }
     }
-    // `/words` at the prompt: the matching lines take the log's place until the search ends.
+    // Typing `/words` at the prompt searches: the matching lines replace the log until the search ends.
     val search by vm.search.collectAsStateWithLifecycle()
-    // Not while the widgets page is showing: Back there returns to the terminal.
+    // Not while the widgets page is showing: there, Back returns to the terminal.
     if (preview == null) BackHandler(enabled = search != null && LocalTerminalShown.current) { vm.escape() }
     val filter by vm.filter.collectAsStateWithLifecycle()
     val filterCount by vm.filterCount.collectAsStateWithLifecycle()
-    // Back leaves `log only …` as it leaves a search.
+    // Back leaves `log only …`, the same way it leaves a search.
     if (preview == null) BackHandler(enabled = search == null && filter != null && LocalTerminalShown.current) { vm.filterLog(null) }
-    // A result tapped: once its line is loaded, scroll to it (a few newer lines below it) and mark it a moment.
+    // When a result is tapped: once its line is loaded, scroll to it (with a few newer lines below it) and highlight it briefly.
     val jumpTo by vm.jumpTo.collectAsStateWithLifecycle()
     var flash by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(jumpTo, reversedRows) {
         val id = jumpTo ?: return@LaunchedEffect
         val index = reversedRows.indexOfFirst { it is LogRow.Entry && it.entry.id == id }
         if (index < 0) return@LaunchedEffect
-        // One of the newest lines: still following new ones.
+        // If it is one of the newest lines, keep following new ones.
         followNewest = index <= 3
         listState.requestScrollToItem((index - 3).coerceAtLeast(0))
         vm.jumpDone()
@@ -237,20 +249,20 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             flash = null
         }
     }
-    // Keyboard-first: grab focus straight away when a physical keyboard is attached.
+    // Keyboard-first: take focus at once when a physical keyboard is attached.
     if (preview == null) LaunchedEffect(hasHardwareKeyboard) {
         if (hasHardwareKeyboard) runCatching { focus.requestFocus() }
     }
-    // The widgets page beside it has no prompt: the on-screen keyboard doesn't stay over it. The prompt
-    // keeps the focus, so a hardware keyboard still types into it.
+    // The widgets page has no prompt, so the on-screen keyboard is hidden over it. The prompt keeps
+    // the focus, so a hardware keyboard still types into it.
     val terminalShown = LocalTerminalShown.current
     val imeUp = WindowInsets.isImeVisible
     if (preview == null) LaunchedEffect(terminalShown, imeUp) {
         if (!terminalShown && imeUp) currentKeyboard?.hide()
     }
 
-    // The prompt's text itself is read only where it shows ([PromptSuggestions], [Prompt]): read
-    // here, every key would build all of home again.
+    // The prompt's text is read only where it shows ([PromptSuggestions], [Prompt]). If it were read
+    // here, every key press would rebuild all of home.
     val hasInput by remember(preview?.typing) { derivedStateOf { preview?.typing == true || vm.input.text.isNotEmpty() } }
     val timeMode = remember(configVersion) {
         when (config[Keys.SHOW_TIMESTAMPS]) {
@@ -261,7 +273,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     }
     val dimOld = remember(configVersion) { config[Keys.LOG_DIM] }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
-    // Menus ask the system for an app's shortcuts: built off the main thread, shown when ready.
+    // Menus ask the system for an app's shortcuts, so they are built off the main thread and shown when ready.
     val menuScope = rememberCoroutineScope()
     fun showMenu(title: String, id: Long?, url: String? = null, detail: String? = null, build: () -> List<LogAction>) {
         menuScope.launch { menu = ActionMenu(title, kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { build() }, id, url = url, detail = detail) }
@@ -271,13 +283,13 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         vm.events.collect { if (it == UiEvent.ShowQuick) menu = ActionMenu("Quick actions", vm.quickActions(), null, systemFont = true) }
     }
     menu?.let { ActionSheet(it, onDismiss = { menu = null }) }
-    // `script secret <name> <NAME>`: the masked box for its value, over home.
+    // `script secret <name> <NAME>` opens a masked input box for the value, over home.
     val secretPrompt by vm.scriptActions.secretPrompt.collectAsStateWithLifecycle()
     secretPrompt?.let { p -> TerminalSecretPrompt(vm, p) }
     val commandGap = remember(configVersion) { config[Keys.LOG_SPACING].dp }
     val showGutter = remember(configVersion) { config[Keys.LOG_GUTTER] }
-    // Wrapped and detail lines are indented past `$ ` (or `• `) as wide as it is in the log's font.
-    // Measured with a letter after it: a trailing space alone may not count towards the width.
+    // Wrapped and detail lines are indented by the width of `$ ` (or `• `) in the log's font.
+    // It is measured with a letter after it, because a trailing space alone may not count towards the width.
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val indents = remember(Term.fontSize, Term.fontFamily, Term.sans, density) {
@@ -290,15 +302,16 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val lineTimeFormat = remember(configVersion, zone) {
         com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H])
     }
-    // The day dividers depend on the zone too: the rows are built again, also for a change while another screen was up.
-    // Told of a change only since this screen was built: the count is the app's, not the screen's.
+    // The day dividers also depend on the time zone, so the rows are rebuilt when it changes, even if
+    // the change happened while another screen was up. `told` is true only for a change after this
+    // screen was built, because the count belongs to the app, not to this screen.
     val firstZone = remember { zone }
     if (preview == null) LaunchedEffect(zone) { vm.onZoneChanged(told = zone != firstZone) }
-    // And on the day: at midnight today's first lines need a divider, and "Yesterday" moves.
+    // They also depend on the day: at midnight, today's first lines need a divider, and "Yesterday" moves.
     val today = rememberToday()
     if (preview == null) LaunchedEffect(today) { vm.onDayChanged(today) }
     val fontSizeToast = rememberFontSizeToast()
-    // Made once: a new one each time home is built would leave the log's list unable to skip.
+    // Made once. A new modifier on each rebuild of home would stop the log's list from skipping recomposition.
     val pinch = remember(vm, fontSizeToast) {
         Modifier.pinchToZoomFont(onChange = { Term.fontSize = it }, onEnd = { from, to -> vm.saveFontSize(to); fontSizeToast(from, to) })
     }
@@ -310,18 +323,17 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         Modifier
             .fillMaxSize()
             .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
-            // The top is the header's: it fills the band beside the camera.
+            // No top padding here: the header fills the band beside the camera.
             .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))
             .navigationBarsPadding()
             .imePadding()
     ) {
-        // A hardware keyboard already has these keys: the bar follows the on-screen keyboard.
+        // A hardware keyboard already has these keys, so the bar follows the on-screen keyboard only.
         val typing = preview?.typing ?: (promptFocused && WindowInsets.isImeVisible)
-        // While searching, the pinned header steps aside: the suggestions use its room.
+        // While searching, the pinned header hides so the suggestions can use its space.
         val searching = typing || hasInput
-        // header.show off: no header; the pinned header and the log start under the camera.
+        // With header.show off there is no header. The pinned header and the log start under the camera.
         val showHeader = remember(configVersion) { config[Keys.HEADER_SHOW] }
-        val showMedia = remember(configVersion) { config[Keys.HEADER_MEDIA] }
         if (showHeader) Header(
             status = status,
             unlocks = unlocks,
@@ -333,14 +345,14 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             onProfileTap = vm::onProfileTap,
             onSwipeDown = { vm.onGesture(Keys.GESTURE_SWIPE_DOWN) },
         ) else Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars.union(WindowInsets.displayCutout)))
-        // What's playing and the status lines you pinned, in turns.
+        // What's playing and the pinned status lines, shown in turns.
         androidx.compose.animation.AnimatedVisibility(
             visible = !searching,
             enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) + androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top) + androidx.compose.animation.fadeOut(),
         ) {
             PinnedHeader(
-                nowPlaying = nowPlaying?.takeIf { showMedia },
+                nowPlaying = nowPlaying,
                 lines = pinnedLines,
                 config = config,
                 version = configVersion,
@@ -352,12 +364,12 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             )
         }
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
-        // The log and the suggestions share what the header, key bar and prompt leave. Those are
-        // measured first, so a long suggestion list can't push the prompt off the screen.
+        // The log and the suggestions share the space the header, key bar and prompt leave. Those
+        // are measured first, so a long suggestion list can't push the prompt off the screen.
         Column(Modifier.weight(1f).fillMaxWidth()) {
         Box(
             Modifier.weight(1f).fillMaxWidth().then(
-                // The selector's place, for the widgets page's to match.
+                // Save the selector's area, so the selector on the widgets page can match it.
                 if (preview == null) Modifier.onGloballyPositioned { vm.selectorArea = androidx.compose.ui.geometry.Rect(0f, it.positionInWindow().y, it.size.width.toFloat(), it.positionInWindow().y + it.size.height) }
                 else Modifier
             )
@@ -385,8 +397,8 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 .onSizeChanged { vm.onLogWidth(it.width) }
                 .testTag("log")
                 .then(pinch)
-                // Taps that no log line consumed (empty space) bring up the keyboard. A double tap
-                // is watched for only when it does something: waiting for it delays every tap.
+                // Taps that no log line used (empty space) bring up the keyboard. Double taps are
+                // detected only when a double-tap gesture is set, because waiting for one delays every tap.
                 .pointerInput(doubleTapOn) {
                     detectTapGestures(
                         onDoubleTap = if (doubleTapOn) { _ -> vm.onGesture(Keys.GESTURE_DOUBLE_TAP) } else null,
@@ -430,7 +442,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                     )
                 }
             }
-            // log.fresh: the older output is hidden, not gone. Last item = top of the reversed list.
+            // log.fresh: older output is hidden, not deleted. The last item is the top of the reversed list.
             if (hiddenLines > 0) {
                 item(key = "hidden-lines") {
                     Text(
@@ -445,41 +457,52 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 }
             }
         }
-        // Scrolled away from the newest lines: one tap back down.
+        // When scrolled away from the newest lines, a small chip above the prompt jumps back down with
+        // one tap. It sits in the middle, so it covers little of a line, and its tap area is a full
+        // 48dp tall though the chip itself is small.
         val awayFromBottom by remember { derivedStateOf { listState.firstVisibleItemIndex > 2 } }
         androidx.compose.animation.AnimatedVisibility(
             visible = awayFromBottom && results == null,
             enter = androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.fadeOut(),
-            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             val scope = rememberCoroutineScope()
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .testTag("jump-latest")
-                    .size(48.dp)
-                    .background(Term.surface, RoundedCornerShape(24.dp))
-                    .border(1.dp, Term.prompt.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
-                    .clickable(onClickLabel = "jump to the newest lines") { followNewest = true; scope.launch { listState.animateScrollToItem(0) } },
+                    .heightIn(min = 48.dp)
+                    .clickable(onClickLabel = "scroll to the bottom") { followNewest = true; scope.launch { listState.animateScrollToItem(0) } }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             ) {
-                TintedIcon(R.drawable.ic_arrow_down, Term.prompt, 24.dp, description = "Jump to the newest lines")
+                // The chip: a soft pill, no border, lifted off the log by a shadow. Its colour is the
+                // surface's, a touch toward the text colour, so it stands out on a dark theme too, where
+                // the surface is close to the background.
+                Box(
+                    Modifier
+                        .shadow(4.dp, RoundedCornerShape(50))
+                        .background(lerp(Term.surface, Term.fg, 0.06f), RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 5.dp),
+                ) {
+                    Text("↓ Scroll to bottom", style = Term.small.copy(color = Term.prompt, fontWeight = FontWeight.Bold))
+                }
             }
         }
         // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
         HomeAppSelector(
             vm,
             onLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
-            // Its Settings slider dragged: the list open, to see its rows.
+            // While its row-height slider in Settings is dragged, open the list so its rows are visible.
             showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
         )
         // [/selector]
         }
-        // Behind the build's switch, so R8 leaves the updater out of the Play build.
+        // Behind the build flag, so R8 removes the updater from the Play build.
         if (BuildConfig.SELF_UPDATE && preview == null) UpdateProgressLine()
         search?.let { LogSearchSummary(it) } ?: filter?.let { LogFilterBar(it, filterCount, onClear = { vm.filterLog(null) }) }
-        // suggestions.auto: hidden on an idle home; shown while typing, or whenever there is input
-        // (so hardware-keyboard typing still gets them).
+        // suggestions.auto: hidden on an idle home. Shown while typing, or whenever there is input
+        // (so typing on a hardware keyboard still shows them).
         val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
         val undoOffer by vm.undo.collectAsStateWithLifecycle()
         undoOffer?.let { offer ->
@@ -505,10 +528,26 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
         )
         // [/selector]
         }
-        // keybar.auto: only while typing, so an idle home shows more of the log.
+        // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
         val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
         val promptTypingHeight = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp }
         val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
+        // If Kolahal is not the home app, a band asks the user to pick it, unless a preview band uses
+        // that place. The view model checks at each resume, so the band goes once Kolahal is picked.
+        if (preview == null) {
+            val context = LocalContext.current
+            val isHome by vm.isHome.collectAsStateWithLifecycle()
+            // Android's settings page for the home app: for Android 9, and when its dialog doesn't make
+            // Kolahal home (a "no", or no dialog at all after "Don't ask again").
+            val homeSettings = { runCatching { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) } }
+            val askHome = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode != Activity.RESULT_OK) homeSettings()
+                vm.refreshIsHome()
+            }
+            DefaultHomeBand(!isHome && vm.livePreview == null) {
+                SetupChecks.homeRoleRequest(context)?.let { askHome.launch(it) } ?: homeSettings()
+            }
+        }
         LivePreviewBand(if (preview == null) vm.livePreview else null)
         Prompt(
             vm = vm,
@@ -516,13 +555,13 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
             imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] },
             onFocus = { promptFocused = it },
-            // prompt.height in both states, so the line doesn't jump under the finger as the keyboard opens.
+            // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
             height = promptTypingHeight,
             keyBarOn = keyBarOn,
             onQuick = { vm.openQuick() },
             onToggleKeyBar = {
                 config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
-                // The bar shows while typing (keybar.auto): turning it on brings the keyboard up too.
+                // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
                 if (!keyBarOn && keyBarAuto && !typing) {
                     runCatching { focus.requestFocus() }
                     keyboard?.show()
@@ -533,9 +572,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 keyboard?.show()
             },
         )
-        // Below the prompt, so it sits on the keyboard like an extra row of keys and the best
-        // suggestion stays right above what's typed. It slides up into place and back down, as the
-        // pinned header expands from the top; the prompt and the log follow the size change smoothly.
+        // Below the prompt, so it sits on the keyboard like an extra row of keys, and the best
+        // suggestion stays right above the typed text. It slides up into place and back down, like
+        // the pinned header expands from the top. The prompt and the log follow the size change smoothly.
         androidx.compose.animation.AnimatedVisibility(
             visible = keyBarOn && (!keyBarAuto || typing),
             enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Bottom) +
@@ -561,8 +600,8 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
 }
 
 /**
- * What the prompt suggests for its text, shown while typing or [always]. The text is read here, so
- * a key builds this, not the whole of home.
+ * The suggestions for the prompt's text, shown while typing or when [always] is true. The text is
+ * read here, so a key press rebuilds only this, not all of home.
  */
 @Composable
 private fun PromptSuggestions(
@@ -579,10 +618,11 @@ private fun PromptSuggestions(
     val prefsVersion by vm.appPrefsVersion.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val inputText = if (previewTyping) PREVIEW_INPUT else vm.input.text
+    // Hidden, they aren't worked out: an idle home would rank every app again on each return.
+    if (!always && inputText.isEmpty()) return
     val suggestions = remember(inputText, apps, maxSuggestions, commandNames, prefsVersion, contacts) {
         vm.suggestions(inputText).take(maxSuggestions)
     }
-    if (!always && inputText.isEmpty()) return
     val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] }
     if (remember(configVersion) { config[Keys.SUGGESTIONS_STYLE] } == "chips") {
         SuggestionStrip(suggestions, rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] }, onPick = vm::onSuggestion, icons = showIcons)
@@ -597,7 +637,7 @@ private fun PromptSuggestions(
     }
 }
 
-/** Says a pinch's new font size in a toast; pinching again replaces it instead of queueing another. */
+/** Shows a pinch's new font size in a toast. A new pinch replaces the toast instead of queueing another. */
 @Composable
 private fun rememberFontSizeToast(): (from: Int, to: Int) -> Unit {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -611,9 +651,9 @@ private fun rememberFontSizeToast(): (from: Int, to: Int) -> Unit {
 }
 
 /**
- * Two-finger pinch changes the terminal font size. Runs in the Initial pass and consumes only
- * multi-touch events, so one-finger scrolling and taps still reach the list. [onEnd] gets the size
- * before and after, once the fingers lift, unless the pinch ended where it started.
+ * A two-finger pinch changes the terminal font size. It runs in the Initial pass and consumes only
+ * multi-touch events, so one-finger scrolls and taps still reach the list. When the fingers lift,
+ * [onEnd] gets the size before and after, unless the size ended where it started.
  */
 private fun Modifier.pinchToZoomFont(onChange: (Int) -> Unit, onEnd: (from: Int, to: Int) -> Unit) = pointerInput(Unit) {
     awaitEachGesture {
@@ -644,7 +684,7 @@ private fun Modifier.pinchToZoomFont(onChange: (Int) -> Unit, onEnd: (from: Int,
     }
 }
 
-/** The box `script secret` opens; gone if the script or its `@secret` line is. */
+/** The box that `script secret` opens. It closes if the script or its `@secret` line is gone. */
 @Composable
 private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.SecretPrompt) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()

@@ -23,12 +23,12 @@ data class NowPlaying(
     val title: String?,
     val artist: String?,
     val state: Int,
-    /** Position at [positionAt]; extrapolate with [positionNow] while playing. */
+    /** Position at [positionAt]. While playing, use [positionNow] to get the current position. */
     val position: Long,
     val positionAt: Long,
     val speed: Float,
     val duration: Long,
-    /** When playback last stopped being active; for a playing session, when it was first seen playing. */
+    /** When playback last stopped being active. For a playing session, when it was first seen playing. */
     val idleSince: Long,
 ) {
     val playing: Boolean get() = state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING
@@ -44,18 +44,18 @@ data class NowPlaying(
         else -> "idle"
     }
 
-    /** "Title — Artist", falling back to the app name. */
+    /** "Title — Artist", or the app name when both are missing. */
     val line: String get() = listOfNotNull(title?.takeIf { it.isNotBlank() }, artist?.takeIf { it.isNotBlank() })
         .joinToString(" — ").ifEmpty { app }
 
     fun positionNow(now: Long = System.currentTimeMillis()): Long {
         if (position < 0) return -1
-        // Never before the start: [positionAt] can be a moment ahead of [now] (two clocks, read apart).
+        // Never below 0: [positionAt] can be a moment after [now], because the two clocks are read at different times.
         val p = if (state == PlaybackState.STATE_PLAYING) (position + ((now - positionAt) * speed).toLong()).coerceAtLeast(0) else position
         return if (duration > 0) p.coerceAtMost(duration) else p
     }
 
-    /** The header shows it while playing and up to [HIDE_AFTER_MS] after it was paused. */
+    /** True while playing, and up to [HIDE_AFTER_MS] after a pause. Then the header shows it. */
     fun showInHeader(now: Long = System.currentTimeMillis()): Boolean =
         playing || (state != PlaybackState.STATE_NONE && state != PlaybackState.STATE_ERROR && now - idleSince < HIDE_AFTER_MS)
 
@@ -65,15 +65,15 @@ data class NowPlaying(
 }
 
 /**
- * Wall-clock time each session (by package) was last seen playing. A player can stay silent for the
- * whole of a long track, so the update that finds it stopped counts too: otherwise a pause would
- * date from the track's start, and the line would leave the header at once.
+ * Wall-clock time when each session (by package) was last seen playing. A player may send no update
+ * during a whole long track. So the update that shows it stopped also counts as "seen playing".
+ * Otherwise a pause would seem to start at the track's start, and the line would leave the header at once.
  */
 internal class LastPlaying {
     private val times = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private var playing = emptySet<String>()
 
-    /** Main thread. [playingNow]: the packages playing at [now]. */
+    /** Main thread. [playingNow] is the set of packages playing at [now]. */
     fun update(playingNow: Set<String>, now: Long) {
         (playingNow + playing).forEach { times[it] = now }
         playing = playingNow
@@ -83,10 +83,13 @@ internal class LastPlaying {
 }
 
 /**
- * Follows the most relevant media session (a playing one first, else the most recent) through
- * [MediaSessionManager]. Needs notification access, since our listener's component is the key
- * to [MediaSessionManager.getActiveSessions]. UI process only; [start] is idempotent and cheap
- * to call again (e.g. on resume, once access was granted), and stops listening without access.
+ * Follows the most relevant media session through [MediaSessionManager]: a playing one first,
+ * else the most recent one.
+ * - It needs notification access, because our listener's component is the key to
+ *   [MediaSessionManager.getActiveSessions].
+ * - It runs in the UI process only.
+ * - [start] is idempotent and cheap to call again (for example on resume, after access was granted).
+ *   Without access, it stops listening.
  */
 class MediaRepository private constructor(private val context: Context) {
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
@@ -105,15 +108,15 @@ class MediaRepository private constructor(private val context: Context) {
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { list -> onSessions(list.orEmpty()) }
 
     /**
-     * A session followed, with what its updates last said. An update from any player picks what to
-     * show from these: asking every session again was two system calls each, and the shown one's
-     * metadata with its artwork, on the main thread at every update.
+     * A followed session, with the state its updates last reported. An update from any player picks
+     * what to show from these. Asking every session again took two system calls per session, plus the
+     * shown session's metadata with its artwork, on the main thread at every update.
      */
     private inner class Watch(val controller: MediaController) : MediaController.Callback() {
         var state: PlaybackState? = null
         var track: Track? = null
 
-        /** What the session says now: read once its updates come here, so none falls in between. */
+        /** Reads the session's current state. Call it after its updates come here, so no update is missed in between. */
         fun read() {
             state = controller.playbackState
             track = Track.of(controller.metadata)
@@ -143,7 +146,7 @@ class MediaRepository private constructor(private val context: Context) {
         main.post { listen() }
     }
 
-    /** Main thread. Android refuses without access, and then it isn't listening. */
+    /** Main thread. Without access, Android refuses, and then it doesn't listen. */
     private fun listen() {
         if (listening) return
         runCatching {
@@ -154,29 +157,29 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Listens again, if it was listening. Turning notification access off drops our listener on
-     * Android's side, so [start] alone would go on as if it still listened once access is back.
-     * The notification listener calls this when it connects, which it does when access comes back:
-     * [hasAccess] can still say no at that moment, so this doesn't ask it.
+     * Listens again, if it was listening. When notification access is turned off, Android drops our
+     * listener. So after access returns, [start] alone would act as if it still listened.
+     * The notification listener calls this when it connects, which happens when access returns.
+     * At that moment [hasAccess] can still return false, so this doesn't check it.
      */
     fun reconnect() {
         main.post {
             if (!listening) return@post
             runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
             listening = false
-            // Every session is asked again, as at the first start.
+            // Read every session again, as at the first start.
             watches.forEach { w -> runCatching { w.controller.unregisterCallback(w) } }
             watches = emptyList()
             listen()
         }
     }
 
-    /** Stops following players, as when access is turned off (and when a test is done with them). */
+    /** Stops following players. Used when access is turned off, and when a test is done with them. */
     fun stop() {
         main.post { unlisten() }
     }
 
-    /** Main thread. Nothing to follow, and nothing playing. */
+    /** Main thread. Stops listening: nothing to follow, and nothing playing. */
     private fun unlisten() {
         listening = false
         runCatching { manager.removeOnActiveSessionsChangedListener(sessionsListener) }
@@ -194,7 +197,7 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     private fun onSessions(list: List<MediaController>) {
-        // A session followed already keeps its callback and what it last said: only new ones are asked.
+        // A session already followed keeps its callback and last state. Only new sessions are read.
         val kept = watches.associateBy { it.controller.sessionToken }
         val next = list.map { c -> kept[c.sessionToken] ?: Watch(c).also { w -> runCatching { c.registerCallback(w, main) }; w.read() } }
         val still = next.toHashSet()
@@ -216,7 +219,7 @@ class MediaRepository private constructor(private val context: Context) {
     private fun PlaybackState?.isActive() =
         this?.state == PlaybackState.STATE_PLAYING || this?.state == PlaybackState.STATE_BUFFERING
 
-    /** What now playing shows of a track, kept without its artwork, which can be MB a session. */
+    /** The track details that now playing shows. It doesn't keep the artwork, which can be MBs per session. */
     private class Track(val title: String?, val artist: String?, val duration: Long) {
         companion object {
             fun of(meta: MediaMetadata?): Track? = meta?.let {
@@ -232,12 +235,12 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Wall-clock time at boot, as last worked out from the two clocks. Kept while a new reading agrees
-     * within a second (setting the clock moves it more), so an unchanged state gives an equal value.
+     * Wall-clock time at boot, as last computed from the two clocks. It is kept while a new reading is
+     * within one second of it (setting the clock moves it more). So an unchanged state gives an equal value.
      */
     @Volatile private var bootedAt = 0L
 
-    /** The wall-clock time of [elapsed], a time on the boot clock. */
+    /** Converts [elapsed], a time on the boot clock, to wall-clock time. */
     private fun wallTime(elapsed: Long, now: Long): Long {
         val booted = now - SystemClock.elapsedRealtime()
         if (kotlin.math.abs(booted - bootedAt) > 1_000) bootedAt = booted
@@ -245,8 +248,8 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     /**
-     * What [pkg]'s session says, for [nowPlaying]. An update that changes nothing shown gives a value
-     * equal to the last one, so home isn't built again for it: players repeat themselves.
+     * Builds the [nowPlaying] value for [pkg]'s session. Players often repeat the same update. An update
+     * that changes nothing shown gives a value equal to the last one, so home isn't built again.
      */
     private fun snapshot(pkg: String, track: Track?, ps: PlaybackState?, now: Long): NowPlaying {
         val updatedAt = ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { wallTime(it, now) } ?: now
@@ -267,8 +270,8 @@ class MediaRepository private constructor(private val context: Context) {
             duration = track?.duration ?: 0L,
             idleSince = idleSince,
         )
-        // The same playback told two ways (asked, Android works the position out to now; in a
-        // callback it's the player's own, from earlier): the last value stands.
+        // The same playback can be reported in two ways. When we ask, Android computes the position
+        // for now. In a callback, it is the player's own position from earlier. Keep the last value.
         val last = _nowPlaying.value
         val sameTrack = last != null && last.copy(position = fresh.position, positionAt = fresh.positionAt) == fresh
         return if (sameTrack && kotlin.math.abs(last.positionNow(now) - fresh.positionNow(now)) < SAME_POSITION_MS) last else fresh
@@ -284,7 +287,7 @@ class MediaRepository private constructor(private val context: Context) {
         }.getOrDefault(pkg)
     }
 
-    /** The controller [nowPlaying] describes, read fresh when we aren't listening yet. */
+    /** The controller that [nowPlaying] describes. When we aren't listening yet, it is read fresh. */
     private fun controller(): MediaController? {
         current?.let { return it }
         val list = runCatching { manager.getActiveSessions(component) }.getOrNull().orEmpty()
@@ -293,7 +296,7 @@ class MediaRepository private constructor(private val context: Context) {
 
     enum class Action { PLAY, PAUSE, TOGGLE, NEXT, PREV, STOP }
 
-    /** Sends a transport control; null when there is no session, else what was done. */
+    /** Sends a transport control. Returns the action done, or null when there is no session. */
     fun send(action: Action): Action? {
         val c = controller() ?: return null
         val t = c.transportControls
@@ -311,14 +314,14 @@ class MediaRepository private constructor(private val context: Context) {
         return effective
     }
 
-    /** Fresh snapshot for the `media` command (positions move while playing). */
+    /** A fresh snapshot for the `media` command, because positions move while playing. */
     fun snapshotNow(): NowPlaying? {
         val c = controller() ?: return null
         return snapshot(c.packageName, Track.of(c.metadata), c.playbackState, System.currentTimeMillis())
     }
 
     companion object : Singleton<MediaRepository>(::MediaRepository) {
-        /** Two positions this close, worked out to the same moment, are the same. */
+        /** Two positions this close, computed for the same moment, count as the same. */
         private const val SAME_POSITION_MS = 50L
     }
 }

@@ -110,6 +110,22 @@ class BackupActionsTest {
         assertTrue(host.commandList!!.any { it.name == "ba-bk" })
     }
 
+    /**
+     * A file that lists one script twice can't switch it on: the second entry finds the first one's
+     * code in place, but the script is still new to this phone and stays off until reviewed.
+     */
+    @Test fun aScriptListedTwiceStaysOff() {
+        val entry = """{"name":"ba-bk","lang":"lua","code":"return 1","every":30,"enabled":true}"""
+        actions.importBackup(Uri.fromFile(file("twice.json", """{"kolahal":3,"scripts":[$entry,$entry]}""")))
+        assertFalse(repo.byName("ba-bk")!!.enabled)
+
+        // And a script already here, whose code the file changes: off too, however often it's listed.
+        repo.setEnabled(repo.byName("ba-bk")!!.id, true)
+        val changed = """{"name":"ba-bk","lang":"lua","code":"return 2","enabled":true}"""
+        actions.importBackup(Uri.fromFile(file("changed.json", """{"kolahal":3,"scripts":[$changed,$changed]}""")))
+        assertFalse(repo.byName("ba-bk")!!.enabled)
+    }
+
     /** What an import skipped and the settings from the file worth a look (where searches go) are named. */
     @Test fun importNamesWhatItSkippedAndWhatToCheck() {
         val backup = file(

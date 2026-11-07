@@ -34,8 +34,9 @@ class DeviceStatus private constructor(private val context: Context) {
         if (started) return
         started = true
 
-        // The level now, without listening: home listens while it is on screen (watchBattery). Started
-        // in the background (a feed fetch, a reminder), the process isn't woken by every battery tick.
+        // Read the current level once, without listening. Home listens only while it is on screen
+        // (watchBattery). So when the process starts in the background (a feed fetch, a reminder),
+        // battery changes don't wake it.
         ContextCompat.registerReceiver(context, null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)?.let(::onBattery)
 
         ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
@@ -69,8 +70,9 @@ class DeviceStatus private constructor(private val context: Context) {
     private var batteryOn = false
 
     /**
-     * The battery broadcast comes on every change of level, voltage or temperature (often, while
-     * charging): only listened to while home is on screen. The sticky value catches up on return.
+     * The battery broadcast comes on every change of level, voltage or temperature. This is frequent
+     * while charging, so we listen only while home is on screen. When home returns, the sticky value
+     * brings the state up to date.
      */
     fun watchBattery(on: Boolean) {
         if (on == batteryOn) return

@@ -53,10 +53,13 @@ import kotlin.math.roundToLong
 
 internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 720 to "12 hours", 1440 to "1 day")
 
-/** A library script with its state against what is installed, and its `@on` events. */
+/** A library script, its state compared with the installed copy, and its `@on` events. */
 internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>)
 
-/** The library's scripts against [scripts]: their files and directives come from assets, read off the main thread (null until then). */
+/**
+ * The library's scripts, each compared with [scripts]. Their files and directives come from assets
+ * and are read off the main thread. The value is null until they are read.
+ */
 @Composable
 internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): State<List<LibRow>?> =
     produceState<List<LibRow>?>(null, vm.scriptActions.library, scripts) {
@@ -67,7 +70,7 @@ internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): 
         }
     }
 
-/** What a script's code says, for its card and the filters: read once per version of the code. */
+/** Facts read from a script's code, for its card and the filters. They are read once per version of the code. */
 internal class ScriptCode(code: String, name: String) {
     val title = ScriptMeta.title(code)
     val desc = ScriptMeta.description(code)
@@ -77,19 +80,20 @@ internal class ScriptCode(code: String, name: String) {
     val uses = ScriptMeta.uses(code)
     val secrets = ScriptMeta.secrets(code)
     val notifies = ScriptMeta.postsNotifications(code)
-    /** Which of internet and a status line it uses ([ScriptAccess.base]). */
+    /** Whether it uses the internet and a status line ([ScriptAccess.base]). */
     val base = ScriptAccess.base(code).toSet()
-    /** What its sheet and expanded card list: its access, then its events ([ScriptAccess.items]). */
+    /** The items its sheet and expanded card list: first its access, then its events ([ScriptAccess.items]). */
     val accessItems = ScriptAccess.items(code)
 }
 
 /**
- * The [ScriptCode] of each script as last shown, by name and code: kept while the page is away (the
- * editor replaces it, and coming back after a save would read every script again). Main thread.
+ * The [ScriptCode] of each script as last shown, keyed by name and code. It is kept while the page
+ * is closed: the editor replaces the page, and without this cache every script would be read again
+ * after a save. Use it on the main thread only.
  */
 private val keptCodes = HashMap<Pair<String, String>, ScriptCode>()
 
-/** What a script's card shows and the filters match. */
+/** The data a script's card shows and the filters match against. */
 internal class ScriptInfo(val script: Script, code: ScriptCode) {
     val title = code.title
     val desc = code.desc
@@ -100,24 +104,26 @@ internal class ScriptInfo(val script: Script, code: ScriptCode) {
     val timed = script.intervalMin > 0 || script.atTimes.isNotEmpty()
     val secrets = code.secrets
     val notifies = code.notifies
-    /** [Script.grants], from the code as read once. */
+    /** Same as [Script.grants], but built from the code that was already read. */
     val grants = ScriptAccess.Grants(code.uses, script.access, code.base)
     val accessItems = code.accessItems
 }
 
 /**
- * What a filter can ask about a script beyond its code: a secret not set yet, a library copy that
- * differs from this version's (edited, or from an older Kolahal).
+ * Facts about a script that filters can use, apart from its code:
+ * - [needsKey]: a secret has no value yet.
+ * - [differs]: the copy differs from this version's library script (it was edited, or it comes
+ *   from an older Kolahal).
  */
 private class ScriptState(val needsKey: Boolean, val differs: Boolean)
 
-/** A script's `@secret` names: those with no value yet, and those set, in the order declared. */
+/** A script's `@secret` names, split into those with no value yet and those that are set. Both keep the declared order. */
 private class SecretNames(val missing: List<String>, val set: List<String>)
 
-/** A filter chip: its name and the scripts it keeps. */
+/** A filter chip: its name and a test for which scripts it keeps. */
 private class ScriptFilter(val id: String, val label: String, val keeps: (info: ScriptInfo, state: ScriptState) -> Boolean)
 
-/** Short names for what scripts use, in chips. */
+/** Short names for what scripts use, shown in chips. */
 internal val USES_SHORT = mapOf("notifications" to "notifications", "clipboard" to "clipboard", "apps" to "apps", "commands" to "commands", "dnd" to "Do Not Disturb", "work" to "work profile")
 
 private val SCRIPT_FILTERS = listOf(
@@ -132,10 +138,12 @@ private val SCRIPT_FILTERS = listOf(
 ) + ScriptMeta.USES.map { what -> ScriptFilter("uses:$what", "Uses ${USES_SHORT[what] ?: what}") { s, _ -> what in s.uses } }
 
 /**
- * Script manager (Material 3 Expressive), the Scripts tab: a card per script, compact (its title,
- * kind, timers and last run on one line) or expanded (its status line, next run, usage, events and
- * access), filtered by chips and search. Add script holds new, library, shared and imported ones;
- * a card opens the script's sheet.
+ * The script manager in the Scripts tab (Material 3 Expressive). It shows one card per script.
+ * - A compact card shows the title, kind, timers and last run on one line.
+ * - An expanded card also shows the status line, next run, usage, events and access.
+ * - Chips and search filter the cards.
+ * - Add script offers new, library, shared and imported scripts.
+ * - Tapping a card opens the script's sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,12 +159,12 @@ fun ScriptsScreen(
     var sheetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var consentFor by remember { mutableStateOf<Script?>(null) }
     var resetting by remember { mutableStateOf<LibRow?>(null) }
-    // The script whose copy Compare shows against the library version.
+    // The script that Compare shows next to its library version.
     var comparing by remember { mutableStateOf<Long?>(null) }
     var filters by rememberSaveable { mutableStateOf(listOf<String>()) }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
-    // Details: all cards open or closed, and the ones you flipped from that.
+    // Details: whether all cards are open or closed, and the cards the user toggled after that.
     var expandAll by rememberSaveable { mutableStateOf(false) }
     var flipped by rememberSaveable { mutableStateOf(listOf<Long>()) }
     BackHandler {
@@ -166,19 +174,19 @@ fun ScriptsScreen(
         }
     }
 
-    // Switching on a script that declares what nobody allowed yet asks first, with everything on.
+    // If a script declares access that nobody has allowed yet, switching it on asks first. All access is on in that dialog.
     fun setEnabled(s: Script, on: Boolean) {
         if (on && s.grants.undecided.isNotEmpty()) consentFor = s else vm.scriptActions.setScriptEnabled(s, on)
     }
 
-    // Back to the library version: an edited copy's edits go, so it asks first; an older copy of yours had none.
+    // Reset to the library version. An edited copy loses its edits, so it asks first. An older unedited copy has nothing to lose.
     fun resetFromLibrary(row: LibRow) {
         if (row.state == ScriptLibrary.State.MODIFIED) resetting = row else vm.scriptActions.installFromLibrary(row.entry)
     }
 
     val library by rememberLibraryRows(vm, scripts)
     val libByName = remember(library) { library.orEmpty().associateBy { it.entry.name } }
-    // Shared scripts with a newer version, from the list kept by Get more scripts (no download here).
+    // Shared scripts that have a newer version. The list comes from the Get more scripts cache, so nothing is downloaded here.
     val sharedUpdates by produceState(emptyMap(), scripts) {
         value = withContext(Dispatchers.IO) {
             vm.scriptActions.scriptCatalog.cached().orEmpty()
@@ -186,14 +194,14 @@ fun ScriptsScreen(
         }
     }
 
-    // The list is read again when a script runs (its last run changes) or one is saved: only code
-    // that changed is read again, also after the page was away.
+    // The list is rebuilt when a script runs (its last run changes) or is saved. Only code that
+    // changed is read again, also after the page was closed.
     val infos = remember(scripts) {
         keptCodes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
         scripts.map { s -> ScriptInfo(s, keptCodes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
     }
-    // Declared secrets with and without a value, by script name: the same lists each time the
-    // page is built again, so a card can skip when nothing of its own changed.
+    // Declared secrets with and without a value, by script name. The lists stay the same when the
+    // page is rebuilt, so a card can skip recomposition when nothing of its own changed.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
     val secretNames by produceState(emptyMap<String, SecretNames>(), infos, secretsVersion) {
         value = withContext(Dispatchers.IO) {
@@ -208,7 +216,7 @@ fun ScriptsScreen(
         secretNames[info.script.name]?.missing.orEmpty().isNotEmpty(),
         libByName[info.script.name]?.state.let { it == ScriptLibrary.State.MODIFIED || it == ScriptLibrary.State.UPDATE_AVAILABLE },
     )
-    // Only chips something matches, with how many; a selected one stays, so it can be unselected.
+    // Show only chips that match some script, with the count. A selected chip always stays, so the user can unselect it.
     val chips = remember(infos, statuses, secretNames, libByName, filters) {
         SCRIPT_FILTERS.map { f -> f to infos.count { f.keeps(it, stateOf(it)) } }.filter { it.second > 0 || it.first.id in filters }
     }
@@ -274,7 +282,7 @@ fun ScriptsScreen(
                 }
             }
             if ((scripts.size > 1 && chips.isNotEmpty()) || filters.isNotEmpty()) {
-                // One row, scrolled sideways: the chips grow with what scripts use.
+                // One row that scrolls sideways, because the number of chips grows with what scripts use.
                 item(key = "chips") {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for ((f, count) in chips) {
@@ -372,7 +380,7 @@ fun ScriptsScreen(
     }
 }
 
-/** The ways to add a script: Add script's sheet, and the Scripts tab while it is empty. */
+/** The ways to add a script. Used in the Add script sheet, and in the Scripts tab while it is empty. */
 private fun addActions(vm: TerminalViewModel, onNew: () -> Unit, onImportFiles: () -> Unit, close: () -> Unit = {}) = listOf(
     Action(R.drawable.ic_add, "New script", "Lua or JavaScript, from a template", onClick = onNew),
     Action(R.drawable.ic_code, "From the library", "Ready-made scripts that come with Kolahal", chevron = true) {
@@ -386,7 +394,7 @@ private fun addActions(vm: TerminalViewModel, onNew: () -> Unit, onImportFiles: 
     Action(R.drawable.ic_upload, "Import a file", ".lua or .js; the file name becomes the script name", onClick = onImportFiles),
 )
 
-/** How [s] gets started: `command · every 1h · daily 08:00 · on boot`, or "run by hand". */
+/** How [s] is started, for example `command · every 1h · daily 08:00 · on boot`, or "manual". */
 internal fun schedule(s: Script, isCommand: Boolean, events: List<String>): String = buildList {
     if (isCommand) add("command")
     if (s.intervalMin > 0) add("every ${CommandParsing.formatInterval(s.intervalMin)}")
@@ -396,11 +404,14 @@ internal fun schedule(s: Script, isCommand: Boolean, events: List<String>): Stri
 
 internal fun Script.failed() = lastStatus?.let { it.startsWith("error") || it.startsWith("stopped") || it == "timeout" } == true
 
-/** When a switched-on script runs next on its own: its next daily time, or about one interval after its last run. */
+/**
+ * When a switched-on script next runs by itself: its next daily time, or about one interval after
+ * its last run. The Boolean is true for a daily time.
+ */
 internal fun nextRun(s: Script): Pair<Long, Boolean>? {
     if (!s.enabled) return null
     val now = System.currentTimeMillis()
-    // To the minute: the daily time itself, not a few seconds before it.
+    // Round to the minute, so it shows the daily time itself and not a few seconds before it.
     val daily = s.atTimes.minOfOrNull { ((now + ScriptScheduler.millisUntil(it)) / 60_000.0).roundToLong() * 60_000 }
     val every = if (s.intervalMin > 0) maxOf(now, (s.lastRun ?: now) + s.intervalMin * 60_000L) else null
     return when {

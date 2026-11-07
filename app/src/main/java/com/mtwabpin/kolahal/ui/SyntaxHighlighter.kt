@@ -11,7 +11,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDocs
 
-/** Find matches to draw: a window of start offsets around the current one. Equal when they mark the same. */
+/**
+ * Find matches to draw: the start offsets in a window around the current match. Two instances are
+ * equal when they mark the same text.
+ */
 internal class MatchHighlights(val starts: IntArray, val length: Int, val current: Int) {
     override fun equals(other: Any?) =
         other is MatchHighlights && other.length == length && other.current == current && other.starts.contentEquals(starts)
@@ -20,38 +23,42 @@ internal class MatchHighlights(val starts: IntArray, val length: Int, val curren
 }
 
 /**
- * Tokens per line, by the line's text: typing re-matches only the line being edited, not the
- * whole script. Each token is (start, end, kind) within its line. Kept by the editor for its
- * language, so a new [SyntaxHighlighter] (a find match, a flashed line) starts with them.
+ * A cache of tokens per line, keyed by the line's text. When the user types, only the edited line
+ * is matched again, not the whole script.
+ * - Each token is (start, end, kind), with offsets inside its line.
+ * - The editor keeps one per language, so a new [SyntaxHighlighter] (for a find match or a
+ *   flashed line) starts with the tokens already found.
  */
 internal class LineTokens(lang: ScriptLang) {
     val keywords = ApiDocs.keywords(lang).toSet()
-    // Every token here stays on one line; JS template strings (`…`), which may span lines, are found separately.
+    // Every token here is on one line. JS template strings (`…`) can span lines, so they are found separately.
     private val token = Regex(
         (if (lang == ScriptLang.LUA) "--[^\n]*" else "//[^\n]*") +
             "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
     )
 
     /**
-     * Kept by how much text they hold, not how many: typing on a line keeps a copy of it per key (the
-     * oldest go first, the script's own lines are used at every key), and a script with more lines
-     * than a count allowed had every line tokenised again at each key.
+     * The cache limit is the number of characters, not the number of lines. Why:
+     * - Typing on a line stores a new copy of it at every key. The oldest copies are removed first,
+     *   and the script's own lines are used at every key, so they stay.
+     * - With a line count limit, a script with more lines than the limit had every line tokenised
+     *   again at each key.
      */
     private val lineTokens = Kept(KEPT_CHARS)
 
     /**
-     * Very long lines (minified code, data) are kept apart: copies of one being typed on would
-     * otherwise push out the rest of the script.
+     * Very long lines (minified code, data) have their own cache. Otherwise, copies of a long line
+     * being edited would push the rest of the script out of the cache.
      */
     private val longLines = Kept(KEPT_LONG_CHARS)
 
-    /** Characters of the lines kept, for tests. */
+    /** Total characters of the cached lines. Used by tests. */
     internal val keptChars: Long get() = lineTokens.chars + longLines.chars
 
-    /** [line]'s tokens, kept from the last time it was asked for or worked out now. */
+    /** Returns the tokens of [line], from the cache or tokenised now. */
     fun of(line: String): IntArray = (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
 
-    /** Tokens by line, least recently used first, holding lines of [maxChars] characters at most together. */
+    /** Tokens by line, least recently used first. The cached lines hold at most [maxChars] characters in total. */
     private class Kept(private val maxChars: Long) {
         private val map = LinkedHashMap<String, IntArray>(512, 0.75f, true)
         var chars = 0L
@@ -90,11 +97,11 @@ internal class LineTokens(lang: ScriptLang) {
     }
 
     companion object {
-        /** Lines longer than this are kept apart ([longLines]). */
+        /** Lines longer than this go to the separate cache ([longLines]). */
         const val LONG_LINE = 2_000
-        /** Lines kept, in characters: a script of about 2 MB, or 4 MB of memory. */
+        /** Cache size in characters: a script of about 2 MB, or 4 MB of memory. */
         const val KEPT_CHARS = 2_000_000L
-        /** The same for [LONG_LINE]s, kept apart. */
+        /** Cache size in characters for the separate cache of [LONG_LINE]s. */
         const val KEPT_LONG_CHARS = 1_000_000L
         const val COMMENT = 0
         const val STRING = 1
@@ -104,10 +111,14 @@ internal class LineTokens(lang: ScriptLang) {
 }
 
 /**
- * Colours comments, strings, numbers and keywords; flashes one line (error jump); marks find matches.
- * [window]: only these lines (counted from 0) are coloured, the ones around the view of a big script,
- * whose colours cost several times its text to lay out at every key. The flash and the matches show
- * wherever they are.
+ * Highlights code in the editor:
+ * - colours comments, strings, numbers and keywords;
+ * - flashes one line (after a jump to an error);
+ * - marks find matches.
+ *
+ * If [window] is set, only those lines (counted from 0) are coloured. It is used for the lines
+ * around the visible part of a big script, because the colours cost several times the text itself
+ * to lay out at every key. The flash and the matches show wherever they are.
  */
 internal class SyntaxHighlighter(
     lang: ScriptLang,
@@ -117,14 +128,14 @@ internal class SyntaxHighlighter(
     private val window: IntRange? = null,
 ) : VisualTransformation {
     private val keywords = tokens.keywords
-    // The theme it was made for: a text field colours again only for a highlighter that isn't equal to the last.
+    // The theme this was made for. A text field colours again only when the new highlighter is not equal to the last one.
     private val palette = Term.palette
     private val js = lang == ScriptLang.JS
 
     private fun tokensOf(line: String): IntArray = tokens.of(line)
 
-    // The text field asks again for the same text when only the cursor or selection moved, twice
-    // per change: the last answer stands.
+    // The text field asks again for the same text when only the cursor or selection moves, twice
+    // per change. Return the last result in that case.
     private var lastText: AnnotatedString? = null
     private var lastPalette: Palette? = null
     private var last: TransformedText? = null
@@ -140,9 +151,9 @@ internal class SyntaxHighlighter(
 
     private fun colour(text: AnnotatedString): TransformedText {
         val src = text.text
-        // A big script is coloured without italic comments and bold keywords: laying out a script
-        // with them costs more the more of them there are (on the emulator, at every key: 8 KB took
-        // 48 ms with them and 13 ms without, 20 KB 162 ms and 32 ms).
+        // A big script is coloured without italic comments and bold keywords. Their layout cost grows
+        // with their number. On the emulator, per key: 8 KB took 48 ms with them and 13 ms without;
+        // 20 KB took 162 ms and 32 ms.
         val plain = src.length > PLAIN_FROM
         val styles = arrayOf(
             SpanStyle(color = Term.dim, fontStyle = if (plain) null else FontStyle.Italic),
@@ -154,7 +165,7 @@ internal class SyntaxHighlighter(
             append(src)
             var lineStart = 0
             var line = 0
-            // Where the window's lines start and end in the text, for the template strings.
+            // Start and end of the window's lines in the text. Used for the template strings.
             var from = if (window == null) 0 else -1
             var to = src.length
             while (lineStart <= src.length) {
@@ -171,7 +182,7 @@ internal class SyntaxHighlighter(
                 line++
             }
             if (js && from >= 0) {
-                // Template strings: pair up backticks with a plain scan (no escapes inside are honoured, as before).
+                // Template strings: pair up backticks with a simple scan. Escapes inside are ignored, as before.
                 var open = src.indexOf('`')
                 while (open in 0..to) {
                     val close = src.indexOf('`', open + 1)
@@ -188,7 +199,7 @@ internal class SyntaxHighlighter(
             if (matches != null) {
                 val other = SpanStyle(background = Term.info.copy(alpha = 0.3f))
                 val cur = SpanStyle(background = Term.prompt.copy(alpha = 0.55f), color = Term.bg)
-                // Offsets can be a beat stale while matches are recomputed after an edit.
+                // Offsets can be briefly out of date while matches are recomputed after an edit.
                 for (s in matches.starts) {
                     val e = s + matches.length
                     if (e <= src.length) addStyle(if (s == matches.current) cur else other, s, e)
@@ -199,7 +210,7 @@ internal class SyntaxHighlighter(
     }
 
     private companion object {
-        /** Longer than this (about 200 lines), code is coloured only. */
+        /** Above this length (about 200 lines), code gets colours only, with no italic or bold. */
         const val PLAIN_FROM = 8_000
     }
 

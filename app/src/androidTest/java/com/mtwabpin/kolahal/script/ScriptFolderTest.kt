@@ -61,6 +61,15 @@ class ScriptFolderTest {
         return scripts.byName("foldtest")!!
     }
 
+    /** Two files with one name (`Foldtest.lua`, `foldtest.lua`) can't switch a new script on: the second finds the first's code. */
+    @Test fun twoFilesOfOneNameLeaveTheScriptOff() {
+        File(dir, "Foldtest.lua").writeText("return 1")
+        File(dir, "foldtest.lua").writeText("return 1")
+        File(dir, "kolahal.json").writeText(settings)
+        ScriptFolder(context).import(DocumentFile.fromFile(dir))
+        assertFalse(scripts.byName("foldtest")!!.enabled)
+    }
+
     @Test fun aNewScriptGetsWhatItsCodeSuggests() {
         val s = imported(lines + "return 1")
         assertEquals(60, s.intervalMin)

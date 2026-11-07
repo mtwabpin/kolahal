@@ -17,8 +17,8 @@ import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Runs one script (by id) or an inline REPL snippet. Executes inside the `:script` process via
- * WorkManager's RemoteWorkerService, isolating native engine crashes from the launcher UI.
+ * Runs one script (by id) or an inline REPL snippet. It runs inside the `:script` process through
+ * WorkManager's RemoteWorkerService, so a native engine crash can't take down the launcher UI.
  */
 class ScriptWorker(context: Context, params: WorkerParameters) : RemoteCoroutineWorker(context, params) {
 
@@ -32,30 +32,30 @@ class ScriptWorker(context: Context, params: WorkerParameters) : RemoteCoroutine
         const val KEY_ARGS = "args"
         const val KEY_NAME = "name"
         const val KEY_INTERACTIVE = "interactive"
-        /** Started by a command another script sent with launcher.run. */
+        /** Set when another script started this run, by sending a command with launcher.run. */
         const val KEY_BY_SCRIPT = "by_script"
-        /** JSON object for the script's `event` global (event and daily-time runs only). */
+        /** A JSON object for the script's `event` global (only for event and daily-time runs). */
         const val KEY_EVENT = "event"
-        /** The typed command's line that started this run ([LogContext.FROM]). */
+        /** The line of the typed command that started this run ([LogContext.FROM]). */
         const val KEY_FROM = "from"
         const val TIMEOUT_MS = 60_000L
     }
 }
 
 /**
- * One script run, as [ScriptWorker] (the queue) or [ScriptRunService] (a daily time, in the
- * foreground) starts it, in the `:script` process.
+ * One script run in the `:script` process. [ScriptWorker] (the queue) or [ScriptRunService] (a daily
+ * time, in the foreground) starts it.
  */
 internal object ScriptRun {
     /**
-     * One run of a script at a time, whichever way it started (its timer, a daily time, an event,
-     * the prompt, a pinned line's refresh): two at once would share its store, and the later one to
-     * end would write rss.fresh's seen items over the other's, so items came back as new. Every run
-     * is in the :script process, so a lock here holds them all; the next one waits its turn.
+     * Only one run of a script at a time, however it started (its timer, a daily time, an event, the
+     * prompt, a pinned line's refresh). Two runs at once would share its store. The one that ended
+     * later would overwrite rss.fresh's seen items from the other, so items would come back as new.
+     * Every run is in the :script process, so a lock here covers them all. The next run waits its turn.
      */
     private val running = java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
 
-    /** Runs what [inputData] names ([ScriptWorker]'s keys); false when it names nothing runnable. */
+    /** Runs what [inputData] names ([ScriptWorker]'s keys). Returns false when it names nothing that can run. */
     suspend fun run(ctx: Context, inputData: Data): Boolean {
         val scriptId = inputData.getLong(ScriptWorker.KEY_SCRIPT_ID, -1L)
         if (scriptId < 0) return runOne(ctx, inputData, scriptId)
@@ -78,15 +78,15 @@ internal object ScriptRun {
         val args = inputData.getNullableStringArray(ScriptWorker.KEY_ARGS)?.filterNotNull().orEmpty()
         val event = inputData.getString(ScriptWorker.KEY_EVENT)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
         val from = inputData.getLong(ScriptWorker.KEY_FROM, -1L).takeIf { it >= 0 }
-        // Queued before a switch went off: the event (or, for a notification, reading notifications)
-        // is checked again as the run starts.
+        // The run may have been queued before a switch went off. So the event (or, for a notification,
+        // reading notifications) is checked again when the run starts.
         val on = event?.get("name") as? String
-        // A sample event run from the editor is asked for: it runs.
+        // A sample event run from the editor was asked for, so it always runs.
         if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false) &&
             (!script.grants.allows(on) || (on == "notification" && !script.grants.allows("notifications")))
         ) return true
-        // A pinned status line's refresh, every few seconds while home shows it: what stays the same isn't said
-        // again. An error shows once until a run works, and a result a run returns isn't logged.
+        // A pinned status line's refresh runs every few seconds while home shows it. So what stays the same
+        // isn't reported again: an error shows once until a run works, and a returned result isn't logged.
         val refresh = script != null && on == ScriptScheduler.REFRESH && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
         val refreshes = KvStore(ctx, "worker")
         val refreshKey = "refresh-error:${script?.id}"
@@ -99,7 +99,7 @@ internal object ScriptRun {
 
         val host = HostApi(
             ctx, name, script?.id,
-            // Its switch shows only when its code calls notify: one that hides the call can't post.
+            // Its switch shows only when its code calls notify. So a script that hides the call can't post.
             notifyEnabled = script?.let { it.notify && ScriptMeta.postsNotifications(it.code) } ?: true,
             interactive = repl || inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false),
             byScript = inputData.getBoolean(ScriptWorker.KEY_BY_SCRIPT, false),
@@ -114,8 +114,8 @@ internal object ScriptRun {
             (if (script != null) mapOf(LogContext.SCRIPT to script.name) else emptyMap()) +
                 (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
         )
-        // Ended, however it ends: whatever is still in flight (a request, a timer) changes nothing after it,
-        // also when Android stops the run and this leaves at once.
+        // However the run ends, anything still in flight (a request, a timer) changes nothing after it.
+        // This is also true when Android stops the run and this returns at once.
         val status = try {
             val result = withTimeout((ScriptWorker.TIMEOUT_MS + 2_000).milliseconds) {
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
@@ -131,13 +131,13 @@ internal object ScriptRun {
             "ok in ${System.currentTimeMillis() - started}ms"
         } catch (e: CancellationException) {
             host.flush()
-            // Only our own timeout is a script failure; WorkManager stopping the worker must propagate.
+            // Only our own timeout is a script failure. WorkManager stopping the worker must propagate.
             if (e !is TimeoutCancellationException) throw e
             fail("$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", errorCtx)
             "timeout"
         } catch (e: Throwable) {
             host.flush()
-            // Stopped by the switch itself, not an error the script caught and went on after.
+            // The switch itself stopped the run. This is not an error that the script caught and then went on.
             val off = host.denied?.takeIf { host.deniedMessage?.let { m -> e.message.orEmpty().contains(m) } == true }
             // QuickJS's interrupt, or Lua's own timeout error (raised by the hook or a host call that waits).
             val timedOut = e is com.dokar.quickjs.QuickJsInterruptedException || e.message.orEmpty().contains("script timed out")
@@ -145,13 +145,13 @@ internal object ScriptRun {
                 fail("$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", errorCtx)
                 "timeout"
             } else if (off != null) {
-                // Stopped by a switch the user turned off: say which, with a tap to allow it.
+                // A switch the user turned off stopped the run. Say which one, with a tap to allow it.
                 fail("$name: ${ScriptAccess.label(off).lowercase()} is off for this script — tap to allow", errorCtx + mapOf(LogContext.RUN to "script allow $name $off"))
                 "stopped: ${ScriptAccess.label(off).lowercase()} off"
             } else {
-                // An error can quote a URL or a header: masked like everything else a run shows.
+                // An error can quote a URL or a header, so mask it like everything else a run shows.
                 val message = e.message?.let(host::redact)
-                // The first line, as the script made it: as long as it liked, so cut for the line and the status.
+                // The first line as the script made it. It can be any length, so cut it for the line and the status.
                 val msg = (message?.lines()?.firstOrNull { it.isNotBlank() } ?: e.javaClass.simpleName).take(ScriptRepository.STATUS_MAX)
                 val line = if (repl) null else errorLine(e, lang, name)
                 val extra = buildMap {
@@ -164,32 +164,32 @@ internal object ScriptRun {
         } finally {
             host.finish()
         }
-        // A run you started that asked for what nobody allowed yet got empty answers: offer to allow it.
+        // A run you started asked for things nobody has allowed yet, and got empty answers. Offer to allow them.
         if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
             ScriptAccess.askToAllow(ctx, name, host.undecided.toList(), "needs permission for")
         }
         if (refresh && failed != lastError) refreshes.set(refreshKey, failed)
         script?.let {
-            // A refresh that went as the last one did leaves the script's row be: one each few seconds
-            // would have home read every script again.
+            // If a refresh ended the same way as the last one, leave the script's row as it is. Writing it
+            // every few seconds would make home read every script again.
             if (refresh && failed == lastError) return@let
             scripts.recordRun(it.id, status)
-            // The run's lines went out before its result was stored; without this, home could show the previous run.
+            // The run's lines went out before its result was stored. Without this, home could show the previous run.
             logs.touch()
         }
         if (host.notifyBlocked) reportBlocked(ctx, logs, name, "notify-blocked", "notifications are blocked", "notifications")
-        logs.trim()
+        logs.trimIfWritten()
         return true
     }
 
-    /** Source line of a script error: Lua messages carry `name:LINE:`, QuickJS exceptions a line number. */
+    /** The source line of a script error. Lua messages carry `name:LINE:`; QuickJS exceptions carry a line number. */
     private fun errorLine(e: Throwable, lang: ScriptLang, name: String): Int? = when (lang) {
         ScriptLang.LUA -> Regex("(?:^|\\s)${Regex.escape(name)}:(\\d+):").find(e.message.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
         // Saved JS scripts are wrapped in one extra line (the async function header).
         ScriptLang.JS -> (e as? com.dokar.quickjs.QuickJsException)?.lineNumber?.minus(1)?.takeIf { it > 0 }
     }
 
-    /** One "tap to allow" line per day ([key] tells kinds apart) instead of one per blocked call. */
+    /** Logs one "tap to allow" line per day ([key] tells the kinds apart), instead of one per blocked call. */
     private fun reportBlocked(context: Context, logs: LogRepository, name: String, key: String, what: String, fix: String) {
         val store = KvStore(context, "worker")
         val today = java.time.LocalDate.now().toString()

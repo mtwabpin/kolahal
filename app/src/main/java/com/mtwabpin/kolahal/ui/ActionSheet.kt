@@ -35,9 +35,11 @@ import com.mtwabpin.kolahal.terminal.ActionIcon
 import com.mtwabpin.kolahal.terminal.LogAction
 
 /**
- * A long-press menu. Its actions are in the system's font, as a menu; its [title] (the line pressed)
- * in the terminal's, as in the log, unless [systemFont] (quick actions, whose title is a heading).
- * [url]: the line's link, shown under the title so you see where Open link goes.
+ * A long-press menu.
+ * - The actions use the system font, like any menu.
+ * - The [title] (the pressed line) uses the terminal font, as in the log. With [systemFont] it uses
+ *   the system font instead (quick actions, where the title is a heading).
+ * - [url] is the line's link. It shows under the title, so the user sees where Open link goes.
  */
 data class ActionMenu(
     val title: String,
@@ -50,8 +52,8 @@ data class ActionMenu(
 )
 
 /**
- * A bottom sheet of the terminal's: its surface colour, rounded only at the top, no drag handle.
- * It opens all the way.
+ * A bottom sheet in the terminal's style: its surface colour, rounded only at the top, and no drag
+ * handle. It opens fully.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,13 +68,13 @@ internal fun TermSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.(
     )
 }
 
-/** Long-press actions as a compact bottom sheet: the line on top, destructive actions last in red. */
+/** Long-press actions in a compact bottom sheet. The line is on top; destructive actions come last, in red. */
 @Composable
 fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
     TermSheet(onDismiss) {
-        // Scrolls when there are more actions than fit, so the last one can be reached.
+        // Scroll when the actions don't fit, so the user can reach the last one.
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(vertical = 8.dp)) {
-            // Sized with the terminal's text, like the icons.
+            // The size follows the terminal's text size, like the icons.
             val menuStyle = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = (Term.fontSize + 2).sp,
                 lineHeight = ((Term.fontSize + 2) * 1.4f).sp,
@@ -84,7 +86,7 @@ fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            // Where the line came from and when: what the log may leave off the line.
+            // Where the line came from and when. The log may not show this on the line.
             menu.detail?.let { detail ->
                 Text(
                     detail,
@@ -104,7 +106,8 @@ fun ActionSheet(menu: ActionMenu, onDismiss: () -> Unit) {
                 )
             }
             var dividerShown = false
-            // The header's icon size; the column is as wide as its battery, so labels line up.
+            // The header's icon size. The icon column is as wide as the header's battery icon, so
+            // the labels line up.
             val iconSize = (Term.fontSize + 3).dp
             val iconColumn = menu.actions.any { it.icon != null }
             menu.actions.forEach { action ->

@@ -3,8 +3,8 @@ package com.mtwabpin.kolahal.script
 import com.mtwabpin.kolahal.data.ScriptLang
 
 /**
- * The script API as data, for editor completion, inline docs and the reference sheet.
- * Keep in sync with the bindings in [LuaEngine] / [JsEngine] (ApiDocsTest checks the names).
+ * The script API as data. The editor uses it for completion, inline docs and the reference sheet.
+ * Keep it in sync with the bindings in [LuaEngine] and [JsEngine]. ApiDocsTest checks the names.
  */
 data class ApiDoc(
     /** Full dotted name, e.g. `http.get`. */
@@ -16,10 +16,10 @@ data class ApiDoc(
 ) {
     enum class Kind { FUNCTION, NAMESPACE, VALUE, KEYWORD }
 
-    /** Namespace part (`http` for `http.get`), or null for globals. */
+    /** The namespace part (`http` for `http.get`), or null for globals. */
     val qualifier: String? get() = name.substringBeforeLast('.', "").ifEmpty { null }
 
-    /** Last segment (`get` for `http.get`). */
+    /** The last segment (`get` for `http.get`). */
     val member: String get() = name.substringAfterLast('.')
 
     private companion object {
@@ -47,6 +47,7 @@ object ApiDocs {
         ApiDoc("fmt.code", "fmt.code(text) -> string", "Text shown as code (a shaded chip) in the log"),
         ApiDoc("fmt.color", "fmt.color(role, text) -> string", "Text in one of the theme's colours: accent, link, info, muted, text, good, warn, bad"),
         ApiDoc("fmt.list", "fmt.list(items, numbered?) -> string", "A list, one item per line, for a body: bullets, or 1., 2. … with numbered"),
+        ApiDoc("fmt.table", "fmt.table(rows, {header?, align?}) -> string", "A table for a body: rows of cells; header names the columns; align is one letter a column, l or r"),
         ApiDoc("fmt.plain", "fmt.plain(text) -> string", "The text without its styles, for anything other than the log"),
         ApiDoc("notify", "notify(title, body, ctx?) -> bool", "Post a notification if enabled for the script; ctx.url opens on tap"),
         ApiDoc("status", "status(text, opts?)", "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) clears it"),
@@ -135,15 +136,15 @@ object ApiDocs {
     /** API entries and keywords available in [lang]. */
     fun forLang(lang: ScriptLang): List<ApiDoc> = byLang.getValue(lang)
 
-    /** The API entry (not keyword) called [name] in [lang]. */
+    /** The API entry called [name] in [lang]. Keywords are not included. */
     fun find(name: String, lang: ScriptLang): ApiDoc? = byName.getValue(lang)[name]
 
     fun isNamespace(name: String, lang: ScriptLang) = find(name, lang)?.kind == ApiDoc.Kind.NAMESPACE
 
-    /** A comment line at the top of a script ([ScriptMeta]): [args] is what follows its name, empty when nothing does. */
+    /** A comment line at the top of a script ([ScriptMeta]). [args] is the text after its name, or empty if there is none. */
     data class Directive(val name: String, val args: String, val doc: String)
 
-    /** Every `@` line, for the editor's reference: what the script is, how it runs, what it may use. */
+    /** Every `@` line, for the editor's reference. Each line says what the script is, how it runs or what it may use. */
     val directives: List<Directive> = listOf(
         Directive("command", "", "Run it by its name from the prompt"),
         Directive("desc", "<text>", "One-line description, in help, suggestions and Scripts"),

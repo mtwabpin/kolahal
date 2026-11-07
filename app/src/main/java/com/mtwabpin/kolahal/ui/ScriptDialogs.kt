@@ -51,7 +51,7 @@ import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.terminal.CommandCatalog
 
-/** Resetting an edited library script to the library version: the edits go, so it asks first. */
+/** Asks before resetting an edited library script to the library version, because the edits are lost. */
 @Composable
 internal fun ResetDialog(lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit) {
     ConfirmDialog(
@@ -64,9 +64,11 @@ internal fun ResetDialog(lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit
 }
 
 /**
- * Before a script may use what it declares: switching on one that declares what nobody allowed yet,
- * or installing a shared one. Each item ([items], [ScriptAccess] names) with a switch, all on, to
- * switch off what you don't want before [confirm]. The script's Access switches change them later.
+ * Asks before a script may use what it declares. It shows when the user:
+ * - switches on a script that declares access nobody allowed yet, or
+ * - installs a shared script.
+ * Each item ([items], [ScriptAccess] names) has a switch, and all start on. The user can switch off
+ * what they don't want before [confirm]. The script's Access switches can change them later.
  */
 @Composable
 internal fun AccessDialog(title: String, items: List<String>, confirm: String, onDismiss: () -> Unit, onConfirm: (Map<String, Boolean>) -> Unit) {
@@ -88,8 +90,10 @@ internal fun AccessDialog(title: String, items: List<String>, confirm: String, o
 }
 
 /**
- * Sets one of a script's secrets: a masked box (the eye shows it) that the keyboard doesn't learn
- * from, never filled with the stored value. Clear forgets it.
+ * Sets one of a script's secrets.
+ * - The box is masked; the eye button shows the text. The keyboard does not learn from it.
+ * - The box is never filled with the stored value.
+ * - Clear deletes the stored secret.
  */
 @Composable
 internal fun SecretDialog(script: String, secret: ScriptMeta.Secret, isSet: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
@@ -139,8 +143,8 @@ internal fun SecretDialog(script: String, secret: ScriptMeta.Secret, isSet: Bool
 }
 
 /**
- * Changes one of a script's options: one of its choices, or a box with the value in it. Default
- * puts its default back.
+ * Changes one of a script's options: the user picks one of its choices, or edits the value in a box.
+ * Default restores the default value.
  */
 @Composable
 internal fun OptionDialog(script: String, option: ScriptMeta.Option, current: String, changed: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
@@ -185,12 +189,12 @@ internal fun OptionDialog(script: String, option: ScriptMeta.Option, current: St
     )
 }
 
-/** A new name for [s], from its sheet. */
+/** Renames [s]. Opened from its sheet. */
 @Composable
 internal fun RenameDialog(s: Script, existing: Set<String>, onDismiss: () -> Unit, onRename: (String) -> Unit) {
     var name by remember(s.id) { mutableStateOf(TextFieldValue(s.name, TextRange(s.name.length))) }
     val clean = name.text.trim().lowercase()
-    // The same checks as `script mv`, shown while typing.
+    // The same checks as `script mv`, shown while the user types.
     val problem = if (clean.isEmpty() || clean == s.name) null else ScriptNames.invalid(clean) { it in existing }
     val valid = clean.isNotEmpty() && clean != s.name && problem == null
     AlertDialog(
@@ -227,7 +231,7 @@ internal fun NewScriptDialog(existing: Set<String>, onDismiss: () -> Unit, onCre
     var command by remember { mutableStateOf(false) }
     val builtIns = CommandCatalog.RESERVED_NAMES
     val clean = name.trim().lowercase()
-    // The same checks as `script new`, shown while typing.
+    // The same checks as `script new`, shown while the user types.
     val problem = when {
         clean.isEmpty() -> null
         !ScriptNames.NAME.matches(clean) -> "Lowercase letters, digits, - and _"

@@ -6,7 +6,7 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 
-/** What each family of commands does with the phone: prints to the log, and starts other screens. */
+/** Base class for each group of commands. It gives them ways to print to the log and to start other screens. */
 abstract class CommandGroup(protected val context: Context) {
     protected val logs = LogRepository.get(context)
 
@@ -14,7 +14,7 @@ abstract class CommandGroup(protected val context: Context) {
     protected fun info(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.INFO, text, ctx = ctx) }
     protected fun error(text: String, ctx: LogContext = LogContext.EMPTY) { logs.add(LogKind.ERROR, text, ctx = ctx) }
 
-    /** "Usage: " and the usage lines of the commands [names] from [CommandCatalog], the ones help shows, as an error. */
+    /** Prints "Usage: " and the usage lines of the commands [names] as an error. The lines come from [CommandCatalog], the same ones that help shows. */
     protected fun usage(vararg names: String) = error("Usage: " + names.joinToString(" · ") { CommandCatalog.COMMAND_USAGES.getValue(it) })
 
     protected fun startActivity(intent: Intent) {

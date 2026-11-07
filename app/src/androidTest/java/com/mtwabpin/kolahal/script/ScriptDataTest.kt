@@ -39,6 +39,23 @@ class ScriptDataTest {
         assertEquals(listOf("https://example.com/1", "https://example.com/2"), feed.items.map { it.id })
     }
 
+    /**
+     * A feed's own entities are never expanded (the parser reads no DOCTYPE declarations), so a
+     * "billion laughs" feed stays small: it fails or reads as short text. A plain DOCTYPE is fine.
+     */
+    @Test fun aFeedsEntitiesDontExpand() {
+        val levels = (1..9).joinToString("") { i -> "<!ENTITY e$i \"" + "&e${i - 1};".repeat(10) + "\">" }
+        val bomb = """<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY e0 "aaaaaaaaaa">$levels]>
+            <rss><channel><item><title>&e9;</title></item></channel></rss>"""
+        val parsed = runCatching { RssParser.parse(bomb) }.getOrNull()
+        assertTrue("${parsed?.items?.firstOrNull()?.title?.length} characters", (parsed?.items?.firstOrNull()?.title?.length ?: 0) < 1_000)
+        val old = RssParser.parse(
+            """<?xml version="1.0"?><!DOCTYPE rss PUBLIC "-//Netscape Communications//DTD RSS 0.91//EN" "http://my.netscape.com/publish/formats/rss-0.91.dtd">
+               <rss version="0.91"><channel><title>Old</title><item><title>One</title><link>https://example.com/1</link></item></channel></rss>""",
+        )
+        assertEquals(listOf("One"), old.items.map { it.title })
+    }
+
     @Test fun anAtomSourceDoesntRenameTheEntry() {
         val feed = RssParser.parse(
             """<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>tag:entry</id><title>Entry</title>

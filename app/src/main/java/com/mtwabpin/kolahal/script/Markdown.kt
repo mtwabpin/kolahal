@@ -4,20 +4,21 @@ import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.StyledText.Style
 
 /**
- * The Markdown `md.log` reads, as [StyledText]: `**bold**` (or `__bold__`), `*italic*` (or
- * `_italic_`, not inside a word), `~~strike~~`, `++underline++` and `` `code` ``; in a body, list
- * items too: `- `, `* `, `+ ` or `1. `, two spaces in for the second level. A backslash before a
- * punctuation mark shows the mark as it is ([escape] puts them in).
+ * Reads the Markdown that `md.log` uses and turns it into [StyledText].
+ * - Styles: `**bold**` (or `__bold__`), `*italic*` (or `_italic_`, not inside a word),
+ *   `~~strike~~`, `++underline++` and `` `code` ``.
+ * - In a body, list items too: `- `, `* `, `+ ` or `1. `. Two leading spaces make a second-level item.
+ * - A backslash before a punctuation mark shows the mark as it is. [escape] adds these backslashes.
  */
 object Markdown {
     private val DOUBLE = listOf("**" to Style.BOLD, "__" to Style.BOLD, "~~" to Style.STRIKE, "++" to Style.UNDERLINE)
     private val ITEM = Regex("^( *)([-*+]|\\d{1,4}[.)]) +(.*)$")
     private const val PUNCTUATION = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
 
-    /** A title: styles within each line, no list items. */
+    /** For a title: styles within each line, but no list items. */
     fun inline(text: String): String = text.split('\n').joinToString("\n") { span(it) }
 
-    /** A body: styles, and lines that are list items. */
+    /** For a body: styles, and lines that are list items. */
     fun block(text: String): String = text.split('\n').joinToString("\n") { line ->
         val m = ITEM.find(line) ?: return@joinToString span(line)
         val level = if (m.groupValues[1].length >= 2) 2 else 1
@@ -26,7 +27,7 @@ object Markdown {
         StyledText.item(level) + number + span(m.groupValues[3])
     }
 
-    /** [text] with what Markdown would read as styles or list items escaped, so it shows as written. */
+    /** Escapes everything in [text] that Markdown would read as a style or a list item, so it shows as written. */
     fun escape(text: String): String = text.split('\n').joinToString("\n") { line ->
         val escaped = buildString { line.forEach { c -> if (c in "\\*_~+`") append('\\'); append(c) } }
         // A line that would read as a list item: "- milk", "1. milk".
@@ -70,7 +71,7 @@ object Markdown {
             }
             if (c == '*' || c == '_') {
                 val end = closing(s, c.toString(), i + 1)
-                // `_` only around words, not inside one (snake_case stays as it is).
+                // `_` works only around words, not inside one, so snake_case stays as it is.
                 val opens = i + 1 < s.length && !s[i + 1].isWhitespace() && (c == '*' || i == 0 || !s[i - 1].isLetterOrDigit())
                 val closes = end > i + 1 && !s[end - 1].isWhitespace() && (c == '*' || end + 1 >= s.length || !s[end + 1].isLetterOrDigit())
                 if (opens && closes) {
@@ -85,14 +86,14 @@ object Markdown {
         return out.toString()
     }
 
-    /** Where [d] next closes in [s] after [from]: not escaped, not in `code`; or -1. */
+    /** The next place after [from] where [d] closes in [s], skipping escaped marks and `code`. Returns -1 if there is none. */
     private fun closing(s: String, d: String, from: Int): Int {
         var i = from
         while (i < s.length) {
             when {
                 s[i] == '\\' -> i += 2
                 s[i] == '`' -> s.indexOf('`', i + 1).let { e -> i = if (e < 0) i + 1 else e + 1 }
-                // A single * or _ isn't closed by half of a double one (`*a **b** c*`).
+                // Half of a double mark does not close a single * or _ (`*a **b** c*`).
                 d.length == 1 && s.startsWith(d + d, i) -> i += 2
                 s.startsWith(d, i) -> return i
                 else -> i++

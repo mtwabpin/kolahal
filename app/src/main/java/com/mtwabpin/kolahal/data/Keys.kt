@@ -19,7 +19,7 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
         override fun parse(raw: String) = raw.toIntOrNull()?.takeIf { it in range }
     }
 
-    /** One of [fixed], or of [added]: values that come and go while the app runs (custom themes). */
+    /** One of [fixed], or one of [added]: values that come and go while the app runs (custom themes). */
     class Choice(
         key: String, default: String, private val fixed: List<String>, help: String,
         private val added: () -> List<String> = { emptyList() },
@@ -28,7 +28,7 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
         override fun parse(raw: String) = raw.lowercase().takeIf { it in choices }
     }
 
-    /** Free text; [accept] makes what was typed the value, or null when it can't be one. */
+    /** Free text. [accept] turns what was typed into the value, or returns null when it can't be one. */
     class Text(
         key: String, default: String, help: String,
         private val accept: (String) -> String? = { it },
@@ -38,16 +38,16 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
 }
 
 object Keys {
-    /** What the header's two items beside the battery can be. */
-    val HEADER_ITEMS = listOf("alarm", "todo", "network", "unlocks", "profiles", "settings", "none")
-    val HEADER_SHOW = ConfigKey.Bool("header.show", true, "Show the header, the line at the top of home: the time, the date, the battery and your two items (off: only the pinned header, while music plays or a script is pinned; open settings with the settings command)")
-    // The header's two items beside the battery, in this order; none leaves its place empty.
-    val HEADER_ITEM_1 = ConfigKey.Choice("header.item-1", "alarm", HEADER_ITEMS, "The header's first item beside the battery: $HEADER_ITEMS_HELP")
-    val HEADER_ITEM_2 = ConfigKey.Choice("header.item-2", "todo", HEADER_ITEMS, "The header's second item beside the battery: $HEADER_ITEMS_HELP")
-    val HEADER_MEDIA = ConfigKey.Bool("header.media", true, "Show what's playing in the pinned header, with a progress bar (tap: play/pause, long-press: next; needs notification access)")
+    /** What the header can show. Each part is on one side at most ([HEADER_LEFT], [HEADER_RIGHT]). */
+    val HEADER_PARTS = listOf("time", "date", "battery", "alarm", "todo", "network", "unlocks", "profiles", "settings")
+    val HEADER_SHOW = ConfigKey.Bool("header.show", false, "Show the header, the line at the top of home: the time, the date, the battery and the parts you chose (off: only the pinned header, while music plays or a script is pinned; open settings with the settings command)")
+    val HEADER_BELOW_BAR = ConfigKey.Bool("header.below-bar", true, "In full screen, put the header below the status bar's area instead of beside the camera (with the status bar shown it is always below it)")
+    // The header's two sides. Each is a list of parts in the order they show; none leaves a side empty.
+    val HEADER_LEFT = ConfigKey.Text("header.left", "time,date", "The header's left side, from the left: $HEADER_PARTS_HELP", ::headerParts)
+    val HEADER_RIGHT = ConfigKey.Text("header.right", "alarm,todo,battery", "The header's right side, from the left: $HEADER_PARTS_HELP", ::headerParts)
     val HEADER_PINNED_SECONDS = ConfigKey.Num("header.pinned-seconds", 5, 2..60, "How many seconds each item in the pinned header shows before the next one")
     val HEADER_PINNED_DOTS = ConfigKey.Num("header.pinned-dots", 3, 0..10, "Dots at the end of the pinned header showing which item is on screen, for up to this many items (0: never)")
-    // A name in name@device: no @ of its own, and no spaces, as usernames go.
+    // The name in name@device: no @ of its own and no spaces, like usernames.
     val USER_NAME = ConfigKey.Text(
         "user.name", "kolahal",
         "Your name in name@device, in fetch (up to 32 characters, no spaces or @)",
@@ -62,7 +62,7 @@ object Keys {
     val KEYBAR_AUTO = ConfigKey.Bool("keybar.auto", true, "Show the key bar only while the on-screen keyboard is up for the prompt (off: always)")
     val KEYBAR_HEIGHT = ConfigKey.Num("keybar.height", 40, 20..64, "Key bar row height (dp); smaller leaves more room for the log")
     val PROMPT_HEIGHT_TYPING = ConfigKey.Num("prompt.height", 40, 20..72, "Prompt line height (dp); it never gets shorter than its text")
-    /** The themes that come with Kolahal; [CustomThemes] holds the ones people make. */
+    /** The themes that come with Kolahal. [CustomThemes] holds the ones people make. */
     val BUILT_IN_THEMES = listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material")
     val THEME = ConfigKey.Choice(
         "theme.name", "green", BUILT_IN_THEMES,
@@ -70,7 +70,7 @@ object Keys {
         added = { CustomThemes.names },
     )
     val THEME_ALWAYS_DARK = ConfigKey.Bool("theme.always-dark", false, "Always use the theme's dark version, even in light mode")
-    val STATUS_BAR = ConfigKey.Choice("screen.bars", "immersive", listOf("show", "hide", "immersive"), "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them")
+    val STATUS_BAR = ConfigKey.Choice("screen.bars", "show", listOf("show", "hide", "immersive"), "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them")
     val FONT = ConfigKey.Choice(
         "font.family", "jetbrains-mono",
         listOf("system", "jetbrains-mono", "fira-code", "ibm-plex-mono", "source-code-pro", "custom"),
@@ -96,18 +96,18 @@ object Keys {
     val SUGGESTION_ROWS = ConfigKey.Num("suggestions.rows", 2, 1..2, "Rows of suggestion chips while typing (suggestions.style chips)")
     val SUGGESTIONS_STYLE = ConfigKey.Choice("suggestions.style", "list", listOf("list", "chips"), "While typing: a list above the prompt (best match at the bottom, nearest the thumb) or a strip of chips")
     val SELECTOR_RAIL = ConfigKey.Bool("selector.rail", false, "Slide along the screen's edge to a letter, then onto the list to pick an app; let go on one to launch")
-    val SELECTOR_BROWSE = ConfigKey.Choice("selector.browse", "letters", listOf("letters", "apps"), "Sliding along the edge: letters moves a letter at a time, with its apps beside your thumb; apps moves through the whole list, an app at a time when you slide slowly")
+    val SELECTOR_BROWSE = ConfigKey.Choice("selector.browse", "apps", listOf("letters", "apps"), "Sliding along the edge: letters moves a letter at a time, with its apps beside your thumb; apps moves through the whole list, an app at a time when you slide slowly")
     val SELECTOR_FILTER = ConfigKey.Bool("selector.filter", false, "With letters: the list shows only the letter's apps, not the whole list scrolled to it")
     val SELECTOR_SIDE = ConfigKey.Choice("selector.side", "right", listOf("right", "left"), "The edge you slide on; the list of apps opens on the other side")
     val SELECTOR_POSITION = ConfigKey.Choice("selector.position", "bottom", listOf("bottom", "middle", "top"), "Position of the slide area on the edge: keep it away from the back gesture")
     val SELECTOR_HANDLE = ConfigKey.Bool("selector.handle", true, "Show the slim A–Z handle on the edge; off hides it while the selector keeps working")
-    val SELECTOR_LETTERS = ConfigKey.Bool("selector.letters", false, "Show the letters along the edge, so you can see where to touch")
-    val SELECTOR_HEIGHT = ConfigKey.Num("selector.height", 350, 200..900, "Length (dp) of the part of the edge you slide on: shorter means less thumb travel; the list uses the whole height")
-    val SELECTOR_ICONS = ConfigKey.Bool("selector.icons", false, "Show each app's icon in the app selector's list")
-    val SELECTOR_ROW_HEIGHT = ConfigKey.Num("selector.row-height", 38, 32..64, "Height (dp) of each app in the app selector's list: taller spaces the names out; it grows with a large text size")
+    val SELECTOR_LETTERS = ConfigKey.Bool("selector.letters", true, "Show the letters along the edge, so you can see where to touch")
+    val SELECTOR_HEIGHT = ConfigKey.Num("selector.height", 400, 200..900, "Length (dp) of the part of the edge you slide on: shorter means less thumb travel; the list uses the whole height")
+    val SELECTOR_ICONS = ConfigKey.Bool("selector.icons", true, "Show each app's icon in the app selector's list")
+    val SELECTOR_ROW_HEIGHT = ConfigKey.Num("selector.row-height", 50, 32..64, "Height (dp) of each app in the app selector's list: taller spaces the names out; it grows with a large text size")
     val SELECTOR_AIM = ConfigKey.Num("selector.aim", 10, 0..40, "With selector.browse apps, a slow slide along the edge moves one app per this many dp (0: a slide always scrolls the whole list)")
     val SELECTOR_AIM_SPEED = ConfigKey.Num("selector.aim-speed", 100, 20..400, "Slides slower than this (dp/s) move one app at a time; from 2.5 times this speed they scroll the whole list again")
-    val SELECTOR_SYSTEM_FONT = ConfigKey.Bool("selector.system-font", false, "Use the system font in the app selector instead of the terminal font: its list, the letters on the edge and the one beside your thumb")
+    val SELECTOR_SYSTEM_FONT = ConfigKey.Bool("selector.system-font", true, "Use the system font in the app selector instead of the terminal font: its list, the letters on the edge and the one beside your thumb")
     val SELECTOR_ACTIONS = ConfigKey.Choice("selector.actions", "off", listOf("far-side", "off"), "App actions while picking: far-side opens them when you lift on the far side of the list; off: long-press in the open list only")
     val SHOW_TIMESTAMPS = ConfigKey.Choice("log.time", "groups", listOf("off", "commands", "groups"), "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type")
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
@@ -116,6 +116,7 @@ object Keys {
     val LOG_LINE_HEIGHT = ConfigKey.Num("log.line-height", 22, 10..56, "Minimum height of a log line (22 is 22 dp at the default text size, and scales with it); a line is never shorter than its text")
     val LOG_WALLPAPER = ConfigKey.Num("log.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour")
     val LOG_TALLER_TAPS = ConfigKey.Bool("log.taller-taps", false, "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height")
+    val LOG_TABLES = ConfigKey.Choice("log.tables", "boxed", listOf("boxed", "plain"), "How tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only)")
     val CHIP_HEIGHT = ConfigKey.Num("chips.height", 48, 20..64, "Height (dp) of suggestion chips and app-grid chips; list-style suggestion rows shrink with it below 44")
     val LOG_KEEP_DAYS = ConfigKey.Num("log.keep-days", 60, 1..365, "Delete log lines older than this many days; starred lines are kept")
     val LOG_KEEP_LINES = ConfigKey.Num("log.keep-lines", 5000, 500..50_000, "Delete the oldest log lines past this many; typed commands are counted separately, so ↑ history is kept, and starred lines are kept and not counted")
@@ -152,9 +153,9 @@ object Keys {
 
     val ALL: List<ConfigKey<*>> = listOf(
         HEADER_SHOW,
-        HEADER_ITEM_1,
-        HEADER_ITEM_2,
-        HEADER_MEDIA,
+        HEADER_BELOW_BAR,
+        HEADER_LEFT,
+        HEADER_RIGHT,
         HEADER_PINNED_SECONDS,
         HEADER_PINNED_DOTS,
         USER_NAME,
@@ -202,6 +203,7 @@ object Keys {
         LOG_GUTTER,
         LOG_LINE_HEIGHT,
         LOG_TALLER_TAPS,
+        LOG_TABLES,
         LOG_WALLPAPER,
         CHIP_HEIGHT,
         LOG_KEEP_DAYS,
@@ -229,18 +231,21 @@ object Keys {
         WIDGETS_WALLPAPER,
     )
 
-    /** Settings only `config` changes: the Settings screen leaves them out. */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP)
+    /**
+     * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
+     * of their own (the header's sides: Settings → Header → Arrange the header).
+     */
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_LEFT, HEADER_RIGHT)
 
-    /** A setting by name; an old name ([RENAMED]) finds the setting under its new one. */
+    /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {
         val n = name.lowercase()
         return ALL.firstOrNull { it.key == (RENAMED[n] ?: n) }
     }
 
     /**
-     * Names settings had before 0.3.0, old to new. Saved values move over once ([Config]); `config`
-     * and backups still take the old names.
+     * Setting names from before 0.3.0, old to new. Saved values move over once ([Config]). `config`
+     * and backups still accept the old names.
      */
     val RENAMED: Map<String, String> = mapOf(
         "theme" to "theme.name",
@@ -261,12 +266,12 @@ object Keys {
         "keyboard.onhome" to "keyboard.on-home",
     )
 
-    /** The old switch for swiping up on the prompt: `gesture.swipe-up` is now `none` while it is off. */
+    /** The old switch for swiping up on the prompt. When it is off, `gesture.swipe-up` is now `none`. */
     const val OLD_SWIPE_UP_ON = "gesture.swipeup.on"
 
     /**
-     * Settings that are gone, with where their job went (what `config` says when given one). Saved
-     * values are dropped ([migrate]); backups that still have them import without them.
+     * Settings that were removed, with where their job went (what `config` says when given one).
+     * Saved values are dropped ([migrate]). Backups that still have them import without them.
      */
     val REMOVED: Map<String, String> = mapOf(
         OLD_SWIPE_UP_ON to "set gesture.swipe-up to an action to turn swiping up on, or none to turn it off",
@@ -276,8 +281,13 @@ object Keys {
         "widgets.height" to "widgets are on the widgets page (widgets.page)",
         "theme.paper" to "the home screen's background is the theme's colour; the phone's wallpaper can show behind it (log.wallpaper)",
         "header.media-always" to "what's playing always shows in the pinned header, under the header",
-        // 0.4.14: the header is one line, beside the camera.
-        *HEADER_GONE.map { it to "the header is one line: the time, the date, the battery and two items (header.item-1, header.item-2)" }.toTypedArray(),
+        // 0.4.16: always on.
+        "header.media" to "what's playing always shows in the pinned header, with notification access",
+        // 0.4.14: the header is one line, next to the camera.
+        *HEADER_GONE.map { it to "the header is one line: choose its parts with header.left and header.right" }.toTypedArray(),
+        // 0.4.16: two lists of parts instead of two items.
+        "header.item-1" to "choose the header's parts, on each side, with header.left and header.right (Settings → Header → Arrange the header)",
+        "header.item-2" to "choose the header's parts, on each side, with header.left and header.right (Settings → Header → Arrange the header)",
         *COMPACT_GONE.map { it to "the header is one line, the same while typing" }.toTypedArray(),
         "header.autohide" to "the header is one line and stays as it is",
         "header.icons" to "the header shows icons",
@@ -285,18 +295,19 @@ object Keys {
         "header.compact-carried" to "the header is one line",
     )
 
-    // Getters: [REMOVED], made first, reads them.
-    /** The full header's own items, before it became one line (0.4.14), in the order it showed them. */
+    // These are getters because [REMOVED], which is created first, reads them.
+    /** The full header's own items before it became one line (0.4.14), in the order it showed them. */
     private val OLD_ITEMS get() = listOf("unlocks", "battery", "network", "alarm", "todo", "settings", "profiles", "device")
     private val HEADER_GONE get() = listOf("header.clock", "header.date") + OLD_ITEMS.map { "header.$it" }
     private val COMPACT_GONE get() = listOf("clock", "date", "device", "unlocks", "battery", "network", "alarm", "media", "todo", "status", "settings", "profiles").map { "header.compact.$it" }
-    /** What each old item was by default, for one never changed. */
+    /** Which old items were on by default, for items never changed. */
     private val OLD_ON get() = setOf("unlocks", "battery", "alarm", "todo", "settings", "profiles")
 
     /**
-     * Saved settings ([saved]: name to raw value) under today's names. A value already saved under
-     * the new name wins, and settings that are gone ([REMOVED]) are left out. The swipe-up switch (off
-     * by default, with `apps` as its action) folds into `gesture.swipe-up`.
+     * Saved settings ([saved]: name to raw value), moved to today's names.
+     * - A value already saved under the new name wins.
+     * - Settings that were removed ([REMOVED]) are left out.
+     * - The old swipe-up switch (off by default, with `apps` as its action) is merged into `gesture.swipe-up`.
      */
     fun migrate(saved: Map<String, String>): Map<String, String> {
         val out = LinkedHashMap<String, String>()
@@ -310,26 +321,50 @@ object Keys {
         if (swipeUp !in saved) {
             if (saved[OLD_SWIPE_UP_ON] == "on") out[swipeUp] = saved["gesture.swipeup"] ?: "apps" else out.remove(swipeUp)
         }
-        out.putAll(carryItems(saved).filterKeys { it !in saved })
+        carryRight(saved)?.let { if (HEADER_RIGHT.key !in saved) out[HEADER_RIGHT.key] = it }
         return out
     }
 
     /**
-     * The full header's items as the one line's two (0.4.14): the first two that were on, in the
-     * order it showed them, the battery aside as the line always has it. Only for settings that
-     * changed one: with none changed, the new defaults stand.
+     * The right side, built from the two items you chose (0.4.14 to 0.4.15), or from the full
+     * header's items carried over as those two. It lists those items, then the battery, as the line
+     * showed them. Null if neither was changed: then the new default applies, unsaved.
+     */
+    private fun carryRight(saved: Map<String, String>): String? {
+        val items = carryItems(saved) + saved.filterKeys { it == "header.item-1" || it == "header.item-2" }
+        if (items.isEmpty()) return null
+        val first = items["header.item-1"] ?: "alarm"
+        val second = items["header.item-2"] ?: "todo"
+        return (listOf(first, second).filter { it in HEADER_PARTS }.distinct() + "battery").joinToString(",")
+    }
+
+    /**
+     * The full header's items, turned into the one-line header's two items (0.4.14): the first two
+     * that were on, in the order it showed them. The battery is left aside, because the line always
+     * shows it. Only used when a setting changed one of them. If none changed, the new defaults apply.
      */
     private fun carryItems(saved: Map<String, String>): Map<String, String> {
         val items = OLD_ITEMS.filter { it != "battery" && it != "device" }
         if (items.none { "header.$it" in saved }) return emptyMap()
         val on = items.filter { saved["header.$it"]?.let(HEADER_SHOW::parse) ?: (it in OLD_ON) }
-        return listOf(HEADER_ITEM_1, HEADER_ITEM_2).withIndex().associate { (i, key) -> key.key to (on.getOrNull(i) ?: "none") }
+        return listOf("header.item-1", "header.item-2").withIndex().associate { (i, key) -> key to (on.getOrNull(i) ?: "none") }
     }
 }
 
-private const val HEADER_ITEMS_HELP = "alarm (the next one), todo (open todos), network, unlocks (today's count), profiles (work and private), settings (a button) or none"
+private const val HEADER_PARTS_HELP = "parts separated by commas, from time, date, battery, alarm (the next one), todo (open todos), network, unlocks (today's count), profiles (work and private) and settings (a button), each on one side at most; none for an empty side"
 
-// What a keyboard's letters page doesn't have: the rest (`.`, backspace, Enter) sits right below the bar.
+/** The parts in [raw] (separated by commas, spaces or both) as a header side's value. Returns none for an empty side, or null for an unknown or repeated part. */
+internal fun headerParts(raw: String): String? {
+    val parts = raw.lowercase().split(',', ' ').map { it.trim() }.filter { it.isNotEmpty() }
+    if (parts == listOf("none") || parts.isEmpty()) return "none"
+    if (parts.any { it !in Keys.HEADER_PARTS } || parts.distinct().size != parts.size) return null
+    return parts.joinToString(",")
+}
+
+/** A header side's parts, read from its value ([Keys.HEADER_LEFT], [Keys.HEADER_RIGHT]). */
+internal fun headerSide(value: String): List<String> = value.split(',').filter { it in Keys.HEADER_PARTS }
+
+// What a keyboard's letters page doesn't have. The rest (`.`, backspace, Enter) is right below the bar.
 private const val DEFAULT_KEYBAR = "/,|,=,LEFT,UP,DOWN,RIGHT"
 private const val DEFAULT_KEYBAR2 = ""
 

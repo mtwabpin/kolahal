@@ -29,7 +29,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Fades away while Settings shows home through it, unless it is the setting being changed ([keep]). */
+/** Fades out while home shows through Settings. It stays visible if it is the setting being changed ([keep]). */
 @Composable
 internal fun PeekFade(
     peek: TerminalViewModel.Peek?,
@@ -43,13 +43,13 @@ internal fun PeekFade(
     Box(modifier.graphicsLayer { this.alpha = alpha }) { content() }
 }
 
-/** How long Settings and home take to fade into each other when a peek starts or ends. */
+/** How long the fade between Settings and home takes when a peek starts or ends. */
 internal const val PEEK_FADE_MS = 220
 
-/** A press shorter than this on the eye is a tap: it says to hold instead of flashing home. */
+/** A press on the eye shorter than this is a tap. A tap tells the user to hold, instead of flashing home. */
 private const val PEEK_HOLD_MS = 150L
 
-/** The eye in the top bar: home shows while it is held; a tap ([onTap]) explains that. */
+/** The eye button in the top bar. Home shows while the user holds it. A tap ([onTap]) explains this. */
 @Composable
 internal fun PeekButton(onHold: (Boolean) -> Unit, onTap: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -79,7 +79,7 @@ internal fun PeekButton(onHold: (Boolean) -> Unit, onTap: () -> Unit) {
     }
 }
 
-/** Shown at the top while home shows through Settings. */
+/** The hint at the top while home shows through Settings. */
 @Composable
 internal fun PeekHint(modifier: Modifier) {
     Text(

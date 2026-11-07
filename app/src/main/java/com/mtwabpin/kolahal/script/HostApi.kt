@@ -20,17 +20,17 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The launcher-side API exposed to scripts. Engine-agnostic: the Lua and JS bindings both
- * translate their arguments into these calls, so scripts behave the same in either language.
+ * The launcher-side API exposed to scripts. It doesn't depend on the engine: the Lua and JS bindings
+ * both turn their arguments into these calls, so scripts behave the same in either language.
  *
- *   log(title, body, ctx)       -> append a line to the terminal: a bold title, a muted body (ctx drives tap / long-press actions)
- *   logs(titles)                -> a title line per item
+ *   log(title, body, ctx)       -> add a line to the terminal: a bold title, a muted body (ctx sets tap / long-press actions)
+ *   logs(titles)                -> one title line per item
  *   notify(title, body, ctx)    -> post a notification (if enabled for the script)
  *   http.get(url, headers)      -> { status, ok, body, headers }
  *   http.request(opts)          -> same, opts = { url, method, body, headers, contentType }
  *   rss.fetch(url) / rss.parse(xml) -> { title, link, items = [{ title, link, id, date, summary }] }
- *   rss.fresh(url)              -> like fetch, but only items not returned by a previous call
- *   store.get(key) / store.set(key, value) -> per-script persistent strings
+ *   rss.fresh(url)              -> like fetch, but only items that no earlier call returned
+ *   store.get(key) / store.set(key, value) -> persistent strings, per script
  *   device.dnd() / device.setDnd(mode), device.work() / device.setWork(on) -> Do Not Disturb, the work profile
  *   json.encode(v) / json.decode(s)
  */
@@ -39,38 +39,38 @@ class HostApi(
     val scriptName: String,
     private val scriptId: Long?,
     private val notifyEnabled: Boolean,
-    /** Started by the user from the prompt (not a timer): may drive the launcher with launcher.run. */
+    /** The user started the run from the prompt (not a timer). Only then may the script drive the launcher with launcher.run. */
     private val interactive: Boolean = false,
-    /** Started by another script's launcher.run: it may not send commands itself, so scripts can't start each other without end. */
+    /** Another script's launcher.run started this run. It may not send commands itself, so scripts can't start each other without end. */
     private val byScript: Boolean = false,
-    /** What the script declares and the user allows ([ScriptAccess]); null for code typed at the prompt, which may use anything. */
+    /** What the script declares and the user allows ([ScriptAccess]). Null for code typed at the prompt, which may use anything. */
     private val grants: ScriptAccess.Grants? = null,
-    /** The script's `@secret` names and the values you set for them ([SecretStore]); null for code typed at the prompt. */
+    /** The script's `@secret` names and the values you set for them ([SecretStore]). Null for code typed at the prompt. */
     private val secrets: Secrets? = null,
-    /** The typed command's line that started this run: its lines are that command's output. */
+    /** The line of the typed command that started this run. The run's lines are that command's output. */
     from: Long? = null,
-    /** Its `@option`s with your values or their defaults ([ScriptOptions]), the `options` table. */
+    /** Its `@option`s with your values or their defaults ([ScriptOptions]). This is the `options` table. */
     val options: Map<String, String> = emptyMap(),
 ) {
     class Secrets(val declared: List<ScriptMeta.Secret>, val values: Map<String, String>)
 
-    /** When the run must end ([startClock]): host calls that wait stop by then. */
+    /** When the run must end ([startClock]). Host calls that wait stop by then. */
     @Volatile private var deadline = Long.MAX_VALUE
     private var timeoutS = 0L
 
-    /** Set by the engine as the run starts. */
+    /** The engine calls this when the run starts. */
     fun startClock(timeoutMs: Long) {
         timeoutS = timeoutMs / 1000
         deadline = System.currentTimeMillis() + timeoutMs
     }
 
-    /** Stops the run as its timeout would; the message is the one Lua's guards don't let a script catch. */
+    /** Stops the run as its timeout would. Lua's guards don't let a script catch this message. */
     private fun timedOut(): Nothing = throw IllegalStateException("script timed out after ${timeoutS}s")
 
-    /** Time left in the run, for host calls that wait (sleep, a request): none left stops the run. */
+    /** The time left in the run, for host calls that wait (sleep, a request). If no time is left, the run stops. */
     private fun remainingMs(): Long = (deadline - System.currentTimeMillis()).takeIf { it > 0 } ?: timedOut()
 
-    /** `sleep(ms)`: up to 5 seconds, and never past the run's end. */
+    /** `sleep(ms)`: up to 5 seconds, and never past the end of the run. */
     fun sleep(ms: Long) {
         val wait = ms.coerceIn(0, 5_000)
         val left = remainingMs()
@@ -78,7 +78,7 @@ class HostApi(
         if (wait >= left) timedOut()
     }
 
-    /** JavaScript's `await sleep(ms)`, the same without holding a thread. */
+    /** JavaScript's `await sleep(ms)`. The same, but it doesn't hold a thread. */
     suspend fun sleepAsync(ms: Long) {
         val wait = ms.coerceIn(0, 5_000)
         val left = remainingMs()
@@ -87,8 +87,8 @@ class HostApi(
     }
 
     /**
-     * Set when the run has ended (the worker, whatever the outcome): a request or a timer still in
-     * flight then changes nothing, no store write, status, notification or line after the run.
+     * Set when the run has ended (by the worker, whatever the outcome). After that, a request or a
+     * timer still in flight changes nothing: no store write, status, notification or line.
      */
     @Volatile var over = false
         private set
@@ -102,13 +102,16 @@ class HostApi(
     }
 
     /**
-     * `secrets.get(name)`: a mark standing for the value you set for a declared `@secret` name (nil
-     * until you set one), never the value itself. The script puts it where a request needs the
-     * value, and [httpRequest] puts the value in its place only for the sites the `@secret` line
-     * names, over https. The script never gets the value back from Kolahal: a mark can't be part of
-     * a site's name (the address lookup would carry the value in plain text, and its error would
-     * quote it), and what a failed request throws is masked ([masked]). Only a site the line names
-     * could send it back. The mark holds this run's [nonce], so it means nothing outside the run.
+     * `secrets.get(name)`: returns a mark that stands for the value you set for a declared `@secret`
+     * name (nil until you set one). It never returns the value itself.
+     * - The script puts the mark where a request needs the value.
+     * - [httpRequest] replaces the mark with the value, but only for the sites the `@secret` line
+     *   names, and only over https.
+     * - The script never gets the value back from Kolahal. A mark can't be part of a site's name,
+     *   because the address lookup would carry the value in plain text, and its error would quote
+     *   it. Errors from a failed request are masked ([masked]). Only a site the line names could
+     *   send the value back.
+     * - The mark holds this run's [nonce], so it means nothing outside the run.
      */
     fun secretGet(name: String): String? {
         val s = secrets ?: throw IllegalStateException("secrets.get only works in saved scripts")
@@ -120,20 +123,20 @@ class HostApi(
 
     private val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(12)
 
-    /** This run's marks ([secretGet]): ASCII letters, digits and underscores, so URLs, JSON and headers carry them as they are. */
+    /** This run's marks ([secretGet]). They use ASCII letters, digits and underscores, so URLs, JSON and headers carry them unchanged. */
     private val marks = Regex("__kolahal_secret_([A-Za-z][A-Za-z0-9_]{0,39})_${nonce}__")
 
     /**
-     * [text] with this run's marks replaced by their values, for a request to [url]'s host: only a
-     * site the secret's `@secret` line names, over https, and never with a mark in the site's name
-     * or its user name; anything else stops the run.
+     * [text] with this run's marks replaced by their values, for a request to [url]'s host.
+     * This happens only for a site that the secret's `@secret` line names, only over https, and never
+     * with a mark in the site's name or its user name. Anything else stops the run.
      */
     internal fun fillSecrets(text: String, url: okhttp3.HttpUrl): String = marks.replace(text) { m ->
         val name = m.groupValues[1]
         val secret = secrets?.declared?.firstOrNull { it.name == name } ?: return@replace m.value
         val value = secrets.values[name] ?: return@replace m.value
         // `https://<mark>.api.example.com` ends in an allowed site, but the value would go to the
-        // address lookup in plain text, and the lookup's error would hand it to the script.
+        // address lookup in plain text, and the lookup's error would give it to the script.
         if (listOf(url.host, url.username, url.password).any(marks::containsMatchIn)) {
             throw java.io.IOException("$name can't be part of a site's name, only of its path, query, headers or body")
         }
@@ -144,20 +147,20 @@ class HostApi(
 
     /**
      * This script's secret values in every form a request or a line may carry them (as typed,
-     * URL-encoded, JSON-escaped), longest first: a site could send one back. Shorter values than
-     * [SecretStore.MIN_LENGTH] can't be set.
+     * URL-encoded, JSON-escaped), longest first. They are needed because a site could send one back.
+     * Values shorter than [SecretStore.MIN_LENGTH] can't be set.
      */
     private val secretForms: List<String> =
         secrets?.values?.values.orEmpty().filter { it.length >= SecretStore.MIN_LENGTH }.flatMap(::forms).distinct().sortedByDescending { it.length }
 
-    /** [text] with this script's secrets masked, values and marks alike: what a run shows never shows a key. */
+    /** [text] with this script's secrets masked, both values and marks. So nothing a run shows ever shows a key. */
     fun redact(text: String): String = secretForms.fold(marks.replace(text, "••••")) { t, v -> t.replace(v, "••••") }
 
     /**
      * [e] as the script may see it: with this script's secrets masked in its message, or [e] itself
-     * when the message holds none. A request's error can quote an address or a header with a value
-     * in it (OkHttp names a bad character's header and value), and the script reads the message.
-     * The cause, which would carry the value on, is left out.
+     * when the message holds none. A request's error can quote an address or a header that contains
+     * a value (OkHttp names the header and value of a bad character), and the script reads the
+     * message. The cause is left out, because it would carry the value on.
      */
     fun masked(e: Throwable): Throwable {
         if (e is kotlinx.coroutines.CancellationException) return e
@@ -172,8 +175,9 @@ class HostApi(
     }
 
     /**
-     * Private data is only for scripts that declare it: undeclared is a mistake in the script.
-     * Declared but switched off by the user is false: the caller answers empty.
+     * Private data is only for scripts that declare it. If the script didn't declare it, that is a
+     * mistake in the script, and this throws. If the user switched it off, this returns false and the
+     * caller answers with an empty result.
      */
     private fun may(what: String, call: String): Boolean {
         val g = grants ?: return true
@@ -185,18 +189,18 @@ class HostApi(
     /** `allowed(what)` for scripts: whether the user lets this script use [what]. */
     fun allowed(what: String): Boolean = grants?.allows(what.trim().lowercase()) ?: true
 
-    /** The access item that stopped this run, switched off by the user (the worker says how to allow it). */
+    /** The access item, switched off by the user, that stopped this run. The worker says how to allow it. */
     var denied: String? = null
         private set
 
-    /** What [denied] stopped the run with, to tell it from an error the script caught and went on after. */
+    /** The message that [denied] stopped the run with. It tells this apart from an error the script caught and then went on. */
     var deniedMessage: String? = null
         private set
 
-    /** Declared, not decided yet, and asked for this run: the worker offers to allow them. */
+    /** Items that are declared, not yet decided, and asked for in this run. The worker offers to allow them. */
     val undecided = LinkedHashSet<String>()
 
-    /** Stops the run: [item] is switched off; the worker says so, with a tap to allow it. */
+    /** Stops the run because [item] is switched off. The worker says so, with a tap to allow it. */
     private fun deny(item: String, message: String): Nothing {
         denied = item
         deniedMessage = message
@@ -206,11 +210,11 @@ class HostApi(
     private val logs = LogRepository.get(context)
     private val store = KvStore(context, scriptId?.let(ScriptRepository::scopeOf) ?: "repl")
 
-    /** Visible side effects (log lines, status, notifications); a REPL run with none prints "nil". */
+    /** Visible side effects (log lines, status, notifications). A REPL run with none prints "nil". */
     var effects = 0
         private set
 
-    /** A notify() call was dropped because notifications are blocked (reported once by the worker). */
+    /** A notify() call was dropped because notifications are blocked. The worker reports this once. */
     var notifyBlocked = false
         private set
 
@@ -218,13 +222,13 @@ class HostApi(
         (if (scriptId != null) mapOf(LogContext.SCRIPT to scriptName) else emptyMap()) +
             (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
 
-    // Script lines are batched: one transaction and one UI refresh per ~300 ms instead of per line.
+    // Script lines are batched: one transaction and one UI refresh per ~300 ms, instead of one per line.
     private val pending = ArrayList<LogRepository.Pending>()
     private var lastFlush = System.currentTimeMillis()
 
     /**
-     * Lines this run has logged, and their characters as stored; past [MAX_LINES_PER_RUN] or
-     * [MAX_CHARS_PER_RUN] the rest are dropped with one note. Error lines count too.
+     * The lines this run has logged, and their characters as stored. Past [MAX_LINES_PER_RUN] or
+     * [MAX_CHARS_PER_RUN], the rest are dropped with one note. Error lines count too.
      */
     private var lines = 0
     private var chars = 0
@@ -246,7 +250,7 @@ class HostApi(
         }
     }
 
-    /** Writes buffered lines; the worker calls this when the run ends (success or failure). */
+    /** Writes buffered lines. The worker calls this when the run ends (success or failure). */
     fun flush() = synchronized(pending) { flushLocked() }
 
     private fun flushLocked() {
@@ -255,7 +259,7 @@ class HostApi(
         lastFlush = System.currentTimeMillis()
     }
 
-    /** `log(title, body?, ctx?)`: a title line, bold, with [body] (any number of lines) muted under it. */
+    /** `log(title, body?, ctx?)`: a bold title line, with [body] (any number of lines) muted under it. */
     fun log(raw: String, body: String? = null, ctx: Map<*, *>? = null) {
         effects++
         val text = redact(raw)
@@ -264,27 +268,28 @@ class HostApi(
         buffer(LogKind.SCRIPT, text, LogContext(baseCtx + title + safeCtx(ctx, listOfNotNull(text, under).joinToString("\n")).entries.associate { (k, v) -> redact(k) to redact(v) }))
     }
 
-    /** `logs(titles)`: one title line each, no bodies. */
+    /** `logs(titles)`: one title line for each, with no bodies. */
     fun logs(titles: List<String>) = titles.forEach { log(it) }
 
     /**
-     * `md.log(title, body?, ctx?)`: [log] with Markdown read in the title (styles) and the body
+     * `md.log(title, body?, ctx?)`: [log], with Markdown read in the title (styles) and the body
      * (styles and list items). Secrets are hidden first, so Markdown can't split one apart.
      */
     fun logMarkdown(title: String, body: String? = null, ctx: Map<*, *>? = null) =
         log(Markdown.inline(redact(title)), body?.let { Markdown.block(redact(it)) }, ctx)
 
     /**
-     * Context a script may attach to its lines. Launcher-internal keys (tap-to-run commands, script
-     * identity, app grids, error lines) are dropped, so a script can't plant a one-tap `clear all`.
+     * The context a script may attach to its lines. Launcher-internal keys (tap-to-run commands,
+     * script identity, app grids, error lines) are dropped, so a script can't plant a one-tap `clear all`.
      */
     private fun safeCtx(ctx: Map<*, *>?, text: String): Map<String, String> {
-        // Only what a script's line may carry: a key added to the launcher later stays out of reach.
+        // Keep only what a script's line may carry, so a key added to the launcher later stays out of reach.
         val m = Json.toStringMap(ctx).filterKeys { it in SCRIPT_CTX }.toMutableMap()
-        // A tap opens the link in another app at once: web links only, not upi:, tel:, intent: …
-        // Home fetches a picture as soon as the line shows, and opens a link on a tap: with internet
-        // switched off for this script, neither leaves the phone; and like a request, neither may
-        // carry a secret anywhere but the sites its @secret line names, nor over plain http.
+        // A tap opens the link in another app at once, so allow web links only, not upi:, tel:, intent: …
+        // Home fetches a picture as soon as the line shows, and opens a link on a tap. So:
+        // - with internet switched off for this script, neither leaves the phone;
+        // - like a request, neither may carry a secret to any site except the ones its @secret line
+        //   names, and never over plain http.
         for (key in listOf(LogContext.URL, LogContext.IMAGE)) {
             val link = m[key] ?: continue
             val web = Net.webUrl(link)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) }
@@ -301,13 +306,13 @@ class HostApi(
 
     /**
      * "Copy text" must copy what the line shows: all or part of it, the whole text of a line cut
-     * short with "…", or its link. Otherwise, a line could show one address and copy another.
+     * short with "…", or its link. Otherwise a line could show one address and copy another.
      */
     private fun honestCopy(copy: String, text: String, url: String?): Boolean {
-        // The link as given, or as it was normalised (a trailing / added). webUrl is null for
-        // anything but a link, so on a line with no link it must not count as a match.
+        // The link as given, or as it was normalised (with a trailing / added). webUrl is null for
+        // anything that isn't a link, so on a line with no link it must not count as a match.
         if (url != null && (copy == url || Net.webUrl(copy) == url)) return true
-        // As they read: styles and list marks aside.
+        // Compare the texts as they read, ignoring styles and list marks.
         fun bare(s: String) = StyledText.plain(s).filterNot { it.isWhitespace() || it == ',' }
         val c = bare(copy)
         if (c.isEmpty()) return false
@@ -315,16 +320,16 @@ class HostApi(
         return text.trimEnd().endsWith("…") && c.startsWith(bare(text.trimEnd().removeSuffix("…")))
     }
 
-    /** `console.error`, and calls the launcher refuses: counted with the run's other lines. */
+    /** `console.error`, and calls the launcher refuses. They count with the run's other lines. */
     fun logError(text: String) = buffer(LogKind.ERROR, redact(text), LogContext(baseCtx))
 
-    /** The watchdog's last line before it stops the process: written at once, whatever the run logged. */
+    /** The watchdog's last line before it stops the process. It is written at once, whatever the run logged. */
     fun logStopped(text: String) {
         flush()
         logs.add(LogKind.ERROR, redact(text), scriptName, LogContext(baseCtx))
     }
 
-    /** Notifications this run has posted (or tried to). */
+    /** The notifications this run has posted (or tried to post). */
     private var notifications = 0
 
     fun notify(title: String, body: String, ctx: Map<*, *>? = null): Boolean {
@@ -334,12 +339,12 @@ class HostApi(
         val values = Json.toStringMap(ctx)
         // With notifications off for this script, the script's own log lines already show the content.
         if (!notifyEnabled) return false
-        // Android keeps about 50 per app: a loop mustn't crowd out Kolahal's own reminders.
+        // Android keeps about 50 notifications per app. A loop must not crowd out Kolahal's own reminders.
         if (++notifications > MAX_NOTIFY_PER_RUN) {
             if (notifications == MAX_NOTIFY_PER_RUN + 1) logError("notify: more than $MAX_NOTIFY_PER_RUN notifications in one run; the rest aren't posted")
             return false
         }
-        // Opening the link sends what it holds to its site: the same rules as a request, and no link with internet off.
+        // Opening the link sends what it holds to its site. So the same rules as a request apply, and there is no link with internet off.
         val url = values[LogContext.URL]?.let(Net::webUrl)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) }
             ?.also { u -> u.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(u), it.isHttps) } }
         val posted = Notifier.post(context, scriptName, StyledText.plain(redact(title)), StyledText.plain(redact(body)), url)
@@ -351,24 +356,24 @@ class HostApi(
         url: String,
         method: String = "GET",
         body: String? = null,
-        /** [body] is a table or object the binding wrote as JSON: sent as JSON unless told otherwise. */
+        /** [body] is a table or object that the binding wrote as JSON. It is sent as JSON unless told otherwise. */
         bodyIsJson: Boolean = false,
         contentType: String? = null,
         headers: Map<*, *>? = null,
     ): Map<String, Any?> {
         live()
         flush() // show what was logged before a slow request
-        // No made-up empty response: a script would take it for real data.
+        // Don't return a made-up empty response: a script would take it for real data.
         if (grants != null && !grants.allows(ScriptAccess.INTERNET)) {
             deny(ScriptAccess.INTERNET, "internet is off for this script")
         }
-        // A script names the site, not where it lives: a Host header of its own could send a request
-        // (and a secret meant for the site) to another one behind the same address.
+        // A script names the site, not the server it lives on. A Host header of its own could send a request
+        // (and a secret meant for the site) to another site behind the same address.
         if (Json.toStringMap(headers).keys.any { it.equals("Host", ignoreCase = true) }) {
             throw IllegalArgumentException("http: a request can't set its own Host header")
         }
         val target = url.toHttpUrlOrNull() ?: throw IllegalArgumentException("not a web address: ${redact(url)}")
-        // From here on the request holds the values: whatever it throws is masked.
+        // From here on, the request holds the values, so anything it throws is masked.
         try {
             return sendFilled(url, target, method, body, bodyIsJson, contentType, headers)
         } catch (e: Exception) {
@@ -376,7 +381,7 @@ class HostApi(
         }
     }
 
-    /** [httpRequest] once its address is read: the secrets go in, and the request goes out. */
+    /** [httpRequest] after its address is read: the secrets go in, and the request goes out. */
     private fun sendFilled(
         url: String,
         target: okhttp3.HttpUrl,
@@ -392,9 +397,9 @@ class HostApi(
         val h = Json.toStringMap(headers).mapValues { fillSecrets(it.value, target) }.toMutableMap()
         if (h.keys.none { it.equals("User-Agent", ignoreCase = true) }) h["User-Agent"] = Net.USER_AGENT
         val m = method.uppercase()
-        // The body's type: `contentType`, else a Content-Type header (OkHttp replaces that header
-        // with the body's type, so it must become the body's), else JSON for a table, else text.
-        // With no body, nothing replaces the header: it's sent as it is.
+        // The body's type is, in order: `contentType`; else a Content-Type header (OkHttp replaces that
+        // header with the body's type, so it must become the body's type); else JSON for a table; else text.
+        // With no body, nothing replaces the header, so it is sent as it is.
         val typeHeader = h.keys.firstOrNull { it.equals("Content-Type", ignoreCase = true) }?.takeIf { realBody != null }
         val type = contentType ?: typeHeader?.let { h.remove(it) } ?: if (bodyIsJson) "application/json; charset=utf-8" else "text/plain; charset=utf-8"
         val reqBody = realBody?.toRequestBody(type.toMediaTypeOrNull())
@@ -403,14 +408,14 @@ class HostApi(
             .url(realUrl)
             .headers(h.toHeaders())
             .method(m, if (m != "GET" && m != "HEAD") reqBody else null)
-            // Redirects too: every hop is checked before it is sent, with what it carries on.
+            // Redirects too: every hop is checked, with what it carries, before it is sent.
             .tag(Net.HopCheck::class.java, Net.HopCheck { hop ->
                 checkSecrets(hop.url.host, listOf(hop.url.toString()) + hop.headers.map { it.second } + if (hop.body != null) listOf(realBody.orEmpty()) else emptyList(), hop.url.isHttps)
             })
             .build()
         checkSecrets(request.url.host, listOf(request.url.toString(), realBody.orEmpty()) + h.values, request.url.isHttps)
         val call = client.newCall(request)
-        // No longer than the run has left (the client's own limit is 30 s).
+        // No longer than the time the run has left (the client's own limit is 30 s).
         call.timeout().timeout(minOf(remainingMs(), Net.CALL_TIMEOUT_MS), TimeUnit.MILLISECONDS)
         return call.execute().use { resp ->
             mapOf(
@@ -423,10 +428,10 @@ class HostApi(
     }
 
     /**
-     * A secret goes only to the sites its `@secret` line names, and only over [https]: a request
-     * carrying it ([carried]: the URL, body and headers) anywhere else, or over plain http, stops
-     * the run. A script holding the value (its site sent it back) could still disguise it, so this
-     * guards against mistakes more than against a script written to leak.
+     * A secret goes only to the sites its `@secret` line names, and only over [https]. If a request
+     * carries it ([carried]: the URL, body and headers) anywhere else, or over plain http, the run
+     * stops. A script that holds the value (because its site sent it back) could still disguise it.
+     * So this protects against mistakes more than against a script written to leak.
      */
     private fun checkSecrets(host: String, carried: List<String>, https: Boolean) {
         val s = secrets ?: return
@@ -435,19 +440,19 @@ class HostApi(
             val forms = forms(value)
             if (carried.none { text -> forms.any { it in text } }) continue
             if (!secret.allows(host)) throw java.io.IOException("${secret.name} may only be sent to ${secret.hosts.joinToString()}, not $host")
-            // On the hostile network a script must assume, plain http shows the value to anyone on the way.
+            // A script must assume a hostile network, where plain http shows the value to anyone on the way.
             if (!https) throw java.io.IOException("${secret.name} may only be sent over https, not to http://$host")
         }
     }
 
-    /** How a value can appear in a URL, a body or a line: as typed, URL-encoded, and JSON-escaped (Lua's json.encode writes `\/`). */
+    /** The forms a value can take in a URL, a body or a line: as typed, URL-encoded, and JSON-escaped (Lua's json.encode writes `\/`). */
     private fun forms(value: String): Set<String> =
         setOf(value, java.net.URLEncoder.encode(value, "UTF-8"), android.net.Uri.encode(value), value.replace("/", "\\/"))
 
     /**
-     * A store key for [url] ([prefix] + the URL): one carrying a secret is hashed, so the key never
-     * sits in the script's store, and so in a backup; a mark counts by its name, so the key is the
-     * same in every run.
+     * A store key for [url] ([prefix] + the URL).
+     * - A URL that carries a secret is hashed, so the key never sits in the script's store, or in a backup.
+     * - A mark counts by its name, so the key is the same in every run.
      */
     private fun urlKey(prefix: String, url: String): String {
         if (redact(url) == url) return prefix + url
@@ -457,7 +462,7 @@ class HostApi(
 
     fun httpGet(url: String, headers: Map<*, *>? = null) = httpRequest(url, headers = headers)
 
-    /** `http.request(opts)`: `{ url, method, body, headers, contentType }`; a body that isn't text goes as JSON. */
+    /** `http.request(opts)`: `{ url, method, body, headers, contentType }`. A body that isn't text is sent as JSON. */
     fun httpRequest(opts: Map<*, *>): Map<String, Any?> = httpRequest(
         url = opts["url"]?.toString() ?: throw IllegalArgumentException("url is required"),
         method = opts["method"]?.toString() ?: "GET",
@@ -471,19 +476,19 @@ class HostApi(
 
     fun rssFetch(url: String): Map<String, Any?> = fetchFeed(url).toMap()
 
-    /** Seen-id updates from `rss.fresh`, applied by [commit] only if the script finishes successfully. */
+    /** Seen-id updates from `rss.fresh`. [commit] applies them only if the script finishes successfully. */
     private val pendingSeen = LinkedHashMap<String, List<String>>()
 
     fun rssFresh(url: String): Map<String, Any?> {
         val feed = fetchFeed(url)
         val key = urlKey("rss.seen:", url)
-        // JavaScript runs host calls side by side: two rss.fresh finishing together must not lose ids.
+        // JavaScript runs host calls side by side, so two rss.fresh calls that finish together must not lose ids.
         val fresh = synchronized(pendingSeen) {
-            // Ids are stored, and a store goes into backups: a key in an item's link is masked, the same each run.
+            // Ids are stored, and a store goes into backups. So a key in an item's link is masked, the same way in each run.
             val seen = (pendingSeen[key] ?: readSeen(key)).map(::redact)
             val seenSet = seen.toHashSet()
             feed.items.filter { redact(it.id) !in seenSet }.also { fresh ->
-                // Never forget an id the feed still lists: a feed longer than MAX_SEEN would otherwise
+                // Never forget an id that the feed still lists. Otherwise a feed longer than MAX_SEEN would
                 // push its own old items out and report them as new on the next run.
                 pendingSeen[key] = (fresh.map { redact(it.id) } + seen).take(maxOf(MAX_SEEN, feed.items.size + 100))
             }
@@ -497,11 +502,11 @@ class HostApi(
             ?: raw.split('\n') // format used before ids were stored as JSON
     }
 
-    /** Persists deferred state after a successful run (so a failing script re-sees its items). */
+    /** Saves deferred state after a successful run, so a failing script sees its items again next time. */
     fun commit() = synchronized(pendingSeen) {
         pendingSeen.forEach { (key, ids) ->
             val value = Json.stringify(ids)
-            // A store filled by cached responses makes room among them, as a cache write does.
+            // If the store is full of cached responses, remove them to make room, as a cache write does.
             runCatching { store.set(key, value) }.recoverCatching {
                 store.deleteStartingWith("http.cache:")
                 store.set(key, value)
@@ -517,9 +522,10 @@ class HostApi(
     }
 
     /**
-     * This script's status line, which shows in its card and `status`, and at the top of home once
-     * you pin the script; null or empty clears it. [opts]: `progress` (0 to 1) draws a bar under it
-     * there, `refresh` (seconds, 10 at the fastest) runs the script again that often while it shows.
+     * This script's status line. It shows in its card and in `status`, and at the top of home after you
+     * pin the script. Null or empty clears it. [opts]:
+     * - `progress` (0 to 1) draws a bar under it at the top of home.
+     * - `refresh` (seconds, 10 at the fastest) runs the script again that often while the line shows.
      */
     fun status(text: String?, opts: Map<*, *>? = null) {
         live()
@@ -529,8 +535,8 @@ class HostApi(
             log("status() only works in saved scripts (it is keyed by script name)")
             return
         }
-        val unknown = opts?.keys?.map { it.toString() }?.filter { it != "progress" && it != "refresh" }.orEmpty()
-        require(unknown.isEmpty()) { "status: no option ${unknown.joinToString(", ")} (there are progress and refresh)" }
+        val unknown = opts?.keys?.map { it.toString() }?.filter { it !in STATUS_OPTIONS }.orEmpty()
+        require(unknown.isEmpty()) { "status: no option ${unknown.joinToString(", ")} (there are ${STATUS_OPTIONS.joinToString()})" }
         val progress = opts?.get("progress")?.let {
             val p = (it as? Number)?.toDouble()?.takeIf(Double::isFinite) ?: throw IllegalArgumentException("status: progress is a number from 0 to 1")
             p.coerceIn(0.0, 1.0).toFloat()
@@ -539,19 +545,23 @@ class HostApi(
             val s = (it as? Number)?.toDouble()?.takeIf(Double::isFinite) ?: throw IllegalArgumentException("status: refresh is a number of seconds")
             if (s <= 0) null else s.coerceIn(StatusLines.MIN_REFRESH.toDouble(), StatusLines.MAX_REFRESH.toDouble()).toInt()
         }
-        // A status line is plain text: styles only show in the log.
+        // The bar's colour, by role, as fmt.color takes it: the theme picks the colour itself.
+        val colour = opts?.get("color")?.let {
+            StyledText.Colour.named(it.toString()) ?: throw IllegalArgumentException("status: color is one of ${StyledText.Colour.entries.joinToString { c -> c.role }}")
+        }
+        // A status line is plain text. Styles only show in the log.
         val value = text?.let(::redact)?.let(StyledText::plain)?.lines()?.firstOrNull()?.take(STATUS_MAX)?.takeIf { it.isNotBlank() }
-        val extras = value?.let { StatusLines.encodeExtras(progress, refresh) }
+        val extras = value?.let { StatusLines.encodeExtras(progress, refresh, colour) }
         val lines = KvStore(context, STATUS_SCOPE)
         val added = KvStore(context, StatusLines.EXTRAS_SCOPE)
-        // Each write tells home to redraw: unchanged writes are skipped, and a loop stops after a few.
+        // Each write tells home to redraw. So unchanged writes are skipped, and a loop stops after a few.
         if ((lines.get(scriptName) == value && added.get(scriptName) == extras) || ++statusWrites > MAX_STATUS_PER_RUN) return
         lines.set(scriptName, value)
         added.set(scriptName, extras)
         logs.onStatusChanged()
     }
 
-    /** Status line writes this run. */
+    /** Status line writes in this run. */
     private var statusWrites = 0
 
     // ---- device, apps, launcher ----------------------------------------------------------
@@ -559,9 +569,9 @@ class HostApi(
     fun clipboardSet(text: String) {
         live()
         if (!may("clipboard", "clipboard.set")) return
-        // A clip crosses to Android in one transaction: a huge one would fail it, and the process with it.
+        // A clip goes to Android in one transaction. A huge clip would make it fail, and the process with it.
         require(text.length <= MAX_CLIP) { "clipboard.set: text over ${MAX_CLIP / 1000}K characters" }
-        // Keyboards keep clipboard history, and Android shows a preview: never a secret.
+        // Keyboards keep clipboard history, and Android shows a preview, so never copy a secret.
         require(redact(text) == text) { "clipboard.set: the text contains one of this script's secrets" }
         val cm = context.getSystemService(android.content.ClipboardManager::class.java)
         android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -601,7 +611,7 @@ class HostApi(
 
     fun unlocksToday(): Int = com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).countFor(java.time.LocalDate.now())
 
-    /** Do Not Disturb now: `off`, `priority`, `alarms` or `none`; nil when switched off for the script. */
+    /** Do Not Disturb now: `off`, `priority`, `alarms` or `none`. Nil when it is switched off for the script. */
     fun dnd(): String? {
         if (!may("dnd", "device.dnd")) return null
         val filter = context.getSystemService(android.app.NotificationManager::class.java).currentInterruptionFilter
@@ -609,8 +619,8 @@ class HostApi(
     }
 
     /**
-     * Sets Do Not Disturb to [mode] (`off`, `on` or `priority`, `alarms`, `none`). False when
-     * Kolahal has no Do Not Disturb access (`dnd access`), or it's switched off for the script.
+     * Sets Do Not Disturb to [mode] (`off`, `on` or `priority`, `alarms`, `none`). Returns false when
+     * Kolahal has no Do Not Disturb access (`dnd access`), or when it's switched off for the script.
      */
     fun setDnd(mode: String): Boolean {
         val filter = DND_MODES[mode.trim().lowercase().let { if (it == "on") "priority" else it }]
@@ -621,7 +631,7 @@ class HostApi(
         return nm.isNotificationPolicyAccessGranted && runCatching { nm.setInterruptionFilter(filter) }.isSuccess
     }
 
-    /** The work profile: `on` or `paused`; nil when there is none, or it's switched off for the script. */
+    /** The work profile: `on` or `paused`. Nil when there is none, or when it's switched off for the script. */
     fun work(): String? {
         if (!may("work", "device.work")) return null
         val user = workProfile() ?: return null
@@ -629,7 +639,7 @@ class HostApi(
         return if (runCatching { um.isQuietModeEnabled(user) }.getOrDefault(false)) "paused" else "on"
     }
 
-    /** setWork's argument: true or false, or "on" or "off", the same in Lua and JavaScript. */
+    /** The argument of setWork: true or false, or "on" or "off". The same in Lua and JavaScript. */
     fun onOff(value: Any?, call: String): Boolean = when (value) {
         is Boolean -> value
         "on" -> true
@@ -638,9 +648,11 @@ class HostApi(
     }
 
     /**
-     * Resumes ([on]) or pauses the work profile. False when Android won't let Kolahal: it must be
-     * the default launcher and in front (a daily time runs in the foreground, which counts), on
-     * Android 10 or newer; or resuming needs your work PIN; or there's no work profile.
+     * Resumes ([on]) or pauses the work profile. Returns false when Android won't let Kolahal do it:
+     * - Kolahal must be the default launcher and in front (a daily time runs in the foreground, which
+     *   counts), on Android 10 or newer,
+     * - resuming needs your work PIN, or
+     * - there's no work profile.
      */
     fun setWork(on: Boolean): Boolean {
         live()
@@ -651,7 +663,7 @@ class HostApi(
         return runCatching { um.requestQuietModeEnabled(!on, user) }.getOrDefault(false)
     }
 
-    /** The work profile's user, if there is one: not this one, a private space or a clone. */
+    /** The work profile's user, if there is one. Not this user, a private space or a clone. */
     private fun workProfile(): android.os.UserHandle? {
         val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
         val me = android.os.Process.myUserHandle()
@@ -679,7 +691,7 @@ class HostApi(
     fun notificationsRecent(limit: Int): List<Any?> {
         if (!may("notifications", "notifications.recent")) return emptyList()
         val listener = com.mtwabpin.kolahal.notifications.KolahalNotificationListener
-        // Access revoked while the listener wasn't bound leaves the copy behind: drop it, share nothing.
+        // If access was revoked while the listener wasn't bound, the copy stays behind. Drop it and share nothing.
         if (!com.mtwabpin.kolahal.notifications.NotificationActions.isEnabled(context)) {
             runCatching { listener.clearMirror(context) }
             return emptyList()
@@ -688,15 +700,15 @@ class HostApi(
         return (runCatching { Json.parse(raw) as? List<*> }.getOrNull() ?: emptyList<Any?>()).take(limit.coerceIn(0, 50))
     }
 
-    /** Commands this run has sent with launcher.run. */
+    /** The commands this run has sent with launcher.run. */
     private var commands = 0
 
     /** Runs a terminal command in the launcher. Only for scripts started from the prompt. */
     fun runCommand(sent: String): Boolean {
-        // Split and checked as home will run it ([com.mtwabpin.kolahal.terminal.CommandProcessor.run]).
+        // Split and checked the same way home will run it ([com.mtwabpin.kolahal.terminal.CommandProcessor.run]).
         val command = com.mtwabpin.kolahal.terminal.CommandParsing.spaces(sent)
         live()
-        // Commands, and through them other scripts, only for scripts that declare it and are allowed it.
+        // Commands (and through them, other scripts) are only for scripts that declare them and are allowed them.
         if (!may("commands", "launcher.run")) return false
         if (!interactive) {
             logError("launcher.run is only available when the script is run from the prompt")
@@ -710,7 +722,7 @@ class HostApi(
             if (commands == MAX_COMMANDS_PER_RUN + 1) logError("launcher.run: more than $MAX_COMMANDS_PER_RUN commands in one run; the rest don't run")
             return false
         }
-        // A command goes to the terminal, its log and its history, and on to apps and sites: never a secret.
+        // A command goes to the terminal, its log and its history, and on to apps and sites. So it must never hold a secret.
         if (redact(command) != command) {
             logError("launcher.run refused: the command contains one of this script's secrets")
             return false
@@ -723,12 +735,12 @@ class HostApi(
         }
         if (command.contains(' ') && grants != null && !grants.allows(ScriptAccess.INTERNET)) {
             val verb = com.mtwabpin.kolahal.terminal.InstantRun.canonical(command.substringBefore(' '))
-            // A search or a place hands its words to a site through another app: only with the internet.
+            // A search or a place sends its words to a site through another app, so it needs the internet.
             if (verb in WEB_COMMANDS) {
                 logError("launcher.run refused '$verb': it sends text to a website, and this script has no internet access")
                 return false
             }
-            // A `@command` script runs with its own switches, so it could send them on itself.
+            // A `@command` script runs with its own switches, so it could pass them on itself.
             val other = com.mtwabpin.kolahal.data.ScriptRepository.get(context).byName(verb)
             if (other != null && ScriptMeta.isCommand(other.code) && ScriptMeta.goesOnline(other.code)) {
                 logError("launcher.run refused '$verb': it goes online, and this script has no internet access")
@@ -742,12 +754,12 @@ class HostApi(
         return true
     }
 
-    /** GET with a per-script cache: returns the stored response if it is younger than [maxAgeSeconds]. */
+    /** GET with a per-script cache. Returns the stored response if it is younger than [maxAgeSeconds]. */
     fun httpCached(url: String, maxAgeSeconds: Int): Map<String, Any?> {
         val key = urlKey(HTTP_CACHE, url)
         val cached = store.get(key)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
         val at = (cached?.get("at") as? Number)?.toLong() ?: 0L
-        // One kept before a body holding a key stayed out goes now, and isn't handed back.
+        // A response cached before bodies holding a key were excluded is removed now, and not returned.
         val kept = cached?.get("body") as? String
         if (kept != null && redact(kept) != kept) {
             store.set(key, null)
@@ -755,14 +767,14 @@ class HostApi(
             return mapOf("status" to 200, "ok" to true, "body" to cached["body"], "headers" to emptyMap<String, String>(), "cached" to true)
         }
         val resp = httpGet(url)
-        // A body near the store's value cap isn't cached; it would be refused anyway.
+        // A body near the store's value cap isn't cached, because the store would refuse it anyway.
         val body = resp["body"] as? String
-        // A site can send a key back, and a store goes into backups: a body holding one isn't kept.
-        // An answer that came after the run ended (a JavaScript call not awaited) isn't kept: the run changes nothing then.
+        // A site can send a key back, and a store goes into backups, so a body that holds a key isn't kept.
+        // An answer that came after the run ended (a JavaScript call not awaited) isn't kept, because the run changes nothing then.
         if (!over && resp["ok"] == true && (body?.length ?: 0) < KvStore.MAX_VALUE / 2 && (body == null || redact(body) == body)) {
             val entry = Json.stringify(mapOf("at" to System.currentTimeMillis(), "body" to body))
-            // Cached responses count toward the store's limits. Full, the other ones make room: they
-            // are only a cache, and a store left full would refuse the script's own values.
+            // Cached responses count toward the store's limits. When the store is full, the other cached
+            // responses make room: they are only a cache, and a full store would refuse the script's own values.
             runCatching { store.set(key, entry) }.recoverCatching {
                 store.deleteStartingWith(HTTP_CACHE, except = key)
                 store.set(key, entry)
@@ -775,13 +787,13 @@ class HostApi(
 
     fun storeSet(key: String, value: String?) {
         live()
-        // A store goes into backups: never a secret.
+        // A store goes into backups, so it must never hold a secret.
         require(redact(key) == key && (value == null || redact(value) == value)) { "store.set: the key or value contains one of this script's secrets" }
         store.set(key, value)
     }
 
     companion object {
-        /** Do Not Disturb's modes as scripts name them, and Android's filters. */
+        /** Do Not Disturb's modes, as scripts name them, mapped to Android's filters. */
         private val DND_MODES = mapOf(
             "off" to android.app.NotificationManager.INTERRUPTION_FILTER_ALL,
             "priority" to android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY,
@@ -791,29 +803,31 @@ class HostApi(
         private const val MAX_BODY = 4L * 1024 * 1024
         private const val MAX_SEEN = 500
         private const val STATUS_MAX = 80
+        /** What `status(text, opts)` takes in opts. */
+        private val STATUS_OPTIONS = listOf("progress", "refresh", "color")
         const val STATUS_SCOPE = "status"
         const val ACTION_RUN_COMMAND = "com.mtwabpin.kolahal.RUN_COMMAND"
         const val EXTRA_COMMAND = "command"
-        /** The context keys a script's line may carry; anything else is dropped. */
+        /** The context keys a script's line may carry. Anything else is dropped. */
         private val SCRIPT_CTX = setOf(LogContext.URL, LogContext.IMAGE, LogContext.COPY, LogContext.MONO)
-        /** What starts the store key of a response `http.cached` keeps. */
+        /** The prefix of the store key for a response that `http.cached` keeps. */
         const val HTTP_CACHE = "http.cache:"
-        /** Commands that hand their words to a site (through the browser or another app). */
+        /** Commands that send their words to a site (through the browser or another app). */
         private val WEB_COMMANDS = setOf("search", "yt", "wiki", "maps", "play")
         private val METHODS_REQUIRING_BODY = setOf("POST", "PUT", "PATCH", "PROPPATCH", "REPORT")
 
         private val client get() = Net.client
-        /** Lines one run may log; a runaway loop stops filling the log here. */
+        /** The most lines one run may log. A runaway loop stops filling the log here. */
         const val MAX_LINES_PER_RUN = 500
-        /** Characters one run may log, its lines' links and other context included. */
+        /** The most characters one run may log, including its lines' links and other context. */
         const val MAX_CHARS_PER_RUN = 256 * 1024
-        /** Commands one run may send with launcher.run; each one's output is logged by home. */
+        /** The most commands one run may send with launcher.run. Home logs the output of each one. */
         const val MAX_COMMANDS_PER_RUN = 10
-        /** Notifications one run may post. */
+        /** The most notifications one run may post. */
         const val MAX_NOTIFY_PER_RUN = 10
-        /** Status line writes one run may make. */
+        /** The most status line writes one run may make. */
         const val MAX_STATUS_PER_RUN = 20
-        /** Longest text clipboard.set takes (characters). */
+        /** The longest text clipboard.set accepts (characters). */
         const val MAX_CLIP = 100_000
     }
 }

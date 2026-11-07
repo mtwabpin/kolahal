@@ -7,8 +7,8 @@
 -- @option lines 10 Maximum stories logged per run
 --
 -- Runs well on a timer (every 30-60 min). Each run logs the new front-page
--- stories (tap a line to open it), notifies about the top new one and sets
--- a short "HN: N new" status line.
+-- stories (tap a line to open it) and notifies about the top new one. It keeps
+-- no status line: a list of stories has nothing to pin at the top of home.
 
 local POINTS = math.floor(tonumber(options.points) or 50)
 local FEED = "https://hnrss.org/frontpage" .. (POINTS > 0 and ("?points=" .. POINTS) or "")
@@ -25,10 +25,7 @@ end
 local items = feed.items or {}
 local count = #items
 
-if count == 0 then
-  status("HN: nothing new")
-  return
-end
+if count == 0 then return end
 
 for i, item in ipairs(items) do
   if i > MAX_LINES then
@@ -39,4 +36,3 @@ for i, item in ipairs(items) do
 end
 
 notify("Hacker News", items[1].title or "New story", { url = items[1].link })
-status("HN: " .. count .. " new")

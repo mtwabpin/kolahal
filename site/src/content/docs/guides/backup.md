@@ -3,24 +3,28 @@ title: Backup & restore
 description: Back up everything to one JSON file — settings, apps, scripts, todos, notes, reminders, feeds and the log — or sync scripts with a folder.
 ---
 
-There are four ways to keep your setup or move it between phones.
+You can keep your setup safe, or move it to another phone, in four ways.
 
 ## Backup file
 
-**Settings → Backup → Export everything** writes one file, `kolahal-backup.json`, through
-the system file picker. It contains:
+**Settings → Backup → Export everything** saves one file, `kolahal-backup.json`. You choose where with
+the system file picker. The file contains:
 
-- settings you changed from the default,
-- [themes you made](/guides/themes-and-settings/#your-own-themes),
-- the font you imported with `font import`,
-- aliases,
-- hidden apps, custom labels and pinned favourites,
-- every script with its code, timers, notification flag and enabled state,
-- **everything else** under `data`: todos, notes, reminders, feed subscriptions
-  with their items and read state, each script's `store` values, the whole log and ↑ history,
-  app launch history, unlock history, notification and trigger settings.
+- settings you changed from the default
+- [themes you made](/guides/themes-and-settings/#your-own-themes)
+- the font you imported with `font import`
+- aliases
+- hidden apps, custom labels and pinned favourites
+- every script with its code, timers, notification flag and on/off state
+- **everything else** under `data`:
+  - todos, notes and reminders
+  - feed subscriptions, with their items and read state
+  - each script's `store` values
+  - the whole log and ↑ history
+  - app launch history and unlock history
+  - notification and trigger settings
 
-It's plain JSON, so you can edit it on a computer. **Import a backup** loads it on any phone.
+The file is plain JSON, so you can edit it on a computer. Use **Import a backup** to load it on any phone.
 
 ```json
 { "kolahal": 2,
@@ -33,35 +37,48 @@ It's plain JSON, so you can edit it on a computer. **Import a backup** loads it 
                "scriptStores": { "hn": { "seen": "…" } } } }
 ```
 
-On import:
+When you import a file:
 
-- The `data` section **replaces** what is on the phone (todos, notes, reminders, feeds, the log…),
-  then the readable sections above are applied on top, so your manual edits to them take priority. Script stores are matched to their script by name. Reminders, feeds and timers are rescheduled, and Kolahal
-  restarts to load it all. Older backups without `data` import as before.
+- The `data` section **replaces** what is on the phone: todos, notes, reminders, feeds, the log and so on.
+  After that, Kolahal applies the readable sections above. So if you edited those sections by hand, your edits win.
+- Script stores are matched to their script by name.
+- Kolahal schedules reminders, feeds and timers again, and then restarts to load everything.
+- Older backups without a `data` section still import as before.
 - Unknown or invalid settings are skipped and listed.
-- Aliases that would shadow a built-in command are skipped.
-- **New scripts are imported switched off**, so you can review them before they run on a timer. Scripts
-  that already exist (same name and language) keep their `enabled` flag only if their code is
-  unchanged: a script with new code is imported switched off too. Scripts named like a built-in
-  command are skipped.
-- Restored log lines keep their text but can't run commands or app shortcuts
-  when tapped, and keep only web, map and store links.
+- Aliases with the same name as a built-in command are skipped.
+- **New scripts are imported switched off.** This lets you review them before they run on a timer.
+- A script that already exists (same name and language) keeps its `enabled` flag only if its code
+  hasn't changed. If its code changed, it is also imported switched off.
+- Scripts with the same name as a built-in command are skipped.
+- A script with the same name as an existing script but a different language is skipped.
+- Restored log lines keep their text. When you tap them, they can't run commands or app shortcuts.
+  They keep only web, map and store links.
 - The import result lists settings you may want to check: a custom search address and gesture commands.
-- A script whose language differs from an existing script of the same name is skipped.
-- Intervals under 15 minutes are raised to 15 (Android's minimum).
+- Timer intervals under 15 minutes are raised to 15, because that is Android's minimum.
 
-Hidden apps and labels are keyed by component and profile, so they transfer between phones only where those match.
+Hidden apps and labels are saved per component and profile. They only carry over to a new phone if those match.
 
-Not included, because they can't move between phones: the folder picked with `script dir` (a
-storage permission you grant again) and home-screen widgets' live ids (widgets are listed so
-they can be added again). Notification and call lines, lines with someone's number, the `call` and
-`sms` lines you type, a private space's lines and its apps' pins, labels, hidden flags and launch
-history, responses scripts have cached, the copy of recent notifications kept for scripts, and this phone's record of its calls and apps stay on the phone (a restore keeps the new phone's record, so it doesn't log every app as installed). The file can still contain private things
-(notes, the rest of the log), so keep it somewhere safe.
+Some things can't move between phones, so they are not in the file:
+
+- the folder you picked with `script dir` (you must grant this storage permission again)
+- the live ids of home-screen widgets (the widgets are listed, so you can add them again)
+
+Some things always stay on the phone:
+
+- notification and call lines
+- lines with someone's number
+- the `call` and `sms` lines you type
+- a private space's lines, and its apps' pins, labels, hidden flags and launch history
+- responses that scripts have cached
+- the copy of recent notifications kept for scripts
+- this phone's record of its calls and apps (a restore keeps the new phone's record, so it doesn't log every app as installed)
+
+The file can still contain private things, such as notes and the rest of the log. Keep it somewhere safe.
 
 ## Automatic backups
 
-Kolahal can write the backup file automatically, every day or every week, to a folder you pick: **Settings → Backup → Automatic backups**, or
+Kolahal can save the backup file for you every day or every week, in a folder you pick.
+Use **Settings → Backup → Automatic backups**, or:
 
 ```sh
 backup every daily     # or weekly, or off
@@ -69,24 +86,40 @@ backup                 # one now
 backup dir             # pick the folder
 ```
 
-Each file is named with the date it was written (`kolahal-backup-2026-10-27.json`). A later backup on the same day replaces it. The newest 7 are kept and older ones deleted (`config set backup.keep 30`
-keeps more); other files in the folder aren't changed. If no folder is set, turning backups on asks you to pick one, and `backup` asks you to pick one and then writes the backup. **Backup folder** in Settings
-shows where they go and when the last one was written. If a backup fails (for example, the folder was deleted), a line in the log lets you pick the folder again.
+How it works:
 
-Pick a folder that is copied off the phone (one your cloud drive's app syncs, or a memory card) to
-have a backup after losing the phone.
+- Each file name has the date it was saved, for example `kolahal-backup-2026-10-27.json`.
+  A second backup on the same day replaces that day's file.
+- Kolahal keeps the newest 7 files and deletes older ones. To keep more, use `config set backup.keep 30`.
+  Other files in the folder are not changed.
+- If you haven't set a folder, turning backups on asks you to pick one. `backup` also asks you to pick one, then saves the backup.
+- **Backup folder** in Settings shows where backups go and when the last one was saved.
+- If a backup fails (for example, because the folder was deleted), a line in the log lets you pick the folder again.
+
+If you lose your phone, you still want your backup. So pick a folder that is copied off the phone, such as a
+folder your cloud drive app syncs, or a memory card.
 
 ## Moving to a new phone
 
-Android's own transfer from your old phone to your new one (over a cable or Wi-Fi, on Android 12
-and newer) carries your settings and everything else: scripts, todos, notes, reminders, feeds and
-the log. Script secrets don't work on the new phone (only the old phone's Keystore can read them):
-set them again. Android's cloud backup carries only settings; for the rest, use the backup file.
+On Android 12 and newer, Android can transfer your data from your old phone to the new one, over a cable or Wi-Fi.
+This carries your settings and everything else: scripts, todos, notes, reminders, feeds and the log.
+
+Script secrets don't work on the new phone, because only the old phone's Keystore can read them. Set them again.
+
+Android's cloud backup carries only your settings. For everything else, use the backup file.
 
 ## Single script files
 
-In the script manager (`scripts`), **Add script → Import a file** lets you pick one or more files from the file manager. The file name becomes the script name, and importing the same name again updates
-it. Imported scripts are switched off. Review one, then turn it on with its switch or `script on <name>`. **Export** in a script's sheet (tap the script) saves it as a file.
+To import scripts from files:
+
+1. Open the script manager (`scripts`).
+2. Tap **Add script → Import a file**.
+3. Pick one or more files in the file manager.
+
+The file name becomes the script name. If you import a file with the same name again, it updates the script.
+Imported scripts are switched off. Review the script, then turn it on with its switch or with `script on <name>`.
+
+To save a script as a file, tap the script and use **Export** in its sheet.
 
 ## Folder sync
 
@@ -96,8 +129,11 @@ script export    # write every script plus kolahal.json (timers and flags) there
 script import    # read them back: new scripts are created, changed ones updated
 ```
 
-`kolahal.json` sets the timers and flags it lists, replacing any you changed since the export. A changed script it doesn't list keeps your timers and flags, unless its `@every` or `@at` line changed.
+On import, `kolahal.json` sets the timers and flags it lists. This replaces any changes you made to them since the export.
+If a script changed but `kolahal.json` doesn't list it, the script keeps your timers and flags. The exception is when its `@every` or `@at` line changed.
 
-This is handy for keeping scripts in a synced folder or a git repository on your computer. An
-export deletes only the files of scripts you deleted on this phone since its last export, never
-ones another phone put there. Scripts from a backup or the folder are imported switched off, like those from any file.
+Folder sync is useful if you keep scripts in a synced folder or in a git repository on your computer.
+
+- An export deletes only the files of scripts you deleted on this phone since its last export.
+  It never deletes files that another phone put there.
+- Scripts from a backup or from the folder are imported switched off, like scripts from any file.

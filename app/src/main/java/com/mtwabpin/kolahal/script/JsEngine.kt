@@ -13,9 +13,9 @@ import kotlinx.coroutines.withContext
 import com.mtwabpin.kolahal.data.StyledText
 
 /**
- * QuickJS through quickjs-kt. Network helpers are `async` so scripts can `await` them
- * (and use `Promise.all` for parallel fetches). Only the bindings below are exposed —
- * QuickJS has no file, process or network access of its own.
+ * QuickJS through quickjs-kt. Network helpers are `async`, so scripts can `await` them (and use
+ * `Promise.all` for parallel fetches). Only the bindings below are exposed. QuickJS has no file,
+ * process or network access of its own.
  */
 class JsEngine : ScriptEngine {
 
@@ -30,15 +30,15 @@ class JsEngine : ScriptEngine {
     ): String? {
         val js = QuickJs.create(Dispatchers.IO)
         host.startClock(timeoutMs)
-        // QuickJS stops a run at its timeout only where the bytecode looks: some built-ins never do
-        // (Array.prototype.includes over 2^53 slots), and promise jobs can keep queuing one another
-        // after the interrupt. The watchdog has the last word.
+        // QuickJS stops a run at its timeout only at points where the bytecode checks. Some built-ins
+        // never check (Array.prototype.includes over 2^53 slots), and promise jobs can keep queuing one
+        // another after the interrupt. The watchdog has the last word.
         val watchdog = RunWatchdog(host, timeoutMs, nativeLimitMb = null)
         try {
             js.memoryLimit = MEMORY_LIMIT
             js.evaluationTimeoutMillis = timeoutMs
             bindHost(js, host)
-            // Scripts may `return` (see below); the value comes back through a binding, as evaluate
+            // Scripts may `return` (see below). The value comes back through a binding, because evaluate
             // does not unwrap returned promises.
             var result: Any? = null
             js.function("__kolahal_done") { args -> result = args.getOrNull(0) }
@@ -49,21 +49,21 @@ class JsEngine : ScriptEngine {
             )
             js.evaluate<Any?>(GUARD, filename = "guard.js")
             if (repl) return js.evaluate<Any?>(code, filename = "$chunkName.js")?.let(::render)
-            // Wrapped so scripts may `return`; top-level await makes evaluate() wait for completion.
+            // Wrapped so that scripts may `return`. Top-level await makes evaluate() wait until the script completes.
             js.evaluate<Any?>("__kolahal_done(await (async () => {\n$code\n})());", filename = "$chunkName.js")
             return result?.let(::render)
         } finally {
-            // Over first: closing cancels the jobs still waiting, but a request one of them made
-            // (a call not awaited) answers later, on its own thread, and must change nothing then.
+            // Finish first. Closing cancels the jobs still waiting, but a request that one of them made
+            // (a call not awaited) answers later on its own thread, and must change nothing then.
             host.finish()
-            // Closing waits for the engine: a run stuck in a job loop never gets past it, and the
-            // watchdog, still on, stops it.
+            // Closing waits for the engine. A run stuck in a job loop never gets past it, so the
+            // watchdog, still running, stops it.
             watchdog.use { js.close() }
         }
     }
 
     private fun bindHost(js: QuickJs, host: HostApi) {
-        /** A call that waits, in one of [httpSlots]; what it throws is masked as the script may see it. */
+        /** A call that waits, in one of [httpSlots]. What it throws is masked, as the script may see it. */
         suspend fun <T> io(block: () -> T): T = httpSlots.withPermit {
             withContext(Dispatchers.IO) {
                 try {
@@ -79,7 +79,7 @@ class JsEngine : ScriptEngine {
             host.log(title, body, ctx)
         }
         js.function("logs") { args ->
-            // logs(["a", "b"]) or logs("a", "b"): one title line each.
+            // logs(["a", "b"]) or logs("a", "b"): one title line for each.
             val list = args.singleOrNull() as? List<*> ?: args.toList()
             host.logs(list.map(::render))
         }
@@ -151,6 +151,13 @@ class JsEngine : ScriptEngine {
                 val items = args.getOrNull(0) as? List<*> ?: throw IllegalArgumentException("fmt.list expects an array of items")
                 StyledText.list(items.map(::render), numbered = args.getOrNull(1) == true)
             }
+            function("table") { args ->
+                val bad = "fmt.table expects an array of rows, each an array of cells"
+                val rows = (args.getOrNull(0) as? List<*>)?.map { r -> (r as? List<*>)?.map { c -> if (c == null) "" else render(c) } ?: throw IllegalArgumentException(bad) }
+                    ?: throw IllegalArgumentException(bad)
+                val opts = args.getOrNull(1) as? Map<*, *>
+                StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty())
+            }
             function("plain") { args -> StyledText.plain(args.str(0).orEmpty()) }
         }
         js.define("secrets") {
@@ -158,11 +165,11 @@ class JsEngine : ScriptEngine {
         }
     }
 
-    /** Network calls in flight for this run: `Promise.all` over hundreds of requests waits its turn. */
+    /** Network calls in flight for this run. With `Promise.all` over hundreds of requests, each waits its turn. */
     private val httpSlots = Semaphore(4)
 
 
-    /** `(title, body?, ctx?)` as log and md.log take them; an object second is the ctx: log(title, ctx). */
+    /** `(title, body?, ctx?)`, as log and md.log take them. If the second argument is an object, it is the ctx: log(title, ctx). */
     private fun logArgs(args: Array<Any?>): Triple<String, String?, Map<*, *>?> {
         val second = args.getOrNull(1)
         return if (second is Map<*, *>) Triple(args.str(0) ?: "undefined", null, second)
@@ -194,15 +201,16 @@ class JsEngine : ScriptEngine {
         const val MEMORY_LIMIT = 64L * 1024 * 1024
 
         /**
-         * Run before the script: every host function takes a plain copy of what it is given, made
-         * here in JavaScript, where QuickJS watches the stack and the clock. The copy is at most 64
-         * levels deep (the native conversion has no depth check: a value nested 10^5 deep would
-         * overflow the thread's stack and crash the :script process), has no string over 4 MB or
-         * array or object over 100,000 entries (copies on the Kotlin side don't count toward the
-         * memory cap), and holds no getter or proxy that could change between the check and the
-         * conversion. Calls that wait (requests, sleep) are capped at 64 in flight. Everything used
-         * is taken now, so a script replacing Array.prototype or Function.prototype.apply later
-         * doesn't switch the guard off.
+         * Runs before the script. Every host function takes a plain copy of its arguments. The copy is
+         * made here in JavaScript, where QuickJS watches the stack and the clock. The copy:
+         * - is at most 64 levels deep. The native conversion has no depth check, so a value nested
+         *   10^5 deep would overflow the thread's stack and crash the :script process.
+         * - has no string over 4 MB, and no array or object over 100,000 entries. Copies on the Kotlin
+         *   side don't count toward the memory cap.
+         * - holds no getter or proxy that could change between the check and the conversion.
+         * Calls that wait (requests, sleep) are capped at 64 in flight. Everything the guard uses is
+         * taken now, so a script that later replaces Array.prototype or Function.prototype.apply
+         * can't switch the guard off.
          */
         val GUARD = """
             (() => {

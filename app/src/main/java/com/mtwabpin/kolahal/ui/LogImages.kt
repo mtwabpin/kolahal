@@ -32,22 +32,24 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Images that scripts attach to log lines (`log(text, { image: url })`). Each is downloaded once
- * into the cache directory (http and https only, at most [MAX_BYTES]), decoded off the main thread
- * no wider than the log, and kept in a small memory cache so scrolling back doesn't decode again.
- * Android may clear the cache directory; an image is then fetched again when its line shows.
+ * Images that scripts attach to log lines (`log(text, { image: url })`). For each image:
+ * - It is downloaded once into the cache directory (http and https only, at most [MAX_BYTES]).
+ * - It is decoded off the main thread, no wider than the log.
+ * - It is kept in a small memory cache, so scrolling back does not decode it again.
+ *
+ * Android may clear the cache directory. The image is then downloaded again when its line shows.
  */
 object LogImages {
     private const val MAX_BYTES = 10L * 1024 * 1024
-    /** The disk cache is trimmed to this, least recently shown first. */
+    /** The disk cache is trimmed to this size. The least recently shown images are deleted first. */
     private const val DISK_BYTES = 50L * 1024 * 1024
-    /** A very tall image (a long infographic) is decoded smaller rather than taking 100 MB. */
+    /** A very tall image (for example, a long infographic) is decoded at a smaller size, so it does not take 100 MB. */
     private const val MAX_PIXELS = 4_000_000f
-    /** Larger sources (by their header) aren't decoded at all. */
+    /** Sources larger than this (by their header) are not decoded at all. */
     private const val MAX_SOURCE_PIXELS = 50_000_000f
     private val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
 
-    /** At most two pictures load at a time, so a page of them can't use every IO thread. */
+    /** At most two images load at a time, so a page full of images cannot use every IO thread. */
     val loader = Dispatchers.IO.limitedParallelism(2)
 
     private val memory = object : LruCache<String, ImageBitmap>(24 * 1024 * 1024) {
@@ -56,13 +58,16 @@ object LogImages {
 
     fun cached(url: String, widthPx: Int): ImageBitmap? = memory.get("$url@$widthPx")
 
-    /** Android is short of memory: the kept pictures go (they're on disk too). Those on screen stay; the rest are decoded again when shown. */
+    /**
+     * Called when Android is short of memory. It clears the memory cache (the images are also on disk).
+     * Images on screen stay. The others are decoded again when they show.
+     */
     fun trim() = memory.evictAll()
 
-    /** [url]'s image at most [widthPx] wide (smaller ones aren't scaled up here), or null if it can't be had. */
+    /** Returns the image at [url], at most [widthPx] wide, or null if it cannot be loaded. Smaller images are not scaled up here. */
     fun load(context: Context, url: String, widthPx: Int): ImageBitmap? {
         cached(url, widthPx)?.let { return it }
-        // Several lines showing the same picture: one download and one decode, the rest wait for it.
+        // When several lines show the same image, only one download and one decode happen. The others wait for it.
         val key = "$url@$widthPx"
         val lock = locks.getOrPut(key) { Any() }
         try {
@@ -78,14 +83,14 @@ object LogImages {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
                 val w = info.size.width.toFloat()
                 val h = info.size.height.toFloat()
-                // A small file can claim enormous dimensions: not worth decoding at any scale.
+                // A small file can claim huge dimensions. Such an image is not worth decoding at any scale.
                 if (w * h > MAX_SOURCE_PIXELS) throw java.io.IOException("image too large (${info.size.width}×${info.size.height})")
                 var scale = min(1f, widthPx / w)
                 if (w * h * scale * scale > MAX_PIXELS) scale = sqrt(MAX_PIXELS / (w * h))
                 decoder.setTargetSize((w * scale).roundToInt().coerceAtLeast(1), (h * scale).roundToInt().coerceAtLeast(1))
             }.asImageBitmap()
         }.getOrNull()
-        // Not an image (an error page, say): drop it, so the next showing tries again.
+        // The file is not an image (for example, an error page). Delete it, so the next time the line shows it tries again.
         if (image == null) {
             file.delete()
             return null
@@ -132,9 +137,10 @@ object LogImages {
 }
 
 /**
- * A script's image under its log line, as wide as the log (up to twice its own size, so an icon
- * doesn't turn into a blur) and never taller than most of the screen. A dim note while it loads
- * or if it can't be loaded.
+ * A script's image under its log line.
+ * - It is as wide as the log, but at most twice its own size, so an icon does not become blurry.
+ * - It is never taller than 75% of the screen.
+ * - A dim note shows while it loads, or if it cannot be loaded.
  */
 @Composable
 fun LogImage(url: String, modifier: Modifier = Modifier) {
@@ -143,8 +149,8 @@ fun LogImage(url: String, modifier: Modifier = Modifier) {
     val maxHeightPx = LocalWindowInfo.current.containerSize.height * 0.75f
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val widthPx = constraints.maxWidth.coerceAtLeast(1)
-        // null while loading; Result.failure once it can't be had. A new width (the phone turned) keeps
-        // the image decoded for the old one until it's decoded again; a new address starts over.
+        // null while loading; Result.failure if it cannot be loaded. On a new width (the phone was
+        // rotated), the image for the old width stays until the new one is decoded. A new URL starts over.
         var state by remember(url) { mutableStateOf(LogImages.cached(url, widthPx)?.let { Result.success(it) }) }
         LaunchedEffect(url, widthPx) {
             val image = LogImages.cached(url, widthPx)

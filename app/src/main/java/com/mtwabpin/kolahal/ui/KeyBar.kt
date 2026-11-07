@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 
-/** Named keys the touch key bar understands; anything else in the spec is inserted literally. */
+/** Named keys that the touch key bar understands. Any other text in the spec is inserted as it is. */
 enum class KeyBarKey(val label: String) {
     ESC("ESC"), TAB("TAB"), UP("↑"), DOWN("↓"), LEFT("←"), RIGHT("→"),
     HOME("⇤"), END("⇥"), ENTER("⏎"), KBD("⌨"), SPACE("␣"), BKSP("⌫");
@@ -52,8 +52,9 @@ enum class KeyBarKey(val label: String) {
 }
 
 /**
- * Drawn icons for the symbol keys (ESC and TAB stay words): as text, ⇤ ⏎ ⌫ and the like come from
- * fallback fonts and look uneven. ⇤ is ⇥ mirrored.
+ * Drawn icons for the symbol keys. ESC and TAB stay as words.
+ * As text, ⇤ ⏎ ⌫ and similar symbols come from fallback fonts and look uneven.
+ * ⇤ is drawn as ⇥ mirrored.
  */
 private fun KeyBarKey.icon(): Int? = when (this) {
     KeyBarKey.UP -> R.drawable.ic_arrow_up
@@ -68,16 +69,18 @@ private fun KeyBarKey.icon(): Int? = when (this) {
     KeyBarKey.ESC, KeyBarKey.TAB -> null
 }
 
-/** Marker for a cancelled key press (distinct from the timeout's null). */
+/** Marks a cancelled key press. It is different from the null that the timeout returns. */
 private object CANCELLED
 
 /** Keys that repeat while held. */
 private val REPEATING = setOf(KeyBarKey.UP, KeyBarKey.DOWN, KeyBarKey.LEFT, KeyBarKey.RIGHT, KeyBarKey.BKSP)
 
 /**
- * On-screen keys that touch keyboards lack: history, the cursor and a few symbols.
- * Up to [FILL_MAX] keys share the width; more scroll, with a fade marking the overflow.
- * Arrows and backspace repeat while held; dragging sideways across the bar moves the cursor.
+ * On-screen keys that touch keyboards don't have: history, cursor movement and a few symbols.
+ * - Up to [FILL_MAX] keys share the width. With more keys, the row scrolls, and a fade shows that
+ *   more keys are hidden.
+ * - Arrows and backspace repeat while held.
+ * - Dragging sideways across a row that is not scrolling moves the cursor.
  */
 @Composable
 internal fun KeyBar(specs: List<String>, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onText: (String) -> Unit) {
@@ -95,7 +98,8 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
         spec.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { token -> KeyBarKey.of(token) to token }
     }
     val haptics = LocalHapticFeedback.current
-    // Read through updated state: a key's gesture below outlives the composition that made it.
+    // Read the callbacks through updated state. A key's gesture handler below lives longer than the
+    // composition that created it.
     val currentOnKey by rememberUpdatedState(onKey)
     val currentOnText by rememberUpdatedState(onText)
     val press: (KeyBarKey?, String) -> Unit = { named, token ->
@@ -118,12 +122,13 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
                     awaitEachGesture {
                         awaitFirstDown()
                         if (named !in REPEATING) {
-                            // Plain keys fire on release, so a drag or scroll that starts on ⏎ does nothing.
+                            // Plain keys act on release, so a drag or scroll that starts on ⏎ does nothing.
                             if (waitForUpOrCancellation() != null) press(named, token)
                             return@awaitEachGesture
                         }
-                        // Hold to repeat: fire now, then after 400ms every 50ms. A drag or scroll consumes the
-                        // pointer (waitForUpOrCancellation returns null) and must stop the repeat.
+                        // Hold to repeat: act now, then after 400ms, then every 50ms. A drag or scroll
+                        // consumes the pointer (waitForUpOrCancellation returns null), and that must
+                        // stop the repeat.
                         press(named, token)
                         var delayMs = 400L
                         while (true) {
@@ -135,7 +140,7 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
                     }
                 },
         ) {
-            // Padding inside the touch area (after pointerInput), so the whole key is tappable.
+            // The padding is inside the touch area (after pointerInput), so the whole key can be tapped.
             val icon = named?.icon()
             if (icon != null) {
                 Image(
@@ -179,7 +184,7 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
                     Key(named, token, Modifier.widthIn(min = 48.dp))
                 }
             }
-            // Fade on the right edge: more keys are available by scrolling.
+            // A fade on the right edge shows that more keys are available by scrolling.
             Box(
                 Modifier
                     .align(Alignment.CenterEnd)
@@ -191,5 +196,5 @@ private fun KeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, onTe
     }
 }
 
-// Keys share the row width up to this count; 7 keys stay ≥ 48dp wide on a 360dp screen.
+// Up to this many keys share the row width. On a 360dp screen, 7 keys are each at least 48dp wide.
 private const val FILL_MAX = 7

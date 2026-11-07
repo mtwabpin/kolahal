@@ -74,16 +74,17 @@ for (const id of ids) {
   rows.push({ id, sym, price: num(p[vs]), change });
   parts.push(`${sym} ${compact(p[vs])}` + (change != null ? ` ${arrow(change)}` : ""));
 }
-// Lined up: the symbol padded to the longest, the price right-aligned, the day's change after it in
-// the theme's good or bad colour (the arrow says it too); mono keeps the terminal font for the columns.
-const symWidth = Math.max(0, ...rows.map((r) => r.sym.length));
-const priceWidth = Math.max(0, ...rows.map((r) => r.price.length));
-for (const r of rows) {
-  const moved = r.change != null ? `  ${fmt.color(r.change >= 0 ? "good" : "bad", arrow(r.change))} 24h` : "";
-  log(`${r.sym.padEnd(symWidth)}  ${fmt.bold(r.price.padStart(priceWidth))} ${vs.toUpperCase()}` + moved, {
-    url: `https://www.coingecko.com/en/coins/${r.id}`,
-    mono: "1",
+// Several coins: one table, the price and the day's change on the right, the change in the theme's
+// good or bad colour (the arrow says it too). One coin: one line, and a tap opens its page.
+const moves = (r) => (r.change != null ? fmt.color(r.change >= 0 ? "good" : "bad", arrow(r.change)) : "");
+if (rows.length > 1) {
+  log(`Prices in ${vs.toUpperCase()}`, fmt.table([["Coin", "Price", "24h"], ...rows.map((r) => [r.sym, r.price, moves(r)])], { header: true, align: "lrr" }), {
+    url: "https://www.coingecko.com/",
   });
+} else if (rows.length === 1) {
+  const r = rows[0];
+  const moved = r.change != null ? `  ${moves(r)} 24h` : "";
+  log(`${r.sym}  ${fmt.bold(r.price)} ${vs.toUpperCase()}` + moved, { url: `https://www.coingecko.com/en/coins/${r.id}` });
 }
 
 if (words.length === 0 && parts.length > 0) status(parts.join(" · "));

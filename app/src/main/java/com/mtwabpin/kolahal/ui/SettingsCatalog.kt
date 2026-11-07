@@ -6,7 +6,7 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 
-/** Human titles for settings; the description comes from the key's help text. */
+/** Readable titles for settings. The description comes from the key's help text. */
 internal val TITLES = mapOf(
     "theme.name" to "Theme",
     "theme.always-dark" to "Always dark",
@@ -15,9 +15,9 @@ internal val TITLES = mapOf(
     "font.sans" to "System font",
     "font.size" to "Text size",
     "header.show" to "Show the header",
-    "header.item-1" to "First item",
-    "header.item-2" to "Second item",
-    "header.media" to "Now playing",
+    "header.below-bar" to "Below the status bar area",
+    "header.left" to "Left side",
+    "header.right" to "Right side",
     "header.pinned-seconds" to "Seconds per item",
     "header.pinned-dots" to "Dots up to",
     "clock.24h" to "24-hour clock",
@@ -31,6 +31,7 @@ internal val TITLES = mapOf(
     "log.gutter" to "Colour bar beside lines",
     "log.line-height" to "Line height",
     "log.taller-taps" to "Taller tappable lines",
+    "log.tables" to "Tables",
     "log.wallpaper" to "Transparency (%)",
     "log.keep-days" to "Keep log for (days)",
     "log.fresh" to "Clean screen after (minutes away)",
@@ -83,17 +84,17 @@ internal val TITLES = mapOf(
 )
 
 /**
- * Sliders that show home through Settings while dragged, like the brightness slider in quick
- * settings; the value is whether home is shown as if typing (key bar, prompt, suggestions).
+ * Sliders that show home through Settings while the user drags them, like the brightness slider in
+ * quick settings. The value says whether home shows in typing mode (key bar, prompt, suggestions).
  */
 internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
     Keys.FONT_SIZE.key to false,
     Keys.LOG_LINE_HEIGHT.key to false,
     Keys.LOG_SPACING.key to false,
     Keys.SELECTOR_HEIGHT.key to false,
-    // Home shows the selector's list open while this one moves.
+    // While this slider moves, home shows the selector's list open.
     Keys.SELECTOR_ROW_HEIGHT.key to false,
-    // The phone's wallpaper through the log, and through the widgets page, which shows instead.
+    // The phone's wallpaper behind the log, and behind the widgets page (that page shows instead of the log).
     Keys.LOG_WALLPAPER.key to false,
     Keys.WIDGETS_WALLPAPER.key to false,
     Keys.KEYBAR_HEIGHT.key to true,
@@ -104,8 +105,8 @@ internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
 )
 
 /**
- * Settings that only matter while another one allows them, such as the key bar's rows while the
- * key bar is off. Settings hides them until then; `config` still reaches every setting.
+ * Settings that only matter when another setting allows them. For example, the key bar's rows do
+ * nothing while the key bar is off. Settings hides them until then, but `config` can still change every setting.
  */
 private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
     fun on(switch: ConfigKey.Bool): (Config) -> Boolean = { it[switch] }
@@ -114,7 +115,7 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.SEARCH_URL to choice(Keys.SEARCH_ENGINE) { it == "custom" },
         Keys.LAUNCH_INSTANT_MIN to choice(Keys.LAUNCH_INSTANT) { it != "off" },
         Keys.SUGGESTION_ROWS to choice(Keys.SUGGESTIONS_STYLE) { it == "chips" },
-        // Only the list shows descriptions.
+        // Only the list style shows descriptions.
         Keys.SUGGESTIONS_WRAP to choice(Keys.SUGGESTIONS_STYLE) { it != "chips" },
         Keys.KEYBAR_AUTO to on(Keys.KEYBAR_SHOW),
         Keys.KEYBAR_HEIGHT to on(Keys.KEYBAR_SHOW),
@@ -134,28 +135,27 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.SELECTOR_SYSTEM_FONT to on(Keys.SELECTOR_RAIL),
         Keys.FEEDS_LOG_LINES to on(Keys.FEEDS_LOG),
         Keys.FEEDS_READ_SHOWN to on(Keys.FEEDS_LOG),
-        // Without the header, its items and its swipe go; the pinned header, the 24-hour clock (the log's
-        // times) and your name (fetch) still count.
-        Keys.HEADER_ITEM_1 to on(Keys.HEADER_SHOW),
-        Keys.HEADER_ITEM_2 to on(Keys.HEADER_SHOW),
+        // Without the header, its placement and its swipe do not apply. The pinned header, the 24-hour
+        // clock (used for the log's times) and your name (used by fetch) still apply.
+        Keys.HEADER_BELOW_BAR to on(Keys.HEADER_SHOW),
         Keys.GESTURE_SWIPE_DOWN to on(Keys.HEADER_SHOW),
     )
 }
 
-/** Whether Settings shows [key] with the other settings as they are ([SHOWN_WHEN]). */
+/** Whether Settings shows [key], given the current values of the other settings ([SHOWN_WHEN]). */
 internal fun applies(key: ConfigKey<*>, config: Config): Boolean = SHOWN_WHEN[key]?.invoke(config) ?: true
 
-/** Pages with an eye button that shows home while held (the same typing flag as above). */
+/** Pages with an eye button that shows home while held. The value is the same typing flag as in [PEEK_SLIDERS]. */
 internal val PEEK_PAGES: Map<String, Boolean> = mapOf("look" to false, "header" to false, "selector" to false, "log" to false, "suggestions" to true, "keyboard" to true)
 
-/** A settings page: grouped keys (a null group title means no sub-header). */
+/** A settings page with grouped keys. A null group title means the group has no sub-header. */
 internal class Category(
     val id: String,
     val title: String,
     val subtitle: String,
     val icon: Int,
     val groups: List<Pair<String?, List<ConfigKey<*>>>>,
-    /** A manager screen this page leads to (shown first): title, subtitle, screen. */
+    /** A manager screen this page links to, shown at the top: title, subtitle, screen. */
     val manage: Triple<String, String, Screen>? = null,
 ) {
     val keys get() = groups.flatMap { it.second }
@@ -176,23 +176,18 @@ private val CATEGORIES = listOf(
         ),
     ),
     Category(
-        "header", "Header", "Header items, pinned header, your name", R.drawable.ic_home,
+        HEADER_CATEGORY, "Header", "Its parts on each side, clock, your name", R.drawable.ic_home,
         listOf(
             null to listOf(
                 Keys.HEADER_SHOW,
-                Keys.HEADER_ITEM_1,
-                Keys.HEADER_ITEM_2,
-            ),
-            "Pinned header" to listOf(
-                Keys.HEADER_MEDIA,
-                Keys.HEADER_PINNED_SECONDS,
-                Keys.HEADER_PINNED_DOTS,
+                Keys.HEADER_BELOW_BAR,
             ),
             "Clock and name" to listOf(
                 Keys.CLOCK_24H,
                 Keys.USER_NAME,
             ),
         ),
+        manage = Triple("Arrange the header", "The parts on each side and their order", Screen.HEADER_PARTS),
     ),
     Category(
         "widgets", "Widgets", "Add, resize and arrange widgets", R.drawable.ic_widgets,
@@ -215,6 +210,7 @@ private val CATEGORIES = listOf(
                 Keys.LOG_SPACING,
                 Keys.LOG_LINE_HEIGHT,
                 Keys.LOG_TALLER_TAPS,
+                Keys.LOG_TABLES,
                 Keys.LOG_WALLPAPER,
             ),
             "History" to listOf(
@@ -274,7 +270,7 @@ private val CATEGORIES = listOf(
             ),
         ),
     ),
-    // The app selector is its own thing, apart from typing: it works while the keyboard is down.
+    // The app selector is separate from typing: it works while the keyboard is hidden.
     Category(
         "selector", "App selector", "Edge, letters, icons", R.drawable.ic_apps,
         listOf(
@@ -316,18 +312,21 @@ private val CATEGORIES = listOf(
     ),
 )
 
-/** Backup: its page has the automatic backups, then the backup folder and the file actions ([SettingsScreen]). */
+/** The Backup page. It shows automatic backups, then the backup folder and the file actions ([SettingsScreen]). */
 internal const val BACKUP_CATEGORY = "backup"
+
+/** The Header page. It shows the top of home above its settings (HeaderPreview). */
+internal const val HEADER_CATEGORY = "header"
 
 private val BACKUP = Category(BACKUP_CATEGORY, "Backup", "Automatic backups, export, import", R.drawable.ic_download, listOf(null to listOf(Keys.BACKUP_AUTO)))
 
-/** Keys no page lists (e.g. added later) still get a home under "More"; [Keys.CONFIG_ONLY] ones don't. */
+/** Keys that no page lists (for example, keys added later) still show under "More". [Keys.CONFIG_ONLY] keys do not. */
 private val OTHER: Category by lazy {
     val listed = (CATEGORIES + BACKUP).flatMap { it.keys }.toSet()
     Category("other", "More", "Everything else", R.drawable.ic_tune, listOf(null to Keys.ALL.filter { it !in listed && it !in Keys.CONFIG_ONLY }))
 }
 
-/** The feeds category: shown in the Feeds tab ([categorySettings]), not in the Settings list. */
+/** The feeds category. It shows in the Feeds tab ([categorySettings]), not in the Settings list. */
 internal const val FEEDS_CATEGORY = "feeds"
 
 internal fun allCategories() = CATEGORIES + BACKUP + listOfNotNull(OTHER.takeIf { it.keys.isNotEmpty() })

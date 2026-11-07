@@ -10,56 +10,82 @@ Kolahal (package `com.mtwabpin.kolahal`) needs **Android 9 (API 28) or newer**.
 
 ## Download
 
-Every release comes with two APKs. The newest is Kolahal {VERSION}:
+Each release has two APKs. The newest release is Kolahal {VERSION}:
 
 <div class="sl-flex" style="flex-wrap: wrap; gap: 0.75rem 1rem; margin-block: 1rem;">
 	<LinkButton href={APK} icon="download" iconPlacement="start">Kolahal {VERSION}</LinkButton>
 	<LinkButton href={PLAY_APK} icon="download" iconPlacement="start" variant="secondary">Kolahal {VERSION}, Play build</LinkButton>
 </div>
 
-Download the first one, the full build, which has every feature. The second is the Play build, the version
-for Google Play ([below](#the-play-build)). Release notes and older versions are on the
-[releases page](https://github.com/mtwabpin/kolahal/releases). Both APKs have the same package and
-key, so either installs over the other or over an earlier version (0.3.1 or later), keeping your
-data. Then [sideload it](#sideload-the-apk).
+- **The full build** (the first button) has every feature. Download this one.
+- **The Play build** (the second button) is the version for Google Play. See [The Play build](#the-play-build).
 
-Kolahal is also in a closed test on Google Play: to install it from the Play Store and help bring it to everyone, [join the test](/getting-started/play-testing/).
+You can find release notes and older versions on the [releases page](https://github.com/mtwabpin/kolahal/releases).
+
+Both APKs have the same package name and the same signing key. So you can install either one over the other,
+or over an earlier version (0.3.1 or later), and you keep your data. Next, [sideload the APK](#sideload-the-apk).
+
+Kolahal is also in a closed test on Google Play. If you want to install it from the Play Store and help release it to everyone, [join the test](/getting-started/play-testing/).
 
 ### If Play Protect blocks it
 
-Google Play Protect blocks sideloaded apps (installed from a browser, a messaging app or a file
-manager) that declare an accessibility service or notification access, in India and some other
-countries. Both builds declare notification access, which shows your notifications in the log,
-and the full build also has an accessibility service, which only locks the screen.
+In India and some other countries, Google Play Protect blocks some sideloaded apps. A sideloaded app is one
+you install from a browser, a messaging app or a file manager. Play Protect blocks it if it declares an
+accessibility service or notification access.
 
-To install, turn off **Play Store → profile → Play Protect → ⚙︎ → Scan apps with Play Protect**, then turn it back on. Or use `adb install`. Once Kolahal is on Google
-Play, installing it from there avoids the block.
+- Both builds declare notification access. Kolahal uses it to show your notifications in the log.
+- The full build also has an accessibility service. Kolahal uses it only to lock the screen.
+
+To install Kolahal anyway, do one of these:
+
+- Turn off **Play Store → profile → Play Protect → ⚙︎ → Scan apps with Play Protect**, install Kolahal, then turn the setting back on.
+- Use `adb install`.
+
+When Kolahal is on Google Play, you can install it from there and Play Protect won't block it.
 
 ### Updating
 
-With the full build, `update` says whether a newer release is out, and `update install` downloads it,
-checks it's signed with Kolahal's key and opens Android's installer. The first time, Android asks you
-to let Kolahal install apps. The Play build updates through Google Play; its APK from GitHub has no
-`update`, so install a new one by hand.
+In the full build:
+
+- `update` tells you if a newer release is available.
+- `update install` downloads it, checks that it is signed with Kolahal's key and opens Android's installer.
+
+The first time, Android asks you to allow Kolahal to install apps.
+
+The Play build updates through Google Play. The Play build APK from GitHub has no `update` command, so you
+must install each new version yourself.
 
 ### Upgrading from 0.3.0 or earlier
 
-Versions up to 0.3.0 were signed with a different key, so later ones can't install over them.
-To upgrade and keep your data: **Settings → Backup → Export everything**, uninstall Kolahal,
-install the new version and make it your home app, then **Settings → Backup → Import a backup**.
-Run `setup` to grant the permissions again, and add your widgets again: a backup lists them but can't restore them ([Backup](/guides/backup/)). If you had the lite APK, install the Play build, which is the closest to it.
+Versions up to 0.3.0 were signed with a different key. Later versions can't install over them.
+To upgrade and keep your data:
+
+1. Open **Settings → Backup → Export everything**.
+2. Uninstall Kolahal.
+3. Install the new version and make it your home app.
+4. Open **Settings → Backup → Import a backup**.
+5. Run `setup` to grant the permissions again.
+6. Add your widgets again. A backup lists them but can't restore them ([Backup](/guides/backup/)).
+
+If you used the lite APK, install the Play build. It is the closest to the lite APK.
 
 ### The Play build
 
-The Play build is the version for Google Play, where Kolahal will be available soon. Every release includes its APK. Play's policy doesn't let a launcher read the call log, and asks for a declaration and a
-video for an accessibility service, so the Play build leaves those two out: no `lock` or
-double-tap lock, and no calls in the log or `calls`. It doesn't read your contacts either, because Play requires apps to use Android's contact picker when that's enough: `call`, `sms` and `contacts` open the picker and
-remember who you pick ([People](/guides/people/#in-the-play-build)). It has no `update`, as apps on Play update only through Play. Everything else is the same,
-notification access included: before Android's Notification access screen opens, Kolahal explains what it reads and asks for permission, as Play requires of apps that read notifications.
+The Play build is the version for Google Play, where Kolahal will be available soon. Each release includes its APK.
+
+Because of Google Play's rules, the Play build is different from the full build in these ways:
+
+- **No call log.** Play doesn't let a launcher read the call log. So the Play build has no calls in the log and no `calls`.
+- **No accessibility service.** Play asks for a declaration and a video for an accessibility service. So the Play build has no `lock` and no double-tap to lock.
+- **No contacts permission.** Play requires apps to use Android's contact picker when the picker is enough. So `call`, `sms` and `contacts` open the picker and remember who you pick ([People](/guides/people/#in-the-play-build)).
+- **No `update`.** Apps on Play update only through Play.
+
+Everything else is the same, including notification access. Before Android's Notification access screen opens,
+Kolahal explains what it reads and asks for your permission. Play requires this of apps that read notifications.
 
 ## Build from source
 
-You need a JDK and the Android SDK. The project's toolchain is AGP 9.5.0, Gradle 9.8.2 (through the
+You need a JDK and the Android SDK. The project uses AGP 9.5.0, Gradle 9.8.2 (through the
 wrapper), Kotlin 2.4.21, compileSdk 37 and targetSdk 37.
 
 ```sh
@@ -74,19 +100,22 @@ cd kolahal
 ./gradlew :app:connectedDebugAndroidTest  # on-device tests (run them on an emulator)
 ```
 
-The APKs end up in `app/build/outputs/apk/<variant>/`.
+You can find the APKs in `app/build/outputs/apk/<variant>/`.
 
 :::tip[Use the release build day to day]
-Debug Compose builds are noticeably slower to scroll. The debug build installs next to the release
-one (it has a `.debug` package suffix), so you can keep both.
+Debug builds scroll much more slowly. The debug build installs next to the release
+build (it has a `.debug` package suffix), so you can keep both.
 :::
 
 ### Signing
 
-The APKs on the releases page are signed with the project's key. Your own build is signed with your
-debug key unless you set up keys, so it won't install over a downloaded one (uninstall first).
-`tools/make-keys.sh` makes a release key, which signs the APKs, and an upload key, which signs the
-Google Play bundle, and lists both in `keystore.properties` (git-ignored):
+The APKs on the releases page are signed with the project's key. If you don't set up your own keys, your build is
+signed with your debug key. Then it won't install over a downloaded APK, so uninstall that first.
+
+`tools/make-keys.sh` makes two keys and lists both in `keystore.properties` (which git ignores):
+
+- a release key, which signs the APKs
+- an upload key, which signs the Google Play bundle
 
 ```properties
 storeFile=/path/to/release.jks
@@ -99,19 +128,19 @@ uploadKeyAlias=…
 uploadKeyPassword=…
 ```
 
-Releases are built by GitHub Actions: pushing a version tag such as `v0.3.1` builds, signs and
+GitHub Actions builds the releases. When you push a version tag such as `v0.3.1`, it builds, signs and
 publishes them.
 
 ## Sideload the APK
 
-Open the downloaded APK on the phone; Android asks once to let your browser or file manager install
-apps. Or install over USB:
+Open the downloaded APK on the phone. The first time, Android asks you to allow your browser or file manager to install
+apps. You can also install over USB:
 
 <Code lang="sh" code={`adb install -r kolahal-${VERSION}.apk                         # a download
 adb install -r app/build/outputs/apk/release/app-release.apk  # your own build`} />
 
-A sideloaded APK runs without ahead-of-time compilation until Android compiles it during idle
-maintenance, so it can feel laggy at first. To compile it right away:
+Android doesn't compile a sideloaded APK ahead of time. It compiles it later, while the phone is idle.
+Until then, Kolahal can feel slow. To compile it now, run:
 
 ```sh
 adb shell cmd package compile -m speed -f com.mtwabpin.kolahal
@@ -119,15 +148,20 @@ adb shell cmd package compile -m speed -f com.mtwabpin.kolahal
 
 ## Make it your home app
 
-Press Home and pick Kolahal, or run `home` at the prompt to open Android's default home app
-setting. Being the default launcher matters: only the default launcher can list an app's shortcuts
-(in its long-press menu).
+Press Home and pick Kolahal. Or run `home` at the prompt to open Android's default home app
+setting. Kolahal should be the default launcher, because only the default launcher can list an app's shortcuts
+(in the app's long-press menu).
 
-On its first start Kolahal opens a short [tour](/getting-started/setup/#the-tour) that sets up the
-first few things; run [`setup`](/getting-started/setup/) any time for the rest of the checklist.
+The first time Kolahal starts, it opens a short [tour](/getting-started/setup/#the-tour) that sets up a few
+things. Run [`setup`](/getting-started/setup/) at any time to see the rest of the checklist.
 
 ## Work profile and private space
 
-This applies only if you use a work profile (apps your employer manages, shown with a briefcase) or Android 15's private space. Kolahal lists their apps next to your own, and as the default launcher
-it can pause and resume the work profile (Android 10 and newer) and see the private space
-(Android 15 and newer). See [Work profile & private space](/guides/profiles/).
+This section applies only if you use a work profile (apps your employer manages, shown with a briefcase) or Android 15's private space.
+
+Kolahal lists their apps next to your own. As the default launcher, Kolahal can also:
+
+- pause and resume the work profile (Android 10 and newer)
+- see the private space (Android 15 and newer)
+
+See [Work profile & private space](/guides/profiles/).

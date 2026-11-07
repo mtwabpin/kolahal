@@ -2,13 +2,13 @@ package com.mtwabpin.kolahal.apps
 
 import java.text.Normalizer
 
-/** The forgiving half of app search: accents that don't matter, and slips of the thumb. */
+/** The forgiving part of app search. It ignores accents and allows small typing mistakes. */
 internal object Fuzzy {
     private val MARKS = Regex("\\p{Mn}+")
 
     /**
-     * "Café" and "cafe" read alike: lowercase, without accents. Letters that aren't a letter and an
-     * accent (ł, ø, ß, æ…) are written as their plain letters too: "Straße" reads as "strasse".
+     * Lowercases [s] and removes accents, so "Café" and "cafe" match. Some letters are not a plain
+     * letter plus an accent (ł, ø, ß, æ…). These are replaced by plain letters too: "Straße" becomes "strasse".
      */
     fun fold(s: String): String {
         val plain = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(MARKS, "")
@@ -16,36 +16,37 @@ internal object Fuzzy {
         return buildString(plain.length + 4) { for (c in plain) append(LETTERS[c] ?: c) }
     }
 
-    /** Latin letters with no accent to take off, as they're written in plain letters. */
+    /** Latin letters that have no accent to remove, mapped to their plain-letter spelling. */
     private val LETTERS = mapOf(
         'ł' to "l", 'ø' to "o", 'ß' to "ss", 'đ' to "d", 'ð' to "d", 'æ' to "ae", 'œ' to "oe", 'þ' to "th", 'ı' to "i", 'ħ' to "h",
     )
 
     /**
-     * Whether [q] is a slip for the start of one of [names] (the label, then its words): a letter
-     * wrong, missing, extra, or two swapped (`mpas` for Maps), two of those from eight letters on.
-     * Shorter than four letters, almost anything is a slip of something: never.
+     * True when [q] is a typing mistake for the start of one of [names] (the label, then its words).
+     * - A mistake is one letter wrong, missing or extra, or two letters swapped (`mpas` for Maps).
+     * - From eight letters on, two mistakes are allowed.
+     * - Below four letters, it is always false: almost anything would match something.
      */
     fun slip(q: String, names: List<String>): Boolean {
         if (q.length < 4) return false
         val max = if (q.length >= 8) 2 else 1
         return names.any { name ->
-            // One table for every length: its last row holds the edits to each start of the name.
+            // One table covers every length. Its last row holds the edit count to each start of the name.
             val longest = minOf(name.length, q.length + max)
             longest >= 1 && lastRow(q, name, longest).let { last -> (maxOf(1, q.length - max)..longest).any { n -> last[n] <= max } }
         }
     }
 
     /**
-     * Edits from [a] to the first [bLength] letters of [b], a swap of two neighbours counting as one
-     * (optimal string alignment). For tests: [slip] reads every length from one table.
+     * Number of edits from [a] to the first [bLength] letters of [b]. A swap of two neighbours counts
+     * as one edit (optimal string alignment). Only for tests: [slip] reads every length from one table.
      */
     fun distance(a: String, b: String, bLength: Int = b.length): Int = lastRow(a, b, bLength)[bLength]
 
     /**
-     * The table's last row for [a] against the first [bLength] letters of [b]: at n, the edits from [a]
-     * to the first n letters. Three rows at a time: app search asks for a slip against every name on a
-     * key that matches nothing.
+     * Returns the table's last row for [a] against the first [bLength] letters of [b]. Index n holds
+     * the edits from [a] to the first n letters. It keeps only three rows in memory, because app
+     * search checks every name when a key press matches nothing.
      */
     private fun lastRow(a: String, b: String, bLength: Int): IntArray {
         var older = IntArray(bLength + 1)

@@ -20,18 +20,33 @@ import kotlin.math.sqrt
 import kotlin.math.tan
 
 /**
- * The `=` calculator's arithmetic, worked out at once on the phone (and shown while you type):
- * `+ - * /` (also `−`, `×`, `x`, `÷`), `^` or `**`, `mod`, `n!`, parentheses, `pi` (`π`), `e`, and
- * sqrt, cbrt, abs, round, floor, ceil, ln, log (base 10), log2, exp, sin, cos, tan, asin, acos,
- * atan (radians; `30°` is degrees), min and max. A percent works as on a phone's calculator:
- * `15%` is 0.15, `80 + 15%` adds 15% of 80, `15% of 80` is 12, and `10% - 3` and `10%-3` are
- * -2.9; `%` before a number is the remainder (`10 % 3`), and before a signed one if it stands apart
- * from the number before it (`10 % -3`). `2pi`, `3(4+5)` and `3x4` multiply. Commas in a number
- * read as in [Units.number] (`1,500`, `0,5`), but in a function's parentheses they separate values
- * (`max(1,500)`). Anything else (Lua code) is left to Lua.
+ * The arithmetic of the `=` calculator. It runs at once on the phone, and the result shows while you type.
+ *
+ * Supported:
+ * - `+ - * /` (also `−`, `×`, `x`, `÷`), `^` or `**`, `mod`, `n!`, parentheses;
+ * - `pi` (`π`) and `e`;
+ * - sqrt, cbrt, abs, round, floor, ceil, ln, log (base 10), log2, exp, min and max;
+ * - sin, cos, tan, asin, acos, atan, in radians. `30°` is in degrees.
+ *
+ * Percent works as on a phone's calculator:
+ * - `15%` is 0.15.
+ * - `80 + 15%` adds 15% of 80.
+ * - `15% of 80` is 12.
+ * - `10% - 3` and `10%-3` are -2.9.
+ * - `%` before a number is the remainder (`10 % 3`).
+ * - `%` before a signed number is also the remainder, if a space separates it from the number before it (`10 % -3`).
+ *
+ * Other rules:
+ * - Values side by side multiply: `2pi`, `3(4+5)`, `3x4`.
+ * - Commas in a number are read as in [Units.number] (`1,500`, `0,5`). Inside a function's
+ *   parentheses, commas separate values instead (`max(1,500)`).
+ * - Anything else (Lua code) is left to Lua.
  */
 object Calc {
-    /** The answer to [text], or null when it isn't arithmetic this reads. Throws [ArithmeticException] for one with no answer. */
+    /**
+     * Returns the answer to [text], or null when [text] is not arithmetic that this parser reads.
+     * Throws [ArithmeticException] when the arithmetic has no answer.
+     */
     fun eval(text: String): Double? {
         val tokens = tokenize(text) ?: return null
         if (tokens.isEmpty()) return null
@@ -44,7 +59,7 @@ object Calc {
         return v
     }
 
-    /** [eval] written for the log: `1024`, `1.41421356237`, `1.5e+20`. */
+    /** The result of [eval], formatted for the log: `1024`, `1.41421356237`, `1.5e+20`. */
     fun answer(text: String): String? = eval(text)?.let(::format)
 
     fun format(v: Double): String {
@@ -59,8 +74,9 @@ object Calc {
     private data class Op(val c: String) : Token
 
     /**
-     * `3x4`: [word] starts with a times sign stuck to the number after it, when a value comes before
-     * it (`2x3x4` reads as one word). But `0x10`, written together, is hexadecimal, for Lua.
+     * For `3x4`: returns true when [word] starts with a times sign joined to the number after it,
+     * and a value comes before it. (`2x3x4` is read as one word.)
+     * But `0x10`, written without spaces, is hexadecimal, so it is left for Lua.
      */
     private fun timesThenDigits(word: String, before: List<Token>, text: String, at: Int): Boolean {
         if (!TIMES_THEN_DIGITS.matches(word)) return false
@@ -71,8 +87,9 @@ object Calc {
     private val ENDS_A_VALUE = setOf(Op(")"), Op("!"), Op("%"), Op("°"), Word("pi"), Word("e"))
 
     /**
-     * `10 % -3`: the `%` at [at] is the remainder when it stands apart from the number before it and
-     * a sign is stuck to the number after it. `10%-3`, `10% -3` and `10 % - 3` are a percent, then a sum.
+     * For `10 % -3`: the `%` at [at] is the remainder when a space separates it from the number
+     * before it, and a sign is joined to the number after it.
+     * `10%-3`, `10% -3` and `10 % - 3` are a percent, then a sum.
      */
     private fun remainderBeforeSign(text: String, at: Int) =
         text.getOrNull(at - 1)?.isWhitespace() == true && SIGNED_NUMBER.matchesAt(text, at + 1)
@@ -80,7 +97,7 @@ object Calc {
 
     private fun tokenize(text: String): List<Token>? {
         val out = ArrayList<Token>()
-        // How deep in a function's parentheses, where a comma separates values.
+        // The depth inside a function's parentheses. There, a comma separates values.
         var inFunction = 0
         var i = 0
         while (i < text.length) {
@@ -92,7 +109,7 @@ object Calc {
                     // A comma between digits belongs to the number (`1,500`), except in a function's parentheses.
                     fun commaInNumber() = text[j] == ',' && inFunction == 0 && text.getOrNull(j + 1)?.isDigit() == true
                     while (j < text.length && (text[j].isDigit() || text[j] == '.' || commaInNumber())) j++
-                    // An exponent only when digits follow: `2e` is 2 × e.
+                    // `e` starts an exponent only when digits follow. `2e` is 2 × e.
                     if (j < text.length && (text[j] == 'e' || text[j] == 'E')) {
                         val k = if (j + 1 < text.length && (text[j + 1] == '+' || text[j + 1] == '-')) j + 2 else j + 1
                         if (k < text.length && text[k].isDigit()) {
@@ -138,7 +155,7 @@ object Calc {
         return out
     }
 
-    /** A value, and whether it is a percent (`15%`), which `+` and `-` take as a share of the left side. */
+    /** A value, and whether it is a percent (`15%`). `+` and `-` treat a percent as a share of the left side. */
     private class Value(val value: Double, val percent: Boolean = false)
 
     private class Parser(private val tokens: List<Token>) {
@@ -178,7 +195,7 @@ object Calc {
                         if (d == 0.0) throw ArithmeticException("can't divide by zero")
                         Value(left.value - floor(left.value / d) * d)
                     }
-                    // `2pi`, `3(4+5)`, `2 sqrt 9`: side by side, they multiply.
+                    // `2pi`, `3(4+5)`, `2 sqrt 9`: values side by side multiply.
                     isOp("(") || (peek() is Word && !isWord("x") && !isWord("of") && !isWord("mod")) -> Value(left.value * unary().value)
                     else -> return left
                 }
@@ -203,7 +220,7 @@ object Calc {
             while (true) {
                 v = when {
                     isOp("!") -> { pos++; Value(factorial(v.value)) }
-                    // A percent, unless a number follows: then it is the remainder (`10 % 3`).
+                    // A percent, unless a number or `(` follows. Then it is the remainder (`10 % 3`).
                     isOp("%") && (tokens.getOrNull(pos + 1).let { it !is Num && (it as? Op)?.c != "(" }) -> { pos++; Value(v.value / 100, percent = true) }
                     isOp("°") -> { pos++; Value(Math.toRadians(v.value)) }
                     else -> return v
@@ -225,7 +242,7 @@ object Calc {
             }
         }
 
-        /** `max(1, 2)` or `sqrt 2`: in parentheses, several; without, the one value after it. */
+        /** Reads `max(1, 2)` or `sqrt 2`. In parentheses, there can be several values. Without them, it takes the one value that follows. */
         private fun arguments(name: String): List<Double> {
             if (!isOp("(")) return listOf(power().value)
             pos++

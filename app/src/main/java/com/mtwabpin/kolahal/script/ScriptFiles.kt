@@ -12,7 +12,7 @@ class ScriptFiles(private val context: Context) {
 
     data class ImportResult(val created: List<String>, val updated: List<String>, val skipped: List<String>)
 
-    /** Creates or updates one script per `.lua` / `.js` file; the file name becomes the script name. */
+    /** Creates or updates one script per `.lua` / `.js` file. The file name becomes the script name. */
     fun import(uris: List<Uri>): ImportResult {
         val created = ArrayList<String>()
         val updated = ArrayList<String>()
@@ -25,7 +25,7 @@ class ScriptFiles(private val context: Context) {
                 skipped += "$fileName (not .lua / .js)"
                 continue
             }
-            // A new name can't be a built-in's or an app's; a script that exists is updated whatever its name.
+            // A new name can't be a built-in's or an app's name. A script that already exists is updated, whatever its name.
             if (scripts.byName(name) == null) ScriptNames.clash(context, name)?.let { why ->
                 skipped += "$fileName ($why)"
                 continue
@@ -34,14 +34,14 @@ class ScriptFiles(private val context: Context) {
                 skipped += "$fileName (${it.message})"
                 continue
             }
-            // Written for a newer Kolahal: it may call what this one doesn't have.
+            // Written for a newer Kolahal, so it may call things this version doesn't have.
             if (ScriptMeta.needsNewer(code, com.mtwabpin.kolahal.BuildConfig.VERSION_NAME)) {
                 skipped += "$fileName (needs Kolahal ${ScriptMeta.requires(code)})"
                 continue
             }
             val existing = scripts.byName(name)
-            // A script from a file arrives switched off, and so does one whose code a file replaces:
-            // turning it on is the user's go-ahead for its timers, triggers and `@uses`.
+            // A script from a file arrives switched off. So does a script whose code a file replaces.
+            // Switching it on is the user's approval of its timers, triggers and `@uses`.
             when {
                 existing == null -> {
                     val s = scripts.create(name, lang, code, enabled = false)

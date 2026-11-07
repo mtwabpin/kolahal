@@ -3,8 +3,8 @@ package com.mtwabpin.kolahal.terminal
 /** Pure helpers for reading and printing command arguments. */
 object CommandParsing {
     /**
-     * Words, with "…" or '…' around one holding spaces. A quote opens only at the start of a word,
-     * so an apostrophe inside one (`I'm`, `Domino's`) is just a letter.
+     * Splits [s] into words. Put "…" or '…' around a word that contains spaces.
+     * A quote opens only at the start of a word, so an apostrophe inside a word (`I'm`, `Domino's`) is just a letter.
      */
     fun tokenize(s: String): List<String> {
         val out = ArrayList<String>()
@@ -24,22 +24,23 @@ object CommandParsing {
     }
 
     /**
-     * [line] with every kind of space (tab, no-break space, a line break) as a plain one, so the
-     * command name splits off the same way everywhere: running it, and checking whether it is sensitive.
+     * Returns [line] with every kind of space (tab, no-break space, line break) replaced by a plain space.
+     * This way the command name splits off the same way everywhere: when it runs, and when we check
+     * whether it is sensitive.
      */
     fun spaces(line: String): String = if (line.none { it.isWhitespace() && it != ' ' }) line
         else buildString(line.length) { line.forEach { append(if (it.isWhitespace()) ' ' else it) } }
 
-    /** Longest timer or feed interval: a week, like backup import allows. */
+    /** The longest timer or feed interval: one week. Backup import allows the same. */
     const val MAX_INTERVAL_MIN = 7L * 24 * 60
 
-    /** "30m", "2h", "1d", "45" (minutes), in any case; "off", "0" or "manual" -> 0 (off). */
+    /** Parses "30m", "2h", "1d" or "45" (minutes), in any case. "off", "0" and "manual" give 0 (off). */
     fun parseInterval(s: String?): Int? {
         val w = s?.lowercase() ?: return null
         if (w == "off" || w == "0" || w == "manual") return 0
         val m = Regex("^(\\d+)([mhd]?)$").find(w) ?: return null
-        // Capped before it's multiplied: `1500000d` must be rejected, not wrap to a negative
-        // "timer off", nor a number so big it wraps round to a few hours.
+        // Check the limit before multiplying. `1500000d` must be rejected. It must not overflow to a
+        // negative number ("timer off"), or to a huge number that wraps round to a few hours.
         val n = m.groupValues[1].toLongOrNull()?.takeIf { it <= MAX_INTERVAL_MIN } ?: return null
         val minutes = when (m.groupValues[2]) {
             "h" -> n * 60
@@ -50,19 +51,24 @@ object CommandParsing {
     }
 
     /**
-     * The daily times in [args], the words after `script at <name>`: commas, spaces or both between
-     * them, as on an `@at` line, so "8:00,18:30", "8:00, 18:30" and "8:00 18:30" each hold two.
+     * Returns the daily times in [args], the words after `script at <name>`.
+     * Times can be separated by commas, spaces or both, as on an `@at` line.
+     * So "8:00,18:30", "8:00, 18:30" and "8:00 18:30" each give two times.
      */
     fun clockWords(args: List<String>): List<String> =
         args.flatMap { it.split(',', ' ') }.filter { it.isNotBlank() }
 
-    /** What `script at`'s words ([clockWords]) set: the times, sorted and each once, none for `off`, or the first word that isn't one. */
+    /**
+     * What the words of `script at` ([clockWords]) set:
+     * - [Times]: the times, sorted and without duplicates. The list is empty for `off`.
+     * - [Bad]: the first word that is not a time.
+     */
     sealed interface DailyTimes {
         data class Times(val times: List<String>) : DailyTimes
         data class Bad(val word: String) : DailyTimes
     }
 
-    /** [words] as `script at` reads them; null when there are none (a usage line, not `off`). */
+    /** Reads [words] as `script at` does. Returns null when there are no words: that means "show usage", not `off`. */
     fun dailyTimes(words: List<String>): DailyTimes? {
         if (words.isEmpty()) return null
         if (words[0] == "off") return DailyTimes.Times(emptyList())

@@ -9,10 +9,10 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptScheduler
 
-/** `feed` / `feeds`, `rss` and `notifs`. Kept out of [CommandProcessor] like the other command groups. */
+/** The `feed` / `feeds`, `rss` and `notifs` commands. Like the other command groups, they live outside [CommandProcessor]. */
 class FeedCommands(
     context: Context,
-    /** Finds the app `notifs mute <app>` names. */
+    /** Finds the app that `notifs mute <app>` names. */
     private val appCommands: AppCommands,
     private val ui: TerminalUi,
 ) : CommandGroup(context) {
@@ -39,11 +39,11 @@ class FeedCommands(
         )
     }
 
-    /** Whether feed [id] exists; when it doesn't, it says so. */
+    /** Returns whether feed [id] exists. If it doesn't, prints an error. */
     private fun exists(id: Long): Boolean =
         (com.mtwabpin.kolahal.feeds.FeedRepository.get(context).byId(id) != null).also { if (!it) error("No feed #$id — 'feeds' lists them") }
 
-    /** Built-in RSS/Atom subscriptions (no scripting needed). */
+    /** Built-in RSS/Atom subscriptions. No scripting is needed. */
     fun feeds(args: List<String>) {
         val repo = com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
         val scheduler = com.mtwabpin.kolahal.feeds.FeedScheduler
@@ -97,13 +97,13 @@ class FeedCommands(
                 items.forEach {
                     logs.add(LogKind.SCRIPT, it.title, names[it.feedId] ?: "feed", LogContext.of(LogContext.URL to it.link, LogContext.COPY to it.title, com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM to it.id.toString()))
                 }
-                // Only what was shown: older unread items beyond the limit stay unread.
+                // Mark only the shown items as read. Older unread items beyond the limit stay unread.
                 if (unreadOnly) repo.markRead(items.map { it.id })
                 val left = if (unreadOnly) repo.unreadCount(id) else 0
                 if (left > 0) info("$left more unread — feed read${id?.let { " $it" }.orEmpty()} again")
             }
             "open" -> {
-                // Opens the newest unread items (with links) in the browser; only those are marked read.
+                // Open the newest unread items that have links in the browser. Mark only those as read.
                 val items = repo.items(feedId = id, unreadOnly = true, limit = 40)
                     .filter { it.link != null }.take(MAX_FEED_OPEN)
                 if (items.isEmpty()) return info("Nothing unread")
@@ -167,8 +167,8 @@ class FeedCommands(
                     )
                 }
             }
-            // Turning it on, Kolahal first says what it reads and asks (Play's prominent disclosure);
-            // already on, Android's screen opens straight away, to turn it off.
+            // If access is off, Kolahal first explains what it reads and asks (Play's prominent disclosure).
+            // If access is already on, Android's screen opens at once, so the user can turn it off.
             "enable" -> if (actions.isEnabled(context)) startActivity(actions.settingsIntent(context)) else ui.askNotificationAccess()
             "unmute" -> args.drop(1).joinToString(" ").takeIf { it in prefs.muted.value }?.let { pkg ->
                 prefs.unmute(pkg)
@@ -190,7 +190,7 @@ class FeedCommands(
             "clear" -> {
                 actions.dismissAll()
                 store.clear()
-                // Also drop the snapshot scripts read, so cleared notifications don't linger on disk.
+                // Also delete the snapshot that scripts read, so cleared notifications don't stay on disk.
                 com.mtwabpin.kolahal.notifications.KolahalNotificationListener.clearMirror(context)
                 info("Notifications cleared")
             }
@@ -199,7 +199,7 @@ class FeedCommands(
     }
 
     companion object {
-        /** Most browser tabs one `feed open` launches; the rest stay unread. */
+        /** The most browser tabs that one `feed open` opens. The other items stay unread. */
         const val MAX_FEED_OPEN = 5
     }
 }

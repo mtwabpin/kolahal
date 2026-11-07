@@ -19,7 +19,7 @@ object Notifier {
     const val CHANNEL_SCRIPTS = "scripts"
 
     fun createChannels(context: Context) {
-        // One call for all three, at every start of either process.
+        // Creates all three channels in one call. This runs each time either process starts.
         context.getSystemService(NotificationManager::class.java).createNotificationChannels(
             listOf(
                 NotificationChannel(
@@ -41,7 +41,7 @@ object Notifier {
         )
     }
 
-    /** A script running at its daily time, in the foreground ([com.mtwabpin.kolahal.script.ScriptRunService]). */
+    /** Channel for a script that runs at its daily time in the foreground ([com.mtwabpin.kolahal.script.ScriptRunService]). */
     const val CHANNEL_RUNNING = "running"
 
     fun canPost(context: Context, channelId: String = CHANNEL_SCRIPTS): Boolean {
@@ -56,8 +56,9 @@ object Notifier {
     const val CHANNEL_REMINDERS = "reminders"
 
     /**
-     * Posts a `remind` notification; tapping opens the launcher, and its buttons snooze it for 10
-     * minutes or an hour, or take it away. One notification per reminder id.
+     * Posts a `remind` notification. There is one notification per reminder id.
+     * - A tap opens the launcher.
+     * - Its buttons snooze it for 10 minutes or 1 hour, or mark it done.
      */
     fun postReminder(context: Context, id: Long, text: String): Boolean {
         if (!canPost(context, CHANNEL_REMINDERS)) return false
@@ -101,9 +102,11 @@ object Notifier {
     }
 
     /**
-     * Posts a script notification. Tapping opens [url] if given, otherwise the launcher. Pass [id]
-     * to replace an earlier notification with the same tag/id (e.g. one per feed); by default each
-     * distinct title/body gets its own. Never throws. A [url] no app can open leaves the tap doing nothing, so callers pass checked links.
+     * Posts a script notification. Never throws.
+     * - A tap opens [url] if given, otherwise the launcher. If no app can open [url], the tap does
+     *   nothing, so callers should pass checked links.
+     * - Pass [id] to replace an earlier notification with the same tag and id (for example, one per
+     *   feed). By default, each different title and body gets its own notification.
      */
     fun post(context: Context, tag: String, title: String, body: String, url: String?, id: Int? = null): Boolean =
         runCatching {

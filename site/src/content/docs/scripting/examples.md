@@ -3,12 +3,15 @@ title: Examples
 description: Complete scripts to copy, from a battery logger to an uptime checker and command scripts.
 ---
 
-Each example is a complete script. Create it with `script new <name>` (add `.js` for JavaScript),
-paste the code into the editor and save with `Ctrl+S` or **save**.
+Each example is a complete script. To use one:
+
+1. Create a script with `script new <name>` (add `.js` for JavaScript).
+2. Paste the code into the editor.
+3. Save with `Ctrl+S` or **save**.
 
 ## Battery log (Lua, timer)
 
-Records the battery level each run and keeps the change since the last run as its status line.
+Records the battery level on each run. Its status line shows the change since the last run.
 
 ```lua
 -- batterylog.lua — run with: script every batterylog 30m
@@ -33,7 +36,7 @@ end
 
 ## Uptime checker (JavaScript, timer, parallel requests)
 
-Checks several sites at once and notifies only when one goes down or comes back.
+Checks several sites at the same time. It notifies you only when a site goes down or comes back up.
 
 ```js
 // uptime.js — script every uptime 15m · script notify uptime on
@@ -70,8 +73,8 @@ status(down ? `${down} site(s) down` : null);
 
 ## Notes (Lua, command)
 
-A tiny scratchpad: `jot buy stamps`, `jot` to list, `jot rm 2`. (`note` is taken: Kolahal has its
-own notes.)
+A small notepad: `jot buy stamps` adds a note, `jot` lists the notes, and `jot rm 2` removes one.
+The name `note` is already used by Kolahal's own notes.
 
 ```lua
 -- jot.lua
@@ -100,7 +103,8 @@ for i, text in ipairs(notes) do log(i .. ". " .. text, { copy = text }) end
 
 ## GitHub stars (JavaScript, command with caching)
 
-`stars owner/repo` shows a repo's stars. The response is cached for ten minutes, so repeated runs make no new request.
+`stars owner/repo` shows how many stars a repository has. The response is cached for ten minutes,
+so runs in that time make no new request.
 
 ```js
 // stars.js
@@ -121,8 +125,8 @@ if (d.description) log(d.description);
 
 ## Morning briefing (Lua, daily time)
 
-Runs at 07:30, then sends one notification with the weather and how many notifications are
-waiting.
+Runs at 07:30. It sends one notification with the weather and the number of waiting
+notifications.
 
 ```lua
 -- morning.lua — script at morning 07:30 · script notify morning on
@@ -147,9 +151,9 @@ notify("Good morning", summary)
 
 ## Morning routine (Lua, command driving the launcher)
 
-`launcher.run` only works when the script is started from the prompt, which makes it a good fit
-for command scripts. Commands that change settings or data (`work`, `notifs`, `clear`, `script`
-and the like) must be typed, so they don't run from a script.
+`launcher.run` works only when the script starts from the prompt, so it suits command scripts.
+Commands that change settings or data (`work`, `notifs`, `clear`, `script` and similar) must be
+typed by you. A script can't run them.
 
 ```lua
 -- routine.lua
@@ -165,8 +169,8 @@ return "good morning"
 
 ## Charging log (Lua, event trigger)
 
-Uses [`@on` triggers](/scripting/overview/#event-triggers) to run when the charger is connected or
-removed.
+Uses [`@on` triggers](/scripting/overview/#event-triggers) to run when you connect or remove the
+charger.
 
 ```lua
 -- charging.lua

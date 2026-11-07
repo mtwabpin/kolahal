@@ -5,7 +5,7 @@ import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import java.io.StringReader
 
-/** Minimal RSS 2.0 / RSS 1.0 (RDF) / Atom parser. */
+/** A minimal parser for RSS 2.0, RSS 1.0 (RDF) and Atom. */
 object RssParser {
     private val SPACES = Regex("\\s+")
 
@@ -29,13 +29,13 @@ object RssParser {
 
     private const val SUMMARY_MAX = 280
 
-    /** Items read from one feed; the rest of a huge feed isn't parsed (feeds list newest first). */
+    /** The most items read from one feed. The rest of a huge feed is not parsed, because feeds list the newest items first. */
     const val MAX_ITEMS = 300
 
     fun parse(xml: String): Feed {
         val parser = Xml.newPullParser().apply {
             setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
-            // A feed's text can't style a log line.
+            // A feed's text must not be able to style a log line.
             setInput(StringReader(com.mtwabpin.kolahal.data.StyledText.strip(xml)))
         }
         var feedTitle: String? = null
@@ -58,7 +58,7 @@ object RssParser {
                         inItem = true
                         title = null; link = null; id = null; date = null; summary = null
                     }
-                    // An Atom entry's <source> describes the feed it came from: not its title or id.
+                    // An Atom entry's <source> describes the feed it came from. It is not the entry's title or id.
                     inItem && name == "source" -> readText(parser)
                     name == "title" -> readText(parser).let { if (inItem) title = it else if (feedTitle == null) feedTitle = it }
                     name == "link" -> {

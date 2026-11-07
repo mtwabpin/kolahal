@@ -151,6 +151,9 @@ class OnboardingTest {
     @Test fun theClockPreviewFollowsTheSetting() {
         show()
         repeat(3) { next() }
+        // The header is off at first; its clock shows once it's on.
+        compose.onNodeWithTag("tour-clock").assertDoesNotExist()
+        tap("Header")
         tap("24-hour")
         val shown = compose.onNodeWithTag("tour-clock").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("")
         assertTrue(shown, Regex("\\d{2}:\\d{2}").matches(shown))

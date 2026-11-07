@@ -13,17 +13,20 @@ import java.util.concurrent.atomic.AtomicInteger
  * Shell-style filters over a command's output: `help | grep app`, `history | tail 5`,
  * `feed read | grep -v sponsored | head 3`, `contacts | count`.
  *
- * Only a `|` followed by a known filter starts a stage, so `lua a or b`, `js x || y` and `=` maths
- * are never split. One with no space before it belongs to a stage that keeps its words as typed
- * ([keepsItsWords]): `grep head|tail` is one pattern. Error lines always pass through; output a
- * command prints later (network replies, scripts) isn't captured.
+ * Rules:
+ * - A new stage starts only at a `|` followed by a known filter. So `lua a or b`, `js x || y`
+ *   and `=` maths are never split.
+ * - A `|` with no space before it stays in the stage if that stage keeps its words as typed
+ *   ([keepsItsWords]). So `grep head|tail` is one pattern.
+ * - Error lines always pass through.
+ * - Output that a command prints later (network replies, scripts) is not captured.
  */
 object Pipes {
     val FILTERS = listOf("grep", "head", "tail", "count", "wc", "sort", "uniq")
 
     private val SPLIT = Regex("""(?<!\|)(\s*)\|\s*(?=(?:${FILTERS.joinToString("|")})\b)""")
 
-    /** A regex, code, or words kept or sent as they are. */
+    /** Commands whose arguments are a regex, code, or words that are kept or sent exactly as typed. */
     private val KEEP_WORDS = setOf("grep", "lua", "js", "alias", "config", "echo", "todo", "note", "remind", "timer", "alarm", "sms", "url", "rename")
 
     private fun keepsItsWords(stage: String): Boolean {
@@ -44,7 +47,10 @@ object Pipes {
         return stages.map { it.trim() }.filter { it.isNotEmpty() }
     }
 
-    /** [line] with a space around each filter's `|`, so its first word is the command: checks and aliases read it that way. */
+    /**
+     * Returns [line] with a space around each filter's `|`. Then the first word is always the
+     * command, which is how checks and aliases read the line.
+     */
     fun spaced(line: String): String = split(line).joinToString(" | ")
 
     fun apply(lines: List<Pending>, stages: List<String>): Result<List<Pending>> = runCatching {
@@ -57,7 +63,7 @@ object Pipes {
         val parts = stage.split(Regex("\\s+"))
         val name = parts[0].lowercase()
         val args = parts.drop(1)
-        // Errors and the command echo are not data: they pass every stage untouched.
+        // Errors and the echoed command are not data. They pass through every stage unchanged.
         val (keep, data) = lines.partition { it.kind == LogKind.ERROR || it.kind == LogKind.COMMAND }
         val result = when (name) {
             "grep" -> {
@@ -79,10 +85,10 @@ object Pipes {
         return keep + result
     }
 
-    /** Text plus the right-hand description of two-column rows (help, config, script ls). */
+    /** The text to search: the line's text, plus the right-hand description in two-column rows (help, config, script ls). */
     private fun searchable(p: Pending): String = p.ctx.values[LogContext.DESC]?.let { "${p.text} $it" } ?: p.text
 
-    /** `head 5`, `head -5`, `head -n5` and `head -n 5`. */
+    /** Reads the count from `head 5`, `head -5`, `head -n5` or `head -n 5`. The default is 10. */
     private fun count(args: List<String>): Int {
         val raw = if (args.firstOrNull() == "-n") args.getOrNull(1) else args.firstOrNull()?.removePrefix("-")?.removePrefix("n")
         return raw?.toIntOrNull()?.coerceIn(0, 10_000) ?: 10
@@ -92,10 +98,11 @@ object Pipes {
 private val GREP_LIMIT = MatchLimit(ms = 1_000, maxThreads = 2)
 
 /**
- * Runs a match on a thread of its own and waits [ms] for it, so a pattern that backtracks without
- * end (`(.*.*)*x`) can't hold up the commands after it. Android's regex engine is native and can't
- * be stopped: such a match runs on, at the lowest priority, until it ends or Kolahal restarts, and
- * at most [maxThreads] matches run at once.
+ * Runs a match on its own thread and waits up to [ms] for it. This way a pattern that backtracks
+ * forever (`(.*.*)*x`) can't block the commands after it.
+ *
+ * Android's regex engine is native and can't be stopped. So a slow match keeps running, at the
+ * lowest priority, until it ends or Kolahal restarts. At most [maxThreads] matches run at once.
  */
 internal class MatchLimit(private val ms: Long, private val maxThreads: Int) {
     private val running = AtomicInteger()
@@ -105,8 +112,8 @@ internal class MatchLimit(private val ms: Long, private val maxThreads: Int) {
             running.decrementAndGet()
             throw IllegalArgumentException("grep: earlier patterns are still running; restart stops them")
         }
-        // Given back inside the task, before its answer is: a caller that has its answer can start
-        // the next match at once. Given back after, the place could still look taken by then.
+        // Free the slot inside the task, before the result is returned. Then a caller that has its
+        // result can start the next match at once. If we freed it later, the slot could still look taken.
         val task = FutureTask {
             try {
                 match()

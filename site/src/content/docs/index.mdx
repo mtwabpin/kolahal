@@ -29,27 +29,27 @@ import setup from '../../assets/setup.png';
 
 <CardGrid>
 	<Card title="Launch apps by typing" icon="seti:shell">
-		Any text that isn't a command is matched against app names. Press Enter to launch the highlighted best match. Turn on `suggestions.idle` to see your favourites and most-used apps on an empty prompt.
+		If your text is not a command, Kolahal matches it against app names. Press Enter to open the best match, which is highlighted. Turn on `suggestions.idle` to see your favourite and most-used apps when the prompt is empty.
 	</Card>
 	<Card title="An interactive log" icon="list-format">
-		Every command and its output is a group with a coloured bar. Tap a line for its main action.
-		Long-press for an action sheet with copy, share, open, rerun and more.
+		Each command and its output form a group with a coloured bar. Tap a line to run its main action.
+		Long-press a line to open a menu with copy, share, open, rerun and more.
 	</Card>
 	<Card title="Scripts in Lua or JS" icon="seti:lua">
-		Timers (`every 30m`, `at 08:00`), notifications, status lines you can pin at the top and `@command` scripts that
-		take arguments. They run sandboxed in a separate process.
+		Scripts can run on timers (`every 30m`, `at 08:00`), post notifications, show status lines that you can pin at the top,
+		and add `@command` commands that take arguments. Scripts run in a sandbox, in a separate process.
 	</Card>
 	<Card title="Feeds and notifications" icon="rss">
-		Built-in RSS/Atom subscriptions with unread counts. With notification access, new notifications
-		show up in the log, each ending in its app's icon.
+		Subscribe to RSS and Atom feeds and see unread counts. If you give Kolahal notification access, new notifications
+		appear in the log. Each one ends with its app's icon.
 	</Card>
 	<Card title="Built-in tools" icon="puzzle">
-		`= 2^10`, `= 5 km in mi`, `= 100 usd in eur`, web search, `call`, `sms`, app shortcuts, screen
-		time and an unlock counter.
+		A calculator and converter (`= 2^10`, `= 5 km in mi`, `= 100 usd in eur`), web search, `call`, `sms`, app shortcuts,
+		screen time and an unlock counter.
 	</Card>
 	<Card title="Work profile and private space" icon="seti:lock">
-		If you have them, their apps appear in the same list as your personal apps, tagged `[W]` and `[S]` (`[C]` for
-		clones). Pause or resume the work profile from the quick actions or with `work off`.
+		If you use them, their apps appear in the same list as your personal apps. Work apps are tagged `[W]`, private space
+		apps `[S]` and clones `[C]`. To pause or resume the work profile, use the quick actions or `work off`.
 	</Card>
 </CardGrid>
 
@@ -72,23 +72,24 @@ import setup from '../../assets/setup.png';
 
 ## Themes
 
-`theme green` (the default) · `amber` · `mono` · `dracula` · `solarized` · `gruvbox` · `gruvbox-material`,
-each in a dark and a light version that follow the phone's dark mode.
-This site uses the green palette in dark mode and gruvbox light in light mode.
+`theme green` (the default) · `amber` · `mono` · `dracula` · `solarized` · `gruvbox` · `gruvbox-material`
+
+Each theme has a dark and a light version. Kolahal uses the one that matches the phone's dark mode.
+This site uses the green theme in dark mode and gruvbox light in light mode.
 
 ## Next steps
 
 <CardGrid>
 	<Card title="Get it running" icon="rocket">
-		[Download and install](/getting-started/install/), then follow the [tour](/getting-started/setup/) that opens on first start.
+		[Download and install](/getting-started/install/) Kolahal. Then follow the [tour](/getting-started/setup/) that opens the first time you start it.
 	</Card>
 	<Card title="Learn the prompt" icon="open-book">
-		[Basics](/getting-started/basics/): suggestions, the key bar, tap and long-press, and keyboard shortcuts.
+		[Basics](/getting-started/basics/) explains suggestions, the key bar, tap and long-press, and keyboard shortcuts.
 	</Card>
 	<Card title="Write a script" icon="pencil">
-		[Scripting overview](/scripting/overview/), the [API reference](/scripting/api/) and the [script library](/scripting/library/).
+		Read the [scripting overview](/scripting/overview/), the [API reference](/scripting/api/) and the [script library](/scripting/library/).
 	</Card>
 	<Card title="Get help" icon="discord">
-		Ask on the [Discord server](https://discord.gg/3D25w6gXR5). Report a bug or ask for a feature on [GitHub](https://github.com/mtwabpin/kolahal/issues/new/choose), and report a security problem [privately](/reference/security/).
+		Ask questions on the [Discord server](https://discord.gg/3D25w6gXR5). Report bugs and ask for features on [GitHub](https://github.com/mtwabpin/kolahal/issues/new/choose). Report security problems [privately](/reference/security/).
 	</Card>
 </CardGrid>

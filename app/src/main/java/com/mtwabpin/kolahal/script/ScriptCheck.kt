@@ -4,13 +4,14 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.terminal.CommandParsing
 
 /**
- * What saving a script in the editor points out, read from its text alone: a name the API doesn't
- * have (`http.gte`), a call that needs a `@uses` line it lacks, and `@` lines Kolahal doesn't know
- * or can't read (`@evrey 1h`, `@at 25:00`, `@on unlok`). Hints, not errors: the script is saved
- * either way.
+ * What the editor points out when you save a script. It reads only the script's text and finds:
+ * - a name the API doesn't have (`http.gte`),
+ * - a call that needs a `@uses` line the script lacks,
+ * - `@` lines Kolahal doesn't know or can't read (`@evrey 1h`, `@at 25:00`, `@on unlok`).
+ * These are hints, not errors. The script is saved either way.
  */
 object ScriptCheck {
-    /** Something to look at on [line] (1-based). */
+    /** Something to check on [line] (1-based). */
     data class Issue(val line: Int, val text: String)
 
     /** Every `@` line the header may have ([ScriptMeta]). */
@@ -19,7 +20,7 @@ object ScriptCheck {
         "title", "author", "version", "tags", "every", "at", "notify", "requires",
     )
 
-    /** What each `@uses` name lets a script call. */
+    /** What each `@uses` name allows a script to call. */
     private val NEEDS = linkedMapOf(
         "notifications" to Regex("""(?<![.\w])notifications\s*\.\s*recent\b"""),
         "clipboard" to Regex("""(?<![.\w])clipboard\s*\.\s*\w+"""),
@@ -47,13 +48,13 @@ object ScriptCheck {
                     ?.let { out += Issue(i + 1, "@at $it isn't a time: HH:mm, such as 07:30") }
                 "on" -> ScriptMeta.unknownEvents(line).firstOrNull()
                     ?.let { out += Issue(i + 1, "@on $it isn't an event: ${ScriptMeta.EVENTS.joinToString(", ")}") }
-                // Read as a run reads it: a name in capitals, or after a tab, is one.
+                // Read the names the same way a run does: a name in capitals, or after a tab, counts.
                 "uses" -> ScriptMeta.usesNames(rest).firstOrNull { it !in ScriptMeta.USES }
                     ?.let { out += Issue(i + 1, "@uses $it isn't valid: ${ScriptMeta.USES.joinToString(", ")}") }
             }
         }
 
-        // The code, its comment lines left empty: a note about `http.get` isn't a call.
+        // The code with its comment lines emptied, because a note about `http.get` is not a call.
         val body = lines.joinToString("\n") { if (it.trimStart().startsWith(comment)) "" else it }
         fun lineOf(offset: Int) = body.substring(0, offset).count { it == '\n' } + 1
         val uses = ScriptMeta.uses(code)
@@ -67,7 +68,7 @@ object ScriptCheck {
         val names = docs.mapTo(HashSet()) { it.name }
         val spaces = docs.filter { it.kind == ApiDoc.Kind.NAMESPACE }.map { it.name }
         for (ns in spaces) {
-            // A table of its own by that name is the script's to fill.
+            // If the script defines its own table with that name, the script fills it, so skip it.
             if (Regex("""(?<![.\w])(local\s+|let\s+|const\s+|var\s+)?$ns\s*=[^=]""").containsMatchIn(body)) continue
             for (hit in Regex("""(?<![.\w])$ns\s*\.\s*([A-Za-z_]\w*)""").findAll(body)) {
                 val member = hit.groupValues[1]

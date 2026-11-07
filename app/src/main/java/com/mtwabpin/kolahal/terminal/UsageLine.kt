@@ -1,20 +1,26 @@
 package com.mtwabpin.kolahal.terminal
 
 /**
- * A command's usage line, the one `help` shows (`feed [add <url>|rm] [id]`), read for option
- * completion and for instant runs of whole lines (`torch on`).
+ * Reads a command's usage line, the one that `help` shows (`feed [add <url>|rm] [id]`).
+ * It is used for:
+ * - completing options;
+ * - running whole lines instantly (`torch on`).
  */
 object UsageLine {
-    /** A completable literal in a usage line: `work`, `ls`, `-l`, `--vs`; not `<app>`, `0-100` or `30s`. */
+    /** A literal word in a usage line that can be completed: `work`, `ls`, `-l`, `--vs`. Not `<app>`, `0-100` or `30s`. */
     val OPTION = Regex("-{0,2}[a-z][a-z-]*")
 
-    /** One way to fill an argument place: a literal [word] (null for a value like `<app>` or `0-100`), maybe with a value after it (`add <url>`). */
+    /**
+     * One way to fill an argument place.
+     * - [word]: the literal word. It is null for a value such as `<app>` or `0-100`.
+     * - [takesValue]: true when a value follows the word (`add <url>`).
+     */
     data class Choice(val word: String?, val takesValue: Boolean)
 
-    /** `feed [add <url>|rm] [id]` → `feed`, `[add <url>|rm]`, `[id]`: splits on spaces outside brackets. */
+    /** Splits a usage line on spaces outside brackets: `feed [add <url>|rm] [id]` → `feed`, `[add <url>|rm]`, `[id]`. */
     fun tokens(usage: String): List<String> = split(usage, ' ').filter { it.isNotBlank() }
 
-    /** The ways to fill the argument place [token]: `[add <url>|rm|<id>]` → `add` and a value, `rm`, a value. */
+    /** Returns the ways to fill the argument place [token]. `[add <url>|rm|<id>]` → `add` with a value, `rm`, a value. */
     fun choices(token: String): List<Choice> =
         split(token.removeSurrounding("[", "]"), '|').map { alt ->
             val word = alt.trim().substringBefore(' ')
@@ -22,10 +28,15 @@ object UsageLine {
         }
 
     /**
-     * Whether [line] fills every argument place of [usage] with nothing left to choose: each word is
-     * an option of its place that takes no value, no other option there starts with it, no value
-     * could go there instead, and the usage line ends with it. `torch on` for `torch [on|off]`; not
-     * `torch o`, `apps work` (`-l` may follow) or `volume up` (a number could go there).
+     * Returns true when [line] fills every argument place of [usage] and nothing is left to choose.
+     * For each word of [line]:
+     * - the word is an option of its place, and that option takes no value;
+     * - no other option of that place starts with the word;
+     * - a value could not go in that place instead.
+     * Also, the usage line must have no more places after the last word.
+     *
+     * True: `torch on` for `torch [on|off]`.
+     * False: `torch o`, `apps work` (`-l` may follow), `volume up` (a number could go there).
      */
     fun complete(line: String, usage: String): Boolean {
         val words = line.trim().lowercase().split(Regex("\\s+"))

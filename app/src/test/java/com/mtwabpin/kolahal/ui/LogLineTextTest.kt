@@ -74,7 +74,10 @@ class LogLineTextTest {
         assertTrue(middle.spanStyles.none { it.item.color == Term.profileColor(ProfileKind.WORK) })
     }
 
-    /** A script's line: unread gets a bullet, a title is bold, a link takes the link colour, and its source ends it. */
+    /**
+     * A script's line: unread gets a bullet, a title with a body is bold (a title alone isn't), a link
+     * takes the link colour, and its source ends it.
+     */
     @Test fun aScriptLine() {
         val plain = render(logEntry(LogKind.SCRIPT, "News", source = "hn"))
         assertEquals("News · hn", plain.text)
@@ -82,9 +85,11 @@ class LogLineTextTest {
         assertEquals(Term.dim, plain.at("hn").color)
         assertEquals("unread", "• News · hn", render(logEntry(LogKind.SCRIPT, "News", source = "hn"), unread = true).text)
         assertEquals("without its source", "News", render(logEntry(LogKind.SCRIPT, "News", source = "hn"), source = false).text)
-        val titled = render(logEntry(LogKind.SCRIPT, "News", ctx = LogContext.of(LogContext.TITLE to "1", LogContext.URL to "https://example.com/")))
-        assertEquals(FontWeight.Bold, titled.at("News").fontWeight)
-        assertEquals(Term.link, titled.at("News").color)
+        val alone = render(logEntry(LogKind.SCRIPT, "News", ctx = LogContext.of(LogContext.TITLE to "1", LogContext.URL to "https://example.com/")))
+        assertEquals(null, alone.at("News").fontWeight)
+        assertEquals(Term.link, alone.at("News").color)
+        val heading = render(logEntry(LogKind.SCRIPT, "News", ctx = LogContext.of(LogContext.TITLE to "1", LogContext.BODY to "Three new stories")))
+        assertEquals(FontWeight.Bold, heading.at("News").fontWeight)
     }
 
     /** A notification's line ends with its app's icon, read out as the app's name. */

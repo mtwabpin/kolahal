@@ -10,9 +10,10 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 
 /**
- * Syncs scripts with a user-picked folder (Storage Access Framework), so they can be edited on a
- * computer, kept in git, or moved to another phone. Code goes to `<name>.lua` / `<name>.js`;
- * timers and flags go to `kolahal.json` next to them.
+ * Syncs scripts with a folder the user picks (Storage Access Framework). The user can then edit them
+ * on a computer, keep them in git, or move them to another phone.
+ * - Code goes to `<name>.lua` / `<name>.js`.
+ * - Timers and flags go to `kolahal.json` in the same folder.
  */
 class ScriptFolder(private val context: Context) {
     private val prefs = context.getSharedPreferences("script_folder", Context.MODE_PRIVATE)
@@ -25,7 +26,7 @@ class ScriptFolder(private val context: Context) {
         context.contentResolver.takePersistableUriPermission(tree, flags)
         val old = uri
         prefs.edit { putString(KEY_URI, tree.toString()).remove(KEY_EXPORTED) }
-        // The previous folder's grant goes, unless backups go there too.
+        // Release the previous folder's grant, unless backups also go there.
         old?.takeIf { it != tree }?.let { Files.releaseFolder(context, it) }
     }
 
@@ -39,18 +40,18 @@ class ScriptFolder(private val context: Context) {
     /** Writes every script plus the manifest. Returns the number of scripts written. */
     fun export(): Int = export(folder())
 
-    /** [export] into [dir]: the folder picked, or one a test made. */
+    /** [export] into [dir]: the picked folder, or a folder a test made. */
     internal fun export(dir: DocumentFile): Int {
         val all = scripts.all()
-        // One listing instead of a provider round-trip per findFile() call.
+        // List the folder once, instead of one provider round-trip per findFile() call.
         val files = dir.listFiles().associateBy { it.name }
-        // Remove the files of scripts deleted on this phone since its last export. Only those: the
-        // folder can hold scripts another phone exported that this one doesn't have.
+        // Remove the files of scripts deleted on this phone since its last export. Remove only those:
+        // the folder can hold scripts that another phone exported and this one doesn't have.
         val current = all.map { "${it.name}.${it.lang.ext}" }.toSet()
         val deleted = prefs.getStringSet(KEY_EXPORTED, emptySet()).orEmpty().filterTo(HashSet()) { it !in current }
         deleted.forEach { files[it]?.delete() }
-        // Those other phones' scripts keep their entries too, or a phone importing them later would
-        // give them the timers their code suggests, not the ones set for them.
+        // Keep the manifest entries of other phones' scripts too. Otherwise a phone that imports them
+        // later would give them the timers their code suggests, not the ones set for them.
         val mine = all.mapTo(HashSet()) { it.name }
         val others = files[MANIFEST]?.let { readManifest(it.uri) }.orEmpty().values.filter { entry ->
             val file = "${entry["name"]}.${entry["lang"]}"
@@ -80,14 +81,14 @@ class ScriptFolder(private val context: Context) {
         context.contentResolver.openOutputStream(manifestFile.uri, "wt")!!.use {
             it.write(Json.stringify(manifest).toByteArray())
         }
-        // What this export wrote: the next one deletes the files of scripts gone since.
+        // Remember what this export wrote. The next export deletes the files of scripts removed since then.
         prefs.edit { putStringSet(KEY_EXPORTED, current) }
         return all.size
     }
 
     data class ImportResult(val created: Int, val updated: Int, val skipped: List<String>)
 
-    /** Reads `*.lua` / `*.js` from the folder, creating or updating scripts; applies the manifest. */
+    /** Reads `*.lua` / `*.js` from the folder, creates or updates scripts, and applies the manifest. */
     fun import(): ImportResult = import(folder())
 
     internal fun import(dir: DocumentFile): ImportResult {
@@ -95,15 +96,17 @@ class ScriptFolder(private val context: Context) {
         val settings = files.firstOrNull { it.name == MANIFEST }?.let { readManifest(it.uri) }.orEmpty()
 
         var created = 0
-        // Only scripts the import changed: the same code and settings again aren't an update.
+        // Counts only scripts the import changed. The same code and settings again are not an update.
         var updated = 0
         val skipped = ArrayList<String>()
+        // Scripts this import created or changed, by name.
+        val changedHere = mutableSetOf<String>()
         for (file in files) {
             val fileName = file.name ?: continue
             val lang = ScriptLang.of(fileName.substringAfterLast('.', "")) ?: continue
             if (file.isDirectory) continue
             val name = fileName.substringBeforeLast('.').lowercase()
-            // Same rules as a backup: no names of built-in commands.
+            // The same rules as a backup: no names of built-in commands.
             if (!ScriptNames.NAME.matches(name) || name in com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES) {
                 skipped += fileName
                 continue
@@ -124,13 +127,16 @@ class ScriptFolder(private val context: Context) {
                     skipped += fileName
                     continue
                 }
-                // Code from the folder over a script's: switched off, to be reviewed like a new one.
+                // Code from the folder replaces a script's code: the script is switched off, to be reviewed like a new one.
                 if (existing.code != code) {
                     scripts.replaceCode(existing.id, code)
                     isNew = true
                 }
                 existing
             }
+            // Two files can give one name (`Foo.lua`, `foo.lua`). The second finds the first one's code
+            // already in place: it must stay switched off, as the first does.
+            if (isNew) changedHere += name else if (name in changedHere) isNew = true
             settings[name]?.let { m ->
                 (m["every"] as? Number)?.toLong()?.let { every ->
                     val minutes = every.coerceIn(0, 7L * 24 * 60).toInt()
@@ -145,10 +151,10 @@ class ScriptFolder(private val context: Context) {
                     if (on) scripts.byId(script.id)?.let { ScriptAccess.askForNew(context, it) }
                 }
             }
-            // A new script without settings in kolahal.json gets the timers its code suggests; a changed
-            // one keeps its own, unless its `@every` or `@at` lines changed (replaceCode sees to that).
+            // A new script without settings in kolahal.json gets the timers its code suggests. A changed
+            // script keeps its own timers, unless its `@every` or `@at` lines changed (replaceCode handles that).
             if (existing == null && settings[name] == null) scripts.applySuggested(script.id, code)
-            // New scripts from a folder arrive switched off, like from a backup: review them before
+            // New scripts from a folder arrive switched off, as from a backup. Review them before
             // they run on a timer.
             if (isNew) scripts.setEnabled(script.id, false)
             if (existing != null && scripts.byId(script.id)?.let { changed(existing, it) } == true) updated++
@@ -157,7 +163,7 @@ class ScriptFolder(private val context: Context) {
         return ImportResult(created, updated, skipped)
     }
 
-    /** What an import can change of a script: its code, timers, notifications and switch. */
+    /** What an import can change in a script: its code, timers, notifications and switch. */
     private fun changed(before: Script, after: Script) =
         before.code != after.code || before.intervalMin != after.intervalMin || before.atTimes != after.atTimes ||
             before.notify != after.notify || before.enabled != after.enabled

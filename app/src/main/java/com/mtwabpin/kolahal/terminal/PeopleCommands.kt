@@ -12,16 +12,19 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 
 /**
- * `call`, `sms`, `contacts` and `calls`. Kept out of [CommandProcessor] like the other command groups.
- * The Play build has no READ_CONTACTS ([ContactsRepository.picker]): a name is looked up among the
- * contacts picked before, and no name, or one it doesn't know, opens Android's contact picker.
+ * The `call`, `sms`, `contacts` and `calls` commands. Like the other command groups, they live
+ * outside [CommandProcessor].
+ *
+ * The Play build has no READ_CONTACTS ([ContactsRepository.picker]). There, a name is looked up
+ * among the contacts picked before. With no name, or a name it doesn't know, Android's contact
+ * picker opens.
  */
 class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
     private val conf = Config.get(context)
     private val contacts = ContactsRepository.get(context)
 
 
-    /** `calls [n]`: the newest calls from Android's call log, newest first, in the same form as the live lines. */
+    /** `calls [n]`: prints the newest calls from Android's call log, newest first, in the same form as the live call lines. */
     fun calls(args: List<String>) {
         if (!com.mtwabpin.kolahal.BuildConfig.CALL_LOG) return error("This build can't read the call log, so calls isn't available")
         when (args.firstOrNull()) {
@@ -35,11 +38,14 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         val n = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 200) ?: 20
         val list = CallEvents.recent(context, n)
         if (list.isEmpty()) return info("No calls in the call log")
-        // Call lines, as the ones logged by themselves are: they stay out of backups, and copy as sensitive.
+        // Log these as call lines, like the live ones. So they stay out of backups and are copied as sensitive.
         list.forEach { logs.add(LogKind.OUTPUT, CallEvents.line(it, conf, withDay = true), CallEvents.SOURCE, CallEvents.ctx(it)) }
     }
 
-    /** Finds [query]'s contact and runs [then] with it; when several match, they're listed instead. */
+    /**
+     * Finds the contact for [query] and runs [then] with it. If several contacts match and the first
+     * is not an exact name match, it lists them instead.
+     */
     private fun withContact(query: String, then: (Contact) -> Unit) {
         if (contacts.picker) {
             if (query.isBlank() || contacts.search(query).isEmpty()) return ui.pickContact(then)
@@ -94,7 +100,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         list.forEach(::contactLine)
     }
 
-    /** The Play build's `contacts`: picks one, finds one picked before, or (`--forget`) drops one. */
+    /** `contacts` in the Play build: picks a contact, finds one picked before, or forgets one (`--forget`). */
     private fun pickedContacts(query: String) {
         when {
             query == "--allow" -> info("This build doesn't read your contacts: call, sms and contacts open Android's contact picker, and remember who you pick")
@@ -114,7 +120,10 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
     }
 
     companion object {
-        /** A contact line's context: tap dials, long-press calls, messages, opens the contact or copies the number. */
+        /**
+         * The context of a contact line. A tap dials the number. A long-press offers: call, message,
+         * open the contact, or copy the number.
+         */
         fun ctx(c: Contact) = LogContext.of(
             LogContext.PHONE to c.number,
             LogContext.CONTACT to c.lookupUri.toString().ifEmpty { null },

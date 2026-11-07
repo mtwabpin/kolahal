@@ -12,16 +12,20 @@ import java.time.ZoneOffset
 
 data class AgendaEvent(val id: Long, val title: String, val begin: Long, val end: Long, val allDay: Boolean)
 
-/** `agenda`: upcoming calendar instances (READ_CALENDAR). */
+/** `agenda`: upcoming calendar instances. Needs READ_CALENDAR. */
 object Agenda {
     fun hasPermission(context: Context) =
         context.checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
-    /** Instances overlapping [from, from + days) in the local zone, from visible calendars, not declined. */
+    /**
+     * Returns instances that overlap [from, from + days) in the local zone. It skips hidden calendars
+     * and events the user declined.
+     */
     fun query(context: Context, from: LocalDate, days: Int, zone: ZoneId = ZoneId.systemDefault()): List<AgendaEvent> {
         val start = from.atStartOfDay(zone).toInstant().toEpochMilli()
         val end = from.plusDays(days.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
-        // All-day instances are stored at UTC midnight; widen by a day each side, group() trims.
+        // All-day instances are stored at UTC midnight. So we widen the range by one day on each side,
+        // and group() removes the extra ones.
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
             ContentUris.appendId(it, start - 86_400_000L)
             ContentUris.appendId(it, end + 86_400_000L)
@@ -51,10 +55,11 @@ object Agenda {
     }
 
     /**
-     * Pure: events per day for [days] days from [from], days without events left out. All-day events
-     * (UTC dates, end exclusive) come first and repeat on every day they cover; a timed event shows on
-     * the day it starts, or on [from] when it started earlier and is still running. Timed events that
-     * ended before [now] are dropped.
+     * Pure. Groups events by day for [days] days from [from]. Days without events are left out.
+     * - All-day events (UTC dates, end exclusive) come first. They repeat on every day they cover.
+     * - A timed event shows on the day it starts. If it started before [from] and is still running,
+     *   it shows on [from].
+     * - Timed events that ended before [now] are dropped.
      */
     fun group(events: List<AgendaEvent>, zone: ZoneId, from: LocalDate, days: Int, now: Long): List<Pair<LocalDate, List<AgendaEvent>>> {
         val last = from.plusDays(days.toLong() - 1)

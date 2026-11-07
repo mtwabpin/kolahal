@@ -27,9 +27,9 @@ import java.time.ZoneId
 /**
  * Counts device unlocks.
  *
- * Primary source: UsageStats KEYGUARD_HIDDEN events (accurate, includes unlocks while the
- * launcher process was dead; needs the user to grant Usage Access).
- * Fallback: an ACTION_USER_PRESENT receiver registered while the launcher process is alive.
+ * - Main source: UsageStats KEYGUARD_HIDDEN events. They are accurate and include unlocks while the
+ *   launcher process was not running. The user must grant Usage Access.
+ * - Fallback: an ACTION_USER_PRESENT receiver, registered while the launcher process is alive.
  */
 class UnlockCounter private constructor(private val context: Context) {
     private val prefs = context.getSharedPreferences("unlocks", Context.MODE_PRIVATE)
@@ -49,13 +49,13 @@ class UnlockCounter private constructor(private val context: Context) {
                 com.mtwabpin.kolahal.script.TriggerDispatcher.get(context).fire("unlock")
                 refresh()
             }
-        // USER_PRESENT comes from SystemUI, not the system's own uid: a receiver that isn't exported
-        // never gets it. It is a protected broadcast, so only the system can send it anyway.
+        // USER_PRESENT comes from SystemUI, not from the system's own uid, so a receiver that isn't
+        // exported never gets it. It is a protected broadcast, so only the system can send it anyway.
         }, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_EXPORTED)
         refresh()
     }
 
-    /** Recounts off the main thread; a day of UsageStats events can be thousands of entries. */
+    /** Counts again off the main thread, because one day of UsageStats events can have thousands of entries. */
     fun refresh() {
         scope.launch { _today.value = countFor(LocalDate.now()) }
     }
@@ -75,15 +75,17 @@ class UnlockCounter private constructor(private val context: Context) {
     fun usageAccessIntent(): Intent =
         Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    /** Finished days don't change: counted once. */
+    /** Counts for finished days. They don't change, so each is counted once. */
     private val pastDays = java.util.concurrent.ConcurrentHashMap<LocalDate, Int>()
 
-    /** Today so far: the day, how far its events were read, and the count up to there. */
+    /** Today's scan so far: the day, the time up to which events were read, and the count up to then. */
     private var todayScan: Triple<LocalDate, Long, Int>? = null
 
     /**
-     * Unlocks on [day]. With usage access, today's count reads only the events since the last
-     * call (it runs on every unlock and return home), and past days are read once.
+     * Returns the unlocks on [day]. With usage access:
+     * - Today's count reads only the events since the last call. This call runs on every unlock and
+     *   every return to home.
+     * - Past days are read once.
      */
     @Synchronized
     fun countFor(day: LocalDate): Int {
@@ -99,16 +101,16 @@ class UnlockCounter private constructor(private val context: Context) {
         val now = System.currentTimeMillis()
         val (added, last) = if (now > upTo) keyguardHidden(upTo, now) else (0 to null)
         val total = count + added
-        // The next scan starts after the last unlock seen, not now: one the system writes a moment
-        // later, with a time before now, is still found.
+        // The next scan starts after the last unlock seen, not at now. So we still find an unlock
+        // that the system writes a moment later with a time before now.
         todayScan = Triple(today, last?.let { it + 1 } ?: upTo, total)
         return total
     }
 
-    /** How many unlocks in [from, until), and the time of the last. */
+    /** Returns the number of unlocks in [from, until), and the time of the last one. */
     private fun keyguardHidden(from: Long, until: Long): Pair<Int, Long?> {
         val usage = context.getSystemService(UsageStatsManager::class.java)
-        // From Android 15 Android hands over the unlocks alone, not every event of the day to skip.
+        // From Android 15, we can ask for unlock events only, instead of reading every event of the day.
         val events = if (Build.VERSION.SDK_INT >= 35) {
             usage.queryEvents(UsageEventsQuery.Builder(from, until).setEventTypes(UsageEvents.Event.KEYGUARD_HIDDEN).build())
         } else {

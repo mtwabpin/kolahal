@@ -4,14 +4,14 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDoc
 import com.mtwabpin.kolahal.script.ApiDocs
 
-/** Pure (Compose-free) helpers behind the script editor: find, completion, inline docs, lines. */
+/** Pure helpers for the script editor, with no Compose code: find, completion, inline docs and lines. */
 object EditorLogic {
 
-    /** Start offsets of every occurrence of a query (non-overlapping), capped at [MAX_MATCHES]. */
+    /** Start offsets of all non-overlapping matches of a query, up to [MAX_MATCHES]. */
     class Matches(val starts: IntArray, val length: Int, val capped: Boolean) {
         val size get() = starts.size
 
-        /** Index of the first match starting at or after [offset], wrapping to 0. */
+        /** Index of the first match that starts at or after [offset]. If there is none, it wraps to 0. */
         fun indexAtOrAfter(offset: Int): Int {
             if (starts.isEmpty()) return -1
             var lo = 0
@@ -30,7 +30,7 @@ object EditorLogic {
 
     const val MAX_MATCHES = 100_000
 
-    /** Matches drawn around the current one; the rest are only counted and navigable. */
+    /** How many matches are highlighted around the current one. The others are only counted, but you can still move to them. */
     const val MAX_HIGHLIGHTS = 2_000
 
     fun findMatches(text: String, query: String, ignoreCase: Boolean, limit: Int = MAX_MATCHES): Matches {
@@ -47,7 +47,7 @@ object EditorLogic {
         return Matches(out.copyOf(n), query.length, capped = false)
     }
 
-    /** [text] with every occurrence of [query] replaced; returns the text and the count. */
+    /** Replaces every match of [query] in [text]. Returns the new text and the number of replacements. */
     fun replaceAll(text: String, query: String, replacement: String, ignoreCase: Boolean): Pair<String, Int> {
         val m = findMatches(text, query, ignoreCase, Int.MAX_VALUE)
         if (m.size == 0) return text to 0
@@ -61,7 +61,7 @@ object EditorLogic {
         return sb.toString() to m.size
     }
 
-    /** Identifier being typed at the cursor: `http.ge|` -> qualifier `http`, partial `ge`, start at `g`. */
+    /** The identifier being typed at the cursor. For `http.ge|`: qualifier `http`, partial `ge`, start at `g`. */
     data class Prefix(val qualifier: String?, val partial: String, val start: Int)
 
     private fun Char.isIdent() = isLetterOrDigit() || this == '_' || this == '$'
@@ -78,13 +78,13 @@ object EditorLogic {
             while (q > 0 && text[q - 1].isIdent() && s - q < 64) q--
             qualifier = text.substring(q, s - 1)
             if (qualifier.isEmpty() || qualifier[0].isDigit()) return null
-            // `a.b.c` and `x:method` chains are not API namespaces.
+            // Chains like `a.b.c` and `x:method` are not API namespaces.
             if (q > 0 && (text[q - 1] == '.' || text[q - 1] == ':')) return null
         }
         return Prefix(qualifier, partial, s)
     }
 
-    /** Whether [cursor] sits in a line comment or a string literal (rough, current line only). */
+    /** Whether [cursor] is inside a line comment or a string literal. This is a rough check of the current line only. */
     fun inCommentOrString(text: String, cursor: Int, lang: ScriptLang): Boolean {
         val lineStart = text.lastIndexOf('\n', cursor - 1) + 1
         if (cursor - lineStart > 2_000) return false
@@ -107,9 +107,15 @@ object EditorLogic {
     }
 
     /**
-     * Completions for the identifier at [cursor]: after a known namespace (`http.`) its members, else
-     * globals, namespaces and keywords once at least 2 characters are typed. Ranked: case-sensitive
-     * prefix before case-insensitive, API before keywords, then shorter names, then alphabetical.
+     * Completions for the identifier at [cursor].
+     * - After a known namespace (`http.`), it offers that namespace's members.
+     * - Otherwise it offers globals, namespaces and keywords, once at least 2 characters are typed.
+     *
+     * Order of results:
+     * - case-sensitive prefix matches before case-insensitive ones,
+     * - API names before keywords,
+     * - shorter names first,
+     * - then alphabetical.
      */
     fun completions(text: String, cursor: Int, lang: ScriptLang): List<ApiDoc> {
         val p = prefixAt(text, cursor) ?: return emptyList()
@@ -122,7 +128,7 @@ object EditorLogic {
     fun rank(docs: List<ApiDoc>, p: Prefix, limit: Int = 30): List<ApiDoc> {
         val candidates = docs.filter { d ->
             d.qualifier == p.qualifier && d.member.startsWith(p.partial, ignoreCase = true) &&
-                // A finished keyword or value has nothing left to insert.
+                // A keyword or value that is already complete has nothing left to insert.
                 !(d.member == p.partial && (d.kind == ApiDoc.Kind.KEYWORD || d.kind == ApiDoc.Kind.VALUE))
         }
         return candidates.sortedWith(
@@ -135,7 +141,7 @@ object EditorLogic {
         ).take(limit)
     }
 
-    /** Text that replaces the partial identifier when [doc] is accepted. */
+    /** The text that replaces the partial identifier when the user accepts [doc]. */
     fun insertion(doc: ApiDoc, nextChar: Char?): String = when (doc.kind) {
         ApiDoc.Kind.FUNCTION -> if (nextChar == '(') doc.member else doc.member + "("
         ApiDoc.Kind.NAMESPACE -> if (nextChar == '.') doc.member else doc.member + "."
@@ -143,8 +149,9 @@ object EditorLogic {
     }
 
     /**
-     * The API entry to document at [cursor]: the dotted name under/just before the cursor if it is
-     * known, else the innermost unclosed call `name(` before the cursor (scanning back ≤ 1000 chars).
+     * The API entry to show docs for at [cursor]:
+     * - the dotted name under or just before the cursor, if it is known;
+     * - otherwise the innermost unclosed call `name(` before the cursor. It scans back at most 1000 chars.
      */
     fun docAt(text: String, cursor: Int, lang: ScriptLang): ApiDoc? {
         if (cursor < 0 || cursor > text.length) return null
@@ -170,7 +177,7 @@ object EditorLogic {
         return null
     }
 
-    /** `http.get` for the identifier chain ending at [end] (exclusive). */
+    /** Returns the dotted name (like `http.get`) that ends at [end] (exclusive). */
     private fun dottedNameBefore(text: String, end: Int): String? {
         var s = end
         while (s > 0 && (text[s - 1].isIdent() || text[s - 1] == '.') && end - s < 64) s--
@@ -178,7 +185,7 @@ object EditorLogic {
         return name.ifEmpty { null }
     }
 
-    /** Offset of the start of [line] (1-based), or the text length if it is past the end. */
+    /** Offset where [line] (1-based) starts. Returns the text length if the line is past the end. */
     fun lineStart(text: String, line: Int): Int {
         if (line <= 1) return 0
         var offset = 0
@@ -191,10 +198,11 @@ object EditorLogic {
     }
 
     /**
-     * The width of [text]'s widest line, as [measure] gives a line's width: what the editor's field is
-     * given, so it needn't measure the whole text for it before laying it out. [cellPx] is at least the
-     * width of any ASCII character and [tabPx] of a tab; any other character counts as two cells (no
-     * glyph is wider). Lines are measured from the widest guess down, until no other could be wider.
+     * The width of the widest line in [text], using [measure] for one line's width. The editor field
+     * gets this width, so it does not need to measure the whole text before layout.
+     * - [cellPx] is at least the width of any ASCII character. [tabPx] is the width of a tab.
+     * - Any other character counts as two cells, because no glyph is wider.
+     * - Lines are measured from the widest guess down. It stops when no other line can be wider.
      */
     fun widestLine(text: String, cellPx: Float, tabPx: Float, measure: (String) -> Float): Float {
         if (text.isEmpty()) return 0f
@@ -226,14 +234,19 @@ object EditorLogic {
         return widest
     }
 
-    /** A finished run as the editor shows it: what happened, whether it failed, and the failing line. */
+    /** A finished run as the editor shows it: what happened, whether it failed, and the line that failed. */
     data class RunResult(val text: String, val failed: Boolean, val line: Int? = null)
 
     private val LINE_SUFFIX = Regex(""" \(line (\d+)\)$""")
 
     /**
-     * Reads a run's recorded status: `ok in 812ms`, `timeout`, `stopped: <why>`, or
-     * `error: <message> (line 7)`. [tapHint]: the editor's line, where a tap goes to the line.
+     * Reads a run's recorded status. The status is one of:
+     * - `ok in 812ms`
+     * - `timeout`
+     * - `stopped: <why>`
+     * - `error: <message> (line 7)`
+     *
+     * Set [tapHint] for the editor's line, where a tap jumps to the failing line.
      */
     fun runResult(status: String?, timeoutSeconds: Long, tapHint: Boolean = true): RunResult = when {
         status == null -> RunResult("Ran · its output is in the log", failed = false)
@@ -243,7 +256,7 @@ object EditorLogic {
         else -> {
             val line = LINE_SUFFIX.find(status)?.groupValues?.get(1)?.toIntOrNull()
             val message = status.removePrefix("error: ").replace(LINE_SUFFIX, "")
-            // Lua puts the place first (`etest:13: attempt to …`); the line is already said.
+            // Lua puts the location first (`etest:13: attempt to …`). Remove it, because the line number is already shown.
             if (line != null) RunResult("Line $line: ${message.replace(Regex("""^\S+:$line:\s*"""), "")}" + if (tapHint) " · tap to go there" else "", failed = true, line = line)
             else RunResult("Error: $message", failed = true)
         }
@@ -251,12 +264,12 @@ object EditorLogic {
 }
 
 /**
- * Undo by steps: a new step after a pause in typing or at a newline, up to 200. Only the text now is
- * kept whole; each step keeps what changed from the one before ([Edit]), so a big script's history
- * isn't 200 copies of it.
+ * Undo history in steps, up to 200. A new step starts after a pause in typing or at a newline.
+ * Only the current text is stored in full. Each step stores only what changed from the step before
+ * ([Edit]), so the history of a big script is not 200 copies of it.
  */
 internal class UndoHistory(initial: String, private val clock: () -> Long = System::currentTimeMillis) {
-    /** At [at], [removed] became [inserted]; the rest of the text was the same before and after. */
+    /** At offset [at], [removed] was replaced by [inserted]. The rest of the text did not change. */
     private class Edit(val at: Int, val removed: String, val inserted: String) {
         fun redo(text: String) = text.substring(0, at) + inserted + text.substring(at + removed.length)
         fun undo(text: String) = text.substring(0, at) + removed + text.substring(at + inserted.length)
@@ -273,15 +286,15 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
         }
     }
 
-    /** The text after the last step: what [undo] steps back from. */
+    /** The text after the last step. [undo] steps back from this. */
     private var top = initial
     private var topNewlines = initial.count { it == '\n' }
     /** The steps that led to [top], oldest first. */
     private val undo = ArrayDeque<Edit>()
-    /** Steps undone, the last undone last. */
+    /** Undone steps. The most recently undone step is last. */
     private val redo = ArrayDeque<Edit>()
     private var lastRecord = 0L
-    /** The text before the step still being typed into: what it leads from, kept rather than rebuilt at every key. */
+    /** The text before the step that is still being typed. It is kept so it is not rebuilt on every key press. */
     private var stepStart: String? = null
 
     private fun setTop(text: String) {
@@ -298,7 +311,7 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
             undo.addLast(Edit.between(top, text))
             if (undo.size + 1 > 200) undo.removeFirst()
         } else {
-            // The same step goes on: it now leads from the text before it to this one.
+            // The same step continues: it now goes from the text before the step to this text.
             val last = undo.removeLast()
             undo.addLast(Edit.between(stepStart ?: last.undo(top), text))
         }
@@ -308,7 +321,7 @@ internal class UndoHistory(initial: String, private val clock: () -> Long = Syst
         redo.clear()
     }
 
-    /** The next [record] starts a new undo step (used around replace operations). */
+    /** Makes the next [record] start a new undo step. Used around replace operations. */
     fun checkpoint() {
         lastRecord = 0
         stepStart = null

@@ -12,17 +12,20 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptTemplates
 
 /**
- * Changes to a script that the `script` command ([ScriptCommands]) and the script screens
- * ([ScriptActions]) both make, written once: what each one also switches on, asks for and
- * schedules. They run on the caller's thread; what to tell the user stays with the caller.
+ * Script changes that both the `script` command ([ScriptCommands]) and the script screens
+ * ([ScriptActions]) make. They are written once here, together with what each change also
+ * switches on, asks for and schedules.
+ *
+ * These functions run on the caller's thread. The caller decides what to tell the user.
  */
 internal class ScriptChanges(private val context: Context) {
     private val scripts = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
 
     /**
-     * Its timer: [minutes], Android's 15 at the least, or 0 for none. A timer switches the script
-     * on, but allows nothing it asks for: that stays a tap away. Returns the minutes it runs every.
+     * Sets the script's timer to [minutes], or turns it off with 0. Android's minimum is 15 minutes.
+     * A timer switches the script on, but it does not grant any access the script asks for.
+     * The user grants that with a tap. Returns the interval in minutes.
      */
     fun interval(s: Script, minutes: Int): Int {
         val every = if (minutes > 0) minutes.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) else 0
@@ -32,26 +35,29 @@ internal class ScriptChanges(private val context: Context) {
         return every
     }
 
-    /** Its daily times, "HH:mm" as [CommandParsing.dailyTimes] reads them; times switch it on as a timer does. */
+    /** Sets the script's daily times ("HH:mm", as [CommandParsing.dailyTimes] reads them). Like a timer, times switch the script on. */
     fun times(s: Script, times: List<String>) {
         scripts.setAtTimes(s.id, times)
         if (times.isNotEmpty()) switchOn(s)
         sync(s)
     }
 
-    /** Switched on or off by you: on is your go-ahead for what it declares and nobody decided yet. */
+    /**
+     * The user switches the script on or off. Switching it on also grants the access the script
+     * declares that the user has not allowed or denied yet.
+     */
     fun enabled(s: Script, on: Boolean) {
         scripts.setEnabled(s.id, on, grant = on)
         sync(s)
     }
 
-    /** One access switch; pinning or unpinning shows at the top of home at once. */
+    /** Sets one access switch. Pinning or unpinning updates the top of home at once. */
     fun access(s: Script, item: String, on: Boolean) {
         scripts.setAccess(s.id, item, on)
         if (item == ScriptAccess.HEADER) logs.onStatusChanged()
     }
 
-    /** Renames [s] to [to], or says why it can't be its name. */
+    /** Renames [s] to [to]. If [to] is not a valid name, returns the reason instead. */
     fun rename(s: Script, to: String): String? {
         ScriptNames.invalid(to) { scripts.byName(it) != null }?.let { return it }
         scripts.rename(s.id, to)
@@ -59,11 +65,14 @@ internal class ScriptChanges(private val context: Context) {
         return null
     }
 
-    /** A new script [name] from its language's template, a command's with [asCommand]; the caller checks the name. */
+    /**
+     * Creates a new script [name] from its language's template. With [asCommand], it uses the
+     * command template. The caller must check the name first.
+     */
     fun create(name: String, lang: ScriptLang, asCommand: Boolean): Script =
         scripts.create(name, lang, if (asCommand) ScriptTemplates.command(lang, name) else ScriptTemplates.forLang(lang, name))
 
-    /** Installs [entry] from [library], or updates your copy; a key of its that isn't set gets a line. */
+    /** Installs [entry] from [library], or updates your copy. For each of its keys that is not set, a line asks for it. */
     fun install(library: ScriptLibrary, entry: ScriptLibrary.Entry): Script =
         library.install(entry).also { ScriptAccess.askForSecrets(context, it) }
 

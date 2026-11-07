@@ -3,9 +3,9 @@ package com.mtwabpin.kolahal.data
 import android.content.Context
 
 /**
- * Settings the :script process needs. It reads the settings file once, when it starts, and never
- * sees a change after; so home copies these into the database both processes read, whenever they
- * change ([com.mtwabpin.kolahal.LauncherApp]).
+ * Settings the :script process needs. That process reads the settings file once, when it starts,
+ * and never sees later changes. So home copies these settings into the database that both processes
+ * read, whenever they change ([com.mtwabpin.kolahal.LauncherApp]).
  */
 object SharedSettings {
     const val SCOPE = "shared-settings"

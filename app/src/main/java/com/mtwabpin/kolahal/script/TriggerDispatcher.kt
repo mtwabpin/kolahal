@@ -24,25 +24,25 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Runs scripts subscribed with `@on <event>` when the event happens. Lives in the UI process:
- * charger / headset broadcasts can only be received by runtime receivers on Android 8+, and the
- * network callback, unlock receiver and notification listener all live here too.
+ * Runs scripts subscribed with `@on <event>` when the event happens. It lives in the UI process,
+ * because on Android 8+ only runtime receivers can receive charger and headset broadcasts. The
+ * network callback, unlock receiver and notification listener also live here.
  *
- * Each matching, enabled script gets a one-time, non-interactive [ScriptWorker] run whose `event`
- * global is the payload. The same script + event fires at most once per [DEBOUNCE_MS]
- * (notifications: per app), so a flapping charger or a chatty app can't start a run storm.
+ * Each matching, enabled script gets a one-time, non-interactive [ScriptWorker] run. Its `event`
+ * global is the payload. The same script + event fires at most once per [DEBOUNCE_MS] (for
+ * notifications: once per app). So a flapping charger or a chatty app can't start a storm of runs.
  */
 class TriggerDispatcher private constructor(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val main = Handler(Looper.getMainLooper())
 
-    /** (script id, events) for enabled scripts with `@on`; reloaded when [ScriptRepository.version] moves. */
+    /** (script id, events) for enabled scripts with `@on`. Reloaded when [ScriptRepository.version] changes. */
     private var subscriptions: List<Pair<Long, List<String>>> = emptyList()
     private var loadedVersion = -1L
     private val lastFired = HashMap<String, Long>()
 
     private var started = false
-    /** Last default-network kind ("wifi", "other", "offline"), to fire only on transitions. */
+    /** The last default-network kind ("wifi", "other", "offline"), so events fire only on changes. */
     @Volatile private var netState: String? = null
 
     fun start() {
@@ -51,7 +51,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
         registerPower()
         registerHeadset()
         registerNetwork()
-        // Reads its prefs from disk: not on the main thread at start-up.
+        // This reads its prefs from disk, so it must not run on the main thread at start-up.
         Thread { runCatching { checkBoot() } }.start()
     }
 
@@ -69,7 +69,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
                     val last = lastFired[key]
                     if (last != null && now - last < DEBOUNCE_MS) continue
                     lastFired[key] = now
-                    // One script's run that can't be queued mustn't keep the event from the others.
+                    // If one script's run can't be queued, the other scripts must still get the event.
                     runCatching { ScriptScheduler.runForEvent(context, id, data) }
                 }
                 if (lastFired.size > 500) lastFired.entries.removeAll { now - it.value > DEBOUNCE_MS }
@@ -84,7 +84,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
         return subscriptions.filter { event in it.second }.map { it.first }
     }
 
-    /** True when a switched-on script declares `@uses notifications`; otherwise nothing keeps a copy for scripts. */
+    /** True when a switched-on script declares `@uses notifications`. Otherwise nothing keeps a copy of notifications for scripts. */
     fun wantsNotifications(): Boolean {
         refresh()
         return notificationReaders
@@ -97,7 +97,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
         if (v == loadedVersion) return
         val enabled = ScriptRepository.get(context).all().filter { it.enabled }
         subscriptions = enabled
-            // Events the user switched off don't run it, and a notification's text only goes to scripts
+            // Events the user switched off don't run the script. A notification's text only goes to scripts
             // that declare `@uses notifications` and are allowed it.
             .map { s ->
                 val grants = s.grants
@@ -141,7 +141,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
     private fun registerHeadset() {
         ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
-                // Sticky: registering delivers the current state, which is not a new connection.
+                // A sticky broadcast: registering delivers the current state, which is not a new connection.
                 if (isInitialStickyBroadcast) return
                 if (intent.getIntExtra("state", 0) != 1) return
                 fire(
@@ -170,7 +170,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
                 }
 
                 override fun onLost(network: Network) {
-                    // A switch between networks can briefly report "lost"; confirm before firing.
+                    // A switch between networks can briefly report "lost", so confirm before firing.
                     main.removeCallbacks(recheckOffline)
                     main.postDelayed(recheckOffline, OFFLINE_CONFIRM_MS)
                 }
@@ -195,13 +195,13 @@ class TriggerDispatcher private constructor(private val context: Context) {
         }
     }
 
-    /** `boot` fires on the first launcher start after each device boot (the launcher starts at boot). */
+    /** `boot` fires on the first launcher start after each device boot. The launcher starts at boot. */
     private fun checkBoot() {
         val prefs = context.getSharedPreferences("triggers", Context.MODE_PRIVATE)
         val bootId = runCatching {
             Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT).toLong()
         }.getOrNull()
-        // Fallback: boot wall-clock time, rounded to absorb clock jitter.
+        // Fallback: the boot time on the wall clock, rounded to minutes to absorb clock jitter.
         val id = bootId?.let { "count:$it" }
             ?: "time:${(System.currentTimeMillis() - SystemClock.elapsedRealtime()) / 60_000}"
         if (prefs.getString("boot", null) == id) return

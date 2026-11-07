@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Notification feed settings. Every app is logged to the terminal unless muted;
- * [logToTerminal] turns logging off entirely (the in-memory feed keeps working).
+ * Notification feed settings. Each app's notifications go to the terminal log unless the app is muted.
+ * When [logToTerminal] is false, no app is logged. The in-memory feed still works.
  */
 class NotifPrefs private constructor(context: Context) {
     private val prefs = context.getSharedPreferences("notif_prefs", Context.MODE_PRIVATE)
@@ -27,7 +27,7 @@ class NotifPrefs private constructor(context: Context) {
 
     fun unmute(pkg: String) = setMuted(_muted.value - pkg)
 
-    /** Whether a notification from [pkg] should become a terminal line. */
+    /** True when a notification from [pkg] should become a terminal line. */
     fun shouldLog(pkg: String): Boolean = logToTerminal && !isMuted(pkg)
 
     private fun setMuted(set: Set<String>) {

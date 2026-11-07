@@ -28,8 +28,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * todo, note / notes, remind / reminders, timer, alarm / alarms, stopwatch and agenda.
- * Kept out of [CommandProcessor] so the dispatcher only needs one line per command.
+ * The commands todo, note / notes, remind / reminders, timer, alarm / alarms, stopwatch and agenda.
+ * They live outside [CommandProcessor], so the dispatcher needs only one line per command.
  */
 class ProductivityCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
     private val conf = Config.get(context)
@@ -37,7 +37,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
     private val notes = NoteStore.get(context)
     private val reminders = ReminderStore.get(context)
 
-    /** Runs [name] if it is one of ours; false otherwise. [rest] is the raw argument text. */
+    /** Runs [name] if this class handles it, and returns true. Otherwise returns false. [rest] is the raw argument text. */
     fun run(name: String, rest: String): Boolean {
         when (name) {
             "todo" -> todo(rest)
@@ -49,7 +49,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             "alarm" -> alarm(rest)
             "alarms" -> startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS))
             "stopwatch" -> {
-                // Android has no stopwatch intent; the clock app is one tab away.
+                // Android has no stopwatch intent. The clock app's stopwatch is one tab away.
                 startActivity(Intent(AlarmClock.ACTION_SHOW_TIMERS))
                 info("Opened the clock app (Android can't open its stopwatch directly)")
             }
@@ -71,7 +71,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         fun pick(): Todo? = pickRef(w.getOrNull(1), all) { it.id }.also {
             if (it == null) error("No todo '${w.getOrNull(1).orEmpty()}' — 'todo' lists them with numbers")
         }
-        // A word on its own is a subcommand; with more after it, it's the todo (`todo clear out the garage`).
+        // A word alone is a subcommand. With more words after it, it is the todo text (`todo clear out the garage`).
         when (sub) {
             null -> listTodos(all, includeDone = false)
             "ls", "list" -> if (w.size == 1) listTodos(all, includeDone = false) else addTodo(rest.trim())
@@ -134,7 +134,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         )
     }
 
-    /** One todo; tapping toggles it (by id, so the line stays right after the list changes). */
+    /** Prints one todo. A tap toggles it. The tap uses the id, so the line stays correct after the list changes. */
     private fun todoLine(t: Todo, pos: Int?, info: Boolean = false) {
         val text = (if (pos != null) "${pos.toString().padStart(2)}. " else "") + (if (t.done) "[x] " else "[ ] ") + t.text
         val ctx = LogContext.of(
@@ -201,7 +201,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
 
     private fun remind(rest: String) {
         var w = words(rest)
-        // A tap on the question below, or someone who means it.
+        // `--yes` comes from a tap on the question below, or from a user who typed it on purpose.
         val confirmed = w.firstOrNull()?.lowercase() == "--yes"
         if (confirmed) w = w.drop(1)
         when (w.firstOrNull()?.lowercase()) {
@@ -231,10 +231,10 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         val text = w.drop(parsed.consumed).joinToString(" ")
         if (text.isBlank()) return error("Reminder text missing: remind ${w.take(parsed.consumed).joinToString(" ")} <text>")
         val relative = if (repeating == null) TimeSpec.relativeSeconds(w) else null
-        // A time typed for the small hours asks first; a duration is plainly meant.
+        // For a time in the small hours, ask first. A duration (like 10m) is clearly meant, so don't ask.
         if (!confirmed && relative == null && TimeSpec.inTheSmallHours(parsed.at)) return askAboutTheSmallHours(w, parsed, repeating, text, now)
         val at = relative?.let { System.currentTimeMillis() + it * 1000 } ?: parsed.at.atZone(zone).toInstant().toEpochMilli()
-        // The question can be tapped twice.
+        // The user can tap the question twice, so don't add the same reminder again.
         if (confirmed && reminders.all().any { it.at == at && it.text == text && it.repeat == repeating?.rule }) return info("Already set: $text")
         val r = reminders.add(at, text, repeating?.rule, repeating?.at?.toLocalTime()?.toString())
         ReminderScheduler.schedule(context, r)
@@ -251,7 +251,10 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         }
     }
 
-    /** Says what was read and sets nothing: a tap does, on this reading or on the other one, if there is one. */
+    /**
+     * Says how the time was read, but sets nothing. The user sets the reminder with a tap: on this
+     * reading, or on the other reading if there is one.
+     */
     private fun askAboutTheSmallHours(w: List<String>, parsed: TimeSpec.Parsed, repeating: TimeSpec.Repeating?, text: String, now: LocalDateTime) {
         fun label(at: LocalDateTime) = whenLabel(at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
         val then = repeating?.let { ", then ${Repeat.label(it.rule)}" }.orEmpty()
@@ -284,7 +287,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         LogContext.COPY to r.text,
     )
 
-    /** "18:30", "tomorrow 09:00", "Fri 23 Oct 08:00", or "Thu 2 Dec 2027 08:00" in another year. */
+    /** Formats a time as "18:30", "tomorrow 09:00", "Fri 23 Oct 08:00", or "Thu 2 Dec 2027 08:00" in another year. */
     private fun whenLabel(at: Long): String {
         val zone = ZoneId.systemDefault()
         val t = Instant.ofEpochMilli(at).atZone(zone)

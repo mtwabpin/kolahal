@@ -147,15 +147,16 @@ class AppSelectorTest {
         assertEquals(0, lettersShown().size)
     }
 
-    @Test fun noLettersByDefault() {
-        assertEquals(false, Keys.SELECTOR_LETTERS.default)
-        show(left = false, position = "bottom")
+    /** selector.letters is on by default; off, the edge shows only its handle. */
+    @Test fun lettersByDefaultAndNoneWhenOff() {
+        assertEquals(true, Keys.SELECTOR_LETTERS.default)
+        show(left = false, position = "bottom", letters = false)
         assertEquals(0, lettersShown().size)
     }
 
     private fun iconsShown() = compose.onAllNodesWithTag("app-selector-icon", useUnmergedTree = true).fetchSemanticsNodes().size
 
-    /** Plan E: with selector.icons on, each row starts with the app's icon; off (the default), none. */
+    /** Plan E: with selector.icons on (the default), each row starts with the app's icon; off, none. */
     @Test fun rowsShowIconsWhenTurnedOn() {
         show(left = false, position = "bottom", icons = true)
         compose.onNodeWithTag("app-selector").performTouchInput { down(center) }
@@ -163,9 +164,9 @@ class AppSelectorTest {
         assertTrue("icons in the list", iconsShown() > 0)
     }
 
-    @Test fun rowsShowNoIconsByDefault() {
-        assertEquals(false, Keys.SELECTOR_ICONS.default)
-        show(left = false, position = "bottom")
+    @Test fun iconsByDefaultAndNoneWhenOff() {
+        assertEquals(true, Keys.SELECTOR_ICONS.default)
+        show(left = false, position = "bottom", icons = false)
         compose.onNodeWithTag("app-selector").performTouchInput { down(center) }
         compose.waitForIdle()
         assertEquals(0, iconsShown())
@@ -416,7 +417,7 @@ class AppSelectorTest {
         compose.onAllNodesWithTag("app-selector-bubble", useUnmergedTree = true).assertCountEquals(0)
     }
 
-    private fun panelRows() = (height("app-selector-panel") / 38f).let { kotlin.math.round(it).toInt() }
+    private fun panelRows() = (height("app-selector-panel") / Keys.SELECTOR_ROW_HEIGHT.default).let { kotlin.math.round(it).toInt() }
 
     /** selector.filter: the list holds only the letter's apps, and stays so when you lift on the edge. */
     @Test fun withTheFilterTheListHoldsOnlyTheLettersApps() {

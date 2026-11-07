@@ -81,19 +81,13 @@ for (let i = 0; i < d.time.length; i++) {
   rows.push({ label, sky: describe(d.weather_code[i]), temp: `${lo}–${hi}°C`, rain });
   if (i === 0) todayLine = `${place.name}: ${describe(d.weather_code[i])} ${lo}–${hi}°C`;
 }
-const width = (key) => Math.max(0, ...rows.map((r) => r[key].length));
-const [dayWidth, skyWidth, tempWidth] = [width("label"), width("sky"), width("temp")];
+// One table: a likely-rain day's chance in the warning colour.
 const days = rows.map((r) => {
-  // A likely-rain day in the warning colour: the last column, so the colour's markers can't shift another.
-  const rainText = r.rain != null ? `rain ${r.rain}%` : "";
-  const rain = r.rain != null && r.rain >= 60 ? fmt.color("warn", rainText) : rainText;
-  return `${fmt.bold(r.label.padEnd(dayWidth))}  ${r.sky.padEnd(skyWidth)}  ${r.temp.padEnd(tempWidth)}  ${rain}`.trimEnd();
+  const rainText = r.rain != null ? `${r.rain}%` : "";
+  return [r.label, r.sky, r.temp, r.rain != null && r.rain >= 60 ? fmt.color("warn", rainText) : rainText];
 });
-
-// mono keeps the terminal font, so the columns line up.
-log(where, days.join("\n"), {
+log(where, fmt.table([["Day", "Sky", "Temp", "Rain"], ...days], { header: true, align: "llrr" }), {
   url: `https://open-meteo.com/en/docs#latitude=${place.latitude}&longitude=${place.longitude}`,
-  mono: "1",
 });
 
 if (!line) status(todayLine);

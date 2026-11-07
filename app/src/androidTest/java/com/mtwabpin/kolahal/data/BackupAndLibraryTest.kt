@@ -82,35 +82,47 @@ class BackupAndLibraryTest {
     }
 
     /** A backup from before 0.3.0 has the old setting names; they land on today's settings. */
-    /** On the phone: the full header's items become the line's two once, and its other settings go. */
+    /** On the phone: the full header's items become the right side once, and its other settings go. */
     @Test fun theOldHeaderItemsCarryOnce() {
         val saved = context.getSharedPreferences("config", android.content.Context.MODE_PRIVATE)
         try {
             saved.edit().putString("header.unlocks", "off").putString("header.alarm", "off").putString("header.compact.date", "on").commit()
             config.migrate()
-            assertEquals("todo", config[Keys.HEADER_ITEM_1])
-            assertEquals("settings", config[Keys.HEADER_ITEM_2])
+            assertEquals("todo,settings,battery", config[Keys.HEADER_RIGHT])
             assertFalse(saved.contains("header.unlocks") || saved.contains("header.compact.date"))
             // Changed since, it stays changed.
-            config.set(Keys.HEADER_ITEM_2, "network")
+            config.set(Keys.HEADER_RIGHT, "network,battery")
             config.migrate()
-            assertEquals("network", config[Keys.HEADER_ITEM_2])
+            assertEquals("network,battery", config[Keys.HEADER_RIGHT])
         } finally {
-            listOf(Keys.HEADER_ITEM_1, Keys.HEADER_ITEM_2).forEach(config::reset)
+            config.reset(Keys.HEADER_RIGHT)
         }
     }
 
-    /** A backup with the full header's settings lands on the line's two items, and leaves the rest out. */
+    /** On the phone: the two items chosen in 0.4.14 or 0.4.15 become the right side, with the battery, and go. */
+    @Test fun theTwoItemsBecomeTheRightSide() {
+        val saved = context.getSharedPreferences("config", android.content.Context.MODE_PRIVATE)
+        try {
+            saved.edit().putString("header.item-1", "network").putString("header.item-2", "none").commit()
+            config.migrate()
+            assertEquals("network,battery", config[Keys.HEADER_RIGHT])
+            assertEquals(Keys.HEADER_LEFT.default, config[Keys.HEADER_LEFT])
+            assertFalse(saved.contains("header.item-1") || saved.contains("header.item-2"))
+        } finally {
+            config.reset(Keys.HEADER_RIGHT)
+        }
+    }
+
+    /** A backup with the full header's settings lands on the right side, and leaves the rest out. */
     @Test fun aBackupWithTheOldHeaderCarriesItsItems() {
         val file = File(context.cacheDir, "kolahal-backup-old-header.json")
         try {
             file.writeText("""{"kolahal":3,"config":{"header.unlocks":"off","header.network":"on","header.compact.battery":"off"}}""")
             Backup(context).import(Uri.fromFile(file))
-            assertEquals("network", config[Keys.HEADER_ITEM_1])
-            assertEquals("alarm", config[Keys.HEADER_ITEM_2])
+            assertEquals("network,alarm,battery", config[Keys.HEADER_RIGHT])
         } finally {
             file.delete()
-            listOf(Keys.HEADER_ITEM_1, Keys.HEADER_ITEM_2).forEach(config::reset)
+            config.reset(Keys.HEADER_RIGHT)
         }
     }
 
@@ -455,6 +467,31 @@ class BackupAndLibraryTest {
             assertNull(back.single { it.text == "bkrem-bad" }.repeat)
         } finally {
             store.all().filter { it.text.startsWith("bkrem-") }.forEach { store.remove(it.id) }
+        }
+    }
+
+    /**
+     * A row too big to read back (over the 2 MB a query reads through) is left out of a restore, so
+     * an edited file can't break the screens that read its table. The rows beside it come back.
+     */
+    @Test fun aRowTooBigToReadIsLeftOut() {
+        val db = Db.get(context).writableDatabase
+        fun notes() = db.rawQuery("SELECT text FROM notes WHERE text LIKE 'bknote-%'", null).use { c ->
+            buildList { while (c.moveToNext()) add(c.getString(0).take(20)) }
+        }
+        try {
+            @Suppress("UNCHECKED_CAST") val data = FullBackup.export(context).toMutableMap()
+            @Suppress("UNCHECKED_CAST") val tables = (data["tables"] as Map<String, Any?>).toMutableMap()
+            val now = System.currentTimeMillis()
+            tables["notes"] = listOf(
+                mapOf("text" to "bknote-small", "created" to now),
+                mapOf("text" to "bknote-big" + "x".repeat(3 * 1024 * 1024), "created" to now),
+            )
+            data["tables"] = tables
+            FullBackup.importRaw(context, data)
+            assertEquals(listOf("bknote-small"), notes())
+        } finally {
+            db.delete("notes", "text LIKE 'bknote-%'", null)
         }
     }
 

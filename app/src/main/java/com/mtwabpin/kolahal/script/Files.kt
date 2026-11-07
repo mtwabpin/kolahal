@@ -7,10 +7,10 @@ import android.provider.OpenableColumns
 
 /** Storage Access Framework helpers shared by backup, script import/export and folder sync. */
 object Files {
-    /** Large enough for any script; guards against picking a huge file by mistake. */
+    /** Large enough for any script. The limit protects against picking a huge file by mistake. */
     const val MAX_BYTES = 2 * 1024 * 1024
 
-    /** What a full backup may weigh: the log, feed items, script stores and an imported font. */
+    /** The largest full backup allowed. It holds the log, feed items, script stores and an imported font. */
     const val MAX_BACKUP_BYTES = 64 * 1024 * 1024
 
     fun readText(context: Context, uri: Uri, maxBytes: Int = MAX_BYTES): String {
@@ -21,9 +21,10 @@ object Files {
     }
 
     /**
-     * Copies [input] to [out] while it holds at most [max] bytes: false, with the copy stopped, when
-     * there's more. For files, feeds and pictures, whose stated length can be missing or wrong.
-     * A loop of its own: InputStream.readNBytes needs API 33.
+     * Copies [input] to [out] if it holds at most [max] bytes.
+     * Returns false and stops copying when there is more.
+     * Used for files, feeds and pictures, because their stated length can be missing or wrong.
+     * It has its own loop because InputStream.readNBytes needs API 33.
      */
     fun copyLimited(input: java.io.InputStream, out: java.io.OutputStream, max: Long): Boolean {
         val buffer = ByteArray(16 * 1024)
@@ -37,14 +38,14 @@ object Files {
         }
     }
 
-    /** The picked file's name, as its provider gives it; null when it gives none. */
+    /** The picked file's name as its provider gives it, or null if the provider gives none. */
     fun displayName(context: Context, uri: Uri): String? = runCatching {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
             if (c.moveToFirst()) c.getString(0) else null
         }
     }.getOrNull()
 
-    /** Some providers reject truncate mode "wt"; fall back to "w". */
+    /** Some providers reject the truncate mode "wt", so this falls back to "w". */
     fun writeText(context: Context, uri: Uri, text: String) {
         val resolver = context.contentResolver
         val stream = runCatching { resolver.openOutputStream(uri, "wt") }.getOrNull()
@@ -54,9 +55,10 @@ object Files {
     }
 
     /**
-     * Gives up the grant to [old], a folder picked before, unless the backup or the script folder
-     * still uses it: one folder can be both, with one grant between them. Persisted grants are
-     * capped per app. Call it once the new folder is saved.
+     * Releases the grant to [old], a folder picked earlier, unless the backup or the script folder
+     * still uses it. One folder can be both, and then they share one grant.
+     * Android limits the number of persisted grants per app.
+     * Call this after the new folder is saved.
      */
     fun releaseFolder(context: Context, old: Uri) {
         if (inUse(context, old)) return

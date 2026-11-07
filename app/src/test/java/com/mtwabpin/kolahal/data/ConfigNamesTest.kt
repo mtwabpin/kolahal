@@ -54,24 +54,41 @@ class ConfigNamesTest {
     }
 
     /**
-     * The full header's items become the one line's two (0.4.14): the first two that were on, in the
-     * order it showed them; with none changed, the new defaults stand, unsaved.
+     * The two items (0.4.14), and the full header's carried as them, become the right side: those
+     * items and then the battery, as the line showed them. The full header's were the first two that
+     * were on, in the order it showed them. With none changed, the new defaults stand, unsaved.
      */
-    @Test fun theOldItemsBecomeTheTwo() {
-        fun items(vararg saved: Pair<String, String>) = Keys.migrate(saved.toMap()).filterKeys { it.startsWith("header.item-") }.toSortedMap().toMap()
-        assertEquals(emptyMap<String, String>(), items())
-        assertEquals(emptyMap<String, String>(), items("header.date" to "off", "header.battery" to "off"))
-        // Unlocks off, the rest as they were: the alarm and todos, as the new defaults.
-        assertEquals(mapOf("header.item-1" to "alarm", "header.item-2" to "todo"), items("header.unlocks" to "off"))
+    @Test fun theOldItemsBecomeTheRightSide() {
+        fun right(vararg saved: Pair<String, String>) = Keys.migrate(saved.toMap()).filterKeys { it.startsWith("header.") }
+        assertEquals(emptyMap<String, String>(), right())
+        assertEquals(emptyMap<String, String>(), right("header.date" to "off", "header.battery" to "off"))
+        // Unlocks off, the rest as they were: the alarm and todos, as the defaults.
+        assertEquals(mapOf("header.right" to "alarm,todo,battery"), right("header.unlocks" to "off"))
         // Unlocks on by default comes first.
-        assertEquals(mapOf("header.item-1" to "unlocks", "header.item-2" to "network"), items("header.network" to "on"))
+        assertEquals(mapOf("header.right" to "unlocks,network,battery"), right("header.network" to "on"))
         assertEquals(
-            mapOf("header.item-1" to "settings", "header.item-2" to "none"),
-            items("header.unlocks" to "off", "header.alarm" to "off", "header.todo" to "false", "header.profiles" to "off"),
+            mapOf("header.right" to "settings,battery"),
+            right("header.unlocks" to "off", "header.alarm" to "off", "header.todo" to "false", "header.profiles" to "off"),
         )
-        // A choice already made under the new names wins, and the old names go.
-        val moved = Keys.migrate(mapOf("header.unlocks" to "off", "header.item-1" to "network", "header.compact.clock" to "on"))
-        assertEquals(mapOf("header.item-1" to "network", "header.item-2" to "todo"), moved)
+        // The two items, chosen in 0.4.14 or 0.4.15: one changed keeps the other's default; none empties a place.
+        assertEquals(mapOf("header.right" to "network,todo,battery"), right("header.item-1" to "network"))
+        assertEquals(mapOf("header.right" to "battery"), right("header.item-1" to "none", "header.item-2" to "none"))
+        assertEquals(mapOf("header.right" to "todo,battery"), right("header.item-1" to "todo", "header.item-2" to "todo"))
+        // A choice already made wins over the full header's, the old names go, and a right side already set stays.
+        assertEquals(mapOf("header.right" to "network,todo,battery"), right("header.unlocks" to "off", "header.item-1" to "network", "header.compact.clock" to "on"))
+        assertEquals(mapOf("header.right" to "battery,time"), right("header.item-1" to "network", "header.right" to "battery,time"))
+    }
+
+    /** A side is parts separated by commas or spaces, each once; none, or nothing, is an empty side. */
+    @Test fun aSideIsAListOfParts() {
+        assertEquals("time,date", Keys.HEADER_LEFT.parse("time, date"))
+        assertEquals("battery,time", Keys.HEADER_RIGHT.parse(" Battery  TIME "))
+        assertEquals("none", Keys.HEADER_LEFT.parse("none"))
+        assertEquals("none", Keys.HEADER_LEFT.parse(""))
+        assertNull(Keys.HEADER_LEFT.parse("time,clock"))
+        assertNull(Keys.HEADER_LEFT.parse("time,date,time"))
+        assertEquals(listOf("alarm", "todo", "battery"), headerSide(Keys.HEADER_RIGHT.default))
+        assertEquals(emptyList<String>(), headerSide("none"))
     }
 
     @Test fun noNameIsBothASettingAndAGroup() {

@@ -18,11 +18,13 @@ import com.mtwabpin.kolahal.productivity.TimeSpec
 import java.util.concurrent.Executors
 
 /**
- * Calls in the log, once the call-log permission is granted (that is the switch): one line per
- * call as Android adds it to the call log, `Call from Sarah ↙`, `Call to Sarah ↗`,
- * `Missed call from Sarah ✕`, with the number, then the time and length, on dimmed lines below.
- * Tapping one dials back. The newest call seen persists, so calls made while the launcher wasn't
- * running show up on the next start, and none from before the permission was granted are logged.
+ * Shows calls in the log. The call-log permission is the on/off switch: there is no other setting.
+ * - Each call gets one line when Android adds it to the call log: `Call from Sarah ↙`,
+ *   `Call to Sarah ↗`, `Missed call from Sarah ✕`. Dimmed lines below show the number, then the
+ *   time and length.
+ * - A tap on the line dials back.
+ * - The newest call seen is saved. So calls made while the launcher wasn't running show up on the
+ *   next start, and calls from before the permission was granted are never logged.
  */
 class CallEvents private constructor(private val context: Context) {
     private val store = KvStore(context, "calls")
@@ -31,7 +33,7 @@ class CallEvents private constructor(private val context: Context) {
     @Volatile private var observing = false
     private val scanSoon = Runnable { io.execute { runCatching { scan() } } }
 
-    /** The dialer writes a call in a few steps; one scan once they settle. */
+    /** The dialer writes a call in a few steps, so we scan once, after the changes stop. */
     private val observer = object : ContentObserver(main) {
         override fun onChange(selfChange: Boolean) = check(delayMs = SETTLE_MS)
     }
@@ -47,7 +49,7 @@ class CallEvents private constructor(private val context: Context) {
         val lookupUri: String?,
     )
 
-    /** Starts watching, if allowed; call again once the permission is granted. */
+    /** Starts watching if the permission is granted. Call it again after the permission is granted. */
     fun start() {
         if (!hasPermission(context)) return
         if (!observing) {
@@ -58,8 +60,9 @@ class CallEvents private constructor(private val context: Context) {
     }
 
     /**
-     * Catches up, e.g. when home comes back on screen (the observer may have missed a call while
-     * frozen). Starts watching if the permission was granted in Android's settings meanwhile.
+     * Catches up on missed calls, for example when home comes back on screen. The observer may miss a
+     * call while the app is frozen. If the user granted the permission in Android's settings in the
+     * meantime, this starts watching.
      */
     fun check(delayMs: Long = 0) {
         if (!observing) return start()
@@ -72,7 +75,7 @@ class CallEvents private constructor(private val context: Context) {
         if (!hasPermission(context)) return
         val last = store.get(LAST)?.toLongOrNull()
         if (last == null) {
-            // First run: start from the newest call, without logging the history.
+            // First run: start from the newest call and don't log older calls.
             store.set(LAST, (recent(context, 1).firstOrNull()?.id ?: 0L).toString())
             return
         }
@@ -90,13 +93,13 @@ class CallEvents private constructor(private val context: Context) {
         const val SOURCE = "calls"
         private const val LAST = "last"
         private const val SETTLE_MS = 1_500L
-        /** After a long time away, only the newest calls get a line each. */
+        /** After a long time away, only this many of the newest calls get a line. */
         private const val MAX_LINES = 30
 
         fun hasPermission(context: Context) =
             context.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
 
-        /** Newest first, at most [limit], only those with an id above [afterId] when given. */
+        /** Returns at most [limit] calls, newest first. When [afterId] is given, only calls with a higher id. */
         fun recent(context: Context, limit: Int, afterId: Long? = null): List<Call> {
             if (!hasPermission(context)) return emptyList()
             val uri = CallLog.Calls.CONTENT_URI.buildUpon()
@@ -127,7 +130,10 @@ class CallEvents private constructor(private val context: Context) {
             }.getOrNull().orEmpty()
         }
 
-        /** `Call from Sarah ↙`, then the number and `10:42 · 4m 12s` on detail lines; [withDay] adds `Tue 20 Oct, `. */
+        /**
+         * Builds the text for a call: `Call from Sarah ↙`, then detail lines with the number and
+         * `10:42 · 4m 12s`. [withDay] adds `Tue 20 Oct, ` before the time.
+         */
         fun line(c: Call, config: Config, withDay: Boolean = false): String {
             val who = c.name ?: when (c.presentation) {
                 CallLog.Calls.PRESENTATION_RESTRICTED -> "a private number"
@@ -153,7 +159,7 @@ class CallEvents private constructor(private val context: Context) {
             return listOfNotNull(title, number, listOfNotNull(time, length).joinToString(" · ")).joinToString("\n")
         }
 
-        /** Tap dials back; long-press offers call, message, copy and the contact. */
+        /** A tap dials back. A long-press offers call, message, copy and the contact. */
         fun ctx(c: Call): LogContext =
             if (c.number.isBlank() || c.presentation != CallLog.Calls.PRESENTATION_ALLOWED) LogContext.EMPTY
             else LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number)

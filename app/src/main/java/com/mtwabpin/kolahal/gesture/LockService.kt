@@ -9,8 +9,8 @@ import android.view.accessibility.AccessibilityEvent
 import java.lang.ref.WeakReference
 
 /**
- * Accessibility service used only to lock the screen (double-tap gesture, `lock` command).
- * It subscribes to no events and reads no window content.
+ * Accessibility service that only locks the screen, for the double-tap gesture and the `lock` command.
+ * It listens to no events and reads no window content.
  */
 class LockService : AccessibilityService() {
     override fun onServiceConnected() {
@@ -29,7 +29,7 @@ class LockService : AccessibilityService() {
         @Volatile
         private var instance: WeakReference<LockService>? = null
 
-        /** True when the screen was locked; false when the service isn't enabled. */
+        /** Returns true when the screen was locked, false when the service isn't enabled. */
         fun lock(): Boolean = instance?.get()?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) == true
 
         fun isEnabled(context: Context): Boolean {

@@ -6,14 +6,14 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.Month
 
-/** Pure parsing of the times and durations typed after `remind`, `timer` and `alarm`. */
+/** Pure parsing of the times and durations that the user types after `remind`, `timer` and `alarm`. */
 object TimeSpec {
     private val DURATION = Regex("^(?:(\\d+)d)?(?:(\\d+)h)?(?:(\\d+)m(?:in)?)?(?:(\\d+)s)?$")
     private val CLOCK = Regex("^(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|a|p)?$")
 
     /**
-     * "10m", "2h", "1h30m", "90s", "1d" -> seconds. A bare number counts as minutes only when
-     * [bareMinutes] is true (`timer 5`); `remind 2 tickets` must not mean two minutes.
+     * Converts "10m", "2h", "1h30m", "90s" or "1d" to seconds. A bare number counts as minutes only
+     * when [bareMinutes] is true (`timer 5`), because `remind 2 tickets` must not mean two minutes.
      */
     fun parseDuration(raw: String, bareMinutes: Boolean = false): Long? {
         val s = raw.trim().lowercase()
@@ -22,18 +22,18 @@ object TimeSpec {
         val m = DURATION.find(s) ?: return null
         val (d, h, min, sec) = m.destructured
         if (d.isEmpty() && h.isEmpty() && min.isEmpty() && sec.isEmpty()) return null
-        // Each part at most [MAX_DURATION_S]: bigger ones wrapped round to a few hours, or later
-        // made a time past what a date can hold.
+        // Each part is at most [MAX_DURATION_S]. Bigger values overflowed into a few hours, or later
+        // gave a time that a date can't hold.
         fun part(digits: String, unit: Long) = if (digits.isEmpty()) 0L else digits.toLongOrNull()?.takeIf { it <= MAX_DURATION_S / unit }?.times(unit)
         val total = (part(d, 86_400) ?: return null) + (part(h, 3_600) ?: return null) +
             (part(min, 60) ?: return null) + (part(sec, 1) ?: return null)
         return total.takeIf { it in 1..MAX_DURATION_S }
     }
 
-    /** The longest duration taken: a hundred years. */
+    /** The longest duration accepted: a hundred years. */
     const val MAX_DURATION_S = 100L * 366 * 86_400
 
-    /** "18:30", "9:05", "6pm", "6:30pm"; a bare hour ("9") only when [allowBareHour]. */
+    /** Parses "18:30", "9:05", "6pm" or "6:30pm". A bare hour ("9") is accepted only when [allowBareHour] is true. */
     fun parseClock(raw: String, allowBareHour: Boolean = false): LocalTime? {
         val s = raw.trim().lowercase()
         val m = CLOCK.find(s) ?: return null
@@ -51,12 +51,13 @@ object TimeSpec {
         return LocalTime.of(hour, minute)
     }
 
-    /** A point in time and how many leading tokens described it (the rest is the reminder text). */
+    /** A point in time, and how many leading tokens described it. The other tokens are the reminder text. */
     data class Parsed(val at: LocalDateTime, val consumed: Int)
 
     /**
-     * The duration in seconds when [tokens] start with one (`2h`, `in 10m`), else null. Callers add
-     * it to the real clock: across a DST change, wall-clock arithmetic on [Parsed.at] is an hour off.
+     * Returns the duration in seconds when [tokens] start with one (`2h`, `in 10m`), else null.
+     * Callers add it to the real clock, because across a DST change, wall-clock math on [Parsed.at]
+     * is one hour off.
      */
     fun relativeSeconds(tokens: List<String>): Long? {
         val first = tokens.getOrNull(0)?.lowercase() ?: return null
@@ -64,21 +65,21 @@ object TimeSpec {
         return parseDuration((if (first == "in") tokens.getOrNull(1) else first)?.lowercase() ?: return null)
     }
 
-    /** "fri", "friday" (three letters at least). */
+    /** Parses a weekday: "fri", "friday" (at least three letters). */
     private fun weekday(token: String): DayOfWeek? {
         val t = token.lowercase()
         if (t.length < 3) return null
         return DayOfWeek.entries.firstOrNull { it.name.lowercase().startsWith(t) }
     }
 
-    /** "dec", "december" (three letters at least). */
+    /** Parses a month: "dec", "december" (at least three letters). */
     private fun month(token: String): Month? {
         val t = token.lowercase().trimEnd('.')
         if (t.length < 3) return null
         return Month.entries.firstOrNull { it.name.lowercase().startsWith(t) }
     }
 
-    /** "3", "3rd", "21st". */
+    /** Parses a day of the month: "3", "3rd", "21st". */
     private fun dayOfMonth(token: String): Int? =
         token.lowercase().removeSuffix("st").removeSuffix("nd").removeSuffix("rd").removeSuffix("th")
             .takeIf { it.isNotEmpty() && it.all(Char::isDigit) }?.toIntOrNull()?.takeIf { it in 1..31 }
@@ -89,7 +90,10 @@ object TimeSpec {
     private val LEAP_YEAR: LocalDate = LocalDate.of(2028, 1, 1)
     private val DAY_NUMBER = Regex("^\\d+(st|nd|rd|th)?$", RegexOption.IGNORE_CASE)
 
-    /** From the third token, a month and a number, either way round, or `2027-12-03`: meant as a date, valid or not. */
+    /**
+     * True when the tokens from the third one look like a date, valid or not: a month and a number in
+     * either order, or `2027-12-03`.
+     */
     private fun looksLikeDate(tokens: List<String>): Boolean {
         val a = tokens.getOrNull(2) ?: return false
         if (ISO_DATE.matches(a)) return true
@@ -97,10 +101,10 @@ object TimeSpec {
         return (month(a) != null && DAY_NUMBER.matches(b)) || (DAY_NUMBER.matches(a) && month(b) != null)
     }
 
-    /** A date read from the tokens, how many of them it took, and whether it named its year. */
+    /** A date read from the tokens, how many tokens it used, and whether it gave a year. */
     private data class Day(val date: LocalDate, val used: Int, val yearGiven: Boolean)
 
-    /** `dec 3`, `3 dec`, `december 3rd`, either with a year after it (`dec 3 2027`), or `2027-12-03`. */
+    /** Parses `dec 3`, `3 dec`, `december 3rd`, any of these with a year after it (`dec 3 2027`), or `2027-12-03`. */
     private fun parseDate(tokens: List<String>, i: Int, today: LocalDate): Day? {
         val a = tokens.getOrNull(i) ?: return null
         if (ISO_DATE.matches(a)) return runCatching { Day(LocalDate.parse(a), 1, true) }.getOrNull()
@@ -109,23 +113,27 @@ object TimeSpec {
             ?: dayOfMonth(a)?.let { d -> month(b)?.let { it to d } }
             ?: return null
         val year = tokens.getOrNull(i + 2)?.takeIf { YEAR.matches(it) }?.toInt()
-        // Without a year, this year's, or the next that has it (29 February).
+        // Without a year, use this year, or the next year that has the date (29 February).
         val date = if (year != null) runCatching { LocalDate.of(year, m, d) }.getOrNull() else nextWith(today.year, m, d)
         return Day(date ?: return null, if (year != null) 3 else 2, year != null)
     }
 
-    /** [month] [day] in [from] or the first year after it that has that day; null when none does. */
+    /** Returns [month] [day] in [from], or in the first later year that has that day. Null when no year does. */
     private fun nextWith(from: Int, month: java.time.Month, day: Int): LocalDate? =
         (from..from + 8).firstNotNullOfOrNull { y -> runCatching { LocalDate.of(y, month, day) }.getOrNull() }
 
-    /** Default time for a day given without one ("tomorrow", "fri"). */
+    /** Default time for a day given without a time ("tomorrow", "fri"). */
     val DEFAULT_TIME: LocalTime = LocalTime.of(9, 0)
 
     /**
      * Parses the start of [tokens]: `10m`, `in 2h`, `1h30m`, `18:30`, `at 6pm`, `tomorrow 9:00`,
-     * `today 17:00`, `fri 8am`, `dec 3`, `on 3 dec 2027 at 10:00`, `2027-12-03`. A clock time that
-     * has already passed today means tomorrow; a weekday's, next week; a date's without a year,
-     * next year. Returns null when the tokens don't start with a time.
+     * `today 17:00`, `fri 8am`, `dec 3`, `on 3 dec 2027 at 10:00`, `2027-12-03`.
+     * If the time has already passed:
+     * - a clock time means tomorrow
+     * - a weekday means next week
+     * - a date without a year means next year
+     *
+     * Returns null when the tokens don't start with a time.
      */
     fun parseWhen(tokens: List<String>, now: LocalDateTime): Parsed? {
         var i = 0
@@ -140,10 +148,11 @@ object TimeSpec {
             var j = i + day.used
             val at = tokens.getOrNull(j)?.lowercase() == "at"
             if (at) j++
-            // A bare hour only after `at`: `dec 3 2 tickets` is about two tickets.
+            // Accept a bare hour only after `at`: `dec 3 2 tickets` is about two tickets.
             val time = tokens.getOrNull(j)?.let { parseClock(it, allowBareHour = at) }
             var whenAt = day.date.atTime(time ?: DEFAULT_TIME)
-            // Gone this year: the next year that has the day (29 February comes back in four).
+            // If the date has passed this year, use the next year that has the day (29 February
+            // returns after four years).
             if (!day.yearGiven && !whenAt.isAfter(now)) {
                 whenAt = nextWith(day.date.year + 1, day.date.month, day.date.dayOfMonth)?.atTime(whenAt.toLocalTime()) ?: return null
             }
@@ -155,7 +164,7 @@ object TimeSpec {
         val day: LocalDate? = when (head) {
             "today" -> now.toLocalDate()
             "tomorrow", "tmrw", "tmr" -> now.toLocalDate().plusDays(1)
-            // Today's own name is today, if its time is still ahead.
+            // Today's weekday name means today, if its time is still ahead.
             else -> weekday?.let { dow ->
                 var d = now.toLocalDate()
                 while (d.dayOfWeek != dow) d = d.plusDays(1)
@@ -168,7 +177,7 @@ object TimeSpec {
             val time = tokens.getOrNull(j)?.let { parseClock(it, allowBareHour = true) }
             var at = day.atTime(time ?: DEFAULT_TIME)
             if (weekday != null && !at.isAfter(now)) at = at.plusWeeks(1)
-            // "today 9:00" at 10:00 is in the past: refuse rather than fire at once.
+            // "today 9:00" typed at 10:00 is in the past. Refuse it instead of firing at once.
             if (!at.isAfter(now)) return null
             return Parsed(at, if (time != null) j + 1 else i + 1)
         }
@@ -179,13 +188,13 @@ object TimeSpec {
         return Parsed(at, i + 1)
     }
 
-    /** A repeating reminder: its [Repeat] rule, its first time and how many leading tokens said so. */
+    /** A repeating reminder: its [Repeat] rule, its first time, and how many leading tokens described it. */
     data class Repeating(val rule: String, val at: LocalDateTime, val consumed: Int)
 
     /**
-     * `every day 8:00`, `every weekday`, `every weekend`, `every mon,thu 19:00`, `every month 1st`,
-     * `every year mar 14` (each with `at` and a time or not; 9:00 by default). Null when [tokens]
-     * don't start with `every` and one of those.
+     * Parses `every day 8:00`, `every weekday`, `every weekend`, `every mon,thu 19:00`,
+     * `every month 1st`, `every year mar 14`. Each can have a time, with or without `at`. The default
+     * time is 9:00. Returns null when [tokens] don't start with `every` and one of these.
      */
     fun parseRepeat(tokens: List<String>, now: LocalDateTime): Repeating? {
         if (tokens.getOrNull(0)?.lowercase() != "every") return null
@@ -202,13 +211,14 @@ object TimeSpec {
                 "month:${n ?: today.dayOfMonth}"
             }
             "year" -> {
-                // In a leap year, so 29 February is a date: it's the 28th in other years ([Repeat]).
+                // Parse in a leap year, so 29 February is a valid date. Other years use the 28th ([Repeat]).
                 val day = parseDate(tokens, 2, LEAP_YEAR)
-                // Meant as a date but not one (`feb 30`, or `mar 14 2027`, as it repeats every year): a mistake, not the reminder's words.
+                // It looks like a date but isn't valid here (`feb 30`, or `mar 14 2027`, because it
+                // repeats every year). Treat it as a mistake, not as the reminder's words.
                 if (day?.yearGiven == true || (day == null && looksLikeDate(tokens))) return null
                 if (day != null) j = 2 + day.used
                 val d = day?.date ?: today
-                // In plain digits whatever the phone's language: the rule is stored and read back.
+                // Use plain digits in any phone language, because the rule is stored and read back.
                 String.format(java.util.Locale.ROOT, "year:%02d-%02d", d.monthValue, d.dayOfMonth)
             }
             else -> head.split(',').map { weekday(it) ?: return null }.distinct().sorted()
@@ -223,14 +233,18 @@ object TimeSpec {
 
     private val SMALL_HOURS_END: LocalTime = LocalTime.of(6, 0)
 
-    /** Worth asking about, when the time was typed: `remind tomorrow 2 tickets` is more likely two tickets than 2 AM. */
+    /**
+     * True for a time before 6:00. If the user typed the time, it is worth asking: `remind tomorrow 2 tickets`
+     * more likely means two tickets than 2 AM.
+     */
     fun inTheSmallHours(at: LocalDateTime): Boolean = at.toLocalTime().isBefore(SMALL_HOURS_END)
 
     data class Reading(val at: LocalDateTime, val text: String)
 
     /**
-     * The other way to read [tokens], whose first [consumed] said when: a bare hour after a day word
-     * as the text's first word, at the default time. Null for any other time.
+     * The other way to read [tokens], whose first [consumed] tokens gave the time. A bare hour after a
+     * day word becomes the first word of the text, and the time becomes the default time. Returns null
+     * for any other kind of time.
      */
     fun otherReading(tokens: List<String>, consumed: Int, now: LocalDateTime): Reading? {
         val hour = tokens.getOrNull(consumed - 1) ?: return null
@@ -239,10 +253,10 @@ object TimeSpec {
         return Reading(at, tokens.drop(consumed - 1).joinToString(" "))
     }
 
-    /** Words for [at] and [text] that mean the same whenever they're run: a "tomorrow" would move on at midnight. */
+    /** Words for [at] and [text] that mean the same whenever they run. A "tomorrow" would change at midnight. */
     fun exactWords(at: LocalDateTime, text: String): String = "${at.toLocalDate()} ${at.toLocalTime()} $text"
 
-    /** 7800 -> "2h 10m"; 45 -> "45s"; 90000 -> "1d 1h". */
+    /** Formats seconds: 7800 -> "2h 10m", 45 -> "45s", 90000 -> "1d 1h". */
     fun formatDuration(seconds: Long): String {
         val s = seconds.coerceAtLeast(0)
         val d = s / 86_400

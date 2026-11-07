@@ -7,35 +7,37 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
 /**
- * Themes people make in Settings (Look & feel → Your themes): one file each,
- * `files/themes/<name>.json`, with `"role": "#RRGGBB"` for every role in [ROLES] (the dark
- * version) and `"light-role"` for each of the light version's ([LIGHT]). A theme without a light
- * version (made before themes had one) looks the same in both modes. Loaded once at start
- * ([load]); `theme.name` takes their names next to the built-in ones.
+ * Themes people make in Settings (Look & feel → Your themes).
+ * - Each theme is one file, `files/themes/<name>.json`.
+ * - The file has `"role": "#RRGGBB"` for every role in [ROLES] (the dark version), and
+ *   `"light-role"` for each role of the light version ([LIGHT]).
+ * - A theme without a light version (made before themes had one) looks the same in both modes.
+ * Themes are loaded once at start ([load]). `theme.name` accepts their names next to the built-in ones.
  */
 object CustomThemes {
     /** Colour roles, in the builder's order. */
     val ROLES = listOf("background", "surface", "text", "muted", "accent", "link", "info", "script", "error", "good", "warn", "personal", "work", "private")
 
-    /** Roles added later, and the role a theme made before them takes them from. */
+    /** Roles added later, and the role that an older theme takes each one from. */
     private val LATER = mapOf("good" to "personal", "warn" to "work")
 
     /** A theme's name: lowercase letters, digits and hyphens, like the built-in ones. */
     val NAME = Regex("[a-z0-9][a-z0-9-]{0,23}")
 
-    /** Prefix of the light version's roles: `light-background`. */
+    /** The prefix of the light version's roles: `light-background`. */
     const val LIGHT = "light-"
 
     private const val DIR = "themes"
     private val ROLE_COLOUR = Regex("\"([a-z-]+)\"\\s*:\\s*\"#([0-9a-fA-F]{6})\"")
 
-    /** [colors]' light version by role, or null when it has none (or only part of one). */
+    /** The light version of [colors] by role, or null when it has none (or only part of one). */
     fun light(colors: Map<String, Int>): Map<String, Int>? =
         ROLES.associateWith { colors[LIGHT + it] ?: return null }
 
     /**
-     * [colors] with a light version only if it is whole: half of one would be read as none. Roles
-     * added later ([LATER]) that a theme doesn't have yet come from their nearest role, in both versions.
+     * [colors], keeping the light version only if it is complete, because half of one would be read
+     * as none. Roles added later ([LATER]) that a theme doesn't have yet are copied from their nearest
+     * role, in both versions.
      */
     private fun whole(colors: Map<String, Int>): Map<String, Int> {
         val filled = HashMap(colors)
@@ -45,10 +47,10 @@ object CustomThemes {
         return filled.filterKeys { it in ROLES } + (light(filled)?.mapKeys { LIGHT + it.key } ?: emptyMap())
     }
 
-    /** [colors] as a whole theme ([whole]), or null when a role of its dark version is missing. */
+    /** [colors] as a complete theme ([whole]), or null when a role of its dark version is missing. */
     fun complete(colors: Map<String, Int>): Map<String, Int>? = whole(colors).takeIf { c -> ROLES.all { it in c } }
 
-    /** A key a theme's file may hold: a role of either version. */
+    /** Whether a theme's file may hold [key]: a role of either version. */
     fun isKey(key: String) = key in ROLES || (key.startsWith(LIGHT) && key.removePrefix(LIGHT) in ROLES)
 
     private val _themes = MutableStateFlow<Map<String, Map<String, Int>>>(emptyMap())
@@ -61,7 +63,7 @@ object CustomThemes {
 
     private fun dir(context: Context) = File(context.filesDir, DIR)
 
-    /** Reads the saved themes; at start, before the theme is applied. */
+    /** Reads the saved themes. Called at start, before the theme is applied. */
     fun load(context: Context) {
         _themes.value = dir(context).listFiles { f -> f.name.endsWith(".json") }.orEmpty().mapNotNull { f ->
             val name = f.name.removeSuffix(".json")
@@ -83,8 +85,8 @@ object CustomThemes {
     }
 
     /**
-     * `{ "background": "#0B0D0B", …, "light-background": "#F3F7F1", … }`, one role per line. A file to
-     * share starts with the theme's [name], which [import] takes.
+     * `{ "background": "#0B0D0B", …, "light-background": "#F3F7F1", … }`, one role per line. A file
+     * to share starts with the theme's [name], which [import] reads.
      */
     fun encode(colors: Map<String, Int>, name: String? = null): String {
         val keys = ROLES + (light(colors)?.let { ROLES.map { LIGHT + it } } ?: emptyList())
@@ -95,9 +97,10 @@ object CustomThemes {
     private val NAMED = Regex("\"name\"\\s*:\\s*\"([^\"]{1,64})\"")
 
     /**
-     * A shared theme's file ([text], called [fileName]) kept as one of yours: under the name in it,
-     * or else its file's, with -2, -3 … added when a built-in theme or one of yours has that name.
-     * Returns the name, and false when you already have it (the same name and colours).
+     * Saves a shared theme's file ([text], named [fileName]) as one of your themes. It uses the name
+     * inside the file, or else the file's name. It adds -2, -3 … when a built-in theme or one of yours
+     * already has that name. Returns the name, and false when you already have the theme (the same
+     * name and colours).
      */
     fun import(context: Context, text: String, fileName: String?): Pair<String, Boolean> {
         val colors = decode(text) ?: throw IllegalArgumentException("not a Kolahal theme")
@@ -109,25 +112,25 @@ object CustomThemes {
         return name to true
     }
 
-    /** [text] as a theme's name: lowercase, spaces and underscores as hyphens, anything else left out. */
+    /** [text] as a theme's name: lowercase, spaces and underscores become hyphens, and anything else is removed. */
     fun tidy(text: String): String =
         text.trim().lowercase().replace(Regex("[\\s_]+"), "-").replace(Regex("[^a-z0-9-]"), "").trimStart('-').take(24)
 
-    /** [wanted], or with -2, -3 … when [taken] has it, still no longer than a name may be. */
+    /** [wanted], or with -2, -3 … added when [taken] has it. The result is still no longer than a name may be. */
     fun freeName(wanted: String, taken: Set<String>): String = generateSequence(1) { it + 1 }
         .map { if (it == 1) wanted else wanted.take(24 - "-$it".length).trimEnd('-') + "-$it" }
         .first { it !in taken }
 
-    /** The colours in [text] ([encode]'s form); null unless every role of the dark version is there. */
+    /** The colours in [text] (in [encode]'s form). Null unless every role of the dark version is there. */
     fun decode(text: String): Map<String, Int>? {
         val found = ROLE_COLOUR.findAll(text).associate { it.groupValues[1] to (0xFF000000 or it.groupValues[2].toLong(16)).toInt() }
         return complete(found)
     }
 
-    /** "#0B0D0B" (no alpha: themes are opaque). */
+    /** "#0B0D0B", with no alpha, because themes are opaque. */
     fun hex(argb: Int): String = "#%06X".format(argb and 0xFFFFFF)
 
-    /** An opaque colour from "#0B0D0B" or "0b0d0b"; null for anything else. */
+    /** An opaque colour from "#0B0D0B" or "0b0d0b". Null for anything else. */
     fun parseHex(text: String): Int? = text.trim().removePrefix("#").takeIf { s -> s.length == 6 && s.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' } }
         ?.let { (0xFF000000 or it.toLong(16)).toInt() }
 }

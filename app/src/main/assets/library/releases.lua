@@ -64,12 +64,12 @@ if cmd == "add" or cmd == "rm" then
     if i then return hint(arg .. " is watched already") end
     repos[#repos + 1] = arg
     saveRepos(repos)
-    return log("Watching " .. fmt.bold(arg), #repos .. " repos", { url = "https://github.com/" .. arg .. "/releases" })
+    return log("Watching " .. arg, #repos .. " repos", { url = "https://github.com/" .. arg .. "/releases" })
   else
     if not i then return hint(arg .. " isn't watched") end
     table.remove(repos, i)
     saveRepos(repos)
-    return log("Stopped watching " .. fmt.bold(arg), #repos .. " repos left")
+    return log("Stopped watching " .. arg, #repos .. " repos left")
   end
 end
 
@@ -99,13 +99,13 @@ for _, repo in ipairs(repos) do
       -- First check: show the latest release, but don't notify.
       firstChecked[#firstChecked + 1] = firstKey
       if #items > 0 then
-        log(repo, fmt.color("muted", "Latest: ") .. (items[1].title or "?"), { url = items[1].link })
+        log(repo .. "  " .. fmt.color("muted", "latest") .. " " .. (items[1].title or "?"), { url = items[1].link })
       end
     else
       for i, item in ipairs(items) do
         if i > 3 then break end -- a repo rarely has more than a few releases between runs
         local title = item.title or "New release"
-        log(repo, fmt.color("good", "New: ") .. title, { url = item.link })
+        log(repo .. "  " .. fmt.color("good", "new") .. " " .. title, { url = item.link })
         notify(repo, title, { url = item.link })
         total = total + 1
       end

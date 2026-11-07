@@ -78,9 +78,10 @@ internal fun SettingItem(
     val changed by remember(key) { derivedStateOf { version.value; !config.isDefault(key) } }
     val shapes = segShapes(index, count)
     val title = TITLES[key.key] ?: key.key
-    // The setting's name, then a reset icon right after it once it is changed (a switch is reset by
-    // switching it): in the same place on every row, whatever sits on the right of the title.
-    // An icon rather than a Reset button keeps this line short; it never narrows the controls below.
+    // The setting's name, then a reset icon right after it once the value is changed.
+    // - A switch has no reset icon: the user resets it by switching it.
+    // - The icon is in the same place on every row, whatever is on the right of the title.
+    // - An icon, not a Reset button, keeps this line short, so it never narrows the controls below.
     val supporting: @Composable () -> Unit = {
         Column {
             Text(key.help.replaceFirstChar { it.uppercase() })
@@ -124,8 +125,9 @@ internal fun SettingItem(
                         supporting()
                         Spacer(Modifier.height(10.dp))
                         if (key == Keys.THEME) {
-                            // Each card in the version showing now: dark or light, as the phone (or Always dark) says.
-                            // Read with the version, so toggling Always dark redraws the cards.
+                            // Draw each card in the variant in use now: dark or light, as the phone (or
+                            // Always dark) sets it. It is read with the version, so toggling Always dark
+                            // redraws the cards.
                             val dark = androidx.compose.foundation.isSystemInDarkTheme() || run { version.value; config[Keys.THEME_ALWAYS_DARK] }
                             ThemeSwatches(value, dark) { vm.setConfig(key, it) }
                         } else if (key == Keys.FONT) {
@@ -142,7 +144,7 @@ internal fun SettingItem(
             is ConfigKey.Num -> {
                 var current by remember(key, value) { mutableFloatStateOf(value.toFloat()) }
                 val slider = remember(key) {
-                    // Ticks only for short ranges; wide ones (dp sizes, days) slide smoothly.
+                    // Show ticks only for short ranges. Wide ranges (dp sizes, days) slide smoothly.
                     val steps = (key.range.last - key.range.first - 1).let { if (it in 1..11) it else 0 }
                     SliderState(current, steps, key.range.first.toFloat()..key.range.last.toFloat())
                 }
@@ -156,8 +158,8 @@ internal fun SettingItem(
                     supportingContent = {
                         Column {
                             supporting()
-                            // A look setting (PEEK_SLIDERS): while dragged, home shows through Settings at the
-                            // value under the finger, which is saved on release.
+                            // A look setting (PEEK_SLIDERS). While the user drags, home shows through
+                            // Settings with the value under the finger. The value is saved on release.
                             val peekTyping = PEEK_SLIDERS[key.key]
                             val interactions = remember { MutableInteractionSource() }
                             val dragging by interactions.collectIsDraggedAsState()
@@ -165,7 +167,8 @@ internal fun SettingItem(
                                 if (dragging) vm.peek(TerminalViewModel.Peek(key.key, peekTyping))
                                 else if (vm.peek.value?.key == key.key) vm.peek(null)
                             }
-                            // Leaving mid-drag (Home, another screen) never finishes the change: drop the preview.
+                            // Leaving during a drag (Home, another screen) never finishes the change, so
+                            // drop the preview.
                             DisposableEffect(key) { onDispose { config.preview(key, null) } }
                             Slider(
                                 state = slider,
@@ -194,7 +197,8 @@ internal fun SettingItem(
                         Column {
                             supporting()
                             Spacer(Modifier.height(8.dp))
-                            // Red while it can't be a value (a name with a space), and no Apply then.
+                            // Red while the text is not a valid value (for example, a name with a space).
+                            // Apply is hidden then.
                             val valid = key.parse(text) != null
                             TextField(
                                 shape = TextFieldDefaults.roundedShape,
@@ -223,7 +227,7 @@ internal fun SettingItem(
     }
 }
 
-/** Many options: wrapping single-select filter chips. */
+/** For many options: single-select filter chips that wrap. */
 @Composable
 fun ChipChoices(choices: List<String>, selected: String, onPick: (String) -> Unit) {
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -233,15 +237,15 @@ fun ChipChoices(choices: List<String>, selected: String, onPick: (String) -> Uni
     }
 }
 
-/** Theme picker: a preview card per palette (Settings, and the tour). */
+/** The theme picker: one preview card per palette (in Settings and in the tour). */
 @Composable
 internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> Unit) {
-    // Not lazy, for the reason in FontChoices.
-    // The built-in themes, then the ones made in the theme builder (they come and go).
+    // Not lazy, for the reason given in FontChoices.
+    // The built-in themes first, then the ones made in the theme builder (these can be added and removed).
     val own = CustomThemes.themes.collectAsStateWithLifecycle().value.keys.sorted()
     val scroll = rememberScrollState()
     val step = with(LocalDensity.current) { (112 + 10).dp.roundToPx() }
-    // Opens at the theme in use (half a card of the one before shows), not at the strip's start.
+    // Open at the theme in use, not at the start of the row. Half of the card before it shows.
     LaunchedEffect(Unit) {
         val at = (Keys.BUILT_IN_THEMES + own).indexOf(selected)
         if (at > 0) scroll.scrollTo(at * step - step / 2)

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Backup files, and the folder automatic backups go to. The view model holds one as `backupActions`. */
+/** Handles backup files and the folder for automatic backups. The view model holds one as `backupActions`. */
 class BackupActions(
     private val context: Context,
     private val scripts: ScriptActions,
@@ -39,7 +39,8 @@ class BackupActions(
                     (if (r.review.isNotEmpty()) " · check these settings from the file: ${r.review.joinToString()}" else "") +
                     if (r.full) " — restarting to load it all" else ""
             )
-            // A full restore replaced preferences and tables under every in-memory cache: start fresh.
+            // A full restore replaced the preferences and tables, so every in-memory cache is now stale.
+            // Restart the app to load everything again.
             if (r.full) {
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     context.startActivity(
@@ -53,7 +54,7 @@ class BackupActions(
     }
 
     private val _backupVersion = MutableStateFlow(0)
-    /** Bumped when the backup folder changes or a backup is written, for Settings' line about them. */
+    /** Goes up by one when the backup folder changes or a backup is written. Settings uses it to refresh its backup line. */
     val backupVersion: StateFlow<Int> = _backupVersion.asStateFlow()
 
     @Volatile private var backUpOncePicked = false
@@ -63,11 +64,11 @@ class BackupActions(
         host.emit(UiEvent.PickBackupFolder)
     }
 
-    /** The backup folder and the last backup's time, for Settings; null with no folder. */
+    /** Returns the backup folder and the time of the last backup, for Settings. Returns null when no folder is set. */
     fun backupFolderLine(): String? {
         if (com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) return null
-        // Kept, but Kolahal may no longer open it (restored on another phone, or the folder deleted):
-        // backups fail until it's picked again.
+        // The folder is saved, but Kolahal may not be able to open it any more. For example, the backup was
+        // restored on another phone, or the folder was deleted. Backups fail until the user picks it again.
         val name = com.mtwabpin.kolahal.data.AutoBackup.folderName(context) ?: return "Can't be written: tap to pick it again"
         val last = com.mtwabpin.kolahal.data.AutoBackup.last(context)?.let {
             "last backup " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(it))
@@ -87,7 +88,7 @@ class BackupActions(
         }
     }
 
-    /** Settings' Back up now: today's backup in the folder, which is asked for first if there is none. */
+    /** Settings' "Back up now": writes today's backup to the folder. If no folder is set, asks for one first. */
     fun backUpNow() {
         if (com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) return askBackupFolder(true)
         fileOp("backup") { backUp() }

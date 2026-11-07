@@ -29,12 +29,12 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.StyledText
 
-/** [text] with every place one of [words] appears (ignoring case) marked, as a log search shows them. */
+/** Marks every place in [text] where one of [words] appears, ignoring case. Used to show log search results. */
 fun markMatches(text: AnnotatedString, words: List<String>): AnnotatedString {
     if (words.isEmpty()) return text
     val mark = SpanStyle(background = Term.prompt.copy(alpha = 0.35f))
     return AnnotatedString.Builder(text).apply {
-        // An empty word would be found at the same place for ever.
+        // Skip empty words: an empty word is found at the same place forever.
         for (w in words) {
             if (w.isEmpty()) continue
             var at = text.text.indexOf(w, ignoreCase = true)
@@ -46,10 +46,10 @@ fun markMatches(text: AnnotatedString, words: List<String>): AnnotatedString {
     }.toAnnotatedString()
 }
 
-/** A profile tag at the end of a line's first row (`Launched Maps [W]`, `Updated Maps [W] ↻`). */
+/** A profile tag at the end of a line's first row, as in `Launched Maps [W]` or `Updated Maps [W] ↻`. */
 private val profileTag = Regex(" \\[([PWSC])](?= \\S*$|$)")
 
-/** Appends [text] in [color], with a trailing profile tag in its profile colour. */
+/** Appends [text] in [color]. A profile tag at the end gets its profile colour. */
 private fun AnnotatedString.Builder.appendTagged(text: String, color: Color) {
     val tag = profileTag.find(text)
     if (tag == null) {
@@ -64,31 +64,35 @@ private fun AnnotatedString.Builder.appendTagged(text: String, color: Color) {
 
 private const val NOTIF_ICON = "notif-icon"
 
-/** The status-bar icon at the end of a notification line, tinted like the muted name it replaces. */
+/** The status bar icon at the end of a notification line. It has the same muted tint as the name it replaces. */
 internal fun notifIconContent(key: String) = mapOf(
     NOTIF_ICON to InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) { NotifIcon(key) },
 )
 
-/** A log line's text height, in em ([Term.text]'s line height), and the padding above and below it (dp). */
+/**
+ * Sizes of a log line:
+ * - [TEXT_LINE]: text height in em (the line height of [Term.text]).
+ * - [LINE_PADDING]: padding above and below the text, in dp.
+ */
 internal const val TEXT_LINE = 1.36f
 internal const val LINE_PADDING = 3
 
-/** Short lines (log.line-height below the text's own): no leading above the first line or under the last. */
+/** For short lines (`log.line-height` below the text's own height): removes the space above the first line and below the last. */
 internal fun TextStyle.dense(on: Boolean) =
     if (on) copy(lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both)) else this
 
-/** The terminal's text style, or always the terminal font for a line that lines columns up ([LogContext.MONO]). */
+/** The terminal text style. A line that aligns columns ([LogContext.MONO]) always uses the terminal font. */
 internal fun LogEntry.style() = if (ctx.values.containsKey(LogContext.MONO)) Term.code else Term.text
 
-/** How far wrapped and detail lines are indented: the width of `$ ` in the log's font, and of `• `. */
+/** Indents for wrapped and detail lines: the width of `$ ` in the log's font and in the code font, and the width of `• `. */
 @androidx.compose.runtime.Immutable
 data class LineIndents(val text: TextUnit, val code: TextUnit, val bullet: TextUnit)
 
 /**
- * Styles one log line. Wrapped continuation lines are indented past the prefix (`$ `, `• `) so
- * each item reads as one block; the widths are measured ([LineIndents]), so this holds in any font.
- * [icon]: end a script line with its notification icon instead of `· app`; [source]: name it at all
- * (the first line of a run).
+ * Styles one log line. Wrapped lines are indented past the prefix (`$ `, `• `), so each item
+ * reads as one block. The widths are measured ([LineIndents]), so this works in any font.
+ * - [icon]: end a script line with its notification icon instead of `· app`.
+ * - [source]: show the source at all (true for the first line of a run).
  */
 internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, icon: Boolean = false, source: Boolean = true) = buildAnnotatedString {
     val indent = when (entry.kind) {
@@ -103,25 +107,26 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
             }
             LogKind.ERROR -> withStyle(SpanStyle(color = Term.error)) { append(StyledText.plain(entry.text)) }
             LogKind.INFO -> {
-                // Lines after the first are details (e.g. a package name under an app event): dimmed.
+                // Lines after the first are details, such as a package name under an app event. They are dimmed below.
                 val first = entry.text.substringBefore('\n')
                 appendTagged(first, Term.info)
             }
             LogKind.SCRIPT -> {
                 if (unread) withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append("• ") }
-                // A line a script logged is a title: bold, its body muted under it.
-                val title = entry.ctx.values.containsKey(LogContext.TITLE)
-                // A title is bold already: its bold parts stand out in the text colour.
+                // A title with a body is a heading: bold, with the body muted below it. A title on its own
+                // (one HN story, one price) is in normal weight, so a list of them isn't a wall of bold.
+                val title = entry.ctx.values.containsKey(LogContext.TITLE) && entry.ctx.values.containsKey(LogContext.BODY)
+                // A heading is already bold, so its bold parts stand out in the text colour instead.
                 appendStyled(
                     entry.text,
                     SpanStyle(color = if (entry.ctx.url != null) Term.link else Term.script, fontWeight = if (title) FontWeight.Bold else null),
                     strong = Term.fg,
                 )
-                // The source goes at the end, muted, like other indicators (`… machine. · wikipedia`),
-                // so wrapped lines use the full width. A no-break space keeps the dot with the name.
+                // The source goes at the end, muted, like other indicators (`… machine. · wikipedia`).
+                // This way wrapped lines use the full width. A no-break space keeps the dot with the name.
                 entry.source?.takeIf { source }?.let { src ->
                     withStyle(SpanStyle(color = Term.dim)) {
-                        // A notification's icon reads as the app's name to screen readers, and stays with the last word.
+                        // Screen readers read the notification icon as the app name. The no-break space keeps it with the last word.
                         if (icon) {
                             append("\u00A0")
                             appendInlineContent(NOTIF_ICON, src)
@@ -134,28 +139,31 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
             LogKind.OUTPUT -> {
                 val first = entry.text.substringBefore('\n')
                 val color = if (entry.ctx.url != null) Term.link else Term.fg
-                // A script's result may carry styles ([StyledText]); command output never does.
+                // A script's result can have styles ([StyledText]). Command output never has them.
                 if (StyledText.has(first)) appendStyled(first, SpanStyle(color = color)) else appendTagged(first, color)
             }
         }
         Unit
     }
-    // Lines after the first (details, dimmed) are paragraphs of their own, indented by layout to line
-    // up with the text after the prefix: padding with spaces only lines up in a monospace font.
+    // Lines after the first (dimmed details) are separate paragraphs. Layout indents them to line up
+    // with the text after the prefix. Padding with spaces would only line up in a monospace font.
     if ((entry.kind == LogKind.INFO || entry.kind == LogKind.OUTPUT) && '\n' in entry.text) {
         withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent, restLine = indent))) {
             appendStyled(entry.text.substringAfter('\n'), SpanStyle(color = Term.dim), strong = Term.fg)
         }
     }
-    // A script line's body, under its title and lined up with it.
-    val body = entry.ctx.body
-    if (entry.kind == LogKind.SCRIPT && body != null) appendBody(body, indent, indents.bullet)
+    // A script line's body, below its title and aligned with it. A table and what follows it are
+    // drawn under the text ([TableBody]), so only the part above the table is text here.
+    val body = entry.ctx.body?.let { StyledText.splitAtTable(it).first }
+    if (entry.kind == LogKind.SCRIPT && !body.isNullOrEmpty()) appendBody(body, indent, indents.bullet)
 }
 
 /**
- * [text] with its [StyledText] styles over [base]: bold also takes [strong] when given (a muted
- * body or a bold title bolds to the text colour), code shows on a shaded chip. A list item shows its bullet or
- * number in the accent colour.
+ * Appends [text] with its [StyledText] styles on top of [base].
+ * - Bold text also uses the colour [strong], if given. So bold in a muted body or a bold title
+ *   uses the text colour.
+ * - Code shows on a shaded background.
+ * - A list item shows its bullet or number in the accent colour.
  */
 private fun AnnotatedString.Builder.appendStyled(text: String, base: SpanStyle, strong: Color? = null) {
     if (!StyledText.has(text)) {
@@ -169,15 +177,15 @@ private fun AnnotatedString.Builder.appendStyled(text: String, base: SpanStyle, 
     }
 }
 
-private fun AnnotatedString.Builder.appendSpans(spans: List<StyledText.Span>, base: SpanStyle, strong: Color?) {
+internal fun AnnotatedString.Builder.appendSpans(spans: List<StyledText.Span>, base: SpanStyle, strong: Color?) {
     for ((text, styles, colour) in spans) {
         if (styles.isEmpty() && colour == null) withStyle(base) { append(text) }
         else withStyle(base.merge(styleOf(styles, strong)).merge(SpanStyle(color = colourOf(colour)))) { append(text) }
     }
 }
 
-/** A script's colour by role, from the theme in use (its dark or light version). */
-private fun colourOf(colour: StyledText.Colour?): Color = when (colour) {
+/** Maps a script colour role to a colour of the current theme (its dark or light version). */
+internal fun colourOf(colour: StyledText.Colour?): Color = when (colour) {
     null -> Color.Unspecified
     StyledText.Colour.ACCENT -> Term.prompt
     StyledText.Colour.LINK -> Term.link
@@ -201,17 +209,17 @@ private fun styleOf(styles: Set<StyledText.Style>, strong: Color?): SpanStyle {
         fontWeight = if (bold) FontWeight.Bold else null,
         fontStyle = if (StyledText.Style.ITALIC in styles) FontStyle.Italic else null,
         textDecoration = if (decorations.isEmpty()) null else TextDecoration.combine(decorations),
-        // The terminal font is monospace already; with font.sans on, code still is.
+        // The terminal font is already monospace. This keeps code monospace when `font.sans` is on.
         fontFamily = if (code) Term.code.fontFamily else null,
         background = if (code) Term.surface else Color.Unspecified,
     )
 }
 
 /**
- * A script line's body, muted, lined up under its title at [indent]. Each list item is a paragraph
- * of its own whose wrapped lines start under the item's text; [bullet] is the width of "• ".
+ * Appends a script line's body, muted, aligned under its title at [indent]. Each list item is a
+ * separate paragraph, and its wrapped lines start under the item's text. [bullet] is the width of "• ".
  */
-private fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, bullet: TextUnit) {
+internal fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, bullet: TextUnit) {
     val base = SpanStyle(color = Term.dim)
     if (!StyledText.has(body)) {
         withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent, restLine = indent))) { withStyle(base) { append(body) } }
@@ -223,7 +231,7 @@ private fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, b
     while (i < lines.size) {
         val line = lines[i]
         if (line.level == 0) {
-            // Plain lines in a row share a paragraph.
+            // Plain lines that follow each other share one paragraph.
             val run = lines.drop(i).takeWhile { it.level == 0 }
             withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent, restLine = indent))) {
                 run.forEachIndexed { k, l ->

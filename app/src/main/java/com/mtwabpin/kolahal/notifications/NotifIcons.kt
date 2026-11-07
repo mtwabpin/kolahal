@@ -12,15 +12,16 @@ import androidx.core.graphics.createBitmap
 import java.io.File
 
 /**
- * The status-bar icons of notifications, shown at the end of their log lines instead of the app
- * name. Each is saved once as a small PNG when its notification arrives, under a key made of the
- * resource's package, id and the app's version, so old lines keep the right icon after the app
- * updates. Only resource icons are kept (nearly every app's); others fall back to the app name.
+ * Status-bar icons of notifications. They show at the end of log lines instead of the app name.
+ * - Each icon is saved once, as a small PNG, when its notification arrives.
+ * - The key is the resource's package, its id and the app's version. So old lines keep the right
+ *   icon after the app updates.
+ * - Only resource icons are saved (nearly all apps use them). Other lines show the app name.
  */
 object NotifIcons {
     private const val PX = 48
     private const val VERSION_TTL_MS = 10 * 60_000L
-    /** Oldest files go past this; their lines fall back to the app name. */
+    /** Above this count, the oldest files are deleted. Their lines then show the app name. */
     private const val MAX_FILES = 400
 
     @Volatile private var known: MutableSet<String>? = null
@@ -28,7 +29,7 @@ object NotifIcons {
 
     private fun dir(context: Context) = File(context.filesDir, "notif-icons")
 
-    /** Key for [icon] posted by [pkg], or null when it isn't a resource icon. Cheap: no drawing. */
+    /** Key for [icon] posted by [pkg], or null when it isn't a resource icon. It is cheap: it draws nothing. */
     fun key(context: Context, pkg: String, icon: Icon?): String? {
         if (icon == null || icon.type != Icon.TYPE_RESOURCE) return null
         val resPkg = icon.resPackage.takeIf { it.isNotEmpty() } ?: pkg
@@ -36,7 +37,7 @@ object NotifIcons {
         return "${resPkg}_${Integer.toHexString(icon.resId)}_$version"
     }
 
-    /** App versions for icon keys, cached for a while: a chatty app posts many notifications a minute. */
+    /** App versions for icon keys. They are cached for a while, because a busy app can post many notifications a minute. */
     private val versions = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Long>>()
 
     private fun versionOf(context: Context, pkg: String): Long {
@@ -47,12 +48,12 @@ object NotifIcons {
         return version
     }
 
-    /** Lists the saved icons off the main thread, so the first log line with one doesn't do it. */
+    /** Lists the saved icons off the main thread, so that the first log line with an icon doesn't have to. */
     fun preload(context: Context) {
         knownSet(context)
     }
 
-    /** True when [key]'s icon has been saved (a directory listing once, then kept in memory). */
+    /** True when the icon for [key] is saved. The directory is listed once, then kept in memory. */
     fun has(context: Context, key: String): Boolean = knownSet(context).contains(key)
 
     private fun knownSet(context: Context): MutableSet<String> = known ?: synchronized(this) {
@@ -61,7 +62,7 @@ object NotifIcons {
         }.also { known = it }
     }
 
-    /** Draws and saves [icon] under [key] unless it is already there. Call off the main thread. */
+    /** Draws and saves [icon] under [key], unless it is already saved. Call it off the main thread. */
     fun save(context: Context, key: String, icon: Icon) {
         val set = knownSet(context)
         if (key in set) return
@@ -89,7 +90,7 @@ object NotifIcons {
         }
     }
 
-    /** The saved icon for [key], or null. Call off the main thread the first time. */
+    /** Returns the saved icon for [key], or null. Call it off the main thread the first time. */
     fun load(context: Context, key: String): ImageBitmap? {
         memory.get(key)?.let { return it }
         val file = File(dir(context), "$key.png")

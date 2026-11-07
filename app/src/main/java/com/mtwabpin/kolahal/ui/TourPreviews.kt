@@ -79,9 +79,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// The tour's previews: a small home screen per setting, in the terminal's colours, font and text
-// size as set now, built from the real suggestion list, key bar and app selector where they can
-// run outside home, so a choice shows what it does as you make it.
+// The tour's previews. Each setting gets a small home screen that uses the terminal's current
+// colours, font and text size. Where possible, the previews use the real suggestion list, key bar
+// and app selector. So the user sees the effect of a choice while making it.
 
 /** A small home screen, in the terminal's colours as set now. */
 @Composable
@@ -99,7 +99,7 @@ internal fun HomeFrame(height: Dp, modifier: Modifier = Modifier, tag: String = 
     )
 }
 
-/** What a preview shows as it changes: under the frame, in the tour's own type. */
+/** The caption under a preview frame. It says what the preview shows and uses the tour's own text style. */
 @Composable
 internal fun PreviewCaption(text: String) {
     Text(
@@ -110,7 +110,7 @@ internal fun PreviewCaption(text: String) {
     )
 }
 
-/** A log line in a preview; [time] in the right-hand column, as `log.time` puts it. */
+/** A log line in a preview. [time] goes in the right-hand column, like `log.time` places it. */
 @Composable
 private fun Line(text: String, color: Color = Term.fg, bold: Boolean = false, source: String? = null, time: String? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
@@ -144,7 +144,7 @@ private fun CommandLine(text: String, time: String? = null) {
     }
 }
 
-/** The prompt: `$`, what's typed, and a blinking caret. */
+/** The prompt: `$`, the typed text and a blinking caret. */
 @Composable
 private fun PreviewPrompt(text: String, enter: Boolean = false) {
     val blink = rememberInfiniteTransition(label = "caret")
@@ -155,10 +155,10 @@ private fun PreviewPrompt(text: String, enter: Boolean = false) {
     ) {
         Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold))
         Text(text, style = Term.text.copy(color = Term.fg), maxLines = 1)
-        // Read as the layer is drawn: the blink doesn't build the prompt again on every frame.
+        // The caret alpha is read only when the layer draws, so the blink does not recompose the prompt on every frame.
         Box(Modifier.width(2.dp).height((Term.fontSize + 4).dp).graphicsLayer { alpha = caret; clip = true }.background(Term.prompt))
         Spacer(Modifier.weight(1f))
-        // Enter, pressed: what `launch.instant off` waits for.
+        // Shows Enter being pressed. With `launch.instant off`, nothing runs until Enter.
         AnimatedVisibility(enter, enter = fadeIn() + scaleIn(), exit = fadeOut()) {
             Box(
                 Modifier.background(Term.prompt, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
@@ -167,7 +167,7 @@ private fun PreviewPrompt(text: String, enter: Boolean = false) {
     }
 }
 
-/** Times as the log shows them. */
+/** Formats a time the same way the log shows it. */
 private fun logTime(clock24: Boolean, at: Date = Date()) = SimpleDateFormat(if (clock24) "HH:mm" else "h:mm", Locale.getDefault()).format(at)
 
 @Composable
@@ -178,9 +178,12 @@ private fun rememberApps(): List<AppEntry> {
 }
 
 /**
- * Typing: an app's first letters and then `fetch`, typed into the prompt, each running when
- * `launch.instant` would run it (the same check home uses), or when Enter is pressed; the
- * suggestions above as `suggestions.style` shows them.
+ * The typing preview. It types into the prompt:
+ * - the first letters of an app, then
+ * - `fetch`.
+ *
+ * Each one runs when `launch.instant` would run it (home uses the same check), or else when Enter
+ * is pressed. The suggestions above the prompt follow `suggestions.style`.
  */
 @Composable
 internal fun TypingPreview(vm: TerminalViewModel) {
@@ -201,7 +204,7 @@ internal fun TypingPreview(vm: TerminalViewModel) {
         commands = commands, aliases = emptyMap(), scriptCommands = emptyList(), isOn = { !it.profile.quiet },
     )
 
-    // An app of yours that a few letters pick out, as `apps` mode would launch it.
+    // Finds one of the user's apps that `apps` mode would launch after only a few letters.
     val app by androidx.compose.runtime.produceState<AppEntry?>(null, apps, minLetters) {
         value = withContext(Dispatchers.Default) {
             apps.asSequence().filter { it.label.length >= 4 && it.label.first().isLetter() }.mapNotNull { a ->
@@ -232,7 +235,7 @@ internal fun TypingPreview(vm: TerminalViewModel) {
             (target(demo.label.take(k), InstantRun.APPS) as? InstantRun.Target.App)?.app?.key == demo.key
         }.let { demo.label.take(it ?: demo.label.length).lowercase() }
 
-        /** Types [word] a letter at a time; true when it ran by itself on the way. */
+        /** Types [word] one letter at a time. Returns true if it ran by itself before the end. */
         suspend fun type(word: String): Boolean {
             for (i in 1..word.length) {
                 typed = word.take(i)
@@ -246,9 +249,9 @@ internal fun TypingPreview(vm: TerminalViewModel) {
             return false
         }
 
-        // Only while the tour shows: left open behind another app, it would wake twice a second and search the apps.
+        // Runs only while the tour is visible. Otherwise, if the tour stayed open behind another app, it would wake twice a second and search the apps.
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            // Back on screen: from the start, not from where it stopped.
+            // When the tour is visible again, start from the beginning, not from where it stopped.
             lines.clear()
             opened = null
             enter = false
@@ -262,7 +265,7 @@ internal fun TypingPreview(vm: TerminalViewModel) {
                 delay(1500.milliseconds)
                 opened = null
                 delay(500.milliseconds)
-                // fetch takes no arguments, so it can run by itself (`all`); its first lines, as it prints them.
+                // fetch takes no arguments, so it can run by itself (in `all` mode). Below are its first output lines.
                 type("fetch")
                 typed = ""
                 lines += "fetch" to true
@@ -283,7 +286,7 @@ internal fun TypingPreview(vm: TerminalViewModel) {
             else SuggestionList(suggestions, onPick = {}, onAppLongPress = {}, icons = icons)
             PreviewPrompt(typed, enter)
         }
-        // The app opening: its icon and name, big, for a moment.
+        // Shows the app opening: its icon and name, large, for a moment.
         AnimatedVisibility(opened != null, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
             val a = opened ?: app
             if (a != null) Column(
@@ -305,11 +308,12 @@ internal fun TypingPreview(vm: TerminalViewModel) {
     )
 }
 
-/** The look: the header's line, a few log lines with their times, and the prompt. */
+/** The look preview: the header line (when `header.show` is on), a few log lines with their times, and the prompt. */
 @Composable
 internal fun LookPreview(vm: TerminalViewModel) {
     val version by vm.config.version.collectAsStateWithLifecycle()
     val clock24 = remember(version) { vm.config[Keys.CLOCK_24H] }
+    val header = remember(version) { vm.config[Keys.HEADER_SHOW] }
     val context = LocalContext.current
     val battery = remember {
         context.getSystemService(android.os.BatteryManager::class.java)
@@ -323,9 +327,9 @@ internal fun LookPreview(vm: TerminalViewModel) {
             (0L..6L).joinToString(" ") { "%2d".format(monday.plusDays(it).dayOfMonth) }
     }
     HomeFrame(230.dp) {
-        // As the header draws it: the time and date, the battery at the end.
+        // Drawn like the real header, when it is on: the time and date, then the battery at the end.
         val locale = LocalConfiguration.current.locales[0]
-        Row(
+        if (header) Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
@@ -351,7 +355,7 @@ internal fun LookPreview(vm: TerminalViewModel) {
     }
 }
 
-/** A stand-in for the on-screen keyboard: rows of keys in the frame's colours. */
+/** A fake on-screen keyboard: rows of keys in the frame's colours. */
 @Composable
 private fun KeyboardStandIn() {
     Column(
@@ -366,7 +370,7 @@ private fun KeyboardStandIn() {
     }
 }
 
-/** Above the keyboard: most-used apps over an empty prompt, and the key bar under it. */
+/** The area above the keyboard: most-used apps above an empty prompt, and the key bar below the prompt. */
 @Composable
 internal fun KeyboardPreview(vm: TerminalViewModel) {
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -377,7 +381,7 @@ internal fun KeyboardPreview(vm: TerminalViewModel) {
     val rowHeight = remember(version) { vm.config[Keys.KEYBAR_HEIGHT].dp }
     val repo = AppRepository.get(LocalContext.current)
     val apps = rememberApps()
-    // Yours once you've opened a few; until then, a few of your apps stand in.
+    // The user's most-used apps. If there are none yet, use any three of their apps.
     val top = remember(apps) { repo.top(3).ifEmpty { apps.take(3) } }
     HomeFrame(360.dp) {
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
@@ -395,7 +399,10 @@ internal fun KeyboardPreview(vm: TerminalViewModel) {
     }
 }
 
-/** The app selector itself, on the edge chosen, with your apps: try it here; a pick says what would open. */
+/**
+ * The real app selector, on the chosen edge, with the user's apps. The user can try it here.
+ * Picking an app shows what would open.
+ */
 @Composable
 internal fun SelectorPreview(vm: TerminalViewModel) {
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -422,7 +429,7 @@ internal fun SelectorPreview(vm: TerminalViewModel) {
                 position = remember(version) { vm.config[Keys.SELECTOR_POSITION] },
                 showHandle = true,
                 letters = remember(version) { vm.config[Keys.SELECTOR_LETTERS] },
-                // Not at the screen's edge here: the whole strip starts it.
+                // The preview is not at the screen's edge, so a touch anywhere on the strip starts it.
                 edgeBackGesture = false,
                 icons = remember(version) { vm.config[Keys.SELECTOR_ICONS] },
                 aimDp = remember(version) { vm.config[Keys.SELECTOR_AIM] },
@@ -447,10 +454,16 @@ internal fun SelectorPreview(vm: TerminalViewModel) {
     )
 }
 
-/** One line to try gestures on: what a tap and a long-press do, said in the caption. */
+/** One line to try gestures on. The caption says what a tap and a long-press do. */
 private class TryLine(val text: String, val command: Boolean, val source: String?, val tap: String, val longPress: String)
 
-/** The log's gestures, to try on a few lines: tap, long-press, swipe left (deletes) and right (copies). */
+/**
+ * A few log lines to try the log's gestures on:
+ * - tap
+ * - long-press
+ * - swipe left (deletes)
+ * - swipe right (copies)
+ */
 @Composable
 internal fun LogTryPreview() {
     val apps = rememberApps()
@@ -516,7 +529,7 @@ internal fun LogTryPreview() {
     PreviewCaption(caption)
 }
 
-/** A small example of what a permission adds, in the terminal's colours, small enough to sit beside its button. */
+/** A small example of what a permission adds. It uses the terminal's colours and fits beside its button. */
 @Composable
 internal fun PermissionExample(fix: String) {
     val dim = SpanStyle(color = Term.dim)

@@ -7,19 +7,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.concurrent.ConcurrentHashMap
 
-/** In-memory feed of recent notifications (UI process only), newest first. */
+/** In-memory feed of recent notifications, newest first. It exists only in the UI process. */
 object NotificationStore {
     const val CAP = 200
-    /** Characters of each notification's text in the copy kept for scripts. */
+    /** Maximum characters of each notification's text in the copy that scripts get. */
     private const val MAX_TEXT = 2000
 
     private val _items = MutableStateFlow<List<Notif>>(emptyList())
     val items: StateFlow<List<Notif>> = _items.asStateFlow()
 
-    /** contentIntents by key, kept out of [Notif] so it stays a plain value. */
+    /** contentIntents by key. They are kept outside [Notif] so that [Notif] stays a plain value. */
     private val intents = ConcurrentHashMap<String, PendingIntent>()
 
-    /** Adds or replaces (same key) a notification and moves it to the top. */
+    /** Adds a notification, or replaces the one with the same key, and moves it to the top. */
     fun put(n: Notif, intent: PendingIntent?) {
         if (intent != null) intents[n.key] = intent else intents.remove(n.key)
         _items.update { list ->
@@ -30,7 +30,10 @@ object NotificationStore {
         }
     }
 
-    /** Replaces the whole feed (listener connect); removed entries already in memory are kept below. */
+    /**
+     * Replaces the whole feed when the listener connects. Entries already in memory that are no
+     * longer active stay below the active ones, marked as removed.
+     */
     fun replaceAll(active: List<Pair<Notif, PendingIntent?>>) {
         intents.clear()
         active.forEach { (n, pi) -> if (pi != null) intents[n.key] = pi }
@@ -52,7 +55,7 @@ object NotificationStore {
 
     fun active(): List<Notif> = _items.value.filter { !it.removed }
 
-    /** Script-facing view: simple maps, newest first. */
+    /** The view for scripts: simple maps, newest first. */
     fun recent(limit: Int = 20, includeRemoved: Boolean = true, skipProfile: (Long) -> Boolean = { false }): List<Map<String, Any?>> =
         _items.value.asSequence()
             .filter { (includeRemoved || !it.removed) && !skipProfile(it.userSerial) }

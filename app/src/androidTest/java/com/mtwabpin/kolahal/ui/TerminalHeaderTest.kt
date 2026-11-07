@@ -34,7 +34,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The header, one line: the time and date, the two items you chose and the battery, and what a tap does. */
+/** The header, one line: the parts you chose on each side (by default the time and date; the alarm, todos and battery), and what a tap does. */
 @RunWith(AndroidJUnit4::class)
 class TerminalHeaderTest {
     @get:Rule val compose = createComposeRule()
@@ -92,20 +92,31 @@ class TerminalHeaderTest {
         compose.onNodeWithText(SimpleDateFormat("EEE ", Locale.getDefault()).format(Date(far)) + time.format(Date(far))).assertExists()
     }
 
-    /** The two items are yours: none leaves the place empty; no todos, no item. */
-    @Test fun theItemsAreTheOnesChosen() {
-        config.set(Keys.HEADER_ITEM_1, "unlocks")
-        config.set(Keys.HEADER_ITEM_2, "settings")
+    /** The parts are yours, on either side: one left out isn't shown; no todos, no todo part. */
+    @Test fun thePartsAreTheOnesChosen() {
+        config.set(Keys.HEADER_RIGHT, "unlocks,settings,battery")
         show()
         compose.onNodeWithText("7").assertExists()
         compose.onNodeWithContentDescription("Settings").assertExists()
         compose.onNodeWithTag("header-todo").assertDoesNotExist()
 
         compose.runOnIdle { todos = 0 }
-        set(Keys.HEADER_ITEM_1 to "todo", Keys.HEADER_ITEM_2 to "none")
+        set(Keys.HEADER_RIGHT to "todo,battery")
         compose.onNodeWithTag("header-todo").assertDoesNotExist()
         compose.onNodeWithTag("header-settings").assertDoesNotExist()
         compose.onNodeWithTag("header-battery").assertExists()
+
+        // The battery on the left and the time on the right; the date left out.
+        set(Keys.HEADER_LEFT to "battery", Keys.HEADER_RIGHT to "time")
+        compose.onNodeWithTag("header-date").assertDoesNotExist()
+        val battery = compose.onNodeWithTag("header-battery").getUnclippedBoundsInRoot()
+        val time = compose.onNodeWithTag("header-time").getUnclippedBoundsInRoot()
+        assertTrue("the battery at ${battery.left}, the time at ${time.left}", battery.right < time.left)
+
+        // An empty side is fine.
+        set(Keys.HEADER_LEFT to "none")
+        compose.onNodeWithTag("header-battery").assertDoesNotExist()
+        compose.onNodeWithTag("header-time").assertExists()
     }
 
     /** Each part does what it says, and a swipe down pulls the shade. */
@@ -122,9 +133,9 @@ class TerminalHeaderTest {
         compose.runOnIdle { assertEquals(1, swipes) }
     }
 
-    /** Little room: what doesn't fit is left out, the second item first, the battery last, and it stays one line. */
+    /** Little room: what doesn't fit is left out from the middle out, the battery last, and it stays one line. */
     @Test fun itStaysOneLineWithLittleRoom() {
-        config.set(Keys.HEADER_ITEM_1, "unlocks")
+        config.set(Keys.HEADER_RIGHT, "unlocks,todo,battery")
         show(width = 300.dp)
         compose.onNodeWithTag("header").assertHeightIsEqualTo(32.dp)
         compose.onNodeWithTag("header-battery").assertExists()

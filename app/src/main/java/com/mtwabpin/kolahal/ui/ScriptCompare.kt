@@ -39,15 +39,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Compare: your copy of a library script against the library version. Its changed lines with three
- * unchanged ones around each, those only in the library version in red and those only in yours in
- * the theme's colour, the rest counted; Reset (or Update) from there.
+ * Compare: the user's copy of a library script against the library version.
+ * - It shows the changed lines, each with three unchanged lines around it.
+ * - Lines only in the library version are red.
+ * - Lines only in the user's copy use the theme's colour.
+ * - Other unchanged lines are only counted.
+ * - Reset (or Update) is available from here.
  */
 @Composable
 internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    // Read here, outside the dialog's own composition, and handed in: its counts and its lines then
-    // change together (read inside it, the lines could show while the counts stayed at 0).
+    // Read the diff here, outside the dialog's composition, and pass it in. Then the counts and the
+    // lines change together. If read inside, the lines could show while the counts still said 0.
     val hunks = produceState<List<LineDiff.Hunk>?>(null, s.code, lib.entry) {
         value = withContext(Dispatchers.IO) { LineDiff.hunks(LineDiff.lines(vm.scriptActions.library.code(lib.entry), s.code)) }
     }.value
@@ -66,7 +69,7 @@ internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDism
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // What the colours mean, with how many lines each.
+                // A legend: what each colour means and how many lines have it.
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -97,7 +100,7 @@ internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDism
     }
 }
 
-/** What a colour in Compare means. */
+/** One legend entry: what a colour in Compare means. */
 @Composable
 private fun DiffKey(label: String, color: Color) {
     Surface(shape = MaterialTheme.shapes.small, color = color) {
@@ -109,7 +112,12 @@ private fun DiffKey(label: String, color: Color) {
     }
 }
 
-/** One line in Compare: - and red only in the library version, + and the theme's colour only in yours; a long one wraps under its text. */
+/**
+ * One line in Compare.
+ * - `-` in red: only in the library version.
+ * - `+` in the theme's colour: only in the user's copy.
+ * - A long line wraps and stays aligned under its text.
+ */
 @Composable
 private fun DiffLine(line: LineDiff.Line) {
     val colors = MaterialTheme.colorScheme

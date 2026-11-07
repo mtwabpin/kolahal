@@ -47,7 +47,8 @@ if (r.ok) {
   if (posts.length === 0) return log(fmt.color("muted", `r/${sub}: no posts today`));
   for (const p of posts.slice(0, LIMIT)) {
     const link = "https://www.reddit.com" + p.permalink;
-    log(p.title, `${fmt.bold(short(p.score))} points · ${p.num_comments} comments`, { url: link, copy: link });
+    // One line a post: the title, then its points and comments, muted.
+    log(`${p.title} ${fmt.color("muted", `· ${short(p.score)} points · ${p.num_comments} comments`)}`, { url: link, copy: link });
   }
   return;
 }

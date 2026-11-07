@@ -6,9 +6,10 @@ import android.database.sqlite.SQLiteOpenHelper
 import com.mtwabpin.kolahal.data.Singleton
 
 /**
- * Feed subscriptions and their fetched items. Kept apart from `kolahal.db` so the feed schema
- * can evolve without touching the log/script database. WAL lets the fetch worker's thread write
- * while home reads (both in the main process).
+ * Feed subscriptions and their fetched items.
+ * - This database is separate from `kolahal.db`, so the feed schema can change without touching
+ *   the log and script database.
+ * - WAL lets the fetch worker's thread write while home reads. Both run in the main process.
  */
 class FeedDb private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {
@@ -61,7 +62,7 @@ class FeedDb private constructor(context: Context) :
         private const val NAME = "feeds.db"
         private const val VERSION = 1
 
-        /** Items kept per feed; the oldest read ones go first. */
+        /** Items kept per feed. The oldest read items are deleted first. */
         const val MAX_ITEMS_PER_FEED = 300
     }
 }

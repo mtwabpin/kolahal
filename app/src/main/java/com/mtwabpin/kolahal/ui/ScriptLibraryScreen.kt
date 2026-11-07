@@ -39,8 +39,8 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
             onBack = vm::closeScreen,
             snackbar = snackbar,
         ) {
-            // Nothing until the rows are read: "Get more scripts" shown alone first stayed where it
-            // was as the rows came above it, so the list opened scrolled to its end.
+            // Show nothing until the rows are loaded. If "Get more scripts" shows alone first, it
+            // keeps its place while the rows appear above it, so the list opens scrolled to the end.
             val rows = library ?: return@GuiListPage
             itemsIndexed(rows, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
                 LibraryRow(r, i, rows.size) { vm.scriptActions.installFromLibrary(r.entry) }
@@ -60,7 +60,11 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     }
 }
 
-/** A library script not installed yet: its title, tap for the description; one tap installs it with suggested timers. */
+/**
+ * One library script and its install state.
+ * - A tap on the row shows or hides the description.
+ * - Install (or Update) installs it with its suggested timers.
+ */
 @Composable
 private fun LibraryRow(r: LibRow, index: Int, count: Int, onInstall: () -> Unit) {
     var open by rememberSaveable(r.entry.name) { mutableStateOf(false) }
@@ -84,7 +88,7 @@ private fun LibraryRow(r: LibRow, index: Int, count: Int, onInstall: () -> Unit)
             when (r.state) {
                 ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Install") }
                 ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Update") }
-                // Replacing your edited copy is in its sheet (Scripts), behind a confirmation.
+                // To replace an edited copy, the user opens its sheet in Scripts and confirms there.
                 ScriptLibrary.State.MODIFIED -> Text("Edited", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 ScriptLibrary.State.INSTALLED -> Text("Installed", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

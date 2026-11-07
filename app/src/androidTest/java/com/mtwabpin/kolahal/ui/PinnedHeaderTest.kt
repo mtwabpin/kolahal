@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -84,9 +85,12 @@ class PinnedHeaderTest {
         compose.onNodeWithTag("pinned-header").assertDoesNotExist()
     }
 
-    @Test fun aScriptsItemShowsItsNameAndText() {
+    /** A script's item shows its text alone, for room; a screen reader hears the script's name first. */
+    @Test fun aScriptsItemShowsItsTextAlone() {
         show(pin("cricket", "NZ 136/8 (33.2 ov) v IND"))
-        compose.onNodeWithText("cricket ▸ NZ 136/8 (33.2 ov) v IND").assertExists()
+        compose.onNodeWithText("NZ 136/8 (33.2 ov) v IND").assertExists()
+        compose.onNodeWithText("cricket", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("cricket: NZ 136/8 (33.2 ov) v IND").assertExists()
         // One item: nothing marks which.
         compose.onNodeWithTag("pinned-dots").assertDoesNotExist()
     }
@@ -160,7 +164,7 @@ class PinnedHeaderTest {
         advance(2_000)
         pins = listOf(pin("a", "a moved on"), pin("b"))
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("a ▸ a moved on").assertExists()
+        compose.onNodeWithText("a moved on").assertExists()
         showing("a", "a", "b")
         advance(2_000)
         showing("b", "a", "b")

@@ -41,7 +41,11 @@ data class Palette(
     val personal: Color,
     val work: Color,
     val private: Color,
-    /** For scripts' `fmt.color`: up, done, passing; and a warning short of an error. */
+    /**
+     * Colours for scripts' `fmt.color`:
+     * - [good]: up, done, passing.
+     * - [warn]: a warning that is not an error.
+     */
     val good: Color,
     val warn: Color,
 )
@@ -84,56 +88,56 @@ object Palettes {
         script = Color(0xFFFABD2F), personal = Color(0xFFB8BB26), work = Color(0xFFFE8019), private = Color(0xFFD3869B),
         good = Color(0xFFB8BB26), warn = Color(0xFFFABD2F),
     )
-    /** Green's light version: the same greens, darker, on a pale green-grey. */
+    /** Light version of green: the same greens, but darker, on a pale green-grey background. */
     val greenLight = Palette(
         bg = Color(0xFFF3F7F1), surface = Color(0xFFE3EBE0), fg = Color(0xFF1E2A1D), dim = Color(0xFF5B6957),
         prompt = Color(0xFF2F7D32), error = Color(0xFFB3261E), info = Color(0xFF4B6B4E), link = Color(0xFF1D63A8),
         script = Color(0xFF3F6B35), personal = Color(0xFF2F7D32), work = Color(0xFF9A5B00), private = Color(0xFF7A3FB0),
         good = Color(0xFF2F7D32), warn = Color(0xFF9A5B00),
     )
-    /** Amber's light version: brown and amber ink on paper. */
+    /** Light version of amber: brown and amber text on a paper-coloured background. */
     val amberLight = Palette(
         bg = Color(0xFFFFF7E8), surface = Color(0xFFF6E8CC), fg = Color(0xFF3D2A0C), dim = Color(0xFF7E6136),
         prompt = Color(0xFFA05F00), error = Color(0xFFB83A26), info = Color(0xFF8A5E22), link = Color(0xFF7A4B00),
         script = Color(0xFF85571A), personal = Color(0xFFA05F00), work = Color(0xFF0A6A93), private = Color(0xFF8E3AB8),
         good = Color(0xFF4E7A12), warn = Color(0xFFB54A00),
     )
-    /** Mono's light version: black on white. */
+    /** Light version of mono: black on white. */
     val monoLight = Palette(
         bg = Color(0xFFFFFFFF), surface = Color(0xFFEFEFEF), fg = Color(0xFF141414), dim = Color(0xFF5E5E5E),
         prompt = Color(0xFF000000), error = Color(0xFFC0392B), info = Color(0xFF4A4A4A), link = Color(0xFF2B2B2B),
         script = Color(0xFF333333), personal = Color(0xFF3D6B3D), work = Color(0xFF8A5600), private = Color(0xFF6E44A8),
         good = Color(0xFF2E6B2E), warn = Color(0xFF8A5600),
     )
-    /** Dracula's light version, Alucard. */
+    /** Light version of dracula (called Alucard). */
     val draculaLight = Palette(
         bg = Color(0xFFFFFBEB), surface = Color(0xFFF1ECD8), fg = Color(0xFF1F1F1F), dim = Color(0xFF635D97),
         prompt = Color(0xFF14710A), error = Color(0xFFCB3A2A), info = Color(0xFF036A96), link = Color(0xFF036A96),
         script = Color(0xFF846E15), personal = Color(0xFF14710A), work = Color(0xFFA34D14), private = Color(0xFF644AC9),
         good = Color(0xFF14710A), warn = Color(0xFFA34D14),
     )
-    /** Solarized's light version (base3 background), its accents a shade darker to read on it. */
+    /** Light version of solarized (base3 background). The accents are a shade darker so they are easy to read. */
     val solarizedLight = Palette(
         bg = Color(0xFFFDF6E3), surface = Color(0xFFEEE8D5), fg = Color(0xFF3D525A), dim = Color(0xFF657B83),
         prompt = Color(0xFF6F8000), error = Color(0xFFC42D2A), info = Color(0xFF1A847C), link = Color(0xFF1F76B5),
         script = Color(0xFF8F6C00), personal = Color(0xFF6F8000), work = Color(0xFFB54312), private = Color(0xFF5F64B4),
         good = Color(0xFF6F8000), warn = Color(0xFF8F6C00),
     )
-    /** Gruvbox's light version, with its darker ("faded") accents. */
+    /** Light version of gruvbox. It uses the darker ("faded") accents. */
     val gruvboxLight = Palette(
         bg = Color(0xFFFBF1C7), surface = Color(0xFFEBDBB2), fg = Color(0xFF3C3836), dim = Color(0xFF7C6F64),
         prompt = Color(0xFF79740E), error = Color(0xFF9D0006), info = Color(0xFF427B58), link = Color(0xFF076678),
         script = Color(0xFF9C6512), personal = Color(0xFF79740E), work = Color(0xFFAF3A03), private = Color(0xFF8F3F71),
         good = Color(0xFF79740E), warn = Color(0xFF9C6512),
     )
-    /** Gruvbox Material, light "medium" background. */
+    /** Gruvbox Material with the light "medium" background. */
     val gruvboxMaterialLight = Palette(
         bg = Color(0xFFFBF1C7), surface = Color(0xFFF2E5BC), fg = Color(0xFF654735), dim = Color(0xFF7C6F64),
         prompt = Color(0xFF6C782E), error = Color(0xFFC14A4A), info = Color(0xFF4C7A5D), link = Color(0xFF45707A),
         script = Color(0xFF9E6308), personal = Color(0xFF6C782E), work = Color(0xFFAB520A), private = Color(0xFF945E80),
         good = Color(0xFF6C782E), warn = Color(0xFF9E6308),
     )
-    /** Gruvbox Material, dark "medium" background. */
+    /** Gruvbox Material with the dark "medium" background. */
     val gruvboxMaterial = Palette(
         bg = Color(0xFF292828), surface = Color(0xFF32302F), fg = Color(0xFFD4BE98), dim = Color(0xFFA89984),
         prompt = Color(0xFFA9B665), error = Color(0xFFEA6962), info = Color(0xFF89B482), link = Color(0xFF7DAEA3),
@@ -141,7 +145,7 @@ object Palettes {
         good = Color(0xFFA9B665), warn = Color(0xFFD8A657),
     )
 
-    /** Each built-in theme: its dark version, then its light one. */
+    /** Built-in themes by name. Each pair is the dark version, then the light version. */
     private val BUILT_IN: Map<String, Pair<Palette, Palette>> by lazy {
         mapOf(
             "green" to (green to greenLight),
@@ -155,8 +159,10 @@ object Palettes {
     }
 
     /**
-     * A theme's [dark] or light version: built-in, or one people made ([CustomThemes]; without a
-     * light version, the same in both). Green for a name it doesn't know.
+     * Returns the [dark] or light version of a theme.
+     * - The theme can be built-in or made by the user ([CustomThemes]).
+     * - A custom theme without a light version uses the same colours for both.
+     * - An unknown name returns green.
      */
     fun named(name: String, dark: Boolean = true): Palette {
         BUILT_IN[name]?.let { (d, l) -> return if (dark) d else l }
@@ -164,14 +170,14 @@ object Palettes {
         return fromColors(if (dark) colors else CustomThemes.light(colors) ?: colors)
     }
 
-    /** Both versions of a theme by role ([CustomThemes]' form): where the theme builder starts. */
+    /** Returns both versions of a theme as colours by role, in the [CustomThemes] format. The theme builder starts from this. */
     fun themeColors(name: String): Map<String, Int> {
         val dark = colorsOf(named(name, dark = true))
         val light = colorsOf(named(name, dark = false))
         return dark + light.mapKeys { CustomThemes.LIGHT + it.key }
     }
 
-    /** A custom theme's colours, by role ([CustomThemes.ROLES]), as a palette. */
+    /** Turns a custom theme's colours by role ([CustomThemes.ROLES]) into a palette. */
     fun fromColors(c: Map<String, Int>): Palette {
         fun role(name: String) = Color(c.getValue(name))
         return Palette(
@@ -182,7 +188,7 @@ object Palettes {
         )
     }
 
-    /** A palette's colours by role: where the theme builder starts. */
+    /** Returns a palette's colours by role. The theme builder starts from this. */
     fun colorsOf(p: Palette): Map<String, Int> = mapOf(
         "background" to p.bg, "surface" to p.surface, "text" to p.fg, "muted" to p.dim, "accent" to p.prompt,
         "link" to p.link, "info" to p.info, "script" to p.script, "error" to p.error,
@@ -191,21 +197,30 @@ object Palettes {
 }
 
 /**
- * Current terminal colours and type. Backed by Compose state, so changing the theme or font
- * size recomposes everything that reads from it.
+ * The current terminal colours and text style. The values are Compose state, so a change of
+ * theme or font size recomposes everything that reads them.
  */
 object Term {
     var palette by mutableStateOf(Palettes.green)
     var fontSize by mutableIntStateOf(14)
 
-    /** Terminal typeface (`font`); [FontFamily.Monospace] is the system monospace. */
+    /** The terminal typeface (`font`). [FontFamily.Monospace] is the system monospace font. */
     var fontFamily by mutableStateOf<FontFamily>(FontFamily.Monospace)
 
-    /** Minimum height (sp: it follows the phone's text size) of a plain log line (`log.line-height`); tappable lines get +10, two-column rows +14 ([tallerTaps]). */
+    /**
+     * Minimum height of a plain log line (`log.line-height`), in sp, so it follows the phone's
+     * text size. With [tallerTaps], tappable lines get +10 and two-column rows get +14.
+     */
     var lineHeight by mutableIntStateOf(22)
 
-    /** `log.taller-taps`: tappable lines and two-column rows taller than [lineHeight]; off, every line is that tall. */
+    /**
+     * `log.taller-taps`: when on, tappable lines and two-column rows are taller than [lineHeight].
+     * When off, every line is [lineHeight] tall.
+     */
     var tallerTaps by mutableStateOf(false)
+
+    /** How tables in script lines look (`log.tables`): boxed, on a shaded box with lines between rows, or plain columns. */
+    var boxedTables by mutableStateOf(true)
 
     /** Minimum height (dp) of suggestion and app-grid chips (`chips.height`). */
     var chipHeight by mutableIntStateOf(48)
@@ -228,7 +243,7 @@ object Term {
         ProfileKind.CLONE -> palette.info
     }
 
-    /** `font.sans`: the phone's own (sans-serif) font for nothing, the prompt, or the whole terminal. */
+    /** `font.sans`: where to use the phone's own sans-serif font: nowhere, in the prompt, or in the whole terminal. */
     var sans by mutableStateOf(Sans.OFF)
 
     enum class Sans {
@@ -243,26 +258,26 @@ object Term {
         }
     }
 
-    /** The terminal's text: [fontFamily], or the phone's font with `font.sans all`. */
+    /** The terminal text style. It uses [fontFamily], or the phone's font with `font.sans all`. */
     val text: TextStyle get() = style(textFamily)
 
-    /** [text] a size smaller, in [dim]: the quieter lines, as a day's divider or a search's count. */
+    /** [text] one size smaller, in [dim]. For less important lines, such as a day divider or a search count. */
     val small: TextStyle get() {
         val family = textFamily
-        // Read first: it empties both caches when the palette or the size changed.
+        // Call this first: it clears both caches when the palette or the size has changed.
         val base = style(family)
         return smallStyles.getOrPut(family) { base.copy(color = dim, fontSize = (fontSize - 1).sp) }
     }
 
     private val textFamily: FontFamily get() = if (sans == Sans.ALL) FontFamily.Default else fontFamily
 
-    /** Always [fontFamily]: the script editor, and lists that line columns up with spaces. */
+    /** Always uses [fontFamily]. For the script editor and for lists that align columns with spaces. */
     val code: TextStyle get() = style(fontFamily)
 
-    /** The prompt line: the phone's font from `font.sans prompt` on. */
+    /** The prompt line style. It uses the phone's font when `font.sans` is `prompt` or `all`. */
     val promptText: TextStyle get() = style(if (sans == Sans.OFF) fontFamily else FontFamily.Default)
 
-    /** Always the phone's font, whatever `font.sans` says: the app selector with `selector.system-font`. */
+    /** Always uses the phone's font, whatever `font.sans` says. The app selector uses it with `selector.system-font`. */
     val phoneText: TextStyle get() = style(FontFamily.Default)
 
     private var cachedPalette: Palette? = null
@@ -270,7 +285,7 @@ object Term {
     private val styles = HashMap<FontFamily, TextStyle>()
     private val smallStyles = HashMap<FontFamily, TextStyle>()
 
-    /** Base text style in [family], rebuilt only when the palette or font size changes. */
+    /** Returns the base text style in [family]. It is rebuilt only when the palette or font size changes. */
     private fun style(family: FontFamily): TextStyle {
         val p = palette
         val size = fontSize
@@ -304,9 +319,9 @@ fun KolahalTheme(content: @Composable () -> Unit) {
 }
 
 /**
- * Top / side padding that clears both the status bar and any camera cutout. With the status bar
- * hidden (`screen.bars hide`) its inset is 0, but the cutout's is not, so nothing ends up behind
- * the camera hole.
+ * Top and side padding that keeps content clear of the status bar and any camera cutout. When the
+ * status bar is hidden (`screen.bars hide`), its inset is 0. The cutout inset is not 0, so nothing
+ * is drawn behind the camera hole.
  */
 @Composable
 fun androidx.compose.ui.Modifier.cutoutSafePadding(): androidx.compose.ui.Modifier = windowInsetsPadding(
@@ -316,15 +331,17 @@ fun androidx.compose.ui.Modifier.cutoutSafePadding(): androidx.compose.ui.Modifi
 )
 
 /**
- * The page's colour behind three-button navigation, over a list that scrolls under it: the list's
- * text would show between the buttons. Gesture navigation's handle takes no taps (its inset here is
- * 0), nor does a hidden bar (`screen.bars immersive`), so the list still runs to the edge there. Put
- * it before the scroll, on a list that reaches the bottom of the screen; [alpha] fades it with the page.
+ * Draws the page colour behind three-button navigation, over a list that scrolls under it.
+ * Without it, the list text would show between the buttons.
+ * - The gesture handle and a hidden bar (`screen.bars immersive`) take no taps, so their inset is
+ *   0 here. In those cases the list still runs to the screen edge.
+ * - Put it before the scroll modifier, on a list that reaches the bottom of the screen.
+ * - [alpha] fades it together with the page.
  */
 @Composable
 fun androidx.compose.ui.Modifier.navigationBarScrim(alpha: () -> Float = { 1f }): androidx.compose.ui.Modifier {
     val color = MaterialTheme.colorScheme.surface
-    // The keyboard covers the bar while it shows.
+    // The keyboard covers the bar while the keyboard is shown.
     val bar = WindowInsets.tappableElement.exclude(WindowInsets.ime)
     return drawWithContent {
         drawContent()
@@ -334,9 +351,9 @@ fun androidx.compose.ui.Modifier.navigationBarScrim(alpha: () -> Float = { 1f })
 }
 
 /**
- * Home's background: the theme's colour. With [wallpaper] above 0 (`log.wallpaper`,
- * `widgets.wallpaper`) the phone's wallpaper, which the window lets through then, shows that many
- * percent: the background is drawn that much fainter.
+ * The home screen background in the theme colour. When [wallpaper] is above 0 (`log.wallpaper`,
+ * `widgets.wallpaper`), the window lets the phone's wallpaper through. The background is then
+ * drawn fainter, so the wallpaper shows through by that many percent.
  */
 fun androidx.compose.ui.Modifier.page(wallpaper: Int = 0): androidx.compose.ui.Modifier =
     background(Term.bg.copy(alpha = Term.bg.alpha * (1f - wallpaper.coerceIn(0, 100) / 100f)))

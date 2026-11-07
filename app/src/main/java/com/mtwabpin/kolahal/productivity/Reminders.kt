@@ -16,11 +16,11 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
-/** Schedules `remind` alarms with AlarmManager (exact when allowed, otherwise inexact while idle). */
+/** Schedules `remind` alarms with AlarmManager. They are exact when allowed, otherwise inexact (allowed while idle). */
 object ReminderScheduler {
     const val EXTRA_ID = "reminder_id"
 
-    /** Exact alarms need SCHEDULE_EXACT_ALARM on Android 12+, which the user may have turned off. */
+    /** On Android 12+, exact alarms need SCHEDULE_EXACT_ALARM, and the user may have turned it off. */
     fun canBeExact(context: Context): Boolean =
         Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
@@ -34,9 +34,9 @@ object ReminderScheduler {
     fun schedule(context: Context, r: Reminder) {
         val am = context.getSystemService(AlarmManager::class.java)
         val pi = pending(context, r.id) ?: return
-        // A time that passed while the phone was off fires right away.
+        // If the time passed while the phone was off, the alarm fires right away.
         val at = r.at.coerceAtLeast(System.currentTimeMillis() + 1_000)
-        // Android refuses an app's 500th alarm: a failure here must not stop the others.
+        // Android refuses an app's 500th alarm. A failure here must not stop the other alarms.
         runCatching {
             if (canBeExact(context)) {
                 runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
@@ -54,51 +54,53 @@ object ReminderScheduler {
     }
 
     /**
-     * App start, boot and a restore: alarms don't survive a reboot or a force stop. Alarms for the
-     * earliest [MAX_ALARMS] reminders; each one fired makes room for the next. A zone changed while
-     * Kolahal wasn't running, when nothing heard about it, moves the repeating ones first.
+     * Sets the alarms again on app start, boot and restore, because alarms don't survive a reboot or a
+     * force stop.
+     * - Only the earliest [MAX_ALARMS] reminders get an alarm. Each fired alarm makes room for the next.
+     * - If the time zone changed while Kolahal wasn't running, nothing saw the change. So this first
+     *   moves the repeating reminders to the new zone.
      */
     fun rescheduleAll(context: Context) {
         if (zoneChanged(context)) moveToZone(context)
         ReminderStore.get(context).all().sortedBy { it.at }.take(MAX_ALARMS).forEach { schedule(context, it) }
     }
 
-    /** Well under Android's limit of 500 alarms per app. */
+    /** Well below Android's limit of 500 alarms per app. */
     const val MAX_ALARMS = 400
 
     /**
-     * The time a repeating reminder fires at: the one asked for. Without one (set before 0.4.12, or
-     * unreadable), the time it fired at, [fired].
+     * Returns the time of day a repeating reminder fires at: the time the user asked for. If there is
+     * none (set before 0.4.12, or unreadable), returns the time it fired at, [fired].
      */
     fun timeOf(r: Reminder, fired: LocalDateTime): LocalTime =
         r.time?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: fired.toLocalTime()
 
     /**
-     * A new time zone: each repeating reminder still ahead moves to the time it was asked for, in
-     * this zone (a 9:00 reminder set in Delhi fires at 9:00 in London). One that's due already, or
-     * has no time of its own, stays.
+     * Call on a new time zone. Each future repeating reminder moves to its requested time in the new
+     * zone (a 9:00 reminder set in Delhi fires at 9:00 in London). A reminder that is already due, or
+     * has no saved time, stays as it is.
      */
     fun followZone(context: Context) {
         zoneChanged(context)
         if (moveToZone(context)) rescheduleAll(context)
     }
 
-    /** The zone the reminders were last moved to: the phone's, unless it changed with Kolahal not running. */
+    /** The zone the reminders were last moved to. It is the phone's zone, unless that changed while Kolahal wasn't running. */
     internal const val KEY_ZONE = "zone"
     internal const val PREFS = "reminders"
 
-    /** Whether the phone's zone differs from the one the reminders follow; either way it's theirs now. */
+    /** True when the phone's zone differs from the reminders' zone. In both cases, it saves the phone's zone as theirs. */
     private fun zoneChanged(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = ZoneId.systemDefault().id
         val was = prefs.getString(KEY_ZONE, null)
         if (was == now) return false
         prefs.edit { putString(KEY_ZONE, now) }
-        // The first time, there's nothing to compare with.
+        // The first time, there is nothing to compare with.
         return was != null
     }
 
-    /** [followZone]'s moves, without setting the alarms; true when one moved. */
+    /** Moves reminders like [followZone], but doesn't set the alarms. Returns true when one moved. */
     private fun moveToZone(context: Context): Boolean {
         val store = ReminderStore.get(context)
         val zone = ZoneId.systemDefault()
@@ -119,7 +121,7 @@ object ReminderScheduler {
     }
 }
 
-/** Fires one reminder: notification plus a log line, then the reminder is gone, or set for its next time. */
+/** Fires one reminder: a notification and a log line. Then it deletes the reminder, or sets it for its next time. */
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getLongExtra(ReminderScheduler.EXTRA_ID, -1)
@@ -133,25 +135,26 @@ class ReminderReceiver : BroadcastReceiver() {
                 val zone = ZoneId.systemDefault()
                 val fired = Instant.ofEpochMilli(r.at).atZone(zone).toLocalDateTime()
                 val time = ReminderScheduler.timeOf(r, fired)
-                // The time it was asked for, on its next day; a phone off for days skips to the next one ahead.
+                // Next time: the requested time on the next matching day. If the phone was off for days,
+                // it skips to the next day in the future.
                 val next = rule?.let {
-                    // A rule it can't read fires this once: thrown from here, it would stop the app at every start.
+                    // An unreadable rule fires only this once. An exception here would crash the app at every start.
                     runCatching { Repeat.next(it, time, maxOf(fired, LocalDateTime.now(zone))).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
                 }
                 if (next == null) {
                     store.remove(id)
                     if (rule != null) LogRepository.get(context).add(LogKind.ERROR, "Reminder '${r.text}' had an invalid repeat rule, so it won't repeat")
                 } else {
-                    // One set before 0.4.12 keeps the time it fired at from now on, as if asked for.
+                    // A reminder set before 0.4.12 keeps the time it fired at from now on, as if the user asked for it.
                     store.setAt(id, next, if (r.time == null) time.toString() else null)
                     ReminderScheduler.schedule(context, r.copy(at = next))
                 }
-                // More reminders than alarms: the next one waiting gets its alarm now.
+                // If there are more reminders than alarms, the next waiting reminder gets its alarm now.
                 if (store.all().size >= ReminderScheduler.MAX_ALARMS) ReminderScheduler.rescheduleAll(context)
                 Notifier.postReminder(context, id, r.text)
                 LogRepository.get(context).add(
                     LogKind.SCRIPT, "Reminder: ${r.text}", "remind",
-                    // Tap puts a 10-minute snooze in the prompt.
+                    // A tap puts a 10-minute snooze command in the prompt.
                     LogContext.of(LogContext.COMMAND to "remind 10m ${r.text}", LogContext.COPY to r.text),
                 )
             } finally {
@@ -162,8 +165,9 @@ class ReminderReceiver : BroadcastReceiver() {
 }
 
 /**
- * The reminder notification's buttons: Snooze sets it again, once, [EXTRA_MINUTES] from now (a
- * repeating one keeps its own times too); Done only takes the notification away.
+ * Handles the reminder notification's buttons:
+ * - Snooze sets a one-time reminder [EXTRA_MINUTES] from now. A repeating reminder also keeps its own times.
+ * - Done only removes the notification.
  */
 class ReminderActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -195,7 +199,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
     }
 }
 
-/** Puts reminders back after a reboot or an app update. */
+/** Sets reminder alarms again after a reboot, an app update, or a change of the exact-alarm permission. */
 class ReminderBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -205,7 +209,7 @@ class ReminderBootReceiver : BroadcastReceiver() {
                 Thread {
                     try {
                         runCatching { ReminderScheduler.rescheduleAll(context) }
-                        // Scripts' daily times are alarms too (exact once that is allowed).
+                        // Scripts' daily times are alarms too. They are exact once that is allowed.
                         runCatching { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
                     } finally {
                         result.finish()

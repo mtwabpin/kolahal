@@ -1,26 +1,29 @@
 package com.mtwabpin.kolahal.script
 
 /**
- * A line diff of two texts, as Compare shows a library script against your copy: the lines both
- * share, then a longest common run of lines between their common start and end, with removed lines
- * before added ones where a line changed. Grouped in hunks with a few unchanged lines around each
- * change.
+ * A line diff of two texts. Compare uses it to show a library script next to your copy.
+ * - Lines that both texts share at the start and at the end stay as they are.
+ * - Between them, it finds the longest common run of lines.
+ * - Where a line changed, the removed line comes before the added one.
+ * The result is grouped in hunks, with a few unchanged lines around each change.
  */
 object LineDiff {
     enum class Kind { SAME, REMOVED, ADDED }
 
     data class Line(val kind: Kind, val text: String)
 
-    /** [skipped] unchanged lines left out, then [lines]; a last hunk without lines counts the ones after the last change. */
+    /** First [skipped] unchanged lines that are left out, then [lines]. A last hunk with no lines counts the lines after the last change. */
     data class Hunk(val skipped: Int, val lines: List<Line>)
 
-    /** Past this many cells (lines × lines between the common start and end), the middle is all removed, then all added. */
+    /** If the middle part has more than this many cells (lines × lines), all its old lines are shown as removed, then all new lines as added. */
     private const val MAX_CELLS = 1_000_000
 
     /**
-     * Every line of [old] and [new], each the same, only in [old] (removed) or only in [new] (added).
-     * A text's last newline ends its last line rather than starting an empty one, an empty text has
-     * no lines, and Windows line endings are line endings.
+     * Every line of [old] and [new]. Each line is the same in both, only in [old] (removed) or only
+     * in [new] (added).
+     * - A text's last newline ends its last line. It does not start an empty one.
+     * - An empty text has no lines.
+     * - Windows line endings count as line endings.
      */
     fun lines(old: String, new: String): List<Line> {
         fun split(text: String) = text.replace("\r\n", "\n").removeSuffix("\n").let { if (it.isEmpty()) emptyList() else it.lines() }
@@ -42,7 +45,7 @@ object LineDiff {
             for (i in start until endA) out += Line(Kind.REMOVED, a[i])
             for (j in start until endB) out += Line(Kind.ADDED, b[j])
         } else {
-            // common[i][j]: the longest common run of the middle's lines from a's i and b's j on.
+            // common[i][j] is the length of the longest common run of middle lines, starting at line i of a and line j of b.
             val common = Array(n + 1) { IntArray(m + 1) }
             for (i in n - 1 downTo 0) for (j in m - 1 downTo 0) {
                 common[i][j] = if (a[start + i] == b[start + j]) common[i + 1][j + 1] + 1 else maxOf(common[i + 1][j], common[i][j + 1])
@@ -59,7 +62,7 @@ object LineDiff {
         return out
     }
 
-    /** The changed [lines] with three unchanged ones around each; none when nothing changed. */
+    /** The changed [lines], with three unchanged lines around each change. Returns none when nothing changed. */
     fun hunks(lines: List<Line>): List<Hunk> {
         val context = 3
         val near = BooleanArray(lines.size)

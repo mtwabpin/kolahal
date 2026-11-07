@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
@@ -134,11 +136,16 @@ fun BackButton(onClick: () -> Unit) {
 }
 
 /**
- * A Material screen's page: a large top bar (its [title], [subtitle], Back for [onBack] and
- * [actions]) that collapses as the list under it scrolls. The list keeps the page's side margins,
- * [top] and [bottom] past the bars, and its rows [verticalArrangement] apart. Without [imePadding]
- * the page stays as tall as the screen while a keyboard shows. [fade], 1 to 0, fades the page's
- * background, top bar and navigation bar scrim: Settings, while home shows through it.
+ * A Material screen page with a large top bar and a list. The top bar has [title], [subtitle],
+ * Back (calls [onBack]) and [actions]. It collapses as the list scrolls.
+ * - The list keeps the page's side margins, adds [top] and [bottom] padding beyond the bars, and
+ *   spaces its rows with [verticalArrangement].
+ * - Without [imePadding], the page stays full screen height while a keyboard shows.
+ * - [fade] (1 to 0) fades the page background, top bar and navigation bar scrim. Settings uses it
+ *   while home shows through.
+ * - [pinned] stays between the top bar and the list. The list scrolls under it.
+ * - [state] and [listModifier] go to the list. A page uses them to follow its rows, for example
+ *   while the user drags one.
  */
 @Composable
 internal fun GuiListPage(
@@ -154,6 +161,9 @@ internal fun GuiListPage(
     top: Dp = 8.dp,
     bottom: Dp = 32.dp,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+    pinned: (@Composable () -> Unit)? = null,
+    state: LazyListState? = null,
+    listModifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit,
 ) {
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -162,7 +172,7 @@ internal fun GuiListPage(
         modifier = (if (imePadding) Modifier.imePadding() else Modifier)
             .then(if (fade != null) Modifier.drawBehind { drawRect(surface.copy(alpha = fade())) } else Modifier)
             .nestedScroll(scroll.nestedScrollConnection),
-        // Fading, the page draws its own background, and a transparent container has no content colour.
+        // When fading, the page draws its own background. A transparent container has no content colour, so set it here.
         containerColor = if (fade != null) Color.Transparent else surface,
         contentColor = if (fade != null) MaterialTheme.colorScheme.onSurface else contentColorFor(surface),
         snackbarHost = { if (snackbar != null) SnackbarHost(snackbar) },
@@ -179,19 +189,25 @@ internal fun GuiListPage(
         bottomBar = bottomBar,
         floatingActionButton = floatingActionButton,
     ) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 16.dp, end = 16.dp,
-                top = padding.calculateTopPadding() + top, bottom = padding.calculateBottomPadding() + bottom,
-            ),
-            verticalArrangement = verticalArrangement,
-            modifier = Modifier.fillMaxSize().navigationBarScrim(fade ?: { 1f }),
-            content = content,
-        )
+        Column(Modifier.fillMaxSize()) {
+            // With a pinned item, the bar padding goes above that item instead of inside the list.
+            if (pinned != null) Box(Modifier.padding(top = padding.calculateTopPadding())) { pinned() }
+            LazyColumn(
+                state = state ?: rememberLazyListState(),
+                contentPadding = PaddingValues(
+                    start = 16.dp, end = 16.dp,
+                    top = (if (pinned != null) 0.dp else padding.calculateTopPadding()) + top,
+                    bottom = padding.calculateBottomPadding() + bottom,
+                ),
+                verticalArrangement = verticalArrangement,
+                modifier = Modifier.fillMaxWidth().weight(1f).navigationBarScrim(fade ?: { 1f }).then(listModifier),
+                content = content,
+            )
+        }
     }
 }
 
-/** [TerminalViewModel.notice] as a snackbar: each new notice shows once. */
+/** Shows [TerminalViewModel.notice] as a snackbar. Each new notice shows once. */
 @Composable
 internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState {
     val notice by vm.notice.collectAsStateWithLifecycle()
@@ -200,15 +216,17 @@ internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState {
     return snackbar
 }
 
-/** A modal sheet's state: it opens all the way and closes, with no half-open stop between. */
+/** A modal sheet state that is either fully open or closed. It has no half-open stop. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun rememberExpandedSheetState(): SheetState =
     rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
 /**
- * Asks before what can't be undone: [confirm], in the error colour, runs [onConfirm]; Cancel, Back
- * and a tap outside run [onDismiss]. [icon], if any, shows above the [title].
+ * Asks for confirmation before an action that cannot be undone.
+ * - [confirm] uses the error colour and runs [onConfirm].
+ * - Cancel, Back and a tap outside run [onDismiss].
+ * - [icon], if given, shows above the [title].
  */
 @Composable
 internal fun ConfirmDialog(title: String, text: String, confirm: String, icon: Int? = null, onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -228,7 +246,7 @@ internal fun ConfirmDialog(title: String, text: String, confirm: String, icon: I
     )
 }
 
-/** What a page says while it has nothing to list: centred across it, [top] and [bottom] from the rows around it. */
+/** The text a page shows when it has nothing to list. It is centred, with [top] and [bottom] space from the rows around it. */
 @Composable
 internal fun EmptyNote(text: String, modifier: Modifier = Modifier, top: Dp = 32.dp, bottom: Dp = top) {
     Text(
@@ -240,7 +258,7 @@ internal fun EmptyNote(text: String, modifier: Modifier = Modifier, top: Dp = 32
     )
 }
 
-/** The small print under a page's rows: how they work, and the terminal's commands for the same. */
+/** Small text under a page's rows. It explains how they work and names the terminal commands that do the same. */
 @Composable
 internal fun PageHint(text: String, modifier: Modifier = Modifier, top: Dp = 16.dp) {
     Text(
@@ -251,7 +269,7 @@ internal fun PageHint(text: String, modifier: Modifier = Modifier, top: Dp = 16.
     )
 }
 
-/** A button's icon and label, at Material's icon size and spacing: put it in the button. */
+/** A button's icon and label, with Material's icon size and spacing. Use it inside a button. */
 @Composable
 internal fun IconLabel(icon: Int, text: String) {
     Icon(painterResource(icon), null, Modifier.size(ButtonDefaults.IconSize))
@@ -266,12 +284,12 @@ internal fun relative(time: Long, short: Boolean = false): String =
 private fun relativeSpan(time: Long, short: Boolean = false): String =
     DateUtils.getRelativeTimeSpanString(
         time, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
-        // The three-argument form's flags, plus the short form when asked.
+        // The same flags as the three-argument form, plus the short form when [short] is true.
         DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_ABBREV_MONTH or
             (if (short) DateUtils.FORMAT_ABBREV_RELATIVE else 0),
     ).toString()
 
-/** Full-width row (≥ 56dp) whose whole surface toggles the switch; [color] is what it sits on. */
+/** A full-width row (≥ 56dp). A tap anywhere on it toggles the switch. [color] is the background it sits on. */
 @Composable
 internal fun SwitchRow(
     title: String,
@@ -298,8 +316,8 @@ internal fun SwitchRow(
 }
 
 /**
- * Material's Expressive text field colours, on the container of the tonal buttons beside it: its own
- * (`surfaceContainer`) hardly shows on a sheet in these themes.
+ * Material's Expressive text field colours, but with the container colour of the tonal buttons
+ * beside it. The default container (`surfaceContainer`) is barely visible on a sheet in these themes.
  */
 @Composable
 internal fun fieldColors() = TextFieldDefaults.tonalColors().copy(
@@ -307,7 +325,10 @@ internal fun fieldColors() = TextFieldDefaults.tonalColors().copy(
     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
 )
 
-/** How often something runs: a row like [SwitchRow], whose button says the time and opens a menu of the presets. A time set from the terminal shows as it is. */
+/**
+ * Picks how often something runs. It is a row like [SwitchRow]. Its button shows the interval and
+ * opens a menu of presets. An interval set from the terminal (not a preset) shows as it is.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun IntervalSelector(label: String, selected: Int, onPick: (Int) -> Unit, choices: List<Pair<Int, String>>) {
@@ -330,7 +351,7 @@ internal fun IntervalSelector(label: String, selected: Int, onPick: (Int) -> Uni
                 }
                 DropdownMenuPopup(expanded = open, onDismissRequest = { open = false }) {
                     DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1)) {
-                        // The theme's accent, as switches and tabs have: Material's default is tertiaryContainer, here the work profile's colour.
+                        // Use the theme's accent, like switches and tabs. Material's default is tertiaryContainer, which is the work profile's colour here.
                         val colors = MenuDefaults.selectableItemColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.onPrimary,

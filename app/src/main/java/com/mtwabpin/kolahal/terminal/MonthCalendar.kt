@@ -7,13 +7,19 @@ import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-/** `cal`: a month as the Unix `cal` prints it, today marked, weeks starting on the locale's day. */
+/**
+ * `cal`: prints a month like the Unix `cal` command. Today is marked.
+ * Weeks start on the first day of the week for the locale.
+ */
 object MonthCalendar {
     private val YEAR_MONTH = Regex("^(\\d{4})-(\\d{1,2})$")
 
     /**
-     * The month [text] names: nothing for this month; a month by name or number (`dec`, `12`),
-     * the coming one unless a year follows (`dec 2027`); or `2027-12`. Null when it names none.
+     * Returns the month that [text] names, or null when it names none. Accepted forms:
+     * - empty: this month;
+     * - a month name or number (`dec`, `12`): the next such month, this one included;
+     * - a month and a year (`dec 2027`);
+     * - `2027-12`.
      */
     fun parse(text: String, today: LocalDate, locale: Locale = Locale.getDefault()): YearMonth? {
         val words = text.trim().lowercase(locale).split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -30,7 +36,7 @@ object MonthCalendar {
         return if (thisYear.isBefore(YearMonth.from(today))) thisYear.plusYears(1) else thisYear
     }
 
-    /** A month's number from `12`, `dec` or `december`, in the locale's language or English. */
+    /** Returns a month's number from `12`, `dec` or `december`. Names can be in the locale's language or in English. */
     private fun monthOf(word: String, locale: Locale): Int? {
         word.toIntOrNull()?.let { return it.takeIf { n -> n in 1..12 } }
         if (word.length < 3) return null
@@ -39,16 +45,20 @@ object MonthCalendar {
         }?.value
     }
 
-    /** Month names starting with [prefix] (any case), for completions. */
+    /** Returns the month names that start with [prefix] (any case), for completions. */
     fun suggest(prefix: String, locale: Locale = Locale.getDefault()): List<String> {
         val p = prefix.lowercase(locale)
         return Month.entries.map { it.getDisplayName(TextStyle.FULL, locale).lowercase(locale) }.filter { it.startsWith(p) && it != p }
     }
 
     /**
-     * The lines of [month]: its name and year over the middle, the day names, then a line per
-     * week with the days outside the month blank; [today]'s number goes through [mark] when it is
-     * in the month. Every cell is two characters wide, so the lines hold in the terminal font.
+     * Returns the lines for [month]:
+     * - the month name and year, centred;
+     * - the day names;
+     * - one line per week. Days outside the month are blank.
+     *
+     * If [today] is in the month, its number goes through [mark].
+     * Every cell is two characters wide, so the columns line up in the terminal font.
      */
     fun lines(month: YearMonth, today: LocalDate, locale: Locale = Locale.getDefault(), mark: (String) -> String = { it }): List<String> {
         val first = WeekFields.of(locale).firstDayOfWeek

@@ -110,7 +110,7 @@ class PipesTest {
         val limit = MatchLimit(ms = 50, maxThreads = 2)
         try {
             repeat(2) { assertThrows(IllegalArgumentException::class.java) { limit.run { release.await() } } }
-            val refused = assertThrows(IllegalArgumentException::class.java) { limit.run { 1 } }
+            val refused = assertThrows(IllegalArgumentException::class.java) { limit.run { } }
             assertTrue(refused.message!!, "still running" in refused.message!!)
         } finally {
             release.countDown()

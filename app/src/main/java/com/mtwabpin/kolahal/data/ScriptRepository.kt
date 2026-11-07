@@ -30,7 +30,7 @@ data class Script(
     val name: String,
     val lang: ScriptLang,
     val code: String,
-    /** 0 = manual only. WorkManager enforces a 15-minute minimum for periodic runs. */
+    /** 0 means manual only. WorkManager enforces a 15-minute minimum for periodic runs. */
     val intervalMin: Int,
     val enabled: Boolean,
     val notify: Boolean,
@@ -38,7 +38,7 @@ data class Script(
     val lastStatus: String?,
     /** Daily run times as "HH:mm", in addition to (or instead of) the interval. */
     val atTimes: List<String> = emptyList(),
-    /** The user's access switches, item to on or off ([ScriptAccess]); a missing item is undecided. */
+    /** The user's access switches: item to on or off ([ScriptAccess]). A missing item is undecided. */
     val access: Map<String, Boolean> = emptyMap(),
 ) {
     val grants: ScriptAccess.Grants get() = ScriptAccess.grants(code, access)
@@ -54,11 +54,12 @@ class ScriptRepository private constructor(private val context: Context) {
     fun byId(id: Long): Script? = query("id = ?", arrayOf(id.toString())).firstOrNull()
 
     /**
-     * A new script. Created switched on (one of yours, a library install) it may use what it
-     * declares; code from a file, a folder or a backup comes [enabled] false and asks when switched on.
+     * Creates a new script.
+     * - A script created switched on (one of yours, a library install) may use what it declares.
+     * - Code from a file, a folder or a backup comes with [enabled] false, and asks when switched on.
      */
     fun create(name: String, lang: ScriptLang, code: String, enabled: Boolean = true): Script {
-        // Nothing of an earlier script with this name carries over: a status line a run left behind, values.
+        // Nothing from an earlier script with this name carries over: no status line a run left behind, no values.
         StatusLines.clear(context, name)
         db.writableDatabase.delete("kv", "scope = ?", arrayOf(SecretStore.scope(name)))
         db.writableDatabase.insertOrThrow("scripts", null, ContentValues().apply {
@@ -73,10 +74,11 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     /**
-     * New code for a script. [byUser] (typed in the editor): what it newly declares with `@uses` is
-     * allowed, since you wrote it (for a switched-on script); what an update left for you to decide
-     * stays undecided. Code from elsewhere (a library or shared-script update) leaves what it newly
-     * declares off, `@on` events included, with a line to allow them.
+     * Saves new code for a script.
+     * - [byUser] (typed in the editor): for a switched-on script, what the code newly declares with
+     *   `@uses` is allowed, because you wrote it. What an update left for you to decide stays undecided.
+     * - Code from elsewhere (a library or shared-script update): what it newly declares stays off,
+     *   `@on` events included, and a line offers to allow it.
      */
     fun saveCode(id: Long, code: String, byUser: Boolean = false) {
         val s = byId(id) ?: return
@@ -91,28 +93,34 @@ class ScriptRepository private constructor(private val context: Context) {
             put("code", code)
             put("access", ScriptAccess.encode(access))
         }
+        // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
+        if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(context, s.name)
         forgetRemovedSecrets(s.name, code)
         if (!byUser && s.enabled) ScriptAccess.askToAllow(context, s.name, newUses.toList() + newEvents + newInternet, "now requests")
     }
 
     /**
-     * The internet, used by [code] but not by [s]'s code and not decided yet: code you didn't write
-     * that starts making requests starts with it off, like a new `@uses`, so an update to a script
-     * allowed your clipboard or notifications can't send them out unasked.
+     * The internet item, if [code] uses it, [s]'s current code doesn't, and it isn't decided yet.
+     * Code you didn't write that starts making requests starts with internet off, like a new `@uses`.
+     * So an update to a script that was allowed your clipboard or notifications can't send them out
+     * without asking.
      */
     private fun newInternet(s: Script, code: String): List<String> =
         listOf(ScriptAccess.INTERNET).filter { it in ScriptAccess.items(code) && it !in ScriptAccess.items(s.code) && it !in s.access }
 
-    /** Values of `@secret` lines the code no longer has are forgotten, not kept unseen. */
+    /** Forgets the values of `@secret` lines that the code no longer has, instead of keeping them unseen. */
     private fun forgetRemovedSecrets(script: String, code: String) {
         SecretStore(context).forgetUndeclared(script, ScriptMeta.secrets(code).map { it.name })
     }
 
     /**
-     * Code from a file, a folder or a backup over an existing script: it is switched off, and what
-     * it was allowed goes back to undecided (what you switched off stays off), so turning it on asks
-     * again; internet it didn't use before starts off. Its values ([com.mtwabpin.kolahal.script.SecretStore])
-     * stay, for the sites they were set for, but for `@secret` lines it no longer has.
+     * Code from a file, a folder or a backup replaces an existing script's code.
+     * - The script is switched off.
+     * - What it was allowed goes back to undecided, so switching it on asks again. What you switched
+     *   off stays off.
+     * - Internet that it didn't use before starts off.
+     * - Its secret values ([com.mtwabpin.kolahal.script.SecretStore]) stay for the sites they were set
+     *   for, except for `@secret` lines it no longer has.
      */
     fun replaceCode(id: Long, code: String) {
         val s = byId(id) ?: return
@@ -121,7 +129,7 @@ class ScriptRepository private constructor(private val context: Context) {
             put("enabled", 0)
             put("access", ScriptAccess.encode(s.access.filterValues { !it } + newInternet(s, code).associateWith { false }))
         }
-        // Its timers follow a changed `@every` or `@at` line, as after an edit; one set in its sheet stays.
+        // Its timers follow a changed `@every` or `@at` line, as after an edit. A timer set in its sheet stays.
         setInterval(id, ScriptMeta.intervalAfter(s.code, code, s.intervalMin))
         setAtTimes(id, ScriptMeta.timesAfter(s.code, code, s.atTimes))
         forgetRemovedSecrets(s.name, code)
@@ -129,8 +137,9 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Changes whenever the script list would: this process's writes ([version]) and runs the
-     * script process records. Cheap, it reads no code; lets home skip re-reading every script.
+     * Changes whenever the script list would change: writes from this process ([version]) and runs
+     * that the script process records. It is cheap because it reads no code. Home uses it to skip
+     * reading every script again.
      */
     fun fingerprint(): String = db.readableDatabase.rawQuery(
         "SELECT COUNT(*), COALESCE(MAX(last_run), 0), COALESCE(SUM(enabled), 0), COALESCE(MAX(id), 0) FROM scripts", null,
@@ -142,9 +151,9 @@ class ScriptRepository private constructor(private val context: Context) {
     fun setInterval(id: Long, minutes: Int) = update(id) { put("interval_min", minutes) }
 
     /**
-     * Switches a script on or off. [grant]: the user's go-ahead for what it declares and nobody
-     * decided yet (the Scripts screen's dialog, `script on`, an install they started). Without it,
-     * those stay off; the caller offers a line to allow them ([ScriptAccess.askForNew]).
+     * Switches a script on or off. [grant] is the user's approval for what the script declares that
+     * nobody decided yet (the Scripts screen's dialog, `script on`, an install the user started).
+     * Without it, those items stay off, and the caller offers a line to allow them ([ScriptAccess.askForNew]).
      */
     fun setEnabled(id: Long, enabled: Boolean, grant: Boolean = false) {
         val s = byId(id) ?: return
@@ -152,19 +161,19 @@ class ScriptRepository private constructor(private val context: Context) {
             put("enabled", if (enabled) 1 else 0)
             if (enabled && grant) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(s.code, s.access)))
         }
-        // Its status line goes either way: switched off, it would come back stale; switched on, a
-        // line left by a run while it was off would.
+        // Clear its status line either way. If switched off, the line would come back stale. If switched on,
+        // a line left by a run while it was off would show.
         if (enabled != s.enabled) StatusLines.clear(context, s.name)
     }
 
-    /** The timers and notifications [code] suggests (`@every`, `@at`, `@notify`), for a script just added. */
+    /** Applies the timers and notifications that [code] suggests (`@every`, `@at`, `@notify`), for a script just added. */
     fun applySuggested(id: Long, code: String) {
         ScriptMeta.every(code)?.let { setInterval(id, it.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN)) }
         ScriptMeta.at(code).takeIf { it.isNotEmpty() }?.let { setAtTimes(id, it) }
         if (ScriptMeta.notifies(code)) setNotify(id, true)
     }
 
-    /** Switches one access item; see [ScriptAccess]. */
+    /** Switches one access item. See [ScriptAccess]. */
     fun setAccess(id: Long, item: String, allowed: Boolean) {
         val s = byId(id) ?: return
         update(id) { put("access", ScriptAccess.encode(s.access + (item to allowed))) }
@@ -176,17 +185,17 @@ class ScriptRepository private constructor(private val context: Context) {
 
     fun setNotify(id: Long, notify: Boolean) = update(id) { put("notify", if (notify) 1 else 0) }
 
-    /** The last run's time and how it went ([status], cut to [STATUS_MAX]: a script's error text is its own to make long). */
+    /** Records the last run's time and result ([status], cut to [STATUS_MAX], because a script can make its error text as long as it likes). */
     fun recordRun(id: Long, status: String) = update(id) {
         put("last_run", System.currentTimeMillis())
         put("last_status", status.take(STATUS_MAX))
     }
 
     /**
-     * Renames a script; check the name first (`ScriptNames.invalid`). Its secrets and status line
-     * with its bar and refresh, kept by name, move with it. A copy from the library or Get more
-     * scripts becomes yours: it no longer takes their updates. Lines already in the log keep the old
-     * name.
+     * Renames a script. Check the name first (`ScriptNames.invalid`).
+     * - Its secrets and its status line (with its bar and refresh), stored by name, move with it.
+     * - A copy from the library or from Get more scripts becomes yours. It no longer gets their updates.
+     * - Lines already in the log keep the old name.
      */
     fun rename(id: Long, to: String) {
         val s = byId(id) ?: return
@@ -207,14 +216,14 @@ class ScriptRepository private constructor(private val context: Context) {
         version.incrementAndGet()
     }
 
-    /** No longer the library's or Get more scripts' copy, for updates. */
+    /** Stops treating the script as the library's or Get more scripts' copy, so it gets no updates. */
     private fun forgetOrigin(name: String) {
         ScriptLibrary(context).forget(name)
         ScriptCatalog(context).forget(name)
     }
 
     fun delete(id: Long) {
-        // Its timers, secrets, options and status line go with it.
+        // Its timers, secrets, options and status line are deleted with it.
         ScriptScheduler.cancel(context, id)
         byId(id)?.let {
             SecretStore(context).clear(it.name)
@@ -260,14 +269,14 @@ class ScriptRepository private constructor(private val context: Context) {
 
     companion object : Singleton<ScriptRepository>(::ScriptRepository) {
         /**
-         * Longest last-run status kept (an error's first line): a row past the 2 MB cursor window
-         * can't be read back, and every script list would fail on it.
+         * The longest last-run status kept (an error's first line). A row larger than the 2 MB cursor
+         * window can't be read back, and every script list would fail on it.
          */
         const val STATUS_MAX = 200
 
         fun scopeOf(scriptId: Long) = "script:$scriptId"
 
-        /** Bumped on every write made in this process; caches compare it to know when to reload. */
+        /** Incremented on every write in this process. Caches compare it to know when to reload. */
         val version = java.util.concurrent.atomic.AtomicLong()
     }
 }

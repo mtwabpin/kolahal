@@ -75,22 +75,25 @@ import kotlinx.coroutines.withContext
 private const val PAGE = 400
 private const val MAX_PAGE = 5000
 
-/** Commands whose effect shows in the todo, note, reminder and feed caches. */
+/** Commands that change the todo, note, reminder and feed caches. */
 private val PRODUCTIVITY_COMMANDS = CommandCatalog.PRODUCTIVITY + setOf("feed", "feeds")
 
-/** The whole page is read again at least this often, catching trims by other processes. */
+/** The whole page is read again at least this often, to catch trims by other processes. */
 private const val FULL_RELOAD_MS = 60_000L
 
 /**
- * ↑ history once [fresh] lines (oldest first) came after it: their commands first, newest first,
- * each text once and [limit] in all, as [LogRepository.commandHistory] would read it.
+ * Returns the ↑ history after [fresh] lines (oldest first) were added to it:
+ * - the new commands come first, newest first;
+ * - each text appears once;
+ * - at most [limit] entries in total.
+ * This gives the same result as [LogRepository.commandHistory].
  */
 internal fun withNewCommands(history: List<String>, fresh: List<LogEntry>, limit: Int = LogRepository.HISTORY_LIMIT): List<String> {
     val added = fresh.asReversed().filter { it.kind == LogKind.COMMAND }.map { it.text }
     return if (added.isEmpty()) history else (added + history).distinct().take(limit)
 }
 
-/** `/battery low` at the prompt searches the log for those words; null when the line isn't a search. */
+/** `/battery low` at the prompt searches the log for those words. Returns null when the line isn't a search. */
 internal fun searchWords(text: String): List<String>? =
     if (!text.startsWith("/")) null else text.substring(1).split(Regex("\\s+")).filter { it.isNotEmpty() }
 
@@ -98,29 +101,29 @@ internal fun searchWords(text: String): List<String>? =
 class TerminalViewModel(app: Application, private val state: SavedStateHandle) : AndroidViewModel(app), TerminalUi {
     private val context: Context get() = getApplication()
 
-    /** Reload requests from anywhere (log changes, paging, resume) funnel into one latest-wins pipeline. */
+    /** Reload requests from all sources (log changes, paging, resume) go into one pipeline. The latest request wins. */
     private val reloadRequests = MutableStateFlow(0L)
     private fun requestReload() = reloadRequests.update { it + 1 }
 
     /**
-     * Home is shown (from [onResume], once a fresh screen is decided, to MainActivity's onStop): the
-     * log page is read again and a `/` search runs only then.
+     * True while home is shown: from [onResume] (once a fresh screen is decided) to MainActivity's onStop.
+     * The log page is read again, and a `/` search runs, only during this time.
      */
     private val reading = MutableStateFlow(true)
 
-    /** Back after a stop: the one read of the page on return doesn't wait. */
+    /** True when coming back after a stop. Then the single read of the page on return doesn't wait. */
     @Volatile private var back = false
 
-    /** MainActivity's onStart to onStop. */
+    /** True from MainActivity's onStart to its onStop. */
     @Volatile private var activityStarted = true
 
     /**
-     * MainActivity's onStart (true) and onStop (false). Stopped, the log page and a `/` search aren't
-     * read, and contacts wait to reload; back, [onResume] starts them again.
+     * Called on MainActivity's onStart (true) and onStop (false). While stopped, the log page and a
+     * `/` search aren't read, and contacts wait to reload. On return, [onResume] starts them again.
      */
     fun onStarted(on: Boolean) {
         activityStarted = on
-        // Back, [onResume] starts reading again.
+        // On return, [onResume] starts reading again.
         if (!on) reading.value = false
         com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).setActive(on)
     }
@@ -150,7 +153,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val logSources get() = this@TerminalViewModel.logSources
     })
 
-    /** Scripts, refreshed off the main thread whenever the log changes (every script action logs). */
+    /** The scripts. Refreshed outside the main thread whenever the log changes (every script action writes to the log). */
     val scriptList: StateFlow<List<Script>>
         field = MutableStateFlow<List<Script>>(emptyList())
 
@@ -164,26 +167,26 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override fun setCommandScripts(list: List<Script>) = this@TerminalViewModel.setCommandScripts(list)
     }
 
-    /** What the script screens do to scripts: their switches, timers, keys, options, files and installs. */
+    /** The actions that the script screens perform on scripts: switches, timers, keys, options, files and installs. */
     val scriptActions = ScriptActions(app, state, viewModelScope, scriptList, actionsHost)
 
-    /** Backup files, and the folder for automatic ones. */
+    /** Backup files, and the folder for automatic backups. */
     val backupActions = BackupActions(app, scriptActions, actionsHost)
 
     private val _commandNames = MutableStateFlow<List<String>>(emptyList())
-    /** Names of `@command` scripts; part of the suggestion inputs. */
+    /** Names of `@command` scripts. They are one of the inputs for suggestions. */
     val commandNames: StateFlow<List<String>> = _commandNames.asStateFlow()
 
-    /** Usage lines of the command scripts that have a known one (see [ScriptMeta.usage]), set with [commandNames]. */
+    /** Usage lines of the command scripts that have a known one (see [ScriptMeta.usage]). Set together with [commandNames]. */
     @Volatile private var scriptUsages: Map<String, String> = emptyMap()
 
-    /** `@desc` of the command scripts that have one, for their suggestion rows; set with [commandNames]. */
+    /** The `@desc` of each command script that has one, for its suggestion row. Set together with [commandNames]. */
     @Volatile private var scriptDescriptions: Map<String, String> = emptyMap()
 
-    /** [scriptUsages] and the built-in commands' usage lines: what instant launch checks a line against, on every key. */
+    /** [scriptUsages] plus the built-in commands' usage lines. Instant launch checks a line against these on every key. */
     @Volatile private var commandUsages: Map<String, String> = scriptUsages + CommandCatalog.COMMAND_USAGES
 
-    /** The bundled library's script names, read once (`script install` completes them). */
+    /** The script names in the bundled library, read once. `script install` completes them. */
     private val libraryNames: List<String> by lazy { ScriptLibrary(context).entries.map { it.name } }
 
     private fun setCommandScripts(list: List<Script>) {
@@ -194,13 +197,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _commandNames.value = commands.map { it.name }
     }
 
-    /** Bumps when aliases, hidden apps or labels change. */
+    /** Goes up by one when aliases, hidden apps or labels change. */
     val appPrefsVersion: StateFlow<Int> get() = appPrefs.version
 
     /** Every stored `status(text, opts)` line, by script name. */
     private val _lines = MutableStateFlow<List<StatusLine>>(emptyList())
 
-    /** Scripts' status lines by name, of those switched on: their cards in Scripts show them. */
+    /** The status lines of scripts that are on, by name. Their cards on the Scripts screen show them. */
     val statuses: StateFlow<Map<String, String>> = combine(_lines, scriptList) { lines, list ->
         if (lines.isEmpty()) return@combine emptyMap()
         val on = list.filter { it.enabled }.mapTo(HashSet()) { it.name }
@@ -208,23 +211,23 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /**
-     * The status lines you pinned ([ScriptAccess.HEADER]), of scripts switched on: what the pinned
-     * header shows after what's playing, by name.
+     * The status lines you pinned ([ScriptAccess.HEADER]), of scripts that are on. The pinned header
+     * shows them after what's playing, by name.
      */
     val pinned: StateFlow<List<StatusLine>> = combine(_lines, scriptList) { lines, list ->
         if (lines.isEmpty()) return@combine emptyList()
-        // What a script may do is read from its code, on the main thread: only those with a line.
+        // A script's permissions are read from its code on the main thread, so check only scripts that have a line.
         val named = lines.mapTo(HashSet()) { it.name }
         val shown = list.filter { it.name in named && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
         lines.filter { it.name in shown }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** When each pinned line was last run again, by script name, on [SystemClock.elapsedRealtime]. */
+    /** When each pinned line last ran again, by script name, in [SystemClock.elapsedRealtime] time. */
     private val pinRuns = HashMap<String, Long>()
 
     /**
-     * Runs again the pinned lines that ask for it (`refresh`) and are due. Home calls it each second
-     * while the pinned header is on screen, so they run only then; one still running is let be.
+     * Runs again the pinned lines that ask for it (`refresh`) and are due. Home calls this every second
+     * while the pinned header is on screen, so they run only then. A line that is still running is left alone.
      */
     fun refreshPinned(now: Long = android.os.SystemClock.elapsedRealtime()) {
         val due = PinnedTurns.due(pinned.value, pinRuns, now)
@@ -241,13 +244,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val filter: StateFlow<LogFilter?> = _filter.asStateFlow()
 
     private val _filterCount = MutableStateFlow(0)
-    /** How many lines [filter] lets through, for its bar. */
+    /** How many lines [filter] lets through, shown on its bar. */
     val filterCount: StateFlow<Int> = _filterCount.asStateFlow()
 
-    /** Where the log's lines came from, newest first: `/@` and `log only` suggest them. */
+    /** The sources of the log's lines, newest first. `/@` and `log only` suggest them. */
     @Volatile private var logSources: List<String> = emptyList()
 
-    /** The log column's width on screen, as last laid out ([onLogWidth]); `fetch` lays its lines out to fit it. */
+    /** The log column's width on screen, from the last layout ([onLogWidth]). `fetch` fits its lines to this width. */
     @Volatile private var logWidth: Int? = null
 
     fun onLogWidth(px: Int) {
@@ -259,7 +262,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     override fun filterLog(filter: LogFilter?) {
         if (_filter.value == filter) return
         _filter.value = filter
-        // Kept until cleared, through leaving home and a restart.
+        // Kept until cleared, also after leaving home and after a restart.
         logs.filter = filter?.let { if (it is LogFilter.OfKind) it.word else it.label }
         requestReload()
     }
@@ -268,7 +271,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val screen: StateFlow<Screen> = _screen.asStateFlow()
 
     private val _rows = MutableStateFlow<List<LogRow>>(emptyList())
-    /** What the log list shows: entries (with dimming/gutter) and day separators. */
+    /** What the log list shows: entries (with dimming and gutter) and day separators. */
     val rows: StateFlow<List<LogRow>> = _rows.asStateFlow()
 
     val apps: StateFlow<List<AppEntry>> = appsRepo.apps
@@ -277,10 +280,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val status: StateFlow<Status> = DeviceStatus.get(app).status
     val config: Config = Config.get(app)
     private val mediaRepo = com.mtwabpin.kolahal.control.MediaRepository.get(app)
-    /** The media session for the header (null without notification access or a session; [com.mtwabpin.kolahal.control.NowPlaying.showInHeader] hides an idle one). */
+    /**
+     * The media session for the header. Null without notification access or without a session.
+     * [com.mtwabpin.kolahal.control.NowPlaying.showInHeader] hides an idle one.
+     */
     val nowPlaying: StateFlow<com.mtwabpin.kolahal.control.NowPlaying?> = mediaRepo.nowPlaying
 
-    /** Header now-playing line: tap toggles play/pause, long-press (or ⏭) skips. */
+    /** The header's now-playing line: a tap toggles play/pause, a long-press (or ⏭) skips. */
     fun mediaToggle() = io { mediaRepo.send(com.mtwabpin.kolahal.control.MediaRepository.Action.TOGGLE) }
     fun mediaNext() = io { mediaRepo.send(com.mtwabpin.kolahal.control.MediaRepository.Action.NEXT) }
 
@@ -291,21 +297,27 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val livePreview: LivePreview?
         get() = LivePreview.of(input.text, config) { TermFonts.customFile(getApplication()) != null }
 
-    /** A preview whose line was just entered, until its command has run: the old look would show for a moment. */
+    /**
+     * The preview of a line that was just entered. It stays until the command has run; otherwise
+     * the old look would show for a moment.
+     */
     private var entered by mutableStateOf<LivePreview?>(null)
 
-    /** How to look for now, if not as the settings say. On home alone: other screens show what's in use. */
+    /**
+     * The look to use now, when it differs from the settings. Only on home: other screens show
+     * what is in use.
+     */
     val previewed: LivePreview? get() = entered ?: livePreview?.takeIf { _screen.value == Screen.TERMINAL }
 
     private val _editing = MutableStateFlow<Script?>(null)
     val editing: StateFlow<Script?> = _editing.asStateFlow()
 
     private val _editLine = MutableStateFlow<Int?>(null)
-    /** Line to jump to (and flash) when the editor opens from an error. */
+    /** The line to jump to (and flash) when the editor opens from an error. */
     val editLine: StateFlow<Int?> = _editLine.asStateFlow()
 
     fun openEditorAt(script: Script, line: Int?) {
-        // Otherwise the screen underneath shows its last message again when the editor closes.
+        // Clear the notice. Otherwise the screen below shows its last message again when the editor closes.
         _notice.value = null
         _editLine.value = line
         _editing.value = script
@@ -314,15 +326,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<UiEvent> = _events
 
-    /** Written by [reload], off the main thread; read on it. */
+    /** Written by [reload] outside the main thread. Read on the main thread. */
     @Volatile private var history: List<String> = emptyList()
     private var historyIndex = -1
     private var draft = ""
 
-    /** launcher.run(cmd) from scripts the user started (see HostApi.runCommand). */
+    /** Receives launcher.run(cmd) from scripts that the user started (see HostApi.runCommand). */
     private val runCommandReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: Context, intent: Intent) {
-            // Checked again here, where it runs: a sensitive command never runs from a script.
+            // Check again here, where the command runs: a sensitive command never runs from a script.
             intent.getStringExtra(HostApi.EXTRA_COMMAND)?.takeIf { !InstantRun.isSensitive(it) }?.let { runCommand(it, byScript = true) }
         }
     }
@@ -341,16 +353,18 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // Bursts of changes (a script logging many lines, another process) collapse into one reload.
             // Locking or unlocking the private space shows or hides its lines.
             launch { appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged().drop(1).collect { requestReload() } }
-            // Away from home only the trim goes on, which keeps the log at its cap as lines come.
+            // Away from home, only the trim continues. It keeps the log at its size limit as new lines arrive.
             launch { logs.version.collect { if (!reading.value) withContext(Dispatchers.IO) { runCatching { logs.trimIfOverdue() } } } }
-            // Only while home is shown: nobody sees the page otherwise. Back, it reads what came
-            // meanwhile at once, and once; bursts wait as before. So does the first read: started
-            // here, it could otherwise run before the fields further down are set.
+            // Reload only while home is shown, because nobody sees the page otherwise.
+            // - On return, it reads what arrived in the meantime at once, and only once.
+            // - Bursts wait as before (debounce).
+            // - The first read waits too. Otherwise, since it starts here, it could run before the
+            //   fields further down are set.
             reading.flatMapLatest { on -> if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow() }
                 .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
                 .collectLatest {
-                // A failed reload keeps the previous rows instead of crashing home. Not logged:
-                // writing to the log would trigger the next reload.
+                // A failed reload keeps the previous rows instead of crashing home. It is not logged,
+                // because writing to the log would trigger the next reload.
                 try {
                     reload()
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -362,61 +376,64 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** How many log lines are loaded; grows as the user scrolls up (older lines load on demand). */
+    /** How many log lines are loaded. It grows as the user scrolls up (older lines load on demand). */
     @Volatile private var pageLimit = PAGE
 
     fun loadOlder() {
-        // With `log only …`, what shows is the filter's page, not the log's.
+        // With `log only …`, the screen shows the filter's page, not the log's.
         val shown = if (_filter.value == null) loaded.size else _entries.value.size
         if (shown < pageLimit || pageLimit >= MAX_PAGE) return
         pageLimit += PAGE
         requestReload()
     }
 
-    /** Every visible line loaded, before the private-space filter; what the next reload builds on. */
+    /** Every visible line loaded, before the private-space filter. The next reload builds on this. */
     @Volatile private var loaded: List<LogEntry> = emptyList()
-    /** The newest line loaded so far, kept across an emptied page ([onPause] records it as seen). */
+    /** The newest line loaded so far. It is kept even if the page becomes empty ([onPause] records it as seen). */
     @Volatile private var newestLoaded: Long? = null
     private var loadedStructure = -1L
     private var loadedTrimmed = -1L
-    /** The last removal ([LogRepository.removedSeq]) dropped from the page. */
+    /** The last removal ([LogRepository.removedSeq]) already dropped from the page. */
     private var removedSeen = 0L
-    /** No visible line is older than the page's first: scrolling back has nothing more to read. */
+    /** True when no visible line is older than the page's first line, so scrolling back has nothing more to read. */
     private var logStart = false
     private var fullAt = 0L
     private var scriptsPrint: String? = null
-    /** `log only …`'s lines as last shown, with the filter and the page size they were found for. */
+    /** The lines of `log only …` as last shown, with the filter and the page size they were found for. */
     private var filtered: List<LogEntry> = emptyList()
     private var filteredFor: LogFilter? = null
     private var filteredLimit = 0
 
     /**
-     * Brings the log up to date. Usually only the lines after the newest one shown are read; an
-     * older page is read as the user scrolls back, and lines removed (a swipe, a launch line moved
-     * down) are dropped from the page. The whole page is read again after a change in its middle
-     * (a restore, a hide, a clear), when a trim reached into it, and once a minute (another process
-     * may have changed what this one didn't see). Scripts, history and the todo and feed caches are
-     * read only when something they show could have changed.
+     * Brings the log up to date.
+     * - Usually only the lines after the newest shown line are read.
+     * - An older page is read as the user scrolls back.
+     * - Removed lines (a swipe, a launch line moved down) are dropped from the page.
+     * - The whole page is read again: after a change in its middle (a restore, a hide, a clear),
+     *   when a trim reached into it, and once a minute (another process may have changed something
+     *   this one didn't see).
+     * - Scripts, history and the todo and feed caches are read only when something they show could
+     *   have changed.
      *
-     * All on one background thread: each trip back to the main thread between the reads waited for
-     * whatever it was doing (a frame while typing or scrolling), so new lines showed later. Only this
-     * collector writes the fields it keeps; the main thread reads the page from [rows].
+     * Everything runs on one background thread. A trip back to the main thread between the reads
+     * would wait for its current work (a frame while typing or scrolling), so new lines would show
+     * later. Only this collector writes the fields it keeps. The main thread reads the page from [rows].
      */
     private suspend fun reload() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        // Home keeps the log at its cap as it grows: a trim every few hundred lines it wrote.
+        // Home keeps the log at its size limit as it grows: one trim every few hundred lines written.
         logs.trimIfOverdue()
         val structure = logs.structure
         val trimmed = logs.trimmedUpTo
-        // The removals up to this number are applied below; a later one may be seen twice, harmlessly.
+        // Removals up to this number are applied below. A later one may be seen twice, which is harmless.
         val removedSeq = logs.removedSeq
         val removed = logs.removedSince(removedSeen)
         val gone = removed ?: emptySet()
-        // One limit for this reload: loadOlder may raise pageLimit while it is suspended, and the
-        // reload that asks for must then read the longer page, not find this one already at it.
+        // Use one limit for this reload. loadOlder may raise pageLimit while this reload is suspended.
+        // The reload it requests must then read the longer page, not find this one already at that size.
         val limit = pageLimit
         val newest = loaded.lastOrNull()?.id
-        // Trims leave starred lines: the oldest of the others says whether one reached into the page.
+        // Trims keep starred lines. So the oldest non-starred line tells whether a trim reached into the page.
         val oldest = loaded.firstOrNull { !it.starred }?.id ?: Long.MAX_VALUE
         val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
             removed != null && now - fullAt < FULL_RELOAD_MS
@@ -428,13 +445,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         } else {
             val kept = if (gone.isEmpty()) loaded else loaded.filterNot { it.id in gone }
             val have = kept.size + fresh.size
-            // Scrolled back (or a search result shown): the lines before the page, up to the new limit.
+            // After scrolling back (or showing a search result): read the lines before the page, up to the new limit.
             val before = (kept.firstOrNull() ?: fresh.firstOrNull())?.id
             val older = if (have >= limit || start || before == null) emptyList() else {
                 logs.recent(limit - have, beforeId = before).also { if (it.size < limit - have) start = true }
             }
             val page = older + kept + fresh
-            // The page shrank ([atNewest]) or grew past its limit: what's cut is older than the page now.
+            // The page shrank ([atNewest]) or grew past its limit. The lines cut off are older than the page now.
             if (page.size > limit) start = false
             page.takeLast(limit)
         }
@@ -447,19 +464,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
         _lines.value = StatusLines.all(context)
         if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = logs.hiddenCount()
-        // A typed command's own line puts it first: read again only when a command may have gone (a
-        // trim, or a removed line this page doesn't have or that was a command).
+        // A typed command's own line puts it first in the history. Read the history again only when a
+        // command may be gone: after a trim, or when a removed line was a command or is not on this page.
         val commandGone = trimmed != loadedTrimmed ||
             (gone.isNotEmpty() && loaded.filter { it.id in gone }.let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } })
         history = if (!incremental || commandGone) logs.commandHistory() else withNewCommands(history, fresh)
         if (!incremental || fresh.any(::touchesProductivity)) refreshProductivity()
         if (!incremental || fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
-        // A locked private space hides its apps; its lines (launches, notifications) hide with it.
+        // A locked private space hides its apps. Its lines (launches, notifications) are hidden too.
         val locked = lockedPrivate(appsRepo.profiles.value)
         val list = if (locked.isEmpty()) all else all.filterNot { it.ctx.userSerial in locked }
-        // `log only …`: its lines from the whole log, not just this page (which may hold none of
-        // them). New lines are checked as they come; the log is searched whole when the page is read
-        // whole, when the filter or the page size changed, and after a line was removed.
+        // `log only …` takes its lines from the whole log, not just this page (which may have none of them).
+        // - New lines are checked as they arrive.
+        // - The whole log is searched when the whole page is read, when the filter or the page size
+        //   changed, and after a line was removed.
         val filter = _filter.value
         var count = _filterCount.value
         val shown = when {
@@ -479,8 +497,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 found.entries.asReversed()
             }
         }
-        // Only now, past the last read: cancelled earlier (a newer change came in), the next reload
-        // reads these lines again and refreshes history, todos and the hidden count for them.
+        // Update the state only now, after the last read. If the reload is cancelled earlier (a newer
+        // change came in), the next reload reads these lines again and refreshes history, todos and
+        // the hidden count for them.
         if (!incremental) {
             loadedStructure = structure
             fullAt = now
@@ -489,8 +508,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         removedSeen = removedSeq
         logStart = start
         loaded = all
-        // The newest line there is, filter or not: what a pause records as seen. Kept when the page
-        // is empty (`fresh`, `clear`): those lines were seen before they were hidden.
+        // The newest line, with or without a filter. A pause records it as seen. It is kept when the
+        // page is empty (`fresh`, `clear`), because those lines were seen before they were hidden.
         all.lastOrNull()?.let { newestLoaded = it.id }
         filtered = if (filter == null) emptyList() else shown
         filteredFor = filter
@@ -500,9 +519,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _rows.value = withContext(Dispatchers.Default) { buildRows(shown, seenUpTo, unreadUntil) }
     }
 
-    /** A line after which the todo, note, reminder or feed caches may be out of date. */
+    /** True for a line after which the todo, note, reminder or feed caches may be out of date. */
     private fun touchesProductivity(e: LogEntry): Boolean {
-        // `notes rm 2` prints no numbered line, but the numbers after it moved.
+        // `notes rm 2` prints no numbered line, but the numbers after it changed.
         if (e.kind == LogKind.COMMAND && InstantRun.canonical(e.text.substringBefore(' ')) in PRODUCTIVITY_COMMANDS) return true
         val k = e.ctx.values.keys
         return LogContext.TODO in k || LogContext.NOTE in k || LogContext.REMINDER in k ||
@@ -510,7 +529,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             e.source == "remind"
     }
 
-    /** Back at the newest lines after scrolling up: the page shrinks again, so each reload stays small. */
+    /** Called when the user is back at the newest lines after scrolling up. The page shrinks again, so each reload stays small. */
     fun atNewest() {
         if (pageLimit <= PAGE) return
         pageLimit = PAGE
@@ -519,7 +538,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     private var rowsZone = java.time.ZoneId.systemDefault()
 
-    /** The phone's time zone changed ([told]) or may have: the log and a search build their rows again, with each line's day in the new one. */
+    /**
+     * The phone's time zone changed ([told]) or may have changed. The log and a search build their
+     * rows again, with each line's day in the new time zone.
+     */
     fun onZoneChanged(told: Boolean) {
         val now = java.time.ZoneId.systemDefault()
         if (told || now != rowsZone) logs.touch()
@@ -528,44 +550,45 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     private var rowsDay: java.time.LocalDate? = null
 
-    /** A new day, at midnight with the log on screen: the rows are built again for their day dividers. */
+    /** A new day started (at midnight, with the log on screen). The rows are built again for their day dividers. */
     fun onDayChanged(today: java.time.LocalDate) {
         if (rowsDay != null && today != rowsDay) logs.touch()
         rowsDay = today
     }
 
-    /** Script lines in (seenUpTo, unreadUntil] arrived while the user was away; later ones were seen live. */
+    /** Script lines in (seenUpTo, unreadUntil] arrived while the user was away. Later ones were seen live. */
     @Volatile private var seenUpTo = Long.MAX_VALUE
     @Volatile private var unreadUntil = Long.MAX_VALUE
     @Volatile private var pausedAt = 0L
 
     private val _hiddenLines = MutableStateFlow(0)
-    /** Lines a fresh-screen hide keeps out of view; the log shows a tap-to-restore line for them. */
+    /** Lines hidden by a fresh screen. The log shows a tap-to-restore line for them. */
     val hiddenLines: StateFlow<Int> = _hiddenLines.asStateFlow()
 
     fun showHidden() = io { logs.unhide() }
 
     // ---- log search: `/words` at the prompt -------------------------------------------------
 
-    /** What `/words` found: [rows] oldest first, as the log lists them; no [words] yet shows a hint. */
+    /** What `/words` found. [rows] are oldest first, as in the log. With no [words] yet, a hint shows. */
     data class LogSearch(val words: List<String>, val rows: List<LogRow>, val total: Int, val searched: Int, val sources: List<LogFilter> = emptyList()) {
-        /** Nothing typed yet (or only `@`): a hint shows instead of results. */
+        /** True when nothing is typed yet (or only `@`). Then a hint shows instead of results. */
         val isEmpty: Boolean get() = words.isEmpty() && sources.isEmpty()
     }
 
     private val _search = MutableStateFlow<LogSearch?>(null)
-    /** The log search while the prompt starts with `/`; null otherwise. */
+    /** The log search while the prompt starts with `/`. Null otherwise. */
     val search: StateFlow<LogSearch?> = _search.asStateFlow()
 
     private val _jumpTo = MutableStateFlow<Long?>(null)
-    /** A line to scroll the log to once it is loaded (a search result tapped). */
+    /** A line to scroll the log to once it is loaded (after a search result is tapped). */
     val jumpTo: StateFlow<Long?> = _jumpTo.asStateFlow()
 
     init {
         viewModelScope.launch {
-            // Typing settles before a search; leaving it is at once. The log changing searches again,
-            // while home is shown: a search left in the prompt runs again once on return.
-            // Locking the private space hides its lines from the results too, as from the log.
+            // - Wait for typing to settle before a search. Leaving search happens at once.
+            // - A log change runs the search again, while home is shown. A search left in the prompt
+            //   runs again once on return.
+            // - Locking the private space hides its lines from the results too, as from the log.
             val locks = appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged()
             reading.flatMapLatest { on ->
                 if (!on) emptyFlow()
@@ -578,7 +601,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                         _search.value = when {
                             words == null -> null
                             else -> {
-                                // `@xkcd`, `@feeds`: only lines from there (any of them).
+                                // `@xkcd`, `@feeds`: only lines from these sources (any of them).
                                 val (at, plain) = words.partition { it.startsWith("@") }
                                 val sources = at.mapNotNull(LogFilter::parse)
                                 if (plain.isEmpty() && sources.isEmpty()) LogSearch(emptyList(), emptyList(), 0, 0)
@@ -603,12 +626,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** A search result tapped: the search ends and the log shows that line, loading back as far as it is. */
+    /** A search result was tapped. The search ends, and the log shows that line, loading older lines as far back as needed. */
     fun showInLog(entry: LogEntry) {
         setText("")
         _events.tryEmit(UiEvent.HideKeyboard)
-        // `log only …` would keep the line out of sight: it ends, as running a command ends it.
-        // A starred line a clear took off the screen is among the starred lines alone.
+        // `log only …` could hide the line, so it ends, as it does when a command runs.
+        // A starred line that a clear removed from the screen shows only among the starred lines.
         val filter = if (entry.starred && logs.isCleared(entry.id)) LogFilter.OfKind(LogFilter.Kind.STARRED) else _filter.value?.takeIf { it.matches(entry) }
         filterLog(filter)
         io {
@@ -616,7 +639,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             pageLimit = maxOf(pageLimit, (logs.countFrom(entry.id) + 20).coerceAtMost(MAX_PAGE))
             _jumpTo.value = entry.id
             requestReload()
-            // A line that never shows up (deleted meanwhile, past the page limit) doesn't stay a pending jump.
+            // If the line never shows up (deleted meanwhile, or past the page limit), cancel the pending jump.
             kotlinx.coroutines.delay(3_000.milliseconds)
             if (_jumpTo.value == entry.id) {
                 _jumpTo.value = null
@@ -631,30 +654,30 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun onPause() {
         _peek.value = null
-        // The newest line, not the last shown: after `fresh` nothing shows, and under `log only`
-        // the last shown line can be old; the lines before it were seen all the same.
+        // Use the newest line, not the last shown line. After `fresh` nothing shows, and under `log only`
+        // the last shown line can be old. The lines before the newest were seen anyway.
         newestLoaded?.let { logs.seenUpTo = it }
         pausedAt = System.currentTimeMillis()
     }
 
-    /** Exact-alarm permission at the last resume; null before the first. */
+    /** The exact-alarm permission at the last resume. Null before the first resume. */
     @Volatile private var exactAlarms: Boolean? = null
 
     fun onResume() {
-        // Allowing exact alarms (`remind exact`) doesn't restart us: re-arm the pending reminders
-        // so they stop firing late in Doze.
+        // Allowing exact alarms (`remind exact`) doesn't restart the app. So schedule the pending
+        // reminders again, so they no longer fire late in Doze.
         val exact = com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
         if (exact && exactAlarms == false) io { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
         exactAlarms = exact
         io { logs.trimIfDue(config[Keys.LOG_KEEP_DAYS]) }
-        // Daily times drift (late runs, a daylight-saving change): anchored again every few hours.
+        // Daily times drift (late runs, a daylight-saving change), so they are set again every few hours.
         io { ScriptScheduler.syncAllIfDue(context) }
-        // A crash in the script process doesn't restart home: its report is announced here, off the
-        // command queue, so a command typed at once doesn't wait for it.
+        // A crash in the script process doesn't restart home. So its report is announced here,
+        // outside the command queue, so that a command typed at once doesn't wait for it.
         viewModelScope.launch(Dispatchers.IO) { runCatching { com.mtwabpin.kolahal.CrashReports.announce(context) } }
         seenUpTo = logs.seenUpTo
-        // log.fresh: after a while away, home starts clean. Only what you had already seen is
-        // hidden (script lines that arrived meanwhile stay), and nothing is deleted.
+        // log.fresh: after some time away, home starts clean. Only lines you had already seen are
+        // hidden (script lines that arrived meanwhile stay). Nothing is deleted.
         val freshMin = config[Keys.LOG_FRESH]
         val seen = seenUpTo
         val hide = freshMin > 0 && pausedAt > 0 && System.currentTimeMillis() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE
@@ -663,33 +686,34 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 if (hide) runCatching { logs.hideScreen(seen) }
                 unreadUntil = runCatching { logs.maxId() }.getOrDefault(unreadUntil)
             }
-            // Back after a stop, the page is read here, once, with the fresh screen already in.
+            // On return after a stop, the page is read here, once, after the fresh screen is applied.
             when {
                 reading.value -> requestReload()
                 activityStarted -> { back = true; reading.value = true }
             }
         }
         if (_screen.value == Screen.SETUP || _screen.value == Screen.ONBOARDING) refreshSetup()
+        refreshIsHome()
         unlockCounter.refresh()
-        // No app list reload here: it's kept, and installs, updates, removals, profiles and a new
-        // language reload it as they happen ([AppRepository.start]). `restart` reads it afresh.
+        // Don't reload the app list here. It is kept, and installs, updates, removals, profiles and a
+        // new language reload it when they happen ([AppRepository.start]). `restart` reads it again.
         mediaRepo.start() // picks up notification access granted while we were away
         io { tipOfTheDay() }
-        // keyboard.on-home: back from an app or the lock screen is home shown too. The keyboard
-        // only opens for a focused window, which comes just after this ([onWindowFocused]).
+        // keyboard.on-home: returning from an app or the lock screen also counts as showing home.
+        // The keyboard opens only for a focused window, which comes just after this ([onWindowFocused]).
         focusOnWindowFocus = true
     }
 
     private var focusOnWindowFocus = false
 
-    /** When Kolahal was installed: asked once, not at every return home. */
+    /** When Kolahal was installed. Read once, not every time home is shown. */
     private val installedAt: Long? by lazy {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime }.getOrNull()
     }
 
     /**
-     * `log.tips`: on the first look at home each day, from one to fourteen days after installing, a
-     * line about something not used yet ([Tips]); tapping it puts the example in the prompt.
+     * `log.tips`: the first time home is shown each day, from one to fourteen days after install,
+     * adds a line about a feature not used yet ([Tips]). Tapping it puts the example in the prompt.
      */
     private fun tipOfTheDay() {
         if (!config[Keys.LOG_TIPS]) return
@@ -701,12 +725,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val shown = prefs.getStringSet("shown", emptySet()).orEmpty()
         val tip = Tips.next(logs.commandHistory(), shown) ?: return
         prefs.edit { putString("day", today).putStringSet("shown", shown + tip.id) }
-        // The first one says how they stop.
+        // The first tip says how to turn tips off.
         val off = if (shown.isEmpty()) " (config set log.tips off to stop them)" else ""
         logs.add(LogKind.INFO, "Tip: ${tip.text} · tap to try it$off", ctx = LogContext.of(LogContext.COMMAND to tip.example.trimEnd() + " "))
     }
 
-    /** Home's window has focus again: after [onResume], keyboard.on-home opens the keyboard on the terminal. */
+    /** Home's window has focus again. After [onResume], keyboard.on-home opens the keyboard on the terminal. */
     fun onWindowFocused() {
         if (!focusOnWindowFocus) return
         focusOnWindowFocus = false
@@ -720,10 +744,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // Cursor moves and IME composition updates must not abandon history navigation.
         if (value.text != old) historyIndex = -1
         input = value
-        // Only while typing forward at the end, so backspacing or editing mid-line never fires it.
-        // One character at a time (or IME composition): a paste of a whole word is not "typing".
-        // A line with arguments may also end in a word the keyboard commits whole, space and all
-        // (`torch on `); only a line with nothing left to choose runs then.
+        // Instant run fires only while typing forward at the end of the line, so backspacing or
+        // editing in the middle never fires it.
+        // - Typing means one character at a time (or IME composition). Pasting a whole word is not typing.
+        // - A line with arguments may also end in a word that the keyboard commits whole, with its
+        //   space (`torch on `). Then only a line with nothing left to choose runs.
         val typed = value.text.length - old.length == 1 || value.composition != null
         if (searchWords(value.text) == null && value.text.length > old.length && value.selection.collapsed && value.selection.end == value.text.length &&
             (typed || value.text.trim().contains(' '))
@@ -732,7 +757,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** launch.instant: launch / run as soon as the input is unambiguous. */
+    /** launch.instant: launches or runs as soon as the input can mean only one thing. */
     private fun instantRun(text: String) {
         val target = InstantRun.target(
             text, config[Keys.LAUNCH_INSTANT], config[Keys.LAUNCH_INSTANT_MIN],
@@ -748,9 +773,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** In `launch.instant all` mode a tapped history line runs at once, unless it is sensitive and not a whole line such as `torch on`. */
+    /**
+     * In `launch.instant all` mode, a tapped history line runs at once. It doesn't run if it is
+     * sensitive, unless it is a whole line such as `torch on`.
+     */
     private fun runsOnTap(line: String) = config[Keys.LAUNCH_INSTANT] == InstantRun.ALL &&
-        // A trailing space marks a prefill ("apps " from help): it is waiting for an argument.
+        // A trailing space marks a prefill ("apps " from help) that waits for an argument.
         !line.endsWith(' ') &&
         (InstantRun.canRun(line, commandUsages, appPrefs.aliases(), _commandNames.value, tapped = true) { name ->
             appsRepo.searchRanked(name).firstOrNull()?.second == 0
@@ -758,7 +786,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun submit() {
         val line = input.text
-        // Enter in a log search makes room for the results: they are tapped, not run.
+        // Enter in a log search hides the keyboard to make room for the results. Results are tapped, not run.
         if (searchWords(line) != null) {
             _events.tryEmit(UiEvent.HideKeyboard)
             return
@@ -777,7 +805,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _events.tryEmit(UiEvent.ScrollToBottom)
     }
 
-    /** Insert [text] at the cursor (for touch keys). */
+    /** Inserts [text] at the cursor (for touch keys). */
     fun insert(text: String) {
         val v = input
         val newText = v.text.replaceRange(v.selection.min, v.selection.max, text)
@@ -798,7 +826,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         recall(if (historyIndex == -1) draft else history.getOrNull(historyIndex) ?: draft)
     }
 
-    /** Backspace for the touch key bar (deletes the selection or the char before the cursor). */
+    /** Backspace for the touch key bar. Deletes the selection, or the character before the cursor. */
     fun deleteBackward() {
         val v = input
         val sel = v.selection
@@ -834,7 +862,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         setText("")
     }
 
-    /** TAB: accept the first suggestion. */
+    /** TAB: accepts the first suggestion. */
     fun complete() {
         val first = suggestions(input.text).firstOrNull() ?: return
         when (first) {
@@ -844,14 +872,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * A completion fills the prompt; in `launch.instant all` a line it leaves with nothing to choose
-     * runs (`torch on`). [tapped]: a suggestion tapped, not taken with Tab, which is typing.
+     * A completion fills the prompt. In `launch.instant all`, if the line then has nothing left to
+     * choose, it runs (`torch on`). [tapped] is true for a tapped suggestion. A suggestion taken
+     * with Tab counts as typing.
      */
     private fun pickCompletion(replacement: String, tapped: Boolean) {
         setText(replacement)
         if (searchWords(replacement) != null || !replacement.trim().contains(' ')) return
-        // A contact tapped for `call` opens the dialer at once, as a tap in the log does: the
-        // dialer still waits for Call. Any other line runs only once it's complete (`torch on`).
+        // A contact tapped for `call` opens the dialer at once, as a tap in the log does. The
+        // dialer still waits for Call. Any other line runs only once it is complete (`torch on`).
         val line = replacement.trim()
         if (tapped && InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && runsOnTap(line)) {
             setText("")
@@ -872,7 +901,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** A new line for the prompt: ↑ and ↓ start again from it. */
+    /** Sets a new line in the prompt. ↑ and ↓ start again from it. */
     private fun setText(text: String) {
         historyIndex = -1
         recall(text)
@@ -884,7 +913,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun suggestions(text: String): List<Suggestion> {
         if (searchWords(text) == null) return completer.suggestions(text)
-        // `/@xk`: the sources to search in.
+        // `/@xk`: suggest the sources to search in.
         val token = text.removePrefix("/").substringAfterLast(' ')
         if (!token.startsWith("@")) return emptyList()
         val before = text.dropLast(token.length)
@@ -907,24 +936,24 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override fun filterLog(filter: LogFilter?) = this@TerminalViewModel.filterLog(filter)
     })
 
-    /** Single tap: the most likely action for this line. */
+    /** Single tap: runs the most likely action for this line. */
     fun onTap(entry: LogEntry) = lineActions.onTap(entry)
 
-    /** Long-press: every action that makes sense for the saved context. Destructive ones come last. */
+    /** Long-press: returns every action that makes sense for the saved context. Destructive ones come last. */
     fun actionsFor(entry: LogEntry): List<LogAction> = lineActions.actionsFor(entry)
 
-    /** Actions for one app (log lines and grid chips). */
+    /** The actions for one app, for log lines and grid chips. */
     fun appActions(app: AppEntry): List<LogAction> = lineActions.appActions(app)
 
-    /** Apps referenced by a grid line. */
+    /** Returns the apps in a grid line. */
     fun appsOf(entry: LogEntry): List<AppEntry> = lineActions.appsOf(entry)
 
     fun launchApp(app: AppEntry) = io { processor.launch(app) }
 
-    /** Keys of favourite apps (listed first, with ★, in the app selector). */
+    /** Keys of favourite apps. The app selector lists them first, with ★. */
     fun pinnedKeys(): Set<String> = appPrefs.pinned().toSet()
 
-    /** One serial worker: commands and actions run in order, and failures are logged, never crash home. */
+    /** One serial worker. Commands and actions run in order. Failures are logged and never crash home. */
     private val serialIo = Dispatchers.IO.limitedParallelism(1)
     private val errors = CoroutineExceptionHandler { _, e ->
         runCatching { logs.add(LogKind.ERROR, "Error: ${e.message ?: e.javaClass.simpleName}") }
@@ -935,15 +964,18 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     private val _undo = MutableStateFlow<UndoOffer?>(null)
-    /** A line a swipe just deleted, or a screen just cleared: the terminal offers Undo for a few seconds. */
+    /** A line that a swipe just deleted, or a screen just cleared. The terminal offers Undo for a few seconds. */
     val undo: StateFlow<UndoOffer?> = _undo.asStateFlow()
     private var undoJob: kotlinx.coroutines.Job? = null
 
-    /** Deletes and restores run here, not on the command queue: a slow command mustn't leave the swiped line's gap on screen. */
+    /**
+     * Deletes and restores run here, not on the command queue. A slow command must not leave the
+     * swiped line's gap on screen.
+     */
     private val deleteIo = Dispatchers.IO.limitedParallelism(1)
 
     init {
-        // What a clear took out of view is deleted once its Undo is gone; a closed launcher's Undo went with it.
+        // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
         viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }
     }
 
@@ -983,8 +1015,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     // ---- script editor --------------------------------------------------------------------
 
     /**
-     * Saves the editor's text; [onDone] gets null once it is written, with what saving changed
-     * beyond the code ([saveCode]), or what went wrong.
+     * Saves the editor's text. [onDone] then gets:
+     * - the error, or null once the text is written;
+     * - what saving changed beyond the code ([saveCode]).
      */
     fun saveScript(script: Script, code: String, onDone: (Throwable?, String?) -> Unit = { _, _ -> }) {
         _editing.value = script.copy(code = code)
@@ -1001,8 +1034,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Saves [code] and runs the script, with [args] and as [event] when given (the editor's Run
-     * with); [onDone] gets what went wrong with the save, if anything, and what saving changed.
+     * Saves [code] and runs the script, with [args] and as [event] when given (the editor's "Run with").
+     * [onDone] gets the save error, if any, and what saving changed.
      */
     fun runScript(
         script: Script, code: String, args: List<String> = emptyList(), event: Map<String, Any?>? = null,
@@ -1023,10 +1056,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Writes [code] typed in the editor, and what its `@every` and `@at` lines say to its timers: a
-     * new or changed line sets them, one taken out takes back what it had set (a timer set in the
-     * sheet stays). Its timers are synced either way (whether it waits for a network follows the
-     * code). Returns what changed, such as "runs every 1h", or null.
+     * Writes [code] from the editor, and applies its `@every` and `@at` lines to the script's timers:
+     * - A new or changed line sets the timers.
+     * - A removed line undoes what it had set. A timer set in the sheet stays.
+     * - The timers are synced in every case, because whether the script waits for a network depends on the code.
+     *
+     * Returns what changed, such as "runs every 1h", or null.
      */
     private fun saveCode(script: Script, code: String): String? {
         val before = scripts.byId(script.id) ?: return null
@@ -1047,7 +1082,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         return notes.joinToString(" · ").ifEmpty { null }
     }
 
-    /** What [script] logged from [since] on, oldest first: a run's output, for the editor. */
+    /** Returns what [script] logged from [since] on, oldest first. This is a run's output, for the editor. */
     suspend fun runLines(script: String, since: Long): List<LogEntry> = withContext(Dispatchers.IO) {
         logs.recent(limit = 200).filter { it.source == script && it.ts >= since }
     }
@@ -1064,13 +1099,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Quick actions (tap `$` on the prompt, or the `quick` gesture): everything the header
-     * offers, in thumb reach at the bottom of the screen.
+     * Quick actions (tap `$` on the prompt, or the `quick` gesture): everything the header offers,
+     * within thumb reach at the bottom of the screen.
      */
     fun openQuick() { _events.tryEmit(UiEvent.ShowQuick) }
 
     fun quickActions(): List<LogAction> = buildList {
-        // The header's icons where it has them (battery and network as it shows them now).
+        // Use the header's icons where it has them (battery and network as the header shows them now).
         fun icon(id: Int) = ActionIcon.Drawable(id)
         val s = status.value
         add(LogAction("Settings", icon = icon(R.drawable.ic_settings)) { openScreen(Screen.SETTINGS) })
@@ -1086,7 +1121,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         add(LogAction("Unlocks this week", icon = icon(R.drawable.ic_lock_open)) { onHeaderTap(HeaderTarget.UNLOCKS) })
         profiles.value.filter { it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE }.forEach { p ->
             val cmd = if (p.kind == ProfileKind.PRIVATE) "private" else "work"
-            // As in the header: the profile's colour while it runs, dim while paused.
+            // As in the header: the profile's colour while it runs, dim while it is paused.
             val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
             add(
                 LogAction(
@@ -1106,7 +1141,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** Resuming is harmless, pausing asks for a second tap (the logged line). */
+    /** Resuming is harmless, so it runs at once. Pausing needs a second tap, on the logged line. */
     fun onProfileTap(profile: Profile) {
         val cmd = if (profile.kind == ProfileKind.PRIVATE) "private" else "work"
         if (profile.quiet) {
@@ -1122,7 +1157,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** Runs [cmd] as if typed (without alias expansion); [byScript]: a script sent it, and the scripts it starts can't send more. */
+    /**
+     * Runs [cmd] as if typed, but without alias expansion. [byScript] is true when a script sent it;
+     * then the scripts it starts can't send more commands.
+     */
     fun runCommand(cmd: String, byScript: Boolean = false) {
         _events.tryEmit(UiEvent.ScrollToBottom)
         io { if (byScript) ScriptScheduler.sentByScript { processor.run(cmd, expand = false) } else processor.run(cmd, expand = false) }
@@ -1152,9 +1190,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             "", g.NONE -> Unit
             g.SHADE -> expandNotifications()
             "quick" -> _events.tryEmit(UiEvent.ShowQuick)
-            // Locking needs no log line; only report when the accessibility service is off.
-            // Without the service, explain once per session instead of on every stray double-tap.
-            // Behind the build's switch, so the Play build drops the service's code too.
+            // Locking needs no log line. Report only when the accessibility service is off.
+            // Without the service, explain once per session, not on every accidental double-tap.
+            // This is behind the build switch, so the Play build also drops the service's code.
             g.LOCK -> if (!(com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE && com.mtwabpin.kolahal.gesture.LockService.lock()) && !lockHintShown) {
                 lockHintShown = true
                 runCommand("lock")
@@ -1167,7 +1205,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** Closes the editor; [unsaved] (its text, when it had changes) is saved first and reported where you land. */
+    /**
+     * Closes the editor. [unsaved] is the editor's text when it had changes. It is saved first,
+     * and the result is shown on the screen you return to.
+     */
     fun closeEditor(unsaved: String? = null) {
         val script = _editing.value
         _editLine.value = null
@@ -1181,19 +1222,19 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     // ---- GUI screens (settings, script manager) ------------------------------------------
 
-    /** A message for the GUI screens; [seq] tells the same text twice apart, so both show. */
+    /** A message for the GUI screens. [seq] makes the same text shown twice count as two messages, so both show. */
     data class Notice(val text: String, val seq: Long)
 
     private val _notice = MutableStateFlow<Notice?>(null)
     private var noticeSeq = 0L
-    /** Short result message shown on the GUI screens (also logged to the terminal). */
+    /** A short result message shown on the GUI screens (also logged to the terminal). */
     val notice: StateFlow<Notice?> = _notice.asStateFlow()
 
     private fun show(text: String) {
         _notice.value = Notice(text, ++noticeSeq)
     }
 
-    /** Pages opened from other pages (Settings → Script manager); Back returns along it. */
+    /** Pages opened from other pages (Settings → Script manager). Back returns through them in order. */
     private val backStack = ArrayDeque<Screen>()
 
     override fun openScreen(screen: Screen) {
@@ -1210,11 +1251,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         if (screen == Screen.SETUP || screen == Screen.ONBOARDING) refreshSetup()
     }
 
-    /** Settings, Feeds and Scripts are tabs of one place: switching replaces the screen, so Back leaves them all. */
+    /** Settings, Feeds and Scripts are tabs of one place. Switching replaces the screen, so Back leaves all of them. */
     fun switchTab(screen: Screen) {
         _notice.value = null
         _peek.value = null
-        // Settings opens on its main page next time, not the category left by a tab.
+        // Next time, Settings opens on its main page, not on the category that was open when the tab changed.
         settingsCategory.value = null
         _screen.value = screen
         if (screen == Screen.SCRIPTS) scriptActions.refreshScripts()
@@ -1225,16 +1266,24 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun refreshSetup() = io { _setup.value = SetupChecks.run(context) }
 
-    /** Opens the system page for a check; the list refreshes when the user comes back. */
+    private val _isHome = MutableStateFlow(true)
+
+    /** Whether Kolahal is the home app. Checked at each resume; home shows a band while it isn't. */
+    val isHome: StateFlow<Boolean> = _isHome.asStateFlow()
+
+    /** Checks off the main thread: it is a call to the system, on the way back to home. */
+    fun refreshIsHome() = io { _isHome.value = SetupChecks.isDefaultLauncher(context) }
+
+    /** Opens the system page for a check. The list refreshes when the user comes back. */
     fun fixSetup(check: SetupCheck) {
         check.fix?.let { cmd -> io { processor.run(cmd, expand = false) } }
     }
 
-    /** Back from a page: the page it was opened from, or the terminal. */
+    /** Back from a page: returns to the page it was opened from, or to the terminal. */
     fun closeScreen() {
         _notice.value = null
         val previous = synchronized(backStack) { backStack.removeLastOrNull() } ?: Screen.TERMINAL
-        // A category stays open only across a manager screen opened from it, not a trip home.
+        // A category stays open only while a manager screen opened from it is on top, not after going home.
         if (_screen.value == Screen.SETTINGS && previous == Screen.TERMINAL) settingsCategory.value = null
         _screen.value = previous
         if (previous == Screen.SCRIPTS) scriptActions.refreshScripts()
@@ -1247,8 +1296,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * File operations (SAF providers can be slow, e.g. cloud storage) run off the serial command
-     * queue, and failures show as a notice on the GUI page instead of only in the terminal log.
+     * File operations run outside the serial command queue, because SAF providers can be slow
+     * (e.g. cloud storage). Failures show as a notice on the GUI page, not only in the terminal log.
      */
     private fun fileOp(label: String, block: suspend () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1261,7 +1310,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     override fun askBackupFolder(thenBackUp: Boolean) = backupActions.askBackupFolder(thenBackUp)
 
     fun setConfig(key: ConfigKey<*>, raw: String): Boolean = config.set(key, raw).also { set ->
-        // Backups on their own need somewhere to go.
+        // Automatic backups need a folder, so ask for one.
         if (set && key == Keys.BACKUP_AUTO && raw != "off" && com.mtwabpin.kolahal.data.AutoBackup.folder(context) == null) askBackupFolder(false)
     }
 
@@ -1275,7 +1324,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _events.tryEmit(UiEvent.RequestContactsPermission)
     }
 
-    /** What the contact being picked is for; null once it's back (or after the process restarted). */
+    /** What to do with the contact being picked. Null once the picker returns (or after the process restarted). */
     @Volatile private var contactPicked: ((com.mtwabpin.kolahal.contacts.Contact) -> Unit)? = null
 
     override fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit) {
@@ -1284,8 +1333,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Android's contact picker is back with [uri], or null when nothing was picked. Its numbers are
-     * read now, while the picker allows it, and remembered for the next time the name is typed.
+     * Android's contact picker returned [uri], or null when nothing was picked. The contact's numbers
+     * are read now, while the picker allows it, and remembered for the next time the name is typed.
      */
     fun onContactPicked(uri: Uri?) {
         val then = contactPicked
@@ -1338,7 +1387,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** Settings → Your themes → Import a theme: a theme someone shared, kept with yours and used. */
+    /** Settings → Your themes → Import a theme: imports a theme someone shared, saves it with yours, and uses it. */
     fun importTheme(uri: Uri?) {
         if (uri == null) return
         fileOp("theme import") {
@@ -1348,7 +1397,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** The theme builder's Export: one of your themes, as last saved, in a file to share. */
+    /** The theme builder's Export: writes one of your themes, as last saved, to a file to share. */
     fun exportTheme(name: String, uri: Uri?) {
         if (uri == null) return
         fileOp("theme export") {
@@ -1360,7 +1409,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     @Volatile private var fontErrorShown = false
 
-    /** The configured font could not be loaded (e.g. custom set but the file is gone); said once per run. */
+    /** The configured font could not be loaded (e.g. custom is set but the file is gone). Reported once per run. */
     fun onFontUnavailable(font: String) {
         if (fontErrorShown) return
         fontErrorShown = true
@@ -1415,16 +1464,16 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     // ---- productivity (todo, notes, reminders, agenda) --------------------------------------
 
     private val _todoCount = MutableStateFlow(0)
-    /** Open todos, for the header's todo item. */
+    /** The number of open todos, for the header's todo item. */
     val todoCount: StateFlow<Int> = _todoCount.asStateFlow()
 
-    /** Suggestion data, refreshed with the log (every todo / note / remind command logs). */
+    /** Data for suggestions. Refreshed with the log, because every todo / note / remind command writes to the log. */
     @Volatile private var todoCache: List<com.mtwabpin.kolahal.productivity.Todo> = emptyList()
     @Volatile private var noteCache: List<com.mtwabpin.kolahal.productivity.Note> = emptyList()
     @Volatile private var reminderCache: List<com.mtwabpin.kolahal.productivity.Reminder> = emptyList()
     @Volatile private var feedCache: List<com.mtwabpin.kolahal.feeds.FeedInfo> = emptyList()
 
-    /** Contacts with numbers (empty without the permission); suggestions recompute when they load. */
+    /** Contacts with numbers (empty without the permission). Suggestions are computed again when they load. */
     val contacts get() = com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).contacts
 
     private fun refreshProductivity() {
@@ -1448,14 +1497,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     private val _notificationAccessAsk = MutableStateFlow(false)
-    /** Kolahal is asking before Android's Notification access screen opens ([askNotificationAccess]). */
+    /** True while Kolahal asks before Android's Notification access screen opens ([askNotificationAccess]). */
     val notificationAccessAsk: StateFlow<Boolean> = _notificationAccessAsk.asStateFlow()
 
     override fun askNotificationAccess() {
         _notificationAccessAsk.value = true
     }
 
-    /** The answer: Allow opens Android's screen; Not now opens nothing and leaves a line to ask again. */
+    /** The user's answer. Allow opens Android's screen. Not now opens nothing and leaves a line to ask again. */
     fun answerNotificationAccess(allow: Boolean) {
         _notificationAccessAsk.value = false
         if (allow) {
@@ -1489,13 +1538,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     private val _homePresses = MutableStateFlow(0)
-    /** Bumps on every Home press while already home; the widgets pager returns to the terminal. */
+    /** Goes up by one on every Home press while already home. Then the widgets pager returns to the terminal. */
     val homePresses: StateFlow<Int> = _homePresses.asStateFlow()
 
     /**
-     * Settings showing home through it, to see a look setting while changing it: while a slider is
-     * dragged ([key] stays visible) or the page's eye button is held ([key] null). [typing]: show home
-     * as if typing, for the key bar, prompt and suggestions.
+     * Settings shows home through itself, so you can see a look setting while you change it:
+     * - while a slider is dragged ([key] stays visible);
+     * - while the page's eye button is held ([key] is null).
+     * [typing]: show home as if typing, for the key bar, prompt and suggestions.
      */
     data class Peek(val key: String?, val typing: Boolean)
 
@@ -1506,10 +1556,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _peek.value = value
     }
 
-    /** The open Settings category page; kept while a manager screen opened from it is on top. */
+    /** The open Settings category page. It is kept while a manager screen opened from it is on top. */
     val settingsCategory = mutableStateOf<String?>(null)
 
-    /** The custom theme the theme builder edits; null while it makes a new one. */
+    /** The custom theme that the theme builder edits. Null while it creates a new one. */
     val themeBuilderName = mutableStateOf<String?>(null)
 
     fun openThemeBuilder(name: String?) {
@@ -1518,24 +1568,24 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Where the log's app selector is, in the window: the log's area between the header and the
-     * prompt. The widgets page puts its selector in the same place, so selector.position and the
-     * selector's height come out the same on both pages. Only how far down and how high it is: where
-     * it is across changes on every frame of a swipe between the pages, and the widgets page would be
-     * built again each time.
+     * The position of the log's app selector in the window: the log's area between the header and
+     * the prompt. The widgets page puts its selector in the same place, so selector.position and the
+     * selector's height are the same on both pages.
+     * Only the vertical position and the height are used. The horizontal position changes on every
+     * frame of a swipe between the pages, and the widgets page would be built again each time.
      */
     var selectorArea by mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
 
     /** widgets.start: home opens on the widgets page, and Home and Back return to it. */
     private fun widgetsFirst() = config[Keys.WIDGETS_START] && config[Keys.WIDGETS_PAGE] != "off"
 
-    /** Whether home's page showing is the log's (the widgets page can be first, [widgetsFirst]). */
+    /** True when home shows the log page. (The widgets page can be first, see [widgetsFirst].) */
     @Volatile private var logShown = !widgetsFirst()
 
     /**
      * Home's pager settled on a page. With the widgets page first, keyboard.on-home opens the
-     * keyboard on reaching the log, where the prompt is, and the widgets page puts it away.
-     * [opened]: a page turned to, not only told again.
+     * keyboard on reaching the log (where the prompt is), and the widgets page hides it.
+     * [opened] is true when the user turned to the page, not when the same page is only reported again.
      */
     fun onHomePageShown(log: Boolean, opened: Boolean = true) {
         logShown = log
@@ -1544,7 +1594,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         else if (config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
     }
 
-    /** Pressing Home while already home: reset the prompt. */
+    /** Pressing Home while already home resets the prompt. */
     fun onHomePressed() {
         settingsCategory.value = null
         _homePresses.value++
@@ -1552,11 +1602,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val fromOtherScreen = _screen.value != Screen.TERMINAL
         openScreen(Screen.TERMINAL) // Home always lands on the terminal and forgets the page stack
         escape()
-        // With the widgets page first, Home goes there: no prompt to open the keyboard for.
+        // With the widgets page first, Home goes there. It has no prompt, so don't open the keyboard.
         val focus = config[Keys.FOCUS_ON_HOME] && !widgetsFirst()
         if (fromOtherScreen) {
-            // The terminal isn't composed yet, so an event now would have no collector: it picks
-            // these up when it appears (consumeArrival).
+            // The terminal isn't composed yet, so an event now would have no collector. The terminal
+            // picks these up when it appears (consumeArrival).
             arrival = Arrival(focus = focus)
         } else {
             _events.tryEmit(UiEvent.ScrollToBottom)
@@ -1564,19 +1614,19 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** What the terminal should do once it is on screen again after Home from another page. */
+    /** What the terminal should do when it is on screen again after Home was pressed on another page. */
     data class Arrival(val focus: Boolean)
 
     @Volatile private var arrival: Arrival? = null
 
     fun consumeArrival(): Arrival? = arrival.also { arrival = null }
 
-    // Keep this last in the class. The first-run check runs on another thread straight away and
-    // opens the setup screen, which reads fields declared above; started from an earlier init it
-    // could find them still unset and crash the first start (seen as a crash soon after install).
+    // Keep this init last in the class. The first-run check starts at once on another thread and
+    // opens the setup screen, which reads fields declared above. If it started from an earlier init,
+    // it could find them still unset and crash the first start (seen as a crash soon after install).
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            // A persistent flag, so `clear all` doesn't look like a first run.
+            // Use a persistent flag, so `clear all` doesn't look like a first run.
             val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
             val firstRun = !prefs.getBoolean("intro_shown", false) && logs.recent(1).isEmpty()
             prefs.edit { putBoolean("intro_shown", true) }

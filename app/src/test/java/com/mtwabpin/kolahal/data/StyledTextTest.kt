@@ -49,6 +49,54 @@ class StyledTextTest {
         assertEquals(null, StyledText.Colour.named("#ff0000"))
     }
 
+    /** fmt.table: one line per row; each cell keeps its pieces and its side; the header is marked. */
+    @Test fun tables() {
+        val t = StyledText.table(
+            listOf(listOf("Coin", "Price"), listOf("BTC", StyledText.colour(StyledText.Colour.GOOD, "64,210")), listOf("ETH")),
+            header = true, align = "lr",
+        )
+        val rows = StyledText.lines(t).map { it.row!! }
+        assertEquals(listOf(true, false, false), rows.map { it.header })
+        assertEquals(listOf("Coin", "Price"), rows[0].cells.map { c -> c.spans.joinToString("") { it.text } })
+        assertEquals(listOf(false, true), rows[1].cells.map { it.right })
+        assertEquals(StyledText.Colour.GOOD, rows[1].cells[1].spans.single().colour)
+        // A short row gets empty cells, so every row has as many as the widest.
+        assertEquals(2, rows[2].cells.size)
+        assertEquals("Coin\tPrice\nBTC\t64,210\nETH\t", StyledText.plain(t))
+    }
+
+    /** A cell is one line, styles stay in their cell, and a table in a cell can't add rows or cells. */
+    @Test fun aCellStaysACell() {
+        val inner = StyledText.table(listOf(listOf("x", "y")), header = false)
+        val t = StyledText.table(listOf(listOf(StyledText.open(Style.BOLD) + "open", "two\nlines", inner)), header = false)
+        val row = StyledText.lines(t).single().row!!
+        assertEquals(3, row.cells.size)
+        assertEquals(setOf(Style.BOLD), row.cells[0].spans.single().styles)
+        assertEquals(emptySet<Style>(), row.cells[1].spans.single().styles)
+        assertEquals("two lines", row.cells[1].spans.single().text)
+        assertEquals("xy", row.cells[2].spans.joinToString("") { it.text })
+    }
+
+    /** Up to 8 columns and 50 rows besides the header; more rows end with a "+N more" line. */
+    @Test fun aTableHasLimits() {
+        val t = StyledText.table(List(60) { r -> List(10) { c -> "$r.$c" } }, header = true)
+        val lines = StyledText.lines(t)
+        assertEquals(52, lines.size)
+        assertEquals(8, lines.first().row!!.cells.size)
+        assertEquals(null, lines.last().row)
+        assertEquals("+9 more", lines.last().spans.single().text)
+    }
+
+    /** A body splits before its table: the text above it, then the table and what follows. */
+    @Test fun aBodySplitsAtItsTable() {
+        val table = StyledText.table(listOf(listOf("a")), header = false)
+        assertEquals("plain" to null, StyledText.splitAtTable("plain"))
+        assertEquals("above" to "$table\nbelow", StyledText.splitAtTable("above\n$table\nbelow"))
+        assertTrue(StyledText.hasTable(table))
+        assertFalse(StyledText.hasTable(StyledText.list(listOf("a"), numbered = false)))
+        assertEquals("", StyledText.table(emptyList(), header = true))
+    }
+
     @Test fun lists() {
         val bullets = StyledText.list(listOf("milk", "bread"), numbered = false)
         assertEquals("• milk\n• bread", StyledText.plain(bullets))

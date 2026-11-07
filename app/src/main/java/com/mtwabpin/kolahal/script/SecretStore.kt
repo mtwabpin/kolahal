@@ -12,50 +12,53 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Values for the names a script declares with `@secret` (API keys and the like), so they never sit in
- * its code. Encrypted with AES-GCM under a key kept in the Android Keystore, which never leaves it;
- * stored in kolahal.db (scope [scope] per script name), which Android's cloud backup leaves out, as
- * do Kolahal's own backups ([com.mtwabpin.kolahal.data.FullBackup]). A transfer to a new phone carries
- * the sealed values but not the Keystore key, so they can't be read there. Both the
- * launcher and the `:script` process read them: the Keystore key belongs to the app, not a process.
+ * Stores the values for the names a script declares with `@secret` (API keys and similar), so they
+ * are never in its code.
+ * - Values are encrypted with AES-GCM. The key is kept in the Android Keystore and never leaves it.
+ * - Values are stored in kolahal.db (scope [scope] per script name). Android's cloud backup leaves
+ *   them out, and so do Kolahal's own backups ([com.mtwabpin.kolahal.data.FullBackup]).
+ * - A transfer to a new phone carries the sealed values but not the Keystore key, so they can't be
+ *   read there.
+ * - Both the launcher and the `:script` process read them, because the Keystore key belongs to the
+ *   app, not to a process.
  *
- * Each value remembers the sites its `@secret` line named when you set it ([Stored.hosts]): code
- * that later names other sites (an update, a file over it) doesn't get the value until you set it
- * again, having seen where it would go.
+ * Each value remembers the sites its `@secret` line named when you set it ([Stored.hosts]). If the
+ * code later names other sites (after an update, or a file copied over it), it doesn't get the value
+ * until you set it again. That way you see where it would go.
  */
 class SecretStore(private val context: Context) {
 
-    /** A value and the sites it was set for; [hosts] is null for a value set before they were kept. */
+    /** A value and the sites it was set for. [hosts] is null for a value set before sites were stored. */
     class Stored(val value: String, val hosts: List<String>?) {
-        /** Whether the sites [secret] names now are all ones this value was set for. */
+        /** Whether this value was set for every site that [secret] names now. */
         fun covers(secret: ScriptMeta.Secret): Boolean = hosts == null || secret.hosts.all { it in hosts }
     }
 
     fun get(script: String, name: String): Stored? =
         KvStore(context, scope(script)).get(name)?.let { runCatching { decode(decrypt(it)) }.getOrNull() }
 
-    /** Sets [name] for [script], for the sites [hosts] its line names; null or blank clears it. */
+    /** Sets [name] for [script], for the sites [hosts] that its line names. Null or blank clears it. */
     fun set(script: String, name: String, value: String?, hosts: List<String>) {
         KvStore(context, scope(script)).set(name, value?.takeIf { it.isNotBlank() }?.let { encrypt(encode(it, hosts)) })
     }
 
-    /** Whether [secret] has a value that may go where its line says now. */
+    /** Whether [secret] has a value that may go to the sites its line names now. */
     fun isSet(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.covers(secret) == true
 
-    /** It has a value, but its line names sites the value wasn't set for. */
+    /** True when it has a value, but its line names sites the value wasn't set for. */
     fun hostsChanged(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.let { !it.covers(secret) } == true
 
-    /** Every value [script] has that its [declared] lines may use: for a run. */
+    /** Every value of [script] that its [declared] lines may use. Used for a run. */
     fun usable(script: String, declared: List<ScriptMeta.Secret>): Map<String, String> =
         declared.mapNotNull { d -> get(script, d.name)?.takeIf { it.covers(d) }?.let { d.name to it.value } }.toMap()
 
-    /** Forgets the values of [script]'s secrets its code no longer declares ([declared] names). */
+    /** Forgets the values of [script]'s secrets that its code no longer declares ([declared] names). */
     fun forgetUndeclared(script: String, declared: Collection<String>) {
         val kv = KvStore(context, scope(script))
         kv.all().keys.filter { it !in declared }.forEach { kv.set(it, null) }
     }
 
-    /** Forgets every value of [script] (when it is deleted). */
+    /** Forgets every value of [script], when it is deleted. */
     fun clear(script: String) {
         val kv = KvStore(context, scope(script))
         kv.all().keys.forEach { kv.set(it, null) }
@@ -86,8 +89,8 @@ class SecretStore(private val context: Context) {
 
     private fun key(): SecretKey = synchronized(SecretStore::class.java) {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        // A key the Keystore can no longer read (it was reset) can't open anything again: start over.
-        // Values sealed with it then read as not set, and setting one again works.
+        // If the Keystore can no longer read the key (it was reset), the key can't open anything again, so start over.
+        // Values sealed with the old key then read as not set, and setting them again works.
         val existing = runCatching { keyStore.getKey(ALIAS, null) as? SecretKey }.getOrElse {
             runCatching { keyStore.deleteEntry(ALIAS) }
             null
@@ -105,7 +108,7 @@ class SecretStore(private val context: Context) {
     }
 
     companion object {
-        /** kv scopes holding secrets start with this; backups skip them. */
+        /** Kv scopes that hold secrets start with this. Backups skip them. */
         const val SCOPE_PREFIX = "secret:"
         fun scope(script: String) = SCOPE_PREFIX + script
 

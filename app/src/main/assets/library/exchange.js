@@ -71,12 +71,11 @@ for (const to of targets) {
   rows.push({ to, value: num(amount * rate) });
   parts.push(`${to} ${num(rate)}`);
 }
-// Several targets line up: the values right-aligned, in the terminal font (mono).
-const width = Math.max(0, ...rows.map((r) => r.value.length));
-for (const r of rows) {
-  const ctx = { copy: r.value.replace(/,/g, "") };
-  if (rows.length > 1) ctx.mono = "1";
-  log(`${amountText} ${from} = ${fmt.bold(r.value.padStart(width))} ${r.to}`, ctx);
+// Several targets: one table, the values on the right. One target: one line, which copies its value.
+if (rows.length > 1) {
+  log(`${amountText} ${from}`, fmt.table(rows.map((r) => [r.to, r.value]), { align: "lr" }));
+} else {
+  for (const r of rows) log(`${amountText} ${from} = ${fmt.bold(r.value)} ${r.to}`, { copy: r.value.replace(/,/g, "") });
 }
 
 if (background && parts.length > 0) status(`${from}: ` + parts.join(" · "));

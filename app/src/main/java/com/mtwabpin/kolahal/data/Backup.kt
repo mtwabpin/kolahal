@@ -9,8 +9,8 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
 
 /**
  * One JSON file with everything a user customises: settings, aliases, hidden/renamed apps and
- * all scripts (code + timers). Written and read through the Storage Access Framework, so it can
- * be kept on a computer, edited there, and imported again.
+ * all scripts (code + timers). It is written and read through the Storage Access Framework, so it
+ * can be kept on a computer, edited there, and imported again.
  *
  * ```
  * { "kolahal": 3,
@@ -22,7 +22,7 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
  *                  "access": { "header": false } } ],                     // only "false" is restored
  *   "data":    { ... },                                     // everything else: [FullBackup]
  *   "font":    { "name": "...", "base64": "..." },          // an imported terminal font
- *   "widgets": [ ... ],                                     // to offer adding them again
+ *   "widgets": [ ... ],                                     // so the app can offer to add them again
  *   "themes":  { "mine": { "background": "#0B0D0B", ... } } }   // made in the theme builder
  * ```
  */
@@ -36,7 +36,7 @@ class Backup(private val context: Context) {
         return scripts.all().size
     }
 
-    /** The whole backup as a file holds it; throws when it's too big to import again. */
+    /** The whole backup as the file holds it. Throws when it's too big to import again. */
     internal fun text(): String {
         val all = scripts.all()
         val serials = FullBackup.privateSerials(context)
@@ -53,19 +53,19 @@ class Backup(private val context: Context) {
                 mapOf(
                     "name" to it.name, "lang" to it.lang.ext, "code" to it.code, "every" to it.intervalMin,
                     "at" to it.atTimes, "notify" to it.notify, "enabled" to it.enabled,
-                    // Only what you switched off: what a script may use is allowed on each phone.
+                    // Only what you switched off. What a script may use must be allowed on each phone.
                     "access" to it.access.filterValues { allowed -> !allowed },
                 )
             },
-            // Everything else: todos, notes, reminders, feeds, script stores, log, history.
+            // Everything else: todos, notes, reminders, feeds, script stores, log and history.
             "data" to FullBackup.export(context),
-            // Widget ids can't move between devices; the list lets the Widgets page offer "Add again".
+            // Widget ids can't move between devices. The list lets the Widgets page offer "Add again".
             // An imported terminal font travels with the backup (base64; imports are capped at 10 MB).
             "font" to com.mtwabpin.kolahal.ui.TermFonts.customFile(context)?.let { f ->
                 mapOf("name" to f.name, "base64" to android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP))
             },
             "widgets" to runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets() }.getOrDefault(emptyList()),
-            // Themes made in the theme builder: name to colours by role, as "#RRGGBB".
+            // Themes made in the theme builder: the name, mapped to colours by role as "#RRGGBB".
             "themes" to CustomThemes.themes.value.mapValues { (_, colors) -> colors.mapValues { CustomThemes.hex(it.value) } },
         )
         val text = Json.stringify(data)
@@ -77,15 +77,15 @@ class Backup(private val context: Context) {
         return text
     }
 
-    /** A backup bigger than an import takes: a smaller log fixes it, not another folder. */
+    /** A backup bigger than an import accepts. A smaller log fixes it; another folder doesn't. */
     class TooBig(message: String) : IllegalStateException(message)
 
     data class Result(
         val settings: Int, val aliases: Int, val scripts: Int, val disabled: Int, val skipped: List<String>,
-        /** Rows restored from the raw data section (0 for older, settings-only backups). */
+        /** Rows restored from the raw data section (0 for older backups that hold only settings). */
         val restored: Int = 0,
         val full: Boolean = false,
-        /** Settings from the file worth a look: where searches go, what gestures run. */
+        /** Settings from the file that are worth a look: where searches go, and what gestures run. */
         val review: List<String> = emptyList(),
     )
 
@@ -99,7 +99,7 @@ class Backup(private val context: Context) {
         val data = root["data"] as? Map<*, *>
         val restored = data?.let { FullBackup.importRaw(context, it) } ?: 0
 
-        // Themes before settings: `theme.name` may be one of them.
+        // Themes before settings, because `theme.name` may name one of them.
         (root["themes"] as? Map<*, *>)?.forEach { (name, roles) ->
             val colors = (roles as? Map<*, *>)?.entries?.mapNotNull { (role, hex) ->
                 hex?.toString()?.let(CustomThemes::parseHex)?.let { role.toString() to it }
@@ -111,7 +111,7 @@ class Backup(private val context: Context) {
         }
 
         var settings = 0
-        // Older backups use the names settings had before 0.3.0, and the full header's items.
+        // Older backups use the setting names from before 0.3.0, and the items of the full header.
         val savedConfig = (root["config"] as? Map<*, *>)?.entries?.mapNotNull { (k, v) -> if (k != null && v != null) k.toString().lowercase() to v.toString() else null }?.toMap()
         savedConfig?.let(Keys::migrate)?.forEach { (k, v) ->
             val key = Keys.byName(k)
@@ -123,7 +123,7 @@ class Backup(private val context: Context) {
             val name = k?.toString()
             when {
                 name == null || v == null -> Unit
-                // Same rule as `alias`: an alias must never shadow a built-in command.
+                // The same rule as `alias`: an alias must never hide a built-in command.
                 name in BUILT_INS -> skipped += "alias $name (built-in command)"
                 else -> { prefs.setAlias(name, v.toString()); aliases++ }
             }
@@ -137,11 +137,14 @@ class Backup(private val context: Context) {
 
         var count = 0
         var disabled = 0
+        // Scripts this import created or changed. A later entry with the same name finds the code already
+        // in place, so it must not count as unchanged and switch the script on.
+        val changedHere = mutableSetOf<String>()
         (root["scripts"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { m ->
             val name = m["name"]?.toString()?.lowercase()
             val lang = m["lang"]?.toString()?.let(ScriptLang::of)
             val code = m["code"]?.toString()
-            // Your own scripts: a name an app also has stays (it arrives switched off, as all do).
+            // Your own scripts: a name that an app also has is kept (the script arrives switched off, as all do).
             if (name == null || lang == null || code == null || !com.mtwabpin.kolahal.script.ScriptNames.NAME.matches(name) || name in BUILT_INS) {
                 skipped += "script ${m["name"]}"
                 return@forEach
@@ -151,13 +154,14 @@ class Backup(private val context: Context) {
                 return@forEach
             }
             val existing = scripts.byName(name)
-            // New code, whether a new script or a replaced one, arrives switched off.
+            // New code arrives switched off, both for a new script and for a replaced one.
             var isNew = false
             val script = when {
                 existing == null -> scripts.create(name, lang, code, enabled = false).also { isNew = true }
                 existing.lang != lang -> { skipped += "script $name (language differs)"; return@forEach }
                 else -> existing.also { if (it.code != code) { scripts.replaceCode(it.id, code); isNew = true } }
             }
+            if (isNew) changedHere += name else if (name in changedHere) isNew = true
             (m["every"] as? Number)?.toLong()?.let { every ->
                 val minutes = every.coerceIn(0, 7L * 24 * 60).toInt()
                 scripts.setInterval(script.id, if (minutes in 1 until ScriptScheduler.MIN_INTERVAL_MIN) ScriptScheduler.MIN_INTERVAL_MIN else minutes)
@@ -166,9 +170,9 @@ class Backup(private val context: Context) {
                 scripts.setAtTimes(script.id, at.mapNotNull { ScriptScheduler.normalizeTime(it.toString()) }.distinct().sorted())
             }
             (m["notify"] as? Boolean)?.let { scripts.setNotify(script.id, it) }
-            // Access switched off travels with a backup; what a script may use is only allowed on this phone.
+            // Access that was switched off travels with a backup. What a script may use is only allowed on this phone.
             (m["access"] as? Map<*, *>)?.forEach { (item, on) -> if (on == false) scripts.setAccess(script.id, item.toString(), false) }
-            // New or changed scripts from a backup arrive switched off: review them before they run.
+            // New or changed scripts from a backup arrive switched off. Review them before they run.
             if (isNew) {
                 scripts.setEnabled(script.id, false)
                 disabled++
@@ -202,7 +206,7 @@ class Backup(private val context: Context) {
             runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) }
             runCatching { ScriptScheduler.syncAll(context) }
         }
-        // A backup decides where searches go and what a gesture runs: name those that aren't the defaults.
+        // A backup decides where searches go and what a gesture runs. List those that aren't the defaults.
         val review = listOf(Keys.SEARCH_URL, Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)
             .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" }
         return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review)
@@ -216,8 +220,8 @@ class Backup(private val context: Context) {
 }
 
 /**
- * How many bytes [text] takes in UTF-8, as the file holds it: counted, rather than made a copy of
- * to measure, as a backup can be tens of MB. A lone surrogate counts as the one byte it's written as.
+ * How many bytes [text] takes in UTF-8, as the file holds it. It counts them instead of making a
+ * copy to measure, because a backup can be tens of MB. A lone surrogate counts as one byte, as it is written.
  */
 internal fun utf8Size(text: String): Long {
     var n = 0L

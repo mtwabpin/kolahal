@@ -7,23 +7,24 @@ import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 
 /**
- * `wallpaper match`: the home screen's wallpaper in the theme's colour, following the theme for as
- * long as it is still the one Kolahal set. Android gives a wallpaper a new id each time anything
- * sets one, and an app can read the id without seeing the picture, so a wallpaper set since is left
- * alone and forgotten. An id means something only on this phone: the file holding it stays out of
- * backups and transfers, as the same number on another phone is someone's own wallpaper.
+ * `wallpaper match`: sets the home screen's wallpaper to the theme's colour. The wallpaper follows
+ * the theme as long as it is still the one Kolahal set.
+ * - Android gives a wallpaper a new id each time anything sets one. An app can read the id without
+ *   seeing the picture. So if another wallpaper was set since, Kolahal leaves it alone and forgets.
+ * - An id is valid only on this phone. The file that holds it is kept out of backups and transfers,
+ *   because the same number on another phone may be that person's own wallpaper.
  */
 object WallpaperMatch {
     private const val PREFS = "wallpaper_match"
     private const val KEY_ID = "id"
     private const val KEY_COLOUR = "colour"
 
-    /** The colour asked for last: when themes change faster than wallpapers do, it's the one to end on. */
+    /** The last colour asked for. When themes change faster than the wallpaper can, this is the one to end on. */
     @Volatile private var wanted = 0
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** The theme's colour as a wallpaper can show it: without any transparency. */
+    /** The theme's colour in a form a wallpaper can show: fully opaque. */
     fun themeColour(): Int = Term.bg.copy(alpha = 1f).toArgb()
 
     /** True while the home screen's wallpaper is still the one [set] put there. */
@@ -32,7 +33,7 @@ object WallpaperMatch {
         return id != 0 && WallpaperManager.getInstance(context).getWallpaperId(WallpaperManager.FLAG_SYSTEM) == id
     }
 
-    /** The home screen's wallpaper in [colour], and the id to know it by; false when Android won't. */
+    /** Sets the home screen's wallpaper to [colour] and saves its id. Returns false if Android doesn't allow it. */
     @Synchronized
     fun set(context: Context, colour: Int): Boolean {
         val wallpapers = WallpaperManager.getInstance(context)
@@ -45,8 +46,9 @@ object WallpaperMatch {
     }
 
     /**
-     * The theme is [colour] now: the wallpaper follows if it is still Kolahal's. Called whenever the
-     * theme applies, so what's nothing to do is quick; the rest goes off the main thread.
+     * The theme is now [colour]. The wallpaper follows if it is still Kolahal's.
+     * This is called each time a theme applies, so the "nothing to do" case returns quickly.
+     * The real work runs off the main thread.
      */
     fun follow(context: Context, colour: Int) {
         val prefs = prefs(context)
@@ -62,6 +64,6 @@ object WallpaperMatch {
         }.start()
     }
 
-    /** Leaves the wallpaper as it is, for good: it isn't Kolahal's any more. */
+    /** Stops following the theme for good and leaves the wallpaper as it is. It is not Kolahal's any more. */
     fun forget(context: Context) = prefs(context).edit { clear() }
 }

@@ -18,21 +18,23 @@ import java.nio.charset.Charset
 import kotlin.coroutines.resumeWithException
 
 /**
- * Downloads and stores feeds. Uses conditional GETs (ETag / Last-Modified) so unchanged feeds cost
- * a 304 and no parsing. Every attempt is recorded in `feeds.last_status`.
+ * Downloads and stores feeds. It uses conditional GETs (ETag / Last-Modified), so an unchanged feed
+ * costs only a 304 and no parsing. Every attempt is recorded in `feeds.last_status`.
  */
 class FeedFetcher(context: Context) {
     private val repo = FeedRepository.get(context)
 
     /**
-     * Outcome of one feed; [error] is null on success (including 304). [first]: this was the feed's
-     * first successful fetch, so [newItems] is its backlog, not news.
+     * Result for one feed.
+     * - [error] is null on success (including 304).
+     * - [first] is true when this was the feed's first successful fetch. Then [newItems] is its
+     *   backlog, not news.
      */
     data class Result(val feed: Feed, val newItems: List<FeedItem>, val error: String?, val first: Boolean = false)
 
     /**
-     * Fetches [feed] and stores unseen items. Returns them newest first (empty on 304).
-     * Failures are recorded as `error: ...` and rethrown.
+     * Fetches [feed] and stores the items not seen before. Returns them newest first (empty on 304).
+     * A failure is recorded as `error: ...` and thrown again.
      */
     suspend fun fetch(feed: Feed): List<FeedItem> = withContext(Dispatchers.IO) {
         try {
@@ -45,11 +47,11 @@ class FeedFetcher(context: Context) {
         }
     }
 
-    /** One feed: its new items, or why it failed. A cancellation passes through. */
+    /** Fetches one feed and returns its new items, or why it failed. A cancellation is thrown on. */
     suspend fun fetchOne(feed: Feed): Result =
         try {
-            // Not `lastFetch == null`: a failed attempt sets last_fetch too, and must not turn the
-            // backlog into "new" items on the next success.
+            // Don't use `lastFetch == null`. A failed attempt also sets last_fetch, and that must not
+            // turn the backlog into "new" items on the next success.
             val first = repo.itemCount(feed.id) == 0
             Result(feed, fetch(feed), null, first)
         } catch (e: CancellationException) {
@@ -79,7 +81,7 @@ class FeedFetcher(context: Context) {
         if (parsed.items.isEmpty() && parsed.title == null) throw IOException("not a feed")
         val fresh = repo.insertItems(feed.id, parsed.items.map {
             FeedRepository.NewItem(
-                // guid keeps the raw link so dedupe against existing rows is unchanged.
+                // guid uses the raw link, not the safe one, so duplicate checks against existing rows still work.
                 guid = it.id.ifBlank { it.link ?: it.title },
                 title = it.title,
                 link = safeLink(it.link, feed.url),
@@ -87,7 +89,8 @@ class FeedFetcher(context: Context) {
                 summary = it.summary,
             )
         })
-        // Everything stored arrived just now (pruning may have dropped some): the first successful fetch.
+        // If every stored item arrived just now, this is the first successful fetch. (Pruning may
+        // have dropped some items, so the check is <=.)
         val first = repo.itemCount(feed.id) <= fresh.size
         val newTitle = parsed.title?.takeIf { feed.title.isNullOrBlank() && it.isNotBlank() }
         val n = parsed.items.size
@@ -97,16 +100,16 @@ class FeedFetcher(context: Context) {
     }
 
     /**
-     * Runs [call] asynchronously and reads the (capped) body on OkHttp's thread. Returns
-     * (body, ETag, Last-Modified), or null on 304. Cancelling the coroutine cancels the call,
-     * which also aborts a body read in progress.
+     * Runs [call] asynchronously and reads the body, up to a size limit, on OkHttp's thread.
+     * Returns (body, ETag, Last-Modified), or null on 304. Cancelling the coroutine cancels the call,
+     * which also stops a body read in progress.
      */
     private suspend fun download(call: Call): Triple<String, String?, String?>? =
         suspendCancellableCoroutine { cont ->
             cont.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    // Ignored by the continuation when it was already cancelled.
+                    // If the continuation was already cancelled, it ignores this.
                     cont.resumeWithException(e)
                 }
 
@@ -125,7 +128,7 @@ class FeedFetcher(context: Context) {
             })
         }
 
-    /** Reads at most [MAX_BODY_BYTES], failing beyond that, and decodes using the declared charset. */
+    /** Reads at most [MAX_BODY_BYTES] and fails if the body is larger. Decodes it with the declared charset. */
     private fun readCapped(resp: Response): String {
         val body = resp.body
         if (body.contentLength() > MAX_BODY_BYTES) throw IOException("feed too large")
@@ -142,8 +145,8 @@ class FeedFetcher(context: Context) {
         private val ENCODING = Regex("^<\\?xml[^>]*encoding\\s*=\\s*[\"']([A-Za-z0-9._-]+)[\"']")
 
         /**
-         * The charset a byte-order mark at the start names. Before the prolog: a UTF-16 one can't be
-         * read as bytes, and XML lets the mark decide.
+         * Returns the charset named by a byte-order mark at the start. This is checked before the
+         * prolog, because a UTF-16 prolog can't be read as bytes, and XML lets the mark decide.
          */
         internal fun bomCharset(bytes: ByteArray): Charset? {
             fun startsWith(vararg b: Int) = bytes.size >= b.size && b.indices.all { bytes[it] == b[it].toByte() }
@@ -155,7 +158,7 @@ class FeedFetcher(context: Context) {
             }
         }
 
-        /** `encoding="..."` from the XML prolog, when the server didn't send a charset. */
+        /** Reads `encoding="..."` from the XML prolog. Used when the server didn't send a charset. */
         internal fun xmlDeclaredCharset(bytes: ByteArray): Charset? {
             val head = String(bytes, 0, minOf(bytes.size, 200), Charsets.ISO_8859_1).trimStart('\uFEFF', ' ', '\n', '\r', '\t')
             val name = ENCODING.find(head)?.groupValues?.get(1) ?: return null
@@ -163,9 +166,9 @@ class FeedFetcher(context: Context) {
         }
 
         /**
-         * An item link safe to hand to ACTION_VIEW: [link] resolved against [feedUrl] when relative,
-         * kept only when the result is http(s). Anything else (javascript:, intent:, file:, content:,
-         * garbage) becomes null.
+         * Returns an item link that is safe to pass to ACTION_VIEW. A relative [link] is resolved
+         * against [feedUrl]. The result is kept only when it is http(s). Anything else (javascript:,
+         * intent:, file:, content:, garbage) becomes null.
          */
         internal fun safeLink(link: String?, feedUrl: String): String? {
             val raw = link?.trim()?.takeIf { it.isNotEmpty() } ?: return null
@@ -174,10 +177,10 @@ class FeedFetcher(context: Context) {
             return resolved?.takeIf { it.scheme == "http" || it.scheme == "https" }?.toString()
         }
 
-        /** An explicit URI scheme (RFC 3986); such links are never resolved relative to the feed. */
+        /** An explicit URI scheme (RFC 3986). Links with a scheme are never resolved relative to the feed. */
         private val SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
 
-        /** One-line reason for `last_status` and the log. */
+        /** A one-line reason for `last_status` and the log. */
         fun describe(e: Throwable): String =
             e.message?.lines()?.firstOrNull { it.isNotBlank() }?.take(120) ?: e.javaClass.simpleName
     }

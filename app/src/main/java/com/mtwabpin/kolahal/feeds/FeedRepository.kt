@@ -54,17 +54,17 @@ data class FeedItem(
     val read: Boolean,
 )
 
-/** Subscriptions and items. Every write bumps [version] so screens can re-query. */
+/** Subscriptions and items. Every write increases [version], so screens can query again. */
 class FeedRepository private constructor(private val context: Context) {
     private val db = FeedDb.get(context)
 
     private val _version = MutableStateFlow(0)
 
-    /** Bumped on every change made in this process. */
+    /** Increases on every change made in this process. */
     val version: StateFlow<Int> = _version.asStateFlow()
 
     /**
-     * Subscribes to [url] (normalised first). Adding an existing URL returns the existing feed.
+     * Subscribes to [url], after normalising it. Adding an existing URL returns the existing feed.
      * @throws IllegalArgumentException when the address isn't an http(s) URL.
      */
     fun add(url: String, title: String? = null): Feed {
@@ -74,7 +74,7 @@ class FeedRepository private constructor(private val context: Context) {
             put("url", normalized)
             put("title", title?.trim()?.takeIf { it.isNotEmpty() })
             put("added_at", System.currentTimeMillis())
-            // New subscriptions start from the Feeds settings (feeds.interval, feeds.notify).
+            // New subscriptions take their values from the Feeds settings (feeds.interval, feeds.notify).
             val config = com.mtwabpin.kolahal.data.Config.get(context)
             put("interval_min", config[com.mtwabpin.kolahal.data.Keys.FEEDS_INTERVAL].coerceAtLeast(FeedScheduler.MIN_INTERVAL_MIN))
             put("notify", if (config[com.mtwabpin.kolahal.data.Keys.FEEDS_NOTIFY]) 1 else 0)
@@ -84,9 +84,9 @@ class FeedRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Moves feed [id] to [url] (normalised first), as for one subscribed with a typo. What fetches
-     * learnt from the old address goes (its validators, when it was fetched and how it went); its
-     * items, title and settings stay.
+     * Moves feed [id] to [url], after normalising it. This is for a feed subscribed with a typo.
+     * - Removed: what fetches learnt from the old address (its validators, the last fetch time and status).
+     * - Kept: its items, title and settings.
      * @throws IllegalArgumentException when the address isn't an http(s) URL, another feed has it,
      * or there's no feed [id].
      */
@@ -108,7 +108,7 @@ class FeedRepository private constructor(private val context: Context) {
     fun remove(id: Long) {
         val w = db.writableDatabase
         w.transaction {
-            // Explicit delete as well as the cascade, in case foreign keys were off for this connection.
+            // Delete items explicitly as well as by the cascade, in case foreign keys were off for this connection.
             w.delete("items", "feed_id = ?", arrayOf(id.toString()))
             w.delete("feeds", "id = ?", arrayOf(id.toString()))
         }
@@ -119,10 +119,10 @@ class FeedRepository private constructor(private val context: Context) {
 
     fun byUrl(url: String): Feed? = queryFeeds("url = ?", arrayOf(url)).firstOrNull()
 
-    /** Every subscription (raw rows), oldest first. */
+    /** Returns every subscription (raw rows), oldest first. */
     fun feeds(): List<Feed> = queryFeeds(null, null)
 
-    /** Subscriptions with unread/total counts, oldest first. */
+    /** Returns subscriptions with unread and total counts, oldest first. */
     fun all(): List<FeedInfo> {
         val out = ArrayList<FeedInfo>()
         db.readableDatabase.rawQuery(
@@ -154,13 +154,13 @@ class FeedRepository private constructor(private val context: Context) {
 
     fun setNotify(id: Long, notify: Boolean) = updateFeed(id) { put("notify", if (notify) 1 else 0) }
 
-    /** Per-feed refresh interval; clamped to the [FeedScheduler.MIN_INTERVAL_MIN] floor. */
+    /** Sets a feed's refresh interval. It is never below [FeedScheduler.MIN_INTERVAL_MIN]. */
     fun setInterval(id: Long, minutes: Int) =
         updateFeed(id) { put("interval_min", minutes.coerceAtLeast(FeedScheduler.MIN_INTERVAL_MIN)) }
 
     fun setEnabled(id: Long, enabled: Boolean) = updateFeed(id) { put("enabled", if (enabled) 1 else 0) }
 
-    /** Items newest first, optionally limited to one feed and/or unread ones. */
+    /** Returns items, newest first. It can limit them to one feed, to unread items, or both. */
     fun items(feedId: Long? = null, unreadOnly: Boolean = false, limit: Int = 100): List<FeedItem> {
         val where = ArrayList<String>()
         val args = ArrayList<String>()
@@ -183,7 +183,7 @@ class FeedRepository private constructor(private val context: Context) {
         if (n > 0) changed()
     }
 
-    /** Marks one item unread again: a second swipe in its feed's list, or a read one swiped. */
+    /** Marks one item unread again. Used for a second swipe in its feed's list, or a swipe on a read item. */
     fun markUnread(itemId: Long) {
         val n = db.writableDatabase.update(
             "items", ContentValues().apply { put("read", 0) }, "id = ? AND read = 1", arrayOf(itemId.toString()),
@@ -203,7 +203,7 @@ class FeedRepository private constructor(private val context: Context) {
         if (n > 0) changed()
     }
 
-    /** Unread items, optionally of one feed (same scope as [items] with unreadOnly). */
+    /** Counts unread items, of all feeds or of one feed (the same scope as [items] with unreadOnly). */
     fun unreadCount(feedId: Long?): Int {
         val (clause, args) = if (feedId == null) "" to emptyArray() else " AND feed_id = ?" to arrayOf(feedId.toString())
         return db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE read = 0$clause", *args).toInt()
@@ -220,14 +220,14 @@ class FeedRepository private constructor(private val context: Context) {
         if (n > 0) changed()
     }
 
-    /** Stored items of [feedId], read or not. 0 means no fetch has succeeded yet. */
+    /** Counts the stored items of [feedId], read or not. 0 means no fetch has succeeded yet. */
     fun itemCount(feedId: Long): Int = db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE feed_id = ?", feedId.toString()).toInt()
 
     // ---- used by FeedFetcher ----
 
     /**
-     * Inserts parsed items (oldest first so ids grow with recency), skipping known guids, then prunes.
-     * Returns the newly inserted items, newest first.
+     * Inserts parsed items, skips known guids, then prunes. It inserts the oldest first, so newer
+     * items get higher ids. Returns the newly inserted items, newest first.
      */
     internal fun insertItems(feedId: Long, items: List<NewItem>): List<FeedItem> {
         if (items.isEmpty()) return emptyList()
@@ -253,7 +253,7 @@ class FeedRepository private constructor(private val context: Context) {
         }
         if (inserted.isEmpty()) return emptyList()
         changed()
-        // Only what the prune kept counts as new: a "N new" line must not count dropped items.
+        // Only items that the prune kept count as new. A "N new" line must not count dropped items.
         val kept = w.rawQuery("SELECT id FROM items WHERE feed_id = ?", arrayOf(feedId.toString())).use { c ->
             buildSet { while (c.moveToNext()) add(c.getLong(0)) }
         }
@@ -268,7 +268,7 @@ class FeedRepository private constructor(private val context: Context) {
         val summary: String?,
     )
 
-    /** Records a fetch attempt. Validators are only replaced when [etag]/[lastModified] are given. */
+    /** Records a fetch attempt. Validators are replaced only when [etag] or [lastModified] is given. */
     internal fun recordFetch(
         id: Long,
         status: String,
@@ -284,9 +284,10 @@ class FeedRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Keeps [FeedDb.MAX_ITEMS_PER_FEED]: unread before read, newer before older. Never an item the
-     * feed still [listed] (at most [com.mtwabpin.kolahal.script.RssParser.MAX_ITEMS]): pruned, the
-     * next fetch would find it missing and add it again, as new, though it was read.
+     * Keeps [FeedDb.MAX_ITEMS_PER_FEED] items: unread before read, newer before older.
+     * It never deletes an item that the feed still [listed] (at most
+     * [com.mtwabpin.kolahal.script.RssParser.MAX_ITEMS]). If it did, the next fetch would find the
+     * item missing and add it again as new, even though it was read.
      */
     private fun prune(w: SQLiteDatabase, feedId: Long, listed: List<String>) {
         w.execSQL(

@@ -52,9 +52,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Settings, with home drawn underneath while a look setting is being changed (a slider dragged,
- * the eye held): Settings fades away around the control and home shows as it will look. Home only
- * looks: it takes no touches.
+ * Settings, with home drawn underneath while the user changes a look setting (drags a slider or
+ * holds the eye button). Settings fades out around the control, and home shows how it will look.
+ * Home here is only for viewing: it takes no touches.
  */
 @Composable
 fun SettingsOverHome(
@@ -65,7 +65,7 @@ fun SettingsOverHome(
 ) {
     Box(Modifier.fillMaxSize()) {
         val peek by vm.peek.collectAsStateWithLifecycle()
-        // Kept after the peek ends, so home fades out instead of vanishing under Settings.
+        // Keep the last peek after it ends, so home fades out instead of disappearing at once.
         val lastPeek = remember { arrayOfNulls<TerminalViewModel.Peek>(1) }
         if (peek != null) lastPeek[0] = peek
         AnimatedVisibility(
@@ -75,7 +75,7 @@ fun SettingsOverHome(
         ) {
             lastPeek[0]?.let { p ->
                 Box(Modifier.fillMaxSize()) {
-                    // widgets.wallpaper is about the widgets page: that page shows, not the terminal.
+                    // widgets.wallpaper affects the widgets page, so show that page instead of the terminal.
                     if (p.key == Keys.WIDGETS_WALLPAPER.key) WidgetPanel(vm)
                     else TerminalScreen(vm, onPickFolder = {}, preview = p)
                     Box(
@@ -91,9 +91,10 @@ fun SettingsOverHome(
 }
 
 /**
- * Material 3 Expressive settings. The main page has a search box and leads to the setting
- * categories, Setup, Backup and About; each category opens its own page with grouped rows. Each row
- * observes only its own value, so a change redraws one row.
+ * Material 3 Expressive settings.
+ * - The main page has a search box and links to the setting categories, Setup, Backup and About.
+ * - Each category opens its own page with grouped rows.
+ * - Each row observes only its own value, so a change redraws only that row.
  */
 @Composable
 fun SettingsScreen(
@@ -104,46 +105,47 @@ fun SettingsScreen(
 ) {
     val config = vm.config
     val version = vm.config.version.collectAsStateWithLifecycle()
-    // Held by the view model, so returning from a manager screen (Feeds, Widgets) reopens this page.
+    // The view model holds the open page, so returning from a manager screen (Feeds, Widgets) reopens it.
     var openId by vm.settingsCategory
     var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     val open = allCategories().firstOrNull { it.id == openId }
     val crashPage = openId == CRASHES_PAGE
     val aboutPage = openId == ABOUT_PAGE
-    // Crash reports open from About, and go back there.
+    // Crash reports open from About, so Back returns to About.
     val closePage = { openId = if (crashPage) ABOUT_PAGE else null }
     val pageSubtitle = open?.subtitle ?: when {
         crashPage -> "Kept on this phone"
         aboutPage -> "Kolahal"
         else -> null
     }
-    // Look & feel → Your themes.
+    // For Look & feel → Your themes.
     val customThemes by CustomThemes.themes.collectAsStateWithLifecycle()
     val ownThemes = remember(customThemes) { customThemes.keys.sorted() }
     val themeInUse by remember { derivedStateOf { version.value; config[Keys.THEME] } }
     val inUse = themeInUse
-    // Settings another one turns off (the key bar's rows while the key bar is off) show once it is on.
+    // Some settings only apply when another setting is on (for example, the key bar's rows need the
+    // key bar). They show only once that setting is on.
     val applicable by remember { derivedStateOf { version.value; Keys.ALL.filterTo(HashSet()) { applies(it, config) } } }
-    // Read here, not in the list's content below: a derived value read while the list measures can
-    // deadlock with a snapshot applied from another thread (Compose tests do that).
+    // Read it here, not in the list's content below. Reading a derived value while the list measures
+    // can deadlock with a snapshot applied from another thread (Compose tests do that).
     val applicableKeys = applicable
     val context = LocalContext.current
-    // About → Crash reports: read off the main thread, and again after they are deleted.
+    // For About → Crash reports. They are read off the main thread, and read again after a delete.
     var crashReads by remember { mutableIntStateOf(0) }
     var openCrash by remember { mutableStateOf<CrashRow?>(null) }
     val crashes by produceState<List<CrashRow>?>(null, crashReads) {
         value = withContext(Dispatchers.IO) { crashRows(context) }
     }
     val crashList = crashes
-    // Showing home through Settings (a slider dragged, the eye held): all but that slider fades away.
+    // While home shows through Settings (slider dragged or eye held), everything except that slider fades out.
     val peek by vm.peek.collectAsStateWithLifecycle()
-    // Read only as it draws: each frame of the fade then draws again, without building Settings again.
+    // Read only at draw time, so each fade frame only redraws and does not recompose Settings.
     val shown = androidx.compose.animation.core.animateFloatAsState(
         if (peek == null) 1f else 0f, tween(PEEK_FADE_MS), label = "peek",
     )
     val tapScope = rememberCoroutineScope()
     val importTheme = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), vm::importTheme)
-    // Back closes a category page first, then the search, then Settings.
+    // Back closes, in order: an open category page, then the search, then Settings.
     BackHandler {
         when {
             open != null || aboutPage || crashPage -> closePage()
@@ -177,6 +179,9 @@ fun SettingsScreen(
             fade = { shown.value },
             top = 0.dp,
             verticalArrangement = Arrangement.Top,
+            // The Header page pins a preview of the top of home, so the user sees each change.
+            // Only when the header is on: when it is off, there is no header to show.
+            pinned = if (remember(version.value) { config[Keys.HEADER_SHOW] } && open?.id == HEADER_CATEGORY) { { PeekFade(peek) { HeaderPreview(vm) } } } else null,
         ) {
             if (open != null) {
                 open.manage?.let { (title, subtitle, screen) ->
@@ -267,7 +272,7 @@ fun SettingsScreen(
                             Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
                                 context.getSystemService(android.content.ClipboardManager::class.java)
                                     ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
-                                // Android 13 and later confirm a copy themselves.
+                                // Android 13 and later show their own "copied" confirmation.
                                 if (android.os.Build.VERSION.SDK_INT < 33) tapScope.launch { snackbar.showSnackbar("Copied") }
                             },
                         )
@@ -331,7 +336,7 @@ fun SettingsScreen(
 
             item(key = "h:settings") { Spacer(Modifier.height(12.dp)) }
             item(key = "categories") {
-                // Feed settings live in the Feeds tab; search still finds them here.
+                // Feed settings are in the Feeds tab, but search here still finds them.
                 ActionGroup(allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY }.map { c -> Action(c.icon, c.title, c.subtitle, chevron = true) { openId = c.id } })
             }
             item(key = "h:more") { Spacer(Modifier.height(16.dp)) }
@@ -347,7 +352,7 @@ fun SettingsScreen(
             }
         }
         if (peek != null) PeekHint(Modifier.align(Alignment.TopCenter))
-        // A tapped crash report. The sheet stays after Email, so the report can be deleted once sent.
+        // The tapped crash report. The sheet stays open after Email, so the user can delete the report after sending it.
         openCrash?.let { c ->
             CrashSheet(
                 c,
@@ -375,8 +380,8 @@ fun SettingsScreen(
 }
 
 /**
- * A settings category's rows, grouped, in another screen: the Feeds tab shows the feeds category.
- * [applicable] is read by the caller outside the list's content (see [SettingsScreen]).
+ * Adds a settings category's grouped rows to a list in another screen. For example, the Feeds tab
+ * shows the feeds category. The caller must read [applicable] outside the list's content (see [SettingsScreen]).
  */
 internal fun androidx.compose.foundation.lazy.LazyListScope.categorySettings(
     vm: TerminalViewModel,

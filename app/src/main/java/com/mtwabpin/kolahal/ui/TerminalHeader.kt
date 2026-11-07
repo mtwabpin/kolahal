@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +48,7 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.headerSide
 import com.mtwabpin.kolahal.status.Status
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -54,11 +58,14 @@ import java.util.Locale
 enum class HeaderTarget { CLOCK, UNLOCKS, BATTERY, NETWORK, ALARM, SETTINGS, TODO }
 
 /**
- * The clock home shows, kept once for all of it: the time a minute at a time as the system ticks it
- * (on waking too, where a delay that slept with the phone wouldn't), today's date, and a count of
- * time-zone changes, all new at once when the clock or the time zone is set. One set of receivers
- * while something on screen reads it ([Hold]), for the header, the pinned header and the log's day
- * dividers together, rather than one each. MainActivity holds it while started, so it is current
+ * The clock that home shows, kept once for the whole app. It holds:
+ * - the time, updated each minute when the system ticks (also right after the phone wakes; a
+ *   delay that slept with the phone would be late);
+ * - today's date;
+ * - a count of time-zone changes.
+ * All three update together when the user sets the clock or the time zone. Only one set of
+ * receivers runs while something on screen reads the clock ([Hold]). The header, the pinned header
+ * and the log's day dividers share it. MainActivity holds it while started, so it is current
  * whenever home is built.
  */
 internal object HomeClock {
@@ -67,21 +74,21 @@ internal object HomeClock {
     private var zoneState by androidx.compose.runtime.mutableIntStateOf(0)
     private var users = 0
     private var receiver: android.content.BroadcastReceiver? = null
-    /** The zone last seen: one changed while nothing listened (home stopped) counts on return. */
+    /** The last time zone seen. If the zone changed while nothing listened (home stopped), it counts when home returns. */
     private var lastZone = java.util.TimeZone.getDefault().id
 
-    // With nothing holding it, its time may be old: what's read then is the time now.
+    // When nothing holds the clock, the stored time may be old, so these return the current time.
     val now: Date get() = nowState.let { if (users == 0) Date() else it }
     val today: java.time.LocalDate get() = todayState.let { if (users == 0) java.time.LocalDate.now() else it }
     val zone: Int get() = zoneState
 
-    /** Main thread. The time now, whether or not a tick came while away. */
+    /** Main thread. Sets the current time, even if no tick came while home was away. */
     private fun refresh() {
         nowState = Date()
         todayState = java.time.LocalDate.now()
     }
 
-    /** Main thread. The first holder registers for the system's ticks. */
+    /** Main thread. The first holder registers for the system's time ticks. */
     fun acquire(context: android.content.Context) {
         if (users++ > 0) return
         val r = object : android.content.BroadcastReceiver() {
@@ -114,9 +121,10 @@ internal object HomeClock {
     }
 
     /**
-     * Holds the clock while the screen reading it is started. The first holder makes it current
-     * ([acquire]); one coming while it's held finds it current, as ticks keep it, so it doesn't set
-     * the time again and redraw what already reads it.
+     * Holds the clock while the screen that reads it is started.
+     * - The first holder makes the clock current ([acquire]).
+     * - A later holder finds it already current, because ticks keep it up to date. So it does not
+     *   set the time again and redraw what already reads it.
      */
     @Composable
     fun Hold() {
@@ -128,7 +136,7 @@ internal object HomeClock {
     }
 }
 
-/** Counts the phone's time-zone changes, for formatters to be made again in the new zone. */
+/** Counts the phone's time-zone changes, so formatters can be made again for the new zone. */
 @Composable
 internal fun rememberZoneChanges(): Int {
     HomeClock.Hold()
@@ -136,8 +144,9 @@ internal fun rememberZoneChanges(): Int {
 }
 
 /**
- * Today's date, new at midnight: checked at each minute's tick, when the clock or the time zone is
- * set, and back on screen. Only a new day changes it, so what reads it is drawn again only then.
+ * Today's date. It changes at midnight. It is checked at each minute's tick, when the user sets the
+ * clock or the time zone, and when home comes back on screen. Only a new day changes the value, so
+ * readers redraw only then.
  */
 @Composable
 internal fun rememberToday(): java.time.LocalDate {
@@ -146,7 +155,7 @@ internal fun rememberToday(): java.time.LocalDate {
 }
 
 /**
- * The time, a minute at a time ([HomeClock]). The second value counts time-zone changes
+ * The time, updated once a minute ([HomeClock]). The second value counts time-zone changes
  * ([rememberZoneChanges]).
  */
 @Composable
@@ -155,7 +164,7 @@ internal fun rememberNow(): Pair<Date, Int> {
     return HomeClock.now to HomeClock.zone
 }
 
-/** Height of the header with no band to fill: a line of text with room to tap it. */
+/** Height of the header when there is no camera band to fill: one line of text with room to tap it. */
 private val HEADER_MIN = 32.dp
 
 /** Room kept clear on each side of the camera's cutout. */
@@ -165,11 +174,12 @@ private val CUTOUT_GAP = 4.dp
 private val HEADER_SPACING = 4.dp
 
 /**
- * Where the header's parts go along its line, in pixels, apart from Compose so it can be tested.
- * The line runs [pad] in from each end; a camera cutout across it ([cutouts], x ranges) splits it.
+ * Computes where the header's parts go along its line, in pixels. It is separate from Compose so
+ * it can be tested. The line starts [pad] in from each end. A camera cutout across the line
+ * ([cutouts], as x ranges) splits it.
  */
 internal object HeaderLayout {
-    /** The stretches of the line free for text, left to right: each cutout kept [gap] clear. */
+    /** The parts of the line that are free for text, left to right. Each cutout keeps [gap] clear on both sides. */
     fun zones(width: Int, pad: Int, cutouts: List<IntRange>, gap: Int): List<IntRange> {
         var zones = listOf(pad..(width - pad - 1))
         for (c in cutouts) {
@@ -183,54 +193,73 @@ internal object HeaderLayout {
         return zones
     }
 
-    /** Where each part goes: null for one left out. */
-    class Places(val time: Int?, val date: Int?, val items: List<Int?>)
+    /** The x of each part on each side, in order. A part that is left out has null. */
+    class Places(val left: List<Int?>, val right: List<Int?>)
 
     /**
-     * The time and date ([time], [date] wide) at the start of the first stretch with room for them,
-     * the date left out if only the time fits; the items ([items], widths in the order they show)
-     * against the end of the last stretch. Items that don't fit are left out from the one before
-     * the last backwards, the last (the battery) last of all.
+     * Places both sides of the line:
+     * - The left side's parts ([left], widths in order from the left) start at the first free stretch
+     *   with room for them.
+     * - The right side's parts ([right]) end at the end of the last stretch.
+     * Parts that don't fit are dropped from the middle outward: the left side loses its last part
+     * first, the right side its first part. So the outermost parts stay longest. The left side gets
+     * room first, and its first part always shows.
      */
-    fun place(zones: List<IntRange>, time: Int, date: Int, items: List<Int>, spacing: Int): Places {
-        if (zones.isEmpty()) return Places(null, null, items.map { null })
+    fun place(zones: List<IntRange>, left: List<Int>, right: List<Int>, spacing: Int): Places {
+        if (zones.isEmpty()) return Places(left.map { null }, right.map { null })
         fun room(z: IntRange) = z.last - z.first + 1
-        val both = time + spacing + date
-        var withDate = true
-        var lz = zones.indexOfFirst { room(it) >= both }
-        if (lz < 0) {
-            withDate = false
-            lz = zones.indexOfFirst { room(it) >= time }.takeIf { it >= 0 } ?: zones.indices.maxBy { room(zones[it]) }
+        fun width(ws: List<Int>) = ws.sum() + spacing * (ws.size - 1).coerceAtLeast(0)
+        var keep = left.size
+        var lz = -1
+        while (keep > 0) {
+            lz = zones.indexOfFirst { room(it) >= width(left.take(keep)) }
+            if (lz >= 0) break
+            keep--
         }
-        val timeX = zones[lz].first
+        // Not even the first part fits anywhere. Show it in the widest stretch anyway.
+        if (keep == 0 && left.isNotEmpty()) {
+            keep = 1
+            lz = zones.indices.maxBy { room(zones[it]) }
+        }
+        val leftXs = MutableList<Int?>(left.size) { null }
+        var x = if (keep > 0) zones[lz].first else 0
+        for (i in 0 until keep) {
+            leftXs[i] = x
+            x += left[i] + spacing
+        }
         val last = zones.lastIndex
-        val start = if (lz == last) timeX + (if (withDate) both else time) + spacing else zones[last].first
+        val start = if (keep > 0 && lz == last) x else zones[last].first
         val space = zones[last].last + 1 - start
-        val kept = items.indices.toMutableList()
-        val dropOrder = (items.size - 2 downTo 0) + listOf(items.size - 1)
-        var next = 0
-        fun width() = kept.sumOf { items[it] } + spacing * (kept.size - 1).coerceAtLeast(0)
-        while (kept.isNotEmpty() && width() > space) kept.remove(dropOrder[next++])
-        val xs = MutableList<Int?>(items.size) { null }
-        var x = zones[last].last + 1
-        for (i in kept.reversed()) {
-            x -= items[i]
-            xs[i] = x
+        var from = 0
+        while (from < right.size && width(right.drop(from)) > space) from++
+        val rightXs = MutableList<Int?>(right.size) { null }
+        x = zones[last].last + 1
+        for (i in right.indices.reversed()) {
+            if (i < from) break
+            x -= right[i]
+            rightXs[i] = x
             x -= spacing
         }
-        return Places(timeX, if (withDate) timeX + time + spacing else null, xs)
+        return Places(leftXs, rightXs)
     }
 }
 
 /**
- * The header: one line at the top of home, Kolahal's own status bar. The time and date on the
- * left; on the right the battery, and before it the two items you chose (`header.item-1`,
- * `header.item-2`). In full screen it sits in the band the camera's cutout leaves across the top,
- * clear of the cutout itself, so it takes no room from the log; with the status bar shown, it sits
- * under it. What doesn't fit is left out: your second item first, then your first, the date when
- * only the time fits, the battery last. A tap on a part does what it says; swiping down on the line
- * pulls the shade.
+ * The header: one line at the top of home, Kolahal's own status bar. It shows the parts the user
+ * chose for each side, in their order:
+ * - `header.left`: by default the time and date;
+ * - `header.right`: by default the alarm, todos and battery.
+ * Placement:
+ * - In full screen it sits in the band beside the camera cutout at the top, clear of the cutout,
+ *   so it takes no room from the log.
+ * - When the status bar is shown, it sits under the status bar.
+ * - With `header.below-bar` it sits under the status bar's space and the camera, even in full screen.
+ * Parts that don't fit are dropped from the middle outward (HeaderLayout.place), so the outermost
+ * parts stay longest. Tapping a part opens what it shows. Swiping down on the line pulls down the
+ * notification shade. When [preview] is true, Settings draws it (HeaderPreview): it has no status
+ * bar or camera to avoid and no swipe.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun Header(
     status: Status,
@@ -242,34 +271,40 @@ internal fun Header(
     onTarget: (HeaderTarget) -> Unit,
     onProfileTap: (Profile) -> Unit,
     onSwipeDown: () -> Unit,
+    preview: Boolean = false,
 ) {
     val (now, zone) = rememberNow()
     val is24h = remember(version) { config[Keys.CLOCK_24H] }
     val timeFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm a", Locale.getDefault()) }
     val dateFmt = remember(zone) { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
-    // The alarm's time without AM or PM: the next alarm is yours, and the line is short beside a camera.
+    // The alarm time has no AM or PM: the user knows their own next alarm, and the line beside a camera is short.
     val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm", Locale.getDefault()) }
     val dayFmt = remember(zone) { SimpleDateFormat("EEE ", Locale.getDefault()) }
-    val chosen = remember(version) { listOf(config[Keys.HEADER_ITEM_1], config[Keys.HEADER_ITEM_2]) }
+    // A part listed on both sides shows only on the left. Only `config` can list it on both.
+    val leftKinds = remember(version) { headerSide(config[Keys.HEADER_LEFT]) }
+    val rightKinds = remember(version) { headerSide(config[Keys.HEADER_RIGHT]).filter { it !in leftKinds } }
+    val belowBar = remember(version) { config[Keys.HEADER_BELOW_BAR] }
     val bold = Term.small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
     val iconSize = (Term.fontSize + 1).dp
 
-    // The band beside the camera: the cutout's height, with the status bar hidden.
+    // The band beside the camera: the cutout's height when the status bar is hidden.
     val density = LocalDensity.current
     val barTop = WindowInsets.statusBars.getTop(density)
-    val band = (WindowInsets.displayCutout.getTop(density) - barTop).coerceAtLeast(0)
+    val band = if (preview || belowBar) 0 else (WindowInsets.displayCutout.getTop(density) - barTop).coerceAtLeast(0)
+    // Below the bar: keep the status bar's space (shown or hidden) and the camera's space clear above the line.
+    val topInsets = if (belowBar) WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout) else WindowInsets.statusBars
     val height = with(density) { maxOf(band.toDp(), HEADER_MIN) }
     val view = LocalView.current
-    // Where the cutout is across the line; under a status bar shown, it's the bar's to avoid.
+    // The cutout's x ranges across the line. When the status bar is shown, the bar avoids the cutout, so there are none.
     val cutouts = remember(band, barTop, view) {
         if (barTop > 0 || band == 0) emptyList()
         else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }.map { it.left..it.right }
     }
-    // The line's x in the window, for the cutout's zones: known once it's placed, so read in the
-    // measure below as state, which measures again when it changes (the first measure has 0).
+    // The line's x in the window, used to shift the cutout zones. It is known only after placement,
+    // so the measure below reads it as state and measures again when it changes. The first measure sees 0.
     val originX = remember { mutableFloatStateOf(0f) }
 
-    /** One part of the line: as tall as it, with room to tap. */
+    /** One part of the line: as tall as the line, with room to tap. */
     @Composable
     fun Part(tag: String, label: String, description: String? = null, onClick: () -> Unit, content: @Composable () -> Unit) {
         Row(
@@ -284,11 +319,13 @@ internal fun Header(
         ) { content() }
     }
 
-    // The items, in the order they show, each a composable or nothing (no alarm set, no todos).
-    val items: List<@Composable () -> Unit> = buildList {
-        for (kind in chosen) when (kind) {
+    // A side's parts in display order. A part with nothing to show (no alarm set, no todos) is left out.
+    fun side(kinds: List<String>): List<@Composable () -> Unit> = buildList {
+        for (kind in kinds) when (kind) {
+            "time" -> add { Part("time", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(timeFmt.format(now), style = bold, maxLines = 1) } }
+            "date" -> add { Part("date", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(dateFmt.format(now), style = Term.small, maxLines = 1) } }
             "alarm" -> status.nextAlarm?.let { at ->
-                // A day ahead or more, with its day.
+                // If the alarm is a day or more ahead, show its weekday too.
                 val text = (if (at - now.time >= 24 * 3_600_000L) dayFmt.format(Date(at)) else "") + alarmFmt.format(Date(at))
                 add { Part("alarm", "alarms", onClick = { onTarget(HeaderTarget.ALARM) }) { TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize); Text(text, style = bold, maxLines = 1) } }
             }
@@ -315,31 +352,33 @@ internal fun Header(
             "settings" -> add {
                 Part("settings", "settings", description = "Settings", onClick = { onTarget(HeaderTarget.SETTINGS) }) { TintedIcon(R.drawable.ic_settings, Term.dim, iconSize) }
             }
-        }
-        status.batteryPct?.let { pct ->
-            val color = when {
-                status.charging -> Term.prompt
-                pct <= 15 -> Term.error
-                else -> Term.fg
+            "battery" -> status.batteryPct?.let { pct ->
+                val color = when {
+                    status.charging -> Term.prompt
+                    pct <= 15 -> Term.error
+                    else -> Term.fg
+                }
+                add { Part("battery", "battery", onClick = { onTarget(HeaderTarget.BATTERY) }) { BatteryGlyph(pct, status.charging, color, iconSize); Text("$pct%", style = bold.copy(color = color)) } }
             }
-            add { Part("battery", "battery", onClick = { onTarget(HeaderTarget.BATTERY) }) { BatteryGlyph(pct, status.charging, color, iconSize); Text("$pct%", style = bold.copy(color = color)) } }
         }
     }
+    val left = side(leftKinds)
+    val right = side(rightKinds)
 
     Layout(
         content = {
-            Part("time", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(timeFmt.format(now), style = bold, maxLines = 1) }
-            Part("date", "clock", onClick = { onTarget(HeaderTarget.CLOCK) }) { Text(dateFmt.format(now), style = Term.small, maxLines = 1) }
-            items.forEach { it() }
+            left.forEach { it() }
+            right.forEach { it() }
         },
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
-            .testTag("header")
+            .then(if (preview) Modifier else Modifier.windowInsetsPadding(topInsets.only(WindowInsetsSides.Top)))
+            .testTag(if (preview) "header-preview-line" else "header")
             .height(height)
             .onPlaced { originX.floatValue = it.positionInWindow().x }
             // Swiping down on the line pulls the notification shade.
-            .pointerInput(Unit) {
+            .pointerInput(preview) {
+                if (preview) return@pointerInput
                 var total = 0f
                 detectVerticalDragGestures(
                     onDragStart = { total = 0f },
@@ -351,11 +390,11 @@ internal fun Header(
         val parts = measurables.map { it.measure(Constraints(minHeight = h, maxHeight = h)) }
         val shift = originX.floatValue.toInt()
         val zones = HeaderLayout.zones(constraints.maxWidth, 8.dp.roundToPx(), cutouts.map { (it.first - shift)..(it.last - shift) }, CUTOUT_GAP.roundToPx())
-        val places = HeaderLayout.place(zones, parts[0].width, parts[1].width, parts.drop(2).map { it.width }, HEADER_SPACING.roundToPx())
+        val n = left.size
+        val places = HeaderLayout.place(zones, parts.take(n).map { it.width }, parts.drop(n).map { it.width }, HEADER_SPACING.roundToPx())
         layout(constraints.maxWidth, h) {
-            places.time?.let { parts[0].place(it, 0) }
-            places.date?.let { parts[1].place(it, 0) }
-            places.items.forEachIndexed { i, x -> x?.let { parts[i + 2].place(it, 0) } }
+            places.left.forEachIndexed { i, x -> x?.let { parts[i].place(it, 0) } }
+            places.right.forEachIndexed { i, x -> x?.let { parts[n + i].place(it, 0) } }
         }
     }
 }
@@ -371,8 +410,8 @@ private fun networkIcon(network: String): Int? = when (network) {
 private fun hasHeaderItem(profile: Profile) = profile.kind != ProfileKind.PERSONAL && profile.kind != ProfileKind.CLONE
 
 /**
- * A Material icon from res/drawable, tinted. Icons are drawn rather than typed: symbols like ⚙, ♪
- * or ⏭ as text come from fallback fonts and look uneven next to them.
+ * A tinted Material icon from res/drawable. We draw icons instead of typing symbols: symbols like
+ * ⚙, ♪ or ⏭ as text come from fallback fonts and look uneven next to each other.
  */
 @Composable
 internal fun TintedIcon(res: Int, tint: Color, size: Dp, description: String? = null) {
@@ -385,16 +424,18 @@ internal fun TintedIcon(res: Int, tint: Color, size: Dp, description: String? = 
 }
 
 /**
- * A battery drawn to scale: outline, a fill proportional to [pct], and a bolt cut out of the
- * fill while charging: a hole, so whatever the glyph sits on shows through it (home's page, a
- * menu, the wallpaper). Sized to sit on a line of header text.
+ * A battery drawn to scale, sized to fit a line of header text. It has:
+ * - an outline;
+ * - a fill proportional to [pct];
+ * - while charging, a bolt cut out of the fill as a hole, so whatever is behind the glyph shows
+ *   through (home's page, a menu, the wallpaper).
  */
 @Composable
 internal fun BatteryGlyph(pct: Int, charging: Boolean, color: Color, height: Dp) {
     androidx.compose.foundation.Canvas(
         Modifier
             .size(width = height * 1.6f, height = height)
-            // Its own layer, so the cut clears only the glyph's pixels.
+            // Use its own layer, so the cut-out clears only the glyph's pixels.
             .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen },
     ) {
         val stroke = 1.4.dp.toPx()
@@ -410,7 +451,7 @@ internal fun BatteryGlyph(pct: Int, charging: Boolean, color: Color, height: Dp)
         val fillW = fullW * (pct.coerceIn(0, 100) / 100f)
         if (fillW > 0f) drawRect(color, Offset(stroke / 2 + inset, top + inset), Size(fillW, bodyH - inset * 2))
         if (charging) {
-            // Cut out of the fill so it reads on top of it; over the empty part, drawn in the colour.
+            // When the fill is past the middle, cut the bolt out of it so it stays visible. Otherwise draw the bolt in the colour.
             val cx = stroke / 2 + inset + fullW / 2
             val h = bodyH - inset * 2
             val y0 = top + inset

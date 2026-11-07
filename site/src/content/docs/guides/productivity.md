@@ -3,9 +3,10 @@ title: Productivity
 description: Todos, quick notes, reminders, timers, alarms and your calendar agenda from the prompt.
 ---
 
-Everything here is stored on the device, in Kolahal's own database. Nothing is synced or uploaded.
+Kolahal stores everything on this page on the device, in its own database. Nothing is synced or uploaded.
+
 Commands that change something (`todo`, `note`, `notes`, `remind`, `timer`, `alarm`) always need
-Enter, even with [instant launch](/guides/apps/) set to `all`.
+Enter. This is true even when [instant launch](/guides/apps/) is set to `all`.
 
 ## Todos
 
@@ -19,13 +20,13 @@ todo all                  # include finished items
 todo clear                # delete all finished items
 ```
 
-- Tap an item in the log to tick or untick it. Long-press for **Mark done**, **Edit in prompt** and
+- Tap an item in the log to tick or untick it. Long-press it for **Mark done**, **Edit in prompt** and
   **Delete todo**.
-- `<n>` is the number `todo` shows. After `todo done ` the suggestion strip lists the open items,
-  so you rarely need to remember numbers.
+- `<n>` is the number that `todo` shows. After you type `todo done `, the suggestion strip lists the open items.
+  So you rarely need to remember numbers.
 - If your todo starts with a subcommand word (`all`, `done`, `clear`, …), use `todo add …`.
-- With the `todo` item in the header (`header.item-2`, the default), it shows how many are open;
-  tap it to list them.
+- The header can have a `todo` part. By default it is on the header's right side (`header.right`).
+  It shows how many todos are open. Tap it to list them.
 
 ## Notes
 
@@ -36,7 +37,7 @@ notes grep gate           # search
 notes rm 2                # delete
 ```
 
-Tap a note to copy it. Long-press offers **Delete note**.
+Tap a note to copy it. Long-press it for **Delete note**.
 
 ## Reminders
 
@@ -53,10 +54,15 @@ reminders                 # pending, soonest first
 remind rm 1               # cancel
 ```
 
-A date with no year that has already passed this year means next year. After a date, a number is read as an hour only after `at` (`dec 3 at 10`), so `remind dec 3 2 tickets` is a reminder about two tickets.
+How Kolahal reads dates and times:
 
-A time before 6 AM needs confirmation, in case it isn't what you meant. `remind tomorrow 2 tickets` shows it read 2 AM, doesn't set a reminder, and gives two lines to tap: 2 AM for `tickets`, or 9:00 for `2 tickets`. `remind --yes tomorrow 5:30 flight` skips the question, which is useful in an alias.
-A duration such as `remind 2h pills` needs no confirmation.
+- If a date has no year and has already passed this year, it means next year.
+- After a date, a number is an hour only if it comes after `at`, as in `dec 3 at 10`.
+  So `remind dec 3 2 tickets` is a reminder about two tickets.
+- A time before 6 AM needs confirmation, in case you didn't mean it. For example, `remind tomorrow 2 tickets` reads
+  the time as 2 AM. It doesn't set a reminder. Instead it shows two lines to tap: 2 AM for `tickets`, or 9:00 for `2 tickets`.
+- `remind --yes tomorrow 5:30 flight` skips the question. This is useful in an alias.
+- A duration, such as `remind 2h pills`, needs no confirmation.
 
 ### Repeating reminders
 
@@ -69,22 +75,33 @@ remind every month 1st rent           # the last day in shorter months for the 2
 remind every year mar 14 Alice's birthday
 ```
 
-A repeating reminder fires at the same time on each of its days (9:00 if you give no time), and stays listed in `reminders` with its schedule. It keeps that time in another time zone, and after the clocks change: on the night a time is skipped (2:30 when clocks go from 2:00 to 3:00), it fires an hour later, that night only. `every year feb 29` is the 28th in other years. `remind rm` cancels it.
+- A repeating reminder goes off at the same time on each of its days. If you give no time, it uses 9:00.
+- It stays in the `reminders` list with its schedule.
+- It keeps the same local time in another time zone and after the clocks change.
+- Sometimes a time is skipped when the clocks change, for example 2:30 when clocks go from 2:00 to 3:00.
+  On that night only, the reminder goes off an hour later.
+- `every year feb 29` uses the 28th in other years.
+- `remind rm` cancels a repeating reminder.
 
-- A reminder posts a notification on the **Reminders** channel and adds a line to the log. The
-  notification's **Snooze 10 min** and **Snooze 1 hour** remind you once more (a repeating one also keeps its schedule), and **Done** dismisses it. Tapping the log line puts a 10-minute snooze command in the prompt.
-- Reminders survive restarts and reboots.
-- Android 12 and later let you turn off exact alarms for an app. Kolahal then schedules reminders
-  normally, and they may arrive late, up to an hour. `remind` prints a line you can tap to allow
+More about reminders:
+
+- A reminder posts a notification on the **Reminders** channel and adds a line to the log.
+- The notification has three buttons:
+  - **Snooze 10 min** and **Snooze 1 hour** remind you one more time. A repeating reminder also keeps its schedule.
+  - **Done** dismisses it.
+- Tap the log line to put a 10-minute snooze command in the prompt.
+- Reminders stay set after restarts and reboots.
+- On Android 12 and later, you can turn off exact alarms for an app. If you do, Kolahal schedules reminders
+  the normal way, and they may come late, by up to an hour. `remind` prints a line you can tap to allow
   exact alarms again.
 - If notifications are off, the reminder still shows up in the log. Run `notifications` to allow
   them.
-- In a reminder list, tapping a line puts `remind rm …` in the prompt. Long-press offers
+- In a reminder list, tap a line to put `remind rm …` in the prompt. Long-press it for
   **Cancel reminder**.
 
 ## Timers and alarms
 
-These use your clock app, which handles the ringing:
+Timers and alarms use your clock app. The clock app makes the sound:
 
 ```sh
 timer 25m focus           # starts at once (timer 25 also means 25 minutes)
@@ -110,8 +127,8 @@ Tomorrow · Sun 18 Oct
 19:00–21:00  Dinner with Sam
 ```
 
-- All-day events come first. Events that already ended today are left out.
+- All-day events come first. Events that already ended today are not shown.
 - Tap an event to open it in your calendar app.
-- The first time, `agenda` prints a line to tap that asks for the **Calendar** permission. You can
-  also grant it from the [setup checklist](/getting-started/setup/) (**Calendar (agenda)**).
-  Declined events and hidden calendars are skipped.
+- The first time, `agenda` prints a line. Tap it to grant the **Calendar** permission. You can
+  also grant it in the [setup checklist](/getting-started/setup/) (**Calendar (agenda)**).
+- Declined events and hidden calendars are skipped.

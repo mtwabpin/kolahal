@@ -37,8 +37,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Parses and runs commands typed at the prompt. Everything it prints goes into the
- * persistent log with a [LogContext] so lines stay actionable later (tap / long-press).
+ * Parses and runs commands typed at the prompt. Everything it prints goes into the persistent log
+ * with a [LogContext], so the lines can still be tapped or long-pressed later.
  */
 class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
@@ -55,7 +55,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val appCommands = AppCommands(context, ::background)
     private val feedCommands = FeedCommands(context, appCommands, ui)
 
-    /** Runs [block] off the command's thread; what it prints is still the command's output. */
+    /** Runs [block] outside the command's thread. What it prints still counts as the command's output. */
     private fun background(label: String, block: () -> Unit) {
         val cause = logs.currentCause
         backgroundScope.launch {
@@ -65,30 +65,32 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** [expand] = false runs [line] literally (tap-to-run lines must not be rewritten by aliases). */
+    /** With [expand] = false, runs [line] exactly as given. Aliases must not rewrite tap-to-run lines. */
     fun run(line: String, expand: Boolean = true) {
         val typed = CommandParsing.spaces(line).trim()
         if (typed.isEmpty()) return
-        // The same command again with nothing printed in between (settings, settings…) is one line.
-        // `fresh` isn't logged at all: it would put a line straight back on the clean screen.
-        // Nor is a line holding a script secret's value: the log, and the history built from it, never see it.
+        // Which command lines are logged:
+        // - The same command again with nothing printed in between (settings, settings…) stays one line.
+        // - `fresh` is not logged at all, because it would put a line straight back on the clean screen.
+        // - A line that contains a script secret's value is not logged. So the log, and the history
+        //   built from it, never see the value.
         val secret = ScriptCommands.carriesSecret(typed) || (expand && ScriptCommands.carriesSecret(expandAliases(typed)))
         val last = logs.last()
         val commandId = when {
             typed.lowercase() == "fresh" || secret -> null
-            // Its output joins the line already there.
+            // The output joins the existing line.
             last != null && last.second == LogKind.COMMAND && last.third == typed -> last.first
             else -> logs.add(LogKind.COMMAND, typed, ctx = LogContext.of(LogContext.COMMAND to typed))
         }
-        // A command you run ends `log only`: what you typed, and what it prints, must show.
+        // Running a command ends `log only`, because what you typed and what it prints must be visible.
         if (!ScriptScheduler.runningSentCommand && typed.substringBefore(' ').lowercase() != "log") ui.filterLog(null)
-        // What it prints, now or later (a script, a feed fetch, a download), is marked as its output.
+        // Everything it prints, now or later (a script, a feed fetch, a download), is marked as its output.
         logs.withCause(commandId) { runLogged(typed, expand) }
     }
 
-    /** What the command prints is written together ([LogRepository.batched]): one write for a page of output, not one per line. */
+    /** Writes the command's output together ([LogRepository.batched]): one write for a page of output, not one per line. */
     private fun runLogged(typed: String, expand: Boolean) = logs.batched {
-        // Aliases first, so `alias hf = help | grep feed` pipes too; its definition keeps the pipe.
+        // Expand aliases first, so `alias hf = help | grep feed` pipes too. The `alias` command itself keeps the pipe in its definition.
         val expanded = if (expand) expandAliases(typed) else typed
         val stages = if (expanded.substringBefore(' ').lowercase() == "alias") listOf(expanded) else Pipes.split(expanded)
         if (stages.size > 1) {
@@ -103,9 +105,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         execute(expanded)
     }
 
-    /** Runs one command, its aliases already expanded. */
+    /** Runs one command whose aliases are already expanded. */
     private fun execute(trimmed: String) {
-        // "= 6*7" is a quick calculator (any Lua expression).
+        // "= 6*7" is a quick calculator. It accepts any Lua expression.
         if (trimmed.startsWith("=")) return calc(trimmed.drop(1).trim())
         val name = trimmed.substringBefore(' ').lowercase()
         val rest = trimmed.substringAfter(' ', "").trim()
@@ -128,8 +130,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "script" -> scriptCommands.script(args)
                 "lua" -> eval(ScriptLang.LUA, rest)
                 "js" -> eval(ScriptLang.JS, rest)
-                // Made only behind the build's switch, so R8 leaves the updater out of the Play build: Play
-                // allows no update but its own (tools/check-play-build.sh checks).
+                // Created only behind the build switch, so R8 removes the updater from the Play build.
+                // Play allows no updates except its own (tools/check-play-build.sh checks this).
                 "update" -> if (com.mtwabpin.kolahal.BuildConfig.SELF_UPDATE) {
                     UpdateCommands(context, ::background).run(args)
                 } else {
@@ -186,14 +188,14 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     // ---- aliases --------------------------------------------------------------------------
 
-    /** Expands the first word through user aliases (up to a few levels, no cycles). */
+    /** Expands the first word through user aliases (up to 5 levels, with no cycles). */
     private fun expandAliases(line: String): String {
-        // Spaced, so `hf|head 5` is the alias `hf` and a filter.
+        // Add spaces around pipes, so `hf|head 5` is the alias `hf` and a filter.
         var current = Pipes.spaced(line)
         val seen = HashSet<String>()
         repeat(5) {
             val head = current.substringBefore(' ')
-            // A built-in always wins, even over an alias that slipped in (an old backup).
+            // A built-in always wins, even over an alias that got in some other way (from an old backup).
             if (head.lowercase() in RESERVED_NAMES) return current
             if (!seen.add(head)) return current
             val expansion = prefs.alias(head) ?: return current
@@ -209,7 +211,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             all.forEach { (k, v) -> out("$k = $v", LogContext.of(LogContext.COMMAND to k)) }
             return
         }
-        // Lowercase, as typed lines are matched: `alias Help = …` can't hide behind the built-in.
+        // Lowercase the name, because typed lines are matched in lowercase. So `alias Help = …` can't hide behind the built-in.
         val name = rest.substringBefore('=').trim().substringBefore(' ').lowercase()
         val expansion = rest.substringAfter('=', "").trim().removeSurrounding("\"").removeSurrounding("'")
         when {
@@ -233,17 +235,17 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     // ---- output helpers -------------------------------------------------------------------
 
 
-    /** `cal [dec [2027]]`: the month as a calendar, today in bold, weeks starting on the locale's day. */
+    /** `cal [dec [2027]]`: prints the month as a calendar, with today in bold. Weeks start on the locale's first day. */
     private fun cal(rest: String) {
         val today = java.time.LocalDate.now()
         val month = MonthCalendar.parse(rest, today)
             ?: return error("Unknown month '$rest'. Use cal, cal dec, cal dec 2027 or cal 2027-12")
         val lines = MonthCalendar.lines(month, today) { com.mtwabpin.kolahal.data.StyledText.wrap(com.mtwabpin.kolahal.data.StyledText.Style.BOLD, it) }
-        // One line each, in the terminal font, so the columns hold.
+        // One log line per row, in the terminal font, so the columns line up.
         lines.forEach { out(it, LogContext(LogContext.ALIGNED)) }
     }
 
-    /** `date tokyo new york`: the time in each place, one line each, and how far ahead or behind it is. */
+    /** `date tokyo new york`: prints the time in each place, one line each, and how far ahead or behind it is. */
     private fun date(words: List<String>) {
         val places = WorldClock.parse(words)
             ?: return error("Unknown place '${words.joinToString(" ")}'. Use a city (tokyo, new york), a zone (Asia/Tokyo), utc, or an offset like +5:30")
@@ -255,10 +257,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** Launches [app], as a tap on it or on its suggestion does. */
+    /** Launches [app], the same way as a tap on it or on its suggestion. */
     fun launch(app: AppEntry) = appCommands.launch(app)
 
-    /** Anything that isn't a command is treated as an app name. */
+    /** Treats any input that isn't a command as an app name. */
     private fun fallbackLaunch(text: String) {
         val ranked = apps.searchRanked(text)
         val matches = ranked.map { it.first }
@@ -266,7 +268,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             matches.isEmpty() -> notFound(text)
             matches[0].label.equals(text, ignoreCase = true) -> appCommands.launch(matches[0])
             matches.size == 1 && conf[Keys.AUTO_LAUNCH] -> appCommands.launch(matches[0])
-            // The top suggestion chip is what Enter launches, as long as it starts with the input.
+            // Enter launches the top suggestion chip, as long as it starts with the input.
             conf[Keys.LAUNCH_TOP] && ranked[0].second <= 2 -> appCommands.launch(matches[0])
             else -> {
                 appCommands.appGrid(matches.take(12))
@@ -275,7 +277,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** Unknown input: suggest the closest command (typo in the first word). */
+    /** Unknown input: suggests the closest command, in case the first word has a typo. */
     private fun notFound(text: String) {
         val head = text.substringBefore(' ').lowercase()
         val rest = text.substringAfter(' ', "")
@@ -292,7 +294,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             logs.add(
                 LogKind.ERROR,
                 "Command not found: $head — did you mean '$corrected'? (tap to put it in the prompt)",
-                // The trailing space marks it as one to fill in, not run, whatever launch.instant says.
+                // The trailing space marks it as a line to fill in, not to run, whatever launch.instant says.
                 ctx = LogContext.of(LogContext.COMMAND to "$corrected "),
             )
         }
@@ -316,7 +318,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             }
             label to count
         }
-        // Padded so the counts line up (the log is monospaced).
+        // Pad the labels so the counts line up. The log uses a monospaced font.
         val labelWidth = rows.maxOf { it.first.length }
         val countWidth = rows.maxOf { it.second.toString().length }
         rows.forEach { (label, count) ->
@@ -363,7 +365,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         info("Search: $query", LogContext.of(LogContext.URL to url))
     }
 
-    /** Opens [uri] in whatever app handles it (maps, store, ...). */
+    /** Opens [uri] in the app that handles it (maps, store, ...). */
     private fun openUri(uri: String, what: String) {
         startActivity(Intent(Intent.ACTION_VIEW, uri.toUri()))
         info(what, LogContext.of(LogContext.URL to uri))
@@ -371,7 +373,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     // ---- calculator & conversions --------------------------------------------------------
 
-    /** `= 2^10`, `= 5 km in mi`, `= 72 f to c`, `= 100 usd in inr` (live rates, cached 6h). */
+    /** `= 2^10`, `= 5 km in mi`, `= 72 f to c`, `= 100 usd in inr`. Currency uses live rates, cached for 6h. */
     private fun calc(expr: String) {
         val conversion = Units.parse(expr)
         if (conversion != null) {
@@ -381,7 +383,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 return background("convert") { currency(amount, from.uppercase(), to.uppercase()) }
             }
         }
-        // Arithmetic is answered here at once; anything else (Lua code) goes to Lua.
+        // Arithmetic is answered here at once. Anything else (Lua code) goes to Lua.
         val answer = try {
             Calc.answer(expr)
         } catch (e: ArithmeticException) {
@@ -412,7 +414,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     // ---- widgets ----------------------------------------------------------------------------
 
-    /** `widgets ls` prints the placed widgets (tap opens the page); `widget add` opens the picker. */
+    /**
+     * - `widgets ls` prints the placed widgets. A tap opens the widgets page.
+     * - `widget add` opens the picker.
+     */
     private fun widgets(args: List<String>) {
         val host = com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
         when (args.firstOrNull()) {
@@ -427,7 +432,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** Asks for the runtime permission when it can; otherwise (pre-13, or turned off) opens settings. */
+    /** Asks for the runtime permission when possible. Otherwise (before Android 13, or turned off) opens settings. */
     private fun notifications(args: List<String>) {
         val permissionMissing = Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(
             android.Manifest.permission.POST_NOTIFICATIONS,
@@ -444,9 +449,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     }
 
     /**
-     * `wallpaper`: whether the home screen's wallpaper is Kolahal's; `wallpaper match` makes it so
-     * ([com.mtwabpin.kolahal.ui.WallpaperMatch]). It asks first: Android doesn't let an app read the
-     * wallpaper it replaces, so the old one can't be brought back.
+     * - `wallpaper` says whether the home screen wallpaper is Kolahal's.
+     * - `wallpaper match` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.ui.WallpaperMatch]).
+     *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
+     *   old one can't be restored.
      */
     private fun wallpaper(args: List<String>) {
         val match = com.mtwabpin.kolahal.ui.WallpaperMatch
@@ -468,7 +474,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** `crashes [share|clear] [n]`: the crash reports kept on this phone ([com.mtwabpin.kolahal.CrashReports]). */
+    /** `crashes [share|clear] [n]`: manages the crash reports kept on this phone ([com.mtwabpin.kolahal.CrashReports]). */
     private fun crashes(args: List<String>) {
         val reports = com.mtwabpin.kolahal.CrashReports.list(context)
         when (args.firstOrNull()?.lowercase()) {
@@ -498,7 +504,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** `log only xkcd` · `log only feeds`: the log shows those lines alone, until `log all` (or ✕, Back, another command). */
+    /**
+     * `log only xkcd` · `log only feeds`: the log shows only those lines. This lasts until `log all`,
+     * ✕, Back, or another command.
+     */
     private fun logFilter(args: List<String>) {
         when (args.firstOrNull()) {
             "only" -> ui.filterLog(LogFilter.parse(args.drop(1).joinToString(" ")) ?: return error("Usage: log only <script, feed or app | commands, scripts, feeds, notifications, apps, calls, reminders, starred>"))
@@ -507,14 +516,18 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** `fetch`: this phone and Kolahal at a glance ([Fetch]), lined up in the terminal font. */
+    /** `fetch`: a summary of this phone and Kolahal ([Fetch]), aligned in the terminal font. */
     private fun fetch() {
         val (device, rows) = Fetch.facts(context)
         val at = System.currentTimeMillis()
         logs.addAll(Fetch.layout(device, rows, Fetch.columns(context, ui.logWidthPx()), conf[Keys.USER_NAME]).map { LogRepository.Pending(LogKind.OUTPUT, it, null, LogContext(LogContext.ALIGNED), at) })
     }
 
-    /** `clear` screen · `clear history` ↑ recall · `clear all` everything (log + history). */
+    /**
+     * - `clear` clears the screen.
+     * - `clear history` clears the ↑ recall history.
+     * - `clear all` clears everything (log and history).
+     */
     private fun clear(args: List<String>) {
         when (args.firstOrNull()) {
             null, "screen" -> ui.clearScreen()
@@ -528,8 +541,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     }
 
     /**
-     * `backup` writes today's backup file to the backup folder (asking for one first), `backup
-     * every daily|weekly|off` sets automatic backups, `backup dir` picks the folder.
+     * - `backup` writes today's backup file to the backup folder. If no folder is set, it asks for one first.
+     * - `backup every daily|weekly|off` sets automatic backups.
+     * - `backup dir` picks the folder.
      */
     private fun backup(args: List<String>) {
         val auto = com.mtwabpin.kolahal.data.AutoBackup
@@ -555,7 +569,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** `restart` relaunches the launcher; `restart scripts` stops the :script process (stuck scripts). */
+    /**
+     * - `restart` relaunches the launcher.
+     * - `restart scripts` stops the :script process, for stuck scripts.
+     */
     private fun restart(args: List<String>) {
         when (args.firstOrNull()) {
             null, "launcher" -> {
@@ -582,7 +599,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** Text form of the setup checklist (`setup text`); unchecked lines run their fix when tapped. */
+    /** The text form of the setup checklist (`setup text`). Tapping an unchecked line runs its fix. */
     fun setupText() {
         info("Setup — tap an unchecked item to fix it, run 'setup text' again to re-check")
         SetupChecks.run(context).forEach { c ->
@@ -597,10 +614,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     private fun startSettings(action: String) = startActivity(Intent(action))
 
-    /** A command's line in help: its usage, a tap puts its name in the prompt, and what it does. */
+    /** Prints a command's line in help: its usage and what it does. A tap puts its name in the prompt. */
     private fun helpLine(spec: CommandSpec) = out(spec.usage, LogContext.of(LogContext.COMMAND to spec.name + " ", LogContext.DESC to spec.help))
 
-    /** A script command's line in help, as a built-in's. */
+    /** Prints a script command's line in help, in the same form as a built-in's. */
     private fun helpLine(s: Script) {
         val desc = ScriptMeta.description(s.code) ?: "${s.lang.ext} script"
         out(ScriptMeta.usage(s.code, s.name) ?: s.name, LogContext.of(LogContext.COMMAND to s.name + " ", LogContext.SCRIPT to s.name, LogContext.DESC to desc))
@@ -624,7 +641,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         info("Pipes: help | grep feed · history | tail 5 · contacts | count  (grep [-v], head, tail, sort, uniq, count)")
     }
 
-    /** `help todo`: that command's usage and what it does, its other names, and where the guide says more. */
+    /** `help todo`: prints that command's usage, what it does, its other names, and a link to more in the guide. */
     private fun commandHelp(word: String) {
         val typed = word.lowercase()
         val offered = CommandCatalog.OFFERED
@@ -637,7 +654,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
         prefs.alias(typed)?.let { return info("$typed is your alias for: $it", LogContext.of(LogContext.COMMAND to "$typed ")) }
         scripts.all().firstOrNull { it.name == typed && ScriptMeta.isCommand(it.code) }?.let { return helpLine(it) }
-        // Not a command: those it may be the start of, or a typo of.
+        // Not a command. Show the commands it may be the start of, or a typo of.
         val near = offered.filter { it.name.startsWith(typed) || CommandParsing.editDistance(typed, it.name) <= (if (it.name.length <= 4) 1 else 2) }
         if (near.isEmpty()) return error("No command called '$word' · help lists them all")
         info("No command called '$word'; nearest:")

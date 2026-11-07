@@ -11,10 +11,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Which coloured gutter a line gets, so command blocks and timer output read as groups. */
+/** The coloured gutter a line gets. It shows command blocks and timer output as groups. */
 enum class Gutter { COMMAND, SCRIPT, ERROR }
 
-/** What the log list renders: entries plus synthetic day / unread separators. */
+/** A row that the log list renders: a log entry, or an added day / unread separator. */
 @Immutable
 sealed interface LogRow {
     val key: Any
@@ -24,16 +24,20 @@ sealed interface LogRow {
         val entry: LogEntry,
         val dimmed: Boolean,
         val gutter: Gutter,
-        /** Script output that arrived since the user last left home. */
+        /** True for script output that arrived since the user last left home. */
         val unread: Boolean = false,
-        /** Starts a block (command or script run header): gets the block gap above it. */
+        /** True when the line starts a block (a command, or the first line of a script run). It gets the block gap above it. */
         val blockStart: Boolean = false,
         /**
-         * Ends with its source's name (a notification: its app's icon): the first line of a run or a
-         * group, unless the command that ran it is right above, naming it already.
+         * True when the line ends with its source's name (for a notification: its app's icon).
+         * This is the first line of a run or a group. It is false when the command that ran it is
+         * right above, because the command already names it.
          */
         val showSource: Boolean = true,
-        /** Shows its time under `log.time groups`: a group's first line, the first of a day, or a new minute. */
+        /**
+         * True when the line shows its time under `log.time groups`: the first line of a group,
+         * the first line of a day, or the first line in a new minute.
+         */
         val showTime: Boolean = true,
     ) : LogRow {
         override val key: Any get() = entry.id
@@ -50,26 +54,28 @@ sealed interface LogRow {
     }
 }
 
-/** Lines further apart than this belong to different groups (unless a command or header joins them). */
+/** A line that comes more than this long after the line before it starts a new group. */
 const val GROUP_GAP_MS = 3_000L
 
 /**
- * Output older than the most recent command is dimmed, so the latest result stands out;
- * timer-script lines that arrived after it stay bright. A separator marks each new day, and
- * script output newer than [seenUpTo] is marked unread with a divider above the first one.
+ * Builds the log rows:
+ * - Output older than the most recent command is dimmed, so the latest result stands out.
+ *   Timer-script lines that arrived after that command stay bright.
+ * - A separator marks each new day.
+ * - Script output newer than [seenUpTo] is marked unread, with a divider above the first such line.
  */
 fun buildRows(
     entries: List<LogEntry>,
     seenUpTo: Long = Long.MAX_VALUE,
     unreadUntil: Long = Long.MAX_VALUE,
     zone: ZoneId = ZoneId.systemDefault(),
-    /** Leave out a name or a time the lines above already give; off for lines out of context (search results). */
+    /** Leaves out a name or time that the lines above already show. Turn it off for lines out of context (search results). */
     trim: Boolean = true,
 ): List<LogRow> {
     val latestCommand = entries.lastOrNull { it.kind == LogKind.COMMAND }?.id ?: Long.MIN_VALUE
     val today = LocalDate.now(zone)
     val isScriptLine = { e: LogEntry -> e.kind == LogKind.SCRIPT }
-    // Two comparisons, not a range: seenUpTo + 1 overflows while it's Long.MAX_VALUE, and everything would be unread.
+    // Use two comparisons, not a range. When seenUpTo is Long.MAX_VALUE, seenUpTo + 1 overflows and every line would be unread.
     val isUnread = { e: LogEntry -> e.id > seenUpTo && e.id <= unreadUntil }
     val unreadCount = entries.count { isUnread(it) && it.kind == LogKind.SCRIPT }
     val rows = ArrayList<LogRow>(entries.size + 4)
@@ -78,8 +84,8 @@ fun buildRows(
     var previous: LogEntry? = null
     for (e in entries) {
         val day = Instant.ofEpochMilli(e.ts).atZone(zone).toLocalDate()
-        // Only forward: lines are in id order, and a clock set back (or a script line buffered across
-        // midnight) would otherwise emit the same day twice, which is a duplicate list key.
+        // Move the day only forward. Lines are in id order. A clock set back (or a script line buffered
+        // across midnight) would otherwise add the same day twice, which gives a duplicate list key.
         val last = previousDay
         val newDay = if (last == null) day != today else day > last
         if (newDay) rows += LogRow.Day(day)
@@ -89,16 +95,18 @@ fun buildRows(
             rows += LogRow.Unread(unreadCount)
             unreadShown = true
         }
-        // A background run's first line: a script or a feed starts logging after other lines.
+        // The first line of a background run: a script or a feed starts logging after other lines.
         val runStart = isScriptLine(e) && (previous == null || !isScriptLine(previous) || previous.source != e.source)
-        // Right under the command that ran it (or under that command's other lines): its output,
-        // in its group, and `$ countdown` names it already.
+        // The line is right under the command that ran it (or under that command's other lines).
+        // Then it is that command's output, in its group, and `$ countdown` already names it.
         val from = e.ctx.values[LogContext.FROM]?.toLongOrNull()
         val underItsCommand = from != null && previous != null &&
             (previous.id == from || previous.ctx.values[LogContext.FROM]?.toLongOrNull() == from)
-        // A group is one action's lines: a typed command and its output, a background run
-        // from its first line, or lines that arrived together. A line that comes on its own later
-        // (a tap launch, an app event, a notification) starts a group of its own.
+        // A group holds the lines of one action:
+        // - a typed command and its output;
+        // - a background run, from its first line;
+        // - lines that arrived together.
+        // A line that comes alone later (a tap launch, an app event, a notification) starts its own group.
         val blockStart = e.kind == LogKind.COMMAND || (runStart && !underItsCommand) ||
             (previous != null && e.ts - previous.ts > GROUP_GAP_MS)
         rows += LogRow.Entry(
@@ -119,12 +127,15 @@ fun buildRows(
     return rows
 }
 
-/** The time beside a line. A format keeps the time zone it was made in: another is made when the phone's changes. */
+/**
+ * The time format beside a line. A format keeps the time zone in which it was created,
+ * so a new one is created when the phone's time zone changes.
+ */
 fun lineTimeFormat(clock24: Boolean, locale: Locale = Locale.getDefault()) = SimpleDateFormat(if (clock24) "HH:mm" else "h:mm", locale)
 
 /**
- * Where a line came from and when, to the second, for its long-press sheet (`countdown · today
- * 6:55:12`): what the log may leave off the line itself.
+ * Where a line came from, and when (to the second), for its long-press sheet: `countdown · today 6:55:12`.
+ * The log may leave this information off the line itself.
  */
 fun lineDetail(
     e: LogEntry,

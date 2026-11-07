@@ -10,15 +10,18 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 
-/** What the terminal can do with a feed entry, plus listener-access plumbing. */
+/** Actions the terminal can take on a feed entry, and helpers for listener access. */
 object NotificationActions {
 
-    /** True when the user granted Kolahal notification access. Asked of Android: the setting it's also kept in can lag a change. */
+    /**
+     * True when the user granted Kolahal notification access. We ask Android directly, because the
+     * setting that also stores it can be late to update.
+     */
     fun isEnabled(context: Context): Boolean =
         context.getSystemService(NotificationManager::class.java)
             .isNotificationListenerAccessGranted(ComponentName(context, KolahalNotificationListener::class.java))
 
-    /** Opens the access screen; the per-app detail page on API 30+, falling back to the list. */
+    /** Intent for the access screen. On API 30+ it is the page for this app; otherwise, or if that fails, the list. */
     fun settingsIntent(context: Context): Intent {
         if (Build.VERSION.SDK_INT >= 30) {
             val detail = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
@@ -33,12 +36,13 @@ object NotificationActions {
     }
 
     /**
-     * Fires the notification's tap action if it's still showing; auto-cancel notifications
-     * are dismissed as the shade would. Returns false when it's gone or has no intent.
+     * Runs the notification's tap action if the notification is still showing. Like the shade, it
+     * dismisses auto-cancel notifications. Returns false when the notification is gone or has no intent.
      */
     fun open(context: Context, key: String): Boolean {
-        // Null when it couldn't ask: access just taken, the listener not unbound yet. The tap kept
-        // in the store still works then; only an answer without it means it's gone.
+        // Null when we couldn't ask, for example when access was just removed and the listener is
+        // not unbound yet. Then the tap intent saved in the store still works. Only a real answer
+        // without the notification means it is gone.
         val asked = KolahalNotificationListener.connected?.let { l -> runCatching { l.getActiveNotifications(arrayOf(key)) }.getOrNull() }
         val sbn = asked?.firstOrNull()
         if (asked != null && sbn == null) {
@@ -66,7 +70,7 @@ object NotificationActions {
     }
 
     private fun send(context: Context, pi: PendingIntent): Boolean = runCatching {
-        // Android 14+ only lets the target start an activity if we lend our (foreground) privilege.
+        // On Android 14+, the target can start an activity only if we lend it our foreground privilege.
         val options = if (Build.VERSION.SDK_INT >= 34) {
             ActivityOptions.makeBasic().setPendingIntentBackgroundActivityStartMode(
                 if (Build.VERSION.SDK_INT >= 36) ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE

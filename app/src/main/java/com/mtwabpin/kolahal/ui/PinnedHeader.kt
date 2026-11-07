@@ -52,7 +52,7 @@ import com.mtwabpin.kolahal.data.StatusLine
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 
-/** What the pinned header shows in turn: what's playing, then the status lines you pinned. */
+/** An item the pinned header shows in turn: first what is playing, then the pinned status lines. */
 internal sealed interface PinnedItem {
     val key: String
 
@@ -69,21 +69,22 @@ internal sealed interface PinnedItem {
     }
 }
 
-/** The pinned header's turns and runs, apart from Compose. */
+/** The pinned header's rotation and refresh logic. It does not depend on Compose. */
 internal object PinnedTurns {
-    /** Whether the dots show for [count] items, with `header.pinned-dots` at [upTo]: one item needs none. */
+    /** Whether the dots show for [count] items, with `header.pinned-dots` set to [upTo]. One item needs no dots. */
     fun showsDots(count: Int, upTo: Int) = count in 2..upTo
 
-    /** Which of [keys] shows for [current]: its own place, or the first once it has gone. */
+    /** The index to show for [current]: its own index, or the first one if it is gone. */
     fun index(keys: List<String>, current: String?) = keys.indexOf(current).coerceAtLeast(0)
 
-    /** The one after [current], back to the first after the last. */
+    /** The key after [current]. After the last one, it wraps to the first. */
     fun next(keys: List<String>, current: String?): String? =
         if (keys.isEmpty()) null else keys[(index(keys, current) + 1) % keys.size]
 
     /**
-     * The lines to run again at [now] (ms): those asking for a refresh whose last run ([lastRun], by
-     * name, on the same clock) is that many seconds ago or more, or that haven't run yet.
+     * Returns the names of the lines to run again at [now] (ms). A line is due if it asks for a
+     * refresh and either has not run yet, or its last run ([lastRun], by name, same clock) was at
+     * least that many seconds ago.
      */
     fun due(lines: List<StatusLine>, lastRun: Map<String, Long>, now: Long): List<String> = lines.mapNotNull { p ->
         val every = p.refresh ?: return@mapNotNull null
@@ -92,16 +93,18 @@ internal object PinnedTurns {
     }
 }
 
-/** Height of the pinned header's line, as the now playing line's. */
+/** Height of the pinned header line. It is the same as the now playing line. */
 private val PINNED_ROW = 48.dp
 
 /**
- * The pinned header: a line under the header (or at the top, with the header off) for what's
- * playing and the status lines of the scripts you pinned. With more than one they take turns,
- * sliding up every `header.pinned-seconds`; a finger on the line keeps the one showing. Dots at its
- * end say which one shows, for up to `header.pinned-dots` items. A changed text shows in place. With
- * nothing to show it takes no room. While it's on screen, the lines that ask to run again are run
- * ([onRefresh], each second).
+ * The pinned header: a line under the header (or at the top, when the header is off). It shows what
+ * is playing and the status lines of pinned scripts.
+ * - With more than one item, they take turns and slide up every `header.pinned-seconds`.
+ * - While a finger is on the line, the current item stays.
+ * - Dots at the end show which item is visible, for up to `header.pinned-dots` items.
+ * - Changed text updates in place.
+ * - With nothing to show, it takes no space.
+ * - While it is on screen, it calls [onRefresh] every second to run lines that ask to run again.
  */
 @Composable
 internal fun PinnedHeader(
@@ -115,7 +118,7 @@ internal fun PinnedHeader(
     onPinLongPress: (String) -> Unit,
     onRefresh: () -> Unit = {},
 ) {
-    // `now` ticks each minute, so a paused session drops out after 30 minutes.
+    // `now` updates every minute, so a paused media session leaves the header after 30 minutes.
     val (now, _) = rememberNow()
     val seconds = remember(version) { config[Keys.HEADER_PINNED_SECONDS] }
     val dotsUpTo = remember(version) { config[Keys.HEADER_PINNED_DOTS] }
@@ -123,7 +126,7 @@ internal fun PinnedHeader(
 
     val refresh by rememberUpdatedState(onRefresh)
     if (lines.any { it.refresh != null }) LaunchedEffect(lifecycle) {
-        // Only while home is on screen: a delay doesn't stop with the activity.
+        // Run only while home is on screen. A plain delay loop would not stop with the activity.
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 refresh()
@@ -142,7 +145,7 @@ internal fun PinnedHeader(
     var held by remember { mutableStateOf(false) }
     val index = PinnedTurns.index(keys, current)
 
-    // Each turn is the whole time: a text that changes doesn't start it again, a release does.
+    // Each turn lasts the full time. A text change does not restart the timer, but releasing the finger does.
     LaunchedEffect(keys, seconds, held, lifecycle) {
         if (keys.size < 2 || held) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -154,13 +157,13 @@ internal fun PinnedHeader(
     }
 
     val dots = PinnedTurns.showsDots(items.size, dotsUpTo)
-    // Room at the line's end for the dots, which stay put as the items slide.
+    // Space at the end of the line for the dots. The dots stay in place while the items slide.
     val dotsRoom = if (dots) (items.size * 8 + 4).dp else 0.dp
     Box(
         Modifier
             .fillMaxWidth()
             .testTag("pinned-header")
-            // Watched, not taken: the item's own tap and long-press still get the touch.
+            // Only observe touches, do not consume them, so the item's own tap and long-press still work.
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -186,32 +189,34 @@ internal fun PinnedHeader(
     }
 }
 
-/** A pinned script's status line: its name, then its text; its bar only with a progress. */
+/**
+ * A pinned script's status line: its text alone, so the line has room for it. A screen reader
+ * hears the script's name first, and the long-press menu names it. The progress bar shows only
+ * when there is a progress value.
+ */
 @Composable
 private fun PinLine(line: StatusLine, onTap: (String) -> Unit, onLongPress: (String) -> Unit, endPadding: Dp) {
     Column(Modifier.fillMaxWidth().testTag("pinned-${line.name}")) {
         Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = Term.dim)) { append("${line.name} ▸ ") }
-                withStyle(SpanStyle(color = Term.script)) { append(line.text) }
-            },
-            style = Term.small,
+            line.text,
+            style = Term.small.copy(color = Term.script),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(onLongClickLabel = "actions", onLongClick = { onLongPress(line.name) }) { onTap(line.name) }
+                .semantics { contentDescription = "${line.name}: ${line.text}" }
                 .heightIn(min = PINNED_ROW)
                 .wrapContentHeight()
                 .padding(end = endPadding),
         )
-        // The bar's room stays without one: the line is as tall for every item, and the log doesn't move.
+        // Keep the bar's space even without a bar, so every item has the same height and the log does not move.
         val progress = line.progress
-        if (progress != null) ProgressTrack(progress) else Spacer(Modifier.height(2.dp))
+        if (progress != null) ProgressTrack(progress, line.colour?.let(::colourOf) ?: Term.prompt) else Spacer(Modifier.height(2.dp))
     }
 }
 
-/** Which of [count] items shows: [index]'s dot in the accent colour. */
+/** Shows which of [count] items is visible: the dot at [index] uses the accent colour. */
 @Composable
 private fun PinnedDots(count: Int, index: Int, modifier: Modifier) {
     Row(

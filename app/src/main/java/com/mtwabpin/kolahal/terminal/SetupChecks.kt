@@ -11,7 +11,7 @@ import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 
-/** One item of the setup checklist; [fix] is a terminal command that opens the right system page. */
+/** One item of the setup checklist. [fix] is a terminal command that opens the matching system page. */
 data class SetupCheck(
     val title: String,
     val detail: String,
@@ -19,7 +19,7 @@ data class SetupCheck(
     val fix: String?,
 )
 
-/** Shared by the `setup` GUI page and its text form (`setup text`). */
+/** The setup checks. Both the `setup` GUI page and its text form (`setup text`) use them. */
 object SetupChecks {
     fun run(context: Context): List<SetupCheck> {
         val power = context.getSystemService(PowerManager::class.java)
@@ -67,7 +67,7 @@ object SetupChecks {
                 android.provider.Settings.System.canWrite(context),
                 "brightness access",
             ),
-            // The Play build has no READ_CONTACTS: call, sms and contacts use Android's contact picker.
+            // The Play build has no READ_CONTACTS. There, call, sms and contacts use Android's contact picker.
             if (!com.mtwabpin.kolahal.BuildConfig.CONTACTS) null else SetupCheck(
                 "Contacts (call, sms, contacts)",
                 "Optional: call and text people by name, with contact suggestions",
@@ -86,7 +86,7 @@ object SetupChecks {
                 com.mtwabpin.kolahal.calls.CallEvents.hasPermission(context),
                 "calls --allow",
             ),
-            // Android 12+ lets you turn exact alarms off (and 14+ starts with them off).
+            // On Android 12+ the user can turn exact alarms off. On Android 14+ they are off by default.
             if (Build.VERSION.SDK_INT < 31) null else SetupCheck(
                 "Alarms & reminders (remind, script times)",
                 "Optional: reminders and scripts' daily times at the exact time; night-work needs it to pause the work profile",
@@ -116,4 +116,14 @@ object SetupChecks {
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY,
         )?.activityInfo?.packageName == context.packageName
     }
+
+    /**
+     * Android's own dialog that asks to make Kolahal the home app: one tap, no settings page.
+     * Android 10 and newer only; null on older versions. Start it for a result: Android requires that.
+     */
+    fun homeRoleRequest(context: Context): Intent? =
+        if (Build.VERSION.SDK_INT < 29) null
+        else context.getSystemService(RoleManager::class.java)
+            ?.takeIf { it.isRoleAvailable(RoleManager.ROLE_HOME) }
+            ?.createRequestRoleIntent(RoleManager.ROLE_HOME)
 }

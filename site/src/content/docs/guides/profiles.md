@@ -3,12 +3,16 @@ title: Work profile & private space
 description: Personal, work, private space and clone profiles in one launcher, and how to pause or resume them.
 ---
 
-Kolahal lists apps from every profile Android gives the launcher: **personal**, **work** (a
-managed profile), the Android 15+ **private space**, and **clone** profiles ("dual apps").
+Kolahal lists apps from every profile that Android shows to the launcher:
+
+- **personal**
+- **work** (a managed profile)
+- **private space** (Android 15+)
+- **clone** profiles ("dual apps")
 
 ## Tags and colours
 
-Apps are tagged by profile, each in its own colour:
+Each app has a tag for its profile, and each profile has its own colour:
 
 | Tag | Profile | Flag |
 | --- | --- | --- |
@@ -17,8 +21,9 @@ Apps are tagged by profile, each in its own colour:
 | `[C]` | clone | `-c`, `--clone` |
 | `[P]` | personal | `-p`, `--personal` |
 
-`[P]` is only shown when the same app also exists in another profile, so ordinary personal apps stay
-untagged. The flags pick a profile in `open`, `info`, `uninstall`, `hide`, `unhide` and `rename`:
+Kolahal shows `[P]` only when the same app is also in another profile. Normal personal apps have no tag.
+
+Use the flags to pick a profile in `open`, `info`, `uninstall`, `hide`, `unhide` and `rename`:
 
 ```sh
 open gmail -w        # the work Gmail
@@ -26,7 +31,7 @@ info chrome -p       # app info for the personal Chrome
 apps work            # only work apps (also: personal, private)
 ```
 
-Long-press an app that exists twice and the sheet offers **Launch in … profile** for the other copy.
+If an app is in two profiles, long-press it. The sheet offers **Launch in … profile** for the other copy.
 
 ## Pausing and resuming
 
@@ -38,17 +43,19 @@ private off          # lock private space
 private on           # unlock it
 ```
 
-Toggling profiles needs **Android 10+** and Kolahal set as the **default home app** (`home`).
+To turn profiles on or off, you need **Android 10+**, and Kolahal must be the **default home app** (`home`).
 
-- With `profiles` as one of the header's items (`header.item-1` or `header.item-2`), the header
-  shows the work profile's status. Tapping it resumes a paused profile. Pausing asks for a second
-  tap, so you can't pause it by accident.
-- Apps in a paused profile are faded. Opening one prints a line offering to resume the profile and
-  launch the app; tap it and Kolahal turns the profile on, waits for it (up to 20 s) and opens the app.
-- While the private space is locked, its lines in the log (launches, notifications)
-  are hidden too, and come back when you unlock it.
+- You can add `profiles` as one of the header's parts (`header.left` or `header.right`). Then the header
+  shows the work profile's status. Tap it to resume a paused profile. To pause, you must tap twice,
+  so you can't pause it by accident.
+- Apps in a paused profile are faded. If you open one, Kolahal prints a line that offers to resume the profile and
+  open the app. Tap it. Kolahal turns the profile on, waits for it (up to 20 s) and opens the app.
+- While the private space is locked, its lines in the log (launches, notifications) are hidden too.
+  They come back when you unlock it.
 
 ## Private space
 
-On Android 15+, the default launcher can see the private space profile (Kolahal declares
-`ACCESS_HIDDEN_PROFILES` for this). Its apps are tagged `[S]`, and `private on|off|status` unlocks it, locks it or shows its status. The [setup checklist](/getting-started/setup/) lists the profiles it found.
+On Android 15+, the default launcher can see the private space profile. Kolahal declares
+`ACCESS_HIDDEN_PROFILES` for this. Private space apps have the tag `[S]`.
+`private on|off|status` unlocks the private space, locks it or shows its status.
+The [setup checklist](/getting-started/setup/) lists the profiles it found.

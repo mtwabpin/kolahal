@@ -65,14 +65,16 @@ import kotlinx.coroutines.launch
 /** The tour's pages, in order. */
 internal enum class TourPage { WELCOME, TYPING, LOG, LOOK, KEYBOARD, SELECTOR, ACCESS, DONE }
 
-/** The setup checks the tour offers ([com.mtwabpin.kolahal.terminal.SetupCheck.fix]): the ones most people want. */
+/** The setup checks that the tour offers ([com.mtwabpin.kolahal.terminal.SetupCheck.fix]). Most people want these. */
 internal val TOUR_CHECKS = listOf("home", "notifications", "notifs enable", "accessibility", "contacts --allow")
 
 /**
- * The tour (the first start, `tour`, or Settings → About → Tour): how Kolahal works, a page at a time,
- * and the first few settings and permissions on the way, each one tap. A page with settings shows
- * a small home screen above them that follows each choice (TourPreviews.kt). Everything it sets is
- * in Settings too, and the rest of the permissions are in the setup checklist.
+ * The tour (on first start, from `tour`, or from Settings → About → Tour).
+ * - It explains how Kolahal works, one page at a time.
+ * - On the way, it offers the first few settings and permissions, each with one tap.
+ * - A page with settings shows a small home screen above them that follows each choice
+ *   (TourPreviews.kt).
+ * - Everything it sets is also in Settings. The other permissions are in the setup checklist.
  */
 @Composable
 fun OnboardingScreen(vm: TerminalViewModel) {
@@ -110,8 +112,8 @@ fun OnboardingScreen(vm: TerminalViewModel) {
                 }
             },
         ) { padding ->
-            // Pages turn with Next and Back only: the previews take swipes (the log's lines, the
-            // app selector), and a page turning under them would lose them.
+            // Pages change only with Next and Back. The previews use swipes (the log's lines, the
+            // app selector), and a page change would take those swipes away from them.
             HorizontalPager(
                 state = pager,
                 userScrollEnabled = false,
@@ -121,7 +123,7 @@ fun OnboardingScreen(vm: TerminalViewModel) {
                 when (pages[page]) {
                     TourPage.WELCOME -> Welcome()
                     TourPage.TYPING -> Typing(vm)
-                    TourPage.LOG -> TheLog()
+                    TourPage.LOG -> TheLog(vm)
                     TourPage.LOOK -> Look(vm)
                     TourPage.KEYBOARD -> Keyboard(vm)
                     TourPage.SELECTOR -> Selector(vm)
@@ -151,8 +153,8 @@ private fun PageDots(current: Int, count: Int) {
 }
 
 /**
- * A page: its [title], then its [preview] (staying in view), then the rest, which scrolls: a
- * choice and the preview it changes are always on screen together.
+ * One tour page: its [title], then its [preview], which stays in view, then the rest, which scrolls.
+ * So a choice and the preview it changes are always on screen together.
  */
 @Composable
 private fun Page(title: String, preview: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
@@ -182,7 +184,7 @@ private fun Setting(title: String, detail: String, content: @Composable () -> Un
     }
 }
 
-/** `help` and friends in body text: the terminal's font, in the accent colour. */
+/** Shows `help` and other code in body text in the terminal's font and the accent colour. */
 private fun withCode(text: String) = buildAnnotatedString {
     text.split('`').forEachIndexed { i, part ->
         if (i % 2 == 1) withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = Term.prompt)) { append(part) } else append(part)
@@ -192,7 +194,7 @@ private fun withCode(text: String) = buildAnnotatedString {
 @Composable
 private fun BodyCode(text: String) = Text(withCode(text), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-/** One tap per setting: the choices of [key], shown by their labels. */
+/** The choices of [key], shown by their labels. One tap sets the setting. */
 @Composable
 private fun Choices(vm: TerminalViewModel, key: ConfigKey<*>, choices: List<Pair<String, String>>) {
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -244,13 +246,17 @@ private fun Typing(vm: TerminalViewModel) = Page("Type to open", preview = { Typ
 }
 
 @Composable
-private fun TheLog() = Page("Everything goes in the log", preview = { LogTryPreview() }) {
+private fun TheLog(vm: TerminalViewModel) = Page("Everything goes in the log", preview = { LogTryPreview() }) {
+    val version by vm.config.version.collectAsStateWithLifecycle()
+    // The header is off at first. Its swipe is explained only once the header is on (Make it yours,
+    // or Settings → Header).
+    val header = remember(version) { vm.config[Keys.HEADER_SHOW] }
     Body("Commands and their output, your notifications and your scripts' output: all in one log, the newest at the bottom.")
     val gestures = buildList {
         add(Triple(R.drawable.ic_search, "Type /word", "Searches the whole log"))
         add(Triple(R.drawable.ic_tune, "Pinch", "Makes the text bigger or smaller"))
         if (BuildConfig.LOCK_SERVICE) add(Triple(R.drawable.ic_lock, "Double-tap empty space", "Locks the screen, once you allow it on the Permissions page"))
-        add(Triple(R.drawable.ic_arrow_down, "Swipe down on the header", "Pulls down the notifications"))
+        if (header) add(Triple(R.drawable.ic_arrow_down, "Swipe down on the header", "Pulls down the notifications"))
     }
     Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
         gestures.forEachIndexed { i, (icon, title, detail) ->
@@ -281,6 +287,11 @@ private fun Look(vm: TerminalViewModel) {
         Setting("Clock", "In the header and the log.") {
             Choices(vm, Keys.CLOCK_24H, listOf("12-hour" to "off", "24-hour" to "on"))
         }
+        SwitchRow(
+            "Header",
+            "The time, the date, the battery and what else you choose, in a line at the top of home",
+            remember(version) { vm.config[Keys.HEADER_SHOW] },
+        ) { vm.setConfig(Keys.HEADER_SHOW, if (it) "on" else "off") }
     }
 }
 
@@ -338,7 +349,7 @@ private fun Access(vm: TerminalViewModel) = Page("Permissions") {
                 supportingContent = {
                     Column {
                         Text(c.detail)
-                        // What it adds, as you'd see it.
+                        // An example of what this permission adds, as the user would see it.
                         PermissionExample(c.fix.orEmpty())
                     }
                 },
@@ -359,7 +370,7 @@ private fun Done(vm: TerminalViewModel) = Page("You're all set") {
             FilledTonalButton(
                 shapes = ButtonDefaults.shapes(),
                 onClick = {
-                    // Home, then the command, as if typed there.
+                    // Go home, then run the command as if the user typed it there.
                     vm.openScreen(Screen.TERMINAL)
                     vm.runCommand(cmd)
                 },

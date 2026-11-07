@@ -6,7 +6,7 @@ import com.mtwabpin.kolahal.data.takeWhole
 /** A notification seen by [KolahalNotificationListener], reduced to what the terminal shows. */
 @Immutable
 data class Notif(
-    /** StatusBarNotification key; stable across updates of the same notification. */
+    /** StatusBarNotification key. It stays the same when the notification is updated. */
     val key: String,
     val pkg: String,
     /** Profile serial (UserManager.getSerialNumberForUser) of the posting app. */
@@ -16,9 +16,9 @@ data class Notif(
     val title: String?,
     val text: String?,
     val postTime: Long,
-    /** Dismissed by the user or cancelled by the app; kept in the feed until it ages out. */
+    /** True when the user dismissed it or the app cancelled it. It stays in the feed until it ages out. */
     val removed: Boolean = false,
-    /** Its status-bar icon's [NotifIcons] key (saved in the background), or null. */
+    /** The [NotifIcons] key of its status-bar icon, or null. The icon is saved in the background. */
     val icon: String? = null,
 ) {
     val line: String get() = NotifFormat.line(title, text)
@@ -30,7 +30,7 @@ object NotifFormat {
     private val WHITESPACE = Regex("\\s+")
     private val SEPARATORS = charArrayOf(' ', ':', '-', '—')
 
-    /** "title — text" on one line, either part dropped when blank, truncated to [max] chars. */
+    /** Returns "title — text" on one line, cut to [max] chars. A blank part is left out. */
     fun line(title: String?, text: String?, max: Int = MAX_LINE): String {
         val t = title?.collapse().orEmpty()
         var b = text?.collapse().orEmpty()

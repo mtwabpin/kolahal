@@ -3,17 +3,17 @@ package com.mtwabpin.kolahal.script
 import com.mtwabpin.kolahal.data.ScriptLang
 
 /**
- * A scripting runtime. Both implementations expose the same [HostApi] surface, so a script's
- * behaviour only depends on its language syntax, not on which engine runs it.
+ * A scripting runtime. Both implementations expose the same [HostApi] surface. So a script's
+ * behaviour depends only on its language syntax, not on the engine that runs it.
  */
 interface ScriptEngine {
     /**
      * Runs [code] to completion.
      *
-     * @param repl when true, the code is a one-liner typed at the prompt and its value is returned.
-     * @param args arguments when the script is invoked as a command (`args` / `argline` globals).
-     * @param event what started the run, a device event or a daily time (`event` global; nil/null otherwise).
-     * @return a printable rendering of the result value, or null when there is nothing to show.
+     * @param repl true when the code is a one-liner typed at the prompt. Its value is then returned.
+     * @param args arguments when the script is run as a command (`args` / `argline` globals).
+     * @param event what started the run: a device event or a daily time (`event` global; nil/null otherwise).
+     * @return a printable form of the result value, or null when there is nothing to show.
      */
     suspend fun run(
         code: String,

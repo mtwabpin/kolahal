@@ -11,10 +11,11 @@ import android.provider.ContactsPickerSessionContract
 import androidx.activity.result.contract.ActivityResultContract
 
 /**
- * Android's contact picker, for the Play build: no READ_CONTACTS (Google Play's Contacts policy for
- * apps targeting Android 17), only the contact you pick, read once as it comes back. Android 17's
- * picker hands back a session ([ContactsPickerSessionContract]); before it, ACTION_PICK on phone
- * numbers lets the app read the one number picked.
+ * Android's contact picker, for the Play build.
+ * - The Play build has no READ_CONTACTS, because of Google Play's Contacts policy for apps that
+ *   target Android 17. The app reads only the contact you pick, once, when the picker returns.
+ * - On Android 17 the picker returns a session ([ContactsPickerSessionContract]).
+ * - On older versions, ACTION_PICK on phone numbers lets the app read the one picked number.
  */
 object ContactPicker : ActivityResultContract<Unit, Uri?>() {
     override fun createIntent(context: Context, input: Unit): Intent =
@@ -26,13 +27,13 @@ object ContactPicker : ActivityResultContract<Unit, Uri?>() {
 
     override fun parseResult(resultCode: Int, intent: Intent?): Uri? = intent?.data.takeIf { resultCode == Activity.RESULT_OK }
 
-    /** The picked contact's numbers, one [Contact] each; empty when it has none or can't be read. */
+    /** Returns one [Contact] for each number of the picked contact. Empty when it has no number or can't be read. */
     fun read(context: Context, uri: Uri): List<Contact> = runCatching {
         val out = ArrayList<Contact>()
         context.contentResolver.query(uri, null, null, null, null)?.use { c ->
             fun text(column: String) = c.getColumnIndex(column).takeIf { it >= 0 }?.let(c::getString)
             while (c.moveToNext()) {
-                // The session lists data rows of the kinds asked for; a phone number's is Phone's.
+                // The session lists data rows of the requested kinds. Keep only phone number rows.
                 if (text(ContactsContract.Data.MIMETYPE).let { it != null && it != Phone.CONTENT_ITEM_TYPE }) continue
                 val number = text(Phone.NUMBER)?.trim()?.takeIf { it.isNotEmpty() } ?: continue
                 val name = text(Phone.DISPLAY_NAME_PRIMARY) ?: text(Phone.DISPLAY_NAME) ?: number

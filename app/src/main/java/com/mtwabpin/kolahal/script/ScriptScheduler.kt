@@ -21,7 +21,7 @@ import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 object ScriptScheduler {
-    /** WorkManager's floor for periodic work. */
+    /** The minimum interval WorkManager allows for periodic work. */
     const val MIN_INTERVAL_MIN = 15
     private const val MAX_INLINE_CODE = 8_000
     private const val RECHECK_MS = 6 * 3_600_000L
@@ -29,7 +29,7 @@ object ScriptScheduler {
 
     private fun uniqueName(id: Long) = "script-$id"
 
-    /** Schedules or cancels the interval and daily runs for [script] according to its settings. */
+    /** Schedules or cancels the interval and daily runs for [script], based on its settings. */
     fun sync(context: Context, script: Script) {
         val wm = WorkManager.getInstance(context)
         syncDaily(context, wm, script)
@@ -43,7 +43,7 @@ object ScriptScheduler {
         }
         val minutes = script.intervalMin.coerceAtLeast(MIN_INTERVAL_MIN).toLong()
         val request = PeriodicWorkRequestBuilder<ScriptWorker>(minutes, TimeUnit.MINUTES)
-            // Only a script that goes online waits for a network: a battery log runs offline too.
+            // Only a script that goes online waits for a network. A battery log runs offline too.
             .apply { if (ScriptMeta.goesOnline(script.code)) setConstraints(online()) }
             .setInputData(remoteData(context) {
                 putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
@@ -55,11 +55,11 @@ object ScriptScheduler {
     }
 
     /**
-     * Daily times: an alarm each ([ScriptAlarms]), exact when Kolahal may set exact alarms and
-     * otherwise at most an hour late, which runs the script and sets the next day's. Set again on
-     * every sync: alarms don't survive a reboot, and the next one moves with the clock. Older
-     * versions queued a 24h job per time instead, which waited for a network and, at night, for
-     * Doze: those go.
+     * Daily times. Each time gets an alarm ([ScriptAlarms]) that runs the script and sets the next
+     * day's alarm. The alarm is exact when Kolahal may set exact alarms; otherwise it is at most an
+     * hour late. Alarms are set again on every sync, because they don't survive a reboot and the next
+     * one moves with the clock. Older versions queued a 24h job per time instead. Those jobs waited
+     * for a network and, at night, for Doze, so they are removed.
      */
     private fun syncDaily(context: Context, wm: WorkManager, script: Script) {
         val prefs = context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE)
@@ -73,14 +73,14 @@ object ScriptScheduler {
     }
 
     /**
-     * The `event` of a run at daily [time]: `{ name = "at", time = "23:00" }`, the time it was set
-     * for even when it runs late, so a script with two times can tell them apart.
+     * The `event` of a run at daily [time]: `{ name = "at", time = "23:00" }`. It holds the time the
+     * run was set for, even when it runs late, so a script with two times can tell them apart.
      */
     fun atEvent(time: String): String = Json.stringify(mapOf("name" to "at", "time" to time))
 
     /**
-     * A daily [time]'s run in the queue, when it can't run in the foreground: like a timer's,
-     * waiting for a network only if the script goes online.
+     * Queues the run for a daily [time] when it can't run in the foreground. Like a timer's run, it
+     * waits for a network only if the script goes online.
      */
     fun runScheduled(context: Context, script: Script, time: String) {
         WorkManager.getInstance(context).enqueue(
@@ -102,13 +102,13 @@ object ScriptScheduler {
 
     private fun dailyTag(id: Long) = "script-$id-daily"
 
-    /** "8:00" / "08:00" -> "08:00", for an `@at` line and `script at` alike; null for anything that isn't a valid clock time. */
+    /** "8:00" / "08:00" -> "08:00", for an `@at` line and for `script at`. Null for anything that isn't a valid clock time. */
     fun normalizeTime(raw: String): String? = runCatching {
         val parts = raw.trim().split(':').map { it.toInt() }
         if (parts.size == 2) LocalTime.of(parts[0], parts[1]).toString() else null
     }.getOrNull()
 
-    /** Milliseconds from now until the next local [hhmm] ("HH:mm"), DST-aware. */
+    /** Milliseconds from now until the next local [hhmm] ("HH:mm"). Handles DST. */
     fun millisUntil(hhmm: String, now: ZonedDateTime = ZonedDateTime.now()): Long {
         val time = LocalTime.parse(normalizeTime(hhmm) ?: hhmm)
         var next = now.toLocalDate().atTime(time).atZone(now.zone)
@@ -117,20 +117,20 @@ object ScriptScheduler {
     }
 
     /**
-     * [syncAll] if the last was over [RECHECK_MS] ago: sets each script's timers again, in case any
-     * went while the launcher ran for days.
+     * Runs [syncAll] if the last one was more than [RECHECK_MS] ago. It sets each script's timers
+     * again, in case any were lost while the launcher ran for days.
      */
     fun syncAllIfDue(context: Context) {
         val last = context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE).getLong(KEY_SYNCED_AT, 0L)
         if (System.currentTimeMillis() - last !in 0 until RECHECK_MS) {
             syncAll(context)
-            // Each event run is appended to its script's chain, and WorkManager reads the whole chain
-            // to append the next; finished runs are otherwise only cleared when home's process starts.
+            // Each event run is added to its script's chain, and WorkManager reads the whole chain to add
+            // the next one. Otherwise, finished runs are cleared only when home's process starts.
             WorkManager.getInstance(context).pruneWork()
         }
     }
 
-    /** Re-syncs every script; one bad script can't stop the rest. */
+    /** Syncs every script again. One bad script can't stop the rest. */
     fun syncAll(context: Context) {
         context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE).edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
         val wm = WorkManager.getInstance(context)
@@ -166,13 +166,13 @@ object ScriptScheduler {
         )
     }
 
-    /** The `event` of a run a pinned status line asks for with `refresh`. */
+    /** The `event` of a run that a pinned status line asks for with `refresh`. */
     const val REFRESH = "refresh"
 
     /**
-     * A pinned status line's run again (`status(text, { refresh = s })`), which home asks for while
-     * it shows the line. Never two at once: while one waits or runs (for a network, say), the next is
-     * dropped.
+     * Runs a pinned status line's script again (`status(text, { refresh = s })`). Home asks for this
+     * while it shows the line. There are never two at once: while one waits (for a network, say) or
+     * runs, the next one is dropped.
      */
     fun refreshPinned(context: Context, script: Script) {
         WorkManager.getInstance(context).enqueueUniqueWork(
@@ -191,12 +191,12 @@ object ScriptScheduler {
     }
 
     /**
-     * One non-interactive run triggered by a device event (`@on`). [payload] becomes the script's
-     * `event` global; it is skipped in the worker if the script was disabled meanwhile.
+     * One non-interactive run started by a device event (`@on`). [payload] becomes the script's
+     * `event` global. The worker skips the run if the script was disabled in the meantime.
      */
     fun runForEvent(context: Context, scriptId: Long, payload: Map<String, Any?>) {
-        // Too big for WorkManager's data (a long notification in a script with many bytes per
-        // character): its texts are cut shorter until it fits, rather than the run dropped.
+        // If the payload is too big for WorkManager's data (a long notification in a script with many bytes
+        // per character), its texts are cut shorter until it fits. The run is not dropped.
         var trimmed = payload
         var json = Json.stringify(trimmed)
         var cap = 2000
@@ -206,8 +206,8 @@ object ScriptScheduler {
             json = Json.stringify(trimmed)
         }
         if (storedSize(json) > MAX_INLINE_CODE) return
-        // One script's event runs one after another: never side by side with itself (its store,
-        // rss.fresh's seen items), and a burst of events queues instead of piling up runs.
+        // One script's event runs happen one after another, never side by side with itself (its store,
+        // rss.fresh's seen items). A burst of events queues instead of piling up runs.
         WorkManager.getInstance(context).enqueueUniqueWork(
             "script-$scriptId-events",
             androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE,
@@ -223,8 +223,9 @@ object ScriptScheduler {
     }
 
     /**
-     * [text]'s size as WorkManager stores it (Java's modified UTF-8: a character outside the basic
-     * plane is two of 3 bytes each, an emoji 6), which its 10 KB cap counts; plain UTF-8 undercounts.
+     * The size of [text] as WorkManager stores it, which is what its 10 KB cap counts. WorkManager uses
+     * Java's modified UTF-8: a character outside the basic plane takes two units of 3 bytes each, so
+     * an emoji takes 6. Plain UTF-8 counts too few bytes.
      */
     internal fun storedSize(text: String): Int = text.sumOf { c ->
         when (c.code) {
@@ -251,11 +252,11 @@ object ScriptScheduler {
         return true
     }
 
-    /** Set on the thread running a command a script sent with launcher.run ([sentByScript]). */
+    /** Set on the thread that runs a command a script sent with launcher.run ([sentByScript]). */
     private val byScript = ThreadLocal<Boolean>()
 
     /**
-     * Runs [block], a command a script sent with launcher.run: the runs it starts are marked
+     * Runs [block], a command that a script sent with launcher.run. The runs it starts are marked
      * ([ScriptWorker.KEY_BY_SCRIPT]) and may not send commands themselves.
      */
     fun <T> sentByScript(block: () -> T): T {
@@ -271,7 +272,7 @@ object ScriptScheduler {
     /** Whether this thread is running a command a script sent ([sentByScript]). */
     internal val runningSentCommand: Boolean get() = byScript.get() == true
 
-    /** A run a typed command starts: its lines are that command's output ([com.mtwabpin.kolahal.data.LogContext.FROM]). */
+    /** Marks a run that a typed command starts. Its lines are that command's output ([com.mtwabpin.kolahal.data.LogContext.FROM]). */
     private fun Data.Builder.fromCommand(context: Context) {
         LogRepository.get(context).currentCause?.let { putLong(ScriptWorker.KEY_FROM, it) }
     }

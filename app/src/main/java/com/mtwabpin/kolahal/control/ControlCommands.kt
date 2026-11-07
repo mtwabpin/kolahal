@@ -24,8 +24,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Media and device-toggle commands (`media`, `torch`, `volume`, `ring`, `dnd`, `brightness`,
- * `rotate`, `wifi`, `bt`, `nfc`, `data`, `screen-timeout`, `toggles`). Kept out of
- * CommandProcessor so it stays a one-line dispatch there.
+ * `rotate`, `wifi`, `bt`, `nfc`, `data`, `screen-timeout`, `toggles`). They live here, outside
+ * CommandProcessor, so CommandProcessor needs only one line to call them.
  */
 class ControlCommands(context: Context) : CommandGroup(context) {
     private val media = MediaRepository.get(context)
@@ -135,7 +135,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             .onFailure { error("Torch: ${it.message ?: "camera in use"}") }
     }
 
-    /** Torch state from [CameraManager.TorchCallback]; registered on first use. */
+    /** Torch state from [CameraManager.TorchCallback]. The callback is registered on first use. */
     private class Torch(context: Context) {
         val camera: CameraManager = context.getSystemService(CameraManager::class.java)
         val cameraId: String? = runCatching {
@@ -162,7 +162,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             }
         }
 
-        /** The callback reports the current state right after registering; wait briefly for it. */
+        /** The callback reports the current state right after it is registered, so wait briefly for it. */
         fun isOn(): Boolean {
             if (on == null && Looper.myLooper() != Looper.getMainLooper()) first.await(500, TimeUnit.MILLISECONDS)
             return on == true
@@ -256,8 +256,8 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         if (needPolicyAccess("dnd")) return
         runCatching { notifications.setInterruptionFilter(filter) }
             .onSuccess {
-                // Since Android 15, Kolahal turns off only its own Do Not Disturb: one turned on
-                // elsewhere (quick settings, a schedule, another app) stays on.
+                // Since Android 15, Kolahal can turn off only the Do Not Disturb that it turned on.
+                // Do Not Disturb turned on elsewhere (quick settings, a schedule, another app) stays on.
                 if (filter == NotificationManager.INTERRUPTION_FILTER_ALL && !turnsOff()) {
                     error("Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there", LogContext.of(LogContext.RUN to "dnd"))
                 } else {
@@ -267,7 +267,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             .onFailure { error("Do Not Disturb: ${it.message}") }
     }
 
-    /** Whether Do Not Disturb is off within a second: Android applies a change a moment after it's asked. */
+    /** True when Do Not Disturb turns off within a second. Android applies a change a moment after the request. */
     private fun turnsOff(): Boolean {
         val until = System.currentTimeMillis() + DND_SETTLE_MS
         while (notifications.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) {
@@ -347,7 +347,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         info("Screen timeout ${TimeSpec.formatDuration(ms / 1000)}")
     }
 
-    // ---- radios: Android only lets apps open the panel / settings page ---------------------
+    // ---- radios: Android lets apps only open the panel or settings page --------------------
 
     private fun wifi() = open(
         Intent(if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_WIFI else Settings.ACTION_WIFI_SETTINGS),
@@ -376,7 +376,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         null -> "?"
     }
 
-    /** One line per toggle; tapping a line toggles it (or opens its panel). */
+    /** Shows one line per toggle. A tap on a line toggles it, or opens its panel. */
     private fun toggles() {
         fun row(name: String, value: String, run: String, hint: String) =
             out(name.padEnd(15) + value, LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED)
@@ -406,7 +406,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     }
 
     companion object {
-        /** How long `dnd off` waits for Android to apply it before saying it stayed on. */
+        /** How long `dnd off` waits for Android to apply it, before it reports that DND stayed on. */
         private const val DND_SETTLE_MS = 1_000L
 
         val SPECS = listOf(
@@ -428,10 +428,13 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             CommandSpec("toggles", "toggles", "Status of every toggle (tap one to change it)"),
         )
 
-        /** Names this class handles (including aliases not listed in help). */
+        /** Command names this class handles, including aliases that help doesn't list. */
         val NAMES = SPECS.map { it.name }.toSet() + setOf("vol", "bluetooth")
 
-        /** Change device or media state: never run by a prefix, only as a whole line such as `torch on` (InstantRun). */
+        /**
+         * Commands that change device or media state. A prefix never runs them. They run only as a
+         * whole line, such as `torch on` (InstantRun).
+         */
         val SENSITIVE = setOf("media", "mp", "next", "prev", "torch", "volume", "vol", "ring", "dnd", "brightness", "rotate", "screen-timeout")
 
         private val ARGS = mapOf(
@@ -446,7 +449,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             "screen-timeout" to listOf("15s", "30s", "1m", "2m", "5m", "10m", "30m"),
         )
 
-        /** Argument completions for the suggestion strip: (label, replacement line). */
+        /** Argument completions for the suggestion strip, as (label, replacement line) pairs. */
         fun suggest(head: String, arg: String): List<Pair<String, String>> =
             ARGS[head].orEmpty().filter { it.startsWith(arg, ignoreCase = true) && !it.equals(arg, ignoreCase = true) }.map { it to "$head $it" }
     }

@@ -197,6 +197,9 @@ class CompleterReviewTest {
         override val scripts = listOf(
             Script(1, "ona", com.mtwabpin.kolahal.data.ScriptLang.LUA, "-- @command\n-- @desc Says hi\nreturn 1", 0, true, false, null, null),
             Script(2, "offb", com.mtwabpin.kolahal.data.ScriptLang.LUA, "return 1", 0, false, false, null, null),
+            // Both keep a status line: the first is pinned to the top, the second isn't.
+            Script(3, "pinc", com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('x')", 0, true, false, null, null, access = mapOf(com.mtwabpin.kolahal.script.ScriptAccess.HEADER to true)),
+            Script(4, "stad", com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('y')", 0, true, false, null, null),
         )
         override val commandNames = listOf("ona")
         override val scriptUsages = emptyMap<String, String>()
@@ -276,7 +279,10 @@ class CompleterReviewTest {
         assertEquals(listOf("script get moon"), lines("script get m"))
         assertTrue(lines("script ls ").isEmpty())
         assertEquals(listOf("script on offb"), lines("script on "))
-        assertEquals(listOf("script off ona"), lines("script off "))
+        assertEquals(listOf("script off ona", "script off pinc", "script off stad"), lines("script off "))
+        // Only what the command can act on: unpin offers the pinned script; pin, the ones with a status line not pinned yet.
+        assertEquals(listOf("script unpin pinc"), lines("script unpin "))
+        assertEquals(listOf("script pin stad"), lines("script pin "))
         assertTrue(lines("script notify ona ").containsAll(listOf("script notify ona on", "script notify ona off")))
     }
 

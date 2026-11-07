@@ -7,30 +7,30 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 
 /**
- * What a script may do, as the user set it: the script's Access switches in the Scripts screen, or
- * `script allow|deny <name> <what>`. Three kinds of items:
- * - [ScriptMeta.USES], given by declaring them with `@uses`: off until allowed. Switching a script on
- *   allows the ones not decided yet (the Scripts screen asks first, with everything on); code from
- *   outside that declares more leaves the new ones off.
+ * What a script may do, as the user set it. The user sets this with the script's Access switches in
+ * the Scripts screen, or with `script allow|deny <name> <what>`. There are four kinds of items:
+ * - [ScriptMeta.USES]: the script declares them with `@uses`. Each is off until allowed. Switching
+ *   a script on allows the ones not decided yet (the Scripts screen asks first, with everything on).
+ *   If code from outside declares more, the new ones stay off.
  * - [INTERNET]: a script whose code uses it ([ScriptMeta.usesInternet]) has it unless it is switched
- *   off; one that doesn't never has it, so the switches shown are all it may do.
+ *   off. A script that doesn't use it never has it, so the switches shown are all it may do.
  * - [HEADER], pinned at the top: a script that sets a status line ([ScriptMeta.setsStatus]) shows it
- *   at the top of home only once you pin it (`script pin`, its menus); nothing pins itself.
+ *   at the top of home only after you pin it (`script pin`, or its menus). No script pins itself.
  * - Each `@on` event: on unless switched off.
- * Switched off, a script gets an empty answer where that is honest (no apps, no notifications, no
- * clipboard) and stops where it isn't (internet).
- * Posting notifications keeps its own switch ([com.mtwabpin.kolahal.data.Script.notify]), shown
+ * When an item is off, the script gets an empty answer where that is honest (no apps, no
+ * notifications, no clipboard). Where it isn't honest (internet), the script stops.
+ * Posting notifications has its own switch ([com.mtwabpin.kolahal.data.Script.notify]). It is shown
  * for a script that calls `notify` ([ScriptMeta.postsNotifications]).
  */
 object ScriptAccess {
     const val INTERNET = "internet"
     const val HEADER = "header"
 
-    /** [INTERNET] and [HEADER], for the ones [code] uses. */
+    /** Which of [INTERNET] and [HEADER] the [code] uses. */
     internal fun base(code: String): List<String> =
         listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }, HEADER.takeIf { ScriptMeta.setsStatus(code) })
 
-    /** Everything a script with [code] can be switched for, in display order: only what it uses. */
+    /** Everything a script with [code] can be switched for, in display order. Only what it uses is included. */
     fun items(code: String): List<String> = base(code) + ScriptMeta.uses(code) + ScriptMeta.events(code)
 
     fun label(item: String): String = when (item) {
@@ -58,8 +58,8 @@ object ScriptAccess {
     }
 
     /**
-     * A script's access: what its code declares with `@uses`, which of [INTERNET] and [HEADER] it
-     * uses ([base]), and what the user decided. [HEADER] is off until pinned.
+     * A script's access. It combines what its code declares with `@uses`, which of [INTERNET] and
+     * [HEADER] it uses ([base]), and what the user decided. [HEADER] is off until pinned.
      */
     class Grants(val declared: Set<String>, private val values: Map<String, Boolean>, private val base: Set<String> = setOf(INTERNET, HEADER)) {
         fun allows(item: String): Boolean = when (item) {
@@ -69,13 +69,13 @@ object ScriptAccess {
             else -> values[item] != false
         }
 
-        /** Declared, but not allowed or switched off yet: what switching the script on asks for. */
+        /** Items that are declared but not yet allowed or switched off. Switching the script on asks for these. */
         val undecided: List<String> get() = declared.filter { it !in values }
     }
 
     fun grants(code: String, values: Map<String, Boolean>) = Grants(ScriptMeta.uses(code), values, base(code).toSet())
 
-    /** [values] with everything [code] declares and nobody decided yet allowed. */
+    /** [values], plus everything [code] declares that nobody has decided yet, set to allowed. */
     fun allowUndecided(code: String, values: Map<String, Boolean>): Map<String, Boolean> =
         values + ScriptMeta.uses(code).filter { it !in values }.associateWith { true }
 
@@ -86,8 +86,9 @@ object ScriptAccess {
     fun encode(values: Map<String, Boolean>): String? = values.takeIf { it.isNotEmpty() }?.let(Json::stringify)
 
     /**
-     * A switched-on script with an `@secret` that has no value it may use: a line to set it, one per
-     * name. A value set for other sites than its line names now waits to be set again.
+     * For a switched-on script, logs a line for each `@secret` that has no usable value. The line asks
+     * the user to set it. A value that was set for other sites than the ones the line names now must
+     * be set again.
      */
     fun askForSecrets(context: Context, s: Script) {
         if (!s.enabled) return
@@ -101,15 +102,15 @@ object ScriptAccess {
     }
 
     /**
-     * A script switched on without the user's go-ahead for what it declares (a timer set in its sheet,
-     * an import): what nobody decided yet stays off, with a line to allow it.
+     * For a script switched on without the user's approval of what it declares (for example a timer
+     * set in its sheet, or an import). Undecided items stay off, and a line asks the user to allow them.
      */
     fun askForNew(context: Context, s: Script) {
         askForSecrets(context, s)
         if (s.enabled) askToAllow(context, s.name, s.grants.undecided)
     }
 
-    /** "[name] asks for [items] — tap to allow": one tap allows them all ([what] words the line). */
+    /** Logs "[name] asks for [items] — tap to allow". One tap allows them all. [what] is the verb in the line. */
     fun askToAllow(context: Context, name: String, items: List<String>, what: String = "requests") {
         if (items.isEmpty()) return
         LogRepository.get(context).add(

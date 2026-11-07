@@ -43,9 +43,11 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import java.text.SimpleDateFormat
 
 /**
- * A log search (`/words` at the prompt) in place of the log: the lines that match, newest at the
- * bottom as in the log, with the words marked and each line's time. Tapping one shows it in the log;
- * long-press and swipes work as they do there.
+ * A log search (`/words` at the prompt), shown in place of the log.
+ * - It lists the matching lines, newest at the bottom, as in the log.
+ * - The search words are marked, and each line shows its time.
+ * - Tapping a line shows it in the log.
+ * - Long press and swipes work as they do in the log.
  */
 @Composable
 fun LogSearchResults(
@@ -66,7 +68,7 @@ fun LogSearchResults(
     val reversed = remember(search.rows) { search.rows.asReversed() }
     val today = rememberToday()
     val state = rememberLazyListState()
-    // Other words start again at the newest match, beside the prompt.
+    // When the words change, scroll back to the newest match, next to the prompt.
     LaunchedEffect(search.words) { state.scrollToItem(0) }
     LazyColumn(
         state = state,
@@ -114,8 +116,8 @@ fun LogSearchResults(
 }
 
 /**
- * Where words the line doesn't show were found: its link, or where it came from. A line found by
- * its link alone would otherwise give no sign of why.
+ * Shows where the search words that the line's text doesn't contain were found: its link or its
+ * source. Without this, a line found only by its link would not show why it matched.
  */
 @Composable
 private fun FoundIn(entry: LogEntry, words: List<String>, modifier: Modifier) {
@@ -137,7 +139,7 @@ private fun FoundIn(entry: LogEntry, words: List<String>, modifier: Modifier) {
     )
 }
 
-/** Under the log while searching: how many lines match, or how to search when nothing is typed yet. */
+/** Shown under the log while searching: how many lines match, or how to search if nothing is typed yet. */
 @Composable
 fun LogSearchSummary(search: TerminalViewModel.LogSearch, modifier: Modifier = Modifier) {
     val shown = remember(search.rows) { search.rows.count { it is LogRow.Entry } }
@@ -156,7 +158,7 @@ fun LogSearchSummary(search: TerminalViewModel.LogSearch, modifier: Modifier = M
     )
 }
 
-/** Above the prompt while `log only …` is on: what the log shows, and ✕ to show every line again. */
+/** Shown above the prompt while `log only …` is on: what the log shows, and ✕ to show every line again. */
 @Composable
 fun LogFilterBar(filter: LogFilter, count: Int, onClear: () -> Unit, modifier: Modifier = Modifier) {
     Row(

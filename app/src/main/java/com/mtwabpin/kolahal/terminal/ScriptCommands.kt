@@ -23,13 +23,13 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
 
 /**
- * `script …`, `status`, and `@command` scripts run by name. Kept out of [CommandProcessor] so
- * the dispatcher only needs one line per command.
+ * The `script …` and `status` commands, and `@command` scripts run by their name.
+ * They live outside [CommandProcessor], so the dispatcher needs only one line per command.
  */
 class ScriptCommands(
     context: Context,
     private val ui: TerminalUi,
-    /** Runs slow work (folder sync) off the serial command queue; failures are logged. */
+    /** Runs slow work (folder sync) outside the serial command queue. Failures are logged. */
     private val background: (label: String, block: () -> Unit) -> Unit,
 ) : CommandGroup(context) {
     private val scripts = ScriptRepository.get(context)
@@ -37,10 +37,10 @@ class ScriptCommands(
     private val changes = ScriptChanges(context)
 
 
-    /** Runs a `@command` script named [name]; returns null if there is none. */
+    /** Runs the `@command` script named [name]. Returns null if there is no such script. */
     fun runCommand(name: String, args: List<String>): Unit? {
         val script = scripts.byName(name)?.takeIf { ScriptMeta.isCommand(it.code) } ?: return null
-        // A switched-off script (an import not reviewed yet) doesn't run by its name.
+        // A script that is off (for example, an import not reviewed yet) doesn't run by its name.
         if (!script.enabled) {
             logs.add(LogKind.ERROR, "${script.name} is off — tap to turn it on", ctx = LogContext.of(LogContext.RUN to "script on ${script.name}"))
             return Unit
@@ -50,14 +50,14 @@ class ScriptCommands(
     }
 
     /**
-     * `status` lists scripts' status lines, the pinned ones marked; `status clear <name|all>` removes
-     * them.
+     * - `status` lists the scripts' status lines and marks the pinned ones.
+     * - `status clear <name|all>` removes them.
      */
     fun status(args: List<String>) {
         val all = StatusLines.all(context)
         when (args.firstOrNull()) {
             null, "ls" -> {
-                // Lines of scripts that are on; those pinned show at the top of home.
+                // Only lines of scripts that are on. The pinned ones show at the top of home.
                 val on = scripts.all().filter { it.enabled }.associateBy { it.name }
                 val lines = all.filter { it.name in on }
                 if (lines.isEmpty()) return info("No status lines — scripts set them with status(text)")
@@ -105,8 +105,8 @@ class ScriptCommands(
                 val lib = ScriptLibrary(context)
                 val entry = lib.entries.firstOrNull { it.name == target?.lowercase()?.substringBefore('.') }
                     ?: return error("No library script '${target.orEmpty()}' — 'script lib' lists them")
-                // Updating an unedited copy is safe; a copy with your changes (or your own script of
-                // that name) is only replaced when asked.
+                // Updating an unedited copy is safe. A copy with your changes (or your own script with
+                // that name) is replaced only when you ask for it.
                 if ("--replace" !in args && lib.state(entry, scripts.all()) == ScriptLibrary.State.MODIFIED) {
                     return error(
                         "Your ${entry.name}.${entry.lang.ext} differs from the library version: " +
@@ -117,7 +117,7 @@ class ScriptCommands(
                 info("Installed ${s.name}.${s.lang.ext}" + (if (entry.command) " — run it as '${s.name}'" else "") +
                     (if (s.intervalMin > 0) " · every ${CommandParsing.formatInterval(s.intervalMin)}" else ""), scriptCtx(s))
             }
-            // Folder sync can be slow on SAF providers; run it off the serial command queue.
+            // Folder sync can be slow on SAF providers, so run it outside the serial command queue.
             "export" -> background("export") { info("Exported ${folder.export()} scripts + kolahal.json") }
             "import" -> background("import") {
                 val r = folder.import()
@@ -135,7 +135,7 @@ class ScriptCommands(
                 ui.openEditor(script)
             }
             "edit" -> withScript(target) { ui.openEditor(it) }
-            // The words after its name are its args, as when it runs by name.
+            // The words after the script name are its args, as when it runs by its name.
             "run" -> withScript(target) {
                 ScriptScheduler.runNow(context, it, args.drop(2))
                 info("Running ${it.name}…", scriptCtx(it))
@@ -171,10 +171,10 @@ class ScriptCommands(
             }
             "on", "off", "enable", "disable" -> withScript(target) { s ->
                 val enabled = sub == "on" || sub == "enable"
-                // Typed by you: the go-ahead for what it declares, said in the next line.
+                // You typed this, so it also allows what the script declares. The next line says what that is.
                 changes.enabled(s, enabled)
                 info("${s.name}: ${if (enabled) "turned on" else "turned off"}", scriptCtx(s))
-                // Switching a script on allows what it declares and nobody decided yet: say what it may use.
+                // Switching a script on allows what it declares that nobody has decided yet. Say what it may use.
                 val grants = scripts.byId(s.id)?.grants
                 val uses = grants?.declared.orEmpty().filter { grants?.allows(it) == true }
                 if (enabled && uses.isNotEmpty()) {
@@ -182,7 +182,7 @@ class ScriptCommands(
                 }
                 if (enabled) scripts.byId(s.id)?.let { ScriptAccess.askForSecrets(context, it) }
             }
-            // Network: off the serial command queue.
+            // This uses the network, so run it outside the serial command queue.
             "get" -> background("script get") { getShared(args.drop(1)) }
             "secret", "secrets" -> withScript(target) { s -> secret(s, args.drop(2)) }
             "set", "option", "options" -> withScript(target) { s -> option(s, args.drop(2)) }
@@ -215,7 +215,8 @@ class ScriptCommands(
                 )
             }
             "cat", "show" -> withScript(target) { s ->
-                // "Copy text" on the first line copies the script; on every line it made each row as big as the code.
+                // "Copy text" on the first line copies the whole script. Only the first line has it:
+                // on every line, each row would be as big as the code.
                 val at = System.currentTimeMillis()
                 logs.addAll(s.code.lines().mapIndexed { i, l ->
                     val ctx = if (i == 0) LogContext.of(LogContext.COPY to s.code) + LogContext.ALIGNED else LogContext(LogContext.ALIGNED)
@@ -223,14 +224,16 @@ class ScriptCommands(
                 })
             }
             "diff" -> withScript(target) { s -> diff(s) }
-            // Every subcommand completion offers, not the catalog's short `script <sub> <name>`.
+            // List every subcommand that completion offers, not the catalog's short `script <sub> <name>`.
             else -> error("Usage: script [${SUBCOMMANDS.joinToString("|")}] <name>")
         }
     }
 
     /**
-     * `script get [<name>] [--refresh] [--replace]`: the scripts shared in kolahal-scripts, or one
-     * installed (switched on, allowed what it declares, as `script on` does) or updated.
+     * `script get [<name>] [--refresh] [--replace]`:
+     * - without a name, lists the scripts shared in kolahal-scripts;
+     * - with a name, installs or updates that script. A new install is switched on and allowed what
+     *   it declares, as `script on` does.
      */
     private fun getShared(args: List<String>) {
         val catalog = ScriptCatalog(context)
@@ -287,9 +290,12 @@ class ScriptCommands(
     }
 
     /**
-     * `script secret <name>` lists its `@secret` names; `script secret <name> <NAME>` opens a masked
-     * box for the value; `--clear` forgets it. A value typed on the line works too, but that line
-     * isn't logged ([carriesSecret]) and the keyboard may have seen it, so the box is the way.
+     * - `script secret <name>` lists the script's `@secret` names.
+     * - `script secret <name> <NAME>` opens a masked box for the value.
+     * - `--clear` forgets the value.
+     *
+     * A value typed on the line also works. That line isn't logged ([carriesSecret]), but the
+     * keyboard may have seen it, so the box is the better way.
      */
     private fun secret(s: Script, args: List<String>) {
         val declared = ScriptMeta.secrets(s.code)
@@ -326,7 +332,7 @@ class ScriptCommands(
         }
     }
 
-    /** `script set <name> [<option> [<value…>|--reset]]`: its `@option`s and their values, or one of them changed. */
+    /** `script set <name> [<option> [<value…>|--reset]]`: lists the script's `@option`s and their values, or changes one. */
     private fun option(s: Script, args: List<String>) {
         val declared = ScriptMeta.options(s.code)
         val store = ScriptOptions(context)
@@ -366,7 +372,7 @@ class ScriptCommands(
         }
     }
 
-    /** `script access <name>`: each switch, on or off, and where it comes from; tap one to change it. */
+    /** `script access <name>`: lists each switch, whether it is on or off, and where it comes from. Tap one to change it. */
     private fun listAccess(s: Script) {
         val grants = s.grants
         val items = ScriptAccess.items(s.code)
@@ -390,7 +396,7 @@ class ScriptCommands(
                 ) + LogContext.ALIGNED,
             )
         }
-        // As the Scripts screen groups them: internet and pinning, notifications, what it
+        // Same order as on the Scripts screen: internet and pinning, notifications, what the script
         // declares with @uses, and last the events it runs on.
         val (events, access) = items.partition { it in ScriptMeta.EVENTS }
         val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
@@ -404,7 +410,7 @@ class ScriptCommands(
         events.forEach(::row)
     }
 
-    /** `script allow|deny <name> <what…>`; `notify` is the notifications switch. */
+    /** `script allow|deny <name> <what…>`. `notify` is the notifications switch. */
     private fun setAccess(s: Script, items: List<String>, on: Boolean) {
         val all = ScriptAccess.items(s.code)
         items.firstOrNull { it != "notify" && it !in all }?.let { item ->
@@ -417,7 +423,7 @@ class ScriptCommands(
         for (item in items) {
             if (item == "notify") scripts.setNotify(s.id, on) else scripts.setAccess(s.id, item, on)
         }
-        // Pinned or unpinned: the top of home shows it now.
+        // After pinning or unpinning, update the top of home now.
         if (ScriptAccess.HEADER in items) logs.onStatusChanged()
         info("${s.name}: " + items.joinToString(", ") { "$it ${if (on) "on" else "off"}" }, scriptCtx(s))
         if (on && "notify" in items && !Notifier.canPost(context)) ui.requestNotificationPermission()
@@ -448,7 +454,7 @@ class ScriptCommands(
         }
     }
 
-    /** Scripts with `@on` lines and the events they run on. */
+    /** Lists the scripts with `@on` lines and the events they run on. */
     private fun listTriggers() {
         val subscribed = scripts.all().mapNotNull { s ->
             val events = ScriptMeta.events(s.code)
@@ -478,10 +484,13 @@ class ScriptCommands(
     private fun scriptCtx(s: Script) = LogContext.of(LogContext.SCRIPT to s.name)
 
     /**
-     * `script diff <name>`: a library script against the library version, as Compare shows it in the
-     * script manager: the changed lines with three unchanged ones around each, those only in the
-     * library version red (-) and those only in yours in the accent (+), the rest counted. Copy text
-     * on its first line copies it as a plain diff; the last line says how to take the library version.
+     * `script diff <name>`: compares a library script with the library version, like Compare in the
+     * script manager.
+     * - It shows the changed lines, with three unchanged lines around each.
+     * - Lines only in the library version are red (-). Lines only in yours use the accent colour (+).
+     * - Other unchanged lines are only counted.
+     * - "Copy text" on the first line copies it as a plain diff.
+     * - The last line says how to get the library version.
      */
     private fun diff(s: Script) {
         val library = ScriptLibrary(context)
@@ -519,7 +528,7 @@ class ScriptCommands(
             }
         }
         logs.addAll(out)
-        // Back to the library version: an edited copy only when asked, as Reset in the script manager.
+        // How to go back to the library version. An edited copy is replaced only when asked, like Reset in the script manager.
         if (library.state(entry, scripts.all()) == ScriptLibrary.State.MODIFIED) {
             info("'script install ${s.name} --replace' restores the library version (export yours first to keep it)", scriptCtx(s))
         } else {
@@ -534,15 +543,15 @@ class ScriptCommands(
     }
 
     companion object {
-        /** `script secret <name> <NAME> <value>`: a line holding a secret value, which is never logged. */
+        /** True for `script secret <name> <NAME> <value>`: a line that contains a secret value. Such a line is never logged. */
         fun carriesSecret(line: String): Boolean {
-            // Split as the command will be, so no kind of space hides a fifth word.
+            // Split the line the same way the command will, so no kind of space can hide a fifth word.
             val words = CommandParsing.tokenize(line.trim())
             return words.size >= 5 && words[0].lowercase() in setOf("script", "scripts") &&
                 words[1].lowercase() in setOf("secret", "secrets") && words[4] != "--clear"
         }
 
-        /** What follows `script`, for completion. */
+        /** The subcommands that can follow `script`, for completion. */
         val SUBCOMMANDS = listOf("ls", "lib", "install", "new", "edit", "run", "every", "at", "notify", "on", "off", "get", "access", "allow", "deny", "pin", "unpin", "secret", "set", "triggers", "mv", "rm", "cat", "diff", "dir", "export", "import")
     }
 }

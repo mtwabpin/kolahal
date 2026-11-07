@@ -13,82 +13,113 @@ import selectorOpen from '../../../assets/parts/selector-open.png';
 
 <Image src={terminal} alt="The Kolahal home screen: the header with clock, date, alarm, todos and battery, a pinned script's line, feed lines and a unit conversion in the log, and the prompt" class="shot shot-single" width={320} />
 
-The home screen has four parts, from top to bottom: the **header** (with the **pinned header** under
-it when something is in it), the **log**, the **suggestions**, and the **prompt** (`$`), with the
-**key bar** below it while you type.
-[Parts of the app](/getting-started/parts/) shows each one, numbered on the screen.
+The home screen has four parts, from top to bottom:
+
+1. the **header**, with the **pinned header** under it when it has something to show
+2. the **log**
+3. the **suggestions**
+4. the **prompt** (`$`), with the **key bar** below it while you type
+
+[Parts of the app](/getting-started/parts/) shows each part, numbered on the screen.
 
 ## The prompt
 
-Type a command, or any part of an app name, and press Enter.
+Type a command, or any part of an app name, and press Enter. Kolahal reads what you type in this order:
 
-- **Commands** come first: `help` lists them all, grouped, and `help todo` shows one. See the [command reference](/reference/commands/).
-- **Aliases** you defined with `alias m = open maps` expand before anything else.
-- **Script commands** are scripts marked [`@command`](/scripting/overview/#command-scripts). They run by name with arguments.
-- **Anything else is an app name.** Enter launches the best match, which is the highlighted first
-  suggestion chip. More precisely:
-  - an exact label match launches;
-  - if only one app matches, it launches (`launch.single`);
-  - if the top match starts with what you typed, it launches (`launch.top`);
-  - otherwise you get a grid of up to 12 matching apps to tap.
+- **Commands** come first. `help` lists all commands in groups, and `help todo` shows one command. See the [command reference](/reference/commands/).
+- **Aliases** expand before anything else. You define them like this: `alias m = open maps`.
+- **Script commands** are scripts marked [`@command`](/scripting/overview/#command-scripts). You run them by name, with arguments.
+- **Anything else is an app name.** Enter opens the best match, which is the highlighted first
+  suggestion. In detail:
+  - If an app's label matches exactly, it opens.
+  - If only one app matches, it opens (`launch.single`).
+  - If the top match starts with what you typed, it opens (`launch.top`).
+  - If not, you get a grid of up to 12 matching apps. Tap one to open it.
 
-  Accents are ignored (`cafe` finds *Café*). If nothing matches, a typo still finds the app: a wrong, missing or extra letter, or two swapped (`mpas` finds *Maps*; two typos once you've typed eight letters). Apps you open often and recently rank first. Each launch adds 1 to a score that halves every week, so an app you stopped using drops down even if you open it once more.
-- **Instant launch** (`launch.instant`, default `all`): as soon as only one app matches what you typed, it opens without Enter. With apps *Calculator* and *Calendar*, `calc` opens Calculator
-  and `cale` opens Calendar.
-  `launch.instant all` also runs commands that take no arguments, and aliases, this way (`setti`
-  opens settings; `contacts` waits for Enter so you can still type `contacts bob`), and makes a
-  tapped history line run immediately. A line with arguments also runs once it is complete, whether typed, picked from the suggestions or tapped in the log: `torch on`, `dnd off`, `ring silent`, `media pause`. `torch o`, `volume up`
-  (a number could go there instead) and `apps work` (`-l` could follow) wait for Enter.
-  Sensitive commands never run without Enter: `call`, `sms`,
-  `uninstall`, `clear`, `restart`, `lock`, `script`, `config`, `alias`, `work`, `private` and similar.
-  Calls open the dialer, where you confirm, so a tap is enough for them: a contact tapped in the
-  suggestions for `call`, or a `call` line tapped in the log, opens the dialer at once. `launch.instant-letters` (default 2) is how many
-  letters to type first; `launch.instant off` turns it off. The same app in several profiles counts
-  as one match (the copy you use most opens), unless two of those profiles are on: with the work
-  profile running, `gm` opens nothing and suggests both Gmails (Gmail and Gmail [W]) for you to pick.
-- A mistyped command gets a tappable **"did you mean"** that puts the corrected command in the prompt.
+  Matching ignores accents (`cafe` finds *Café*). If nothing matches, Kolahal still finds the app when you make a typo:
+  one wrong, missing or extra letter, or two letters swapped (`mpas` finds *Maps*). After you type eight letters, it allows two typos.
+
+  Apps you open often and recently come first. Each time you open an app, its score goes up by 1. The score halves every week.
+  So an app you stopped using moves down, even if you open it once more.
+- **Instant launch** (`launch.instant`, default `all`): when only one app matches what you typed, it opens without Enter.
+  For example, with the apps *Calculator* and *Calendar*, `calc` opens Calculator and `cale` opens Calendar.
+  - `launch.instant all` also runs aliases and commands that take no arguments in this way. `setti` opens settings.
+    `contacts` waits for Enter, so you can still type `contacts bob`. With `all`, a history line you tap also runs at once.
+  - A line with arguments also runs as soon as it is complete. This works when you type it, pick it from the suggestions or tap it
+    in the log. Examples: `torch on`, `dnd off`, `ring silent`, `media pause`.
+  - Some lines wait for Enter because more could follow: `torch o`, `volume up` (a number could come next) and `apps work` (`-l` could come next).
+  - Sensitive commands never run without Enter: `call`, `sms`, `uninstall`, `clear`, `restart`, `lock`, `script`, `config`,
+    `alias`, `work`, `private` and similar commands.
+  - Calls are an exception: they open the dialer, where you confirm the call. So one tap is enough. If you tap a contact in
+    the suggestions for `call`, or tap a `call` line in the log, the dialer opens at once.
+  - `launch.instant-letters` (default 2) sets how many letters you must type first. `launch.instant off` turns instant launch off.
+  - If the same app is in several profiles, it counts as one match, and the copy you use most opens. But if two of those
+    profiles are on, nothing opens. For example, with the work profile running, `gm` suggests both Gmails (Gmail and Gmail [W]), and you pick one.
+- If you mistype a command, Kolahal shows a **"did you mean"** line. Tap it to put the corrected command in the prompt.
 - `= <expression>` is a [calculator and unit converter](/guides/web-and-calculator/).
 
 ### Suggestions
 
-Suggestions are hidden on an idle home screen and appear while you type (the on-screen keyboard is
-open, or there is text in the prompt); `suggestions.auto off` keeps them always visible.
+On an idle home screen, suggestions are hidden. They appear while you type, that is, while the on-screen keyboard is
+open or there is text in the prompt. `suggestions.auto off` keeps them visible all the time.
 
 The suggestions above the prompt change as you type:
 
-- **Empty prompt**: your [pinned favourites](/guides/apps/#favourites) first, then your most-used apps, ranked by how often and how recently you opened them (each launch counts as 1, halving every week).
-  Off by default; turn it on with `config set suggestions.idle on`.
-- **First word**: up to three matching commands, aliases or script commands, plus matching apps.
-  When Enter would launch an app, that app is the first, highlighted chip, so Enter, Tab and the highlight always pick the same app. After the apps come commands and settings related to what you typed: `flash` suggests `torch`, `silent` suggests `ring`, `music` suggests `media`, and `24` suggests the 24-hour clock setting (as `config set clock.24h`).
+- **Empty prompt**: your [pinned favourites](/guides/apps/#favourites) first, then your most-used apps. Apps are ranked by how
+  often and how recently you opened them (each launch counts as 1, and this halves every week).
+  This is off by default. Turn it on with `config set suggestions.idle on`.
+- **First word**: up to three matching commands, aliases or script commands, and matching apps.
+  When Enter would open an app, that app is the first, highlighted suggestion. So Enter, Tab and the highlight always pick the same app.
+  After the apps come commands and settings related to what you typed. For example, `flash` suggests `torch`, `silent` suggests
+  `ring`, `music` suggests `media`, and `24` suggests the 24-hour clock setting (as `config set clock.24h`).
 - **Arguments**: almost every command suggests what comes next.
   - App names after `open`, `info`, `hide`, `rename`, `pin`, `shortcuts`, `notifs mute` and
-    similar. After `open maps:` you get that app's shortcuts.
-  - Contacts after `call`, `sms` and `contacts`: favourites first, then everyone, even before you
-    type a name. A contact with several numbers shows one row per number, and choosing one fills in
-    that number. In the Play build, the people you've picked ([People](/guides/people/#in-the-play-build)).
+    similar commands. After `open maps:` you see that app's shortcuts.
+  - Contacts after `call`, `sms` and `contacts`: favourites first, then everyone. They appear even before you
+    type a name. A contact with several numbers has one row for each number. Choosing a row fills in
+    that number. In the Play build, you see the people you've picked ([People](/guides/people/#in-the-play-build)).
   - Script names after `script run|edit|…`, keys and values after `config`, theme and font names,
-    feeds after `feed read|rm|…`, aliases after `unalias`, status lines after `status clear`.
-  - The options a command's usage lists, such as `clear history|all`, `torch on|off`,
+    feeds after `feed read|rm|…`, aliases after `unalias`, and status lines after `status clear`.
+  - The options listed in a command's usage, such as `clear history|all`, `torch on|off`,
     `dnd alarms` or `apps work|personal|…`.
-  - Your earlier commands that start with what you typed, so `search ` or `yt ` offers your past
-    queries.
+  - Your earlier commands that start with what you typed. So `search ` or `yt ` offers your past
+    searches.
 
-Command chips start with `$` (`$ maps`), app chips show the app name, and a ✕ at the end of the
-prompt clears it. Tap a chip to use it. Tab (on a hardware keyboard, or on the key bar if you add it) inserts the first one. That chip is filled when Enter would also run it. `suggestions.max` sets the number of chips (default 30).
+**Chips.** Command chips start with `$` (`$ maps`). App chips show the app name. The ✕ at the end of the
+prompt clears it. Tap a chip to use it. Tab inserts the first chip (on a hardware keyboard, or on the key bar if you add Tab there).
+The first chip is filled when Enter would also run it. `suggestions.max` sets the number of chips (default 30).
 
-By default (`suggestions.style list`) the suggestions are a **list** stacked directly above the
-prompt instead of chips: the best match is at the bottom, nearest your thumb, and Tab inserts it.
-When Enter would also run it, it is highlighted with a ⏎: a command typed in full (`clear`, above its
-options `clear history` and `clear all`), or the app Enter launches. When Enter would run the line as typed (`torch ` toggles the torch, and no row shows that), no row is highlighted. Command rows show `$ name` and the command's short
-description, shortened to one line (`suggestions.wrap on` shows all of it); app rows show the profile tag. The list uses at most about 40% of the screen, and never more than the space above the prompt, so the prompt stays visible. It scrolls if there are more rows. Long-press an app row for its actions. `config set suggestions.style chips`
-brings back the chip strip (`suggestions.rows` applies to chips only). In both styles each app's icon appears before its name, and commands show a terminal icon in the same place, so all names line up. **Show app icons** (`suggestions.icons`) turns the icons off. Work and private apps show the system's profile badge.
+**List.** By default (`suggestions.style list`), suggestions are a **list** directly above the
+prompt, not chips.
+
+- The best match is at the bottom, nearest your thumb. Tab inserts it.
+- When Enter would also run the best match, it is highlighted with a ⏎. This happens for a command typed in full (`clear`, shown above its
+  options `clear history` and `clear all`), or for the app that Enter opens.
+- When Enter would run the line as you typed it, no row is highlighted. For example, `torch ` toggles the torch, and no row shows that.
+- Command rows show `$ name` and the command's short description, cut to one line. `suggestions.wrap on` shows the whole description.
+- App rows show the profile tag. Long-press an app row to see its actions.
+- The list uses at most about 40% of the screen, and never more than the space above the prompt, so the prompt stays visible.
+  If there are more rows, the list scrolls.
+
+`config set suggestions.style chips` switches back to chips. `suggestions.rows` applies only to chips.
+
+In both styles, each app's icon appears before its name. Commands show a terminal icon in the same place, so all names line up.
+**Show app icons** (`suggestions.icons`) turns the icons off. Work and private apps show the system's profile badge.
 
 ### App selector
 
-Turn on **Show the app selector** (Settings → App selector, or `config set selector.rail on`) and, while the keyboard is closed, a slim handle appears on an edge of the log. It opens an **app selector** that you use with one thumb, without typing. **Edge** puts it on the right (the default) or the left
-(`selector.side`), **Position on the edge** at the bottom (the default), middle or top
-(`selector.position`), and **Length on the edge** sets how much of the edge it uses (`selector.height`). Keep it away from the back gesture. With gesture navigation, Android lets an app block the back gesture on only 200 dp of an edge, so the selector starts only from the middle 200 dp of that length, where the handle is. At the ends, the back gesture works as usual.
-Once your thumb is down, you can slide over the whole length.
+The **app selector** lets you open apps with one thumb, without typing. To turn it on, turn on **Show the app selector**
+(Settings → App selector, or `config set selector.rail on`). While the keyboard is closed, a slim handle then appears on one edge of the log.
+
+Settings:
+
+- **Edge** (`selector.side`): right (the default) or left.
+- **Position on the edge** (`selector.position`): bottom (the default), middle or top.
+- **Length on the edge** (`selector.height`): how much of the edge it uses.
+
+Keep the selector away from the back gesture. With gesture navigation, Android lets an app block the back gesture on only
+200 dp of an edge. So the selector starts only from the middle 200 dp of its length, where the handle is. At the ends,
+the back gesture works as usual. After your thumb is down, you can slide over the whole length.
 
 <ShotRow
 	items={[
@@ -100,64 +131,119 @@ Once your thumb is down, you can slide over the whole length.
 
 [Parts of the app](/getting-started/parts/#app-selector) names every part of these screens.
 
-- **Touch the edge at the handle.** The home screen dims, and a full-height panel slides in on the other side of the screen, listing *all* your apps in one list:
-  your favourites (★), then everything alphabetically, with small section letters in the
-  margin (`#` holds apps that start with a digit, a symbol or a non-Latin letter), and each app's
-  icon if you turn on the selector's **Show app icons** (`selector.icons`). Its **Row height**
-  (`selector.row-height`, 38 dp) spaces the list out. Its **System font** (`selector.system-font`) shows the list and the letters in the system font instead of the terminal font. Hidden apps are left out, work and private apps show their `[W]` / `[S]` tags and
-  paused profiles are faded. About 20 apps fit on screen at once. With the selector at the bottom of the edge (the
-  default), your favourites come last, at the bottom where your thumb rests; at the middle or the
-  top they come first.
-- **Slide along the edge to a letter.** It moves a letter at a time, with a light vibration for each. Every letter that has apps gets an equal length of the edge, so a letter with a single app is as easy to reach as one with many. The current letter appears large in a bubble beside your thumb, and the letters around it bulge out from the edge, clear of your thumb (the list is narrower while your thumb is down), so you can see which way to go. The list scrolls to that letter's apps and stops, with the first app level with your thumb and the rest below it (moved up only enough to stay on screen). Other letters' apps fade while you slide. Near the ends of the list, the panel moves to keep the apps in place. **Show letters on the edge** (`selector.letters`) shows each letter along the edge when you aren't sliding, in place of the handle, so you can see where to touch.
-- **Only that letter's apps** (`selector.filter`, off by default): the list shows only that letter's apps, beside the bubble, not the whole list scrolled to it.
-- Set **Slide through** (`selector.browse`) to `apps` to move through the whole list by app instead of by letter. Your thumb's position on the edge maps smoothly to the list (top = first app, bottom = last), so small moves give fine control and a long slide covers the alphabet. Every letter gets room along the edge by the square root of its number
-  of apps: a letter with four times the apps gets twice the length. The current app is level with your thumb and magnified (its neighbours a little less), and the bubble shows its letter. Slide slowly to move one app at a time: under about 100 dp per second, the list moves one app for every 10 dp of your slide, with a light vibration for each. Speed up and it catches up with your thumb.
-  (Set these with `config set`: `selector.aim` and `selector.aim-speed`.)
-- **Slide well off the edge, toward the panel,** and the list stops moving: move up or down to pick
-  an app (near the panel's top or bottom it keeps scrolling), then **lift to launch** it. A short vibration marks leaving or returning to the edge, and a lighter one marks each app you pass. Or hold still on an app: its row fills and, after just under a second, the app launches without you lifting your thumb. Moving resets the fill. For an app's actions (the same sheet as long-pressing it), leave the list open and long-press, or turn on [actions while picking](#app-actions-while-picking) to reach them as you pick. To cancel without launching, slide back onto the edge before you lift.
-- **Lift on the edge** and the panel stays open as a normal list (with **Only that letter's apps**, just those apps), with a tapped letter's apps still beside it. It widens almost to the edge, so your thumb can reach every row. Scroll it, tap an app to launch it, long-press for its actions, or slide along the edge again.
-  Tap elsewhere, press Back or wait 4 seconds to close it.
+- **Touch the edge at the handle.** The home screen dims. A full-height panel slides in on the other side of the screen.
+  It lists *all* your apps in one list:
+  - Your favourites (★), then all other apps in alphabetical order.
+  - Small section letters in the margin. `#` holds apps that start with a digit, a symbol or a non-Latin letter.
+  - Each app's icon (the selector's **Show app icons**, `selector.icons`, on by default).
+  - **Row height** (`selector.row-height`, 50 dp) sets the space between apps.
+  - **System font** (`selector.system-font`, on by default) shows the list and the letters in the system font instead of the terminal font.
+  - Hidden apps are left out. Work and private apps show their `[W]` / `[S]` tags. Apps in paused profiles are faded.
+  - About 15 apps fit on the screen at once.
+  - When the selector is at the bottom of the edge (the default), your favourites come last, at the bottom where your thumb rests.
+    When it is at the middle or the top, they come first.
+- **Slide along the edge to a letter.** This is how it works when **Slide through** (`selector.browse`) is set to `letters`:
+  - You move one letter at a time, with a light vibration for each letter.
+  - Every letter that has apps gets the same length of the edge. So a letter with one app is as easy to reach as a letter with many.
+  - The current letter appears large in a bubble next to your thumb. The letters around it stick out from the edge, away from
+    your thumb, so you can see which way to go. The list is narrower while your thumb is down.
+  - The list scrolls to that letter's apps and stops. The first app is at the same height as your thumb, and the rest are below it.
+    The list moves up only as much as needed to stay on the screen.
+  - Other letters' apps fade while you slide. Near the ends of the list, the panel moves to keep the apps in place.
+  - **Show letters on the edge** (`selector.letters`, on by default) shows each letter along the edge when you aren't sliding,
+    in place of the handle. Then you can see where to touch.
+- **Only that letter's apps** (`selector.filter`, off by default): the list shows only that letter's apps, next to the bubble,
+  not the whole list scrolled to that letter.
+- **Slide through** (`selector.browse`) is `apps` by default. You move through the whole list one app at a time instead of one letter at a time.
+  - Your thumb's position on the edge maps smoothly to the list: the top is the first app and the bottom is the last. Small moves
+    give fine control, and a long slide covers the whole alphabet.
+  - Each letter gets room on the edge by the square root of its number of apps. A letter with four times as many apps gets twice the length.
+  - The current app is at the same height as your thumb and magnified. The apps next to it are a little less magnified. The bubble shows its letter.
+  - Slide slowly to move one app at a time. Below about 100 dp per second, the list moves one app for every 10 dp you slide,
+    with a light vibration for each app. If you slide faster, the list catches up with your thumb.
+    (Set these with `config set`: `selector.aim` and `selector.aim-speed`.)
+- **Slide far off the edge, toward the panel.** The list stops moving.
+  - Move up or down to pick an app. Near the top or bottom of the panel, the list keeps scrolling.
+  - **Lift your finger to open** the app.
+  - A short vibration tells you that you left or returned to the edge. A lighter one marks each app you pass.
+  - Or hold still on an app. Its row fills, and after just under a second the app opens without you lifting your thumb. If you move, the fill starts again.
+  - To see an app's actions (the same menu as long-pressing it), leave the list open and long-press the app. Or turn on
+    [actions while picking](#app-actions-while-picking) to reach them while you pick.
+  - To cancel without opening an app, slide back onto the edge before you lift your finger.
+- **Lift your finger on the edge.** The panel stays open as a normal list (with **Only that letter's apps**, only those apps).
+  The apps of the letter you tapped stay next to it. The list widens almost to the edge, so your thumb can reach every row.
+  - Scroll it, tap an app to open it, long-press an app to see its actions, or slide along the edge again.
+  - To close it, tap somewhere else, press Back or wait 4 seconds.
 
-Android lets an app block the back gesture on at most 200 dp of each screen edge, so only the middle 200 dp starts the selector. Above and below it, a swipe in from the edge still goes back.
+Android lets an app block the back gesture on at most 200 dp of each screen edge. So only the middle 200 dp starts the selector.
+Above and below it, a swipe in from the edge still goes back.
 
 #### App actions while picking
 
-Off by default. Turn it on with `config set selector.actions far-side` and off with `off`. It isn't in Settings. It changes what lifting does once you've slid off the edge onto the
-list. The third of the list farthest from your thumb's edge becomes its **far side**: slide into it and you feel a short vibration, the current row shows **⋯ Actions**, and lifting there opens that
-app's actions (the same sheet as long-pressing it) instead of the app. Holding still there doesn't
-launch it either. Anywhere else on the list, lifting launches the app as usual. With the selector
-on the left edge it's mirrored: the list opens on the right, and its far side is its right-hand
-third.
+This is off by default. Turn it on with `config set selector.actions far-side`, and turn it off with `off`. It isn't in Settings.
+
+It changes what happens when you lift your finger after you slide off the edge onto the list:
+
+- The third of the list farthest from your thumb's edge becomes the **far side**.
+- When you slide into the far side, you feel a short vibration, and the current row shows **⋯ Actions**.
+- If you lift your finger there, the app's actions open (the same menu as long-pressing it), not the app.
+  Holding still there doesn't open the app either.
+- Anywhere else on the list, lifting your finger opens the app as usual.
+
+When the selector is on the left edge, everything is mirrored. The list opens on the right, and its far side is the right-hand third.
 
 <SelectorActions />
 
 ## The log
 
-The log is split into **groups**, with a gap above each one (`log.spacing`, 0–40 dp). A group is a
-command you typed and its output (a script's lines too, when you ran it), a script's or a feed's
-lines from one background run, or lines that arrived together. A line that arrives on its own more than 3 seconds after the previous one, such
-as a tap launch, an app install or a notification, starts its own group. A thin coloured bar beside
-each line shows where it came from: green for commands, the script colour for background output,
-red for errors. Hide it with `log.gutter off`. Output older than the latest command is dimmed
-(`log.dim`).
+The log is split into **groups**, with a gap above each one (`log.spacing`, 0–40 dp). A group is one of these:
 
-- The log shows day separators. Right-aligned times appear on each group's first line and again when the minute changes (`log.time`: `groups`, the default; `commands`, only on lines you type; `off`, none).
-- `help`, `config` and `script ls` render in two columns; `apps` is a grid of tappable chips.
-- Script, feed and notification lines show their source at the end, dimmed (`Show HN: … · Hacker News`), on the first line of a run from that source. Lines directly below the command that ran them don't, because the command already names it. Long-press a line to see where it came from and its exact time. Lines that arrived while you were away are marked `•` under a "N new since you left"
-  divider.
-- **Clean screen** (`log.fresh`, 10 minutes): return to the home screen after a while and it starts clean, so old output and app grids are out of the way. Nothing is deleted: tap
-  "▴ N earlier lines" to bring it back. `fresh` does the same on demand (and isn't logged itself). Script lines that arrived while you were away stay visible.
-- **Daily tips** (`log.tips`, on by default): for your first two weeks, the first time you open the home screen each day, the log shows a tip about something you haven't used yet (`todo`, `remind`, `=`, `alias`…, based on the commands you typed). Tap it to put the example in the prompt. `config set log.tips off` stops them.
-- When you scroll up, a ↓ button jumps back to the newest lines. Repeating a command with nothing
-  printed in between (`settings`, `settings`) doesn't add another line.
-- Scroll to the top to load older entries. Lines older than `log.keep-days` (60), or beyond the newest `log.keep-lines` (5000), are deleted. Typed commands are counted separately, so ↑ history is kept, and starred lines are always kept (see [Starring lines](#starring-lines)).
-- `clear` (or `Ctrl+L`) clears the screen, with **Undo** under the log for a few seconds; then
-  its lines are deleted, except your commands, which ↑ still recalls, and starred lines. `clear history` deletes the ↑ history but keeps the log, and `clear all` removes both.
+- a command you typed and its output (and a script's lines, if you ran the script)
+- a script's or a feed's lines from one background run
+- lines that arrived together
+
+A line that arrives alone, more than 3 seconds after the previous line, starts its own group. Examples are an app you opened
+with a tap, an app install or a notification.
+
+A thin coloured bar next to each line shows where the line came from:
+
+- green for commands
+- the script's colour for background output
+- red for errors
+
+Hide the bar with `log.gutter off`. Output older than the latest command is dimmed (`log.dim`).
+
+- **Day separators and times.** The log shows a separator for each day. Times appear on the right (`log.time`):
+  - `groups` (the default): on the first line of each group, and again when the minute changes.
+  - `commands`: only on lines you type.
+  - `off`: no times.
+- **Columns and grids.** `help`, `config` and `script ls` show their output in two columns. `apps` shows a grid of chips you can tap.
+- **Sources.** Script, feed and notification lines show their source at the end, dimmed (`Show HN: … · Hacker News`). The source
+  appears on the first line of each run from that source. Lines directly below the command that ran them don't show it, because
+  the command already names it. Long-press a line to see where it came from and its exact time.
+- **New lines.** Lines that arrived while you were away are marked `•`, under a line that says "N new since you left".
+- **Clean screen** (`log.fresh`, 10 minutes). When you come back to the home screen after this time, it starts clean, so old output
+  and app grids are out of the way. Nothing is deleted. Tap "▴ N earlier lines" to show it again. `fresh` does the same at any time
+  (and isn't added to the log). Script lines that arrived while you were away stay visible.
+- **Daily tips** (`log.tips`, on by default). For your first two weeks, the first time you open the home screen each day, the log shows
+  a tip. The tip is about something you haven't used yet (`todo`, `remind`, `=`, `alias`…), based on the commands you typed. Tap it to put
+  the example in the prompt. `config set log.tips off` turns tips off.
+- **Scrolling.** When you scroll up, a ↓ button takes you back to the newest lines. If you repeat a command and nothing was printed
+  in between (`settings`, `settings`), no new line is added.
+- **Older lines.** Scroll to the top to load older lines. Kolahal deletes lines older than `log.keep-days` (60) and lines beyond the
+  newest `log.keep-lines` (5000). Typed commands are counted separately, so your ↑ history is kept. Starred lines are always kept
+  (see [Starring lines](#starring-lines)).
+- **Clearing.** `clear` (or `Ctrl+L`) clears the screen. For a few seconds, an **Undo** button appears under the log. After that, the lines
+  are deleted, except your commands (↑ still recalls them) and starred lines. `clear history` deletes the ↑ history but keeps the log.
+  `clear all` removes both.
 
 ### Searching the log
 
-Type `/` and some words at the prompt. The log shows only the lines that contain all of them, including lines hidden by a clean screen, with the words highlighted and each line's time.
-The search covers a line's text, commands you typed, and a line's source and link: `/weather` finds the weather script's lines, `/github.com` the lines that link there.
+Type `/` and some words at the prompt. The log then shows only the lines that contain all of the words. This includes lines hidden
+by a clean screen. The words are highlighted, and each line shows its time.
+
+The search looks at a line's text, the commands you typed, and each line's source and link. For example, `/weather` finds the weather
+script's lines, and `/github.com` finds lines that link there.
 
 ```sh
 /battery              # every line about the battery
@@ -167,24 +253,43 @@ The search covers a line's text, commands you typed, and a line's source and lin
 /@scripts error       # errors from any script
 ```
 
-`@` and a name shows only the lines from that source: a script, a feed or an app, using the name at the end of its lines, in any case and without spaces. Or a whole kind: `@commands` (what you typed and
-what it printed), `@scripts`, `@feeds`, `@notifications`, `@apps` (installs and updates), `@calls`,
-`@reminders`, and `@starred` for the lines you starred. Typing `/@` suggests them. Use two `@` names to find lines from either.
+`@` and a name shows only the lines from that source. The source can be a script, a feed or an app. Use the name shown at the end of
+its lines, in any case and without spaces. Or use a whole kind of source:
 
-Tap a line to see it in the log, among the lines around it. `Enter` hides the keyboard so more results fit; `Esc`, Back or clearing the prompt ends the search. Long-press and swipes work as
-they do in the log.
+- `@commands`: what you typed and what it printed
+- `@scripts`, `@feeds`, `@notifications`, `@calls`, `@reminders`
+- `@apps`: app installs and updates
+- `@starred`: the lines you starred
+
+Typing `/@` suggests these names. Use two `@` names to find lines from either source.
+
+Tap a result to see it in the log, among the lines around it. `Enter` hides the keyboard so more results fit. `Esc`, Back or clearing
+the prompt ends the search. Long-press and swipes work the same as in the log.
 
 ### Starring lines
 
-Long-press a line and pick **Star line** to keep it. A starred line looks the same, but it isn't deleted by `log.keep-days` or `log.keep-lines`, and `clear` takes it off the screen without deleting it. `/@starred` finds your starred lines, together with words to look for among them (`/@starred wifi`), and `log only starred` shows only them. **Unstar line** puts it back under the usual limits. **Delete line**, a swipe to the left and `clear all` still delete it.
+To keep a line, long-press it and pick **Star line**. A starred line looks the same as other lines, but:
+
+- `log.keep-days` and `log.keep-lines` don't delete it.
+- `clear` removes it from the screen but doesn't delete it.
+- `/@starred` finds your starred lines. You can add words to search among them (`/@starred wifi`).
+- `log only starred` shows only starred lines.
+
+**Unstar line** puts it back under the usual limits. **Delete line**, a swipe to the left and `clear all` still delete a starred line.
 
 ### Filtering by source
 
-Long-press a line and pick **Show only xkcd** (its script, feed or app; a command line offers **Show only commands**), or type `log only xkcd` or `log only feeds`. The log then shows only those lines, including new ones, with a bar above the prompt to say so. The filter stays on, even if you leave the home screen or restart, until you tap ✕ on the bar, press Back, run `log all` or run another command, so what you type always appears.
+To show only the lines from one source, do one of these:
+
+- Long-press a line and pick **Show only xkcd** (its script, feed or app). On a command line, pick **Show only commands**.
+- Type `log only xkcd` or `log only feeds`.
+
+The log then shows only those lines, including new ones. A bar above the prompt tells you the filter is on. The filter stays on, even
+if you leave the home screen or restart. It ends when you tap ✕ on the bar, press Back, run `log all` or run another command. So what you type always appears.
 
 ### Pipes
 
-Filter a command's output like a shell:
+You can filter a command's output, like in a shell:
 
 ```sh
 help | grep feed              # rows mentioning "feed" (the description column counts too)
@@ -194,120 +299,153 @@ contacts | count              # how many lines
 config | sort
 ```
 
-Filters: `grep [-v] <pattern>` (case-insensitive regex; an invalid regex is matched literally),
-`head [n]`, `tail [n]` (default 10), `sort [-r]`, `uniq`, `count` (or `wc`). A `grep` pattern that takes over a second gives an error. If it's still running, `restart` stops it. Error lines are never filtered out. Only output the command prints immediately is filtered. Output that arrives later (network requests, scripts) appears as usual. A `|` only starts a filter when a filter name follows it,
-so `js a || b` and Lua code aren't affected. The spaces around it are optional, but with no space before it, the `|` stays part of a `grep` pattern, code, quoted text and text you're saving: `grep head|tail` finds
-either word, and `grep feed |head 3` is a second filter.
+Filters:
+
+- `grep [-v] <pattern>`: a regex that ignores case. If the regex is invalid, it matches the text literally.
+- `head [n]`, `tail [n]` (default 10)
+- `sort [-r]`
+- `uniq`
+- `count` (or `wc`)
+
+Rules:
+
+- If a `grep` pattern takes more than a second, you get an error. If it is still running, `restart` stops it.
+- Error lines are never filtered out.
+- Only output that the command prints at once is filtered. Output that arrives later (network requests, scripts) appears as usual.
+- A `|` starts a filter only when a filter name follows it. So `js a || b` and Lua code aren't affected.
+- The spaces around `|` are optional. But if there is no space before it, the `|` stays part of a `grep` pattern, code, quoted text
+  and text you're saving. For example, `grep head|tail` finds either word, and `grep feed |head 3` is a second filter.
 
 ### Tap and long-press
 
-**Tap** a line for its main action:
+**Tap** a line to run its main action:
 
 | Line | What a tap does |
 | --- | --- |
 | A command you typed | puts it back in the prompt |
-| An app line or chip | launches the app |
+| An app line or chip | opens the app |
 | A link (feed item, search, script line with a URL) | opens it |
 | A phone number or contact | opens the dialer |
-| A notification | opens it (or the app, if it's gone) |
+| A notification | opens it (or the app, if the notification is gone) |
 | An app shortcut | starts it |
 | A setup or hint line | runs its fix command |
-| A script error | opens the editor at the failing line |
+| A script error | opens the editor at the line that failed |
 
-**Long-press** opens an action sheet with everything that applies: run again, edit in prompt, copy
-output, open, share or copy a link, call, message or copy a number, app shortcuts, app info, hide,
-uninstall, run or edit a script, dismiss a notification or mute its app, copy text, delete the line,
-or a command with all its output (a script's lines too, which can appear later, under other lines),
-and launch in another profile.
+**Long-press** a line to open an action sheet with every action that applies to it. For example:
+
+- run again, edit in the prompt, copy the output
+- open, share or copy a link
+- call, message or copy a number
+- app shortcuts, app info, hide, uninstall, open the app in another profile
+- run or edit a script
+- dismiss a notification or mute its app
+- copy text
+- delete the line, or a command with all its output (including a script's lines, which can appear later, under other lines)
 
 ### One-handed use
 
-- **Quick actions:** tap the `$` at the start of the prompt for everything the header offers —
-  settings, notifications, alarms, battery, network, unlocks, apps, widgets, feeds, scripts, lock
-  and pause / resume the work or private profile, with the header's icons (battery and network
-  as they are now). You can also set any gesture to open it (`quick`).
-- **Swipe a log line:** right copies it, left deletes it (with Undo for a few seconds).
+- **Quick actions:** tap the `$` at the start of the prompt. You get everything the header offers: settings, notifications, alarms,
+  battery, network, unlocks, apps, widgets, feeds, scripts, lock, and pause / resume for the work or private profile. They have the header's
+  icons (battery and network show their current state). You can also set any gesture to open quick actions (`quick`).
+- **Swipe a log line:** swipe right to copy it. Swipe left to delete it (with Undo for a few seconds).
 - **Long-press output** to run or edit the command that printed it.
 - **Two rows of suggestions** while typing (`suggestions.rows`).
 
 ## The header
 
-One line at the top of home, a status bar of its own: the time and date on the left, and on the
-right the battery and two items you choose. In full screen it sits beside the camera, in the band
-the camera leaves across the top, so it takes no room from the log; with the status bar shown
-(`screen.bars show`) it sits under it. It looks the same all the time, while you type and while
-you scroll back.
+The header is one line at the top of the home screen, like a status bar of its own. You choose the parts on each side. By default:
 
-Choose the two items in **Settings → Header**: **First item** (`header.item-1`, the next alarm by
-default) and **Second item** (`header.item-2`, open todos by default). `none` leaves a place empty.
+- on the left: the time and date
+- on the right: the next alarm, open todos and the battery
 
-| Item | Shows | Tap |
+**Below the status bar area** (`header.below-bar`, on by default) puts the header below the status bar's area, also in full screen.
+If you turn it off, then in full screen the header sits next to the camera, in the band the camera leaves across the top. So it takes
+no room from the log. The header looks the same all the time, also while you type and while you scroll back.
+
+To arrange the parts, open **Settings → Header → Arrange the header**:
+
+- Every part is listed under **Left side**, **Right side** or **Not shown**. A preview of the top of the home screen is above the list.
+- Drag a part by its handle to change its order. Drag it past a heading to move it to that side, or out of the header.
+- With a screen reader, each part has Move up, Move down and a move to each side.
+
+From the terminal, list each side's parts in order, separated by commas: `config header.left time,date` and
+`config header.right alarm,todo,battery`. `none` leaves a side empty.
+
+| Part | Shows | Tap |
 | --- | --- | --- |
-| `alarm` | the next alarm: its time (without AM or PM), with the day when it's a day or more away | opens your alarms |
+| `time` | the time, 12- or 24-hour (`clock.24h`) | opens your alarms |
+| `date` | the day and date | opens your alarms |
+| `battery` | a battery drawn at its charge level, green with a bolt while charging, red when low | battery usage |
+| `alarm` | the next alarm: its time (without AM or PM), and the day if it's a day or more away | opens your alarms |
 | `todo` | how many todos are open, when there are any | runs `todo` |
 | `network` | Wi-Fi, mobile or offline (in red) | network settings |
 | `unlocks` | today's unlock count | runs `unlocks 7` |
 | `settings` | ⚙︎ | the [settings screen](/guides/themes-and-settings/) |
-| `profiles` | the work and private profiles, dimmed while paused | resumes a paused profile; pausing asks for a second tap |
+| `profiles` | the work and private profiles, dimmed while paused | resumes a paused profile; to pause, you tap a second time |
 
-The battery is drawn to its charge level (green with a bolt while charging, red when low), and a
-tap opens battery usage. A tap on the time or date opens your alarms; `clock.24h` switches to
-24-hour time. What doesn't fit beside the camera is left out: your second item first, then your
-first, then the date, the battery last.
+If the parts don't fit, Kolahal leaves some out, starting from the middle: first the left side's last part, then the right side's
+first part. So the outermost parts (by default, the time and the battery) stay longest.
 
-Swipe down on the header to pull down the notification shade (a [gesture](/guides/gestures/) you
-can change). To hide it, turn off **Show the header** (`header.show`): the pinned header and the
-log start at the top, and you open Settings with `settings`.
+Swipe down on the header to pull down the notification shade. This is a [gesture](/guides/gestures/) you can change.
+
+The header is off at first. Turn on **Show the header** (`header.show`) in **Settings → Header**, which shows a preview of the top of
+the home screen while you change it. When the header is off, the pinned header and the log start at the top, and you open
+Settings with `settings`.
 
 ### The pinned header
 
-Under the header, one line for what's playing and for the scripts you pin, such as a live score.
-With more than one, they take turns in that line: each shows for **Seconds per item**
-(`header.pinned-seconds`, 5 seconds), then the next slides up. Dots at the end show which one is
-on screen, for up to **Dots up to** (`header.pinned-dots`, 3) items. A finger on the line keeps
-the one showing. While you type, it steps aside for the suggestions. With nothing playing and
-nothing pinned, it takes no room.
+The pinned header is one line under the header. It shows what's playing and the scripts you pin, such as a live score.
 
-- **What's playing** comes first, with notification access (**Now playing**, `header.media`, turns
-  it off): tap to play or pause, long-press or **⏭** to skip.
-- **A script you pinned** shows its status line, with a bar under it when the script says how far
-  along it is. Tap it to run the script; long-press it for Run, Unpin and Edit.
+- If there is more than one item, they take turns. Each one shows for 5 seconds (`config header.pinned-seconds`), then the next slides up.
+- Dots at the end show which item is on the screen, for up to 3 items (`config header.pinned-dots`).
+- If you keep a finger on the line, the current item stays.
+- While you type, it hides to make room for the suggestions.
+- When nothing is playing and nothing is pinned, it takes no room.
 
-A script never puts itself there. Its [status line](/scripting/overview/#status-lines) shows on
-its card in Scripts and in `status`; to have it at the top, pin the script:
+What it shows:
 
-- long-press a line it logged and pick **Pin cricket to the top**,
-- switch on **Pinned at the top** on its card in Scripts,
-- or type `script pin cricket` (`script unpin cricket` takes it away).
+- **What's playing** comes first. It needs notification access. Tap to play or pause. Long-press or tap **⏭** to skip.
+- **A script you pinned** shows its status line. If the script reports its progress, a bar appears under the line.
+  Tap the line to run the script. Long-press it for Run, Unpin and Edit.
 
-Pinned scripts follow what's playing, in the order of their names.
+A script never pins itself. Its [status line](/scripting/overview/#status-lines) shows on its card in Scripts and in `status`.
+To show it at the top, pin the script in one of these ways:
+
+- long-press a line it logged and pick **Pin cricket to the top**
+- turn on **Pinned at the top** on its card in Scripts
+- type `script pin cricket` (`script unpin cricket` removes it)
+
+Pinned scripts come after what's playing, in the order of their names.
 
 ## The key bar
 
-The bar appears only while the on-screen keyboard is open for the prompt, so an idle home screen
-shows more of the log (`keybar.auto off` keeps it always visible). It sits
-below the prompt, right on top of the keyboard, so the best suggestion stays just above what you type.
-The ⌨ button at the right end of the prompt line turns the bar on or off (`keybar.show`, off by default); it is
-green while the bar is on.
-Make it and the prompt slimmer while typing with `keybar.height` (row height, 20–64 dp) and
-`prompt.height` (20–72 dp), also under Settings → Keyboard.
-`log.line-height` (Settings → Log, 22 by default) sets the height of log lines: lower
-for a denser log (down to as short as the text allows), higher for more room. It scales with the phone's text size. **Taller tappable
-lines** (`log.taller-taps`) makes the lines you can tap a little taller than the others, easier to
-hit, and `chips.height` sets the height of suggestion and app-grid chips.
+The key bar appears only while the on-screen keyboard is open for the prompt. So an idle home screen shows more of the log.
+`keybar.auto off` keeps the bar visible all the time.
 
-An on-screen keyboard's main page leaves out keys a terminal needs, so Kolahal adds a row of them:
+- The bar sits below the prompt, right on top of the keyboard. So the best suggestion stays just above what you type.
+- The ⌨ button at the right end of the prompt line turns the bar on or off (`keybar.show`, off by default). The button is green while the bar is on.
+
+**Sizes.** These are also under Settings → Keyboard and Settings → Log:
+
+- `keybar.height`: the key bar's row height, 20–64 dp.
+- `prompt.height`: the prompt's height while typing, 20–72 dp.
+- `log.line-height` (Settings → Log, default 22): the height of log lines. Lower it for a denser log (down to the height of the text).
+  Raise it for more room. It scales with the phone's text size.
+- **Taller tappable lines** (`log.taller-taps`): makes lines you can tap a little taller than other lines, so they're easier to hit.
+- `chips.height`: the height of suggestion chips and app-grid chips.
+
+The main page of an on-screen keyboard doesn't have some keys that a terminal needs. So Kolahal adds a row of them:
 
 ```
 /  |  =  ←  ↑  ↓  →
 ```
 
-- `/` starts a [log search](#searching-the-log), `|` a [pipe](#pipes) and `=` the calculator.
-- `←` / `→` move the cursor; `↑` / `↓` move through the command history.
-- Arrows and backspace repeat while held, and dragging sideways across the bar moves the cursor.
-- To change the bar, set `keybar.row1` and `keybar.row2` to comma-separated keys from `ESC TAB UP DOWN
-  LEFT RIGHT HOME END BKSP ENTER SPACE KBD`, or any literal text. `KBD` shows the on-screen keyboard.
-  Row 2 is empty by default. You can also set it in Settings. Hide the bar with `keybar.show off`.
+- `/` starts a [log search](#searching-the-log), `|` starts a [pipe](#pipes) and `=` starts the calculator.
+- `←` / `→` move the cursor. `↑` / `↓` move through the command history.
+- Arrows and backspace repeat while you hold them. Drag sideways across the bar to move the cursor.
+- To change the bar, set `keybar.row1` and `keybar.row2` to keys separated by commas. Use keys from `ESC TAB UP DOWN
+  LEFT RIGHT HOME END BKSP ENTER SPACE KBD`, or any text. `KBD` shows the on-screen keyboard.
+  Row 2 is empty by default. You can also set the rows in Settings. Hide the bar with `keybar.show off`.
 
 ```sh
 config set keybar.row1 ESC,TAB,UP,DOWN,|,~,KBD
@@ -317,10 +455,12 @@ config reset keybar.row1      # back to the default row
 
 ## Touch
 
-- Tap empty log space to bring up the keyboard (`keyboard.on-home on` opens it every time the home screen is shown: Home pressed, back from an app, or the phone unlocked).
-- Pinch the log to resize the text (`font.size`, 10–24). When you let go, a short message shows the new size.
-- Double-tap empty log space to lock the screen. Swiping up on the prompt does nothing until you
-  set it: `config set gesture.swipe-up apps` opens the app grid. See [Gestures](/guides/gestures/).
+- Tap empty log space to open the keyboard. With `keyboard.on-home on`, the keyboard opens every time the home screen appears:
+  when you press Home, come back from an app or unlock the phone.
+- Pinch the log to change the text size (`font.size`, 10–24). When you let go, a short message shows the new size.
+- Double-tap empty log space to lock the screen. The Play build has no screen lock, so there a double-tap does nothing until you set `gesture.double-tap`.
+- Swiping up on the prompt does nothing until you set it. For example, `config set gesture.swipe-up apps` opens the app grid.
+  See [Gestures](/guides/gestures/).
 
 ## Hardware keyboard
 
@@ -333,4 +473,4 @@ config reset keybar.row1      # back to the default row
 | `Ctrl+L` | clear the screen |
 | `Ctrl+A` / `Ctrl+E` | start / end of line |
 
-The script editor has its own shortcuts; see [Editor](/scripting/editor/).
+The script editor has its own shortcuts. See [Editor](/scripting/editor/).

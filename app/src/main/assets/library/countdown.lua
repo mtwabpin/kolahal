@@ -48,14 +48,17 @@ end
 
 local function describe(days, label) return label .. ": " .. when(days) end
 
--- A countdown as a line: past ones muted, this week's in the warning colour, today's in the good
--- one; [under] (its date) below it. [aligned]: a column of the list, kept in the terminal font.
-local function show(text, days, under, aligned)
-  if days < 0 then text = fmt.color("muted", text)
-  elseif days == 0 then text = fmt.color("good", text)
-  elseif days <= 7 then text = fmt.color("warn", text) end
-  log(text, under, aligned and { mono = "1" } or nil)
+-- [text] coloured by how near it is: past ones muted, today's in the good colour, this week's in
+-- the warning one, later ones as they are.
+local function tint(days, text)
+  if days < 0 then return fmt.color("muted", text) end
+  if days == 0 then return fmt.color("good", text) end
+  if days <= 7 then return fmt.color("warn", text) end
+  return text
 end
+
+-- One countdown as a line, coloured by how near it is, with [under] (its date) below it.
+local function show(text, days, under) log(tint(days, text), under) end
 
 local function usage() log(fmt.color("muted", "Usage: countdown YYYY-MM-DD | add YYYY-MM-DD label | rm N")) end
 
@@ -96,7 +99,7 @@ if cmd == "rm" then
   if not n or not list[n] then return log(fmt.color("muted", "No countdown #" .. (rest ~= "" and rest or "?") .. ": countdown lists them")) end
   local removed = table.remove(list, n)
   save(list)
-  return log("Removed " .. fmt.bold(removed.label), removed.date)
+  return log("Removed " .. removed.label, removed.date)
 end
 
 if cmd ~= "" then
@@ -113,18 +116,18 @@ if #list == 0 then
   return log(fmt.color("muted", "No countdowns yet: countdown add 2026-12-25 Christmas"))
 end
 
--- Lined up: the label padded to the longest, then when it is; the date under each.
-local function width(s) return utf8.len(s) or #s end
-local widest = 0
-for _, item in ipairs(list) do widest = math.max(widest, width(item.label)) end
+-- One table: each countdown with its date and when it is, coloured by how near (past ones muted).
+-- The number is the one `countdown rm` takes.
+local rows = { { "#", "Countdown", "Date", "When" } }
 local nearest = nil
 for i, item in ipairs(list) do
   local t = parseDate(item.date)
   if t then
     local days = daysUntil(t)
-    local label = item.label .. string.rep(" ", widest - width(item.label))
-    show(string.format("%d. %s  %s", i, label, when(days)), days, item.date, true)
+    local function quiet(text) return days < 0 and fmt.color("muted", text) or text end
+    rows[#rows + 1] = { tostring(i), quiet(item.label), quiet(item.date), tint(days, when(days)) }
     if days >= 0 and nearest == nil then nearest = describe(days, item.label) end
   end
 end
+log("Countdowns", fmt.table(rows, { header = true, align = "rllr" }))
 status(nearest)

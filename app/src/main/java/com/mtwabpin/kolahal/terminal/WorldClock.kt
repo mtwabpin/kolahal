@@ -8,14 +8,17 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * `date <place>`: the time somewhere else. A place is a city from the time-zone database (`tokyo`,
- * `new york`, `sao paulo`), a zone id (`Asia/Tokyo`), `utc`, or an offset like `+5:30`.
+ * `date <place>`: shows the time in another place. A place is one of:
+ * - a city from the time-zone database (`tokyo`, `new york`, `sao paulo`);
+ * - a zone id (`Asia/Tokyo`);
+ * - `utc`;
+ * - an offset like `+5:30`.
  */
 object WorldClock {
     /**
-     * A zone and how it is shown: `America/New_York` → "New York". A zone named by its id is loaded
-     * when first used: loading every zone's rules for the list of places took a frame's worth of time
-     * many times over, on the first place typed.
+     * A zone and its display name: `America/New_York` → "New York".
+     * A zone given by its id is loaded only when first used. Loading the rules of every zone for
+     * the list of places was too slow: it took many frames when the user typed the first place.
      */
     class Place private constructor(val name: String, private val id: String?, private val fixed: ZoneId?) {
         constructor(name: String, zone: ZoneId) : this(name, null, zone)
@@ -23,7 +26,7 @@ object WorldClock {
 
         val zone: ZoneId by lazy { fixed ?: ZoneId.of(id) }
 
-        /** Its name as typing matches it ([key]): worked out once, not for every place on every key. */
+        /** The name in the form that typed text is matched against ([key]). It is computed once, not for every place on every key press. */
         internal val folded: String by lazy(LazyThreadSafetyMode.PUBLICATION) { key(name) }
 
         override fun equals(other: Any?) = other is Place && other.name == name && other.zone == zone
@@ -31,12 +34,12 @@ object WorldClock {
         override fun toString() = "Place(name=$name, zone=$zone)"
     }
 
-    /** What one place prints: its name, and its time with how far ahead or behind it is. */
+    /** The output for one place: its name, and its time with how far ahead or behind it is. */
     data class Line(val place: String, val detail: String)
 
     private val OFFSET = Regex("^([+-])(\\d{1,2})(?::(\\d{2}))?$")
 
-    /** Every city in the time-zone database, by name; a name that several ids share (links) is listed once. */
+    /** Every city in the time-zone database, sorted by name. If several ids share a name (links), it is listed once. */
     private val places: List<Place> by lazy {
         ZoneId.getAvailableZoneIds().asSequence()
             .filter { '/' in it && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }
@@ -49,7 +52,7 @@ object WorldClock {
 
     private fun key(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
 
-    /** The place [query] names, any case, spaces or underscores: a city, a zone id, `utc`, an offset. */
+    /** Returns the place that [query] names: a city, a zone id, `utc` or an offset. Case, spaces and underscores are ignored. */
     fun find(query: String): Place? {
         val q = query.trim()
         if (q.isEmpty()) return null
@@ -58,7 +61,7 @@ object WorldClock {
         OFFSET.matchEntire(q)?.let { m ->
             val hours = m.groupValues[2].toInt()
             val minutes = m.groupValues[3].ifEmpty { "0" }.toInt()
-            // Java's offsets reach ±18:00, no further.
+            // Java supports offsets up to ±18:00 only.
             if (hours > 18 || minutes > 59 || (hours == 18 && minutes > 0)) return null
             val sign = if (m.groupValues[1] == "-") -1 else 1
             return Place("UTC$q", ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes))
@@ -72,7 +75,7 @@ object WorldClock {
         return null
     }
 
-    /** Places whose name starts with [prefix] (any case, spaces aside): `date to` → Tokyo, Toronto… */
+    /** Returns places whose name starts with [prefix], ignoring case and spaces: `date to` → Tokyo, Toronto… */
     fun suggest(prefix: String, limit: Int = 12): List<Place> {
         val p = key(prefix)
         if (p.isEmpty()) return emptyList()
@@ -80,8 +83,8 @@ object WorldClock {
     }
 
     /**
-     * `Tokyo` / `04:26 · 3h30 ahead`: the time at [place] when it is [now] here in [here], and the
-     * day too when it isn't today here.
+     * Returns `Tokyo` / `04:26 · 3h30 ahead`: the time at [place] at the moment [now], compared with [here].
+     * It also shows the day when that day is not today here.
      */
     fun line(place: Place, now: Instant, here: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): Line {
         val there = now.atZone(place.zone)
@@ -99,8 +102,8 @@ object WorldClock {
     }
 
     /**
-     * The places named by [words], each taking as many words as it needs: `new york london` is two.
-     * Null for a word that starts no place.
+     * Returns the places named by [words]. Each place uses as many words as it needs (up to 3),
+     * so `new york london` is two places. Returns null if a word does not start any place.
      */
     fun parse(words: List<String>): List<Place>? {
         val out = ArrayList<Place>()

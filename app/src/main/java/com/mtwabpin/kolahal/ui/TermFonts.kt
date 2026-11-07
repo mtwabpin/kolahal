@@ -13,14 +13,16 @@ import com.mtwabpin.kolahal.data.Keys
 import java.io.File
 
 /**
- * Terminal fonts: the bundled ones (res/font, OFL — see assets/licenses), the system monospace,
- * and one user-imported file kept at `filesDir/fonts/custom.ttf|otf`.
+ * Terminal fonts:
+ * - the bundled fonts (res/font, OFL — see assets/licenses);
+ * - the system monospace font;
+ * - one font file imported by the user, stored at `filesDir/fonts/custom.ttf|otf`.
  */
 object TermFonts {
     const val SYSTEM = "system"
     const val CUSTOM = "custom"
 
-    /** Imported fonts larger than this are refused. */
+    /** Imported fonts larger than this are rejected. */
     const val MAX_BYTES = 10L * 1024 * 1024
     private val EXTENSION = Regex("[a-z][a-z0-9]{0,4}")
 
@@ -52,9 +54,9 @@ object TermFonts {
     fun customFile(context: Context): File? =
         listOf("custom.ttf", "custom.otf").map { File(dir(context), it) }.firstOrNull { it.isFile }
 
-    /** Loads [file] eagerly; null when it is not a usable font (so nothing fails later at layout). */
+    /** Loads [file] now. Returns null if it is not a usable font, so nothing fails later during layout. */
     fun loadTypeface(file: File): android.graphics.Typeface? = runCatching {
-        // Font.Builder throws on a corrupt file; Typeface.createFromFile silently returns DEFAULT.
+        // Font.Builder throws on a corrupt file. Typeface.createFromFile silently returns DEFAULT instead.
         if (Build.VERSION.SDK_INT >= 29) android.graphics.fonts.Font.Builder(file).build()
         android.graphics.Typeface.createFromFile(file)
     }.getOrNull()?.takeIf { it != android.graphics.Typeface.DEFAULT }
@@ -63,10 +65,10 @@ object TermFonts {
 
     @Volatile private var customCache: Loaded? = null
 
-    /** Bumped after an import so previews re-read the file even when `font` was already custom. */
+    /** Increased after an import, so previews read the file again even if `font` was already custom. */
     var revision by mutableIntStateOf(0)
 
-    /** The imported font as a family, or null when it is missing or unreadable. Cached per file version. */
+    /** The imported font as a family, or null if it is missing or unreadable. Cached per file version. */
     fun customFamily(context: Context): FontFamily? {
         val file = customFile(context) ?: return null
         val stamp = file.lastModified() xor file.length()
@@ -76,16 +78,17 @@ object TermFonts {
             .also { customCache = Loaded(file.path, stamp, it) }
     }
 
-    /** [name] as a family; null only for a custom font that cannot be loaded. */
+    /** The font [name] as a family. Returns null only for a custom font that cannot be loaded. */
     fun family(context: Context, name: String): FontFamily? = when (name) {
         CUSTOM -> customFamily(context)
         else -> bundled[name] ?: FontFamily.Monospace
     }
 
     /**
-     * Copies the font at [uri] in as the custom font, once its size, its header and Android itself accept
-     * it. Returns the file's display name when the provider gives one; throws with a message for the
-     * log when the file is not a usable font.
+     * Copies the font at [uri] into the app as the custom font. The size, the file header and Android
+     * itself must all accept it first.
+     * Returns the file's display name if the provider gives one. Throws with a message for the log if
+     * the file is not a usable font.
      */
     fun importFrom(context: Context, uri: android.net.Uri): String? {
         val resolver = context.contentResolver
@@ -97,9 +100,10 @@ object TermFonts {
                 if (!c.isNull(1)) size = c.getLong(1)
             }
         }
-        // An extension starts with a letter after the last dot: "Iosevka 27.3" has none, ".woff2" has one.
+        // An extension is the part after the last dot and starts with a letter. "Iosevka 27.3" has none;
+        // ".woff2" has one.
         val named = name?.substringAfterLast('.', "")?.lowercase()?.takeIf { it.matches(EXTENSION) }
-        // Some providers give no display name, or one without an extension; then the file's own header decides.
+        // Some providers give no display name, or a name without an extension. Then the file header decides.
         if (named != null && named != "ttf" && named != "otf") throw IllegalArgumentException("pick a .ttf or .otf file (got $name)")
         if (size > MAX_BYTES) throw IllegalArgumentException("font is larger than 10 MB")
         val dir = dir(context).apply { mkdirs() }

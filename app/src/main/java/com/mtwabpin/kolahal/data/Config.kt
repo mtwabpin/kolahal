@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/** Snapshot of all settings; recomposes the UI when anything changes. */
+/** A snapshot of all settings. The UI recomposes when any setting changes. */
 class Config private constructor(private val prefs: SharedPreferences) {
     private val _version = MutableStateFlow(0)
     val version: StateFlow<Int> = _version.asStateFlow()
@@ -17,7 +17,7 @@ class Config private constructor(private val prefs: SharedPreferences) {
         migrate()
     }
 
-    /** Settings saved under names from before 0.3.0 ([Keys.RENAMED]) move to today's names; ones that are gone ([Keys.REMOVED]) are dropped. */
+    /** Moves settings saved under names from before 0.3.0 ([Keys.RENAMED]) to today's names. Drops settings that no longer exist ([Keys.REMOVED]). */
     fun migrate() {
         val saved = prefs.all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap()
         val moved = Keys.migrate(saved)
@@ -29,11 +29,11 @@ class Config private constructor(private val prefs: SharedPreferences) {
         _version.update { it + 1 }
     }
 
-    // Every change goes through set()/reset(), which bump the version directly. (A SharedPreferences
-    // change listener is only weakly referenced by Android; R8 dropped our strong reference in release
+    // Every change goes through set()/reset(), which bump the version directly. (Android keeps only a
+    // weak reference to a SharedPreferences change listener. R8 removed our strong reference in release
     // builds, so the listener was garbage-collected and settings changes stopped applying.)
 
-    /** Values shown but not saved: a slider being dragged in Settings, seen on home underneath. */
+    /** Values shown but not saved, for example a slider being dragged in Settings, with home visible underneath. */
     private val previews = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     @Suppress("UNCHECKED_CAST")
@@ -42,7 +42,7 @@ class Config private constructor(private val prefs: SharedPreferences) {
         return key.parse(raw) ?: key.default
     }
 
-    /** Shows [raw] for [key] everywhere without saving it; null goes back to the saved value. */
+    /** Shows [raw] for [key] everywhere without saving it. Null goes back to the saved value. */
     fun preview(key: ConfigKey<*>, raw: String?) {
         if (raw == null) {
             if (previews.remove(key.key) == null) return
@@ -55,7 +55,7 @@ class Config private constructor(private val prefs: SharedPreferences) {
     /** Returns false if [raw] is not a valid value for [key]. */
     fun <T> set(key: ConfigKey<T>, raw: String): Boolean {
         val value = key.parse(raw) ?: return false
-        // The default again is no change: no ↺, no `*`, not in backups, and a later new default applies.
+        // Setting the default again means no change: no ↺, no `*`, not in backups, and a later new default applies.
         prefs.edit { if (value == key.default) remove(key.key) else putString(key.key, key.format(value)) }
         _version.update { it + 1 }
         return true
@@ -73,6 +73,6 @@ class Config private constructor(private val prefs: SharedPreferences) {
     companion object : Singleton<Config>({ Config(it.getSharedPreferences("config", Context.MODE_PRIVATE)) })
 }
 
-/** "22:40" or "10:40 PM" per [Keys.CLOCK_24H], for log lines written outside the UI (workers). */
+/** "22:40" or "10:40 PM", based on [Keys.CLOCK_24H], for log lines written outside the UI (workers). */
 fun Config.shortTime(millis: Long = System.currentTimeMillis()): String =
     java.text.SimpleDateFormat(if (this[Keys.CLOCK_24H]) "HH:mm" else "h:mm a", java.util.Locale.getDefault()).format(java.util.Date(millis))

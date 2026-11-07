@@ -10,16 +10,20 @@ import kotlinx.coroutines.flow.update
 import kotlin.math.exp
 
 /**
- * Per-app user preferences keyed by [AppEntry.key] (component + profile):
- * hidden apps, custom labels, and launch history for frecency ranking.
- * Also stores command aliases.
+ * Per-app user preferences, keyed by [AppEntry.key] (component + profile):
+ * - hidden apps
+ * - custom labels
+ * - launch history for frecency ranking
+ *
+ * It also stores command aliases.
  */
 class AppPrefs private constructor(context: Context) {
     private val apps = context.getSharedPreferences("apps", Context.MODE_PRIVATE)
     private val aliasPrefs = context.getSharedPreferences("aliases", Context.MODE_PRIVATE)
     /**
-     * Launch counts and times. A file of their own, so Android's cloud backup can leave them out
-     * (data_extraction_rules.xml) while pins, labels and hidden apps still go. Moved out of "apps" once.
+     * Launch counts and times. They have their own file, so Android's cloud backup can leave them out
+     * (data_extraction_rules.xml) but still back up pins, labels and hidden apps. They are moved out
+     * of "apps" once.
      */
     private val usage = context.getSharedPreferences(USAGE_FILE, Context.MODE_PRIVATE).also { u ->
         val old = apps.all.filterKeys { it.startsWith("launch:") }
@@ -57,7 +61,7 @@ class AppPrefs private constructor(context: Context) {
 
     // ---- favourites ------------------------------------------------------------------------
 
-    /** Pinned app keys in the user's order; shown first in the idle suggestion strip. */
+    /** Pinned app keys in the user's order. They show first in the idle suggestion strip. */
     fun pinned(): List<String> = apps.getString("pinned", null)?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
 
     fun setPinned(key: String, pinned: Boolean) {
@@ -71,12 +75,12 @@ class AppPrefs private constructor(context: Context) {
     // ---- frecency -------------------------------------------------------------------------
 
     /**
-     * Records a launch: the score as it has decayed until now, plus one, stored with the time as
-     * "score:epochMillis". Older versions stored the launch count there with the last launch time,
-     * which reads the same way at first; from the next launch on, old launches have faded.
+     * Records a launch. It stores the score, decayed until now, plus one, with the time, as
+     * "score:epochMillis". Older versions stored the launch count and the last launch time there.
+     * That reads the same way at first. From the next launch on, the old launches fade.
      */
     fun recordLaunch(key: String) {
-        // Read-modify-write: two launches recorded at once must both count.
+        // Read-modify-write, so two launches recorded at the same time both count.
         synchronized(this) {
             val now = System.currentTimeMillis()
             usage.edit { putString("launch:$key", "${frecency(key, now) + 1}:$now") }
@@ -92,8 +96,8 @@ class AppPrefs private constructor(context: Context) {
     }
 
     /**
-     * Higher is better: every launch adds one, and the sum halves every week ([HALF_LIFE_DAYS]), so
-     * an app opened every day leads, and a habit you dropped fades even if you open it once more.
+     * Higher is better. Every launch adds one, and the sum halves every week ([HALF_LIFE_DAYS]). So an
+     * app opened every day ranks first, and an app you stopped using fades, even if you open it once more.
      */
     fun frecency(key: String, now: Long = System.currentTimeMillis()): Double {
         val (score, ts) = launchStats(key)
@@ -127,7 +131,7 @@ class AppPrefs private constructor(context: Context) {
         private const val LN2 = 0.6931471805599453
         private const val HALF_LIFE_DAYS = 7.0
 
-        /** [score] after [ageMs] of halving every [HALF_LIFE_DAYS]. */
+        /** Returns [score] after [ageMs], when it halves every [HALF_LIFE_DAYS]. */
         internal fun decayed(score: Double, ageMs: Long): Double =
             score * exp(-(ageMs.coerceAtLeast(0) / 86_400_000.0) * LN2 / HALF_LIFE_DAYS)
     }

@@ -73,7 +73,7 @@ import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
-/** What each colour role is called in the builder, and what it colours. */
+/** For each colour role: its name in the builder, and what it colours. */
 private val ROLE_TEXT = mapOf(
     "background" to ("Background" to "Behind everything"),
     "surface" to ("Surface" to "Chips, the key bar and raised panels"),
@@ -92,16 +92,16 @@ private val ROLE_TEXT = mapOf(
 )
 
 /**
- * Settings → Look & feel → Your themes: make a theme, or change one made before
- * ([TerminalViewModel.themeBuilderName]). A small home screen at the top shows the colours as they
- * change; saving uses the theme.
+ * Settings → Look & feel → Your themes. Creates a new theme, or edits an existing one
+ * ([TerminalViewModel.themeBuilderName]). A small home screen at the top shows each colour change
+ * at once. Saving also applies the theme.
  */
 @Composable
 fun ThemeBuilderScreen(vm: TerminalViewModel) {
     val context = LocalContext.current
     val editing = remember { vm.themeBuilderName.value }
-    // The draft: both versions of the theme being changed, or of the theme in use. One of yours
-    // made before themes had a light version starts with the light one the same as the dark.
+    // The draft holds both versions (dark and light) of the theme being edited, or of the theme in
+    // use. An older custom theme may have no light version. Its light version then starts as a copy of the dark one.
     val draft = remember {
         mutableStateMapOf<String, Int>().apply {
             val start = editing?.let(CustomThemes::colors) ?: Palettes.themeColors(vm.config[Keys.THEME])
@@ -109,11 +109,11 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             if (CustomThemes.light(start) == null) CustomThemes.ROLES.forEach { put(CustomThemes.LIGHT + it, start.getValue(it)) }
         }
     }
-    // Which version the colours below change; the preview shows it.
+    // Which version (dark or light) the colours below change. The preview shows this version.
     var light by remember { mutableStateOf(false) }
     fun keyOf(role: String) = if (light) CustomThemes.LIGHT + role else role
-    // Per visit, like the draft: the screen's saved state outlives a visit, and a name from the
-    // last one would rename the theme being edited.
+    // Use remember, not saved state, like the draft. Saved state outlives a visit, and a name left
+    // from the last visit would rename the theme being edited.
     var name by remember { mutableStateOf(editing ?: newName()) }
     var picking by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -140,7 +140,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
                         if (editing != null) {
-                            // As saved: changes not saved yet stay out of the file.
+                            // Exports the saved theme. Unsaved changes are not in the file.
                             IconButton(shapes = IconButtonDefaults.shapes(), onClick = { export.launch("$editing.json") }) { Icon(painterResource(R.drawable.ic_download), "Export theme") }
                             IconButton(shapes = IconButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Icon(painterResource(R.drawable.ic_delete), "Delete theme") }
                         }
@@ -152,7 +152,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                     shapes = ButtonDefaults.shapes(),
                     onClick = {
                         CustomThemes.save(context, name, draft.toMap())
-                        // Renamed: the old file goes, and the new name is used.
+                        // If the theme was renamed, delete the old file and use the new name.
                         if (editing != null && editing != name) CustomThemes.delete(context, editing)
                         vm.setConfig(Keys.THEME, name)
                         vm.closeScreen()
@@ -164,7 +164,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 DraftPreview(draft, light, Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth())
-                // Every theme has a dark and a light version: the phone's dark mode picks one.
+                // Every theme has a dark and a light version. The phone's dark mode setting picks which one shows.
                 Box(Modifier.padding(horizontal = 16.dp)) {
                     ConnectedChoices(listOf("Dark", "Light"), if (light) "Light" else "Dark", tagPrefix = "version ") { light = it == "Light" }
                 }
@@ -189,7 +189,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             (Keys.BUILT_IN_THEMES + CustomThemes.names.filter { it != editing }).forEach { other ->
                                 val p = Palettes.named(other, dark = !light)
-                                // Both versions: a theme's dark and light colours go together.
+                                // Copies both versions, because a theme's dark and light colours belong together.
                                 FilledTonalButton(
                                     shapes = ButtonDefaults.shapes(),
                                     onClick = { draft.putAll(Palettes.themeColors(other)) },
@@ -227,7 +227,8 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
 
         picking?.let { role ->
             val key = keyOf(role)
-            // The same role in every built-in theme (this version first), then the draft's other colours: easy to match.
+            // Swatches make colours easy to match. First the same role in every built-in theme (the
+            // version being edited first), then the draft's other colours.
             val swatches = remember(key) {
                 (Keys.BUILT_IN_THEMES.map { Palettes.colorsOf(Palettes.named(it, dark = !light)).getValue(role) } +
                     Keys.BUILT_IN_THEMES.map { Palettes.colorsOf(Palettes.named(it, dark = light)).getValue(role) } + draft.values).distinct()
@@ -255,15 +256,15 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
 }
 
 /**
- * [ThemePreview] of [draft]'s dark or [light] version. It reads the draft in a scope of its own, so
- * each step of a colour slider redraws the preview, not the page around it.
+ * A [ThemePreview] of the dark or [light] version of [draft]. It reads the draft in its own scope,
+ * so each step of a colour slider redraws only the preview, not the whole page.
  */
 @Composable
 private fun DraftPreview(draft: Map<String, Int>, light: Boolean, modifier: Modifier) {
     ThemePreview(Palettes.fromColors(if (light) CustomThemes.light(draft) ?: draft else draft), modifier)
 }
 
-/** "my-theme", or "my-theme-2" and so on when that is taken. */
+/** Returns "my-theme", or "my-theme-2", "my-theme-3" and so on if the name is taken. */
 private fun newName(): String =
     generateSequence(1) { it + 1 }.map { if (it == 1) "my-theme" else "my-theme-$it" }.first { CustomThemes.colors(it) == null }
 
@@ -275,7 +276,14 @@ private fun Swatch(colour: Color, size: androidx.compose.ui.unit.Dp) {
     )
 }
 
-/** A small home screen in [p]'s colours: the header's line, a command and its output, every kind of line, chips and the prompt. */
+/**
+ * A small home screen in the colours of [p]. It shows:
+ * - the header line
+ * - a command and its output
+ * - every kind of log line
+ * - chips
+ * - the prompt
+ */
 @Composable
 fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
     val mono = Term.fontFamily
@@ -289,7 +297,7 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
             .testTag("theme-preview"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        // The header's line: the time and date, the battery at the end.
+        // The header line: the time and date, then the battery at the end.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("9:41", style = line.copy(color = p.fg, fontWeight = FontWeight.Bold))
             Spacer(Modifier.width(8.dp))
@@ -329,8 +337,8 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
 }
 
 /**
- * Picks [colour] for [role]: hue, saturation and lightness, a hex code, or a swatch. Changes go
- * out at once ([onChange]) and nothing dims the screen, so the preview above shows them.
+ * Picks [colour] for [role] with hue, saturation and lightness sliders, a hex code, or a swatch.
+ * Each change is sent at once ([onChange]). The sheet does not dim the screen, so the preview above shows the change.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -397,7 +405,7 @@ private fun ColourSheet(role: String, colour: Int, swatches: List<Int>, onChange
     }
 }
 
-/** A labelled slider drawn over [brush], so the track shows what moving it does. */
+/** A labelled slider drawn over [brush], so the track shows the effect of moving it. */
 @Composable
 private fun GradientSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, brush: Brush, onChange: (Float) -> Unit) {
     Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

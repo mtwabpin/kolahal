@@ -10,26 +10,30 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 
 /**
- * The add-a-widget flow, owned by MainActivity: allocate an id, bind it (silently when allowed,
- * otherwise through the system "allow Kolahal to create widgets" dialog), run the provider's
- * configure activity if it has one, then record it. Cancelling at any step frees the id.
+ * The flow that adds a widget. MainActivity owns it. Steps:
+ * - Allocate an id.
+ * - Bind it: silently when allowed, otherwise through the system "allow Kolahal to create widgets" dialog.
+ * - Run the provider's configure activity, if it has one.
+ * - Record the widget.
  *
- * Must be constructed before the activity is started (it registers an activity-result launcher).
- * The configure step uses [android.appwidget.AppWidgetHost.startAppWidgetConfigureActivityForResult],
- * which reports through Activity.onActivityResult, so MainActivity forwards that to [onActivityResult].
- * The request survives Android stopping the launcher meanwhile (a widget's own setup screen is a
- * long visit): MainActivity keeps it in its saved state ([save], [restore]).
+ * Cancelling at any step frees the id.
+ *
+ * Create it before the activity starts, because it registers an activity-result launcher.
+ * The configure step uses [android.appwidget.AppWidgetHost.startAppWidgetConfigureActivityForResult].
+ * That reports through Activity.onActivityResult, so MainActivity forwards it to [onActivityResult].
+ * A widget's setup screen can stay open a long time, and Android may stop the launcher meanwhile.
+ * The request survives this: MainActivity keeps it in its saved state ([save], [restore]).
  */
 class WidgetBinder(private val activity: ComponentActivity, private val onAdded: (PlacedWidget) -> Unit) {
-    // Lazy: the binder is created before the activity has a context.
+    // Lazy, because the binder is created before the activity has a context.
     private val widgets by lazy { WidgetHost.get(activity) }
 
-    /** [info] is null for a request brought back from saved state: [infoOf] looks it up by the bound id. */
+    /** [info] is null for a request restored from saved state. Then [infoOf] looks it up by the bound id. */
     private data class Request(val id: Int, val info: AppWidgetProviderInfo?, val replacing: String?)
 
     private fun infoOf(req: Request): AppWidgetProviderInfo? = req.info ?: runCatching { widgets.manager.getAppWidgetInfo(req.id) }.getOrNull()
 
-    /** Keeps a request still waiting for the bind dialog or the widget's setup. */
+    /** Saves a request that still waits for the bind dialog or the widget's setup. */
     fun save(out: Bundle) {
         pending?.let {
             out.putInt(KEY_ID, it.id)
@@ -37,7 +41,10 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
         }
     }
 
-    /** Brings back a request [save] kept, before the activity starts (and the host frees ids nobody uses). */
+    /**
+     * Restores a request that [save] kept. Call it before the activity starts, because the host then
+     * frees ids that nothing uses.
+     */
     fun restore(state: Bundle?) {
         val id = state?.getInt(KEY_ID, AppWidgetManager.INVALID_APPWIDGET_ID) ?: return
         if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
@@ -52,7 +59,7 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
         if (result.resultCode == Activity.RESULT_OK) configure(req) else cancel(req, "Widget not added")
     }
 
-    /** Starts adding [entry]; [replacing] is the key of a pending (restored) entry it fills in. */
+    /** Starts adding [entry]. [replacing] is the key of a pending (restored) entry that the new widget fills in. */
     fun add(entry: ProviderEntry, replacing: String? = null) {
         pending?.let { widgets.discard(it.id) }
         val id = widgets.allocate()
@@ -79,11 +86,11 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
         }.onFailure { cancel(req, "Couldn't open the widget's setup: ${it.message ?: it.javaClass.simpleName}") }
     }
 
-    /** The configure step's result; any other request's is left alone. */
+    /** Handles the result of the configure step. It ignores results of other requests. */
     fun onActivityResult(requestCode: Int, resultCode: Int) {
         if (requestCode != REQUEST_CONFIGURE) return
         val req = pending ?: return
-        // Some configure activities return a different id in the result; ours is the one we bound.
+        // Some configure activities return a different id in the result. We use the id we bound.
         if (resultCode == Activity.RESULT_OK) finish(req) else cancel(req, "Widget setup cancelled")
     }
 

@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 
 /**
- * Material 3 Expressive theme for the GUI screens (settings, script manager). Colours come from
- * the terminal palette, so the screens match the chosen theme.
+ * The Material 3 Expressive theme for the GUI screens (settings, script manager).
+ * The colours come from the terminal palette, so these screens match the chosen theme.
  */
 @Composable
 fun GuiTheme(content: @Composable () -> Unit) {
@@ -25,7 +25,7 @@ fun GuiTheme(content: @Composable () -> Unit) {
     )
 }
 
-/** Maps a terminal palette onto a full Material colour scheme (dark). */
+/** Maps a terminal palette to a full Material colour scheme (dark). */
 fun schemeFrom(p: Palette): ColorScheme {
     fun mix(a: Color, b: Color, t: Float) = lerp(a, b, t)
     return darkColorScheme(
@@ -68,16 +68,18 @@ fun schemeFrom(p: Palette): ColorScheme {
     )
 }
 
-/** Segmented list rows sit on a raised container so each group reads as rounded cards. */
+/** Segmented list rows use a raised container colour, so each group looks like a set of rounded cards. */
 @Composable
 fun segColors() = androidx.compose.material3.ListItemDefaults.segmentedColors(
     containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh,
 )
 
 /**
- * Grouped rows (Android 16 style): large outer corners on the first/last row of a group, tight
- * inner corners. The selected, focused and hovered states keep them too, since switch rows are
- * "checked" list items; pressed rounds every corner, Material's press morph.
+ * Shapes for grouped rows (Android 16 style).
+ * - The first and last rows of a group get large outer corners. Inner corners are small.
+ * - The selected, focused and hovered states keep these shapes, because switch rows are
+ *   "checked" list items.
+ * - The pressed state rounds every corner (Material's press morph).
  */
 @Composable
 fun segShapes(index: Int, count: Int): androidx.compose.material3.ListItemShapes {

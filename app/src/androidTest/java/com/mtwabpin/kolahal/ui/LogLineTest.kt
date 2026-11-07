@@ -24,7 +24,9 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getAlignmentLinePosition
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -237,6 +239,30 @@ class LogLineTest {
         line(e).performTouchInput { moveBy(Offset(width * 0.4f, 0f)); up() }
         compose.waitUntil(5_000) { bounds(e).left == 0.dp && compose.onAllNodesWithText("Delete ✕").fetchSemanticsNodes().isEmpty() }
         staysPut()
+    }
+
+    /**
+     * A table in a script line's body shows under the text above it, with the text after it below,
+     * in either look (log.tables). A screen reader reads it once, each cell after its column's name.
+     * A wide one scrolls sideways: a swipe on it moves the table and leaves the line where it is.
+     */
+    @Test fun aTableShowsUnderItsLineAndScrolls() {
+        val wide = List(6) { "a long column header $it" }
+        val table = com.mtwabpin.kolahal.data.StyledText.table(listOf(listOf("Coin", "Price") + wide, listOf("BTC", "64,210")), header = true, align = "lr")
+        val e = entry("Prices", LogKind.SCRIPT, source = "crypto", ctx = mapOf(LogContext.TITLE to "1", LogContext.BODY to "above\n$table\nbelow"))
+        compose.runOnIdle { Term.boxedTables = true }
+        show { Line(row(e)) }
+        for (boxed in listOf(true, false)) {
+            compose.runOnIdle { Term.boxedTables = boxed }
+            compose.onNodeWithTag("log-table", useUnmergedTree = true).assert(hasContentDescription("Coin BTC, Price 64,210", substring = true))
+            // What a screen reader gets (the merged tree): the cells only in the table's description.
+            compose.onAllNodes(hasText("64,210", substring = true)).assertCountEquals(0)
+            compose.onNode(hasText("below"), useUnmergedTree = true).assertExists()
+            assertTrue(texts(e).joinToString().contains("above"))
+        }
+        compose.onNodeWithTag("log-table", useUnmergedTree = true).performTouchInput { swipeLeft() }
+        staysPut()
+        compose.runOnIdle { Term.boxedTables = true }
     }
 
     /** A tap and a long-press reach the line, and a dimmed line's too, which watches its own presses. */

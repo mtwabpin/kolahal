@@ -1,12 +1,15 @@
 package com.mtwabpin.kolahal.terminal
 
 /**
- * A tip a day in the log for the first two weeks after installing (`log.tips`): something Kolahal
- * does that you haven't used yet, read from the commands you typed. Its line puts the example in
- * the prompt when tapped.
+ * Shows one tip per day in the log for the first two weeks after install (`log.tips`).
+ * Each tip is about a feature that you haven't used yet. We check this against the commands you typed.
+ * When you tap the tip's line, its example goes into the prompt.
  */
 object Tips {
-    /** [example]: a line to try; [used]: the command names (synonyms counted as theirs) that mean you know it. */
+    /**
+     * - [example]: a line to try.
+     * - [used]: the command names that show you already know this feature. A synonym counts as its command.
+     */
     data class Tip(val id: String, val text: String, val example: String, val used: Set<String>)
 
     val ALL = listOf(
@@ -25,10 +28,10 @@ object Tips {
         Tip("toggles", "torch, dnd, ring silent and volume 50 change the phone from here; toggles lists them", "toggles", setOf("toggles", "torch", "dnd", "ring", "volume", "brightness")),
     )
 
-    /** Whole days since installing on which tips are shown. */
+    /** The days after install (counted in whole days) on which tips are shown. */
     val DAYS = 1..14
 
-    /** The first tip not shown yet whose commands are nowhere in [history]; null when none is left. */
+    /** Returns the first tip that is not shown yet and whose commands are not in [history]. Returns null when no tip is left. */
     fun next(history: List<String>, shown: Set<String>): Tip? {
         val typed = history.mapTo(HashSet()) { line ->
             line.trim().let { if (it.startsWith("=")) "=" else InstantRun.canonical(it.substringBefore(' ')) }

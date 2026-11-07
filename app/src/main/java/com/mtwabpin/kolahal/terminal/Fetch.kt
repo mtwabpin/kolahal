@@ -24,17 +24,23 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * `fetch`: this phone and Kolahal at a glance, as fastfetch shows a computer: Kolahal's icon drawn
- * in text beside a row per fact, then the theme's colours. On a narrow screen the icon goes above.
+ * `fetch`: a summary of this phone and Kolahal, like fastfetch shows for a computer.
+ * Kolahal's icon is drawn in text, with one row per fact beside it, then the theme's colours.
+ * On a narrow screen the icon goes above the facts.
  */
 object Fetch {
-    /** One fact: what it is (`OS`) and what it says (`Android 16 · API 36`). */
+    /** One fact: its label (`OS`) and its value (`Android 16 · API 36`). */
     data class Row(val label: String, val value: String)
 
     /**
-     * The icon: two lines of the log with their coloured bars, then the prompt and its cursor (no
-     * frame: each log line is its own row, and a frame's sides wouldn't meet). Each row has a mask
-     * of its colours: `m` muted, `w` warning, `g` good, `a` accent, space for none.
+     * The icon: two log lines with their coloured bars, then the prompt and its cursor.
+     * It has no frame, because each log line is a separate row and the sides of a frame would not meet.
+     * Each row has a colour mask:
+     * - `m` muted
+     * - `w` warning
+     * - `g` good
+     * - `a` accent
+     * - space: no colour
      */
     private val LOGO = listOf(
         "▍ ━━━━━" to "w mmmmm",
@@ -45,10 +51,10 @@ object Fetch {
     private const val GAP = 2
     private const val LABEL_WIDTH = 8
 
-    /** Info narrower than this goes under the icon instead of beside it. */
+    /** If the space for the facts is narrower than this, they go under the icon instead of beside it. */
     private const val MIN_BESIDE = 24
 
-    /** The theme's colours, a block each, as fastfetch ends with the terminal's. */
+    /** The theme's colours, one block each. fastfetch also ends with the terminal's colours. */
     private val SWATCHES = listOf(Colour.ACCENT, Colour.LINK, Colour.INFO, Colour.GOOD, Colour.WARN, Colour.BAD, Colour.MUTED, Colour.TEXT)
 
     private fun colourOf(mask: Char) = when (mask) {
@@ -76,15 +82,19 @@ object Fetch {
     private fun ellipsize(s: String, max: Int) = if (s.length <= max) s else s.takeWhole((max - 1).coerceAtLeast(0)) + "…"
 
     /**
-     * The lines `fetch` prints, styled ([StyledText]), for a log [cols] characters wide: a
-     * [user]`@`[device] title, a rule, a row per fact and the colours, beside the icon when they fit.
+     * Returns the styled lines ([StyledText]) that `fetch` prints, for a log [cols] characters wide:
+     * - a [user]`@`[device] title;
+     * - a rule;
+     * - one row per fact;
+     * - the colours.
+     * They go beside the icon when they fit.
      */
     fun layout(device: String, rows: List<Row>, cols: Int, user: String = Keys.USER_NAME.default): List<String> {
         val beside = cols - LOGO_WIDTH - GAP >= MIN_BESIDE
         val width = if (beside) cols - LOGO_WIDTH - GAP else cols
         val title = ellipsize("$user@$device", width)
         val info = buildList {
-            // Cut short of its @ (a few columns, at a huge text size): the name alone, in one piece.
+            // If the title is cut before its @ (few columns, at a huge text size), colour it as one piece.
             val accent = { s: String -> StyledText.wrap(Style.BOLD, StyledText.colour(Colour.ACCENT, s)) }
             add(if ('@' in title) accent(title.substringBefore('@')) + "@" + accent(title.substringAfter('@')) else accent(title))
             add(StyledText.colour(Colour.MUTED, "─".repeat(title.length)))
@@ -101,21 +111,21 @@ object Fetch {
     }
 
     /**
-     * How many characters of the terminal font fit across a log line: in the log [widthPx] wide
-     * (the whole display when home hasn't shown yet, or in a test).
+     * Returns how many characters of the terminal font fit on one log line, for a log [widthPx] wide.
+     * Without [widthPx] (home not shown yet, or in a test), it uses the whole display width.
      */
     fun columns(context: Context, widthPx: Int? = null): Int {
         val config = Config.get(context)
         val metrics = context.resources.displayMetrics
         val scale = context.resources.configuration.fontScale
         val size = config[Keys.FONT_SIZE]
-        // The bundled mono fonts are 0.6 em wide. The log's side padding and its gutter.
+        // The bundled mono fonts are 0.6 em wide. We subtract the log's side padding (24) and its gutter.
         val gutter = if (config[Keys.LOG_GUTTER]) 10 else 0
         val widthDp = (widthPx ?: metrics.widthPixels) / metrics.density - 24 - gutter
         return (widthDp / (size * scale * 0.6f)).toInt()
     }
 
-    /** The phone's name, and its facts. */
+    /** Returns the phone's name and its facts. */
     fun facts(context: Context): Pair<String, List<Row>> {
         val config = Config.get(context)
         val device = Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() } ?: Build.MODEL
@@ -159,7 +169,7 @@ object Fetch {
         return device to rows
     }
 
-    /** 3d 4h 12m; 4h 12m; 12m. */
+    /** Formats an uptime as `3d 4h 12m`, `4h 12m` or `12m`. */
     fun uptime(millis: Long): String {
         val minutes = millis / 60_000
         val d = minutes / (24 * 60)
@@ -172,6 +182,6 @@ object Fetch {
         }
     }
 
-    /** Bytes as gigabytes, as Android's storage settings count them: 1 decimal. */
+    /** Formats bytes as gigabytes (10^9, as Android's storage settings count them) with 1 decimal. */
     private fun gb(bytes: Long) = String.format(Locale.US, "%.1f", bytes / 1e9)
 }

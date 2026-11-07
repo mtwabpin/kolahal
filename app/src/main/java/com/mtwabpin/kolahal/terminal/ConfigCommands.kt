@@ -8,12 +8,12 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.ui.TermFonts
 
-/** `config` / `set`, `theme` and `font`. Kept out of [CommandProcessor] like the other command groups. */
+/** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
 class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
     private val conf = Config.get(context)
 
 
-    /** [raw] is the untokenized argument text, so free-text values (e.g. a key bar with quotes) survive. */
+    /** [raw] is the argument text before it is split into words. This keeps free-text values intact, for example a key bar with quotes. */
     fun config(args: List<String>, raw: String = "") {
         val sub = args.firstOrNull()
         when {
@@ -43,7 +43,12 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         }
     }
 
-    /** `font` lists (tap applies), `font <name>` sets, `font import` opens the file picker, `font sans <mode>` sets font.sans. */
+    /**
+     * - `font` lists the fonts. Tap one to use it.
+     * - `font <name>` sets the font.
+     * - `font import` opens the file picker.
+     * - `font sans <mode>` sets font.sans.
+     */
     fun font(args: List<String>) {
         val sub = args.firstOrNull()?.lowercase()
         val hasCustom = TermFonts.customFile(context) != null
@@ -72,7 +77,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         when {
             key != null -> {
                 action(key)
-                // Old names (before 0.3.0) still work, and say what they are called now.
+                // Old names (from before 0.3.0) still work. We tell the user the new name.
                 if (name.lowercase() != key.key) info("${name.lowercase()} is now called ${key.key}")
             }
             name?.lowercase() in Keys.REMOVED -> name!!.lowercase().let { error("$it was removed: ${Keys.REMOVED[it]}") }
@@ -81,10 +86,10 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
     }
 
     private fun setKey(name: String?, parsed: String, raw: String): Unit = withKey(name) { key ->
-        // Free text as typed after the name (an old name too), so quotes in it survive.
+        // For text settings, take the value exactly as typed after the name (old names too), so quotes stay.
         val at = if (key is ConfigKey.Text && name != null) raw.indexOf(name, ignoreCase = true) else -1
         var value = if (at >= 0) raw.substring(at + name!!.length).trim() else parsed
-        // `config set keybar.row2 ""`: an empty text, where its help allows one.
+        // `config set keybar.row2 ""` sets an empty text, for settings whose help allows one.
         if (key is ConfigKey.Text && (value == "\"\"" || value == "''")) value = ""
         else if (value.isBlank()) return error("${key.key} = ${conf.display(key)}  (${hint(key)})")
         if (conf.set(key, value)) info("${key.key} = ${conf.display(key)}")

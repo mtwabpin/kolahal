@@ -9,10 +9,16 @@ description: The terminal themes in their dark and light versions, terminal font
 theme gruvbox-material
 ```
 
-Type a theme's full name to preview it on the home screen, with a banner above the prompt. Press Enter to apply it. Change the line or tap ✕ to cancel. Your wallpaper doesn't change until you press Enter. `font <name>` and `config set font.size 18` work the same way.
+When you type a theme's full name, the home screen shows a preview, with a banner above the prompt.
 
-Seven themes, each with its own colours for the prompt, links, script output, errors and the
-work and private profile tags, in a dark and a light version:
+- Press Enter to apply the theme.
+- Change the line or tap ✕ to cancel.
+- Your wallpaper doesn't change until you press Enter.
+
+`font <name>` and `config set font.size 18` work the same way.
+
+There are seven themes. Each has a dark and a light version. Each has its own colours for the prompt, links, script output, errors and the
+work and private profile tags:
 
 <div class="palettes">
 	<div class="pal" style="--bg:#0B0D0B;--fg:#D7DED3;--a:#8FD18A;--b:#7FB8F0;--c:#F2B35B;--d:#C792EA;--e:#F0907D"><b>green</b> <span>default</span></div>
@@ -45,13 +51,14 @@ work and private profile tags, in a dark and a light version:
   background: linear-gradient(90deg, var(--a) 0 20%, var(--b) 20% 40%, var(--c) 40% 60%, var(--d) 60% 80%, var(--e) 80%); }
 `}</style>
 
-The swatch strip shows prompt, link, work, private and error colours. The settings screens use the
-theme's colours too.
+The colour strip shows the prompt, link, work, private and error colours. The settings screens also use the
+theme's colours.
 
 ### Light and dark
 
-The version follows the phone's dark mode: dark when it is on, light when it is off, switching as soon as the phone does. To always use the dark version, turn on **Always dark**
-in **Settings → Look & feel**, or:
+Kolahal follows the phone's dark mode. When dark mode is on, it uses the dark version. When dark mode is off, it uses the light version.
+It switches as soon as the phone does. To always use the dark version, turn on **Always dark**
+in **Settings → Look & feel**, or run:
 
 ```sh
 config set theme.always-dark on
@@ -59,12 +66,15 @@ config set theme.always-dark on
 
 ### Your own themes
 
-**Settings → Look & feel → Your themes → Create a theme** opens the theme builder. It starts from the current theme; **Start from** copies any other theme's colours. A small home screen at the top
-shows your colours as you change them. Tap a colour to change it: drag hue, saturation and
-lightness, type a hex code (`#8FD18A`), or tap a swatch (the same colour from the built-in themes,
-and the theme's other colours, so it is easy to match them).
+To make a theme, open **Settings → Look & feel → Your themes → Create a theme**. This opens the theme builder.
 
-The colours, from the top of the builder:
+- The builder starts from the current theme. **Start from** copies the colours of any other theme.
+- A small home screen at the top shows your colours as you change them.
+- Tap a colour to change it. You can drag hue, saturation and lightness, or type a hex code (`#8FD18A`).
+  You can also tap a swatch. The swatches show the same colour from the built-in themes, and the theme's other colours,
+  so you can match them easily.
+
+These are the colours, from the top of the builder:
 
 | Colour | Used for |
 | --- | --- |
@@ -72,17 +82,29 @@ The colours, from the top of the builder:
 | Text, Muted text | commands and their output; times, hints and older output |
 | Accent | the prompt, `$` and highlights (Settings use it too) |
 | Links, Info, Script output, Errors | links and feed items; messages from Kolahal; your scripts' lines; errors |
-| Good, Warning | script success states and warnings ([`fmt.color`](/scripting/api/#styles-fmt)); a theme made before these existed uses its personal and work colours |
+| Good, Warning | script success states and warnings ([`fmt.color`](/scripting/api/#styles-fmt)); a theme made before these colours existed uses its personal and work colours |
 | Personal apps, Work apps, Private space | apps in each profile, if you have them |
 
-**Dark** and **Light** at the top choose which version you're editing; the preview shows that
-version. A theme you made before themes had a light version looks the same in both modes until
-you change its light one.
+**Dark** and **Light** at the top choose which version you are editing. The preview shows that
+version. If you made a theme before themes had a light version, it looks the same in both modes until
+you change its light version.
 
-Give it a name (lowercase letters, digits and hyphens) and tap **Save and apply**. It then appears with the built-in themes in the theme strip and in `theme <name>`. Tap it under **Your themes** to change
-or delete it. A light background works too: the status bar icons turn dark. Your themes are included in [backups](/guides/backup/).
+To save the theme:
 
-To share a theme, open it and tap the export icon at the top: it exports the theme, as last saved, to a `.json` file with its name and both versions. **Your themes → Import a theme** imports such a file. The theme is added to yours under the name in the file, with a number added if you already have a different theme by that name, and is applied.
+1. Give it a name. Use lowercase letters, digits and hyphens.
+2. Tap **Save and apply**.
+
+The theme then appears with the built-in themes, in the theme strip and in `theme <name>`.
+To change or delete it, tap it under **Your themes**.
+
+- A light background works too. The status bar icons turn dark.
+- Your themes are included in [backups](/guides/backup/).
+
+To share a theme, open it and tap the export icon at the top. This saves the theme, as you last saved it, to a `.json` file.
+The file has the theme's name and both versions.
+
+To import a theme, use **Your themes → Import a theme** and pick such a file. Kolahal adds the theme with the name in the file and applies it.
+If you already have a different theme with that name, Kolahal adds a number to the name.
 
 ## Fonts
 
@@ -93,8 +115,8 @@ font import          # pick your own .ttf / .otf
 font sans prompt     # the system font for the prompt (or: all, off)
 ```
 
-The terminal font is used everywhere the terminal draws text: the log, prompt, header,
-suggestions, key bar and the script editor. Choices:
+Kolahal uses the terminal font everywhere the terminal shows text: the log, prompt, header,
+suggestions, key bar and the script editor. The choices are:
 
 | Name | Font |
 | --- | --- |
@@ -105,14 +127,22 @@ suggestions, key bar and the script editor. Choices:
 | `source-code-pro` | [Source Code Pro](https://github.com/adobe-fonts/source-code-pro) |
 | `custom` | a font file you imported |
 
-The bundled fonts ship in Regular and Bold under the SIL Open Font License 1.1 (licence texts are
-in the app's `assets/licenses/`). `font import`, or the import card in the settings screen's font
-previews, copies a `.ttf` or `.otf` (up to 10 MB) into the app and switches to `custom`; importing again replaces it, and backups include it. If the custom font goes missing or can't be read, the terminal falls back to the system monospace and shows a message once in the log. Text size is a separate setting: `config set font.size 16`, or pinch the log.
+The bundled fonts come in Regular and Bold, under the SIL Open Font License 1.1. The licence texts are
+in the app's `assets/licenses/`.
+
+To use your own font, run `font import`, or use the import card in the font previews on the settings screen.
+
+- Kolahal copies a `.ttf` or `.otf` file (up to 10 MB) into the app and switches to `custom`.
+- If you import again, the new font replaces the old one.
+- Backups include the font.
+- If the custom font is missing or can't be read, the terminal uses the system monospace font instead. It shows a message once in the log.
+
+Text size is a separate setting. Use `config set font.size 16`, or pinch the log.
 
 ### The system font
 
-The terminal can use the system font (the one Android and its apps use,
-including a font style you picked in the phone's settings) instead of a monospace one, at two levels:
+The terminal can use the system font instead of a monospace font. The system font is the one Android and its apps use,
+including a font style you picked in the phone's settings. There are two levels:
 
 | `font.sans` | What changes |
 | --- | --- |
@@ -121,59 +151,78 @@ including a font style you picked in the phone's settings) instead of a monospac
 | `all` | all of the terminal: the log, header, suggestions, key bar and prompt |
 
 Set it with `font sans prompt` (or `all`, `off`), or under **Settings → Look & feel → Terminal**.
-With `all`, a few things stay in the terminal font, because they only line up in a monospace one:
-lists that line up columns (`unlocks`, `todo`, `notes`, `reminders`, `agenda`, `toggles`, `font`,
-`script cat`) and the script editor. Wrapped lines and the dimmed lines under an entry still line up
-with the text above them.
+
+With `all`, a few things still use the terminal font, because they only line up in a monospace font:
+
+- lists with columns: `unlocks`, `todo`, `notes`, `reminders`, `agenda`, `toggles`, `font` and `script cat`
+- the script editor
+
+Wrapped lines, and the dimmed lines under an entry, still line up with the text above them.
 
 ## Settings screen
 
-`settings` (or `config` with no arguments, or ⚙︎ when it's one of the header's items) opens a Material 3 screen with
-grouped lists: switches, connected button groups, sliders and theme preview cards. At the top,
-**Settings**, **Scripts** and **Feeds** are three tabs: the [Scripts](/scripting/overview/#running-scripts)
-and [Feeds](/guides/feeds/#feeds-screen) tabs are those screens, and `scripts` and `feeds` open
-them. A search box finds any setting, feed ones included. The pages:
+To open the settings screen, run `settings`, or `config` with no arguments. You can also tap ⚙︎ if it is one of the header's parts.
+It is a Material 3 screen with grouped lists: switches, connected button groups, sliders and theme preview cards.
+
+At the top there are three tabs: **Settings**, **Scripts** and **Feeds**.
+The [Scripts](/scripting/overview/#running-scripts) and [Feeds](/guides/feeds/#feeds-screen) tabs are those screens.
+`scripts` and `feeds` open them. A search box finds any setting, including feed settings.
+
+The pages are:
 
 - **Look & feel**: theme, Always dark, font, the system font, text size, full screen, and your own themes.
-- **Header**: whether it shows, its two items, the pinned header, the 24-hour clock and your name.
-- **Widgets**: arrange them, the side the widgets page is on, whether home starts on it, and how much of the phone's wallpaper shows behind it.
-- **Log**: times, dimming, spacing, line height, how much of the phone's wallpaper shows behind it, how long to keep the log, and daily tips for your first two weeks.
+- **Header**: whether the header shows and where, a live preview of the top of home, **Arrange the header** (its parts on each side), the 24-hour clock and your name.
+- **Widgets**: arrange widgets, the side of the widgets page, whether home starts on it, and how much of the phone's wallpaper shows behind it.
+- **Log**: times, dimming, spacing, line height, how much of the phone's wallpaper shows behind the log, how long to keep the log, and daily tips for your first two weeks.
 - **Suggestions**: their style and icons, when they show, how many and how tall.
 - **Keyboard**: the key bar, the prompt's height, autocorrect, and opening the keyboard on Home.
-- **App selector**: letters or apps as you slide, the edge it's on, where and how long, the handle or letters, only the letter's apps, icons in its list, and the system font.
+- **App selector**: letters or apps as you slide, its edge, where and how long it is, the handle or letters, only the letter's apps, icons in its list, and the system font.
 - **Launching & search**: instant launch, Enter, search engine.
 - **Gestures**: the three [gestures](/guides/gestures/).
 
-Below them are the setup checklist,
-[backup](/guides/backup/) (automatic backups and their folder, back up now, export and import), and **About**: this guide, the
-tour, the source code on GitHub, the [crash reports](/reference/privacy/#crash-reports) kept on the phone (tap
-one to email it to the developer, share it or delete it), an email to the developer, and the version.
+Below the pages are:
 
-A changed setting shows a reset icon (↺) right after its name: tap it to restore the default. To reset a switch, switch it back.
+- the setup checklist
+- [backup](/guides/backup/): automatic backups and their folder, back up now, export and import
+- **About**: this guide, the tour, the source code on GitHub, an email to the developer, and the version.
+  It also has the [crash reports](/reference/privacy/#crash-reports) kept on the phone.
+  Tap a report to email it to the developer, share it or delete it.
 
-Settings shows only what applies. A setting that depends on another stays hidden until that one is on:
-the key bar's rows and height appear once the key bar is on, the custom search URL once the search
-engine is `custom`, and so on. `config` can change every setting either way.
+If you changed a setting, a reset icon (↺) appears right after its name. Tap it to restore the default. To reset a switch, switch it back.
+
+Settings shows only the settings that apply. If a setting depends on another, it stays hidden until that one is on.
+For example, the key bar's rows and height appear only when the key bar is on. The custom search URL appears only when the search
+engine is `custom`. `config` can change every setting, hidden or not.
 
 ### Previewing the home screen
 
-Settings that change how the home screen looks show it while you change them, like the brightness slider
-in the quick settings:
+Some settings change how the home screen looks. For these, Settings shows the home screen while you change them, like the brightness slider
+in quick settings.
 
-- **Drag a slider** for text size, line height, log spacing, key bar or prompt height, suggestions,
-  chip height, the app selector's length on the edge or row height, or how much of the phone's
-  wallpaper shows behind the log or the widgets page: Settings fades except for that slider, and the home screen appears underneath at the slider's value. Let go to save it and return to Settings.
-  The typing ones show home as if you were typing, with suggestions (and the key bar, if it is on);
-  the selector's row height shows its list open, and the widgets page's wallpaper shows the widgets
-  page.
-- **Tap and hold the eye** (👁) at the top of Look & feel, Header, Log, Suggestions, Keyboard and App selector to see the home screen with your current settings. Release to return.
+**Drag a slider** for one of these settings:
 
-The home screen is only a preview here: it doesn't respond to touch.
+- text size, line height or log spacing
+- key bar or prompt height
+- suggestions or chip height
+- the app selector's length on the edge, or its row height
+- how much of the phone's wallpaper shows behind the log or the widgets page
+
+Settings fades, except for that slider. The home screen appears underneath, at the slider's value.
+Let go to save the value and return to Settings.
+
+- The typing settings show home as if you were typing, with suggestions (and the key bar, if it is on).
+- The selector's row height shows its list open.
+- The widgets page's wallpaper setting shows the widgets page.
+
+**Tap and hold the eye** (👁) at the top of Look & feel, Header, Log, Suggestions, Keyboard and App selector.
+This shows the home screen with your current settings. Let go to return.
+
+The home screen is only a preview here. It doesn't respond to touch.
 
 ## The config command
 
-Everything on the settings screen is a config key, also settable from the prompt (the full list is
-in the [configuration reference](/reference/config/)):
+Every setting on the settings screen is a config key. You can also set it from the prompt.
+The full list is in the [configuration reference](/reference/config/).
 
 ```sh
 config ls                    # every key with its value; * marks changed ones; tap a line to edit it
@@ -183,6 +232,7 @@ config reset font.size
 config reset all
 ```
 
-Booleans take `on`/`off` (also `true`/`false`, `yes`/`no`, `1`/`0`). Numbers have a range and
-choices a fixed list; an invalid value prints what is allowed. While you type `config set`,
-suggestions offer keys and then valid values.
+- Booleans take `on`/`off` (also `true`/`false`, `yes`/`no`, `1`/`0`).
+- Numbers have a range. Choices have a fixed list.
+- If a value is not valid, Kolahal prints what is allowed.
+- While you type `config set`, suggestions offer keys and then valid values.

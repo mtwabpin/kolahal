@@ -54,7 +54,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 internal fun Prompt(
     vm: TerminalViewModel,
     focus: FocusRequester,
-    /** Shown read-only instead of what's typed (home seen from Settings as if typing). */
+    /** Text shown read-only instead of the typed input. Used when Settings previews home as if typing. */
     previewText: String? = null,
     imeSuggestions: Boolean,
     onFocus: (Boolean) -> Unit,
@@ -72,11 +72,11 @@ internal fun Prompt(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = height)
-            // As tall as [height] or the text, whichever is more; the $, ✕ and ⌨ targets fill it,
-            // so a tap anywhere on the line's height hits them.
+            // The line is as tall as [height] or the text, whichever is taller. The $, ✕ and ⌨
+            // targets fill this height, so a tap anywhere in it hits them.
             .height(IntrinsicSize.Min)
-            // Swipe up on the prompt line: gesture.swipe-up, unless it is none (the default). When
-            // none, the detector isn't installed at all, so it can't misfire.
+            // Swipe up on the prompt line runs gesture.swipe-up. When it is none (the default), the
+            // detector is not added at all, so it cannot misfire.
             .then(
                 if (!swipeUpOn) Modifier else Modifier.pointerInput(Unit) {
                     var total = 0f
@@ -87,11 +87,11 @@ internal fun Prompt(
                 },
             )
             .clickable(onClick = onTapPrompt)
-            // Vertical room comes from [height] (centred), so small values really shrink the line.
-            // No end padding: the ⌨ target reaches the screen edge and pads its icon itself.
+            // The vertical space comes from [height] (centred), so small values really make the line
+            // shorter. There is no end padding: the ⌨ target reaches the screen edge and pads its own icon.
             .padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
     ) {
-        // Tap `$`: quick actions (settings, battery, profiles, …) within thumb reach.
+        // A tap on `$` opens quick actions (settings, battery, profiles, …), within thumb reach.
         Text(
             "$ ",
             style = promptStyle.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
@@ -112,7 +112,7 @@ internal fun Prompt(
             keyboardOptions = KeyboardOptions(
                 autoCorrectEnabled = imeSuggestions,
                 capitalization = KeyboardCapitalization.None,
-                // Password type is the reliable way to switch off IME autocorrect and suggestions.
+                // The Password type is the reliable way to turn off IME autocorrect and suggestions.
                 keyboardType = if (imeSuggestions) KeyboardType.Text else KeyboardType.Password,
                 imeAction = ImeAction.Go,
             ),
@@ -138,11 +138,12 @@ internal fun Prompt(
                     }
                 },
         )
-        // Drawn icons like the header's: ✕ and ⌨ as text come from a fallback symbol font and look hand-drawn.
+        // Use drawn icons, like the header does. As text, ✕ and ⌨ come from a fallback symbol font
+        // and look hand-drawn.
         val iconSize = (Term.fontSize + 6).dp
-        // Clear: touch typing has no Esc when the key bar is hidden.
+        // The clear button. Without the key bar, touch typing has no Esc key.
         if ((previewText ?: vm.input.text).isNotEmpty()) {
-            // Its target reaches left; the icon sits at its right end, close to ⌨.
+            // The touch target extends to the left. The icon sits at its right end, close to ⌨.
             Box(
                 contentAlignment = Alignment.CenterEnd,
                 modifier = Modifier
@@ -159,8 +160,8 @@ internal fun Prompt(
                 )
             }
         }
-        // Key bar toggle (keybar.show); dim while the bar is off. The icon lines up with the log's
-        // right edge; the touch target reaches the screen edge.
+        // The key bar toggle (keybar.show). It is dim while the bar is off. The icon lines up with
+        // the log's right edge, and the touch target reaches the screen edge.
         Box(
             contentAlignment = Alignment.CenterEnd,
             modifier = Modifier

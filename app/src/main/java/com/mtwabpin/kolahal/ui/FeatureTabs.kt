@@ -34,8 +34,9 @@ import kotlinx.coroutines.withContext
 internal val FEATURE_TABS = listOf(Screen.SETTINGS, Screen.SCRIPTS, Screen.FEEDS)
 
 /**
- * Settings | Scripts | Feeds: one row at the top of each of the three screens. Switching replaces
- * the screen ([TerminalViewModel.switchTab]), so Back leaves all three. Feeds shows its unread count.
+ * The Settings | Scripts | Feeds tab row at the top of each of these three screens.
+ * - Switching tabs replaces the screen ([TerminalViewModel.switchTab]), so one Back leaves all three.
+ * - The Feeds tab shows the unread count.
  */
 @Composable
 internal fun FeatureTabs(vm: TerminalViewModel, current: Screen, modifier: Modifier = Modifier) {

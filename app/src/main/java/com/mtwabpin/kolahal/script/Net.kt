@@ -5,11 +5,11 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 
-/** One HTTP client for the whole app (scripts, feeds, pictures in the log, Get more scripts, `update`, currency rates). */
+/** One HTTP client for the whole app: scripts, feeds, pictures in the log, Get more scripts, `update` and currency rates. */
 object Net {
     const val USER_AGENT = "Kolahal-Launcher/0.1 (+https://github.com/mtwabpin)"
 
-    /** The longest a whole request may take, redirects included (a script's own run may set less). */
+    /** The longest time a whole request may take, redirects included. A script's own run may set less. */
     const val CALL_TIMEOUT_MS = 30_000L
 
     val client: OkHttpClient by lazy {
@@ -21,9 +21,9 @@ object Net {
             .build()
     }
 
-    /** A check every hop of a request must pass before it is sent, redirects included ([hopGuard]). */
+    /** A check that every hop of a request must pass before it is sent, redirects included ([hopGuard]). */
     fun interface HopCheck {
-        /** Throws (an IOException) to stop [hop]. */
+        /** Throws an IOException to stop [hop]. */
         fun check(hop: okhttp3.Request)
     }
 
@@ -32,10 +32,10 @@ object Net {
         chain.proceed(chain.request())
     }
 
-    /** [link] if it is an http(s) link, normalised; null for any other scheme (tel:, upi:, intent:, file: …). */
+    /** [link], normalised, if it is an http(s) link. Null for any other scheme (tel:, upi:, intent:, file: …). */
     fun webUrl(link: String?): String? = link?.trim()?.toHttpUrlOrNull()?.toString()
 
-    /** Simple blocking GET returning the body, or throwing with the HTTP status. */
+    /** A simple blocking GET. Returns the body, or throws with the HTTP status. */
     fun get(url: String): String {
         val request = okhttp3.Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
         client.newCall(request).execute().use { resp ->

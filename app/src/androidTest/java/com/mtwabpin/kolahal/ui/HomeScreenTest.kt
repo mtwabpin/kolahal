@@ -167,19 +167,20 @@ class HomeScreenTest {
 
     /** The header stays one line while typing; the pinned header steps aside for the suggestions. */
     @Test fun whileTypingThePinnedHeaderStepsAside() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
+        config.set(Keys.HEADER_SHOW, "on")
         val vm = showResting()
         compose.onNodeWithTag("header").assertExists()
-        compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
+        compose.onNodeWithText("NZ 136/8").assertExists()
         type(vm, "s")
         compose.onNodeWithTag("header").assertExists()
         compose.onNodeWithTag("pinned-header").assertDoesNotExist()
         type(vm, "")
-        compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
+        compose.onNodeWithText("NZ 136/8").assertExists()
     }
 
-    /** header.show off: no header, and it comes back when turned on. */
+    /** header.show off (the default): no header, and it comes back when turned on. */
     @Test fun headerCanBeTurnedOff() {
-        config.set(Keys.HEADER_SHOW, "off")
+        assertEquals(false, Keys.HEADER_SHOW.default)
         val vm = show(360.dp, 700.dp)
         compose.onNodeWithTag("header").assertDoesNotExist()
         type(vm, "s")
@@ -192,16 +193,17 @@ class HomeScreenTest {
     @Test fun onlyPinnedScriptsShowAtTheTop() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
         withStatusLine("unpinned-home", "US AQI 131", pinned = false) {
             showResting()
-            compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
-            compose.onNodeWithText("unpinned-home ▸ US AQI 131").assertDoesNotExist()
+            compose.onNodeWithText("NZ 136/8").assertExists()
+            compose.onNodeWithText("US AQI 131").assertDoesNotExist()
             compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
-            compose.onNodeWithText("pinned-home ▸ NZ 136/8").assertExists()
+            compose.onNodeWithText("NZ 136/8").assertExists()
         }
     }
 
     /** The settings item, when you choose it, opens Settings. */
     @Test fun theSettingsItemOpensSettings() {
-        config.set(Keys.HEADER_ITEM_1, "settings")
+        config.set(Keys.HEADER_SHOW, "on")
+        config.set(Keys.HEADER_RIGHT, "settings,battery")
         val vm = show(360.dp, 700.dp)
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.SETTINGS }
@@ -312,7 +314,8 @@ class HomeScreenTest {
 
     /** The header's ⚙ shows no word; a screen reader still has one to say. */
     @Test fun headerSettingsHasANameForScreenReaders() {
-        config.set(Keys.HEADER_ITEM_2, "settings")
+        config.set(Keys.HEADER_SHOW, "on")
+        config.set(Keys.HEADER_LEFT, "time,settings")
         show(360.dp, 700.dp)
         compose.onNodeWithContentDescription("Settings").assertExists()
     }

@@ -32,25 +32,25 @@ import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CrashReports
 import com.mtwabpin.kolahal.R
 
-// Settings → About: the guide, crash reports and a way to write to the developer.
+// Settings → About: the guide, crash reports and a way to contact the developer.
 
-/** The website, which holds the guide. */
+/** The website. The guide is there. */
 internal const val GUIDE_URL = "https://mtwabpin.github.io/kolahal/"
-/** The community's Discord server: questions, ideas and help from other people using Kolahal. */
+/** The community Discord server, for questions, ideas and help from other Kolahal users. */
 internal const val DISCORD_URL = "https://discord.gg/3D25w6gXR5"
-/** Kolahal's source code on GitHub, where bugs and ideas are reported too. */
+/** Kolahal's source code on GitHub. Users report bugs and ideas there too. */
 internal const val SOURCE_URL = "https://github.com/mtwabpin/kolahal"
 internal const val DEVELOPER_EMAIL = "mtwabpin@gmail.com"
 
 /** The page id (in [com.mtwabpin.kolahal.terminal.TerminalViewModel.settingsCategory]) of the crash list. */
 internal const val CRASHES_PAGE = "crashes"
 
-/** The page id of About, the links and the version. */
+/** The page id of About, which shows the links and the version. */
 internal const val ABOUT_PAGE = "about"
 
 internal const val VERSION_TEXT = "Kolahal ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
 
-/** A crash report as the list shows it; the full text is read only when it is sent. */
+/** A crash report as the list shows it. The full text is read only when the report is sent. */
 internal class CrashRow(val report: CrashReports.Report, val title: String, val summary: String)
 
 internal fun crashRows(context: Context): List<CrashRow> = CrashReports.list(context).map { r ->
@@ -59,16 +59,16 @@ internal fun crashRows(context: Context): List<CrashRow> = CrashReports.list(con
     CrashRow(r, title, summary)
 }
 
-/** Opens the website's guide; false when no app can open it. */
+/** Opens the guide on the website. Returns false if no app can open it. */
 internal fun openGuide(context: Context): Boolean = openLink(context, GUIDE_URL)
 
-/** Opens [url] in the browser (or the app that takes it); false when no app can open it. */
+/** Opens [url] in the browser (or in the app that handles it). Returns false if no app can open it. */
 internal fun openLink(context: Context, url: String): Boolean =
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }.isSuccess
 
 /**
- * A draft to [DEVELOPER_EMAIL] in the user's mail app, which they read and send themselves. Without
- * a mail app, any app that can send text; false when there is none.
+ * Opens a draft to [DEVELOPER_EMAIL] in the user's mail app. The user reads and sends it themselves.
+ * Without a mail app, it offers any app that can send text. Returns false if there is none.
  */
 internal fun emailDeveloper(context: Context, subject: String, body: String): Boolean {
     val mail = Intent(Intent.ACTION_SENDTO, "mailto:".toUri())
@@ -87,7 +87,7 @@ internal fun emailDeveloper(context: Context, subject: String, body: String): Bo
     }
 }
 
-/** The share sheet with a crash report in it: email, a chat, or anywhere that takes text. */
+/** The share sheet with a crash report: email, a chat, or any app that accepts text. */
 internal fun crashReportShare(report: String): Intent =
     Intent.createChooser(
         Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -96,11 +96,11 @@ internal fun crashReportShare(report: String): Intent =
         "Share the crash report",
     )
 
-/** What the developer needs to know about the phone, under a message the user writes. */
+/** Phone details the developer needs. They go below the message the user writes. */
 internal fun aboutThisPhone(): String =
     "\n\n--\n$VERSION_TEXT · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}"
 
-/** A tapped crash report: email it to the developer, share it, or delete it. */
+/** Actions for a tapped crash report: email it to the developer, share it, or delete it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CrashSheet(crash: CrashRow, onDismiss: () -> Unit, onEmail: () -> Unit, onShare: () -> Unit, onDelete: () -> Unit) {
@@ -142,7 +142,7 @@ internal fun CrashSheet(crash: CrashRow, onDismiss: () -> Unit, onEmail: () -> U
     }
 }
 
-/** The crash list page: [crashes] is null while it is being read; [onOpen] is a tap on one. */
+/** The crash list page. [crashes] is null while the list loads. [onOpen] runs when the user taps a report. */
 internal fun LazyListScope.crashReportsPage(
     crashes: List<CrashRow>?,
     onOpen: (CrashRow) -> Unit,

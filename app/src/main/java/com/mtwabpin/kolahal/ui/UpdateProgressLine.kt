@@ -16,14 +16,17 @@ import com.mtwabpin.kolahal.terminal.UpdateCommands
 
 private const val MB = 1024 * 1024
 
-/** The download `update install` has under way, if any. Read here, so it redraws this line and not all of home. */
+/**
+ * Shows the download that `update install` is running, if there is one.
+ * The progress is read here, so only this line redraws, not all of home.
+ */
 @Composable
 internal fun UpdateProgressLine() {
     val progress by UpdateCommands.progress.collectAsStateWithLifecycle()
     progress?.let { UpdateProgressLine(it) }
 }
 
-/** "Downloading update  4 MB / 10 MB  40%" over a bar, like [NowPlayingLine]. */
+/** Shows "Downloading update  4 MB / 10 MB  40%" above a progress bar, like [NowPlayingLine]. */
 @Composable
 internal fun UpdateProgressLine(progress: UpdateCommands.Progress) {
     Column(Modifier.fillMaxWidth().testTag("update-progress").padding(horizontal = 12.dp, vertical = 4.dp)) {

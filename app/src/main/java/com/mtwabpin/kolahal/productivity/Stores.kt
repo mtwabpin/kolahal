@@ -8,14 +8,16 @@ import com.mtwabpin.kolahal.data.Singleton
 data class Todo(val id: Long, val text: String, val done: Boolean)
 data class Note(val id: Long, val text: String, val created: Long)
 /**
- * [repeat]: a [Repeat] rule, or null for a reminder that fires once. [time]: the wall-clock time a
- * repeating one was asked for (`02:30`); null for one set before 0.4.12 until it next fires.
+ * - [repeat]: a [Repeat] rule, or null for a reminder that fires once.
+ * - [time]: the wall-clock time the user asked for a repeating reminder (`02:30`). It is null for a
+ *   reminder set before 0.4.12, until that reminder next fires.
  */
 data class Reminder(val id: Long, val at: Long, val text: String, val repeat: String? = null, val time: String? = null)
 
 /**
- * Picks an item by what the user typed: `#12` is a database id (used by tap actions, stable
- * across edits), a plain `2` is the position in the list as `todo` / `notes` / `reminders` show it.
+ * Picks an item by what the user typed:
+ * - `#12` is a database id. Tap actions use it, because it stays the same after edits.
+ * - A plain `2` is the position in the list that `todo` / `notes` / `reminders` show.
  */
 fun <T> pickRef(ref: String?, list: List<T>, id: (T) -> Long): T? {
     val r = ref?.trim() ?: return null
@@ -23,7 +25,7 @@ fun <T> pickRef(ref: String?, list: List<T>, id: (T) -> Long): T? {
     return r.toIntOrNull()?.let { list.getOrNull(it - 1) }
 }
 
-/** Open items oldest first, then done items (most recently finished first). */
+/** To-do items: open items oldest first, then done items, most recently finished first. */
 class TodoStore private constructor(context: Context) {
     private val db = Db.get(context)
 
@@ -60,7 +62,7 @@ class TodoStore private constructor(context: Context) {
 
     fun remove(id: Long) = db.writableDatabase.delete("todos", "id = ?", arrayOf(id.toString()))
 
-    /** Deletes finished items; returns how many. */
+    /** Deletes finished items and returns how many it deleted. */
     fun clearDone(): Int = db.writableDatabase.delete("todos", "done = 1", null)
 
     companion object : Singleton<TodoStore>(::TodoStore)
@@ -88,7 +90,10 @@ class NoteStore private constructor(context: Context) {
     companion object : Singleton<NoteStore>(::NoteStore)
 }
 
-/** Pending reminders, soonest first. A reminder is deleted once it fires (unless it repeats) or is cancelled. */
+/**
+ * Pending reminders, soonest first. A reminder is deleted when it is cancelled, or when it fires,
+ * unless it repeats.
+ */
 class ReminderStore private constructor(context: Context) {
     private val db = Db.get(context)
 
@@ -113,7 +118,7 @@ class ReminderStore private constructor(context: Context) {
         return Reminder(id, at, text, repeat, time)
     }
 
-    /** A repeating reminder's next time, and the time of day it repeats at when [time] is given. */
+    /** Sets a repeating reminder's next time. When [time] is given, also sets the time of day it repeats at. */
     fun setAt(id: Long, at: Long, time: String? = null) {
         val values = ContentValues().apply {
             put("at", at)

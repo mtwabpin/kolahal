@@ -13,13 +13,17 @@ import com.mtwabpin.kolahal.unlock.UnlockCounter
 import java.util.Date
 
 /**
- * App commands: listing, opening and launching apps and their shortcuts, pins, hiding and
- * renaming, work and private profiles, screen time and install history. [CommandProcessor] also
- * launches through here when typed text names an app.
+ * App commands:
+ * - listing, opening and launching apps and their shortcuts;
+ * - pins, hiding and renaming;
+ * - work and private profiles;
+ * - screen time and install history.
+ *
+ * [CommandProcessor] also launches apps through this class when the typed text names an app.
  */
 class AppCommands(
     context: Context,
-    /** Runs slow work (waiting for a profile to resume) off the serial command queue. */
+    /** Runs slow work (such as waiting for a profile to resume) outside the serial command queue. */
     private val background: (label: String, block: () -> Unit) -> Unit,
 ) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
@@ -27,7 +31,7 @@ class AppCommands(
     private val unlocks = UnlockCounter.get(context)
 
 
-    /** Where a pinned app shows, with the settings as they are. */
+    /** Describes where a pinned app shows, based on the current settings. */
     private fun pinnedWhere(): String {
         val conf = com.mtwabpin.kolahal.data.Config.get(context)
         return listOfNotNull(
@@ -97,7 +101,7 @@ class AppCommands(
         LogContext.USER to app.profile.serial.toString(),
     )
 
-    /** `Maps [W]`; personal apps are only tagged when the same app also exists in another profile. */
+    /** Returns `Maps [W]`. A personal app gets a tag only when the same app also exists in another profile. */
     private fun appLine(app: AppEntry): String {
         val twin = app.profile.kind == ProfileKind.PERSONAL &&
             apps.apps.value.any { it.pkg == app.pkg && it.profile.serial != app.profile.serial }
@@ -132,7 +136,7 @@ class AppCommands(
         val kinds = list.map { it.profile.kind }.distinct().sortedBy { it.ordinal }
         when {
             "-l" in args -> list.forEach { out(appLine(it), appCtx(it)) }
-            // One grid per profile instead of interleaving every app with its work twin.
+            // Show one grid per profile, so an app and its work copy are not mixed together.
             kinds.size > 1 -> kinds.forEach { k ->
                 info("── ${k.label} ──")
                 appGrid(list.filter { it.profile.kind == k })
@@ -145,7 +149,7 @@ class AppCommands(
     private fun resolveApp(args: List<String>, includeHidden: Boolean = false): List<AppEntry> =
         apps.search(stripFlags(args), profileFlag(args), includeHidden)
 
-    /** Runs [action] on the best match for [args] (an app name and profile flags), or says nothing matched. */
+    /** Runs [action] on the best match for [args] (an app name and profile flags). If nothing matches, prints an error. */
     fun withApp(args: List<String>, includeHidden: Boolean = false, action: (AppEntry) -> Unit) {
         val matches = resolveApp(args, includeHidden)
         when {
@@ -157,7 +161,7 @@ class AppCommands(
     private fun open(args: List<String>) {
         // `open maps:navigate` starts the shortcut whose label best matches "navigate".
         val joined = stripFlags(args)
-        // "Duolingo: Language Lessons" is an app's name, not a shortcut of Duolingo's.
+        // But "Duolingo: Language Lessons" is an app's name, not a Duolingo shortcut.
         if (joined.contains(':') && apps.search(joined, profileFlag(args)).none { it.label.equals(joined, ignoreCase = true) }) {
             val app = apps.search(joined.substringBefore(':'), profileFlag(args)).firstOrNull()
                 ?: return error("No app matches '${joined.substringBefore(':')}'")
@@ -222,7 +226,7 @@ class AppCommands(
         }
     }
 
-    /** One log line rendered as tappable app chips (long-press a chip for its actions). */
+    /** Prints one log line shown as tappable app chips. Long-press a chip for its actions. */
     fun appGrid(list: List<AppEntry>) {
         val refs = list.map { mapOf("pkg" to it.pkg, "cls" to it.component.className, "user" to it.profile.serial) }
         out(
@@ -269,7 +273,7 @@ class AppCommands(
         }
     }
 
-    /** `usage [days]`: foreground time per app from UsageStats (needs Usage Access). */
+    /** `usage [days]`: shows the foreground time per app from UsageStats. Needs Usage Access. */
     private fun usage(args: List<String>) {
         if (!unlocks.hasUsageAccess()) {
             logs.add(LogKind.ERROR, "Screen time needs usage access — tap to allow it", ctx = LogContext.of(LogContext.RUN to "usage-access"))
@@ -298,7 +302,7 @@ class AppCommands(
         }
     }
 
-    /** The profile's name at the start of a sentence. */
+    /** The profile's name with a capital first letter, for the start of a sentence. */
     private val ProfileKind.title get() = label.replaceFirstChar { it.uppercase() }
 
     private fun duration(ms: Long): String {

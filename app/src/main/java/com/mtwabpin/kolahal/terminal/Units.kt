@@ -8,14 +8,14 @@ import kotlin.math.abs
 
 /**
  * Unit conversion for the `=` calculator: `= 5 km in mi`, `= 72 f to c`, `= 3 cups in ml`.
- * Every unit maps to a factor of its dimension's base unit (temperature is special-cased).
+ * Each unit has a factor relative to the base unit of its dimension. Temperature is handled separately.
  */
 object Units {
     private class Unit(val dimension: String, val factor: Double, val label: String)
 
     private val units: Map<String, Unit> = buildMap {
         fun add(dimension: String, factor: Double, label: String, vararg names: String) {
-            // What an answer prints has to read back, so the label is a name too.
+            // The label is also a name, so that an answer can be typed back in as input.
             (names.asList() + label.lowercase()).forEach { put(it, Unit(dimension, factor, label)) }
         }
         // length (m)
@@ -82,10 +82,12 @@ object Units {
     private val pattern = Regex("""^\s*(-?[\d.,]+)\s*([^\s\d][^\s]*)\s+(?:in|to|as|->)\s+([^\s]+)\s*$""", RegexOption.IGNORE_CASE)
 
     /**
-     * Commas group digits in Western (`1,000,000`) or Indian style (`12,34,567`), and a dot may
-     * follow (`1,000.5`). A number can't start with a zero that way, so `0,500` has a decimal comma,
-     * as has any other single comma with no dot (`1,5`, `2,50`). Anything else ambiguous (`01,500`,
-     * `1,5,3`) is rejected rather than misread.
+     * Reads a number that may contain commas:
+     * - Commas that group digits in Western style (`1,000,000`) or Indian style (`12,34,567`),
+     *   optionally followed by a dot and decimals (`1,000.5`).
+     * - A single comma with no dot is a decimal comma (`1,5`, `2,50`). `0,500` is one too, because
+     *   a grouped number can't start with a zero.
+     * - Anything else that is unclear (`01,500`, `1,5,3`) is rejected, so it is never misread.
      */
     internal fun number(s: String): Double? = when {
         ',' !in s -> s.toDoubleOrNull()
@@ -95,9 +97,10 @@ object Units {
     }
 
     /**
-     * Parsed `amount from to` if [text] looks like a conversion (units may be unknown, e.g. currencies).
-     * A word's place says what it is, so `in` can be the unit and the connector (`5 in in cm`). `5 in`
-     * alone has nothing to convert to, like `5 km`, so it isn't one.
+     * Returns `amount from to` if [text] looks like a conversion. The units may be unknown here
+     * (for example, currencies).
+     * A word's position decides its role, so `in` can be both the unit and the connector (`5 in in cm`).
+     * `5 in` alone is not a conversion, like `5 km`, because there is no target unit.
      */
     fun parse(text: String): Triple<Double, String, String>? {
         val m = pattern.find(text) ?: return null
@@ -105,7 +108,7 @@ object Units {
         return Triple(amount, m.groupValues[2].lowercase(), m.groupValues[3].lowercase())
     }
 
-    /** "5 km = 3.107 mi", or null if either unit is unknown or the dimensions differ. */
+    /** Returns "5 km = 3.107 mi". Returns null if either unit is unknown or the dimensions differ. */
     fun convert(amount: Double, from: String, to: String): String? {
         val a = units[from] ?: return null
         val b = units[to] ?: return null
@@ -128,10 +131,12 @@ object Units {
     }
 
     /**
-     * An amount as a conversion prints it: in full with separators up to 10^15, as far as the
-     * calculator writes numbers in full (`1 GB = 1,000,000,000 B`); a whole number exactly, others
-     * to at most 4 decimals and 15 significant digits, past which a double's digits are noise.
-     * Smaller than 0.0001, or from 10^15, in scientific notation.
+     * Formats an amount for a conversion result:
+     * - Below 10^15, it is written in full with separators (`1 GB = 1,000,000,000 B`). The
+     *   calculator also writes numbers in full up to this limit.
+     * - A whole number is written exactly.
+     * - Other numbers get at most 4 decimals and 15 significant digits. Beyond that, a double's digits are noise.
+     * - Below 0.0001, or from 10^15 up, it uses scientific notation.
      */
     fun format(v: Double): String = when {
         v == 0.0 -> "0"
@@ -141,6 +146,6 @@ object Units {
             .let { String.format(Locale.ROOT, "%,.${it.scale().coerceAtLeast(0)}f", it) }
     }
 
-    /** Three-letter currency codes, for deciding whether to try an exchange-rate lookup. */
+    /** True for a three-letter code that could be a currency. Decides whether to try an exchange-rate lookup. */
     fun looksLikeCurrency(code: String) = code.length == 3 && code.all { it.isLetter() }
 }

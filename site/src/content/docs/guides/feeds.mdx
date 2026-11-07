@@ -6,7 +6,7 @@ description: Built-in RSS and Atom subscriptions with unread counts, per-feed in
 import { Image } from 'astro:assets';
 import terminal from '../../../assets/terminal-feeds.png';
 
-Kolahal has a small feed reader built in. No scripting needed.
+Kolahal has a small built-in feed reader. You don't need a script to use it.
 
 ## Subscribe
 
@@ -15,10 +15,13 @@ feed add https://hnrss.org/frontpage
 feed add lwn.net/headlines/rss       # https:// is assumed; feed:// links work too
 ```
 
-Adding a feed fetches it right away. The address is normalised, so adding the same feed twice
-returns the existing subscription. `feed://` links open as `https://`. A feed can be on your own
-network (a home server), except on Android 17 and newer, where Android blocks it and the fetch fails
-after a timeout. Kolahal loads the newest 300 items of a feed.
+When you add a feed, Kolahal fetches it right away.
+
+- Kolahal cleans up the address. If you add the same feed twice, you get the existing subscription.
+- `feed://` links open as `https://`.
+- A feed can be on your own network, for example a home server. On Android 17 and newer, Android blocks this,
+  and the fetch fails after a timeout.
+- Kolahal loads the newest 300 items of a feed.
 
 ## Read
 
@@ -33,42 +36,55 @@ feed open 2          # open up to 5 unread items of #2 in the browser, mark them
 feed fetch           # refresh every feed now (feed fetch 2 for one)
 ```
 
-Item lines are tappable links; long-press to share or copy. When a fetch finds new items they
-appear in the log, each feed's in a group of its own, at most `feeds.log-lines` (default 10) per
-feed, with a "+N more" line (tapping it puts `feed read <id>` in the prompt).
+Tap an item line to open its link. Long-press it to share or copy.
+
+When a fetch finds new items, they appear in the log:
+
+- Each feed's items are in their own group.
+- Each feed shows at most `feeds.log-lines` items (default 10).
+- If there are more, a "+N more" line appears. Tap it to put `feed read <id>` in the prompt.
 
 ## Read and unread
 
-Every item starts **unread** when it is first fetched. It becomes **read** when you:
+Every item is **unread** when Kolahal first fetches it. It becomes **read** when you:
 
-- open it: tap its line in the log, use "Open link" from the long-press menu, or tap it on the
-  Feeds screen;
-- list it with `feed read`. Only the items that were printed count; anything beyond the 40 shown
-  stays unread;
-- open it with `feed open`;
-- use "Mark all read" on the Feeds screen.
+- open it: tap its line in the log, use "Open link" in the long-press menu, or tap it on the
+  Feeds screen
+- list it with `feed read` (only the items that were shown count; items beyond the first 40 stay unread)
+- open it with `feed open`
+- use "Mark all read" on the Feeds screen
 
-Seeing a line scroll by in the log does not mark it read, unless you turn on
-`feeds.read-shown`. `feed all` lists items without changing them. The unread count is simply the
-number of stored items still unread (up to 300 per feed are kept, unread ones first).
+An item does not become read just because you saw it in the log. To change this, turn on
+`feeds.read-shown`. `feed all` lists items without changing their state.
 
-When you subscribe, everything the feed already contains is unread too. A busy feed can start at
-20 or more unread items. Turn on `feeds.backlog-read` to count those as read, so only posts that
-appear after you subscribed are unread.
+The unread count is the number of stored items that are still unread. Kolahal keeps up to 300 items per feed, unread ones first.
+
+When you subscribe, all items already in the feed are unread too. A busy feed can start with
+20 or more unread items. Turn on `feeds.backlog-read` to mark those as read. Then only new posts
+are unread.
 
 ### Feeds screen
 
-`feeds` (or the **Feeds** tab in Settings) opens a screen for managing subscriptions: adding, removing and toggling feeds, intervals
-and notifications, without typing ids. A feed's ⋮ opens its sheet, where **Edit address** changes
-its address, for a typo or a feed that moved: its items and settings stay. Tap a feed for its items: tap one to open it and mark it read, or swipe one either way to mark it
-read (or, when it's read, unread again).
-The top bar refreshes everything and imports or exports **OPML**, so you can move subscriptions from
-or to another feed reader. The `feed …` subcommands work too.
+Run `feeds`, or open the **Feeds** tab in Settings. This screen lets you manage subscriptions without typing ids:
 
-Feed behaviour is at the bottom of the same screen, under **Settings**: whether new items go to the
-log and how many, the read / unread options above, refreshing on Wi-Fi only (`feeds.wifi`), and the
-interval and notification setting new subscriptions start with (`feeds.interval`, `feeds.notify`).
-Settings search finds them too.
+- Add, remove, and turn feeds on or off. Change their intervals and notifications.
+- Tap a feed's ⋮ to open its sheet. Use **Edit address** to fix a typo or follow a feed that moved.
+  The feed's items and settings stay.
+- Tap a feed to see its items. Tap an item to open it and mark it read.
+  Swipe an item either way to mark it read, or unread again if it's already read.
+- Use the top bar to refresh all feeds, and to import or export **OPML**. OPML lets you move subscriptions
+  from or to another feed reader.
+
+The `feed …` subcommands still work.
+
+At the bottom of the same screen, under **Settings**, you can set:
+
+- whether new items go to the log, and how many
+- the read / unread options above
+- refresh on Wi-Fi only (`feeds.wifi`)
+- the interval and notification setting for new subscriptions (`feeds.interval`, `feeds.notify`)
+
+You can also find these with Settings search.
 
 ## Per-feed settings
 
@@ -82,17 +98,24 @@ feed rm 2                # unsubscribe and delete its items
 
 ## How fetching works
 
-- One background job fetches the feeds that are due by their own interval. It runs only as often as your most frequent feed needs (every 15 minutes at most), and only when there
-  is a network, or only on Wi-Fi with `feeds.wifi on`.
-- Requests are conditional (ETag / Last-Modified), so an unchanged feed returns a `304` and isn't parsed.
-- Up to 300 items are kept per feed (unread first, then newest).
-- A failed scheduled fetch is only recorded in the feed's status (shown by `feed`). A manual fetch (`feed fetch`) also logs the error.
-- Feeds run in the launcher process, not the script sandbox. For a feed you only want to see once,
-  `rss <url>` prints up to 15 items into the log without subscribing.
+- One background job fetches the feeds that are due, based on each feed's interval.
+  It runs only as often as your most frequent feed needs, and at most every 15 minutes.
+  It runs only when there is a network. With `feeds.wifi on`, it runs only on Wi-Fi.
+- Requests are conditional (ETag / Last-Modified). If a feed hasn't changed, the server returns a `304`, and Kolahal doesn't parse it.
+- Kolahal keeps up to 300 items per feed: unread items first, then the newest.
+- If a scheduled fetch fails, Kolahal only records it in the feed's status (shown by `feed`).
+  If a manual fetch (`feed fetch`) fails, Kolahal also logs the error.
+- Feeds run in the launcher process, not in the script sandbox.
+- To look at a feed once without subscribing, use `rss <url>`. It prints up to 15 items in the log.
 
 ## Feeds or a script?
 
-Built-in feeds are the simplest option. For filtering, merging several feeds into one line, scoring
-or a status line at the top, write a script with
-[`rss.fresh(url)`](/scripting/api/#rssfreshurl), like the bundled
-[`hn` script](/scripting/library/#hn).
+Built-in feeds are the simplest option. Write a script with
+[`rss.fresh(url)`](/scripting/api/#rssfreshurl) if you want to:
+
+- filter items
+- merge several feeds into one line
+- score items
+- show a status line at the top
+
+The bundled [`hn` script](/scripting/library/#hn) is an example.

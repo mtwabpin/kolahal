@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
@@ -43,9 +44,11 @@ import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The pinned header's music line "♪ Title — Artist  ⏭" (drawn icons) over a bar for how far along the track is: tap
- * toggles play/pause, long-press or ⏭ skips to the next track. [endPadding] keeps the line's end
- * clear for the pinned header's dots; the bar runs on under them.
+ * The pinned header's music line "♪ Title — Artist  ⏭" (drawn icons), above a track progress bar.
+ * - A tap toggles play/pause.
+ * - A long press or ⏭ skips to the next track.
+ * - [endPadding] keeps the end of the line free for the pinned header's dots. The bar continues
+ *   under them.
  */
 @Composable
 internal fun NowPlayingLine(
@@ -54,9 +57,9 @@ internal fun NowPlayingLine(
     onNext: () -> Unit,
     endPadding: Dp = 0.dp,
 ) {
-    // How far along: worked out every 250 ms, but stored only when the bar's filled part changes by a
-    // pixel, and read only to draw the bar. An hour-long track moves it a pixel every few seconds,
-    // and each change used to build and measure the whole line again.
+    // The track progress. It is computed every 250 ms, but stored only when the filled part of the
+    // bar changes by at least a pixel, and it is read only when drawing the bar. An hour-long track
+    // moves the bar one pixel every few seconds. Before, each change rebuilt and re-measured the whole line.
     val barWidth = remember { intArrayOf(0) }
     var progress by remember(np) { mutableFloatStateOf(np.progressNow()) }
     fun update() {
@@ -65,9 +68,11 @@ internal fun NowPlayingLine(
         if (w == 0 || (w * p).roundToInt() != (w * progress).roundToInt()) progress = p
     }
 
-    // Update position locally without requiring MediaRepository events. Keyed on all of np: a seek,
-    // a repeat or buffering ending leave the title and `playing` as they were. Only while on screen:
-    // a delay doesn't stop with the activity, and music often plays with the screen off.
+    // Update the position here, without waiting for MediaRepository events.
+    // - The key is the whole np, because a seek, a repeat or the end of buffering keep the same
+    //   title and `playing`.
+    // - It runs only while on screen. A delay doesn't stop with the activity, and music often
+    //   plays with the screen off.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(np, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -145,29 +150,31 @@ internal fun NowPlayingLine(
             }
         }
 
-        // Playback progress track. A new width is drawn at once, not at the next pixel's worth of track.
+        // The playback progress bar. When the width changes, it redraws at once, without waiting for the
+        // next pixel of progress.
         ProgressTrack({ progress }, Modifier.onSizeChanged { barWidth[0] = it.width; progress = np.progressNow() })
     }
 }
 
-/** How far along [NowPlaying] is now, 0 to 1; 0 when the length or position isn't known. */
+/** The current progress of [NowPlaying], from 0 to 1. It is 0 if the length or position is unknown. */
 private fun NowPlaying.progressNow(): Float {
     val position = positionNow()
     return if (duration > 0 && position >= 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
 }
 
-/** A thin bar, filled as far as [fraction] (0 to 1). */
+/** A thin bar, filled up to [fraction] (0 to 1). */
 @Composable
-internal fun ProgressTrack(fraction: Float) = ProgressTrack({ fraction })
+internal fun ProgressTrack(fraction: Float, fill: Color = Term.prompt) = ProgressTrack({ fraction }, fill = fill)
 
 /**
- * A thin bar, filled as far as [fraction] (0 to 1), read only while drawing: a change draws the bar
- * again, without building or measuring anything. The fill is as wide as a child at
- * `fillMaxWidth(fraction)` would be: whole pixels, from the start side.
+ * A thin bar, filled up to [fraction] (0 to 1), in [fill] (the theme's accent unless a script picks a role).
+ * - [fraction] is read only while drawing, so a change only redraws the bar. Nothing is rebuilt or
+ *   measured again.
+ * - The fill has the same width as a child with `fillMaxWidth(fraction)`: whole pixels, from the
+ *   start side.
  */
 @Composable
-internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier) {
-    val fill = Term.prompt
+internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier, fill: Color = Term.prompt) {
     Box(
         modifier = modifier
             .fillMaxWidth()

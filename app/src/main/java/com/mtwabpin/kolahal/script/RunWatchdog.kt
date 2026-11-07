@@ -6,13 +6,15 @@ import android.os.Process
 import kotlin.concurrent.thread
 
 /**
- * The last word on a run, for what an engine can't stop by itself: a long C function in Lua (a
- * pathological `string.find`), a QuickJS built-in that never looks for the interrupt
- * (`Array.prototype.includes` over 2^53 slots), promise jobs that keep queuing one another, or
- * memory that grows faster than the engine checks it. Past the timeout and [GRACE_MS], or with
- * native memory grown more than [nativeLimitMb] (null: not watched), it logs why and kills the
- * isolated :script process. Elsewhere (code typed at the prompt in tests, the main process) it only
- * logs: killing the launcher is never the answer. Close it when the run ends.
+ * The last guard on a run. It handles what an engine can't stop by itself:
+ * - a long C function in Lua (a pathological `string.find`),
+ * - a QuickJS built-in that never checks the interrupt (`Array.prototype.includes` over 2^53 slots),
+ * - promise jobs that keep queuing one another,
+ * - memory that grows faster than the engine checks it.
+ * It acts after the timeout plus [GRACE_MS], or when native memory has grown more than
+ * [nativeLimitMb] (null means memory is not watched). Then it logs why and kills the isolated
+ * :script process. In other places (code typed at the prompt in tests, the main process) it only
+ * logs, because it must never kill the launcher. Close it when the run ends.
  */
 internal class RunWatchdog(host: HostApi, timeoutMs: Long, nativeLimitMb: Long?) : AutoCloseable {
     private val baseline = Debug.getNativeHeapAllocatedSize()
@@ -20,8 +22,8 @@ internal class RunWatchdog(host: HostApi, timeoutMs: Long, nativeLimitMb: Long?)
         val killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
         try {
             while (true) {
-                // With no memory to watch (JavaScript has its own limit), only the clock is left, and
-                // when it runs out is known: one sleep, not a hundred wake-ups a second.
+                // With no memory to watch (JavaScript has its own limit), only the clock matters. Its end time
+                // is known, so one sleep is enough instead of a hundred wake-ups a second.
                 Thread.sleep(if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else WATCH_EVERY_MS)
                 val reason = when {
                     nativeLimitMb != null && Debug.getNativeHeapAllocatedSize() - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
@@ -42,7 +44,7 @@ internal class RunWatchdog(host: HostApi, timeoutMs: Long, nativeLimitMb: Long?)
     private companion object {
         const val GRACE_MS = 5_000L
 
-        /** Often enough that memory doubling every few instructions overshoots by about one doubling. */
+        /** Often enough that, if memory doubles every few instructions, it overshoots by about one doubling only. */
         const val WATCH_EVERY_MS = 10L
     }
 }

@@ -5,37 +5,37 @@ description: Double-tap to lock, swipe down for the shade, an optional swipe up,
 
 import GestureMap from '../../../components/GestureMap.astro';
 
-Every touch gesture on the home screen, at a glance:
+Here are all the touch gestures on the home screen:
 
 <GestureMap>
 
-1. **Swipe down on the header**: the notification shade (`gesture.swipe-down`).
-2. **Double-tap empty space**: lock the screen (`gesture.double-tap`). One tap brings up the keyboard.
-3. **Pinch the log**: bigger or smaller text.
-4. **Swipe sideways** on the header, empty space or the prompt: the [widgets page](/guides/widgets/).
-5. **Long-press a line**: its actions. A tap does its main action.
-6. **Swipe a line**: right copies it, left deletes it (with Undo for a few seconds).
-7. **Tap the `$`**: quick actions.
-8. **Swipe up on the prompt**: nothing, unless you set `gesture.swipe-up`.
-9. **Slide along the edge**: the [app selector](/getting-started/basics/#app-selector), when it's on.
+1. **Swipe down on the header**: open the notification shade (`gesture.swipe-down`).
+2. **Double-tap empty space**: lock the screen (`gesture.double-tap`). A single tap shows the keyboard.
+3. **Pinch the log**: make the text bigger or smaller.
+4. **Swipe sideways** on the header, on empty space or on the prompt: open the [widgets page](/guides/widgets/).
+5. **Long-press a line**: show its actions. A tap runs its main action.
+6. **Swipe a line**: right copies it, left deletes it. You can undo a delete for a few seconds.
+7. **Tap the `$`**: open quick actions.
+8. **Swipe up on the prompt**: does nothing unless you set `gesture.swipe-up`.
+9. **Slide along the edge**: open the [app selector](/getting-started/basics/#app-selector), if it's turned on.
 
 </GestureMap>
 
-Three gestures are configurable, in **Settings → Gestures** or with `config set`:
+You can change three gestures in **Settings → Gestures** or with `config set`:
 
 | Gesture | Key | Default |
 | --- | --- | --- |
-| Double-tap empty log space | `gesture.double-tap` | `lock` (`none` in the Play build, which has no screen lock) |
+| Double-tap empty log space | `gesture.double-tap` | `lock` (`none` in the Play build, which can't lock the screen) |
 | Swipe down on the header | `gesture.swipe-down` | `shade` |
-| Swipe up on the prompt | `gesture.swipe-up` | `none` (off: it's easy to trigger by accident) |
+| Swipe up on the prompt | `gesture.swipe-up` | `none` (off, because it's easy to do by accident) |
 
-Each value is one of:
+Each gesture can have one of these values:
 
-- `lock`: lock the screen,
-- `shade`: pull down the notification shade,
-- `quick`: open the quick actions (as tapping `$` on the prompt does),
-- `none`: do nothing,
-- **any command**, run as if you typed it.
+- `lock`: lock the screen.
+- `shade`: open the notification shade.
+- `quick`: open the quick actions, like tapping `$` on the prompt.
+- `none`: do nothing.
+- **any command**: Kolahal runs it as if you typed it.
 
 ```sh
 # swipe up on the prompt for the app list
@@ -44,21 +44,23 @@ config set gesture.double-tap feed read
 config set gesture.swipe-down none
 ```
 
-`lock` and `shade` are also commands you can type, alias or use from a script command.
+`lock` and `shade` are also commands. You can type them, make aliases for them or use them in a script command.
 
 ## Locking needs an accessibility service
 
-Android only lets an app lock the screen through an accessibility service. Kolahal includes a small one,
-**Kolahal screen lock**, that does nothing else. It is declared with `canRetrieveWindowContent="false"`
-and scoped to a package that doesn't exist, so it receives no accessibility events and can't read
-the screen. All it does is call the system "lock screen" action.
+On Android, an app can only lock the screen through an accessibility service. Kolahal includes a small
+service called **Kolahal screen lock** that does only this:
 
-Enable it with `accessibility` or **setup → Double-tap to lock**. Until then, `lock` prints a
-tappable line that takes you to the setting.
+- It is declared with `canRetrieveWindowContent="false"`.
+- It is limited to a package that doesn't exist, so it gets no accessibility events and can't read the screen.
+- Its only job is to call the system "lock screen" action.
+
+To turn it on, run `accessibility` or use **setup → Double-tap to lock**. Until you turn it on, `lock` shows a
+line you can tap to open the setting.
 
 ## Other touch gestures
 
-These are fixed:
+You can't change these gestures:
 
 - **Pinch** the log to change the text size. When you let go, a short message shows the new size.
 - **Tap** empty space to show the keyboard.
@@ -66,5 +68,5 @@ These are fixed:
 
 ## Wallpaper flash when going home
 
-Swiping home from an app can show your wallpaper for an instant. That comes from your phone's own
-launcher, not from Kolahal: the [FAQ](/reference/faq/#why-does-my-wallpaper-flash-when-i-go-home) explains why, and how to stop it with three-button navigation or `wallpaper match`.
+When you swipe home from an app, you may see your wallpaper for a moment. Your phone's own
+launcher causes this, not Kolahal. The [FAQ](/reference/faq/#why-does-my-wallpaper-flash-when-i-go-home) explains why. It also explains how to stop it with three-button navigation or `wallpaper match`.

@@ -20,18 +20,22 @@ import java.lang.ref.WeakReference
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Feeds posted notifications into [NotificationStore] and, unless muted, the terminal log
- * (as [LogKind.SCRIPT] lines whose context carries [CTX_KEY] so long-press can open/dismiss).
+ * Puts posted notifications into [NotificationStore]. Unless the app is muted, it also writes them to
+ * the terminal log as [LogKind.SCRIPT] lines. Their context holds [CTX_KEY], so a long-press can open
+ * or dismiss the notification.
  */
 class KolahalNotificationListener : NotificationListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** For the clear that may follow a write still going as access goes: onDestroy doesn't cancel it. */
+    /**
+     * Scope for the clear that runs after a write that was still running when access was removed.
+     * onDestroy doesn't cancel this scope.
+     */
     private val afterDestroy = CoroutineScope(SupervisorJob())
     private val userManager by lazy { getSystemService(UserManager::class.java) }
     private val ranking = Ranking()
 
-    /** Last terminal write per key: (time, line). Only touched on the main thread. */
+    /** Last terminal write per key, as (time, line). Used only on the main thread. */
     private val lastLogged = HashMap<String, Pair<Long, String>>()
 
     override fun onListenerConnected() {
@@ -39,34 +43,37 @@ class KolahalNotificationListener : NotificationListenerService() {
         val active = runCatching { activeNotifications }.getOrNull().orEmpty()
         val accepted = active.filter(::accept).map { it to toNotif(it) }
         NotificationStore.replaceAll(accepted.map { (sbn, n) -> n to sbn.notification.contentIntent })
-        // Those showing were logged when they came, before access went or the process ended: an
-        // unchanged re-post of one isn't a new line.
+        // The notifications still showing were logged when they arrived, before access was removed or
+        // the process ended. So an unchanged re-post of one of them isn't a new line.
         accepted.forEach { (sbn, n) -> if (n.line.isNotEmpty()) lastLogged.putIfAbsent(n.key, sbn.postTime to n.line) }
         scope.launch { accepted.forEach { (sbn, n) -> saveIcon(n, sbn) } }
         mirror()
-        // Access turned off and on again: now playing listens to media sessions again.
+        // If access was turned off and on again, now playing listens to media sessions again.
         MediaRepository.get(this).reconnect()
     }
 
     private var mirrorJob: kotlinx.coroutines.Job? = null
 
-    /** No copy is on disk since this listener cleared it: nothing to delete again at the next notification. */
+    /**
+     * True when this listener cleared the copy and no copy is on disk since. Then the next
+     * notification has nothing to delete.
+     */
     @Volatile private var mirrorCleared = false
 
     /**
-     * The copy's writes and clears, one at a time: a write that's already writing can't be cancelled,
-     * and a clear started meanwhile would end before it, leaving a copy marked cleared.
+     * Runs the copy's writes and clears one at a time. A write that has started can't be cancelled.
+     * A clear started during it would end first, and leave a copy on disk that is marked cleared.
      */
     private val mirrorWork = Dispatchers.IO.limitedParallelism(1)
 
-    /** Scripts run in the :script process, so they read a snapshot of the feed from the shared database. */
+    /** Scripts run in the :script process, so they read a copy of the feed from the shared database. */
     private fun mirror() {
         mirrorJob?.cancel()
         mirrorJob = scope.launch(mirrorWork) {
             kotlinx.coroutines.delay(400.milliseconds)
-            // Only kept while a script may read it (`@uses notifications`); otherwise no copy at all.
+            // Keep a copy only while a script may read it (`@uses notifications`). Otherwise keep no copy.
             if (!com.mtwabpin.kolahal.script.TriggerDispatcher.get(this@KolahalNotificationListener).wantsNotifications()) {
-                // Only this listener writes the copy, so once cleared it stays cleared.
+                // Only this listener writes the copy, so after a clear it stays cleared.
                 if (!mirrorCleared) mirrorCleared = clearMirror(this@KolahalNotificationListener)
                 return@launch
             }
@@ -80,12 +87,13 @@ class KolahalNotificationListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         if (instance?.get() === this) instance = null
-        // Access revoked or unbound: don't leave a copy of other apps' notifications on disk.
+        // Access was removed or the listener was unbound. Don't leave a copy of other apps'
+        // notifications on disk.
         mirrorJob?.cancel()
-        // Synchronous (a single small delete) so onDestroy cancelling the scope can't skip it.
+        // Run it synchronously (it is one small delete), so onDestroy can't skip it by cancelling the scope.
         clearMirror(this)
-        // A write already writing can't be cancelled and may land after that: cleared again once it
-        // has, on the same queue, outside the scope onDestroy cancels.
+        // A write that has started can't be cancelled, and it may finish after that clear. So clear
+        // again after it, on the same queue, outside the scope that onDestroy cancels.
         val app = applicationContext
         afterDestroy.launch(mirrorWork) { clearMirror(app) }
     }
@@ -104,8 +112,8 @@ class KolahalNotificationListener : NotificationListenerService() {
         val extras = sbn.notification.extras
         val message = isMessage(extras.getString(Notification.EXTRA_TEMPLATE), sbn.notification.category)
         // Download/upload progress and "alert once" updates re-post the same key many times a
-        // second; keep the store current but don't spam the log or fire scripts for each tick.
-        // A chat's conversation is the exception: its silent update carries the next message.
+        // second. Keep the store up to date, but don't flood the log or fire scripts for each update.
+        // A chat conversation is the exception: its silent update carries the next message.
         if (isQuietRepost(
                 known = shown != null,
                 flags = sbn.notification.flags,
@@ -116,9 +124,9 @@ class KolahalNotificationListener : NotificationListenerService() {
             )
         ) return
         mirror()
-        // The line is written once its icon is saved, so it never shows the app name first.
+        // Write the line after its icon is saved, so it never shows the app name first.
         maybeLog(n, message, scope.launch { saveIcon(n, sbn) })
-        // The private space's notifications stay out of scripts' reach, as its apps do (apps.list).
+        // Scripts can't see notifications from the private space, just as they can't see its apps (apps.list).
         if (isPrivate(sbn.user)) return
         com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).fire(
             "notification",
@@ -127,13 +135,13 @@ class KolahalNotificationListener : NotificationListenerService() {
     }
 
     private fun isPrivate(user: android.os.UserHandle): Boolean {
-        // Your own profile never is: no need to ask the system on every notification from it.
+        // Your own profile is never private, so don't ask the system for each of its notifications.
         if (android.os.Build.VERSION.SDK_INT < 35 || user == android.os.Process.myUserHandle()) return false
         val la = getSystemService(android.content.pm.LauncherApps::class.java)
         return runCatching { la.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_PRIVATE }.getOrDefault(false)
     }
 
-    /** Your own profile's serial: never the private space, and most notifications come from it. */
+    /** Serial of your own profile. It is never the private space, and most notifications come from it. */
     private val ownSerial by lazy { runCatching { userManager.getSerialNumberForUser(android.os.Process.myUserHandle()) }.getOrDefault(-1L) }
 
     private fun isPrivateSerial(serial: Long): Boolean = serial != ownSerial &&
@@ -141,8 +149,8 @@ class KolahalNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
         NotificationStore.markRemoved(sbn.key)
-        // Posted again later with the same text (a daily reminder), it's a new line; only updates
-        // of a notification still showing are kept to one.
+        // If it is posted again later with the same text (a daily reminder), it gets a new line.
+        // Only updates of a notification that is still showing are limited to one line.
         lastLogged.remove(sbn.key)
         mirror()
     }
@@ -151,11 +159,11 @@ class KolahalNotificationListener : NotificationListenerService() {
 
     private fun accept(sbn: StatusBarNotification, map: RankingMap?): Boolean {
         if (sbn.packageName == packageName || sbn.isOngoing) return false
-        // What the app marks secret stays out of the log, the store and scripts.
+        // Notifications the app marks secret stay out of the log, the store and scripts.
         if (sbn.notification.visibility == Notification.VISIBILITY_SECRET) return false
         val flags = sbn.notification.flags
         if (flags and (Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_GROUP_SUMMARY) != 0) return false
-        // Silent/minimized channels (weather, "syncing", promos) would only add noise.
+        // Silent or minimized channels (weather, "syncing", promos) would only add noise.
         if (map != null && map.getRanking(sbn.key, ranking) &&
             ranking.importance <= NotificationManager.IMPORTANCE_LOW
         ) return false
@@ -172,7 +180,7 @@ class KolahalNotificationListener : NotificationListenerService() {
             pkg = sbn.packageName,
             userSerial = serial,
             app = labelOf(sbn.packageName, serial),
-            // Another app's text can't style a log line.
+            // Remove styling: another app's text must not style a log line.
             title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.let(StyledText::strip),
             text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
                 ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.let(StyledText::strip),
@@ -217,22 +225,25 @@ class KolahalNotificationListener : NotificationListenerService() {
     }
 
     companion object {
-        /** LogContext key holding the notification key of a feed line. */
+        /** LogContext key that holds the notification key of a feed line. */
         const val CTX_KEY = "notif"
         const val MIRROR_SCOPE = "system"
         const val MIRROR_KEY = "notifications"
         private const val RATE_LIMIT_MS = 30_000L
 
-        /** Removes the notification snapshot mirrored for scripts; false if that failed. Never throws. */
+        /** Removes the copy of notifications kept for scripts. Returns false if that failed. Never throws. */
         fun clearMirror(context: android.content.Context): Boolean = runCatching {
             com.mtwabpin.kolahal.data.KvStore(context.applicationContext, MIRROR_SCOPE).set(MIRROR_KEY, null)
         }.isSuccess
 
         /**
-         * Whether a post is an update of an already-shown notification that shouldn't be logged or
-         * trigger scripts: progress notifications, and alert-once updates unless a [message]'s
-         * text [changed] (a conversation's next message arrives as a silent update of the same
-         * notification; a timer or a player updating its text does too, but isn't a message).
+         * True when a post is an update of a notification already shown, and it shouldn't be logged or
+         * trigger scripts. This covers:
+         * - progress notifications
+         * - alert-once updates, unless it is a [message] whose text [changed]
+         *
+         * A conversation's next message arrives as a silent update of the same notification. A timer
+         * or a player that updates its text does this too, but it isn't a message.
          * New keys always count.
          */
         internal fun isQuietRepost(
@@ -246,14 +257,15 @@ class KolahalNotificationListener : NotificationListenerService() {
             known && (progressMax > 0 || indeterminate || (flags and Notification.FLAG_ONLY_ALERT_ONCE != 0 && !(message && changed)))
 
         /**
-         * Whether a post of [line] gets a log line, after [last] (when and what this notification
-         * last logged): a chat re-posts its notification for every message, and each new message is
-         * a line; anything else updating within 30 seconds (a count going up) keeps its first one.
+         * True when a post of [line] gets a log line. [last] is when and what this notification last
+         * logged.
+         * - A chat re-posts its notification for every message, and each new message gets a line.
+         * - Any other update within 30 seconds (for example, a count going up) keeps only its first line.
          */
         internal fun isNewLine(last: Pair<Long, String>?, line: String, now: Long, message: Boolean): Boolean =
             last == null || (last.second != line && (message || now - last.first >= RATE_LIMIT_MS))
 
-        /** A messaging-style notification ([Notification.EXTRA_TEMPLATE]) or one an app files as a message. */
+        /** True for a messaging-style notification ([Notification.EXTRA_TEMPLATE]), or one the app marks as a message. */
         internal fun isMessage(template: String?, category: String?): Boolean =
             template == MESSAGING_TEMPLATE || category == Notification.CATEGORY_MESSAGE
 
@@ -262,7 +274,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         @Volatile
         private var instance: WeakReference<KolahalNotificationListener>? = null
 
-        /** The connected listener, if the user granted access and the system bound us. */
+        /** The connected listener, if the user granted access and the system bound it. */
         internal val connected: KolahalNotificationListener? get() = instance?.get()
     }
 }

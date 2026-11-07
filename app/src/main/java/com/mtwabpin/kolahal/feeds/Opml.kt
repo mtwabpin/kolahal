@@ -1,19 +1,21 @@
 package com.mtwabpin.kolahal.feeds
 
 /**
- * OPML import/export. OPML is flat enough that a small attribute scanner over `<outline>` tags is
- * sufficient, which keeps this free of Android's XML parser and testable on the JVM.
- * Nested outlines (folders) are flattened: only outlines carrying an `xmlUrl` become feeds.
+ * OPML import and export.
+ * - OPML is simple, so a small scanner over the attributes of `<outline>` tags is enough. This avoids
+ *   Android's XML parser, so the code can be tested on the JVM.
+ * - Nested outlines (folders) are flattened. Only outlines with an `xmlUrl` become feeds.
  */
 object Opml {
     data class Entry(val title: String?, val url: String)
 
-    // Quoted values whole, as a `>` needn't be escaped in one. Possessive: it can't go back over a long value.
+    // Match quoted values as a whole, because a `>` inside quotes doesn't need escaping.
+    // The quantifiers are possessive, so the regex can't backtrack over a long value.
     private val OUTLINE = Regex("<outline\\b((?:[^>\"']++|\"[^\"]*+\"|'[^']*+')*+)>", RegexOption.IGNORE_CASE)
     private val ATTR = Regex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')")
     private val COMMENT = Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL)
 
-    /** Feeds listed in [xml], in document order, de-duplicated by URL. */
+    /** Returns the feeds listed in [xml], in document order, without duplicate URLs. */
     fun parse(xml: String): List<Entry> {
         val seen = HashSet<String>()
         val out = ArrayList<Entry>()
@@ -27,7 +29,7 @@ object Opml {
         return out
     }
 
-    /** OPML 2.0 document for [feeds]. */
+    /** Builds an OPML 2.0 document for [feeds]. */
     fun write(feeds: List<Entry>, title: String = "Kolahal feeds"): String = buildString {
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         append("<opml version=\"2.0\">\n")
@@ -43,7 +45,7 @@ object Opml {
         append("</opml>\n")
     }
 
-    /** Attribute names lowercased (OPML producers disagree on `xmlUrl` vs `xmlurl`). */
+    /** Attribute names are lowercased, because OPML files use both `xmlUrl` and `xmlurl`. */
     private fun attributes(raw: String): Map<String, String> =
         ATTR.findAll(raw).associate { m ->
             val value = m.groups[3]?.value ?: m.groups[4]?.value.orEmpty()
@@ -72,19 +74,19 @@ object Opml {
             "apos" -> "'"
             else -> {
                 val code = if (e.startsWith("#x")) e.substring(2).toIntOrNull(16) else e.substring(1).toIntOrNull()
-                // A surrogate on its own is half a character: kept as written.
+                // A lone surrogate is only half a character, so keep the entity as written.
                 code?.takeIf { Character.isValidCodePoint(it) && it !in 0xD800..0xDFFF }?.let { String(Character.toChars(it)) } ?: m.value
             }
         }
     }
 }
 
-/** Subscribes to every feed in an OPML document; returns how many were new. Invalid URLs are skipped. */
+/** Subscribes to every feed in an OPML document and returns how many were new. Invalid URLs are skipped. */
 fun FeedRepository.importOpml(xml: String): Int {
     val before = feeds().size
     for ((title, url) in Opml.parse(xml)) runCatching { add(url, title) }
     return feeds().size - before
 }
 
-/** All subscriptions as an OPML document. */
+/** Returns all subscriptions as an OPML document. */
 fun FeedRepository.exportOpml(): String = Opml.write(feeds().map { Opml.Entry(it.title, it.url) })

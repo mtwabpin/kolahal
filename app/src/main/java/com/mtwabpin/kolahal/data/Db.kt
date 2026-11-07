@@ -5,8 +5,8 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 /**
- * Single SQLite database shared by the UI process and the `:script` process.
- * WAL mode plus SQLite's file locking make concurrent access from both processes safe.
+ * A single SQLite database shared by the UI process and the `:script` process.
+ * WAL mode and SQLite's file locking make concurrent access from both processes safe.
  */
 class Db private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {
@@ -98,16 +98,16 @@ class Db private constructor(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Both processes may open the database right after an update: each step once.
+        // Both processes may open the database right after an update, so each step must run only once.
         if (oldVersion < 2 && !hasColumn(db, "scripts", "at_times")) db.execSQL("ALTER TABLE scripts ADD COLUMN at_times TEXT")
         if (oldVersion < 3) createProductivityTables(db)
         if (oldVersion < 4) addScriptAccess(db)
         if (oldVersion < 5) dropRunHeaders(db)
-        // Repeating reminders (version 6): how one repeats, null for once.
+        // Repeating reminders (version 6): how a reminder repeats, or null for once.
         if (oldVersion < 6 && !hasColumn(db, "reminders", "repeat_rule")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
-        // The time a repeating reminder was asked for (version 7), so a daylight-saving gap or a trip doesn't move it for good.
+        // The time a repeating reminder was set for (version 7), so a daylight-saving gap or a trip doesn't move it for good.
         if (oldVersion < 7 && !hasColumn(db, "reminders", "repeat_time")) db.execSQL("ALTER TABLE reminders ADD COLUMN repeat_time TEXT")
-        // Starred log lines (version 8), kept past the log's limits.
+        // Starred log lines (version 8), kept beyond the log's limits.
         if (oldVersion < 8) {
             if (!hasColumn(db, "logs", "starred")) db.execSQL("ALTER TABLE logs ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
             db.execSQL(STARRED_INDEX)
@@ -121,8 +121,8 @@ class Db private constructor(context: Context) :
 
     /**
      * Per-script access switches (schema version 4, [com.mtwabpin.kolahal.script.ScriptAccess]).
-     * Before, switching a script on allowed everything it declared with `@uses`: switched-on
-     * scripts keep that; switched-off ones ask when they are switched on.
+     * Before this, switching a script on allowed everything it declared with `@uses`. Scripts that
+     * are switched on keep that. Scripts that are switched off ask when they are switched on.
      */
     private fun addScriptAccess(db: SQLiteDatabase) {
         if (!hasColumn(db, "scripts", "access")) db.execSQL("ALTER TABLE scripts ADD COLUMN access TEXT")
@@ -140,15 +140,15 @@ class Db private constructor(context: Context) :
         private const val NAME = "kolahal.db"
         private const val VERSION = 8
 
-        /** The starred lines alone, by kind: a trim counts them on it instead of reading every line. */
+        /** An index of only the starred lines, by kind. A trim counts them with it instead of reading every line. */
         private const val STARRED_INDEX = "CREATE INDEX IF NOT EXISTS logs_starred ON logs(kind) WHERE starred = 1"
 
-        /** Run headers (`── hn · 22:40 ──`) are gone (version 5): every line shows its time and its script. */
+        /** Run headers (`── hn · 22:40 ──`) were removed in version 5. Every line now shows its time and its script. */
         internal fun dropRunHeaders(db: SQLiteDatabase): Int =
             db.delete("logs", "kind = ? AND ctx LIKE ?", arrayOf(LogKind.INFO.key, "%\"${LogContext.RUN_HEADER}\"%"))
     }
 }
 
-/** The number [sql] answers (a count, the largest id): its first row's first column, 0 for no row. */
+/** The number that [sql] returns (a count, the largest id): its first row's first column, or 0 if there is no row. */
 fun SQLiteDatabase.number(sql: String, vararg args: String): Long =
     rawQuery(sql, args).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }

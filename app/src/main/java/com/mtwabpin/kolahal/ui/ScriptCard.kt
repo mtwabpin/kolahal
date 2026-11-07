@@ -52,21 +52,22 @@ import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
 
 /**
- * One script, its card tinted in the theme's colour when on and faded when off. Compact: a dot (on,
- * failed, off), its title and file name, Run for a command, the
- * details arrow, the switch, and one line of how it runs and how its last run went. Expanded, also
- * its status line, description, next run, usage, events and what it may use.
+ * The card for one script. The card uses the theme colour when the script is on, and is faded when
+ * it is off.
+ * - Compact: a dot (on, failed, off), the title and file name, Run for a command, the details
+ *   arrow, the switch, and one line about how it runs and how its last run went.
+ * - Expanded: also the status line, description, next run, usage, events and what it may use.
  */
 @Composable
 internal fun ScriptCard(
     info: ScriptInfo,
     line: String?,
-    /** Declared secrets with no value yet, and those that have one. */
+    /** Declared secrets with no value yet, and (in [secretsSet]) those that have one. */
     missingKeys: List<String>,
     secretsSet: List<String>,
     expanded: Boolean,
     updateAvailable: Boolean,
-    /** Its copy from the library, edited or not; null for a script of your own. */
+    /** State of the library copy, edited or not. Null for a script the user wrote. */
     library: ScriptLibrary.State?,
     onExpand: () -> Unit,
     onClick: () -> Unit,
@@ -81,14 +82,14 @@ internal fun ScriptCard(
     val colors = MaterialTheme.colorScheme
     val failed = s.failed()
     val summary = buildList {
-        // Events switched off don't run it: left out.
+        // Leave out events that are switched off, because they don't run the script.
         add(schedule(s, info.isCommand, info.events.filter { info.grants.allows(it) }))
         add(s.lastRun?.let { (if (failed) "failed " else "ran ") + relative(it, short = true) } ?: "never run")
         if (missingKeys.isNotEmpty()) add("needs " + missingKeys.joinToString(", "))
         if (updateAvailable) add("update available")
         if (library == ScriptLibrary.State.MODIFIED) add("edited")
     }.joinToString(" · ")
-    // On or off at a glance: an on script's card takes the theme's colour, an off one's fades into the page.
+    // Show on or off at a glance: an on script's card uses the theme colour, an off script's card fades into the page.
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -141,9 +142,11 @@ internal fun ScriptCard(
 }
 
 /**
- * A card's details: its status line, description, next run and usage, a pill for each thing it may
- * do (on or off, a tap switches it), its secrets, and for an edited or older library copy, Compare
- * and Reset or Update.
+ * The details of a card:
+ * - the status line, description, next run and usage;
+ * - a pill for each thing the script may do (on or off; a tap switches it);
+ * - its secrets;
+ * - for an edited or older library copy, Compare and Reset or Update.
  */
 @Composable
 private fun ScriptDetails(
@@ -177,12 +180,12 @@ private fun ScriptDetails(
             Fact("Next run", if (exact) time else "about $time")
         }
         info.usage?.let { Fact("Usage", it) }
-        // Everything it may do, as in its sheet: its access (internet, pinning and notifications
-        // when its code uses them, what it declares with @uses), and apart from it the events of its @on
-        // lines. A tap switches one.
+        // Everything the script may do, as in its sheet. A tap switches one.
+        // - Access: internet, pinning and notifications when its code uses them, and what it declares with @uses.
+        // - Separately, the events from its @on lines.
         val (events, access) = info.accessItems.partition { it in info.events }
         if (access.isNotEmpty() || info.notifies) PillGroup("Access") {
-            // Notifications after internet and pinning, as in the sheet.
+            // Notifications come after internet and pinning, as in the sheet.
             val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
             for (item in base + listOfNotNull("notify".takeIf { info.notifies }) + declared) {
                 if (item == "notify") {
@@ -203,9 +206,9 @@ private fun ScriptDetails(
         if (info.secrets.isNotEmpty()) {
             Fact("Secrets", info.secrets.joinToString(", ") { d -> d.name + if (d.name in secretsSet) " (set)" else " (not set)" })
         }
-        // The last run's failure, worded as the editor words it ("Line 7: …", "Stopped: …").
+        // The last run's failure, in the same words as the editor ("Line 7: …", "Stopped: …").
         if (s.failed()) Text(EditorLogic.runResult(s.lastStatus, com.mtwabpin.kolahal.script.ScriptWorker.TIMEOUT_MS / 1000, tapHint = false).text, style = MaterialTheme.typography.bodySmall, color = colors.error)
-        // A library script edited, or from an older Kolahal: how it differs, and back to this version's copy.
+        // A library script that was edited or comes from an older Kolahal: show how it differs, and offer this version's copy.
         if (library != null && library.differs()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 CompareButton(ButtonDefaults.ExtraSmallContainerHeight, onCompare)
@@ -216,9 +219,10 @@ private fun ScriptDetails(
 }
 
 /**
- * Back to this version's library copy, [height] tall (as small as a pill in a card): an edited copy's
- * Reset, its icon in the error colour as your edits go (it asks first); an older copy's Update, as
- * nothing of yours does.
+ * A button that goes back to this version's library copy. It is [height] tall (as small as a pill
+ * in a card).
+ * - Edited copy: Reset. The icon uses the error colour because the user's edits are lost. It asks first.
+ * - Older copy: Update. Nothing of the user's is lost.
  */
 @Composable
 internal fun LibraryCopyButton(state: ScriptLibrary.State, height: Dp, onClick: () -> Unit) {
@@ -232,16 +236,17 @@ internal fun LibraryCopyButton(state: ScriptLibrary.State, height: Dp, onClick: 
     )
 }
 
-/** A library copy that isn't this version's: edited, or from an older Kolahal. */
+/** Whether a library copy is not this version's: it was edited, or it comes from an older Kolahal. */
 internal fun ScriptLibrary.State.differs() = this == ScriptLibrary.State.MODIFIED || this == ScriptLibrary.State.UPDATE_AVAILABLE
 
-/** Compare, [height] tall: opens a library copy against the library version. */
+/** The Compare button, [height] tall. It shows a library copy next to the library version. */
 @Composable
 internal fun CompareButton(height: Dp, onClick: () -> Unit) = OutlinedAction("Compare", R.drawable.ic_visibility, height, onClick = onClick)
 
 /**
- * Compare's and Reset's button, [height] tall: outlined, in the theme's text and outline colours, so it
- * sits as well on an on script's tinted card as on the page in every theme; [iconTint] only for its icon.
+ * The button for Compare and Reset, [height] tall. It is outlined, in the theme's text and outline
+ * colours, so it looks right both on an on script's tinted card and on the page, in every theme.
+ * [iconTint] applies only to the icon.
  */
 @Composable
 private fun OutlinedAction(label: String, icon: Int, height: Dp, iconTint: Color? = null, onClick: () -> Unit) {
@@ -260,7 +265,10 @@ private fun OutlinedAction(label: String, icon: Int, height: Dp, iconTint: Color
     }
 }
 
-/** One thing a script may do, on or off by its colour: filled in the theme's colour when on, faded when off; a tap switches it. */
+/**
+ * One thing a script may do. Its colour shows on or off: filled with the theme colour when on, faded
+ * when off. A tap switches it.
+ */
 @Composable
 private fun AccessPill(label: String, on: Boolean, onToggle: () -> Unit) {
     val colors = MaterialTheme.colorScheme
@@ -278,7 +286,7 @@ private fun AccessPill(label: String, on: Boolean, onToggle: () -> Unit) {
     )
 }
 
-/** A card's line of pills under a small [label]: what a script may use, or the events it runs on. */
+/** A row of pills in a card under a small [label]: what a script may use, or the events it runs on. */
 @Composable
 private fun PillGroup(label: String, pills: @Composable FlowRowScope.() -> Unit) {
     Column {

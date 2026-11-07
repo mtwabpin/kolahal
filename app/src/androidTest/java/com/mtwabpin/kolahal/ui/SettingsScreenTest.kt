@@ -221,7 +221,7 @@ class SettingsScreenTest {
     /** The app selector has a page of its own; its settings show once it is on. */
     @Test fun theAppSelectorHasItsOwnPage() {
         assertTrue(allCategories().filter { it.id != "selector" }.none { c -> c.keys.any { it.key.startsWith("selector.") } })
-        // All of them but the ones only `config set` changes (selector.aim, selector.aim-speed, selector.actions).
+        // All of them but the ones only `config set` changes (Keys.CONFIG_ONLY).
         assertTrue(Keys.ALL.filter { it.key.startsWith("selector.") && it !in Keys.CONFIG_ONLY }.all { it in allCategories().first { c -> c.id == "selector" }.keys })
         show("selector")
         compose.onNodeWithText(Keys.SELECTOR_RAIL.key, useUnmergedTree = true).assertExists()
@@ -242,33 +242,30 @@ class SettingsScreenTest {
     }
 
     /**
-     * Without the header its two items go; the pinned header's settings stay, and the 24-hour clock,
-     * as the log's times use it.
+     * With the header on, the page shows the top of home and where the header sits; off, both go,
+     * and the 24-hour clock stays, as the log's times use it. The pinned header's timing and the
+     * sides' lists are never rows here (`config`, and Arrange the header).
      */
     @Test fun headerOffHidesItsItems() {
+        config.set(Keys.HEADER_SHOW, "on")
         show("header")
-        scrollTo(Keys.HEADER_ITEM_1)
-        compose.onNodeWithText(Keys.HEADER_ITEM_1.key, useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("header-preview").assertExists()
+        compose.onNodeWithText(Keys.HEADER_BELOW_BAR.key, useUnmergedTree = true).assertExists()
         compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
-        compose.onNodeWithText(Keys.HEADER_ITEM_1.key, useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText(Keys.HEADER_ITEM_2.key, useUnmergedTree = true).assertDoesNotExist()
-        scrollTo(Keys.HEADER_PINNED_SECONDS)
-        compose.onNodeWithText(Keys.HEADER_PINNED_SECONDS.key, useUnmergedTree = true).assertExists()
-        scrollTo(Keys.HEADER_PINNED_DOTS)
-        compose.onNodeWithText(Keys.HEADER_PINNED_DOTS.key, useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("header-preview").assertDoesNotExist()
+        compose.onNodeWithText(Keys.HEADER_BELOW_BAR.key, useUnmergedTree = true).assertDoesNotExist()
         scrollTo(Keys.CLOCK_24H)
         compose.onNodeWithText(Keys.CLOCK_24H.key, useUnmergedTree = true).assertExists()
+        for (key in listOf(Keys.HEADER_PINNED_SECONDS, Keys.HEADER_PINNED_DOTS, Keys.HEADER_LEFT, Keys.HEADER_RIGHT)) {
+            compose.onNodeWithText(key.key, useUnmergedTree = true).assertDoesNotExist()
+        }
     }
 
-    /** An item is one tap away: its choices are on its row. */
-    @Test fun anItemIsOneTap() {
+    /** The header's parts are arranged on a screen of their own, from the top of the Header page. */
+    @Test fun arrangeTheHeaderOpensItsScreen() {
         show("header")
-        scrollTo(Keys.HEADER_ITEM_1)
-        compose.onAllNodesWithText("network", useUnmergedTree = true)[0].performClick()
-        compose.runOnIdle {
-            assertEquals("network", config[Keys.HEADER_ITEM_1])
-            assertEquals(Keys.HEADER_ITEM_2.default, config[Keys.HEADER_ITEM_2])
-        }
+        compose.onNodeWithText("Arrange the header").performClick()
+        compose.waitUntil(5_000) { vm.screen.value == com.mtwabpin.kolahal.terminal.Screen.HEADER_PARTS }
     }
 
     /** Your name, on the Header page: a name with a space turns the field red and isn't saved. */

@@ -9,9 +9,11 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 /**
- * How a reminder repeats, as stored: `day`, `weekdays`, `weekend`, a list of days (`mon,thu`),
- * `month:15` (that day of every month; the last day in shorter months) or `year:12-03` (every
- * 3 December; 29 February is the 28th in other years). It fires at the same wall-clock time.
+ * How a reminder repeats, as stored. It fires at the same wall-clock time each time. Rules:
+ * - `day`, `weekdays`, `weekend`
+ * - a list of days (`mon,thu`)
+ * - `month:15`: that day of every month. Shorter months use their last day.
+ * - `year:12-03`: every 3 December. 29 February becomes the 28th in non-leap years.
  */
 object Repeat {
     fun matches(rule: String, d: LocalDate): Boolean = when {
@@ -25,10 +27,10 @@ object Repeat {
         else -> d.dayOfWeek in days(rule)
     }
 
-    /** The first time after [after] that [rule] falls on, at [time]. */
+    /** Returns the first date and [time] after [after] that matches [rule]. */
     fun next(rule: String, time: LocalTime, after: LocalDateTime): LocalDateTime {
         var d = after.toLocalDate()
-        // A year and a day covers every rule, 29 February included.
+        // 400 days is more than a year and a day, which covers every rule, 29 February too.
         repeat(400) {
             val at = d.atTime(time)
             if (at.isAfter(after) && matches(rule, d)) return at
@@ -38,9 +40,11 @@ object Repeat {
     }
 
     /**
-     * Whether [rule] is one Kolahal writes, so [next] and [label] work with it: a backup can hold
-     * anything, a newer version's rules too. A day of the month 1 to 31, a date that exists in some
-     * year (29 February too), and days of the week each named.
+     * True when [rule] has a form Kolahal writes, so [next] and [label] work with it. This matters
+     * because a backup can hold anything, including rules from a newer version. Valid parts:
+     * - a day of the month from 1 to 31
+     * - a date that exists in some year (29 February too)
+     * - days of the week, each one a known name
      */
     fun isValid(rule: String): Boolean {
         val shape = when {
@@ -58,7 +62,7 @@ object Repeat {
         }.isSuccess
     }
 
-    /** `every day`, `every Mon and Thu`, `on the 15th of every month`, `every year on 3 Dec`. */
+    /** Text for a rule, for example `every day`, `every Mon and Thu`, `on the 15th of every month`, `every year on 3 Dec`. */
     fun label(rule: String): String = when {
         rule == "day" -> "every day"
         rule == "weekdays" -> "every weekday"
@@ -74,7 +78,7 @@ object Repeat {
 
     private fun days(rule: String): List<DayOfWeek> = rule.split(',').mapNotNull(::dayNamed)
 
-    /** A day of the week as a rule names it: `mon`, `monday`, three letters at least, as `every` writes them. */
+    /** Reads a day name from a rule, such as `mon` or `monday`. It needs at least three letters, as `every` writes them. */
     private fun dayNamed(name: String): DayOfWeek? =
         name.takeIf { it.length >= 3 }?.let { n -> DayOfWeek.entries.firstOrNull { it.name.lowercase().startsWith(n) } }
 

@@ -16,10 +16,12 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 
 /**
- * `notifs enable` with access off: what Kolahal reads with notification access, what for, and that
- * it stays on the phone, with a choice, before Android's Notification access screen opens. Google
- * Play's prominent disclosure: in the app, before the system screen, and only Allow goes on; Not now
- * opens nothing and can be asked again.
+ * Shown by `notifs enable` when notification access is off, before Android's Notification access
+ * screen opens. It explains what Kolahal reads, why, and that the data stays on the phone.
+ * This is Google Play's prominent disclosure:
+ * - It shows inside the app, before the system screen.
+ * - Only Allow continues to the system screen.
+ * - Not now opens nothing, and the app can ask again later.
  */
 @Composable
 fun NotificationAccessDialog(onAllow: () -> Unit, onDismiss: () -> Unit) {

@@ -1,6 +1,6 @@
 ---
 title: First run & setup
-description: The tour on first start, the setup checklist, what each row grants and why Kolahal asks for it.
+description: The tour on first start, the setup checklist, what each row allows and why Kolahal asks for it.
 ---
 
 import { Image } from 'astro:assets';
@@ -8,25 +8,37 @@ import setup from '../../../assets/setup.png';
 
 ## The tour
 
-On its first start Kolahal opens a short tour, a page at a time: typing to open apps and run
-commands, the log and its gestures, and a few settings along the way, each changed with one tap. Above each page's settings is a small preview of the home screen, in your theme and with your apps, that shows the effect of each choice as you make it:
+The first time Kolahal starts, it opens a short tour, one page at a time. The tour shows you how to type to open apps and run
+commands, and how to use the log and its gestures. On the way, you can change a few settings with one tap each. Above each page's
+settings is a small preview of the home screen, in your theme and with your apps. It shows the effect of each choice as you make it.
 
-- **Type to open**: an app's first letters and then `fetch` are typed into the prompt. They run if instant launch (`launch.instant`) would run them; otherwise they wait for Enter. the suggestions show
-  as a list or chips (`suggestions.style`).
-- **Everything goes in the log**: a few lines to try tapping, long-pressing and swiping.
-- **Make it yours**: the theme, text size and clock, previewed on the header and a few log lines.
-- **Above the keyboard**: the key bar and most-used apps, over the keyboard.
+The pages are:
+
+- **Type to open**: the tour types an app's first letters into the prompt, and then `fetch`. They run if instant launch (`launch.instant`)
+  would run them. If not, they wait for Enter. You choose whether suggestions appear as a list or as chips (`suggestions.style`).
+- **Everything goes in the log**: a few lines where you can try tapping, long-pressing and swiping.
+- **Make it yours**: the theme, text size and clock, with a preview of the header and a few log lines.
+- **Above the keyboard**: the key bar and most-used apps, shown over the keyboard.
 - **The app selector**: try it on the edge you choose. When you let go, it shows which app would open.
 
-Its last setup page offers the permissions most people want, each with an example of what it
-adds: the default home app, notifications, notification access, and in the full build double-tap
-to lock and contacts. You can skip it on any page. Run `tour` or open **Settings → About → Tour** to reopen it. Everything it sets is also in Settings.
+The last setup page offers the permissions most people want. Each one has an example of what it adds:
+
+- the default home app
+- notifications
+- notification access
+- in the full build: double-tap to lock, and contacts
+
+You can skip the tour on any page. To open it again, run `tour` or open **Settings → About → Tour**. You can also change
+everything the tour sets in Settings.
 
 ## The setup checklist
 
-Run `setup` (or open **Settings → Setup checklist**). Each row shows whether it is done; tap
-**Fix** on an unchecked row and Kolahal opens the right system page. When you return, the list updates. `setup text` prints the same checklist into the log, where tapping an unchecked
-line runs its fix.
+Run `setup`, or open **Settings → Setup checklist**. Each row shows whether it is done.
+
+- Tap **Fix** on an unchecked row, and Kolahal opens the right system page.
+- When you come back, the list updates.
+
+`setup text` prints the same checklist into the log. Tap an unchecked line there to run its fix.
 
 <Image src={setup} alt="The setup checklist: default home app, usage access, notifications and notification access done; double-tap to lock, system settings and contacts with Fix buttons" class="shot shot-single" width={320} />
 
@@ -34,18 +46,18 @@ Every row is optional. Kolahal works without any of them, with the limits listed
 
 | Row | Fix command | Why |
 | --- | --- | --- |
-| **Default home app** | `home` | Kolahal opens on Home. Android only lets the default launcher read app shortcuts and, if you have them, pause or resume the work profile and see the private space. |
-| **Usage access** | `usage-access` | Accurate unlock counts (from `KEYGUARD_HIDDEN` usage events), including unlocks while the launcher wasn't running, and `usage` screen time. Without it, unlocks are counted with an `ACTION_USER_PRESENT` receiver, which misses unlocks while the launcher isn't running. |
-| **Notifications** | `notifications` | Lets scripts and feeds post notifications (Android 13+ asks at runtime). |
+| **Default home app** | `home` | Kolahal opens when you press Home. Android lets only the default launcher read app shortcuts. Only the default launcher can pause or resume the work profile and see the private space, if you have them. |
+| **Usage access** | `usage-access` | Gives accurate unlock counts (from `KEYGUARD_HIDDEN` usage events), including unlocks while the launcher wasn't running. Also needed for `usage` screen time. Without it, Kolahal counts unlocks with an `ACTION_USER_PRESENT` receiver, which misses unlocks while the launcher isn't running. |
+| **Notifications** | `notifications` | Lets scripts and feeds post notifications. Android 13 and newer asks for this when the app runs. |
 | **Notification access** | `notifs enable` | Shows your notifications in the terminal (`notifs`) and gives scripts `notifications.recent()`. |
-| **Double-tap to lock** | `accessibility` | An optional accessibility service whose only job is locking the screen, for the double-tap gesture and the `lock` command. It receives no events and reads no window content. |
+| **Double-tap to lock** | `accessibility` | An optional accessibility service. Its only job is to lock the screen, for the double-tap gesture and the `lock` command. It receives no events and reads no window content. |
 | **Do Not Disturb access** | `dnd access` | Optional. Lets `dnd`, `ring silent` and scripts with `@uses dnd` (such as [night-dnd](/scripting/library/#night-dnd)) change Do Not Disturb. See [Media and device controls](/guides/media-and-controls/). |
 | **Modify system settings** | `brightness access` | Optional. Lets `brightness`, `rotate` and `screen-timeout` change system settings. |
-| **Contacts** | `contacts --allow` | Optional. `call`, `sms` and `contacts` find people by name, with your contacts as suggestions. The full build only: the Play build uses Android's contact picker and asks for nothing. See [People](/guides/people/). |
-| **Calendar** | `agenda --allow` | Optional. Upcoming events with `agenda`. See [Productivity](/guides/productivity/). |
+| **Contacts** | `contacts --allow` | Optional. `call`, `sms` and `contacts` find people by name and suggest your contacts. Full build only. The Play build uses Android's contact picker and asks for no permission. See [People](/guides/people/). |
+| **Calendar** | `agenda --allow` | Optional. Shows upcoming events with `agenda`. See [Productivity](/guides/productivity/). |
 | **Call log** | `calls --allow` | Optional. Your incoming, outgoing and missed calls appear in the log, and `calls` lists them. See [People](/guides/people/#calls-in-the-log). |
-| **Alarms & reminders** | `remind exact` | Optional, Android 12 and newer. Reminders and scripts' daily times run at the exact time; without it, up to an hour late. A script that pauses the work profile at night ([night-work](/scripting/library/#night-work)) needs it. |
-| **Unrestricted battery** | `battery` | Timer scripts and feeds run on schedule instead of being deferred by battery optimisation. |
-| **Work / private profiles** | (none) | Information only: lists the work, private space and clone profiles found and whether each is on or paused. |
+| **Alarms & reminders** | `remind exact` | Optional, Android 12 and newer. Reminders and scripts' daily times run at the exact time. Without it, they can run up to an hour late. A script that pauses the work profile at night ([night-work](/scripting/library/#night-work)) needs it. |
+| **Unrestricted battery** | `battery` | Timer scripts and feeds run on time. Without it, battery optimisation can delay them. |
+| **Work / private profiles** | (none) | Information only. Lists the work, private space and clone profiles that Kolahal finds, and whether each one is on or paused. |
 
-When you are done, **Continue to terminal** takes you to the prompt. Next: [Basics](/getting-started/basics/).
+When you are done, tap **Continue to terminal** to go to the prompt. Next, read [Basics](/getting-started/basics/).

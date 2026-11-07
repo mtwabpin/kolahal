@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Which profile an app lives in. [tag] is the short indicator printed in the terminal. */
+/** The profile an app belongs to. [tag] is the short marker printed in the terminal. */
 enum class ProfileKind(val tag: String, val label: String) {
     PERSONAL("P", "personal"),
     WORK("W", "work"),
@@ -55,20 +55,20 @@ data class AppEntry(
     val pkg: String get() = component.packageName
     val key: String by lazy(LazyThreadSafetyMode.PUBLICATION) { keyOf(component, profile) }
 
-    /** For search, worked out once per list load instead of on every keystroke: lowercase, accents aside. */
+    /** For search: lowercase and without accents. Computed once per list load, not on every key press. */
     internal val lower: String = Fuzzy.fold(label)
     internal val words: List<String> = lower.split(' ', '-', '_', '.')
-    /** What a slip is checked against ([Fuzzy.slip]): the label, then its words. */
+    /** Names that a typing mistake is checked against ([Fuzzy.slip]): the label, then its words. */
     internal val names: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { listOf(lower) + words }
 
-    /** Its package and package/activity in lowercase, which also name it in a search: worked out at the first. */
+    /** Its package and package/activity in lowercase. A search can also match these. Computed at the first search. */
     internal val lowerPkg: String by lazy(LazyThreadSafetyMode.PUBLICATION) { pkg.lowercase() }
     internal val lowerComponent: String by lazy(LazyThreadSafetyMode.PUBLICATION) { component.flattenToShortString().lowercase() }
 }
 
 /**
- * Lists launchable activities across every profile visible to the launcher
- * (personal, managed work profile, Android 15 private space) and keeps the list fresh.
+ * Lists launchable activities in every profile the launcher can see (personal, managed work
+ * profile, Android 15 private space) and keeps the list up to date.
  */
 class AppRepository private constructor(private val context: Context) {
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
@@ -99,7 +99,8 @@ class AppRepository private constructor(private val context: Context) {
             override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon(names.asList())
             override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = refreshSoon(names.asList())
         })
-        // Kept between visits to home: what can change it reloads it. App names follow the language.
+        // This receiver stays registered between visits to home, and each of these events reloads the
+        // list. App names depend on the language.
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_LOCALE_CHANGED)
             addAction(Intent.ACTION_MANAGED_PROFILE_ADDED)
@@ -107,7 +108,7 @@ class AppRepository private constructor(private val context: Context) {
             addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE)
             addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE)
             addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
-            // Any profile coming or going (a clone too): from Android 14.
+            // From Android 14: any profile added or removed, a clone too.
             if (Build.VERSION.SDK_INT >= 34) {
                 addAction(Intent.ACTION_PROFILE_ADDED)
                 addAction(Intent.ACTION_PROFILE_REMOVED)
@@ -123,7 +124,7 @@ class AppRepository private constructor(private val context: Context) {
         refresh()
     }
 
-    /** Requests a reload; requests are conflated and processed one at a time, so results never race. */
+    /** Requests a reload. Requests are merged and run one at a time, so results never race. */
     fun refresh() {
         refreshRequests.trySend(Unit)
     }
@@ -132,16 +133,16 @@ class AppRepository private constructor(private val context: Context) {
 
     private val _packageChanges = MutableStateFlow(0)
 
-    /** Bumped when an app is installed, updated or removed: its icon may have changed. */
+    /** Increases when an app is installed, updated or removed, because its icon may have changed. */
     val packageChanges: StateFlow<Int> = _packageChanges.asStateFlow()
 
-    /** The packages behind [packageChanges] since [takeChanged] last asked. */
+    /** The packages that changed [packageChanges] since the last [takeChanged] call. */
     private val changed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
-    /** The packages installed, updated or removed since the last call: their icons may have changed. */
+    /** Returns the packages installed, updated or removed since the last call. Their icons may have changed. */
     fun takeChanged(): Set<String> = changed.toSet().also { changed.removeAll(it) }
 
-    /** An install or update sends several callbacks in a row: one reload once they stop. */
+    /** An install or update sends several callbacks in a row. Reload once, after they stop. */
     private fun refreshSoon(packages: Collection<String>) {
         changed += packages
         _packageChanges.update { it + 1 }
@@ -159,7 +160,7 @@ class AppRepository private constructor(private val context: Context) {
                 runCatching { launcherApps.getActivityList(null, profile.user) }
                     .getOrDefault(emptyList())
                     .map { info ->
-                        // An app's name can't style a log line.
+                        // Remove styling: an app's name must not style a log line.
                         val original = com.mtwabpin.kolahal.data.StyledText.strip(info.label.toString())
                         val key = keyOf(info.componentName, profile)
                         AppEntry(
@@ -171,7 +172,7 @@ class AppRepository private constructor(private val context: Context) {
                         )
                     }
             }.map { it to it.label.lowercase() }
-                // Each label lowered once, not at every comparison of the sort.
+                // Lowercase each label once, not at every comparison of the sort.
                 .sortedWith(compareBy({ it.second }, { it.first.profile.kind.ordinal }))
                 .map { it.first }
             _profiles.value = profiles
@@ -198,18 +199,21 @@ class AppRepository private constructor(private val context: Context) {
             (serial == null || it.profile.serial == serial)
     }
 
-    /** Ranked fuzzy match: exact > prefix > word prefix > substring > subsequence; a slip when nothing else matches. */
+    /**
+     * Ranked fuzzy match: exact > prefix > word prefix > substring > subsequence. A typing mistake
+     * counts only when nothing else matches.
+     */
     fun search(query: String, kind: ProfileKind? = null, includeHidden: Boolean = false): List<AppEntry> =
         searchRanked(query, kind, includeHidden).map { it.first }
 
-    /** The last search: instant run and the suggestions ask the same question on every keystroke. */
+    /** The last search. Instant run and the suggestions ask the same search on every key press. */
     private class Memo(
         val q: String, val kind: ProfileKind?, val hidden: Boolean, val apps: List<AppEntry>, val version: Int,
         val result: List<Pair<AppEntry, Int>>,
     )
     @Volatile private var memo: Memo? = null
 
-    /** Matches with their tier: 0 exact, 1 prefix, 2 word prefix, 3 substring, 4 subsequence, 5 a slip. */
+    /** Matches with their tier: 0 exact, 1 prefix, 2 word prefix, 3 substring, 4 subsequence, 5 typing mistake. */
     fun searchRanked(query: String, kind: ProfileKind? = null, includeHidden: Boolean = false): List<Pair<AppEntry, Int>> {
         val q = Fuzzy.fold(query.trim())
         if (q.isEmpty()) return emptyList()
@@ -224,11 +228,11 @@ class AppRepository private constructor(private val context: Context) {
     private fun rank(apps: List<AppEntry>, q: String, kind: ProfileKind?, includeHidden: Boolean): List<Pair<AppEntry, Int>> {
         val now = System.currentTimeMillis()
         val candidates = apps.asSequence().filter { (kind == null || it.profile.kind == kind) && (includeHidden || !it.hidden) }
-        // Slips only when nothing matches as typed: they never crowd out a real match, or stop
-        // the only match from launching (launch.single).
+        // Check typing mistakes only when nothing matches as typed. So they never push out a real
+        // match, or stop the only match from launching (launch.single).
         return (candidates.mapNotNull { app -> score(app, q)?.let { Ranked(app, it) } }.toList()
             .ifEmpty { candidates.filter { Fuzzy.slip(q, it.names) }.map { Ranked(it, SLIP) }.toList() })
-            // Frecency is read once per match, not on every comparison.
+            // Read frecency once per match, not on every comparison.
             .onEach { it.frecency = prefs.frecency(it.app.key, now) }
             .sortedWith(
                 compareBy<Ranked> { it.tier }
@@ -239,7 +243,7 @@ class AppRepository private constructor(private val context: Context) {
             .map { it.app to it.tier }
     }
 
-    /** Pinned apps (in pin order), then the most frecent visible apps, for the idle suggestion strip. */
+    /** Pinned apps (in pin order), then the visible apps with the highest frecency. For the idle suggestion strip. */
     fun top(n: Int): List<AppEntry> {
         val now = System.currentTimeMillis()
         val byKey = _apps.value.associateBy { it.key }
@@ -267,8 +271,8 @@ class AppRepository private constructor(private val context: Context) {
     }
 
     /**
-     * The app's launcher shortcuts (static, dynamic and pinned). Only available to the default
-     * launcher; returns an empty list otherwise.
+     * The app's launcher shortcuts (static, dynamic and pinned). Only the default launcher can read
+     * them. Otherwise it returns an empty list.
      */
     fun shortcuts(app: AppEntry): List<android.content.pm.ShortcutInfo> = runCatching {
         if (!launcherApps.hasShortcutHostPermission()) return emptyList()
@@ -300,14 +304,14 @@ class AppRepository private constructor(private val context: Context) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } else {
-            // Packages in other profiles can only be removed from their own settings page.
+            // Packages in other profiles can be removed only from their own settings page.
             openAppInfo(app)
         }
     }
 
     /**
-     * Pause/resume the work profile (or lock/unlock private space).
-     * Returns false when unsupported (needs API 29+ and being the default launcher).
+     * Pauses or resumes the work profile, or locks or unlocks the private space.
+     * Returns false when not supported. It needs API 29+ and Kolahal as the default launcher.
      */
     fun setQuietMode(profile: Profile, quiet: Boolean): Boolean {
         return Build.VERSION.SDK_INT >= 29 && runCatching {
@@ -318,13 +322,14 @@ class AppRepository private constructor(private val context: Context) {
 
     companion object : Singleton<AppRepository>(::AppRepository) {
         /**
-         * How [q] matches an app by its folded label ([lower]), the label's [words], its package and
-         * package/activity: 0 exact, 1 prefix, 2 word prefix, 3 substring, 4 subsequence, null not at
-         * all. A slip ([Fuzzy.slip], tier 5) is tried only when nothing matched this way.
+         * Returns how [q] matches an app. It checks the folded label ([lower]), the label's [words],
+         * the package and package/activity. Tiers: 0 exact, 1 prefix, 2 word prefix, 3 substring,
+         * 4 subsequence, null no match. A typing mistake ([Fuzzy.slip], tier 5) is tried only when
+         * nothing matched in these ways.
          */
         internal fun tierOf(lower: String, words: List<String>, lowerPkg: String, lowerComponent: String, q: String): Int? = when {
             lower == q -> 0
-            // Its package, or package/activity, names one app exactly: how two apps of one name are told apart.
+            // The package, or package/activity, names one app exactly. This tells apart two apps with the same name.
             lowerPkg == q || lowerComponent == q -> 0
             lower.startsWith(q) -> 1
             words.any { it.startsWith(q) } -> 2
@@ -339,10 +344,13 @@ class AppRepository private constructor(private val context: Context) {
             return i == q.length
         }
 
-        /** The tier of a match that is only a slip of the thumb ([Fuzzy.slip]). */
+        /** The tier of a match that is only a typing mistake ([Fuzzy.slip]). */
         private const val SLIP = 5
 
-        /** Which kind of profile [user] is, seen from [me] (this app's user): anything not personal, a private space or a clone is work. */
+        /**
+         * Returns the kind of profile [user] is, as seen from [me] (this app's user). Any profile that
+         * is not personal, a private space or a clone counts as work.
+         */
         fun kindOf(context: Context, launcherApps: LauncherApps, user: UserHandle, me: UserHandle): ProfileKind {
             if (user == me) return ProfileKind.PERSONAL
             if (Build.VERSION.SDK_INT >= 35) {
@@ -358,9 +366,9 @@ class AppRepository private constructor(private val context: Context) {
         }
 
         /**
-         * Below Android 15 a launcher can't ask what a profile is, but Android names a clone's apps as
-         * clones: "Clone Chrome", where a work profile's are "Work Chrome" (app cloning, Android 14).
-         * Only that wording counts; a profile named any other way stays work, as before.
+         * Below Android 15, a launcher can't ask what kind a profile is. But Android labels a clone's
+         * apps as clones: "Clone Chrome", while a work profile's apps are "Work Chrome" (app cloning,
+         * Android 14). Only that wording counts. A profile with any other label stays work, as before.
          */
         @SuppressLint("DiscouragedApi") // the badge's string isn't public: only its name finds it
         private fun labelledAsClone(context: Context, user: UserHandle): Boolean = runCatching {
@@ -369,7 +377,7 @@ class AppRepository private constructor(private val context: Context) {
             clone != 0 && context.packageManager.getUserBadgedLabel(PROBE_LABEL, user).toString() == res.getString(clone, PROBE_LABEL)
         }.getOrDefault(false)
 
-        /** Any app name: what Android adds to it for a profile is what tells. */
+        /** Any app name works. Only the text that Android adds to it for a profile matters. */
         private const val PROBE_LABEL = "Kolahal"
     }
 }

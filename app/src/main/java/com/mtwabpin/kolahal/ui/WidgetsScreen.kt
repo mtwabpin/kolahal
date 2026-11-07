@@ -87,7 +87,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import kotlin.time.Duration.Companion.milliseconds
 
-/** [WidgetHost]'s messages as a snackbar: each waiting one once, oldest first, whichever widget screen is open. */
+/**
+ * Shows the messages of [WidgetHost] in a snackbar: each waiting message once, oldest first.
+ * It works on whichever widget screen is open.
+ */
 @Composable
 internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
     val snackbar = remember { SnackbarHostState() }
@@ -96,9 +99,13 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
 }
 
 /**
- * Widgets page (Material 3 Expressive): every placed widget, live, laid out as on the widgets page
- * ([WidgetFlow]). Long-press a widget, or tap Edit and then a widget, for its toolbar at the bottom:
- * width in twelfths of the page, height in 8dp steps (held, they repeat), square, move, remove.
+ * The widgets screen (Material 3 Expressive). It shows every placed widget, live, in the same
+ * layout as the widgets page ([WidgetFlow]).
+ * To open a widget's toolbar at the bottom, long-press the widget, or tap Edit and then the widget.
+ * The toolbar has:
+ * - width, in twelfths of the page;
+ * - height, in 8dp steps (both repeat while held);
+ * - square, move and remove.
  * Entries restored from a backup show an "Add again" row.
  */
 @Composable
@@ -109,7 +116,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // widgets.page off: no page beside the terminal shows them, so the screen says so.
+    // With widgets.page off, no page next to the terminal shows the widgets, so this screen says so.
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
     var editing by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
@@ -119,7 +126,8 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
 
     val panel = remember(all) { WidgetOrder.inLocation(all, WidgetLocation.PANEL) }
     val pending = remember(all) { WidgetOrder.sorted(all.filter { it.pending }) }
-    // Each label is a binder call and a load: only again when widgets come or go, not on every resize step.
+    // Each label needs a binder call and a load. So labels load again only when widgets are added or
+    // removed, not on every resize step.
     val placed = remember(all) { all.map { Triple(it.key, it.id, it.provider) } }
     val labels = remember(placed, providersVersion) {
         placed.associate { (key, id, provider) -> key to (id?.let { widgets.cachedInfo(it) }?.loadLabel(context.packageManager) ?: provider.substringAfterLast('.')) }
@@ -198,8 +206,8 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     .navigationBarScrim()
                     .verticalScroll(rememberScrollState())
                     .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 96.dp)
-                    // The widgets as wide as on the widgets page (its margins and the side insets it
-                    // clears); text keeps the usual margin.
+                    // The widgets get the same width as on the widgets page (its margins and side
+                    // insets). Text keeps the usual margin.
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                     .padding(horizontal = WidgetLayout.GAP_DP.dp),
             ) {
@@ -280,7 +288,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     }
 }
 
-/** One widget as it shows on the widgets page; while [editing], a tap picks it instead of reaching it. */
+/** One widget as it shows on the widgets page. While [editing], a tap selects it instead of going to the widget. */
 @Composable
 private fun WidgetCard(
     w: PlacedWidget,
@@ -314,7 +322,7 @@ private fun WidgetCard(
     }
 }
 
-/** The chosen widget's controls, docked at the bottom: width, height, square, move, remove. */
+/** The controls for the selected widget, docked at the bottom: width, height, square, move, remove. */
 @Composable
 private fun WidgetToolbar(
     w: PlacedWidget,
@@ -343,7 +351,7 @@ private fun WidgetToolbar(
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRemove) { Icon(painterResource(R.drawable.ic_delete), "Remove", tint = MaterialTheme.colorScheme.error) }
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDone) { Icon(painterResource(R.drawable.ic_check), "Done") }
             }
-            // Side by side where they fit, one under the other on a narrow screen or with large text.
+            // Side by side if they fit. On a narrow screen or with large text, one below the other.
             FlowRow(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Stepper("Width", WidgetLayout.spanLabel(w.span), w.span > WidgetLayout.MIN_SPAN, w.span < WidgetLayout.COLUMNS, onWidth)
                 Stepper("Height", "${w.heightDp}", w.heightDp > minHeight, w.heightDp < WidgetLayout.MAX_DP, onHeight)
@@ -358,7 +366,7 @@ private fun WidgetToolbar(
     }
 }
 
-/** label − value +: each button steps once on a tap and keeps stepping while held. */
+/** Shows "label − value +". Each button steps once on a tap and keeps stepping while held. */
 @Composable
 private fun Stepper(label: String, value: String, canLess: Boolean, canMore: Boolean, onStep: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -379,9 +387,10 @@ private fun RepeatingButton(icon: Int, description: String, enabled: Boolean, on
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val step by rememberUpdatedState(onStep)
-    // Held past the long-press delay it repeats; the tap that ends such a hold doesn't step again.
-    // [heldSince] is reset whenever a press ends, so a hold that slid off or hit the limit doesn't
-    // swallow the next activation (TalkBack's has no press at all).
+    // When held past the long-press delay, the button repeats. The release that ends such a hold
+    // does not step again.
+    // [heldSince] is reset each time a press ends. So a hold that slid off the button or reached the
+    // limit doesn't block the next activation. (A TalkBack activation has no press at all.)
     var heldSince by remember { mutableLongStateOf(0L) }
     LaunchedEffect(pressed, enabled) {
         if (!pressed || !enabled) {
@@ -423,7 +432,8 @@ private fun PendingRow(
         value = withContext(Dispatchers.IO) { widgets.findProvider(w.provider, w.profileSerial) }
     }
     val found = entry
-    val label = found?.info?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
+    // Loading a label reads the other app's resources, so it is done once per provider, not on every redraw.
+    val label = remember(found, w.provider) { found?.info?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.') }
     SegmentedListItem(
         colors = segColors(),
         shapes = segShapes(index, count),

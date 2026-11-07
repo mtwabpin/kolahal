@@ -32,8 +32,12 @@ import kotlinx.coroutines.withContext
 private const val KEY_PENDING_EXPORT = "pending_export"
 
 /**
- * What the script screens do to scripts: their switches, timers, keys and options, their files, and
- * installing from the library or Get more scripts. The view model holds one as `scriptActions`.
+ * The actions that the script screens perform on scripts:
+ * - switches, timers, keys and options;
+ * - script files;
+ * - installing from the library or from Get more scripts.
+ *
+ * The view model holds one as `scriptActions`.
  */
 class ScriptActions(
     private val context: Context,
@@ -66,29 +70,29 @@ class ScriptActions(
 
     private val changes = ScriptChanges(context)
 
-    /** Applies a script change off the main thread, and refreshes the manager list. */
+    /** Applies a script change outside the main thread, then refreshes the manager list. */
     private fun change(block: () -> Unit) = io {
         block()
         scriptList.value = scripts.all()
     }
 
-    /** The Scripts screen's switch: it asks first when there is anything to decide ([enableScript]). */
+    /** The switch on the Scripts screen. When there is something to decide, the screen asks first and uses [enableScript]. */
     fun setScriptEnabled(s: Script, on: Boolean) = change {
         changes.enabled(s, on)
         if (on) scripts.byId(s.id)?.let { ScriptAccess.askForSecrets(context, it) }
     }
 
-    /** Switches [s] on with the user's answers for what it asks to use ([choices]: item to allowed). */
+    /** Switches [s] on with the user's answers about what it asks to use. [choices] maps each item to allowed or not. */
     fun enableScript(s: Script, choices: Map<String, Boolean>) = change {
         choices.forEach { (item, on) -> scripts.setAccess(s.id, item, on) }
         changes.enabled(s, true)
         scripts.byId(s.id)?.let { ScriptAccess.askForSecrets(context, it) }
     }
 
-    /** One access switch; pinning or unpinning shows at the top of home at once. */
+    /** Sets one access switch. Pinning or unpinning updates the top of home at once. */
     fun setScriptAccess(s: Script, item: String, on: Boolean) = change { changes.access(s, item, on) }
 
-    /** Long-press on a pinned script's line at the top: run it, unpin it, or edit it. */
+    /** The long-press menu of a pinned script's line at the top: run it, unpin it, or edit it. */
     fun statusActions(name: String): List<LogAction> {
         val s = scripts.byName(name) ?: return listOf(
             LogAction("Clear this line") { io { StatusLines.clear(context, name); logs.onStatusChanged() } },
@@ -109,7 +113,10 @@ class ScriptActions(
 
     fun setScriptInterval(s: Script, minutes: Int) = change { changes.interval(s, minutes) }
 
-    /** "08:00, 18:30" -> daily times, read as `script at` reads them ("off" or nothing: none); false if one isn't a time. */
+    /**
+     * Sets daily times from text like "08:00, 18:30", read the same way as `script at`.
+     * "off" or empty text clears the times. Returns false if a word is not a time.
+     */
     fun setScriptTimes(s: Script, raw: String): Boolean {
         val times = when (val read = CommandParsing.dailyTimes(CommandParsing.clockWords(listOf(raw)))) {
             null -> emptyList()
@@ -125,7 +132,7 @@ class ScriptActions(
         notice("Running ${s.name}…")
     }
 
-    /** Renames [s] ([ScriptRepository.rename]); the sheet checks the name as it is typed. */
+    /** Renames [s] ([ScriptRepository.rename]). The sheet checks the name while the user types it. */
     fun renameScript(s: Script, to: String) = io {
         changes.rename(s, to)?.let { return@io notice(it, error = true) }
         scriptList.value = scripts.all()
@@ -173,7 +180,7 @@ class ScriptActions(
         }
     }
 
-    /** Script waiting for the "save as" picker; kept in SavedStateHandle so process death can't lose it. */
+    /** Remembers the script that waits for the "save as" picker. It is kept in SavedStateHandle, so it survives process death. */
     fun beginExportScript(s: Script) {
         state[KEY_PENDING_EXPORT] = s.id
     }
@@ -203,14 +210,17 @@ class ScriptActions(
 
     val secretStore by lazy { SecretStore(context) }
 
-    /** Bumped when a secret is set or cleared, so sheets showing "set" or "not set" read again. */
+    /** Goes up by one when a secret is set or cleared, so sheets that show "set" or "not set" refresh. */
     private val _secretsVersion = MutableStateFlow(0)
     val secretsVersion: StateFlow<Int> = _secretsVersion.asStateFlow()
 
-    /** The names among [s]'s `@secret` lines that have a value. */
+    /** Returns the names from the `@secret` lines of [s] that have a value. */
     fun secretsSet(s: Script): Set<String> = ScriptMeta.secrets(s.code).filter { secretStore.isSet(s.name, it) }.mapTo(HashSet()) { it.name }
 
-    /** Sets (or, with null, clears) [secret] for [script], for the sites its line names; the log says which, never the value. */
+    /**
+     * Sets [secret] for [script], for the sites that its line names. A null value clears it.
+     * The log says which secret changed, but never shows the value.
+     */
     fun setSecret(script: String, secret: ScriptMeta.Secret, value: String?) = io {
         secretStore.set(script, secret.name, value, secret.hosts)
         _secretsVersion.value++
@@ -219,25 +229,25 @@ class ScriptActions(
 
     // ---- script options ------------------------------------------------------------------
 
-    /** Bumped when an option is changed, so sheets showing its value read again. */
+    /** Goes up by one when an option changes, so sheets that show its value refresh. */
     private val _optionsVersion = MutableStateFlow(0)
     val optionsVersion: StateFlow<Int> = _optionsVersion.asStateFlow()
 
-    /** [s]'s `@option` values (yours or the defaults), and which ones you set. */
+    /** Returns the `@option` values of [s] (yours or the defaults), and the names of the ones you set. */
     fun optionValues(s: Script): Pair<Map<String, String>, Set<String>> {
         val declared = ScriptMeta.options(s.code)
         val store = com.mtwabpin.kolahal.script.ScriptOptions(context)
         return store.values(s.name, declared) to store.changed(s.name, declared)
     }
 
-    /** Sets [option] for [script]; null goes back to its default. */
+    /** Sets [option] for [script]. A null value resets it to its default. */
     fun setOption(script: String, option: String, value: String?) = io {
         com.mtwabpin.kolahal.script.ScriptOptions(context).set(script, option, value)
         _optionsVersion.value++
         logs.add(LogKind.INFO, "$script: $option " + if (value == null) "reset to default" else "= $value", ctx = LogContext.of(LogContext.SCRIPT to script))
     }
 
-    /** A secret to ask for from the terminal (`script secret`), shown over home. */
+    /** A secret that the terminal asks for (`script secret`). The prompt is shown over home. */
     data class SecretPrompt(val script: String, val name: String)
 
     private val _secretPrompt = MutableStateFlow<SecretPrompt?>(null)
@@ -255,13 +265,16 @@ class ScriptActions(
 
     val scriptCatalog by lazy { ScriptCatalog(context) }
 
-    /** The shared scripts, whether they are loading, and why they couldn't be read. */
+    /** The shared scripts, whether they are loading, and the error if they couldn't be read. */
     data class SharedScripts(val entries: List<ScriptCatalog.Entry> = emptyList(), val loading: Boolean = false, val error: String? = null)
 
     private val _shared = MutableStateFlow(SharedScripts())
     val sharedScripts: StateFlow<SharedScripts> = _shared.asStateFlow()
 
-    /** Reads the list: the copy kept for an hour, or GitHub when [refresh]. A failure keeps what was there. */
+    /**
+     * Loads the list. It uses the cached copy (kept for an hour), or GitHub when [refresh] is true.
+     * If loading fails, the list keeps what it had.
+     */
     fun loadSharedScripts(refresh: Boolean = false) {
         _shared.value = _shared.value.copy(loading = true, error = null)
         scope.launch(Dispatchers.IO) {
@@ -271,13 +284,17 @@ class ScriptActions(
         }
     }
 
-    /** Downloaded code by SHA-256: read once for a script's sheet, then installed from it. */
+    /** Downloaded code, keyed by SHA-256. It is downloaded once for a script's sheet, and then installed from this copy. */
     private val sharedCode = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     suspend fun sharedScriptCode(e: ScriptCatalog.Entry): String =
         withContext(Dispatchers.IO) { sharedCode.getOrPut(e.sha256) { scriptCatalog.download(e) } }
 
-    /** Installs or updates [e]; [allow] is the answer for what it declares, [replace] overwrites your edits. */
+    /**
+     * Installs or updates [e].
+     * - [allow]: the user's answers for the access it declares.
+     * - [replace]: overwrite your own edits.
+     */
     fun installSharedScript(e: ScriptCatalog.Entry, allow: Map<String, Boolean> = emptyMap(), replace: Boolean = false) {
         fileOp("install") {
             val code = sharedScriptCode(e)
@@ -288,7 +305,7 @@ class ScriptActions(
         }
     }
 
-    /** Scripts list + command names, refreshed after edits/imports (not only when the log changes). */
+    /** Refreshes the scripts list and the command names after edits or imports, not only when the log changes. */
     suspend fun refreshScriptCaches() {
         val list = withContext(Dispatchers.IO) { scripts.all() }
         scriptList.value = list

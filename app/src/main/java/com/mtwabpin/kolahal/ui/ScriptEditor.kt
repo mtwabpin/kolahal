@@ -84,34 +84,42 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Longer than this (about 550 lines), a script is coloured around the view only. */
+/** When a script is longer than this (about 550 lines), only the lines around the view are coloured. */
 private const val WINDOW_FROM = 20_000
 
-/** Lines coloured above and below the view, and how near its edge the view comes before they move. */
+/** How many lines are coloured above and below the view, and how close the view can come to the edge of that range before it moves. */
 private const val WINDOW_SPAN = 150
 private const val WINDOW_MARGIN = 50
 
-/** How long the caret shows, and then doesn't, as the text field's own did. */
+/** How long the caret stays visible, then hidden, in each blink. Same timing as the text field's own caret. */
 private val CARET_BLINK = 500.milliseconds
 
-/** The furthest a tab moves the text on: Android's tab stops are 20 pixels apart. */
+/** The most a tab can move the text forward: Android's tab stops are 20 pixels apart. */
 private const val TAB_PX = 20f
 
-/** The symbol bar's keys, under the code. */
+/** The keys of the symbol bar under the code. */
 private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
 
 /**
- * Monospace editor for scripts: line numbers, light syntax colouring, undo/redo, find/replace,
- * API completion and inline docs. Saving says what it changed beyond the code (a timer its `@every`
- * line set) and what [com.mtwabpin.kolahal.script.ScriptCheck] finds; a run's lines show under the code ([runLines]), and a
- * long press on run runs it with args or as an event ([RunWithDialog]).
- * Ctrl+S saves, Ctrl+R saves and runs, Ctrl+Z / Ctrl+Shift+Z undo/redo, Ctrl+F find, Ctrl+H replace,
- * F3 / Shift+F3 next/previous match, Ctrl+G go to line, Tab accepts the first suggestion,
- * Esc closes the find bar, then saves and closes the editor (as does Back).
- * When opened from an error, [jumpToLine] is selected and briefly highlighted.
- * A message line above the symbol bar says what the last button did: saved, the run's result
- * (from [lastRun] / [lastStatus]; a failing line is a tap away), replacements made.
- * [onSave] reports back with null or the failure; [onClose] gets the text when it had unsaved changes.
+ * Monospace editor for scripts. It has line numbers, light syntax colouring, undo/redo,
+ * find/replace, API completion and inline docs.
+ * - On save, it reports what changed beyond the code (for example, a timer set by an `@every`
+ *   line) and what [com.mtwabpin.kolahal.script.ScriptCheck] finds.
+ * - A run's lines show under the code ([runLines]). A long press on run runs the script with
+ *   args or as an event ([RunWithDialog]).
+ * - When opened from an error, [jumpToLine] is selected and briefly highlighted.
+ * - A message line above the symbol bar says what the last button did: saved, the run's result
+ *   (from [lastRun] / [lastStatus]; tap it to go to a failing line), or how many replacements were made.
+ * - [onSave] reports back with null or the failure. [onClose] gets the text if it had unsaved changes.
+ *
+ * Keys:
+ * - Ctrl+S saves; Ctrl+R saves and runs.
+ * - Ctrl+Z / Ctrl+Shift+Z undo/redo.
+ * - Ctrl+F finds; Ctrl+H replaces.
+ * - F3 / Shift+F3 go to the next/previous match.
+ * - Ctrl+G goes to a line.
+ * - Tab accepts the first suggestion.
+ * - Esc closes the find bar; otherwise it saves and closes the editor (Back does the same).
  */
 @Composable
 fun ScriptEditor(
@@ -148,20 +156,20 @@ fun ScriptEditor(
     var gotoOpen by remember { mutableStateOf(false) }
     var referenceOpen by remember { mutableStateOf(false) }
     var runWithOpen by remember { mutableStateOf(false) }
-    // The last run's lines, under the code until closed or the next run.
+    // The last run's lines. They stay under the code until closed or until the next run.
     var output by remember(script.id) { mutableStateOf<List<com.mtwabpin.kolahal.data.LogEntry>?>(null) }
 
-    // What the last button did; a run waits for its recorded result.
+    // What the last button did. For a run, the message waits for the recorded result.
     var message by remember(script.id) { mutableStateOf<EditorMessage?>(null) }
-    /** Saves made, so a slow check's result can't land after a later save's. */
+    /** Counts saves, so a slow check's result can't show after a later save's result. */
     var saves by remember(script.id) { mutableIntStateOf(0) }
     var runSince by remember(script.id) { mutableStateOf<Long?>(null) }
     LaunchedEffect(message) {
         val m = message ?: return@LaunchedEffect
         when (m.kind) {
-            // Errors stay until the next message: they're read while fixing the code.
+            // Errors stay until the next message, because the user reads them while fixing the code.
             EditorMessage.Kind.ERROR -> Unit
-            // A run that never reports (the worker didn't start) stops waiting after the time limit.
+            // If a run never reports (the worker didn't start), stop waiting after the time limit.
             EditorMessage.Kind.BUSY -> {
                 delay((ScriptWorker.TIMEOUT_MS + 15_000).milliseconds)
                 if (message === m) { message = null; runSince = null }
@@ -177,7 +185,7 @@ fun ScriptEditor(
         if (lastRun == null || lastRun < since) return@LaunchedEffect
         runSince = null
         val r = EditorLogic.runResult(lastStatus, ScriptWorker.TIMEOUT_MS / 1000)
-        // The lines are written as the run ends, its result just after.
+        // The lines are written when the run ends, and its result just after, so they are ready here.
         val lines = runLines(since)
         output = lines
         val text = if (lines.isEmpty() || r.failed) r.text else r.text.replace("its output is in the log", "${lines.size} line${if (lines.size == 1) "" else "s"} below")
@@ -210,7 +218,7 @@ fun ScriptEditor(
         }
     }
 
-    /** "Saved", what saving changed, and the first of what [com.mtwabpin.kolahal.script.ScriptCheck] finds (a tap goes to its line). */
+    /** "Saved", what saving changed, and the first issue [com.mtwabpin.kolahal.script.ScriptCheck] finds (a tap goes to its line). */
     fun savedMessage(text: String, changed: String?): EditorMessage {
         val head = listOfNotNull("Saved", changed).joinToString(" · ")
         val issues = com.mtwabpin.kolahal.script.ScriptCheck.check(text, script.lang)
@@ -219,7 +227,7 @@ fun ScriptEditor(
         return EditorMessage("$head · line ${first.line}: ${first.text}$more", EditorMessage.Kind.ERROR, first.line)
     }
 
-    /** [quiet]: leaving the app saves without a message. */
+    /** With [quiet], it saves without a message (used when leaving the app). */
     fun save(quiet: Boolean = false) {
         if (!dirty) {
             if (!quiet) message = EditorMessage("No changes to save", EditorMessage.Kind.INFO)
@@ -229,8 +237,9 @@ fun ScriptEditor(
         onSave(text) { failure, changed ->
             if (failure == null) {
                 saved = text
-                // The check reads the whole script: off the main thread. Only the latest save's result
-                // shows, and not over a message that came meanwhile (one gone, timed out or tapped, is no matter).
+                // The check reads the whole script, so it runs off the main thread. Only the latest
+                // save's result shows. It does not replace a message that came in the meantime; it is
+                // fine if that message has since gone (timed out or tapped).
                 if (!quiet) {
                     val before = message
                     val save = ++saves
@@ -246,7 +255,7 @@ fun ScriptEditor(
     }
 
     fun run(args: List<String> = emptyList(), event: Map<String, Any?>? = null) {
-        // Running saves the text first; it counts as saved once it is, so a failed save keeps the edits.
+        // Running saves the text first. It counts as saved only after the save succeeds, so a failed save keeps the edits.
         val text = value.text
         runSince = System.currentTimeMillis()
         output = null
@@ -256,7 +265,7 @@ fun ScriptEditor(
                 saved = text
                 message = EditorMessage(listOfNotNull("Saved", changed, "running…").joinToString(" · "), EditorMessage.Kind.BUSY)
             } else {
-                // It didn't run: a later run (its timer's) isn't this one's result.
+                // It didn't run. A later run (for example, by its timer) is not the result of this one.
                 runSince = null
                 message = EditorMessage("Couldn't save: ${failure.message ?: failure.javaClass.simpleName}", EditorMessage.Kind.ERROR)
             }
@@ -300,7 +309,7 @@ fun ScriptEditor(
         current = if (delta > 0) {
             m.indexAtOrAfter(from + 1)
         } else {
-            // 0 means either "first match is at/after the cursor" or "none is": both wrap to the last.
+            // 0 means either "the first match is at/after the cursor" or "no match is". Both wrap to the last match.
             val i = m.indexAtOrAfter(from)
             if (i == 0) m.size - 1 else i - 1
         }
@@ -361,7 +370,7 @@ fun ScriptEditor(
         message = EditorMessage("Replaced $n", EditorMessage.Kind.OK)
     }
 
-    // Matches are found off the main thread, debounced while typing.
+    // Matches are found off the main thread, with a short delay while typing.
     var lastSearch by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     LaunchedEffect(findOpen, query.text, ignoreCase, value.text) {
         if (!findOpen || query.text.isEmpty()) {
@@ -421,7 +430,7 @@ fun ScriptEditor(
 
     BackHandler { close() }
     BackHandler(enabled = findOpen) { closeFind() }
-    // Leaving the app (or the process being killed in the background) must not lose edits.
+    // Leaving the app (or the system killing the process in the background) must not lose edits.
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { save(quiet = true) }
     LaunchedEffect(script.id) { runCatching { focus.requestFocus() } }
     LaunchedEffect(flashLine) {
@@ -432,8 +441,8 @@ fun ScriptEditor(
     }
     // Scroll an error jump into view once the text has been laid out.
     var revealedJump by remember(script.id) { mutableStateOf(jumpToLine == null) }
-    // Read in here, not as the effect's keys: every key lays the text out again, and the editor
-    // would be built again for each layout.
+    // Read inside the effect, not used as its keys. Each key press lays out the text again, and as
+    // keys they would rebuild the editor after every layout.
     LaunchedEffect(script.id) {
         androidx.compose.runtime.snapshotFlow { layout != null && viewportHeight > 0 }.first { it }
         if (!revealedJump) {
@@ -451,9 +460,9 @@ fun ScriptEditor(
             MatchHighlights(matches.starts.copyOfRange(from, to), matches.length, if (current >= 0) matches.starts[c] else -1)
         }
     }
-    // A big script is coloured around the view only: its colours cost several times its text to lay
-    // out at every key. The coloured lines follow the view once scrolling stops, so a fling isn't
-    // laid out again on the way.
+    // In a big script, only the lines around the view are coloured: colouring costs several times
+    // the plain text's layout at every key. The coloured range follows the view after scrolling
+    // stops, so a fling doesn't cause new layouts along the way.
     val big = value.text.length > WINDOW_FROM
     var window by remember(script.id) {
         mutableStateOf(((jumpToLine ?: 1) - 1).let { (it - WINDOW_SPAN).coerceAtLeast(0)..(it + WINDOW_SPAN) })
@@ -470,17 +479,17 @@ fun ScriptEditor(
             if (nearTop || nearBottom) window = (first - WINDOW_SPAN).coerceAtLeast(0)..(last + WINDOW_SPAN)
         }
     }
-    // The tokens of each line stay across highlighters: find matches and a flashed line make new ones.
+    // The tokens of each line are kept across highlighters, because find matches and a flashed line create new highlighters.
     val lineTokens = remember(script.lang) { LineTokens(script.lang) }
     val coloured = if (big) window else null
     val highlighter = remember(script.lang, flashLine, Term.palette, highlights, coloured) { SyntaxHighlighter(script.lang, flashLine, highlights, lineTokens, coloured) }
-    // The field's width, worked out here from its widest line: in the sideways scroll the field would
-    // measure all of the text for it before laying it out, a second pass over the script at every key.
+    // The field's width, computed here from its widest line. Inside the horizontal scroll the field
+    // would measure all of the text to find it before layout: a second pass over the script at every key.
     val measurer = androidx.compose.ui.text.rememberTextMeasurer(cacheSize = 16)
     val bold = Term.code.copy(fontWeight = FontWeight.Bold)
     val cellPx = remember(bold, density) { listOf("W", "M", "@").maxOf { measurer.measure(it, bold).size.width }.toFloat() }
     val textWidth = remember(value.text, bold, density) {
-        // Bold, the widest a line's letters are drawn: a keyword in bold doesn't wrap its line.
+        // Measured in bold, the widest style a line uses, so a bold keyword doesn't wrap its line.
         EditorLogic.widestLine(value.text, cellPx, maxOf(TAB_PX, cellPx)) { line -> measurer.measure(line, bold).size.width.toFloat() }
     }
     val fieldWidth = with(density) { maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp) }
@@ -504,7 +513,7 @@ fun ScriptEditor(
                     e.isCtrlPressed && e.key == Key.H -> { openFind(true); true }
                     e.isCtrlPressed && e.key == Key.G -> { gotoOpen = true; true }
                     e.key == Key.F3 -> { if (findOpen) gotoMatch(if (e.isShiftPressed) -1 else 1) else openFind(false); true }
-                    // Text fields in the find bar keep their own undo.
+                    // Only for the editor: the text fields in the find bar keep their own undo.
                     editorFocused && e.isCtrlPressed && e.isShiftPressed && e.key == Key.Z -> { redo(); true }
                     editorFocused && e.isCtrlPressed && e.key == Key.Z -> { undo(); true }
                     editorFocused && e.isCtrlPressed && e.key == Key.Y -> { redo(); true }
@@ -591,13 +600,13 @@ fun ScriptEditor(
                         value = value,
                         onValueChange = ::edit,
                         textStyle = Term.code,
-                        // No caret from the field: it draws its caret with the text, so each blink drew
-                        // the whole script again. [EditorCaret] draws it over the text instead.
+                        // Hide the field's own caret: it is drawn with the text, so each blink redrew
+                        // the whole script. [EditorCaret] draws it over the text instead.
                         cursorBrush = SolidColor(Color.Unspecified),
                         visualTransformation = highlighter,
                         onTextLayout = { layout = it },
                         decorationBox = { field ->
-                            // The field keeps its minimum width, as without a box around it.
+                            // The field keeps its minimum width, as it would without a box around it.
                             Box(propagateMinConstraints = true) {
                                 field()
                                 EditorCaret(value, { layout }, editorFocused, Term.prompt, Modifier.matchParentSize())
@@ -606,7 +615,7 @@ fun ScriptEditor(
                         keyboardOptions = KeyboardOptions(
                             autoCorrectEnabled = false,
                             capitalization = KeyboardCapitalization.None,
-                            // Plain text (not password) so non-Latin layouts and voice input work in code.
+                            // Plain text (not password), so non-Latin layouts and voice input work in code.
                             keyboardType = KeyboardType.Text,
                         ),
                         modifier = Modifier
@@ -646,7 +655,7 @@ fun ScriptEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Term.surface)
-                    // A failing line: go there. Anything else: tap to dismiss.
+                    // Tap a message with a failing line to go there. Tap any other message to dismiss it.
                     .clickable { if (shown.line != null) gotoLine(shown.line) else message = null }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .testTag("message"),
@@ -692,7 +701,7 @@ fun ScriptEditor(
                 }
             }
         }
-        // Read here, not inside the row's items, so a change re-dims the arrows.
+        // Read here, not inside the row's items, so a change updates the dimming of the undo/redo arrows.
         val canUndo = history.canUndo
         val canRedo = history.canRedo
         LazyRow(Modifier.fillMaxWidth().background(Term.surface)) {
@@ -742,8 +751,8 @@ fun ScriptEditor(
             },
             onDirective = { line ->
                 referenceOpen = false
-                // A directive is a line of its own: it goes above the line the cursor is on, the
-                // cursor after it to type what follows (or on the line below when nothing does).
+                // A directive is a line of its own. It goes above the line the cursor is on. The
+                // cursor goes after it to type what follows, or to the line below when nothing does.
                 val text = value.text
                 val start = if (value.selection.min == 0) 0 else text.lastIndexOf('\n', value.selection.min - 1) + 1
                 val body = if (line.endsWith("\n")) line else line + "\n"
@@ -755,7 +764,7 @@ fun ScriptEditor(
     }
 }
 
-/** A run's lines under the code, as the log shows them in plain text, errors red; ✕ closes it. */
+/** A run's lines under the code, in plain text as the log shows them, with errors in red. ✕ closes it. */
 @Composable
 private fun RunOutput(lines: List<com.mtwabpin.kolahal.data.LogEntry>, maxHeight: androidx.compose.ui.unit.Dp, onClose: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(Term.surface.copy(alpha = 0.6f)).testTag("run-output")) {
@@ -782,16 +791,17 @@ private fun RunOutput(lines: List<com.mtwabpin.kolahal.data.LogEntry>, maxHeight
 }
 
 /**
- * The most of a script's text Android keeps for the editor while Kolahal is in the background. A
- * screen's kept state must fit in about 1 MB, two bytes a character, or the app stops as it goes,
- * and the editor keeps its text twice: as typed, and as last saved.
+ * The longest script text Android keeps for the editor while Kolahal is in the background.
+ * - A screen's saved state must fit in about 1 MB (two bytes per character), or the app crashes
+ *   when it goes to the background.
+ * - The editor keeps its text twice: as typed, and as last saved.
  */
 internal const val KEPT_TEXT_MAX = 100_000
 
 /**
- * The editor's text as Android keeps it in the background: past [KEPT_TEXT_MAX] only the cursor,
- * and [stored], the script as saved, comes back instead. The editor saves as it goes to the
- * background, so that's the text as it was.
+ * Saves the editor's text while the app is in the background. Past [KEPT_TEXT_MAX], only the
+ * cursor is kept, and [stored] (the saved script) comes back instead. The editor saves when it goes
+ * to the background, so [stored] is the same text.
  */
 internal fun keptText(stored: String) = Saver<TextFieldValue, Any>(
     save = { arrayListOf(it.text.takeIf { text -> text.length <= KEPT_TEXT_MAX } ?: false, it.selection.start, it.selection.end) },
@@ -802,26 +812,27 @@ internal fun keptText(stored: String) = Saver<TextFieldValue, Any>(
     },
 )
 
-/** The last saved copy, kept the same way: past [KEPT_TEXT_MAX], [stored] comes back. */
+/** Keeps the last saved copy the same way: past [KEPT_TEXT_MAX], [stored] comes back. */
 internal fun keptSaved(stored: String) = Saver<String, Any>(
     save = { it.takeIf { text -> text.length <= KEPT_TEXT_MAX } ?: false },
     restore = { it as? String ?: stored },
 )
 
-/** Cursor at the start of [line] (1-based), or at the end of the text. */
+/** A cursor at the start of [line] (1-based), or at the end of the text if there is no line. */
 internal fun selectionAtLine(text: String, line: Int?): TextRange =
     if (line == null || line < 1) TextRange(text.length) else TextRange(EditorLogic.lineStart(text, line))
 
-/** One line of feedback above the symbol bar; [line] makes it a jump to that line. */
+/** One line of feedback above the symbol bar. With [line], tapping it jumps to that line. */
 private class EditorMessage(val text: String, val kind: Kind, val line: Int? = null) {
     enum class Kind { INFO, OK, BUSY, ERROR }
 }
 
 /**
- * The editor's caret, in a layer of its own over the text, so a blink draws the caret alone and not
- * the whole script. Drawn as the text field drew its own: 2 dp wide at the cursor, shown at once
- * after a change and then blinking every 500 ms, while the editor and its window have focus and
- * nothing is selected.
+ * The editor's caret, in its own layer over the text, so a blink redraws only the caret and not the
+ * whole script. It looks like the text field's own caret:
+ * - 2 dp wide, at the cursor;
+ * - shown at once after a change, then blinking every 500 ms;
+ * - visible only while the editor and its window have focus and nothing is selected.
  */
 @Composable
 private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, focused: Boolean, color: Color, modifier: Modifier) {
@@ -854,7 +865,7 @@ private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, 
             val x = (rect.left + width / 2)
                 .coerceAtMost(size.width - width / 2)
                 .coerceAtLeast(width / 2)
-                // An odd width is drawn in the middle of a pixel, so it isn't blurred.
+                // Draw an odd width at the middle of a pixel, so it isn't blurred.
                 .let { if (width.toInt() % 2 == 1) floor(it) + 0.5f else round(it) }
             drawLine(color, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = width, alpha = a)
         },

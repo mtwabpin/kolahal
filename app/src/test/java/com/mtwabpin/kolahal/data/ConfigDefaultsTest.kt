@@ -11,9 +11,20 @@ class ConfigDefaultsTest {
         assertEquals(false, Keys.SUGGESTIONS_WRAP.default)
         // Swiping up is off until it is given an action: it fires by accident easily.
         assertEquals("none", Keys.GESTURE_SWIPE_UP.default)
-        // From 0.4.14: the header's two items beside the battery.
-        assertEquals("alarm", Keys.HEADER_ITEM_1.default)
-        assertEquals("todo", Keys.HEADER_ITEM_2.default)
+        // From 0.4.16: the header's sides, as the line was in 0.4.14 (the alarm and todos beside the battery).
+        assertEquals("time,date", Keys.HEADER_LEFT.default)
+        assertEquals("alarm,todo,battery", Keys.HEADER_RIGHT.default)
+        // From 0.4.16: the status bar shows, the header is off and sits below the bar's area when on.
+        assertEquals("show", Keys.STATUS_BAR.default)
+        assertEquals(false, Keys.HEADER_SHOW.default)
+        assertEquals(true, Keys.HEADER_BELOW_BAR.default)
+        // From 0.4.16: the app selector slides through apps, in taller rows, with icons and letters on the edge.
+        assertEquals("apps", Keys.SELECTOR_BROWSE.default)
+        assertEquals(50, Keys.SELECTOR_ROW_HEIGHT.default)
+        assertEquals(400, Keys.SELECTOR_HEIGHT.default)
+        assertEquals(true, Keys.SELECTOR_ICONS.default)
+        assertEquals(true, Keys.SELECTOR_LETTERS.default)
+        assertEquals(true, Keys.SELECTOR_SYSTEM_FONT.default)
         // From 0.4.3: groups closer together, and lines a line of text and a little room, all alike.
         assertEquals(5, Keys.LOG_SPACING.default)
         assertEquals(22, Keys.LOG_LINE_HEIGHT.default)

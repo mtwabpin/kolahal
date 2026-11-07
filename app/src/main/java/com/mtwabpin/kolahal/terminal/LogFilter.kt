@@ -5,20 +5,22 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 
 /**
- * Where log lines come from, to see only those: one name (a script, a feed, an app's
- * notifications), as each line shows at its end (`· xkcd`), or a whole [Kind]. `log only xkcd`
- * filters the log; `/@xkcd words` a search.
+ * A source of log lines, used to show only the lines from that source. It is either:
+ * - one name (a script, a feed, an app's notifications), as shown at the end of each line (`· xkcd`);
+ * - a whole [Kind].
+ *
+ * `log only xkcd` filters the log. `/@xkcd words` filters a search.
  */
 sealed class LogFilter {
-    /** What it is called on the filter bar and in suggestions: `xkcd`, `Hacker News`, `feeds`. */
+    /** The name shown on the filter bar and in suggestions: `xkcd`, `Hacker News`, `feeds`. */
     abstract val label: String
 
-    /** As typed after `@` or `log only`: lowercase letters and digits (`hackernews`). */
+    /** The form typed after `@` or `log only`: lowercase letters and digits only (`hackernews`). */
     abstract val word: String
 
     abstract fun matches(e: LogEntry): Boolean
 
-    /** [STARRED]: the lines you starred, whatever they are ([LogEntry.starred]). */
+    /** [STARRED] means the lines you starred, of any kind ([LogEntry.starred]). */
     enum class Kind(val word: String) {
         COMMANDS("commands"), SCRIPTS("scripts"), FEEDS("feeds"), NOTIFICATIONS("notifications"),
         APPS("apps"), CALLS("calls"), REMINDERS("reminders"), STARRED("starred"),
@@ -30,14 +32,14 @@ sealed class LogFilter {
         override fun matches(e: LogEntry) = if (kind == Kind.STARRED) e.starred else kind in kindsOf(e)
     }
 
-    /** A script, a feed or an app: the name a line ends with, any case, spaces aside. */
+    /** A script, a feed or an app: the name at the end of a line. Case and spaces are ignored. */
     data class Named(override val label: String) : LogFilter() {
         override val word get() = key(label)
         override fun matches(e: LogEntry) = word.isNotEmpty() && (key(e.source) == word || key(e.ctx.script) == word)
     }
 
     companion object {
-        /** Sources that are kinds of their own: every line of theirs ends with the same word. */
+        /** Sources that are a kind of their own. Every line from such a source ends with the same word. */
         private val KIND_SOURCES = mapOf(
             "apps" to Kind.APPS,
             com.mtwabpin.kolahal.calls.CallEvents.SOURCE to Kind.CALLS,
@@ -46,7 +48,7 @@ sealed class LogFilter {
 
         fun key(name: String?): String = name.orEmpty().lowercase().filter { it.isLetterOrDigit() }
 
-        /** `xkcd`, `@feeds`, `Hacker News`: a kind's word is the kind, anything else a name. */
+        /** Parses `xkcd`, `@feeds`, `Hacker News`. A kind's word gives that kind. Anything else is a name. */
         fun parse(text: String): LogFilter? {
             val name = text.trim().removePrefix("@").trim()
             if (key(name).isEmpty()) return null
@@ -54,8 +56,8 @@ sealed class LogFilter {
         }
 
         /**
-         * The kinds [e] belongs to. A line can be in two: what a command's script logged is the
-         * script's and the command's ([LogContext.FROM]).
+         * Returns the kinds that [e] belongs to. A line can belong to two kinds: when a command runs
+         * a script, what the script logs belongs to both the script and the command ([LogContext.FROM]).
          */
         fun kindsOf(e: LogEntry): Set<Kind> {
             val ctx = e.ctx.values
@@ -66,12 +68,12 @@ sealed class LogFilter {
                 e.ctx.script != null || e.kind == LogKind.SCRIPT -> Kind.SCRIPTS
                 else -> null
             }
-            // Typed lines and what they printed; and lines from nowhere else (output from before 0.4.2).
+            // Commands are: typed lines, what they printed, and lines with no other source (output from before 0.4.2).
             val command = e.kind == LogKind.COMMAND || LogContext.FROM in ctx || (own == null && e.source == null)
             return setOfNotNull(own, Kind.COMMANDS.takeIf { command })
         }
 
-        /** What "Only …" on [e]'s long-press shows: its script, feed or app, else its kind. */
+        /** The filter for "Only …" in [e]'s long-press menu: its script, feed or app, or else its kind. */
         fun forLine(e: LogEntry): LogFilter? {
             val kinds = kindsOf(e)
             val name = e.ctx.script ?: e.source
@@ -83,7 +85,7 @@ sealed class LogFilter {
             }
         }
 
-        /** Kinds, then [names] (the log's sources, newest first), starting with [typed]. */
+        /** Returns the kinds, then [names] (the log's sources, newest first), that start with [typed]. */
         fun suggestions(typed: String, names: List<String>): List<LogFilter> {
             val start = key(typed)
             val kinds = Kind.entries.map(::OfKind)

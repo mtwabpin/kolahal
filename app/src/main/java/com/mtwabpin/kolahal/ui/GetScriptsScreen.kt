@@ -53,9 +53,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Scripts → Get more scripts: the scripts shared in kolahal-scripts, searchable, each with a sheet
- * that shows what it does, what it uses and its code before it is installed. The list comes from
- * GitHub only when this screen opens (kept for an hour) or on refresh.
+ * Scripts → Get more scripts: the scripts shared in kolahal-scripts.
+ * - The list is searchable.
+ * - Each script has a sheet that shows what it does, what it uses and its code, before install.
+ * - The list is fetched from GitHub only when this screen opens (cached for an hour) or on refresh.
  */
 @Composable
 fun GetScriptsScreen(vm: TerminalViewModel) {
@@ -65,7 +66,8 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler { vm.closeScreen() }
 
-    // Whether each is installed, edited or has an update; the name checks read the app list.
+    // The state of each script: installed, edited, has an update, and so on. The name checks read
+    // the app list, so this runs off the main thread.
     val states by produceState(emptyMap(), shared.entries, scripts) {
         value = withContext(Dispatchers.IO) { shared.entries.associate { it.name to vm.scriptActions.scriptCatalog.state(it, scripts) } }
     }
@@ -148,7 +150,7 @@ private fun runs(e: ScriptCatalog.Entry): String = buildList {
     if (e.on.isNotEmpty()) add("on ${e.on.joinToString(", ")}")
 }.joinToString(" · ")
 
-/** The same, read from the file itself: what installing it sets up. */
+/** The same text, read from the script file itself. This is what installing it sets up. */
 private fun runs(code: String): String = buildList {
     if (ScriptMeta.isCommand(code)) add("command")
     ScriptMeta.every(code)?.let { add("every ${CommandParsing.formatInterval(it)}") }
@@ -190,14 +192,14 @@ private fun SharedRow(e: ScriptCatalog.Entry, state: ScriptCatalog.State?, index
     ) { Text(e.title) }
 }
 
-/** One shared script: what it is, how it runs, what it uses, its code, and Install or Update. */
+/** The sheet for one shared script: what it is, how it runs, what it uses, its code, and Install or Update. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: ScriptCatalog.State?, onDismiss: () -> Unit) {
     val sheet = rememberExpandedSheetState()
     var asking by remember(e.name) { mutableStateOf(false) }
     var confirmReplace by remember(e.name) { mutableStateOf(false) }
-    // The file, downloaded and checked against the list, so you can read it before installing.
+    // Download the file and check it against the list, so the user can read it before installing.
     val code by produceState<Result<String>?>(null, e.sha256) { value = runCatching { vm.scriptActions.sharedScriptCode(e) } }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -216,7 +218,8 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
                 Text(e.desc, style = MaterialTheme.typography.bodyLarge)
             }
             Spacer(Modifier.height(12.dp))
-            // From the file once it is here (checked against the list): that is what installing grants.
+            // Once the file is downloaded (and checked against the list), use it, because the file
+            // is what installing grants. Until then, use the list's values.
             val text = code?.getOrNull()
             val uses = remember(text) { text?.let { ScriptMeta.uses(it).toList() } ?: e.uses }
             Fact("Runs", remember(text) { text?.let { runs(it) } ?: runs(e) }.ifEmpty { "manually" })

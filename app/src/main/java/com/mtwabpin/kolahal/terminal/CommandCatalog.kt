@@ -1,9 +1,13 @@
 package com.mtwabpin.kolahal.terminal
 
 /**
- * Every built-in command: its usage and help line ([COMMANDS]), its place in `help` ([HELP_SECTIONS]),
- * and which build has it ([FEATURE_COMMANDS]). [CommandProcessor] runs them; sensitive ones are
- * listed in [InstantRun.SENSITIVE]. Each list is one entry per line, so two new commands don't collide.
+ * Every built-in command, with:
+ * - its usage and help line ([COMMANDS]);
+ * - its place in `help` ([HELP_SECTIONS]);
+ * - which build has it ([FEATURE_COMMANDS]).
+ *
+ * [CommandProcessor] runs the commands. Sensitive ones are listed in [InstantRun.SENSITIVE].
+ * Each list has one entry per line, so that two new commands added at once don't conflict.
  */
 object CommandCatalog {
     val COMMANDS = listOf(
@@ -37,7 +41,7 @@ object CommandCatalog {
         CommandSpec("play", "play <query>", "Search the Play Store"),
         CommandSpec("usage", "usage [<days>]", "Screen time per app"),
         CommandSpec("installs", "installs [<n>]", "Recent app installs, updates and uninstalls"),
-        // The Play build has no READ_CONTACTS: no name opens Android's contact picker.
+        // The Play build has no READ_CONTACTS. There, a command without a name opens Android's contact picker.
         CommandSpec("call", if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) "call <name|number>" else "call [<name|number>]", "Dial a contact or number"),
         CommandSpec("sms", if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) "sms <name|number> [<text>]" else "sms [<name|number> [<text>]]", "Start a text message"),
         if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec("contacts", "contacts [<query>|--allow]", "Find contacts (favourites when empty)")
@@ -91,15 +95,15 @@ object CommandCatalog {
         CommandSpec("agenda", "agenda [<days>|--allow|--settings]", "Upcoming calendar events (tap to open one)"),
     )
 
-    /** Every built-in command name, for alias, script-name and typo checks. */
+    /** Every built-in command name. Used to check aliases, script names and typos. */
     val COMMAND_NAMES: Set<String> = COMMANDS.map { it.name }.toSet()
 
-    /** Names a script or an alias can't take: the commands and the other names they answer to. */
+    /** Names that a script or an alias can't use: the command names and their synonyms. */
     val RESERVED_NAMES: Set<String> = COMMAND_NAMES + InstantRun.SYNONYMS.keys
 
     /**
-     * The commands of each feature the Play build leaves out (screen lock, call log, self-update), with whether
-     * this build has it.
+     * For each feature that the Play build leaves out (screen lock, call log, self-update):
+     * whether this build has it, and its commands.
      */
     internal val FEATURE_COMMANDS = listOf(
         com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE to setOf("lock", "accessibility"),
@@ -108,16 +112,16 @@ object CommandCatalog {
     )
 
     /**
-     * Commands whose feature this build leaves out: not suggested or listed in help, so the Play
-     * build doesn't offer what it can't do. Typed anyway, each says why it isn't there.
+     * Commands whose feature this build leaves out. They are not suggested or listed in help,
+     * so the Play build doesn't offer what it can't do. If the user types one anyway, it explains why it is missing.
      */
     val UNAVAILABLE: Set<String> = FEATURE_COMMANDS.filterNot { it.first }.flatMap { it.second }.toSet()
 
-    /** The commands this build offers: what help lists and completion suggests. */
+    /** The commands this build offers. Help lists them and completion suggests them. */
     val OFFERED: List<CommandSpec> = COMMANDS.filter { it.name !in UNAVAILABLE }
     val OFFERED_NAMES: Set<String> = OFFERED.mapTo(LinkedHashSet()) { it.name }
 
-    /** Usage line per command name, for option completion and instant runs. */
+    /** The usage line for each command name, for option completion and instant runs. */
     val COMMAND_USAGES: Map<String, String> = COMMANDS.associate { it.name to it.usage }
 
     /** Commands handled by [ProductivityCommands]. */
@@ -134,7 +138,7 @@ object CommandCatalog {
         "agenda",
     )
 
-    /** `help` groups; commands not listed here are shown after the groups. */
+    /** The groups in `help`. Commands that are not listed here are shown after the groups. */
     val HELP_SECTIONS = linkedMapOf(
         "apps" to listOf(
             "open",

@@ -14,9 +14,9 @@ import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 /**
- * Backups on their own (`backup.auto`): the [Backup] file, `kolahal-backup-2026-10-27.json`,
- * written every day or every week to a folder you pick, keeping the newest `backup.keep`. One
- * written the same day replaces that day's.
+ * Automatic backups (`backup.auto`). It writes the [Backup] file, `kolahal-backup-2026-10-27.json`,
+ * every day or every week to a folder you pick, and keeps the newest `backup.keep` files. A backup
+ * written on the same day replaces that day's file.
  */
 object AutoBackup {
     private const val PREFS = "auto_backup"
@@ -37,13 +37,14 @@ object AutoBackup {
         context.contentResolver.takePersistableUriPermission(tree, flags)
         val old = folder(context)
         prefs(context).edit { putString(KEY_FOLDER, tree.toString()) }
-        // The previous folder's grant goes, unless the script folder is there too.
+        // Release the previous folder's grant, unless the script folder is also there.
         old?.takeIf { it != tree }?.let { com.mtwabpin.kolahal.script.Files.releaseFolder(context, it) }
     }
 
     /**
-     * The log line for a backup that failed, and its tap: picking the folder again, for a folder
-     * Kolahal can't use. A backup too big says what to make smaller instead, with no tap.
+     * The log line for a failed backup, and its tap action.
+     * - If Kolahal can't use the folder, the tap lets you pick the folder again.
+     * - If the backup is too big, the line says what to make smaller, with no tap action.
      */
     internal fun failure(e: Throwable): Pair<String, LogContext> {
         val text = "Automatic backup failed: ${e.message ?: e.javaClass.simpleName}"
@@ -54,7 +55,7 @@ object AutoBackup {
     /** When the last backup was written, or null. */
     fun last(context: Context): Long? = prefs(context).getLong(KEY_LAST, 0L).takeIf { it > 0 }
 
-    /** Schedules the backups `backup.auto` asks for, or cancels them. */
+    /** Schedules the backups that `backup.auto` asks for, or cancels them. */
     fun sync(context: Context) {
         val wm = WorkManager.getInstance(context)
         val days = when (Config.get(context)[Keys.BACKUP_AUTO]) {
@@ -68,12 +69,12 @@ object AutoBackup {
         )
     }
 
-    /** Writes today's backup to the folder and drops the oldest past `backup.keep`. Returns the file's name. */
+    /** Writes today's backup to the folder and deletes the oldest ones past `backup.keep`. Returns the file's name. */
     fun backUp(context: Context): String {
         val tree = folder(context) ?: throw IllegalStateException("no backup folder: run 'backup dir'")
         val dir = DocumentFile.fromTreeUri(context, tree)
         if (dir == null || !dir.canWrite()) throw IllegalStateException("the backup folder can't be written: run 'backup dir'")
-        // Before any file exists: a backup too big to save leaves nothing behind.
+        // Build the text before any file exists, so a backup too big to save leaves nothing behind.
         val text = Backup(context).text()
         val saved = saveTo(dir, "kolahal-backup-${LocalDate.now()}.json", Config.get(context)[Keys.BACKUP_KEEP]) { uri ->
             com.mtwabpin.kolahal.script.Files.writeText(context, uri, text)
@@ -83,9 +84,9 @@ object AutoBackup {
     }
 
     /**
-     * Writes [name] in [dir] with [write], then drops the oldest past [keep]. It goes to a file of
-     * its own first, so a failure leaves nothing new and costs nothing: writing over the day's
-     * earlier backup would empty that before the first byte.
+     * Writes [name] in [dir] with [write], then deletes the oldest backups past [keep]. It writes to a
+     * separate file first, so a failure leaves nothing new and loses nothing. Writing directly over
+     * the day's earlier backup would empty it before the first byte.
      */
     internal fun saveTo(dir: DocumentFile, name: String, keep: Int, write: (Uri) -> Unit): String {
         val tempName = name.removeSuffix(".json") + ".tmp.json"
@@ -99,7 +100,7 @@ object AutoBackup {
         }
         val earlier = dir.findFile(name)
         if ((earlier != null && !earlier.delete()) || !temp.renameTo(name)) {
-            // A provider that can't delete or rename: written again under its name, the copy kept until that's done.
+            // The provider can't delete or rename, so write the file again under its name. Keep the copy until that is done.
             val file = dir.findFile(name) ?: dir.createFile("application/json", name) ?: throw IllegalStateException("can't create $name")
             write(file.uri)
             temp.delete()
@@ -110,10 +111,13 @@ object AutoBackup {
     }
 
     /**
-     * Of the automatic backups in a folder, by name with the size each reads as (their names sort
-     * by date), those past the newest [keep], [written] being one of those kept. One that reads as
-     * empty doesn't count, as an earlier failure could have left it and it would push a real one
-     * out. It doesn't go for that alone: a provider that reports no size makes every file read so.
+     * Returns the automatic backups to delete: those past the newest [keep].
+     * - [sizes] maps each backup's name to the size it reads as. The names sort by date.
+     * - [written] counts as one of the backups kept.
+     * - A file that reads as empty doesn't count toward [keep]. An earlier failure could have left
+     *   it, and it would push a real backup out.
+     * - An empty file is not deleted just for being empty: a provider that reports no size makes
+     *   every file read as empty.
      */
     internal fun expired(sizes: Map<String, Long>, written: String, keep: Int): List<String> {
         var counted = 0
@@ -129,7 +133,7 @@ object AutoBackup {
     }
 }
 
-/** Writes an automatic backup; a failure is a line in the log that says how to fix it. */
+/** Writes an automatic backup. A failure becomes a line in the log that says how to fix it. */
 class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         runCatching { AutoBackup.backUp(applicationContext) }.onFailure {

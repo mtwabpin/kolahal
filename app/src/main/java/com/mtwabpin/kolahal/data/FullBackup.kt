@@ -14,14 +14,15 @@ import com.mtwabpin.kolahal.script.SecretStore
 
 /**
  * The raw half of a backup: the preference files and database tables that hold user data ([PREFS],
- * [TABLES]), so a restore brings back everything (todos, notes, reminders, feeds and their read
- * state, script stores, the log, launch history, unlock history, notification settings…).
+ * [TABLES]). A restore brings back everything: todos, notes, reminders, feeds and their read state,
+ * script stores, the log, launch history, unlock history, notification settings and so on.
  *
  * The readable sections of [Backup] (config, aliases, apps, scripts) are applied after this, so
- * hand edits to them win. Things that can't move between devices are left out: the picked script
- * folder (a storage permission), WorkManager's own schedule state (rebuilt on restore) and the
- * phone's boot `@on boot` last fired for ("triggers"): an older one, restored, would read as a new
- * boot and run those scripts. One in a backup from before is left out of the restore too.
+ * hand edits to them win. Things that can't move between devices are left out:
+ * - the picked script folder (a storage permission),
+ * - WorkManager's own schedule state (rebuilt on restore),
+ * - the phone boot that `@on boot` last fired for ("triggers"). An older value, once restored, would
+ *   look like a new boot and run those scripts. If an older backup holds it, the restore skips it too.
  */
 object FullBackup {
     /** SharedPreferences files that hold user data. */
@@ -41,21 +42,25 @@ object FullBackup {
         Table({ FeedDb.get(it).writableDatabase }, "items"),
     )
 
-    /** kv scopes are "script:<id>"; ids differ between devices, so backups key them by script name. */
+    /** Kv scopes are "script:<id>". Ids differ between devices, so backups key them by script name. */
     private const val SCRIPT_SCOPE = "script:"
     private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
 
     /**
-     * kv scopes about this phone: the last call and the apps it has seen (another phone's would log
-     * every app as installed or updated), daily notes, settings copied for the :script process, and
-     * the copy of recent notifications kept for scripts. They don't go into a backup, a restore
-     * keeps this phone's, and one in a backup file is left out.
+     * Kv scopes about this phone:
+     * - the last call, and the apps it has seen (another phone's list would log every app as
+     *   installed or updated),
+     * - daily notes,
+     * - settings copied for the :script process,
+     * - the copy of recent notifications kept for scripts.
+     * They don't go into a backup, and a restore keeps this phone's. If a backup file holds them,
+     * they are skipped.
      */
     private val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE, KolahalNotificationListener.MIRROR_SCOPE)
 
     fun export(context: Context): Map<String, Any?> {
-        // Rows too big for a cursor would make the whole export fail: they're from old versions, which
-        // the start after an update repairs (KvStore.repairOversized), and nothing writes them since.
+        // Rows too big for a cursor would make the whole export fail. They come from old versions; the
+        // first start after an update repairs them (KvStore.repairOversized), and nothing writes them now.
         val scriptNames = ScriptRepository.get(context).all().associate { ScriptRepository.scopeOf(it.id) to it.name }
         val tables = LinkedHashMap<String, Any?>()
         val scriptKv = LinkedHashMap<String, MutableMap<String, String?>>()
@@ -68,8 +73,8 @@ object FullBackup {
                 // Script secrets never leave the phone (and only its Keystore key can read them anyway).
                 if (scope.startsWith(SecretStore.SCOPE_PREFIX)) return@filter false
                 if (!scope.startsWith(SCRIPT_SCOPE)) return@filter true
-                // Stores of deleted scripts are dropped; the rest move under the script's name, but for
-                // what http.cached keeps: only a cache, and one from before 0.4.9 can hold a key.
+                // Stores of deleted scripts are dropped. The rest move under the script's name, except what
+                // http.cached keeps: it is only a cache, and a cache from before 0.4.9 can hold a key.
                 val k = row["k"].toString()
                 if (!k.startsWith(HostApi.HTTP_CACHE)) scriptNames[scope]?.let { name -> scriptKv.getOrPut(name) { LinkedHashMap() }[k] = row["v"] as? String }
                 false
@@ -87,15 +92,16 @@ object FullBackup {
         var rows = 0
         val tables = data["tables"] as? Map<*, *>
         for (t in TABLES) {
-            // What an export leaves out stays out, whatever the file holds: secrets (only this phone's
-            // are kept), this phone's own scopes, and script stores by id (another phone's ids name
-            // other scripts here; stores come by name, in scriptStores).
+            // What an export leaves out stays out, whatever the file holds:
+            // - secrets (only this phone's are kept),
+            // - this phone's own scopes,
+            // - script stores by id (another phone's ids name other scripts here; stores come by name, in scriptStores).
             val list = (tables?.get(t.name) as? List<*>)?.filterIsInstance<Map<*, *>>()
                 ?.filterNot { t.name == "kv" && it["scope"]?.toString().orEmpty().let { s -> s.startsWith(SecretStore.SCOPE_PREFIX) || s.startsWith(SCRIPT_SCOPE) || s in DEVICE_SCOPES } } ?: continue
             val db = t.db(context)
             db.transaction {
                 if (t.name == "kv") {
-                    // Keep this device's script stores (re-attached by name afterwards) and script secrets.
+                    // Keep this device's script stores (attached again by name afterwards) and script secrets.
                     db.delete(
                         "kv", "scope NOT LIKE ? AND scope NOT LIKE ? AND scope NOT IN (${DEVICE_SCOPES.joinToString { "?" }})",
                         arrayOf("$SCRIPT_SCOPE%", "${SecretStore.SCOPE_PREFIX}%") + DEVICE_SCOPES,
@@ -103,43 +109,61 @@ object FullBackup {
                 } else {
                     db.delete(t.name, null, null)
                 }
-                // Only this device's columns: an unknown key would fail the insert halfway through a restore.
+                // Only this device's columns: an unknown key would make the insert fail halfway through a restore.
                 val columns = db.rawQuery("PRAGMA table_info(${t.name})", null).use { c ->
                     buildSet { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }
                 }
                 for (row in list) {
-                    // A backup from 0.4.1 or before has run headers, which are no longer written.
+                    // A backup from 0.4.1 or earlier has run headers, which are no longer written.
                     if (t.name == "logs" && LogContext.RUN_HEADER in LogContext.fromJson(row["ctx"] as? String).values) continue
                     val clean = when (t.name) {
                         "logs" -> withSafeCtx(row)
                         "reminders" -> withReadableRepeat(row)
                         else -> row
                     }
+                    // A value too big to read back would break home for good: every row must fit the 2 MB
+                    // window a query reads through. Kolahal never writes such a value, so only an edited file has one.
+                    if (oversized(t.name, clean)) continue
                     if (db.insertWithOnConflict(t.name, null, values(clean, columns), SQLiteDatabase.CONFLICT_REPLACE) != -1L) rows++
                 }
             }
         }
-        // After the tables: the ids the log saved are measured against the lines now in it.
+        // Do this after the tables, because the ids the log saved are compared with the lines now in it.
         (data["prefs"] as? Map<*, *>)?.forEach { (file, entries) ->
             if (file !is String || file !in PREFS || entries !is Map<*, *>) return@forEach
             val safe = when (file) {
-                // Same rule as `alias`: an alias never shadows a built-in command.
+                // The same rule as `alias`: an alias never hides a built-in command.
                 "aliases" -> entries.filterKeys { it?.toString()?.lowercase() !in BUILT_INS }
                 "logs" -> logIdsWithin(entries, LogRepository.get(context).maxId())
                 else -> entries
             }
             importPrefs(context, file, safe)
         }
+        // The same clean-up as after an update, in case an older file holds what a limit now refuses.
+        runCatching { KvStore.repairOversized(context) }
         return rows
     }
 
     /**
-     * A backup's "logs" preferences with no line's id past [newest], the newest line now in the log.
-     * They can be past it: the lines up to them stayed behind (notification and call lines) or are
-     * gone (cleared, trimmed, swiped), and new lines, numbered on from [newest], would stay out of
-     * view until their ids got there. Restored lines stay hidden or shown just as they were.
-     * The log reads them as numbers, and anything else stops it: one an edited file gives as text
-     * (`{"s": "5"}`) comes back as that number, and one that isn't a number stays out.
+     * Whether a row from a file holds a value larger than Kolahal writes: a log line's fields up to
+     * [LogRepository.MAX_FIELD] characters, any other value up to [KvStore.MAX_VALUE] bytes.
+     */
+    private fun oversized(table: String, row: Map<*, *>): Boolean = row.values.any { v ->
+        when (v) {
+            is String -> if (table == "logs") v.length > LogRepository.MAX_FIELD else v.length > KvStore.MAX_VALUE || v.toByteArray().size > KvStore.MAX_VALUE
+            // Base64 is 4 characters for every 3 bytes.
+            is Map<*, *> -> ((v["base64"] as? String)?.length ?: 0) / 4 * 3 > KvStore.MAX_VALUE
+            else -> false
+        }
+    }
+
+    /**
+     * A backup's "logs" preferences, with no line id past [newest], the newest line now in the log.
+     * An id can be past it when the lines up to it stayed behind (notification and call lines) or
+     * are gone (cleared, trimmed, swiped). New lines, numbered on from [newest], would then stay out
+     * of view until their ids reached it. Restored lines stay hidden or shown exactly as they were.
+     * The log reads these values as numbers, and anything else breaks it. So a value that an edited
+     * file gives as text (`{"s": "5"}`) comes back as that number, and a value that isn't a number is dropped.
      */
     internal fun logIdsWithin(entries: Map<*, *>, newest: Long): Map<*, *> = entries.mapNotNull { (key, tagged) ->
         if (key !in LogRepository.ID_KEYS) return@mapNotNull key to tagged
@@ -148,7 +172,7 @@ object FullBackup {
         key to mapOf("l" to minOf(id, newest))
     }.toMap()
 
-    /** After scripts exist (by name), puts each script's store back under its new id. */
+    /** After the scripts exist (by name), puts each script's store back under its new id. */
     fun importScriptStores(context: Context, data: Map<*, *>) {
         val stores = data["scriptStores"] as? Map<*, *> ?: return
         val repo = ScriptRepository.get(context)
@@ -160,7 +184,7 @@ object FullBackup {
         }
     }
 
-    // ---- preferences: values are tagged so ints, longs and string sets survive JSON --------------
+    // ---- preferences: values are tagged so that ints, longs and string sets survive JSON ---------
 
     private fun exportPrefs(context: Context, file: String): Map<String, Any?> =
         context.getSharedPreferences(file, Context.MODE_PRIVATE).all.mapValues { (_, v) ->
@@ -175,7 +199,7 @@ object FullBackup {
         }
 
     private fun importPrefs(context: Context, file: String, entries: Map<*, *>) {
-        // commit, not apply: the app restarts right after a restore.
+        // Use commit, not apply, because the app restarts right after a restore.
         context.getSharedPreferences(file, Context.MODE_PRIVATE).edit(commit = true) {
             clear()
             entries.forEach { (k, tagged) ->
@@ -216,9 +240,9 @@ object FullBackup {
 
     /**
      * Lines with other people's messages and numbers stay on the device: notifications, calls,
-     * anything that carries a number, and the `call` and `sms` lines you type. So do lines from a
-     * private space, known by the profile's serial or, as the space may be locked or gone by now,
-     * by the `[S]` after the app's name.
+     * anything that carries a number, and the `call` and `sms` lines you type. Lines from a private
+     * space also stay. They are found by the profile's serial, or by the `[S]` after the app's name,
+     * because the space may be locked or gone by now.
      */
     internal fun private(row: Map<String, Any?>, privateSerials: Set<Long>): Boolean {
         if (row["source"] == com.mtwabpin.kolahal.calls.CallEvents.SOURCE) return true
@@ -227,7 +251,7 @@ object FullBackup {
         val ctx = LogContext.fromJson(row["ctx"] as? String)
         if (ctx.values.containsKey(KolahalNotificationListener.CTX_KEY) || ctx.values.containsKey(LogContext.PHONE)) return true
         if (ctx.userSerial?.let { it in privateSerials } == true) return true
-        // A grid of apps has only their names in its text; the [S] is in what it copies.
+        // A grid of apps has only the app names in its text. The [S] is in what it copies.
         return PRIVATE_TAG.containsMatchIn(text) || PRIVATE_TAG.containsMatchIn(ctx.values[LogContext.COPY].orEmpty())
     }
 
@@ -238,17 +262,17 @@ object FullBackup {
     /** Preference files that name apps by key, `<component>#<serial>`. */
     private val APP_PREFS = setOf("apps", "app_usage")
 
-    /** Whether [key], an app's, is one in a private space. */
+    /** Whether [key], an app key, belongs to an app in a private space. */
     internal fun isPrivateApp(key: String, serials: Set<Long>) = key.substringAfterLast('#', "").toLongOrNull() in serials
 
-    /** [entries] of an [APP_PREFS] file, as [exportPrefs] tags them, with no app of a private space. */
+    /** [entries] of an [APP_PREFS] file, tagged as [exportPrefs] tags them, without any app of a private space. */
     internal fun withoutPrivateApps(entries: Map<String, Any?>, serials: Set<Long>): Map<String, Any?> =
         entries.filterKeys { !isPrivateApp(it, serials) }.mapValues { (key, tagged) ->
             val pinned = (tagged as? Map<*, *>)?.get("s") as? String
             if (key == "pinned" && pinned != null) mapOf("s" to pinned.split('\n').filterNot { isPrivateApp(it, serials) }.joinToString("\n")) else tagged
         }
 
-    /** The private space's serials, when this phone has one and Kolahal may see it. */
+    /** The private space's serials, when this phone has one and Kolahal can see it. */
     internal fun privateSerials(context: Context): Set<Long> = runCatching {
         val launcher = context.getSystemService(android.content.pm.LauncherApps::class.java)
         val users = context.getSystemService(android.os.UserManager::class.java)
@@ -259,7 +283,7 @@ object FullBackup {
             .toSet()
     }.getOrDefault(emptySet())
 
-    /** A repeat this version can't read: the reminder still fires, once. */
+    /** For a repeat rule this version can't read, the reminder still fires, but only once. */
     private fun withReadableRepeat(row: Map<*, *>): Map<*, *> {
         val rule = row["repeat_rule"] as? String ?: return row
         return if (com.mtwabpin.kolahal.productivity.Repeat.isValid(rule)) row else row.toMutableMap().apply { put("repeat_rule", null) }
@@ -276,8 +300,10 @@ object FullBackup {
     }
 
     /**
-     * [ctx] with only what a restored line may do on a tap: no command that runs, no app shortcut,
-     * links to the web, maps or the store, and a contact only from the contacts app.
+     * [ctx] with only what a restored line may do on a tap:
+     * - no command that runs, and no app shortcut,
+     * - links only to the web, maps or the store,
+     * - a contact only from the contacts app.
      */
     internal fun safeCtx(ctx: LogContext): LogContext = LogContext(ctx.values.filter { (k, v) ->
         when (k) {

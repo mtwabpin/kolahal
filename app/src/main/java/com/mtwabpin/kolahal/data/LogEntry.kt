@@ -20,8 +20,8 @@ enum class LogKind {
 }
 
 /**
- * Structured context saved alongside a log line. The terminal uses it to decide what a
- * tap does and which actions to offer on long-press (open link, launch app, rerun script, ...).
+ * Structured context saved with a log line. The terminal uses it to decide what a tap does and
+ * which actions to offer on long-press (open link, launch app, rerun script, ...).
  *
  * Well-known keys are exposed as properties. A script may set only url, image, copy and mono.
  */
@@ -35,7 +35,7 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
     val copy: String? get() = values[COPY]
     val command: String? get() = values[COMMAND]
     val image: String? get() = values[IMAGE]
-    /** A script line's body, muted under its title ([TITLE]). */
+    /** A script line's body, shown muted under its title ([TITLE]). */
     val body: String? get() = values[BODY]
 
     val isEmpty: Boolean get() = values.isEmpty()
@@ -54,46 +54,46 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val COMMAND = "command"
         /** A notification's saved status-bar icon ([com.mtwabpin.kolahal.notifications.NotifIcons] key), shown instead of the app name. */
         const val ICON = "icon"
-        /** An image URL a script attached: it shows under the line, as wide as the log. */
+        /** An image URL that a script attached. It shows under the line, as wide as the log. */
         const val IMAGE = "image"
         /** A command that runs immediately when the line is tapped (setup checklist, hints). */
         const val RUN = "run"
-        /** Phone number (tap dials) and contact lookup URI (long-press opens the contact). */
+        /** A phone number (tap dials) and a contact lookup URI (long-press opens the contact). */
         const val PHONE = "phone"
-        /** An app shortcut id (with PKG/USER): tap starts the shortcut. */
+        /** An app shortcut id (with PKG/USER). A tap starts the shortcut. */
         const val SHORTCUT = "shortcut"
         const val CONTACT = "contact"
-        /** Source line of a script error (tap opens the editor there). */
+        /** The source line of a script error. A tap opens the editor at that line. */
         const val LINE = "line"
         /**
-         * The id of the command line whose run logged this line, wherever it landed: a script's or a
-         * feed's lines come when the work is done, after other lines. "Delete command and output"
-         * takes them along.
+         * The id of the command line whose run logged this line, wherever the line landed. A script's
+         * or a feed's lines arrive when the work is done, after other lines. "Delete command and
+         * output" deletes them too.
          */
         const val FROM = "from"
         /**
-         * The `── name · 22:40 ──` line that started a script run or a feed fetch until 0.4.1. Each
-         * line has its time and name now; old ones are deleted ([Db]) and not restored from backups.
+         * Until 0.4.1, a `── name · 22:40 ──` line started a script run or a feed fetch. Now each line
+         * has its own time and name. Old header lines are deleted ([Db]) and not restored from backups.
          */
         const val RUN_HEADER = "runheader"
-        /** A line a script logged: its text is a title, drawn bold, with [BODY] muted under it. */
+        /** A line a script logged. Its text is a title, drawn bold, with [BODY] muted under it. */
         const val TITLE = "title"
         /** A script line's body: `log(title, body)`. */
         const val BODY = "body"
-        /** Second column text (help, config, script listings render as two columns). */
+        /** The second column text (help, config and script listings show as two columns). */
         const val DESC = "desc"
-        /** JSON list of {pkg, cls, user}: the line renders as a grid of app chips. */
+        /** A JSON list of {pkg, cls, user}. The line shows as a grid of app chips. */
         const val APPS = "apps"
-        /** Productivity items by database id: a todo ("done" = 1 when finished), note, reminder. */
+        /** Productivity items by database id: a todo ("done" = 1 when finished), a note, a reminder. */
         const val TODO = "todo"
         const val TODO_DONE = "done"
         const val NOTE = "note"
         const val REMINDER = "reminder"
-        /** Calendar event id (with BEGIN/END of the instance): tap opens it. */
+        /** A calendar event id (with BEGIN/END of the instance). A tap opens it. */
         const val EVENT = "event"
         const val BEGIN = "begin"
         const val END = "end"
-        /** The line lines columns up with spaces: drawn in the terminal font even with `font.sans all`. */
+        /** The line aligns columns with spaces, so it is drawn in the terminal font even with `font.sans all`. */
         const val MONO = "mono"
 
         val EMPTY = LogContext()
@@ -122,9 +122,9 @@ data class LogEntry(
     val source: String?,
     val text: String,
     val ctx: LogContext,
-    /** Starred from its long-press: kept past the log's limits and through a clear ([LogRepository.trim]). */
+    /** Starred from its long-press menu. It is kept beyond the log's limits and through a clear ([LogRepository.trim]). */
     val starred: Boolean = false,
 )
 
-/** What the line shows, as plain text: its text, and a script line's body under it. */
+/** What the line shows, as plain text: its text, with a script line's body under it. */
 val LogEntry.shownText: String get() = StyledText.plain(ctx.body?.let { "$text\n$it" } ?: text)

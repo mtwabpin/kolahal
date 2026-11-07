@@ -27,8 +27,9 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
 /**
- * Setup checklist (`setup`, or Settings → Setup checklist). Each unchecked item opens
- * the right system page; the list refreshes when the user comes back.
+ * The setup checklist (`setup`, or Settings → Setup checklist).
+ * Each unchecked item opens the matching system page.
+ * The list refreshes when the user comes back.
  */
 @Composable
 fun SetupScreen(vm: TerminalViewModel) {

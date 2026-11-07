@@ -59,7 +59,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 
 
-/** Profile state for a widget: paused/locked profiles get a placeholder instead of the widget. */
+/** Returns the kind of the profile with [serial] if it is paused/locked, else null. A paused/locked profile's widget shows a placeholder instead. */
 internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? = firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
 
 /**
@@ -91,7 +91,7 @@ internal fun HostedWidget(
     key(id) {
         AndroidView(
             factory = { ctx ->
-                // Home is built again after Settings or the Widgets page; the widget's view is kept.
+                // Home is rebuilt after Settings or the Widgets page, but the widget's view is reused.
                 widgets.view(ctx, id, info).apply {
                     (this as? KolahalWidgetView)?.onLongPress = { longPress?.invoke() }
                 }
@@ -103,10 +103,12 @@ internal fun HostedWidget(
 
 
 /**
- * Widgets in page order, [spans] twelfths of the width each ([WidgetLayout.COLUMNS]): side by side
- * while they fit, a new row when the next one doesn't, [gap] between them across and down. A row is
- * as tall as its tallest widget, the others at its top. Rows run from the start: right to left in a
- * right-to-left language. One child per widget.
+ * Lays out widgets in page order. Each widget is [spans] twelfths of the width ([WidgetLayout.COLUMNS]).
+ * - Widgets sit side by side while they fit. The next one that does not fit starts a new row.
+ * - [gap] separates widgets horizontally and vertically.
+ * - A row is as tall as its tallest widget. Shorter widgets align to the row's top.
+ * - Rows start at the start edge, so they run right to left in a right-to-left language.
+ * - Give one child per widget.
  */
 @Composable
 internal fun WidgetFlow(spans: List<Int>, gap: Dp, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -136,9 +138,9 @@ internal fun WidgetFlow(spans: List<Int>, gap: Dp, modifier: Modifier = Modifier
 }
 
 /**
- * The widgets page beside the terminal (`widgets.page`): every widget placed on the "Widgets page",
- * at its width and height ([WidgetFlow]), scrolling, in the terminal's colours. Add / edit jump to
- * the GUI pages.
+ * The widgets page beside the terminal (`widgets.page`). It shows every widget placed on the
+ * "Widgets page" at its width and height ([WidgetFlow]), in a scrolling list, in the terminal's
+ * colours. Add and Edit open the GUI pages.
  */
 @Composable
 fun WidgetPanel(vm: TerminalViewModel) {
@@ -149,16 +151,16 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // Home opens here (widgets.start): the app selector is here too, as on the log.
+    // When home opens on this page (widgets.start), the app selector is here too, as on the log.
     val first = remember(version) { vm.config[Keys.WIDGETS_START] }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
     Box(Modifier.fillMaxSize().page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] }).testTag("widgets-page")) {
-        // As home's first page it has no title row: a widget's long-press arranges them.
+        // As home's first page, it has no title row. A long-press on a widget opens the screen to arrange widgets.
         WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
         if (first) {
-            // Where the log has its selector, between its header and prompt: the same edges and height,
-            // so selector.position and the selector's height put it in the same place on both pages.
+            // Place the selector where the log has it, between the header and the prompt, with the same
+            // edges and height. So selector.position and the selector's height put it in the same place on both pages.
             var top by remember { mutableFloatStateOf(0f) }
             val area = vm.selectorArea
             Box(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().onGloballyPositioned { top = it.positionInWindow().y }) {
@@ -167,7 +169,7 @@ fun WidgetPanel(vm: TerminalViewModel) {
                     else Modifier.fillMaxWidth().offset { IntOffset(0, (area.top - top).roundToInt()) }.height(with(density) { area.height.toDp() })
                 ) {
                     HomeAppSelector(vm, onLongPress = { app ->
-                        // An app's shortcuts come from the system: built off the main thread, shown when ready.
+                        // An app's shortcuts come from the system. Build them off the main thread and show them when ready.
                         menuScope.launch { menu = ActionMenu(app.label, withContext(Dispatchers.IO) { vm.appActions(app) }, null) }
                     })
                 }
@@ -177,7 +179,7 @@ fun WidgetPanel(vm: TerminalViewModel) {
     }
 }
 
-/** The widgets page's own content: its title row ([titleRow]) and the widgets, or what to do with none. */
+/** The widgets page content: its title row (if [titleRow]) and the widgets, or a hint when there are none. */
 @Composable
 private fun WidgetPanelContent(
     vm: TerminalViewModel,
@@ -222,7 +224,7 @@ private fun WidgetPanelContent(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
                 )
             } else {
-                // No + Add above it: the line itself adds one.
+                // There is no + Add button above, so tapping this line adds a widget.
                 Text(
                     "No widgets here yet · tap to add one",
                     style = Term.text.copy(color = Term.dim),
@@ -239,12 +241,12 @@ private fun WidgetPanelContent(
             panel.map { it.span },
             WidgetLayout.GAP_DP.dp,
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
-                // What Square and the sizes told to widgets go by.
+                // The page width in dp. Square and the sizes reported to widgets are based on it.
                 .onSizeChanged { widgets.measuredPageDp = with(density) { it.width.toDp().value.toInt() } },
         ) {
             panel.forEach { w ->
                 key(w.key) {
-                    // One child per widget for the flow, whatever HostedWidget shows.
+                    // Give the flow exactly one child per widget, whatever HostedWidget shows.
                     Box {
                         HostedWidget(
                             w = w,

@@ -75,16 +75,16 @@ private class ProviderGroup(
     val icon: ImageBitmap?,
     val work: ProfileKind?,
     val providers: List<ProviderEntry>,
-    /** [providers]' labels in lowercase, loaded once for the search. */
+    /** The labels of [providers] in lowercase, loaded once for the search. */
     val names: List<String>,
-    /** What [providers]' cards say, loaded with them off the main thread. */
+    /** The card text of [providers], loaded with them off the main thread. */
     val texts: List<CardText>,
 )
 
 /** A widget's name and, from Android 12, its description. */
 private class CardText(val label: String, val description: String?)
 
-/** Previews and icons decoded while the picker is open: a card scrolled back shows them at once. */
+/** Previews and icons decoded while the picker is open. A card that scrolls back into view shows them at once. */
 private val pickerImages = object : android.util.LruCache<String, ImageBitmap>(16 * 1024 * 1024) {
     override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
 }
@@ -116,8 +116,10 @@ private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Pro
 }
 
 /**
- * Widget picker: installed providers from every profile, grouped by app (work/private badge),
- * each with its preview and default size. Picking starts the bind flow in MainActivity.
+ * The widget picker: installed providers from every profile, grouped by app.
+ * - Work and private apps get a badge.
+ * - Each provider shows its preview and default size.
+ * - Picking one starts the bind flow in MainActivity.
  */
 @Composable
 fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
@@ -134,8 +136,9 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val snackbar = rememberWidgetMessages(widgets)
     BackHandler { vm.closeScreen() }
-    // Its pictures are let go with it, and when Android asks: hidden behind another app or short of
-    // memory, Kolahal is likelier to be closed the more it holds. Cards decode theirs again on return.
+    // Free the pictures when the picker closes, and also when Android asks (the app is hidden or
+    // memory is low). The more memory Kolahal holds, the more likely Android is to close it.
+    // Cards decode their pictures again when the user returns.
     DisposableEffect(Unit) {
         val trim = object : android.content.ComponentCallbacks2 {
             override fun onTrimMemory(level: Int) {
@@ -220,7 +223,8 @@ private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, 
     val label = text.label
     val description = text.description
     val maxPx = with(LocalDensity.current) { 280.dp.roundToPx() }
-    // Kept for this provider as loaded: an update (new details) reads its pictures again.
+    // The cache key is tied to this provider as loaded. After an update (new details), the key
+    // changes, so the pictures are read again.
     val loaded = "${p.flat}#${p.serial}:${System.identityHashCode(info)}:$maxPx"
     val preview by produceState<ImageBitmap?>(pickerImages.get("$loaded:preview"), info) {
         value = pickerImages.get("$loaded:preview") ?: withContext(Dispatchers.IO) {
@@ -269,7 +273,7 @@ private fun ProviderCard(p: ProviderEntry, text: CardText, widgets: WidgetHost, 
     }
 }
 
-/** Android 12+ `previewLayout`, inflated as a non-interactive view (touches fall through to the card). */
+/** The Android 12+ `previewLayout`, inflated as a view that ignores touches. Touches go to the card. */
 @RequiresApi(31)
 @Composable
 private fun LayoutPreview(info: AppWidgetProviderInfo) {

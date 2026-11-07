@@ -23,10 +23,10 @@ sealed interface UiEvent {
 sealed interface Suggestion {
     val label: String
 
-    /** Identity in the suggestion lists; [TerminalViewModel.suggestions] never returns two with the same key. */
+    /** Identifies the row in the suggestion lists. [TerminalViewModel.suggestions] never returns two rows with the same key. */
     val key: String
 
-    /** Enter does what this row does: only ever the first row, highlighted with a ⏎. */
+    /** True when Enter does what this row does. Only the first row can have it. That row is marked with a ⏎. */
     val enter: Boolean
 
     data class App(val app: AppEntry, override val enter: Boolean = false) : Suggestion {
@@ -35,9 +35,12 @@ sealed interface Suggestion {
     }
 
     /**
-     * [app]: the app this completion is about (`uninstall maps`, `open maps:…`), for its icon; else
-     * [icon], a drawable for what kind of thing it is (a feed, a script, a contact), else the
-     * terminal glyph. [help]: shown beside it, when the command and config descriptions don't apply.
+     * The row's icon is chosen in this order:
+     * - [app]: the app this completion is about (`uninstall maps`, `open maps:…`). Its icon is shown.
+     * - [icon]: a drawable for the kind of thing it is (a feed, a script, a contact).
+     * - Otherwise, the terminal glyph.
+     *
+     * [help] is shown beside the row when the command and config descriptions don't apply.
      */
     data class Completion(
         override val label: String,
@@ -52,22 +55,28 @@ sealed interface Suggestion {
 }
 
 /**
- * What the Undo bar under the log offers: [text] says what was done, [undo] takes it back, and
- * [expire] runs once it can't be any more (it timed out, or another offer took its place).
+ * What the Undo bar under the log offers.
+ * - [text] says what was done.
+ * - [undo] reverses it.
+ * - [expire] runs when undo is no longer possible: the offer timed out, or another offer replaced it.
  */
 class UndoOffer(val text: String, val expire: () -> Unit = {}, val undo: () -> Unit)
 
 /**
- * One entry of a log line's long-press menu. [icon]: drawn in a fixed-width column, so labels
- * line up whatever its width.
+ * One entry of a log line's long-press menu. [icon] is drawn in a fixed-width column,
+ * so the labels line up whatever the icon's width.
  */
 data class LogAction(val label: String, val destructive: Boolean = false, val icon: ActionIcon? = null, val run: () -> Unit)
 
 /** A menu icon in the header's style and size. */
 sealed interface ActionIcon {
-    /** A drawable [id], dim like the header's, or coloured as the header colours it: [profile]'s colour, red for [alert]. */
+    /**
+     * A drawable [id]. It is dim like the header's icons, or coloured the way the header colours it:
+     * - [profile]: that profile's colour;
+     * - [alert]: red.
+     */
     data class Drawable(val id: Int, val profile: ProfileKind? = null, val alert: Boolean = false) : ActionIcon
 
-    /** The header's battery, drawn to its level. */
+    /** The header's battery icon, filled to the battery level. */
     data class Battery(val pct: Int, val charging: Boolean) : ActionIcon
 }

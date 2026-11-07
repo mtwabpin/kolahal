@@ -15,11 +15,11 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Crash reports that stay on the phone until the user shares them: there is no crash reporting
- * service. An uncaught exception in either process is written to `filesDir/crash` before the
- * process ends. On Android 11+, the reasons Android recorded for earlier exits add what that
- * handler can't see: freezes (not responding) and crashes in native code, such as the script
- * engines. Each new report gets one log line, tap to share; `crashes` lists them.
+ * Crash reports that stay on the phone until the user shares them. There is no crash reporting service.
+ * - An uncaught exception in either process is written to `filesDir/crash` before the process ends.
+ * - On Android 11+, the exit reasons that Android recorded add what that handler can't see: freezes
+ *   (not responding) and crashes in native code, such as the script engines.
+ * - Each new report gets one log line. A tap shares it. `crashes` lists all reports.
  */
 object CrashReports {
     private const val DIR = "crash"
@@ -34,17 +34,17 @@ object CrashReports {
     }
 
     class Report(val id: String, val kind: Kind, private val file: File) {
-        /** The file's name without .txt: what [announce] remembers. */
+        /** The file name without .txt. [announce] remembers this key. */
         val key: String get() = file.name.removeSuffix(".txt")
         val time: Long get() = file.lastModified()
         fun delete() = file.delete()
         fun text(): String = runCatching { file.readText() }.getOrDefault("")
-        /** The error's first line with its short name, for the log. */
+        /** The error's first line with the short exception name, for the log. */
         val summary: String get() = CrashText.shortName(CrashText.summary(text()))
         val inScriptProcess: Boolean get() = text().lineSequence().take(8).any { it.startsWith("What:") && it.contains(":script") }
     }
 
-    /** First thing in [LauncherApp.onCreate], in both processes. */
+    /** Call this first in [LauncherApp.onCreate], in both processes. */
     fun install(context: Context) {
         val app = context.applicationContext
         val previous = Thread.getDefaultUncaughtExceptionHandler()
@@ -75,11 +75,11 @@ object CrashReports {
             ),
         )
         file.setLastModified(time)
-        // Only the newest few are kept.
+        // Keep only the newest few reports.
         list(context).drop(KEEP).forEach { it.delete() }
     }
 
-    /** Newest first. */
+    /** Returns the reports, newest first. */
     fun list(context: Context): List<Report> =
         dir(context).listFiles { f -> f.name.endsWith(".txt") }.orEmpty()
             .mapNotNull { f ->
@@ -89,7 +89,7 @@ object CrashReports {
             }
             .sortedByDescending { it.time }
 
-    /** Deletes every report; returns how many there were. */
+    /** Deletes every report and returns how many there were. */
     fun clear(context: Context): Int {
         val files = dir(context).listFiles().orEmpty()
         files.forEach { it.delete() }
@@ -97,9 +97,9 @@ object CrashReports {
     }
 
     /**
-     * Saves what Android recorded about earlier exits (Android 11+), then logs one line per report
-     * not announced yet. Main process, off the main thread: on start and on each return to home,
-     * so a crash in the script process shows up without a restart.
+     * Saves what Android recorded about earlier exits (Android 11+). Then logs one line for each report
+     * that wasn't announced yet. It runs in the main process, off the main thread, on start and on
+     * each return to home. So a crash in the script process shows up without a restart.
      */
     @Synchronized
     fun announce(context: Context) {
@@ -109,7 +109,7 @@ object CrashReports {
         val announced = prefs.getStringSet("announced", null).orEmpty()
         val fresh = reports.filter { it.key !in announced }.sortedBy { it.time }
         if (fresh.isEmpty()) return
-        // Remembered before logging, so a second caller can't announce the same report again.
+        // Save the list before logging, so a second caller can't announce the same report again.
         prefs.edit(commit = true) { putStringSet("announced", reports.map { it.key }.toSet()) }
         val logs = LogRepository.get(context)
         for (r in fresh) {
@@ -128,7 +128,7 @@ object CrashReports {
         val am = context.getSystemService(ActivityManager::class.java) ?: return
         val exits = am.getHistoricalProcessExitReasons(context.packageName, 0, 16)
         val newest = exits.maxOfOrNull { it.timestamp } ?: 0L
-        // The first time, only remember where Android's record ends: older exits predate this.
+        // The first time, only remember where Android's record ends. Older exits happened before this feature.
         if (!prefs.contains("exits_seen")) {
             prefs.edit(commit = true) { putLong("exits_seen", newest) }
             return
@@ -139,14 +139,14 @@ object CrashReports {
                 ApplicationExitInfo.REASON_ANR -> Kind.FREEZE
                 ApplicationExitInfo.REASON_CRASH_NATIVE -> Kind.NATIVE
                 ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> Kind.START
-                // Java crashes were saved by the handler, with the whole stack. The rest (memory
-                // pressure, updates, force stop) aren't bugs.
+                // The handler already saved Java crashes, with the whole stack. The other reasons
+                // (memory pressure, updates, force stop) aren't bugs.
                 else -> continue
             }
             val trace = if (kind == Kind.FREEZE) {
                 runCatching { info.traceInputStream?.bufferedReader()?.use { r -> CrashText.mainThread(r.lineSequence().take(20_000)) } }.getOrNull()
             } else null
-            // For a native crash Android's status is the signal (11: a bad memory access).
+            // For a native crash, Android's status is the signal number (11 is a bad memory access).
             val signal = if (kind == Kind.NATIVE && info.status > 0) CrashText.signal(info.status) else null
             val body = listOfNotNull(signal, info.description?.takeIf { it.isNotBlank() }, trace).joinToString("\n\n").ifEmpty { "(Android gave no details)" }
             runCatching { save(context, kind, info.processName, "pid ${info.pid}", body, info.timestamp) }
@@ -154,7 +154,7 @@ object CrashReports {
         if (newest > seen) prefs.edit(commit = true) { putLong("exits_seen", newest) }
     }
 
-    /** "at 19:55" today, else "on 20 Oct at 19:55"; the time follows `clock.24h`, as the log's do. */
+    /** Returns "at 19:55" for today, else "on 20 Oct at 19:55". The time follows `clock.24h`, like the log. */
     fun whenText(context: Context, time: Long): String {
         val clock = com.mtwabpin.kolahal.data.Config.get(context).shortTime(time)
         val day = SimpleDateFormat("yyyyMMdd", Locale.US)
@@ -163,16 +163,16 @@ object CrashReports {
     }
 }
 
-/** The text side of [CrashReports], kept free of Android so it is unit-tested. */
+/** The text part of [CrashReports]. It uses no Android APIs, so it can be unit-tested. */
 internal object CrashText {
     fun format(app: String, device: String, time: String, what: String, body: String): String =
         "Kolahal crash report\n$app\n$device\nWhen: $time\nWhat: $what\n\n$body\n"
 
-    /** The error's first line: the exception and its message, or the first line Android gave. */
+    /** Returns the error's first line: the exception and its message, or the first line Android gave. */
     fun summary(report: String): String =
         report.substringAfter("\n\n", "").lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: "(no details)"
 
-    /** `java.lang.IllegalStateException: boom` → `IllegalStateException: boom` (and `Outer$Inner` → `Inner`). */
+    /** Shortens the class name: `java.lang.IllegalStateException: boom` → `IllegalStateException: boom`, `Outer$Inner` → `Inner`. */
     fun shortName(line: String): String {
         val name = line.substringBefore(':')
         if (name.isEmpty() || name.any { it.isWhitespace() }) return line
@@ -184,7 +184,7 @@ internal object CrashText {
         return if (name != null) "Signal $n ($name)" else "Signal $n"
     }
 
-    /** From a "not responding" thread dump, only the main thread: that is where the freeze is. */
+    /** Returns only the main thread from a "not responding" thread dump, because the freeze is there. */
     fun mainThread(lines: Sequence<String>): String? {
         val out = mutableListOf<String>()
         for (line in lines) {
