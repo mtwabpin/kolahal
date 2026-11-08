@@ -290,6 +290,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     val secretPrompt by vm.scriptActions.secretPrompt.collectAsStateWithLifecycle()
     secretPrompt?.let { p -> TerminalSecretPrompt(vm, p) }
     val commandGap = remember(configVersion) { config[Keys.LOG_SPACING].dp }
+    val itemGap = remember(configVersion) { config[Keys.LOG_ITEM_SPACING].dp }
     val showGutter = remember(configVersion) { config[Keys.LOG_GUTTER] }
     // Wrapped and detail lines are indented by the width of `$ ` (or `• `) in the log's font.
     // It is measured with a letter after it, because a trailing space alone may not count towards the width.
@@ -439,6 +440,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                         timeFormat = lineTimeFormat,
                         dim = dimOld,
                         topGap = if (row.blockStart) commandGap else 0.dp,
+                        itemGap = if (row.itemGap) itemGap else 0.dp,
                         gutter = showGutter,
                         indents = indents,
                         highlighted = menu?.entryId == row.entry.id || flash == row.entry.id,

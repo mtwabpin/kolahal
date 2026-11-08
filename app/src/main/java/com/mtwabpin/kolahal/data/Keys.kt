@@ -115,6 +115,7 @@ object Keys {
     val SHOW_TIMESTAMPS = ConfigKey.Choice("log.time", "groups", listOf("off", "commands", "groups"), "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type")
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
     val LOG_SPACING = ConfigKey.Num("log.spacing", 5, 0..40, "Gap (dp) above each output group: a command and its output, or a background batch (feeds, scripts)")
+    val LOG_ITEM_SPACING = ConfigKey.Num("log.item-spacing", 5, 0..40, "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the colour bar runs through it")
     val LOG_GUTTER = ConfigKey.Bool("log.gutter", true, "Thin colour bar at the left of each log line: green for commands, script colour for background output, red for errors")
     val LOG_LINE_HEIGHT = ConfigKey.Num("log.line-height", 22, 10..56, "Minimum height of a log line (22 is 22 dp at the default text size, and scales with it); a line is never shorter than its text")
     val LOG_WALLPAPER = ConfigKey.Num("log.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour")
@@ -207,6 +208,7 @@ object Keys {
         SHOW_TIMESTAMPS,
         LOG_DIM,
         LOG_SPACING,
+        LOG_ITEM_SPACING,
         LOG_GUTTER,
         LOG_LINE_HEIGHT,
         LOG_TALLER_TAPS,

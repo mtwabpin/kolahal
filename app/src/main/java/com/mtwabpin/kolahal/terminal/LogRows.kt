@@ -39,6 +39,12 @@ sealed interface LogRow {
          * the first line of a day, or the first line in a new minute.
          */
         val showTime: Boolean = true,
+        /**
+         * True when the line starts an item of a list inside its group ([LogContext.GAP]): it gets
+         * the `log.item-spacing` gap above it. Never on a group's first line, which has the group
+         * gap, nor right under its command, which the first item belongs with.
+         */
+        val itemGap: Boolean = false,
     ) : LogRow {
         override val key: Any get() = entry.id
     }
@@ -121,6 +127,7 @@ fun buildRows(
             blockStart = blockStart,
             showSource = !trim || ((runStart || blockStart) && !underItsCommand),
             showTime = !trim || blockStart || newDay || previous == null || e.ts / 60_000 != previous.ts / 60_000,
+            itemGap = !blockStart && previous != null && previous.kind != LogKind.COMMAND && e.ctx.values[LogContext.GAP] == "1",
         )
         previous = e
     }

@@ -103,6 +103,14 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val BAR = "bar"
 
         /**
+         * An item of a list starts at this line ("1"): a story, a contact, a feed item. It gets the
+         * `log.item-spacing` gap above it, and the colour bar runs through the gap, so the items stand
+         * apart but stay one group. Not on a group's first line, nor right under the command that ran it.
+         * Scripts set it with `ctx.gap`.
+         */
+        const val GAP = "gap"
+
+        /**
          * A saved script's buttons under its line (`ctx.actions`), as JSON: `[["Snooze 30 min", "snooze 30"], …]`,
          * each a label and the arguments the script runs with when it is tapped. [ACTION_DONE] is
          * the index of the one tapped; the line then shows only that one, as done.
@@ -138,6 +146,9 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
 
         /** [MONO], to add to a line's context. */
         val ALIGNED = mapOf(MONO to "1")
+
+        /** [GAP]: the line starts an item of a list. To add to a line's context. */
+        val ITEM = mapOf(GAP to "1")
 
         fun of(vararg pairs: Pair<String, String?>) =
             LogContext(pairs.mapNotNull { (k, v) -> v?.let { k to it } }.toMap())

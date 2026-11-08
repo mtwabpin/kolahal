@@ -400,6 +400,8 @@ class HostApi(
     private fun safeCtx(ctx: Map<*, *>?, text: String): Map<String, String> {
         // Keep only what a script's line may carry, so a key added to the launcher later stays out of reach.
         val m = Json.toStringMap(ctx).filterKeys { it in SCRIPT_CTX }.toMutableMap()
+        // An item of a list (ctx.gap): true or 1 asks for the gap above the line; anything else is dropped.
+        m[LogContext.GAP]?.let { if (it == "true" || it == "1") m[LogContext.GAP] = "1" else m.remove(LogContext.GAP) }
         // Buttons: only on a saved script's line, since a tap runs that script again.
         actionsJson(ctx?.get("actions"))?.let { m[LogContext.ACTIONS] = it }
         // A tap opens the link in another app at once, so allow web links only, not upi:, tel:, intent: …
@@ -928,7 +930,7 @@ class HostApi(
         const val ACTION_RUN_COMMAND = "com.mtwabpin.kolahal.RUN_COMMAND"
         const val EXTRA_COMMAND = "command"
         /** The context keys a script's line may carry. Anything else is dropped. */
-        private val SCRIPT_CTX = setOf(LogContext.URL, LogContext.IMAGE, LogContext.COPY, LogContext.MONO)
+        private val SCRIPT_CTX = setOf(LogContext.URL, LogContext.IMAGE, LogContext.COPY, LogContext.MONO, LogContext.GAP)
         /** The prefix of the store key for a response that `http.cached` keeps. */
         const val HTTP_CACHE = "http.cache:"
         /** Commands that send their words to a site (through the browser or another app). */

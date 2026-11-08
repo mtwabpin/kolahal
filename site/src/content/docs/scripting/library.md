@@ -7,7 +7,7 @@ Kolahal includes 24 ready-made scripts, five of them templates to start your own
 (**Add script → From the library**), or from the prompt:
 
 ```sh
-script lib                 # list them, with ✓ for installed ones
+script lib                 # list them, with a tag on the installed ones
 script install weather     # install (or update) one
 ```
 

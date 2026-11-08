@@ -186,7 +186,8 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             shown++
             out(
                 "${(i + 1).toString().padStart(2)}. ${n.text}",
-                noteCtx(n.id, n.text) + mapOf(LogContext.DESC to fmt.format(Instant.ofEpochMilli(n.created).atZone(zone))) + LogContext.ALIGNED,
+                // An item each: a long note wraps over several lines.
+                noteCtx(n.id, n.text) + mapOf(LogContext.DESC to fmt.format(Instant.ofEpochMilli(n.created).atZone(zone))) + LogContext.ALIGNED + LogContext.ITEM,
             )
         }
         info(
@@ -276,7 +277,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
                 reminderCtx(r) + mapOf(
                     LogContext.DESC to "${whenLabel(r.at)} · in ${TimeSpec.formatDuration(((r.at - nowMs) / 1000).coerceAtLeast(0))}" +
                         r.repeat?.let { " · ${Repeat.label(it)}" }.orEmpty(),
-                ) + LogContext.ALIGNED,
+                ) + LogContext.ALIGNED + LogContext.ITEM,
             )
         }
         info("Tap puts 'remind rm' in the prompt · long-press → Cancel reminder")
@@ -365,7 +366,8 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
                 today.plusDays(1) -> "Tomorrow · "
                 else -> ""
             } + dayFmt.format(day)
-            info(label)
+            // A gap above each day; its events are one line each, close together.
+            info(label, LogContext(LogContext.ITEM))
             events.forEach { e ->
                 val time = if (e.allDay) "All day" else span(e)
                 out(

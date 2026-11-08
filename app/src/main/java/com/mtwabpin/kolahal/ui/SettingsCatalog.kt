@@ -31,6 +31,7 @@ internal val TITLES = mapOf(
     "log.time" to "Times",
     "log.dim" to "Dim older output",
     "log.spacing" to "Space between output groups (dp)",
+    "log.item-spacing" to "Space between list items (dp)",
     "log.gutter" to "Colour bar beside lines",
     "log.line-height" to "Line height",
     "log.taller-taps" to "Taller tappable lines",
@@ -95,6 +96,7 @@ internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
     Keys.FONT_SIZE.key to false,
     Keys.LOG_LINE_HEIGHT.key to false,
     Keys.LOG_SPACING.key to false,
+    Keys.LOG_ITEM_SPACING.key to false,
     Keys.SELECTOR_HEIGHT.key to false,
     // While this slider moves, home shows the selector's list open.
     Keys.SELECTOR_ROW_HEIGHT.key to false,
@@ -212,6 +214,7 @@ private val CATEGORIES = listOf(
                 Keys.LOG_DIM,
                 Keys.LOG_GUTTER,
                 Keys.LOG_SPACING,
+                Keys.LOG_ITEM_SPACING,
                 Keys.LOG_LINE_HEIGHT,
                 Keys.LOG_TALLER_TAPS,
                 Keys.LOG_TABLES,

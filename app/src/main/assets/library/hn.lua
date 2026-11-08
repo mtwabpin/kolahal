@@ -34,7 +34,8 @@ for i, item in ipairs(items) do
   end
   -- hnrss puts the points, the comment count and the discussion's address in each item's summary.
   -- The title comes first; after it, muted, the points, then the comments as a link of their own.
-  -- A tap anywhere else on the line opens the story.
+  -- A tap anywhere else on the line opens the story. A small space above each story (gap) keeps
+  -- the stories apart when their titles wrap.
   local about = item.summary or ""
   local points = tonumber(about:match("Points:%s*(%d+)"))
   local comments = tonumber(about:match("# Comments:%s*(%d+)"))
@@ -45,7 +46,7 @@ for i, item in ipairs(items) do
     local said = comments and (comments .. (comments == 1 and " comment" or " comments")) or "comments"
     title = title .. fmt.color("muted", " · ") .. fmt.link(said, discussion)
   end
-  log(title, { url = item.link })
+  log(title, { url = item.link, gap = true })
 end
 
 notify("Hacker News", items[1].title or "New story", { url = items[1].link })

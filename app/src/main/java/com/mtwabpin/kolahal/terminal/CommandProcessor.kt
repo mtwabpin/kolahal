@@ -173,7 +173,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                     logs.add(LogKind.ERROR, "Locking needs the Kolahal screen lock accessibility service — tap to allow it", ctx = LogContext.of(LogContext.RUN to "accessibility"))
                 }
                 "shade" -> com.mtwabpin.kolahal.gesture.Gestures.expandShade(context)
-                "date", "time" -> if (args.isEmpty()) out(DateFormat.getDateTimeInstance().format(Date())) else date(args)
+                "date", "time" -> if (args.isEmpty()) now() else date(args)
                 "echo" -> out(rest)
                 "cal" -> cal(rest)
                 "config", "set" -> if (name == "config" && args.isEmpty()) ui.openScreen(Screen.SETTINGS) else configCommands.config(args, rest)
@@ -245,12 +245,29 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         lines.forEach { out(it, LogContext(LogContext.ALIGNED)) }
     }
 
-    /** `date tokyo new york`: prints the time in each place, one line each, and how far ahead or behind it is. */
+    /** `date`: the time large, with today's date under it. Copy gives the date and time in full. */
+    private fun now() {
+        val now = java.time.ZonedDateTime.now()
+        val clock24 = Config.get(context)[Keys.CLOCK_24H]
+        val time = now.format(java.time.format.DateTimeFormatter.ofPattern(if (clock24) "HH:mm" else "h:mm a"))
+        val day = now.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy"))
+        out(com.mtwabpin.kolahal.data.StyledText.stats(listOf(time to day)), LogContext.of(LogContext.COPY to DateFormat.getDateTimeInstance().format(Date())))
+    }
+
+    /**
+     * `date tokyo new york`: prints the time in each place, one line each, and how far ahead or behind
+     * it is. One place shows its time large, with the place under it.
+     */
     private fun date(words: List<String>) {
         val places = WorldClock.parse(words)
             ?: return error("Unknown place '${words.joinToString(" ")}'. Use a city (tokyo, new york), a zone (Asia/Tokyo), utc, or an offset like +5:30")
         val now = java.time.Instant.now()
         val clock24 = Config.get(context)[Keys.CLOCK_24H]
+        if (places.size == 1) {
+            val line = WorldClock.line(places[0], now, java.time.ZoneId.systemDefault(), clock24)
+            val under = listOf(line.place, line.day, line.relative).filter { it.isNotEmpty() }.joinToString(" · ")
+            return out(com.mtwabpin.kolahal.data.StyledText.stats(listOf(line.time to under)), LogContext.of(LogContext.COPY to "${line.place} ${line.detail}"))
+        }
         for (place in places) {
             val line = WorldClock.line(place, now, java.time.ZoneId.systemDefault(), clock24)
             out(line.place, LogContext.of(LogContext.DESC to line.detail))
@@ -318,6 +335,17 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             }
             label to count
         }
+        // Big numbers: today's count; over several days, the average and the total too.
+        val todayCount = rows.firstOrNull { it.first == "Today" }?.second ?: 0
+        val big = mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
+        if (days > 1) {
+            val total = rows.sumOf { it.second }
+            big += (total / rows.size.coerceAtLeast(1)).toString() to "a day on average"
+            big += total.toString() to "in $days days"
+        }
+        out(com.mtwabpin.kolahal.data.StyledText.stats(big))
+        // One day: the big number says it all. Over several, a line a day with a bar.
+        if (days == 1) return
         // Pad the labels so the counts line up. The log uses a monospaced font.
         val labelWidth = rows.maxOf { it.first.length }
         val countWidth = rows.maxOf { it.second.toString().length }
@@ -381,7 +409,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val conversion = Units.parse(expr)
         if (conversion != null) {
             val (amount, from, to) = conversion
-            Units.convert(amount, from, to)?.let { return out(it, LogContext.of(LogContext.COPY to it.substringAfter("= "))) }
+            Units.convert(amount, from, to)?.let { return answer(it.substringAfter("= "), it.substringBefore(" = "), fallback = it) }
             if (Units.looksLikeCurrency(from) && Units.looksLikeCurrency(to)) {
                 return background("convert") { currency(amount, from.uppercase(), to.uppercase()) }
             }
@@ -392,8 +420,17 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         } catch (e: ArithmeticException) {
             return error("$expr: ${e.message}")
         }
-        if (answer != null) return out(answer, LogContext.of(LogContext.COPY to answer))
+        if (answer != null) return answer(answer, expr.trim().takeIf { it.length <= ANSWER_LABEL_MAX }.orEmpty(), fallback = answer)
         eval(ScriptLang.LUA, expr)
+    }
+
+    /**
+     * A calculator's [result], large, with [of] (what it answers) under it. Copy gives [copy].
+     * A result too long for big type stays a line of text, [fallback], so it doesn't wrap.
+     */
+    private fun answer(result: String, of: String, fallback: String, copy: String = result) {
+        val ctx = LogContext.of(LogContext.COPY to copy)
+        if (result.length > ANSWER_MAX) out(fallback, ctx) else out(com.mtwabpin.kolahal.data.StyledText.stats(listOf(result to of)), ctx)
     }
 
     private fun currency(amount: Double, from: String, to: String) {
@@ -411,8 +448,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             }
         }
         val rate = (rates?.get(to) as? Number)?.toDouble() ?: throw IllegalStateException("unknown currency $to")
-        val text = "${Units.format(amount)} $from = ${Units.format(amount * rate)} $to"
-        out(text, LogContext.of(LogContext.COPY to Units.format(amount * rate)))
+        val result = "${Units.format(amount * rate)} $to"
+        answer(result, "${Units.format(amount)} $from", fallback = "${Units.format(amount)} $from = $result", copy = Units.format(amount * rate))
     }
 
     // ---- widgets ----------------------------------------------------------------------------
@@ -486,7 +523,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 reports.forEachIndexed { i, r ->
                     out(
                         "#${i + 1} ${r.kind.label} ${com.mtwabpin.kolahal.CrashReports.whenText(context, r.time)}\n${r.summary.take(160)}",
-                        LogContext.of(LogContext.RUN to "crashes share ${r.id}"),
+                        LogContext(mapOf(LogContext.RUN to "crashes share ${r.id}") + LogContext.ITEM),
                     )
                 }
                 info("Tap one to share it · crashes clear deletes them all")
@@ -611,7 +648,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 c.fix == null -> "[-]"
                 else -> "[ ]"
             }
-            out("$mark ${c.title} — ${c.detail}", if (c.ok || c.fix == null) LogContext.EMPTY else LogContext.of(LogContext.RUN to c.fix))
+            out("$mark ${c.title} — ${c.detail}", LogContext(LogContext.ITEM + if (c.ok || c.fix == null) emptyMap() else mapOf(LogContext.RUN to c.fix)))
         }
     }
 
@@ -630,7 +667,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val byName = CommandCatalog.OFFERED.associateBy { it.name }
         val placed = HashSet<String>()
         for ((section, names) in HELP_SECTIONS) {
-            info(section.replaceFirstChar { it.uppercase() })
+            info(section.replaceFirstChar { it.uppercase() }, LogContext(LogContext.ITEM))
             names.mapNotNull(byName::get).forEach { spec ->
                 placed += spec.name
                 helpLine(spec)
@@ -638,9 +675,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
         CommandCatalog.OFFERED.filter { it.name !in placed }.forEach(::helpLine)
         val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
-        if (commandScripts.isNotEmpty()) info("Your script commands")
+        if (commandScripts.isNotEmpty()) info("Your script commands", LogContext(LogContext.ITEM))
         commandScripts.forEach(::helpLine)
-        info("Anything else is matched against app names · tap a line to use it · long-press for more")
+        info("Anything else is matched against app names · tap a line to use it · long-press for more", LogContext(LogContext.ITEM))
         info("Pipes: help | grep feed · history | tail 5 · contacts | count  (grep [-v], head, tail, sort, uniq, count)")
     }
 
@@ -664,3 +701,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         near.take(8).forEach(::helpLine)
     }
 }
+
+/** A calculator's result longer than this stays a line of text: in big type it would wrap. */
+private const val ANSWER_MAX = 16
+
+/** An expression longer than this isn't shown under its result: it's on the command line above. */
+private const val ANSWER_LABEL_MAX = 32

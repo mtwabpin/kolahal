@@ -49,9 +49,10 @@ if (r.ok) {
     const link = "https://www.reddit.com" + p.permalink;
     // One line a post: the title (a tap opens the discussion), then its points and comments, muted.
     // A post that links elsewhere ends with a link to that site, which opens the article itself.
+    // A small space above each post (gap) keeps the posts apart when their titles wrap.
     const out = /^https?:\/\//.test(p.url || "") && !p.is_self && !(p.url || "").startsWith(link) ? p.url : null;
     const site = out ? ` · ${fmt.link(p.domain || "article", out)}` : "";
-    log(`${p.title} ${fmt.color("muted", `· ${short(p.score)} points · ${p.num_comments} comments`)}${site}`, { url: link, copy: link });
+    log(`${p.title} ${fmt.color("muted", `· ${short(p.score)} points · ${p.num_comments} comments`)}${site}`, { url: link, copy: link, gap: true });
   }
   return;
 }
@@ -66,5 +67,5 @@ try {
 const items = feed.items || [];
 if (items.length === 0) return log(fmt.color("muted", `r/${sub}: no posts today (or the subreddit is private)`));
 for (const item of items.slice(0, LIMIT)) {
-  log(item.title || "(untitled)", { url: item.link, copy: item.link });
+  log(item.title || "(untitled)", { url: item.link, copy: item.link, gap: true });
 }

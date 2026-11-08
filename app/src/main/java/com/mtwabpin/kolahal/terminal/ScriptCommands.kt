@@ -96,11 +96,12 @@ class ScriptCommands(
                 lib.entries.forEach { e ->
                     val state = when (lib.state(e, installed)) {
                         ScriptLibrary.State.NOT_INSTALLED -> ""
-                        ScriptLibrary.State.INSTALLED -> " ✓"
-                        ScriptLibrary.State.MODIFIED -> " (edited)"
-                        ScriptLibrary.State.UPDATE_AVAILABLE -> " (update available)"
+                        ScriptLibrary.State.INSTALLED -> " " + StyledText.tag(StyledText.Colour.GOOD, "installed")
+                        ScriptLibrary.State.MODIFIED -> " " + StyledText.tag(StyledText.Colour.MUTED, "edited")
+                        ScriptLibrary.State.UPDATE_AVAILABLE -> " " + StyledText.tag(StyledText.Colour.WARN, "update")
                     }
-                    out("${e.name}.${e.lang.ext}$state", LogContext.of(LogContext.COMMAND to "script install ${e.name}", LogContext.DESC to e.description))
+                    // An item each: the description beside it wraps.
+                    out("${e.name}.${e.lang.ext}$state", LogContext.of(LogContext.COMMAND to "script install ${e.name}", LogContext.DESC to e.description) + LogContext.ITEM)
                 }
             }
             "install" -> {
@@ -250,16 +251,16 @@ class ScriptCommands(
             entries.forEach { e ->
                 val state = when (catalog.state(e, installed)) {
                     ScriptCatalog.State.NOT_INSTALLED -> ""
-                    ScriptCatalog.State.INSTALLED -> " ✓"
-                    ScriptCatalog.State.UPDATE_AVAILABLE -> " (update available)"
-                    ScriptCatalog.State.MODIFIED -> " (edited)"
-                    ScriptCatalog.State.NAME_TAKEN -> " (name taken)"
-                    ScriptCatalog.State.NEEDS_NEWER -> " (needs Kolahal ${e.requires})"
+                    ScriptCatalog.State.INSTALLED -> " " + StyledText.tag(StyledText.Colour.GOOD, "installed")
+                    ScriptCatalog.State.UPDATE_AVAILABLE -> " " + StyledText.tag(StyledText.Colour.WARN, "update")
+                    ScriptCatalog.State.MODIFIED -> " " + StyledText.tag(StyledText.Colour.MUTED, "edited")
+                    ScriptCatalog.State.NAME_TAKEN -> " " + StyledText.tag(StyledText.Colour.BAD, "name taken")
+                    ScriptCatalog.State.NEEDS_NEWER -> " " + StyledText.tag(StyledText.Colour.BAD, "needs Kolahal ${e.requires}")
                 }
                 val desc = listOfNotNull(
                     e.title, e.version.ifBlank { null }?.let { "v$it" }, e.author.ifBlank { null }?.let { "by $it" }, e.desc.ifBlank { null },
                 )
-                out("${e.name}.${e.lang.ext}$state", LogContext.of(LogContext.COMMAND to "script get ${e.name}", LogContext.DESC to desc.joinToString(" · ")))
+                out("${e.name}.${e.lang.ext}$state", LogContext.of(LogContext.COMMAND to "script get ${e.name}", LogContext.DESC to desc.joinToString(" · ")) + LogContext.ITEM)
             }
             return
         }
@@ -308,7 +309,11 @@ class ScriptCommands(
             info("${s.name} — 'script secret ${s.name} <NAME>' sets one", scriptCtx(s))
             declared.forEach { d ->
                 out(
-                    "${d.name.padEnd(16)}${if (store.isSet(s.name, d)) "set" else if (store.hostsChanged(s.name, d)) "set for other sites" else "not set"}",
+                    d.name.padEnd(16) + when {
+                        store.isSet(s.name, d) -> StyledText.tag(StyledText.Colour.GOOD, "set")
+                        store.hostsChanged(s.name, d) -> StyledText.tag(StyledText.Colour.WARN, "set for other sites")
+                        else -> StyledText.tag(StyledText.Colour.MUTED, "not set")
+                    },
                     LogContext.of(
                         LogContext.DESC to listOf(d.desc, "sent only to ${d.hosts.joinToString()}").filter { it.isNotBlank() }.joinToString(" · "),
                         LogContext.COMMAND to "script secret ${s.name} ${d.name}",
@@ -389,7 +394,8 @@ class ScriptCommands(
                 else -> ""
             }
             val on = grants.allows(item)
-            val state = if (on) "on" else if (item in grants.undecided) "off, not allowed yet" else "off"
+            // On and off as tags, as in toggles. A permission not decided yet says so.
+            val state = if (on) StyledText.tag(StyledText.Colour.GOOD, "on") else if (item in grants.undecided) StyledText.tag(StyledText.Colour.WARN, "not allowed yet") else StyledText.tag(StyledText.Colour.MUTED, "off")
             out(
                 "${item.padEnd(14)}$state",
                 LogContext.of(
@@ -404,7 +410,7 @@ class ScriptCommands(
         val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
         base.forEach(::row)
         if (ScriptMeta.postsNotifications(s.code)) out(
-            "${"notify".padEnd(14)}${if (s.notify) "on" else "off"}",
+            "notify".padEnd(14) + if (s.notify) StyledText.tag(StyledText.Colour.GOOD, "on") else StyledText.tag(StyledText.Colour.MUTED, "off"),
             LogContext.of(LogContext.DESC to "Posting notifications", LogContext.COMMAND to "script notify ${s.name} ${if (s.notify) "off" else "on"}") +
                 LogContext.ALIGNED,
         )
@@ -449,10 +455,11 @@ class ScriptCommands(
                 if (ScriptMeta.isCommand(s.code)) add("command")
                 ScriptMeta.events(s.code).takeIf { it.isNotEmpty() }?.let { add("on " + it.joinToString(",")) }
                 if (s.notify && ScriptMeta.postsNotifications(s.code)) add("notify")
-                if (!s.enabled) add("off")
                 add(last)
             }
-            out("${s.name}.${s.lang.ext}", scriptCtx(s) + mapOf(LogContext.DESC to parts.joinToString(" · ")))
+            // A script that is switched off says so in a tag after its name. An item each: the details beside it wrap.
+            val off = if (s.enabled) "" else " " + StyledText.tag(StyledText.Colour.MUTED, "off")
+            out("${s.name}.${s.lang.ext}$off", scriptCtx(s) + mapOf(LogContext.DESC to parts.joinToString(" · ")) + LogContext.ITEM)
         }
     }
 

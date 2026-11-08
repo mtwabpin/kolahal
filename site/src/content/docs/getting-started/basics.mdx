@@ -205,6 +205,9 @@ The log is split into **groups**, with a gap above each one (`log.spacing`, 0–
 A line that arrives alone, more than 3 seconds after the previous line, starts its own group. Examples are an app you opened
 with a tap, an app install or a notification.
 
+Inside a group, the items of a list have a smaller gap between them (`log.item-spacing`, 0–40 dp, 5 by default): stories,
+contacts, feed items. The coloured bar runs through it, so the items still read as one group.
+
 A thin coloured bar next to each line shows where the line came from:
 
 - green for commands
@@ -218,15 +221,20 @@ Hide the bar with `log.gutter off`. Output older than the latest command is dimm
   - `commands`: only on lines you type.
   - `off`: no times.
 - **Columns and grids.** `help`, `config` and `script ls` show their output in two columns. `apps` shows a grid of chips you can tap.
-- **Bars, tags and links.** Some lines draw a bar after or under their text: `unlocks`, `usage`, `volume`, `brightness`,
-  `status` (for a status line with a bar) and scripts such as `forecast` and `aqi`. `toggles` shows on and off as tags, and
-  scripts can show tags too (LIVE, new). A script's line can have links in its text: a tap on a link opens it, and a tap
+- **Bars, tags and links.** Some lines draw a bar after or under their text: `unlocks 7`, `usage`, `volume`, `brightness`,
+  `toggles`, `media`, `status` (for a status line with a bar) and scripts such as `forecast` and `aqi`. `toggles`,
+  `dnd status`, `rotate status` and `script access` show on and off as tags; `script lib` and `script get` tag the scripts
+  you have; `script ls` and `feeds` tag what is switched off. Scripts can show tags too (LIVE, new). A script's line can have links in its text: a tap on a link opens it, and a tap
   anywhere else does what a tap on the line does.
 - **People have pictures.** A call (in the log, and in `calls`) and a contact in `contacts` start with the person's photo, or
   with their first letters on a colour of the theme when there's no photo or Kolahal can't read it. `#` stands for a
   number with no name, `?` for a hidden one.
-- **Buttons and big numbers.** A script can put buttons under its line, which run that script again, and show a few
-  numbers large, as `weather` does.
+- **Big numbers.** An answer that is mainly a number shows it large, with a label under it: `date` (the time), `date tokyo`,
+  the calculator (`= 5 km in mi`), `unlocks` and `usage` (screen time), and scripts such as `weather` and `countdown`.
+  A result too long for big type stays a line of text.
+- **Buttons.** A script can put buttons under its line, which run that script again.
+- **Space between items.** In a list where an item takes more than a line (stories, calls, notes, feed items, `help`'s
+  sections), the items have a small gap between them (`log.item-spacing`).
 - **Long lines fold.** A line taller than 8 lines of text (`log.fold`) folds under "▾ N more lines". Tap it to see the rest,
   and "▴ Show less" to fold it again.
 - **Sources.** Script, feed and notification lines show their source at the end, dimmed (`Show HN: … · Hacker News`). The source

@@ -343,14 +343,16 @@ class AppCommandsTest {
         var listed = false
         for ((typed, said) in listOf("usage" to "today", "screentime 7" to "last 7 days", "usage 99" to "last 30 days")) {
             val shown = lines(typed)
-            val first = shown.first().text
+            val first = com.mtwabpin.kolahal.data.StyledText.plain(shown.first().text)
             if (first.startsWith("No app usage recorded")) {
                 assertEquals(typed, 1, shown.size)
                 assertEquals(typed, if (said == "today") "No app usage recorded today" else "No app usage recorded in ${said.removePrefix("last ")}", first)
                 continue
             }
             listed = true
-            assertTrue(first, Regex("Screen time $said: $duration").matches(first))
+            // Big numbers: the time today, or a day's average and the total.
+            val big = if (said == "today") "$duration screen time today" else "$duration a day on average · $duration in ${said.removePrefix("last ")}"
+            assertTrue(first, Regex(big).matches(first))
             val perApp = shown.drop(1)
             assertTrue(typed, perApp.size in 1..12)
             assertTrue(perApp.toString(), perApp.all { Regex(duration).matches(it.ctx.values[LogContext.DESC].orEmpty()) })

@@ -66,7 +66,8 @@ class AppCommands(
         val list = com.mtwabpin.kolahal.apps.PackageEvents.get(context).history().take(n)
         if (list.isEmpty()) return info("No app installs, updates or uninstalls recorded yet")
         val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.getDefault())
-        list.forEach { (t, text) -> out(text, LogContext.of(LogContext.DESC to fmt.format(Date(t)))) }
+        // Each event is an item: its app, then the package and the versions under it.
+        list.forEach { (t, text) -> out(text, LogContext.of(LogContext.DESC to fmt.format(Date(t))) + LogContext.ITEM) }
     }
 
     private fun listPinned() {
@@ -138,7 +139,7 @@ class AppCommands(
             "-l" in args -> list.forEach { out(appLine(it), appCtx(it)) }
             // Show one grid per profile, so an app and its work copy are not mixed together.
             kinds.size > 1 -> kinds.forEach { k ->
-                info("── ${k.label} ──")
+                info("── ${k.label} ──", LogContext(LogContext.ITEM))
                 appGrid(list.filter { it.profile.kind == k })
             }
             else -> appGrid(list)
@@ -242,7 +243,8 @@ class AppCommands(
             return
         }
         when (args.firstOrNull()) {
-            null, "status" -> info("${kind.title} profile: ${if (profile.quiet) "paused" else "on"}")
+            // On or paused as a tag, as toggles shows on and off.
+            null, "status" -> info("${kind.title} profile: " + if (profile.quiet) com.mtwabpin.kolahal.data.StyledText.tag(com.mtwabpin.kolahal.data.StyledText.Colour.MUTED, "paused") else com.mtwabpin.kolahal.data.StyledText.tag(com.mtwabpin.kolahal.data.StyledText.Colour.GOOD, "on"))
             "on", "off" -> {
                 val quiet = args[0] == "off"
                 if (Build.VERSION.SDK_INT < 29) {
@@ -289,7 +291,10 @@ class AppCommands(
             .entries.sortedByDescending { it.value }
         if (totals.isEmpty()) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
         val sum = totals.sumOf { it.value }
-        info("Screen time ${if (days == 1) "today" else "last $days days"}: ${duration(sum)}")
+        // Big numbers: the screen time today; over several days, a day's average and the total.
+        val big = if (days == 1) listOf(duration(sum) to "screen time today")
+        else listOf(duration(sum / days) to "a day on average", duration(sum) to "in $days days")
+        out(com.mtwabpin.kolahal.data.StyledText.stats(big))
         val max = totals.first().value
         totals.take(12).forEach { (pkg, ms) ->
             val app = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }

@@ -123,6 +123,8 @@ fun LogLine(
     timeFormat: SimpleDateFormat,
     dim: Boolean,
     topGap: Dp,
+    /** Space above the line inside it, so the gutter bar runs through it: an item of a list ([LogRow.Entry.itemGap]). */
+    itemGap: Dp = 0.dp,
     gutter: Boolean = true,
     indents: LineIndents,
     highlighted: Boolean,
@@ -187,7 +189,14 @@ fun LogLine(
     // fading it whole. A picture is a single draw placed below its text, not behind it, so it is
     // fine. The apps grid is excluded because its chips put text on a coloured background.
     // A script's tables and bars and what follows them, drawn under the line's text (RichBody).
-    val richRest = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) entry.ctx.body?.let { StyledText.splitAtBlocks(it).second } else null }
+    // A built-in command's big numbers, tables and bars are in its text, after any words.
+    val richRest = remember(entry.ctx, entry.text) {
+        when (entry.kind) {
+            LogKind.SCRIPT -> entry.ctx.body?.let { StyledText.splitAtBlocks(it).second }
+            LogKind.OUTPUT, LogKind.INFO -> StyledText.splitAtBlocks(entry.text).second
+            else -> null
+        }
+    }
     // A built-in command's bar after the line's text (unlocks, usage, volume).
     val bar = remember(entry.ctx) { if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) lineBar(entry.ctx.values[LogContext.BAR]) else null }
     // A script's buttons under its line (ctx.actions).
@@ -277,7 +286,7 @@ fun LogLine(
                 }
             }
             .fillMaxWidth()
-            .heightIn(min = minHeight)
+            .heightIn(min = minHeight + itemGap)
             .testTag("line-${entry.id}")
             .then(if (!dim || !row.dimmed) Modifier else if (byPart && !touched) DIMMED_BY_PART else DIMMED)
             .background(if (highlighted) Term.surface else Color.Transparent)
@@ -296,7 +305,7 @@ fun LogLine(
                 },
             )
             // Room for the gutter bar. Without the bar, the text lines up with the header and dividers.
-            .padding(start = if (gutter) 10.dp else 0.dp, top = padding, bottom = padding),
+            .padding(start = if (gutter) 10.dp else 0.dp, top = padding + itemGap, bottom = padding),
     ) {
     // The time sits on the first line's baseline, even when text wraps or a picture is added below.
     // The row doesn't align by baseline: asking a line with inline icons for its baseline, as a line
@@ -341,7 +350,8 @@ fun LogLine(
                     else Column {
                         Foldable(entry.id, style, enabled = mayFold) {
                             Column {
-                                if (entry.text.isNotEmpty()) words()
+                                // A command's line can be its big numbers alone, with no words above them.
+                                if (if (entry.kind == LogKind.SCRIPT) entry.text.isNotEmpty() else text.text.isNotEmpty()) words()
                                 richRest?.let { rest ->
                                     val start = with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
                                     RichBody(rest, style.copy(color = Term.dim), start, indents.bullet)

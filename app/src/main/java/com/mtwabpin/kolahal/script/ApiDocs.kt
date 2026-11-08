@@ -34,7 +34,7 @@ object ApiDocs {
     private val VALUE = ApiDoc.Kind.VALUE
 
     val all: List<ApiDoc> = listOf(
-        ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again. line.set(title, body?, ctx?) changes it in place while the script runs"),
+        ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again, ctx.gap = true puts a small space above it to start a new item of a list. line.set(title, body?, ctx?) changes it in place while the script runs"),
         ApiDoc("logs", "logs(titles)", "Append one title line per item: logs({ \"a\", \"b\" }) or logs(\"a\", \"b\")"),
         ApiDoc("md", "md", "Markdown lines: log, escape", kind = NS),
         ApiDoc("md.log", "md.log(title, body?, ctx?) -> line", "Like log, reading Markdown: **bold**, *italic*, ~~strike~~, ++underline++, `code`, [text](https://…) links; lists (- item, 1. item) in the body"),

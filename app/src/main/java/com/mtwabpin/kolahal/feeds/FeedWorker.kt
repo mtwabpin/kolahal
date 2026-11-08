@@ -99,7 +99,8 @@ class FeedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                         LogKind.SCRIPT,
                         title,
                         source,
-                        LogContext.of(LogContext.URL to link, LogContext.COPY to title, CTX_ITEM to id.toString()) + feedCtx,
+                        // An item each: a long title wraps, and the gap keeps the items apart.
+                        LogContext.of(LogContext.URL to link, LogContext.COPY to title, CTX_ITEM to id.toString()) + feedCtx + LogContext.ITEM,
                         ts,
                     )
                 }

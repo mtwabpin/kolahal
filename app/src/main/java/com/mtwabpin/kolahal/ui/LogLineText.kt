@@ -103,6 +103,9 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
         LogKind.SCRIPT -> if (unread) indents.bullet else 0.sp
         else -> if (entry.ctx.values.containsKey(LogContext.MONO)) indents.code else indents.text
     }
+    // A built-in command's big numbers, tables and bars are drawn under its text ([RichBody]), so
+    // only the part above them is text here.
+    val text = if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) StyledText.splitAtBlocks(entry.text).first else entry.text
     withStyle(ParagraphStyle(textIndent = TextIndent(restLine = indent))) {
         when (entry.kind) {
             LogKind.COMMAND -> {
@@ -112,8 +115,8 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
             LogKind.ERROR -> withStyle(SpanStyle(color = Term.error)) { append(StyledText.plain(entry.text)) }
             LogKind.INFO -> {
                 // Lines after the first are details, such as a package name under an app event. They are dimmed below.
-                val first = entry.text.substringBefore('\n')
-                appendTagged(first, Term.info)
+                val first = text.substringBefore('\n')
+                if (StyledText.has(first)) appendStyled(first, SpanStyle(color = Term.info)) else appendTagged(first, Term.info)
             }
             LogKind.SCRIPT -> {
                 if (unread) withStyle(SpanStyle(color = Term.prompt, fontWeight = FontWeight.Bold)) { append("• ") }
@@ -141,9 +144,9 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
                 }
             }
             LogKind.OUTPUT -> {
-                val first = entry.text.substringBefore('\n')
+                val first = text.substringBefore('\n')
                 val color = if (entry.ctx.url != null) Term.link else Term.fg
-                // A script's result can have styles ([StyledText]). Command output never has them.
+                // A script's result can have styles ([StyledText]), and so can a command's tags.
                 if (StyledText.has(first)) appendStyled(first, SpanStyle(color = color)) else appendTagged(first, color)
             }
         }
@@ -151,9 +154,9 @@ internal fun renderLine(entry: LogEntry, indents: LineIndents, unread: Boolean, 
     }
     // Lines after the first (dimmed details) are separate paragraphs. Layout indents them to line up
     // with the text after the prefix. Padding with spaces would only line up in a monospace font.
-    if ((entry.kind == LogKind.INFO || entry.kind == LogKind.OUTPUT) && '\n' in entry.text) {
+    if ((entry.kind == LogKind.INFO || entry.kind == LogKind.OUTPUT) && '\n' in text) {
         withStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent, restLine = indent))) {
-            appendStyled(entry.text.substringAfter('\n'), SpanStyle(color = Term.dim), strong = Term.fg)
+            appendStyled(text.substringAfter('\n'), SpanStyle(color = Term.dim), strong = Term.fg)
         }
     }
     // A script line's body, below its title and aligned with it. Tables and bars, and what follows

@@ -102,10 +102,10 @@ class CommandFamiliesTest {
         assertTrue(run("help zzzzzz").single().startsWith("No command called 'zzzzzz'"))
     }
 
-    /** Arithmetic is answered at once, as a plain number; what has no answer says why. */
+    /** Arithmetic is answered at once, the number large with the sum under it; what has no answer says why. */
     @Test fun calculatorAnswersHere() {
-        assertEquals(listOf("1024"), run("= 2^10"))
-        assertEquals(listOf("12"), run("= 15% of 80"))
+        assertEquals(listOf(com.mtwabpin.kolahal.data.StyledText.stats(listOf("1024" to "2^10"))), run("= 2^10"))
+        assertEquals(listOf("12 15% of 80"), run("= 15% of 80").map(com.mtwabpin.kolahal.data.StyledText::plain))
         assertEquals(listOf("1/0: can't divide by zero"), run("= 1/0"))
     }
 

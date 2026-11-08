@@ -115,7 +115,7 @@ class ControlCommandsTest {
         assertEquals("dnd needs Do Not Disturb access — tap to allow it", run("dnd on").single())
         shell("cmd notification allow_dnd $pkg")
         dndOff()
-        assertEquals(listOf("Do Not Disturb off"), run("dnd status"))
+        assertEquals(listOf("Do Not Disturb off"), run("dnd status").map(com.mtwabpin.kolahal.data.StyledText::plain))
         for ((arg, said) in listOf("on" to "on (priority only)", "alarms" to "on (alarms only)", "none" to "on (total silence)", "off" to "off")) {
             assertEquals(arg, listOf("Do Not Disturb $said"), run("dnd $arg"))
         }
@@ -164,7 +164,7 @@ class ControlCommandsTest {
         assertTrue(run("brightness auto").single().endsWith(" · auto"))
         assertTrue(run("brightness loud").single().startsWith("Usage: brightness"))
         assertEquals(listOf("Auto-rotate on"), run("rotate on"))
-        assertEquals(listOf("Auto-rotate on"), run("rotate status"))
+        assertEquals(listOf("Auto-rotate on"), run("rotate status").map(com.mtwabpin.kolahal.data.StyledText::plain))
         assertEquals(listOf("Auto-rotate off"), run("rotate"))
         assertTrue(run("rotate sideways").single().startsWith("Usage: rotate"))
         assertEquals(listOf("Screen timeout 2m"), run("screen-timeout 2m"))

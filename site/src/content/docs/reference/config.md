@@ -81,6 +81,7 @@ The `theme` and `font` commands didn't change.
 | `log.time` | choice: `off` `commands` `groups` | `groups` | times on the right of log lines. `groups`: on the first line of each group and when the minute changes. `commands`: on the lines you type |
 | `log.dim` | bool | `on` | dim output older than the latest command |
 | `log.spacing` | number 0–40 | `5` | gap (dp) above each output group. A group is a command and its output, or a background batch (feeds, scripts) |
+| `log.item-spacing` | number 0–40 | `5` | gap (dp) between the items of a list in one group, such as stories, contacts or feed items. The colour bar runs through it |
 | `log.gutter` | bool | `on` | thin colour bar at the left of each log line: green for commands, the script's colour for background output, red for errors |
 | `log.line-height` | number 10–56 | `22` | minimum height of a log line, in sp. 22 is 22 dp at the default text size, and it scales with the phone's text size. With `log.taller-taps`, lines you can tap get +10, and two-column rows get +14. A line has up to 3 dp of padding above and below. The padding gets smaller as the height gets close to one line of text (19 at text size 14), and there is none at that height. A line is never shorter than its text. Script status lines in the header also use this height |
 | `log.taller-taps` | bool | `off` | make lines you can tap a little taller, so they're easier to hit. When off, every line has the same height |

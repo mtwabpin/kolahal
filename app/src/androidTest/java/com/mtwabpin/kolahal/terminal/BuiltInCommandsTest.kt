@@ -220,15 +220,16 @@ class BuiltInCommandsTest {
         fx.set("USD", Json.stringify(mapOf("at" to System.currentTimeMillis(), "rates" to mapOf("EUR" to 0.5, "INR" to 88.25))))
         var from = logs.maxId()
         run("= 10 usd in eur")
-        val line = printed(from, "the conversion") { it.endsWith(" EUR") }
-        assertEquals("10 USD = 5 EUR", line.text)
+        val line = printed(from, "the conversion") { com.mtwabpin.kolahal.data.StyledText.plain(it).startsWith("5 EUR") }
+        // Big: the result, with the amount it converts under it.
+        assertEquals(com.mtwabpin.kolahal.data.StyledText.stats(listOf("5 EUR" to "10 USD")), line.text)
         assertEquals("5", line.ctx.values[LogContext.COPY])
         // Converted off the command's thread, it is still the command's output.
         val command = logs.recent(100).last { it.id > from && it.kind == LogKind.COMMAND && it.text == "= 10 usd in eur" }
         assertEquals(command.id.toString(), line.ctx.values[LogContext.FROM])
         from = logs.maxId()
         run("= 1,000 usd to inr")
-        assertEquals("1,000 USD = 88,250 INR", printed(from, "the second conversion") { it.endsWith(" INR") }.text)
+        assertEquals("88,250 INR 1,000 USD", com.mtwabpin.kolahal.data.StyledText.plain(printed(from, "the second conversion") { com.mtwabpin.kolahal.data.StyledText.plain(it).endsWith(" USD") }.text))
         from = logs.maxId()
         run("= 10 usd in xyz")
         assertEquals(LogKind.ERROR, printed(from, "the unknown currency") { it == "convert: unknown currency XYZ" }.kind)
@@ -261,12 +262,15 @@ class BuiltInCommandsTest {
             val without = run("unlocks 3")
             assertEquals(listOf("Counting unlocks only while the launcher is running", "Tap here to allow usage access for accurate counts"), without.take(2))
             assertEquals("usage-access", logs.recent(10).single { it.text == without[1] }.ctx.values[LogContext.RUN])
-            check(without.drop(2))
+            // Big numbers first: today, a day's average, the total.
+            assertTrue(without[2], Regex("\\d+ unlocks? today · \\d+ a day on average · \\d+ in 3 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(without[2])))
+            check(without.drop(3))
 
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
-            check(run("unlocks 3"))
-            assertEquals(30, run("unlocks 99").size)
-            assertTrue(run("unlocks 0").single().startsWith("Today "))
+            check(run("unlocks 3").drop(1))
+            assertEquals(31, run("unlocks 99").size)
+            // One day: its count, large, and no bar.
+            assertTrue(Regex("\\d+ unlocks? today").matches(com.mtwabpin.kolahal.data.StyledText.plain(run("unlocks 0").single())))
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $op")
         }

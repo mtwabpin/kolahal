@@ -81,6 +81,7 @@ line:
 | `image` | An image URL (http or https). The picture shows under the line, as wide as the log. Long-press offers "Open image". |
 | `mono` | `"1"`: the line keeps the terminal font even with `font.sans all`, so columns padded with spaces line up. |
 | `actions` | Up to 3 [buttons](#buttons) under the line, each `{ label, args }`. A tap runs this script again with those args. |
+| `gap` | `true`: the line starts a new item of a list, such as a story with its points under it. A small space shows above it (`log.item-spacing`, 5 dp by default), and the colour bar runs through it, so the items stand apart but stay one group. It has no effect on a group's first line or on the line right under the command. From Kolahal 0.5.0; an older one ignores it. |
 
 A link or a picture counts as a network request:
 
@@ -96,6 +97,8 @@ a command or dials a number when you tap it.
 log("neovim/neovim", "Nvim 0.11.4", { url = "https://github.com/neovim/neovim/releases" })
 log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C")
 log("Kolahal on GitHub", { url = "https://github.com/mtwabpin/kolahal" })
+-- A list: each story a title with its points under it, and a small space between the stories.
+for _, s in ipairs(stories) do log(s.title, s.points .. " points", { url = s.link, gap = true }) end
 log("Your code is 4821", { copy = "4821" })
 log("xkcd #327", { image = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" })
 print("print() also logs", 42)   -- arguments joined with tabs
@@ -106,6 +109,8 @@ print("print() also logs", 42)   -- arguments joined with tabs
 log("neovim/neovim", "Nvim 0.11.4", { url: "https://github.com/neovim/neovim/releases" });
 log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C");
 log("Kolahal on GitHub", { url: "https://github.com/mtwabpin/kolahal" });
+// A list: each story a title with its points under it, and a small space between the stories.
+for (const s of stories) log(s.title, `${s.points} points`, { url: s.link, gap: true });
 log("Your code is 4821", { copy: "4821" });
 log("xkcd #327", { image: "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" });
 console.log("console.log also logs", 42);  // arguments joined with spaces

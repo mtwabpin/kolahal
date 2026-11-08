@@ -102,7 +102,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 LogContext.PKG to np.pkg,
                 LogContext.COPY to np.line,
                 LogContext.DESC to "${np.app} · ${np.stateLabel}$time",
-            ),
+            ) + (if (pos >= 0 && np.duration > 0) LogContext.bar(pos.toDouble() / np.duration) else emptyMap()),
         )
         info("Tap to ${if (np.playing) "pause" else "play"} · media next|prev|stop · mp toggles")
     }
@@ -246,7 +246,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun dnd(arg: String?) {
         if (arg == "access") return open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS), "Do Not Disturb access")
-        if (arg == "status") return out("Do Not Disturb ${dndLabel()}", LogContext.of(LogContext.RUN to "dnd"))
+        if (arg == "status") return out("Do Not Disturb ${shown(dndLabel())}", LogContext.of(LogContext.RUN to "dnd"))
         val filter = when (arg) {
             null, "toggle" -> if (notifications.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL)
                 NotificationManager.INTERRUPTION_FILTER_PRIORITY else NotificationManager.INTERRUPTION_FILTER_ALL
@@ -333,7 +333,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     private fun rotationOn() = Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0) == 1
 
     private fun rotate(arg: String?) {
-        if (arg == "status") return out("Auto-rotate ${if (rotationOn()) "on" else "off"}", LogContext.of(LogContext.RUN to "rotate"))
+        if (arg == "status") return out("Auto-rotate ${shown(if (rotationOn()) "on" else "off")}", LogContext.of(LogContext.RUN to "rotate"))
         val want = ControlArgs.onOff(arg)
         if (arg != null && want == null && arg != "toggle") return error("Usage: rotate [on|off|status]")
         if (needWrite("rotate")) return
@@ -382,15 +382,16 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     }
 
     /** Shows one line per toggle. A tap on a line toggles it, or opens its panel. */
+    /** "on" and "off" as tags, in the good and muted colours, so a state reads at a glance. Anything else stays as it is. */
+    private fun shown(value: String) = when {
+        value == "on" || value.startsWith("on ") -> StyledText.tag(StyledText.Colour.GOOD, "on") + value.removePrefix("on")
+        value == "off" -> StyledText.tag(StyledText.Colour.MUTED, "off")
+        else -> value
+    }
+
     private fun toggles() {
-        // "on" and "off" are tags, in the good and muted colours, so a row reads at a glance.
-        fun shown(value: String) = when {
-            value == "on" || value.startsWith("on ") -> StyledText.tag(StyledText.Colour.GOOD, "on") + value.removePrefix("on")
-            value == "off" -> StyledText.tag(StyledText.Colour.MUTED, "off")
-            else -> value
-        }
-        fun row(name: String, value: String, run: String, hint: String) =
-            out(name.padEnd(15) + shown(value), LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED)
+        fun row(name: String, value: String, run: String, hint: String, extra: Map<String, String> = emptyMap()) =
+            out(name.padEnd(15) + shown(value), LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED + extra)
 
         val torch = Torch.get(context)
         if (torch.cameraId != null) {
@@ -405,13 +406,14 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         row("Do Not Disturb", dndLabel(), if (policy) "dnd" else "dnd access", if (policy) "Tap to toggle" else "Tap to grant access")
         row("Ringer", ringLabel(), "ring " + if (audio.ringerMode == AudioManager.RINGER_MODE_NORMAL) "vibrate" else "normal", "Tap to cycle normal / vibrate")
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        row("Volume", "${ControlArgs.toPercent(audio.getStreamVolume(AudioManager.STREAM_MUSIC), max)}%", "volume mute", "Tap to mute · volume <0-100>")
+        val volume = ControlArgs.toPercent(audio.getStreamVolume(AudioManager.STREAM_MUSIC), max)
+        row("Volume", "$volume%", "volume mute", "Tap to mute · volume <0-100>", LogContext.bar(volume / 100.0))
         val write = canWrite()
         row(
             "Auto-rotate", if (rotationOn()) "on" else "off", if (write) "rotate" else "brightness access",
             if (write) "Tap to toggle" else "Tap to allow modifying system settings",
         )
-        row("Brightness", brightnessShort(), if (write) "brightness auto" else "brightness access", "Tap for auto · brightness <0-100>")
+        row("Brightness", brightnessShort(), if (write) "brightness auto" else "brightness access", "Tap for auto · brightness <0-100>", LogContext.bar(brightnessPct() / 100.0))
         row("Screen timeout", TimeSpec.formatDuration(timeoutMs() / 1000), "screen-timeout", "Set with screen-timeout <30s|1m|…>")
         media.nowPlaying.value?.let { row("Media", "${it.stateLabel} · ${it.line}", "media toggle", "Tap to play / pause") }
     }

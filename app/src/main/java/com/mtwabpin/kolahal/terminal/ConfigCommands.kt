@@ -18,11 +18,16 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         val sub = args.firstOrNull()
         when {
             sub == null || sub == "ls" || sub == "list" -> {
+                // A gap above each group of keys (log.*, header.*, …), not above every key: a list this
+                // long would get twice as long.
+                var group: String? = null
                 Keys.ALL.forEach { k ->
                     val marker = if (conf.isDefault(k)) "" else " *"
+                    val first = k.key.substringBefore(".") != group
+                    group = k.key.substringBefore(".")
                     out(
                         "${k.key} = ${conf.display(k)}$marker",
-                        LogContext.of(LogContext.COMMAND to "config set ${k.key} ", LogContext.DESC to k.help),
+                        LogContext.of(LogContext.COMMAND to "config set ${k.key} ", LogContext.DESC to k.help) + if (first) LogContext.ITEM else emptyMap(),
                     )
                 }
                 info("Tap a line to edit it · * = changed from default · 'config reset <key|all>'")

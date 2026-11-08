@@ -39,6 +39,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -97,9 +98,9 @@ class LogLineTest {
         LogRow.Entry(e, dimmed, gutter, showSource = showSource, showTime = showTime)
 
     @Composable
-    private fun Line(row: LogRow.Entry, timeMode: TimeMode = TimeMode.OFF, dim: Boolean = false, gutter: Boolean = true, apps: List<AppEntry> = emptyList()) =
+    private fun Line(row: LogRow.Entry, timeMode: TimeMode = TimeMode.OFF, dim: Boolean = false, gutter: Boolean = true, apps: List<AppEntry> = emptyList(), itemGap: Dp = 0.dp) =
         LogLine(
-            row, timeMode, TIMES, dim, topGap = 0.dp, gutter = gutter, indents = INDENTS, highlighted = false, apps = { apps },
+            row, timeMode, TIMES, dim, topGap = 0.dp, itemGap = itemGap, gutter = gutter, indents = INDENTS, highlighted = false, apps = { apps },
             onTap = { tapped += it }, onLongPress = { longPressed += it },
             onAppTap = { appTaps += it }, onAppLongPress = { appLongPresses += it },
             onSwipeCopy = { copied += it }, onSwipeDelete = { deleted += it },
@@ -376,6 +377,34 @@ class LogLineTest {
         assertTrue(bars.toString(), Color.Black !in bars)
         compose.runOnIdle { gutter = false }
         assertEquals(listOf(Color.Black, Color.Black, Color.Black), lines.map { edge(it.second) })
+    }
+
+    /** A command's line can be its big numbers alone: they draw as big numbers, with no line of text (or markers) above them. */
+    @Test fun aCommandsBigNumbersShowWithoutText() {
+        val big = entry(com.mtwabpin.kolahal.data.StyledText.stats(listOf("42" to "unlocks today")))
+        val words = entry("Screen time\n" + com.mtwabpin.kolahal.data.StyledText.stats(listOf("3h 12m" to "today")))
+        show { Line(row(big)); Line(row(words)) }
+        val stats = compose.onAllNodes(androidx.compose.ui.test.hasTestTag("log-stats"), useUnmergedTree = true).fetchSemanticsNodes()
+        assertEquals(2, stats.size)
+        assertEquals(listOf("42 unlocks today"), stats[0].config[SemanticsProperties.ContentDescription])
+        // The words before the block are text; nothing of the block shows as text.
+        assertTrue(compose.onAllNodes(hasText("42", substring = true)).fetchSemanticsNodes().isEmpty())
+        compose.onNode(hasText("Screen time")).assertExists()
+    }
+
+    /** An item of a list gets its gap inside the line: the line is that much taller, and its bar runs through the gap. */
+    @Test fun anItemGapAddsSpaceThatTheBarRunsThrough() {
+        val plain = entry("first item")
+        val item = entry("second item", ctx = mapOf(LogContext.GAP to "1"))
+        compose.setContent {
+            KolahalTheme { Column(Modifier.width(360.dp).background(Color.Black)) { Line(row(plain)); Line(row(item), itemGap = 12.dp) } }
+        }
+        fun height(e: LogEntry) = bounds(e).let { it.bottom - it.top }
+        val extra = height(item) - height(plain)
+        assertEquals(12f, extra.value, 0.5f)
+        // The bar at the very top of the gap, where no text is.
+        val top = line(item).captureToImage().toPixelMap()[0, 1]
+        assertTrue(top.toString(), top != Color.Black)
     }
 
     /**

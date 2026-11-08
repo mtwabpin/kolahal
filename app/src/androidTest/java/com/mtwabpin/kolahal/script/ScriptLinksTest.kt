@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogRepository
 import java.io.IOException
 import org.junit.After
@@ -57,6 +58,18 @@ class ScriptLinksTest {
         assertEquals("https://example.com/", ctx.url)
         assertEquals("Tap me", ctx.copy)
         for (k in listOf("run", "command", "phone", "anything")) assertNull(k, ctx.values[k])
+    }
+
+    /** ctx.gap: true or 1 starts a new item of a list; any other value is dropped. */
+    @Test fun aLineCanAskForAnItemGap() {
+        val h = host(internet = true)
+        h.log("One", null, mapOf("gap" to true))
+        h.log("Two", null, mapOf("gap" to 1.0))
+        h.log("Three", null, mapOf("gap" to "big"))
+        h.log("Four", null, mapOf("gap" to false))
+        h.flush()
+        val gaps = lines().sortedBy { it.id }.map { it.ctx.values[LogContext.GAP] }
+        assertEquals(listOf("1", "1", null, null), gaps)
     }
 
     @Test fun withInternetOffLinesCarryNoLinkOrPicture() {

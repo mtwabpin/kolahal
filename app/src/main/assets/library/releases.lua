@@ -99,13 +99,14 @@ for _, repo in ipairs(repos) do
       -- First check: show the latest release, but don't notify.
       firstChecked[#firstChecked + 1] = firstKey
       if #items > 0 then
-        log(repo .. " " .. fmt.tag("muted", "latest") .. " " .. (items[1].title or "?"), { url = items[1].link })
+        log(repo .. " " .. fmt.tag("muted", "latest") .. " " .. (items[1].title or "?"), { url = items[1].link, gap = true })
       end
     else
       for i, item in ipairs(items) do
         if i > 3 then break end -- a repo rarely has more than a few releases between runs
         local title = item.title or "New release"
-        log(repo .. " " .. fmt.tag("good", "new") .. " " .. title, { url = item.link })
+        -- A small space above each release (gap) keeps them apart when a title wraps.
+        log(repo .. " " .. fmt.tag("good", "new") .. " " .. title, { url = item.link, gap = true })
         notify(repo, title, { url = item.link })
         total = total + 1
       end

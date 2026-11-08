@@ -58,6 +58,7 @@ for i, s in ipairs(new) do
   local discussion = s.comments_url or s.short_id_url
   -- The title, then up to two of its tags; after them, muted, the score and the comments. The
   -- comments are a link of their own, unless the line itself opens the discussion (a text post).
+  -- A small space above each story (gap) keeps the stories apart when their titles wrap.
   local title = s.title or "(untitled)"
   local tags = {}
   for t = 1, math.min(2, #(s.tags or {})) do tags[#tags + 1] = fmt.tag("muted", tostring(s.tags[t])) end
@@ -69,7 +70,7 @@ for i, s in ipairs(new) do
   else
     title = title .. fmt.color("muted", comments)
   end
-  log(title, { url = link })
+  log(title, { url = link, gap = true })
 end
 
 -- Remember what was shown (the ones past the line limit too), newest first.

@@ -162,8 +162,9 @@ class FeedCommandsTest {
         assertEquals("feed read ${news.id}", first.ctx.command)
         assertEquals(news.url, first.ctx.copy)
         assertTrue(first.ctx.values[LogContext.DESC], first.ctx.values[LogContext.DESC]!!.startsWith("2/3 unread · every 1h"))
-        val second = listed.single { it.text == "#${quiet.id} ${BASE}quiet" }
-        assertTrue(second.ctx.values[LogContext.DESC], second.ctx.values[LogContext.DESC]!!.startsWith("0/0 unread · every 2h · notify · off"))
+        // Switched off: a tag after its name says so.
+        val second = listed.single { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "#${quiet.id} ${BASE}quiet off" }
+        assertTrue(second.ctx.values[LogContext.DESC], second.ctx.values[LogContext.DESC]!!.startsWith("0/0 unread · every 2h · notify"))
         assertEquals("Tap a feed to read it · feed read = all unread · feed fetch = refresh now", listed.last().text)
         assertEquals(listed.map { it.text }, run("feed list"))
         assertEquals(listed.map { it.text }, run("feed"))

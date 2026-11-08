@@ -31,7 +31,7 @@ class FeedCommands(
             local feed = rss.fetch("$quoted")
             for i, it in ipairs(feed.items) do
               if i > 15 then break end
-              log(it.title, { url = it.link })
+              log(it.title, { url = it.link, gap = true })
             end
             return (feed.title or "feed") .. ": " .. #feed.items .. " items"
             """.trimIndent(),
@@ -55,11 +55,13 @@ class FeedCommands(
                 all.forEach { f ->
                     val flags = listOfNotNull(
                         "${f.unread}/${f.total} unread", "every ${CommandParsing.formatInterval(f.intervalMin)}",
-                        if (f.notify) "notify" else null, if (!f.enabled) "off" else null, f.lastStatus,
+                        if (f.notify) "notify" else null, f.lastStatus,
                     ).joinToString(" · ")
+                    // A feed that is switched off says so in a tag after its name.
+                    val off = if (f.enabled) "" else " " + com.mtwabpin.kolahal.data.StyledText.tag(com.mtwabpin.kolahal.data.StyledText.Colour.MUTED, "off")
                     out(
-                        "#${f.id} ${f.title ?: f.url}",
-                        LogContext.of(LogContext.COMMAND to "feed read ${f.id}", LogContext.COPY to f.url, LogContext.DESC to flags),
+                        "#${f.id} ${f.title ?: f.url}$off",
+                        LogContext.of(LogContext.COMMAND to "feed read ${f.id}", LogContext.COPY to f.url, LogContext.DESC to flags) + LogContext.ITEM,
                     )
                 }
                 info("Tap a feed to read it · feed read = all unread · feed fetch = refresh now")
@@ -95,7 +97,7 @@ class FeedCommands(
                 if (items.isEmpty()) return info(if (unreadOnly) "Nothing unread" else "No items")
                 val names = repo.feeds().associate { it.id to it.shortName }
                 items.forEach {
-                    logs.add(LogKind.SCRIPT, it.title, names[it.feedId] ?: "feed", LogContext.of(LogContext.URL to it.link, LogContext.COPY to it.title, com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM to it.id.toString()))
+                    logs.add(LogKind.SCRIPT, it.title, names[it.feedId] ?: "feed", LogContext.of(LogContext.URL to it.link, LogContext.COPY to it.title, com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM to it.id.toString()) + LogContext.ITEM)
                 }
                 // Mark only the shown items as read. Older unread items beyond the limit stay unread.
                 if (unreadOnly) repo.markRead(items.map { it.id })
@@ -163,7 +165,7 @@ class FeedCommands(
                             LogContext.PKG to n.pkg, LogContext.USER to n.userSerial.toString(), LogContext.COPY to n.line,
                             com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY to n.key,
                             LogContext.ICON to n.icon,
-                        ),
+                        ) + LogContext.ITEM,
                     )
                 }
             }

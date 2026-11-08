@@ -108,7 +108,7 @@ class ScriptCommandsTest {
         try {
             val installed = run("script install ${entry.name}")
             assertTrue(installed.toString(), installed.any { it.startsWith("Installed ${entry.name}.${entry.lang.ext}") })
-            assertTrue(run("script lib").any { it == "${entry.name}.${entry.lang.ext} ✓" })
+            assertTrue(run("script lib").any { com.mtwabpin.kolahal.data.StyledText.plain(it) == "${entry.name}.${entry.lang.ext} installed" })
             val s = scripts.byName(entry.name)!!
             scripts.saveCode(s.id, s.code + "\n-- mine", byUser = true)
             assertTrue(run("script install ${entry.name}").single().contains("differs from the library version"))
@@ -161,7 +161,7 @@ class ScriptCommandsTest {
      */
     @Test fun secrets() {
         val s = create("sec", "-- @secret API_KEY example.com The key\nlocal k = secrets.get('API_KEY')")
-        assertTrue(run("script secret ${s.name}").any { it.startsWith("API_KEY") && it.endsWith("not set") })
+        assertTrue(run("script secret ${s.name}").map(com.mtwabpin.kolahal.data.StyledText::plain).any { it.startsWith("API_KEY") && it.endsWith("not set") })
         // No value on the line: the masked box.
         run("script secret ${s.name} API_KEY")
         assertEquals(listOf(s.name to "API_KEY"), asked)
@@ -173,7 +173,7 @@ class ScriptCommandsTest {
         assertTrue(logged.joinToString { it.text }, logged.none { e -> short in e.text || e.ctx.values.values.any { short in it } })
         val history = logs.commandHistory()
         assertTrue(history.toString(), history.none { short in it })
-        assertTrue(run("script secret ${s.name}").any { it.startsWith("API_KEY") && it.endsWith("set") && !it.endsWith("not set") })
+        assertTrue(run("script secret ${s.name}").map(com.mtwabpin.kolahal.data.StyledText::plain).any { it.startsWith("API_KEY") && it.endsWith("set") && !it.endsWith("not set") })
         assertEquals(listOf("${s.name}: API_KEY cleared"), run("script secret ${s.name} API_KEY --clear"))
         assertEquals(listOf("${s.name} has no @secret NOPE — it has: API_KEY"), run("script secret ${s.name} NOPE x"))
         val none = create("sec2", "return 1")
@@ -230,9 +230,10 @@ class ScriptCommandsTest {
     /** The list says each script's timer, kind, events and switch; triggers name known and unknown events. */
     @Test fun listsAndTriggers() {
         val s = create("ls", "-- @on unlock, bogusevent\nreturn 1", enabled = false)
-        val row = lines("script ls").single { it.text == "${s.name}.lua" }
+        // Switched off: a tag after its name says so.
+        val row = lines("script ls").single { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == "${s.name}.lua off" }
         val desc = row.ctx.values[LogContext.DESC].orEmpty()
-        assertTrue(desc, desc.startsWith("manual") && "on unlock" in desc && "off" in desc && desc.endsWith("never run"))
+        assertTrue(desc, desc.startsWith("manual") && "on unlock" in desc && desc.endsWith("never run"))
         val triggers = lines("script triggers")
         val mine = triggers.single { it.text == "${s.name}.lua" }.ctx.values[LogContext.DESC].orEmpty()
         assertTrue(mine, "on unlock" in mine && "unknown: bogusevent" in mine && "off" in mine)

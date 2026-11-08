@@ -35,7 +35,8 @@ object WorldClock {
     }
 
     /** The output for one place: its name, and its time with how far ahead or behind it is. */
-    data class Line(val place: String, val detail: String)
+    /** [detail] is [time], [day] (when it isn't today here) and [relative] together: `04:26 · 3h30 ahead`. */
+    data class Line(val place: String, val detail: String, val time: String = "", val day: String = "", val relative: String = "")
 
     private val OFFSET = Regex("^([+-])(\\d{1,2})(?::(\\d{2}))?$")
 
@@ -97,8 +98,8 @@ object WorldClock {
             minutes > 0 -> "$apart ahead"
             else -> "$apart behind"
         }
-        val day = if (there.toLocalDate() == local.toLocalDate()) "" else " " + there.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
-        return Line(place.name, "$time$day · $relative")
+        val day = if (there.toLocalDate() == local.toLocalDate()) "" else there.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
+        return Line(place.name, time + (if (day.isEmpty()) "" else " $day") + " · $relative", time, day, relative)
     }
 
     /**

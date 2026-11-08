@@ -197,4 +197,32 @@ class LogRowsTest {
             ),
         )
     }
+
+    private val item = LogContext(mapOf(LogContext.GAP to "1"))
+
+    @Test
+    fun listItemsGetAGapButNotTheFirstUnderItsCommand() {
+        // $ hn, then three stories that each ask for a gap: the first sits right under the command.
+        val gaps = entries(
+            line(1, 0, LogKind.COMMAND),
+            line(2, 100, LogKind.SCRIPT, item, "hn"),
+            line(3, 110, LogKind.SCRIPT, item, "hn"),
+            line(4, 120, LogKind.SCRIPT, item, "hn"),
+        ).map { it.itemGap }
+        assertEquals(listOf(false, false, true, true), gaps)
+    }
+
+    @Test
+    fun aGroupsFirstLineHasTheGroupGapNotAnItemGap() {
+        // A background run: its first line starts a group, so it keeps the group gap only.
+        val rows = entries(line(1, 0, LogKind.SCRIPT, item, "lobsters"), line(2, 10, LogKind.SCRIPT, item, "lobsters"))
+        assertEquals(listOf(true, false), rows.map { it.blockStart })
+        assertEquals(listOf(false, true), rows.map { it.itemGap })
+    }
+
+    @Test
+    fun linesWithoutTheKeyHaveNoItemGap() {
+        val rows = entries(line(1, 0, LogKind.COMMAND), line(2, 10, LogKind.OUTPUT), line(3, 20, LogKind.OUTPUT))
+        assertEquals(listOf(false, false, false), rows.map { it.itemGap })
+    }
 }

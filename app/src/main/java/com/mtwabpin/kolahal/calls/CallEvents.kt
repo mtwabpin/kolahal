@@ -171,8 +171,10 @@ class CallEvents private constructor(private val context: Context) {
         fun ctx(c: Call): LogContext {
             val shown = c.presentation == CallLog.Calls.PRESENTATION_ALLOWED && c.number.isNotBlank()
             val person = LogContext.of(LogContext.PERSON to (c.name ?: c.number.takeIf { shown } ?: "?"), LogContext.PHOTO to c.photoUri)
-            return if (!shown) person
-            else person + LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number).values
+            // An item each: a call is two or three lines beside its picture, and the gap keeps the
+            // pictures apart in a list of calls.
+            return if (!shown) person + LogContext.ITEM
+            else person + LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number).values + LogContext.ITEM
         }
     }
 }
