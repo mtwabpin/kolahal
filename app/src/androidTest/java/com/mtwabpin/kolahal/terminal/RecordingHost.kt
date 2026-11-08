@@ -6,13 +6,16 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * The screens around [ScriptActions] and [BackupActions], as a test sees them: the notices and
- * messages they would show, the events they would act on, the editor opened. Work runs at once, in
+ * messages they would show (with the Undo one offered), the events they would act on, the editor opened. Work runs at once, in
  * order; a file operation that fails is kept as what its notice would say after "<label> failed: ".
  */
 internal class RecordingHost : ScriptActions.Host {
     data class Notice(val text: String, val error: Boolean)
 
     val notices = CopyOnWriteArrayList<Notice>()
+    /** The Undo of the last notice that offered one, and the notice it came with. */
+    @Volatile var undo: Pair<Notice, () -> Unit>? = null
+        private set
     val shown = CopyOnWriteArrayList<String>()
     val events = CopyOnWriteArrayList<UiEvent>()
     val opened = CopyOnWriteArrayList<Script>()
@@ -27,8 +30,10 @@ internal class RecordingHost : ScriptActions.Host {
         runBlocking { runCatching { block() }.onFailure { failures += label to (it.message ?: it.javaClass.simpleName) } }
     }
 
-    override fun notice(text: String, error: Boolean) {
-        notices += Notice(text, error)
+    override fun notice(text: String, error: Boolean, undo: (() -> Unit)?) {
+        val n = Notice(text, error)
+        notices += n
+        if (undo != null) this.undo = n to undo
     }
 
     override fun show(text: String) {

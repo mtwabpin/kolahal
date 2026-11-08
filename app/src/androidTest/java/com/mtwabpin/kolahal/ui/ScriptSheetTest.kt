@@ -198,7 +198,7 @@ class ScriptSheetTest {
     @Test fun dailyAtTakesTimesAndRefusesBadOnes() {
         create("local x = 1")
         openSheet()
-        val box = compose.onNode(hasSetTextAction())
+        val box = compose.onNode(hasSetTextAction() and hasText("Daily at"))
         box.performScrollTo().performTextReplacement("25:00")
         compose.onNodeWithContentDescription("Set times").performClick()
         compose.onNodeWithText("Use HH:mm, separated by commas").assertExists()
@@ -220,7 +220,7 @@ class ScriptSheetTest {
         val s = create("local x = 1")
         scripts.setAtTimes(s.id, listOf("18:30"))
         openSheet()
-        val box = compose.onNode(hasSetTextAction())
+        val box = compose.onNode(hasSetTextAction() and hasText("Daily at"))
         box.performScrollTo().assert(hasText("18:30"))
         box.performTextReplacement("18:30, 21:00")
         compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()

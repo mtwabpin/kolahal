@@ -54,8 +54,6 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
-import com.mtwabpin.kolahal.script.ScriptCatalog
-import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.Dispatchers
@@ -73,9 +71,8 @@ internal fun Fact(label: String, value: String) {
 internal fun ScriptSheet(
     vm: TerminalViewModel,
     s: Script,
-    lib: LibRow?,
-    /** The shared version, if it is newer than this copy and this copy is unedited. */
-    sharedUpdate: ScriptCatalog.Entry?,
+    /** How a library or shared copy compares with its source. Null for a script the user wrote. */
+    copy: ScriptCopy?,
     onEnabled: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
@@ -85,10 +82,10 @@ internal fun ScriptSheet(
     var confirmDelete by remember(s.id) { mutableStateOf(false) }
     var confirmReplace by remember(s.id) { mutableStateOf(false) }
     var comparing by remember(s.id) { mutableStateOf(false) }
-    // Go back to the library version. For an edited copy, this loses the edits, so ask first.
-    // An older, unedited copy has no edits to lose, so install at once.
-    fun resetFromLibrary(row: LibRow) {
-        if (row.state == ScriptLibrary.State.MODIFIED) confirmReplace = true else vm.scriptActions.installFromLibrary(row.entry)
+    // Update or Reset to the source's version. For an edited copy, this loses the edits, so ask first.
+    // An unedited copy has no edits to lose: it updates at once, and the notice offers Undo.
+    fun restore(c: ScriptCopy) {
+        if (c.edited) confirmReplace = true else vm.scriptActions.restore(listOf(c.restore(s)))
     }
     var times by remember(s.id, s.atTimes) { mutableStateOf(s.atTimes.joinToString(", ")) }
     var pickingTime by remember(s.id) { mutableStateOf(false) }
@@ -278,12 +275,9 @@ internal fun ScriptSheet(
 
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                sharedUpdate?.let { e ->
-                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.installSharedScript(e) }) { Text("Update to ${e.version}") }
-                }
-                if (lib != null && lib.state.differs()) {
-                    CompareButton(ButtonDefaults.MinHeight) { comparing = true }
-                    LibraryCopyButton(lib.state, ButtonDefaults.MinHeight) { resetFromLibrary(lib) }
+                if (copy != null && copy.canRestore) {
+                    if (copy.lib != null) CompareButton(ButtonDefaults.MinHeight) { comparing = true }
+                    CopyButton(copy, ButtonDefaults.MinHeight) { restore(copy) }
                 }
                 TextButton(
                     shapes = ButtonDefaults.shapes(),
@@ -318,12 +312,15 @@ internal fun ScriptSheet(
         }
     }
 
-    if (confirmReplace && lib != null) {
-        ResetDialog(lib, onDismiss = { confirmReplace = false }) { confirmReplace = false; vm.scriptActions.installFromLibrary(lib.entry) }
+    if (confirmReplace && copy != null && copy.canRestore) {
+        RestoreDialog(vm, s, copy, onExport = onExport, onDismiss = { confirmReplace = false }) {
+            confirmReplace = false
+            vm.scriptActions.restore(listOf(copy.restore(s)))
+        }
     }
 
-    if (comparing && lib != null && lib.state.differs()) {
-        CompareDialog(vm, s, lib, onDismiss = { comparing = false }) { comparing = false; resetFromLibrary(lib) }
+    if (comparing && copy?.lib != null && copy.canRestore) {
+        CompareDialog(vm, s, copy.lib, onDismiss = { comparing = false }) { comparing = false; restore(copy) }
     }
 
     if (confirmDelete) {

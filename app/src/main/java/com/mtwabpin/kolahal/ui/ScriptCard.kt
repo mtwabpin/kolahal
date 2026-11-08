@@ -41,8 +41,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
@@ -54,8 +57,11 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
 /**
  * The card for one script. The card uses the theme colour when the script is on, and is faded when
  * it is off.
- * - Compact: a dot (on, failed, off), the title and file name, Run for a command, the details
- *   arrow, the switch, and one line about how it runs and how its last run went.
+ * - Compact: a dot (on, failed, off), the title, the file name and where it came from (shared or
+ *   yours), Run for a command, the details arrow, the switch, and one line about how it runs and how
+ *   its last run went.
+ * - A pill beside that line offers what needs doing: "New version · Update", "Edited · Reset" or
+ *   "Add key".
  * - Expanded: also the status line, description, next run, usage, events and what it may use.
  */
 @Composable
@@ -66,9 +72,10 @@ internal fun ScriptCard(
     missingKeys: List<String>,
     secretsSet: List<String>,
     expanded: Boolean,
-    updateAvailable: Boolean,
-    /** State of the library copy, edited or not. Null for a script the user wrote. */
-    library: ScriptLibrary.State?,
+    /** How a library or shared copy compares with its source. Null for a script the user wrote. */
+    copy: ScriptCopy?,
+    /** The Kolahal version that updated it by itself, while the note about that shows. */
+    selfUpdatedIn: String?,
     onExpand: () -> Unit,
     onClick: () -> Unit,
     onEnabled: (Boolean) -> Unit,
@@ -76,19 +83,32 @@ internal fun ScriptCard(
     onAccess: (String, Boolean) -> Unit,
     onNotify: (Boolean) -> Unit,
     onCompare: () -> Unit,
-    onReset: () -> Unit,
+    /** Update or Reset, from the pill or the details. */
+    onRestore: () -> Unit,
+    onAddKey: () -> Unit,
 ) {
     val s = info.script
     val colors = MaterialTheme.colorScheme
     val failed = s.failed()
-    val summary = buildList {
+    val summary = buildAnnotatedString {
+        fun part(text: String, color: Color? = null) {
+            if (length > 0) append(" · ")
+            if (color == null) append(text) else withStyle(SpanStyle(color = color)) { append(text) }
+        }
         // Leave out events that are switched off, because they don't run the script.
-        add(schedule(s, info.isCommand, info.events.filter { info.grants.allows(it) }))
-        add(s.lastRun?.let { (if (failed) "failed " else "ran ") + relative(it, short = true) } ?: "never run")
-        if (missingKeys.isNotEmpty()) add("needs " + missingKeys.joinToString(", "))
-        if (updateAvailable) add("update available")
-        if (library == ScriptLibrary.State.MODIFIED) add("edited")
-    }.joinToString(" · ")
+        part(schedule(s, info.isCommand, info.events.filter { info.grants.allows(it) }))
+        part(s.lastRun?.let { (if (failed) "failed " else "ran ") + relative(it, short = true) } ?: "never run", if (failed) colors.error else null)
+        if (missingKeys.isNotEmpty()) part("needs " + missingKeys.joinToString(", "), colors.error)
+        if (selfUpdatedIn != null) part("updated in $selfUpdatedIn", colors.primary)
+    }
+    // What needs doing, one tap away. A key comes first: without it, the script can't work.
+    val pills = listOfNotNull(
+        if (missingKeys.isNotEmpty()) Pill(null, "Add key", R.drawable.ic_key, onAddKey) else null,
+        copy?.takeIf { it.canRestore }?.let { c ->
+            if (c.state == CopyState.NEW_VERSION) Pill("New version", "Update", R.drawable.ic_arrow_up, onRestore)
+            else Pill("Edited", "Reset", R.drawable.ic_refresh, onRestore)
+        },
+    )
     // Show on or off at a glance: an on script's card uses the theme colour, an off script's card fades into the page.
     Surface(
         onClick = onClick,
@@ -111,12 +131,21 @@ internal fun ScriptCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        "${s.name}.${s.lang.ext}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                        color = if (s.enabled) scriptColor(s.name) else colors.outline,
-                        maxLines = 1,
-                    )
+                    // The file, and where it came from when that isn't the library.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${s.name}.${s.lang.ext}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                            color = if (s.enabled) scriptColor(s.name) else colors.outline,
+                            maxLines = 1,
+                        )
+                        val from = when (copy?.source) {
+                            ScriptSource.LIBRARY -> null
+                            ScriptSource.SHARED -> "shared"
+                            else -> "yours"
+                        }
+                        if (from != null) Text(" · $from", style = MaterialTheme.typography.labelSmall, color = colors.outline, maxLines = 1)
+                    }
                 }
                 if (info.isCommand && s.enabled) TextButton(shapes = ButtonDefaults.shapes(), onClick = onRun) { Text("Run") }
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = onExpand) {
@@ -128,15 +157,48 @@ internal fun ScriptCard(
                 }
                 Switch(checked = s.enabled, onCheckedChange = onEnabled)
             }
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (failed || missingKeys.isNotEmpty()) colors.error else if (updateAvailable) colors.primary else colors.onSurfaceVariant,
-                maxLines = if (expanded) 3 else 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 20.dp, end = 8.dp),
-            )
-            if (expanded) ScriptDetails(info, line, secretsSet, library, onAccess, onNotify, onCompare, onReset)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 20.dp, end = 8.dp)) {
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = if (expanded) 3 else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                pills.firstOrNull()?.let { CardPill(it) }
+            }
+            // A second pill gets a line of its own, so the summary keeps its room.
+            if (pills.size > 1) {
+                Row(Modifier.fillMaxWidth().padding(end = 8.dp, top = 4.dp), horizontalArrangement = Arrangement.End) { CardPill(pills[1]) }
+            }
+            if (expanded) ScriptDetails(info, line, secretsSet, copy, onAccess, onNotify, onCompare, onRestore)
+        }
+    }
+}
+
+/** A pill on a card: what it says ([label], muted, may be null) and what a tap does ([action], with [icon]). */
+private class Pill(val label: String?, val action: String, val icon: Int, val onClick: () -> Unit)
+
+/** A [Pill]: outlined, with its label and action split by a thin line. The whole pill is one button. */
+@Composable
+private fun CardPill(pill: Pill) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = pill.onClick,
+        shape = CircleShape,
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, colors.outline),
+        modifier = Modifier.padding(start = 8.dp).testTag("script-pill"),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(28.dp).padding(horizontal = 10.dp)) {
+            pill.label?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant, maxLines = 1)
+                Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(16.dp).background(colors.outlineVariant))
+            }
+            Icon(painterResource(pill.icon), null, Modifier.size(14.dp), tint = colors.primary)
+            Spacer(Modifier.width(4.dp))
+            Text(pill.action, style = MaterialTheme.typography.labelMedium, color = colors.primary, maxLines = 1)
         }
     }
 }
@@ -146,18 +208,18 @@ internal fun ScriptCard(
  * - the status line, description, next run and usage;
  * - a pill for each thing the script may do (on or off; a tap switches it);
  * - its secrets;
- * - for an edited or older library copy, Compare and Reset or Update.
+ * - for a library or shared copy that differs: Compare (library copies only) and Reset or Update.
  */
 @Composable
 private fun ScriptDetails(
     info: ScriptInfo,
     line: String?,
     secretsSet: List<String>,
-    library: ScriptLibrary.State?,
+    copy: ScriptCopy?,
     onAccess: (String, Boolean) -> Unit,
     onNotify: (Boolean) -> Unit,
     onCompare: () -> Unit,
-    onReset: () -> Unit,
+    onRestore: () -> Unit,
 ) {
     val s = info.script
     val colors = MaterialTheme.colorScheme
@@ -208,32 +270,31 @@ private fun ScriptDetails(
         }
         // The last run's failure, in the same words as the editor ("Line 7: …", "Stopped: …").
         if (s.failed()) Text(EditorLogic.runResult(s.lastStatus, com.mtwabpin.kolahal.script.ScriptWorker.TIMEOUT_MS / 1000, tapHint = false).text, style = MaterialTheme.typography.bodySmall, color = colors.error)
-        // A library script that was edited or comes from an older Kolahal: show how it differs, and offer this version's copy.
-        if (library != null && library.differs()) {
+        // A copy that was edited or has a newer version: show how it differs, and offer the source's version.
+        if (copy != null && copy.canRestore) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                CompareButton(ButtonDefaults.ExtraSmallContainerHeight, onCompare)
-                LibraryCopyButton(library, ButtonDefaults.ExtraSmallContainerHeight, onReset)
+                if (copy.lib != null) CompareButton(ButtonDefaults.ExtraSmallContainerHeight, onCompare)
+                CopyButton(copy, ButtonDefaults.ExtraSmallContainerHeight, onRestore)
             }
         }
     }
 }
 
 /**
- * A button that goes back to this version's library copy. It is [height] tall (as small as a pill
- * in a card).
- * - Edited copy: Reset. The icon uses the error colour because the user's edits are lost. It asks first.
- * - Older copy: Update. Nothing of the user's is lost.
+ * A button that brings the source's version of a library or shared [copy]. It is [height] tall (as
+ * small as a pill in a card).
+ * - Edited, nothing newer: Reset to library version (or shared version).
+ * - A newer version: Update from library, or Update to its version for a shared copy.
+ * The icon uses the error colour when the copy is edited, because the edits are lost. Then it asks first.
  */
 @Composable
-internal fun LibraryCopyButton(state: ScriptLibrary.State, height: Dp, onClick: () -> Unit) {
-    val edited = state == ScriptLibrary.State.MODIFIED
-    OutlinedAction(
-        if (edited) "Reset to library version" else "Update from library",
-        R.drawable.ic_refresh,
-        height,
-        iconTint = if (edited) MaterialTheme.colorScheme.error else null,
-        onClick = onClick,
-    )
+internal fun CopyButton(copy: ScriptCopy, height: Dp, onClick: () -> Unit) {
+    val label = when {
+        copy.state == CopyState.EDITED -> if (copy.lib != null) "Reset to library version" else "Reset to shared version"
+        copy.lib != null -> "Update from library"
+        else -> copy.shared?.version?.takeIf { it.isNotBlank() }?.let { "Update to $it" } ?: "Update"
+    }
+    OutlinedAction(label, R.drawable.ic_refresh, height, iconTint = if (copy.edited) MaterialTheme.colorScheme.error else null, onClick = onClick)
 }
 
 /** Whether a library copy is not this version's: it was edited, or it comes from an older Kolahal. */

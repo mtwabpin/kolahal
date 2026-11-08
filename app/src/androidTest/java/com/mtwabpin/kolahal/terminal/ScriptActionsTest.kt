@@ -20,6 +20,7 @@ import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
+import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.ScriptTemplates
@@ -454,6 +455,96 @@ class ScriptActionsTest {
         actions.installSharedScript(wrong)
         assertEquals(listOf("install" to "sa-shared doesn't match the script list; refresh it and try again"), host.failures.toList())
         assertEquals("-- @command\nlog('v2')", repo.byName("sa-shared")!!.code)
+    }
+
+    /**
+     * Reset brings the library's code back and says so, not "Installed"; its timers stay. Undo puts
+     * the edited copy back with the text it was installed from, so it is edited again.
+     */
+    @Test fun aResetSaysSoAndUndoPutsTheEditsBack() {
+        org.junit.Assume.assumeTrue("countdown is installed here already", "countdown" in library)
+        val lib = actions.library
+        val entry = lib.entries.single { it.name == "countdown" }
+        val s = lib.install(entry)
+        repo.saveCode(s.id, lib.code(entry) + "\n-- mine", byUser = true)
+        repo.setInterval(s.id, 60)
+        val edited = now(s)
+        actions.restore(listOf(ScriptActions.Restore(edited, library = entry)))
+        assertEquals(RecordingHost.Notice("countdown.lua is back to the library version", false), host.lastNotice())
+        assertEquals(lib.code(entry), now(s).code)
+        assertEquals(60, now(s).intervalMin)
+        assertEquals(ScriptLibrary.State.INSTALLED, lib.state(entry, repo.all()))
+
+        val (offered, undo) = host.undo!!
+        assertEquals("countdown.lua is back to the library version", offered.text)
+        undo()
+        assertEquals(RecordingHost.Notice("countdown.lua is as it was", false), host.lastNotice())
+        assertEquals(edited.code, now(s).code)
+        assertEquals(edited.changedAt, now(s).changedAt)
+        assertEquals(ScriptLibrary.State.MODIFIED, lib.state(entry, repo.all()))
+        assertEquals(lib.code(entry), lib.recorded("countdown"))
+    }
+
+    /** An older unedited copy is updated, and Undo makes it the older copy again, so it still offers the update. */
+    @Test fun anUpdateSaysSoAndUndoMakesItOlderAgain() {
+        org.junit.Assume.assumeTrue("countdown is installed here already", "countdown" in library)
+        val lib = actions.library
+        val entry = lib.entries.single { it.name == "countdown" }
+        val old = "-- @command\n-- @title Countdowns\nprint('older countdown')\n"
+        val s = repo.create("countdown", ScriptLang.LUA, old)
+        lib.record("countdown", old)
+        assertEquals(ScriptLibrary.State.UPDATE_AVAILABLE, lib.state(entry, repo.all()))
+        // Installing over a copy updates it: it isn't "Installed" again.
+        actions.installFromLibrary(entry)
+        assertEquals(RecordingHost.Notice("countdown.lua is updated", false), host.lastNotice())
+        assertEquals(lib.code(entry), now(s).code)
+        host.undo!!.second()
+        assertEquals(old, now(s).code)
+        assertEquals(old, lib.recorded("countdown"))
+        assertEquals(ScriptLibrary.State.UPDATE_AVAILABLE, lib.state(entry, repo.all()))
+    }
+
+    /** Several at once say how many; one Undo puts all of them back. */
+    @Test fun updatingSeveralCountsThemAndUndoesAll() {
+        org.junit.Assume.assumeTrue("both library scripts are installed here already", library.size == 2)
+        val lib = actions.library
+        val copies = library.map { name ->
+            val entry = lib.entries.single { it.name == name }
+            val s = lib.install(entry)
+            repo.saveCode(s.id, lib.code(entry) + "\n-- mine", byUser = true)
+            ScriptActions.Restore(now(s), library = entry)
+        }
+        actions.restore(copies)
+        assertEquals(RecordingHost.Notice("2 scripts updated", false), host.lastNotice())
+        copies.forEach { assertEquals(lib.code(it.library!!), now(it.script).code) }
+        host.undo!!.second()
+        assertEquals(RecordingHost.Notice("2 scripts are as they were", false), host.lastNotice())
+        copies.forEach { assertTrue(now(it.script).code.endsWith("-- mine")) }
+    }
+
+    /** A shared copy you edited gets the newer version from the list, and Undo brings your edits and its old origin back. */
+    @Test fun aSharedUpdateIsUndone() {
+        catalogFile.writeText(catalog("sa-shared", sha = "a".repeat(64)))
+        catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
+        val catalog = ScriptCatalog(context)
+        val entry = catalog.cached()!!.single()
+        val installed = catalog.install(entry, "-- @command\nlog('v1')")
+        repo.saveCode(installed.id, "-- @command\nlog('mine')", byUser = true)
+        val newer = entry.copy(version = "1.1", sha256 = "b".repeat(64))
+        @Suppress("UNCHECKED_CAST")
+        val read = ScriptActions::class.java.getDeclaredField("sharedCode").apply { isAccessible = true }.get(actions)
+            as java.util.concurrent.ConcurrentHashMap<String, String>
+        read[newer.sha256] = "-- @command\nlog('v2')"
+        val mine = now(installed)
+        assertEquals(true, catalog.copy(mine, newer)?.let { it.edited && it.newer })
+        actions.restore(listOf(ScriptActions.Restore(mine, shared = newer)))
+        assertEquals(RecordingHost.Notice("sa-shared.lua is updated", false), host.lastNotice())
+        assertEquals("-- @command\nlog('v2')", now(installed).code)
+        assertEquals(ScriptCatalog.State.INSTALLED, catalog.state(newer, repo.all()))
+        host.undo!!.second()
+        assertEquals("-- @command\nlog('mine')", now(installed).code)
+        assertEquals(ScriptCatalog.State.MODIFIED, catalog.state(newer, repo.all()))
+        assertEquals(true, catalog.copy(now(installed), newer)?.newer)
     }
 
     /** The scripts list is read again on request: one added elsewhere (`script new`) shows. */

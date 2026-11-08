@@ -153,6 +153,26 @@ class ScriptCatalog(private val context: Context) {
         }
     }
 
+    /** What is known of a copy installed from here: whether you [edited] it, and whether the list has a [newer] version. */
+    class Copy(val edited: Boolean, val newer: Boolean)
+
+    /**
+     * Your copy [s] compared with what was installed from here and with [latest], its entry in the list
+     * (null when the list isn't kept, or no longer has it). Null when [s] wasn't installed from here.
+     * A version that needs a newer Kolahal doesn't count as newer.
+     */
+    fun copy(s: Script, latest: Entry?): Copy? {
+        val origin = origin(s.name) ?: return null
+        val newer = latest != null && latest.sha256 != origin.sha256 && (latest.requires == null || !ScriptMeta.isNewer(latest.requires, BuildConfig.VERSION_NAME))
+        return Copy(edited = s.code != origin.code, newer = newer)
+    }
+
+    /** What was recorded when [name] was installed from here, as stored. Undo after an update puts it back with [record]. */
+    fun recorded(name: String): String? = prefs.getString("installed:$name", null)
+
+    /** Sets what [recorded] returned. Null forgets it. */
+    fun record(name: String, raw: String?) = prefs.edit { if (raw == null) remove("installed:$name") else putString("installed:$name", raw) }
+
     /** Forgets that [name] was installed from here, because it was renamed or deleted. */
     fun forget(name: String) = prefs.edit { remove("installed:$name") }
 

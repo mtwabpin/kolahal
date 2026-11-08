@@ -58,6 +58,15 @@ class SecretStore(private val context: Context) {
         kv.all().keys.filter { it !in declared }.forEach { kv.set(it, null) }
     }
 
+    /** The values of [script] as stored (sealed). Undo after an update uses them, because the update forgets values its code no longer declares. */
+    fun kept(script: String): Map<String, String> = KvStore(context, scope(script)).all()
+
+    /** Puts back values that [kept] returned. A value set since then stays. */
+    fun putBack(script: String, kept: Map<String, String>) {
+        val kv = KvStore(context, scope(script))
+        kept.forEach { (name, sealed) -> if (kv.get(name) == null) kv.set(name, sealed) }
+    }
+
     /** Forgets every value of [script], when it is deleted. */
     fun clear(script: String) {
         val kv = KvStore(context, scope(script))

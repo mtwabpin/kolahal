@@ -80,23 +80,55 @@ The script manager (`scripts`, or the **Scripts** tab in Settings;
 [its parts, numbered](/getting-started/parts/#scripts-tab)) shows one card per script. A card
 shows:
 
-- the script's title, how it runs and how its last run went (red if it failed),
+- the script's title and file. The file of a script from Get more scripts says "shared"; one of
+  yours says "yours".
+- how it runs and how its last run went (red if it failed),
 - **Run**, for a command,
-- its on/off switch.
+- its on/off switch,
+- a pill when something needs doing:
+  - **New version · Update**: the library or GitHub has a newer version.
+  - **Edited · Reset**: you edited a library or shared script, and nothing newer exists.
+  - **Add key**: it needs a key ([`@secret`](#api-keys-and-other-secrets)) that has no value yet.
+    The pill opens the box for the key.
 
 A card is tinted in the theme's colour when its script is on, and faded when it is off.
 
 The arrow on a card shows its details. The arrow at the top shows the details of all cards. The
 details are: its status line, next run, usage, and a pill for each thing it may do (internet,
 pinned at the top, notifications, what it declares, its events). A pill is filled in the theme's
-colour when it is on and faded when it is off. Tap a pill to switch it.
+colour when it is on and faded when it is off. Tap a pill to switch it. A library script that
+differs also has **Compare** and **Reset to library version** (or **Update from library**) there.
 
-If you edited a library script, its summary says "edited", and its details also have **Compare**
-and **Reset to library version**.
+Above the cards:
 
-- Chips filter the cards: commands, timers, events, pinned, failed, off, needs a key, differs from
-  the library, and what they use.
-- The search icon finds a script by name.
+- **Search** finds a script by its name, title, description, author or tags.
+- **Filters** (the sliders) opens the filter chips, in groups:
+  - Status: On, Off, Failed, Needs a key.
+  - How it runs: Command, Timer, Event, Pinned.
+  - Source: Library, Shared (from Get more scripts), Yours.
+  - Library version: Up to date, New version, Edited. For library and shared scripts.
+  - Uses: what scripts declare with `@uses`.
+  - Language: Lua, JavaScript.
+
+  In a group, any chip may match: Library *or* Shared. Across groups, all must: Command *and*
+  (Library or Shared). Each chip shows how many scripts it would show with the chips of the other
+  groups. A chip with 0 is grey, but it still works. **Show N scripts** closes the sheet.
+- The chips that are on show under the search, each with ×. **Clear** turns them all off. The
+  badge on Filters counts them.
+- **Sort**: by name, last run, or recently changed (the latest change to a script's code or name
+  first).
+- A line says how many scripts show, for example "4 of 11 scripts", and the sort.
+
+When library or shared scripts differ from their source, a banner says how many: new versions and
+edited ones. **Review** shows only those. **Update all…** lists them: those with a new version are
+ticked, edited ones with nothing newer are not. **Update N** updates the ticked ones. × hides the
+banner until another script differs. After an app update, one line says which library scripts
+Kolahal updated by itself ([updates](/scripting/library/)). **Show** lists them; × closes the line.
+
+Update and Reset change only the code. The timers, options, access and pinning stay. A copy you
+edited asks first, and offers **Compare first** and **Export your copy first**. After an update or
+a reset, **Undo** (for 10 seconds) puts your copy back.
+
 - Tap a card for **Run**, **Edit**, **Export**, access, notifications, timers and **Delete**.
 - **Add script** creates a new script. It can also add one from the library, from
   [the scripts people share](#getting-scripts-from-others), or from a file.
@@ -437,11 +469,14 @@ before it is added.
 
 Updates:
 
-- When Get more scripts (or `script get`) finds a newer version of a shared script you haven't
-  edited, the script manager shows "update available". The script's sheet has an
-  **Update to …** button.
+- When Get more scripts (or `script get`) finds a newer version of a shared script, its card in the
+  script manager shows **New version · Update**. The script's sheet has an **Update to …** button.
+  Both use the list from the last time Get more scripts read it, so nothing is downloaded until
+  you update.
 - Anything new that the update asks for starts switched off.
-- A copy you edited is replaced only when you ask.
+- A copy you edited is replaced only when you ask: Update asks first. A copy you edited with nothing
+  newer shows **Edited · Reset**, which brings the shared version back.
+- Updates and resets change only the code, and **Undo** puts your copy back.
 
 In the terminal:
 

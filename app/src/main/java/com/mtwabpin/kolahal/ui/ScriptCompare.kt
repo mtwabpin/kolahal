@@ -94,7 +94,7 @@ internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDism
                         items(hunk.lines) { DiffLine(it) }
                     }
                 }
-                Row(Modifier.padding(16.dp)) { LibraryCopyButton(lib.state, ButtonDefaults.MinHeight, onReset) }
+                Row(Modifier.padding(16.dp)) { CopyButton(ScriptCopy.of(lib), ButtonDefaults.MinHeight, onReset) }
             }
         }
     }

@@ -6,7 +6,11 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -23,6 +27,7 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -33,7 +38,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Scripts → Add script → From the library: what each ready-made script is, and installing or updating one. */
+/** Scripts → Add script → From the library: what each ready-made script is, installing one, and your copies that differ. */
 @RunWith(AndroidJUnit4::class)
 class ScriptLibraryScreenTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
@@ -115,7 +120,7 @@ class ScriptLibraryScreenTest {
         assertEquals(listOf("00:05"), s.atTimes)
     }
 
-    /** A copy from an older Kolahal, never edited, offers Update, which brings this version's. */
+    /** A copy from an older Kolahal, never edited, comes first and offers Update, which brings this version's at once. */
     @Test fun anOlderCopyUpdates() {
         val old = "-- @command\n-- @title Countdowns\nprint('older countdown')\n"
         scripts.create("countdown", entry.lang, old)
@@ -126,24 +131,42 @@ class ScriptLibraryScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Update") and hasAnyAncestor(hasText("Countdowns"))).fetchSemanticsNodes().isNotEmpty() }
         inCountdownRow("Update").performClick()
         compose.waitUntil(5_000) { scripts.byName("countdown")?.code == library.code(entry) }
+        // It says it updated it, not that it installed it.
+        compose.waitForText("countdown.lua is updated")
         countdownRowSays("Installed")
         inCountdownRow("Update").assertDoesNotExist()
     }
 
-    /** A copy you edited says so, and offers no button here: replacing your edits asks first, in its sheet. */
-    @Test fun anEditedCopySaysEdited() {
+    /**
+     * A copy you edited comes first, under "Your copy differs", with Compare and Reset instead of the
+     * plain word. Reset asks first, as your edits go, then brings the library version back.
+     */
+    @Test fun anEditedCopyComesFirstWithCompareAndReset() {
         val s = library.install(entry)
-        scripts.saveCode(s.id, library.code(entry) + "\n-- mine", byUser = true)
+        val mine = library.code(entry) + "\n-- mine"
+        scripts.saveCode(s.id, mine, byUser = true)
         show()
-        countdownRowSays("Edited")
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Countdowns") and hasText("Edited. Nothing newer.")).fetchSemanticsNodes().isNotEmpty() }
+        // The group is above the library's first script, which isn't in it.
+        val header = compose.onNodeWithText("Your copy differs", substring = true).getUnclippedBoundsInRoot()
+        val row = compose.onNode(hasText("Countdowns") and hasText("Edited. Nothing newer.")).getUnclippedBoundsInRoot()
+        assertTrue("the group's header above its row: $header, $row", header.bottom <= row.top)
+        compose.onNodeWithText("All scripts").assertExists()
         inCountdownRow("Install").assertDoesNotExist()
-        inCountdownRow("Update").assertDoesNotExist()
-        // Shown, nothing replaces your edits: they're still there a second on.
-        val until = System.currentTimeMillis() + 1_000
-        while (System.currentTimeMillis() < until) {
-            assertTrue("your edits kept", scripts.byName("countdown")!!.code.endsWith("-- mine"))
-            Thread.sleep(50)
-        }
+
+        compose.onNode(hasContentDescription("Compare") and hasAnyAncestor(hasText("Countdowns"))).performClick()
+        compose.waitForNode(hasTestTag("compare"))
+        compose.onNodeWithText("-- mine").assertExists()
+        compose.onNode(hasContentDescription("Close") and hasAnyAncestor(hasTestTag("compare"))).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("compare")).fetchSemanticsNodes().isEmpty() }
+
+        inCountdownRow("Reset").performClick()
+        compose.onNodeWithText("Reset countdown.lua?").assertExists()
+        assertEquals(mine, scripts.byName("countdown")!!.code)
+        compose.onNode(hasText("Reset") and hasAnyAncestor(isDialog())).performClick()
+        compose.waitUntil(5_000) { scripts.byName("countdown")?.code == library.code(entry) }
+        compose.waitForText("countdown.lua is back to the library version")
+        countdownRowSays("Installed")
     }
 
     /** Back returns to the page the library was opened from. */

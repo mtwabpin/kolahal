@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -34,6 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -50,16 +58,111 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.terminal.CommandCatalog
+import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
-/** Asks before resetting an edited library script to the library version, because the edits are lost. */
+/**
+ * Asks before an edited copy gets its source's version, because the edits are lost. Only the code
+ * changes: Reset (nothing newer) or Update (a new version).
+ * - Compare first (library copies) and Export your copy first open over it; the dialog stays.
+ * - Cancel, Back and a tap outside keep the copy.
+ */
 @Composable
-internal fun ResetDialog(lib: LibRow, onDismiss: () -> Unit, onReset: () -> Unit) {
-    ConfirmDialog(
-        "Reset ${lib.entry.file}?",
-        "Your copy differs from the library version. Its code is replaced by the library version and your changes are lost; its timers and switches are kept. Export it first to keep a copy.",
-        "Reset",
-        onDismiss = onDismiss,
-        onConfirm = onReset,
+internal fun RestoreDialog(vm: TerminalViewModel, s: Script, copy: ScriptCopy, onExport: () -> Unit, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val update = copy.state == CopyState.NEW_VERSION
+    val source = if (copy.lib != null) "library" else "shared"
+    var comparing by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(painterResource(R.drawable.ic_refresh), null) },
+        title = { Text("${if (update) "Update" else "Reset"} ${s.name}.${s.lang.ext}?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    if (update) "Your edits will be lost. It gets the new $source version."
+                    else "Your edits will be lost. It gets the $source version back.",
+                )
+                Text(
+                    "Only the code changes. Its timers, options, access and pinning are kept.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                if (copy.lib != null) {
+                    TextButton(shapes = ButtonDefaults.shapes(), onClick = { comparing = true }) { IconLabel(R.drawable.ic_visibility, "Compare first") }
+                }
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = onExport) { IconLabel(R.drawable.ic_download, "Export your copy first") }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) { Text(if (update) "Update" else "Reset") }
+        },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+    )
+    // Compare's own Update or Reset answers this dialog too.
+    if (comparing && copy.lib != null) CompareDialog(vm, s, copy.lib, onDismiss = { comparing = false }) { comparing = false; onConfirm() }
+}
+
+/**
+ * Update all, from the banner: one row to tick per copy that differs. A new version starts ticked;
+ * an edited copy with nothing newer doesn't, so its edits stay unless the user ticks it. A ticked
+ * edited copy says its edits will be lost. Update N brings the ticked ones the library or GitHub
+ * version, code only.
+ */
+@Composable
+internal fun UpdateAllDialog(copies: List<Pair<Script, ScriptCopy>>, onDismiss: () -> Unit, onUpdate: (List<Pair<Script, ScriptCopy>>) -> Unit) {
+    // The user's ticks, by script. The list is rebuilt when a script runs, so a row not touched yet uses the default.
+    val ticked = remember { mutableStateMapOf<Long, Boolean>() }
+    fun isOn(s: Script, c: ScriptCopy) = ticked[s.id] ?: (c.state == CopyState.NEW_VERSION)
+    val picked = copies.filter { (s, c) -> isOn(s, c) }
+    val colors = MaterialTheme.colorScheme
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(painterResource(R.drawable.ic_refresh), null) },
+        title = { Text("Update from the library") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Ticked scripts get the library or GitHub version. Only the code changes.", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                for ((s, c) in copies) {
+                    val on = isOn(s, c)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                            .toggleable(value = on, role = Role.Checkbox) { ticked[s.id] = it }
+                            .padding(vertical = 4.dp)
+                            .testTag("update:${s.name}"),
+                    ) {
+                        Checkbox(checked = on, onCheckedChange = null)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("${s.name}.${s.lang.ext}", style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace))
+                            Text(
+                                buildAnnotatedString {
+                                    append(
+                                        when {
+                                            c.state == CopyState.EDITED -> "Edited, nothing newer"
+                                            c.lib != null -> "New version"
+                                            else -> "New version on GitHub"
+                                        },
+                                    )
+                                    if (on && c.edited) withStyle(SpanStyle(color = colors.error)) { append(" · your edits will be lost") }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(shapes = ButtonDefaults.shapes(), enabled = picked.isNotEmpty(), onClick = { onUpdate(picked) }) { Text("Update ${picked.size}") }
+        },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
 }
 

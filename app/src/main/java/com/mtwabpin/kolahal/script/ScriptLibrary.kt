@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import android.content.Context
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
@@ -65,6 +66,19 @@ class ScriptLibrary(private val context: Context) {
         }
     }
 
+    /**
+     * Whether the library has a newer version than the one your copy of [entry] came from. [state] is
+     * the copy's [state].
+     * - An older unedited copy ([State.UPDATE_AVAILABLE]) has one.
+     * - An edited copy ([State.MODIFIED]) has one when the text it was installed from is not this
+     *   version's: the library changed since. Without that text, it counts as only edited.
+     */
+    fun hasNewer(entry: Entry, state: State): Boolean = when (state) {
+        State.UPDATE_AVAILABLE -> true
+        State.MODIFIED -> installedOriginal(entry.name)?.let { it != code(entry) } == true
+        else -> false
+    }
+
     /** Whether [code] is a version of [entry] that the library had, now or before (assets/library-history.txt). */
     fun shipped(entry: Entry, code: String): Boolean = fingerprint(code) in history[entry.file].orEmpty()
 
@@ -112,6 +126,7 @@ class ScriptLibrary(private val context: Context) {
      * and its timers too, unless they are still the old version's ([install]'s followTimers). Edited
      * copies are left alone ([State.MODIFIED]); Reset brings back the library's version.
      * A copy that is the library's version but has no recorded original gets one, so it shows as installed.
+     * It logs the names updated and records them with this version, for the note in the Scripts tab ([selfUpdate]).
      * Returns the names updated. It runs at every start: it reads the scripts once and compares a few texts.
      */
     fun updateUnedited(): List<String> {
@@ -123,6 +138,7 @@ class ScriptLibrary(private val context: Context) {
         // If one fails (a locked database), it is tried again on the next start.
         val updated = entries.filter { state(it, installed) == State.UPDATE_AVAILABLE }
             .filter { e -> runCatching { install(e, followTimers = true) }.isSuccess }.map { it.name }
+        recordSelfUpdate(updated)
         if (updated.isNotEmpty()) {
             com.mtwabpin.kolahal.data.LogRepository.get(context).add(
                 com.mtwabpin.kolahal.data.LogKind.INFO,
@@ -134,7 +150,44 @@ class ScriptLibrary(private val context: Context) {
 
     private val prefs by lazy { context.getSharedPreferences("script_library", Context.MODE_PRIVATE) }
 
+    /** The note about copies Kolahal updated by itself. It is about this phone, so it stays out of backups (unlike [prefs]). */
+    private val notePrefs by lazy { context.getSharedPreferences(NOTE_PREFS, Context.MODE_PRIVATE) }
+
     private fun installedOriginal(name: String): String? = prefs.getString("installed:$name", null)
+
+    /** The text your copy of [name] was installed from, or null. Undo after an update puts it back with [record]. */
+    fun recorded(name: String): String? = installedOriginal(name)
+
+    /** Sets the text your copy of [name] was installed from. Null forgets it. */
+    fun record(name: String, original: String?) = prefs.edit { if (original == null) remove("installed:$name") else putString("installed:$name", original) }
+
+    /** Library copies that [updateUnedited] updated, and the Kolahal [version] that did it. */
+    class SelfUpdate(val version: String, val names: List<String>)
+
+    /** The copies Kolahal updated by itself, until [dismissSelfUpdate]. The Scripts tab shows a note about them. */
+    fun selfUpdate(): SelfUpdate? {
+        val version = notePrefs.getString(SELF_UPDATED_IN, null) ?: return null
+        val names = notePrefs.getString(SELF_UPDATED, null)?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+        return if (names.isEmpty()) null else SelfUpdate(version, names)
+    }
+
+    /** Forgets the note about the copies Kolahal updated by itself: the user closed it. */
+    fun dismissSelfUpdate() = notePrefs.edit { remove(SELF_UPDATED); remove(SELF_UPDATED_IN) }
+
+    /**
+     * Records the copies [updateUnedited] just updated, with this Kolahal's version. Copies updated
+     * earlier by the same version stay in the list. A note left by an older version goes.
+     */
+    private fun recordSelfUpdate(updated: List<String>) {
+        val version = BuildConfig.VERSION_NAME
+        val earlier = selfUpdate()
+        if (updated.isEmpty()) {
+            if (earlier != null && earlier.version != version) dismissSelfUpdate()
+            return
+        }
+        val names = (earlier?.takeIf { it.version == version }?.names.orEmpty() + updated).distinct()
+        notePrefs.edit { putString(SELF_UPDATED, names.joinToString(",")); putString(SELF_UPDATED_IN, version) }
+    }
 
     /** Forgets that [name] is the library's copy, because it was renamed or deleted. */
     fun forget(name: String) = prefs.edit { remove("installed:$name") }
@@ -142,6 +195,11 @@ class ScriptLibrary(private val context: Context) {
     private companion object {
         /** Every version of each library file ([shipped]). */
         const val HISTORY = "library-history.txt"
+
+        /** The prefs file and keys of the copies Kolahal updated by itself, and its version then ([selfUpdate]). */
+        const val NOTE_PREFS = "library_updates"
+        const val SELF_UPDATED = "self_updated"
+        const val SELF_UPDATED_IN = "self_updated_in"
 
         fun fingerprint(code: String): String =
             java.security.MessageDigest.getInstance("SHA-256").digest(code.toByteArray(Charsets.UTF_8))

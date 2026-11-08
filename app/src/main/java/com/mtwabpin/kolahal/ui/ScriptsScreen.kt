@@ -1,30 +1,24 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +39,7 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.terminal.CommandParsing
+import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.Dispatchers
@@ -53,8 +48,11 @@ import kotlin.math.roundToLong
 
 internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 720 to "12 hours", 1440 to "1 day")
 
-/** A library script, its state compared with the installed copy, and its `@on` events. */
-internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>)
+/**
+ * A library script, its state compared with the installed copy, and its `@on` events. [newer]: the
+ * library has a newer version than the one the copy came from ([ScriptLibrary.hasNewer]).
+ */
+internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>, val newer: Boolean = false)
 
 /**
  * The library's scripts, each compared with [scripts]. Their files and directives come from assets
@@ -64,16 +62,59 @@ internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.S
 internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): State<List<LibRow>?> =
     produceState<List<LibRow>?>(null, vm.scriptActions.library, scripts) {
         value = withContext(Dispatchers.IO) {
+            val library = vm.scriptActions.library
             runCatching {
-                vm.scriptActions.library.entries.map { LibRow(it, vm.scriptActions.library.state(it, scripts), ScriptMeta.events(vm.scriptActions.library.code(it))) }
+                library.entries.map { e ->
+                    val state = library.state(e, scripts)
+                    LibRow(e, state, ScriptMeta.events(library.code(e)), library.hasNewer(e, state))
+                }
             }.getOrDefault(emptyList())
         }
     }
+
+/**
+ * A library or shared copy, compared with where it came from.
+ * - [edited]: you changed its code since it was installed, so Update or Reset asks first.
+ * - [lib]: the library script, for a library copy.
+ * - [shared]: the shared script in the list kept from Get more scripts, for a shared copy. Null when
+ *   the list isn't kept or no longer has it.
+ */
+internal class ScriptCopy(
+    val source: ScriptSource,
+    val state: CopyState,
+    val edited: Boolean,
+    val lib: LibRow? = null,
+    val shared: ScriptCatalog.Entry? = null,
+) {
+    /** Whether Update or Reset can bring the source's version: the copy differs, and the source is known. */
+    val canRestore get() = state != CopyState.UP_TO_DATE && (lib != null || shared != null)
+
+    /** What [ScriptActions.restore] needs to bring [s] to the source's version. */
+    fun restore(s: Script) = ScriptActions.Restore(s, library = lib?.entry, shared = shared)
+
+    companion object {
+        /** A library copy of [lib]'s script. */
+        fun of(lib: LibRow) = ScriptCopy(
+            ScriptSource.LIBRARY,
+            when {
+                lib.newer -> CopyState.NEW_VERSION
+                lib.state == ScriptLibrary.State.MODIFIED -> CopyState.EDITED
+                else -> CopyState.UP_TO_DATE
+            },
+            edited = lib.state == ScriptLibrary.State.MODIFIED,
+            lib = lib,
+        )
+    }
+}
+
+/** A shared copy: what is known of it, and its entry in the kept list (null if none). */
+private class SharedCopy(val copy: ScriptCatalog.Copy, val entry: ScriptCatalog.Entry?)
 
 /** Facts read from a script's code, for its card and the filters. They are read once per version of the code. */
 internal class ScriptCode(code: String, name: String) {
     val title = ScriptMeta.title(code)
     val desc = ScriptMeta.description(code)
+    val author = ScriptMeta.author(code)
     val isCommand = ScriptMeta.isCommand(code)
     val usage = if (isCommand) ScriptMeta.usage(code, name) else null
     val events = ScriptMeta.events(code)
@@ -97,6 +138,7 @@ private val keptCodes = HashMap<Pair<String, String>, ScriptCode>()
 internal class ScriptInfo(val script: Script, code: ScriptCode) {
     val title = code.title
     val desc = code.desc
+    val author = code.author
     val isCommand = code.isCommand
     val usage = code.usage
     val events = code.events
@@ -109,39 +151,41 @@ internal class ScriptInfo(val script: Script, code: ScriptCode) {
     val accessItems = code.accessItems
 }
 
-/**
- * Facts about a script that filters can use, apart from its code:
- * - [needsKey]: a secret has no value yet.
- * - [differs]: the copy differs from this version's library script (it was edited, or it comes
- *   from an older Kolahal).
- */
-private class ScriptState(val needsKey: Boolean, val differs: Boolean)
-
 /** A script's `@secret` names, split into those with no value yet and those that are set. Both keep the declared order. */
 private class SecretNames(val missing: List<String>, val set: List<String>)
 
-/** A filter chip: its name and a test for which scripts it keeps. */
-private class ScriptFilter(val id: String, val label: String, val keeps: (info: ScriptInfo, state: ScriptState) -> Boolean)
-
-/** Short names for what scripts use, shown in chips. */
-internal val USES_SHORT = mapOf("notifications" to "notifications", "clipboard" to "clipboard", "apps" to "apps", "commands" to "commands", "dnd" to "Do Not Disturb", "work" to "work profile")
-
-private val SCRIPT_FILTERS = listOf(
-    ScriptFilter("commands", "Commands") { s, _ -> s.isCommand },
-    ScriptFilter("timers", "Timers") { s, _ -> s.timed },
-    ScriptFilter("events", "Events") { s, _ -> s.events.isNotEmpty() },
-    ScriptFilter("pinned", "Pinned") { s, _ -> s.script.grants.allows(ScriptAccess.HEADER) },
-    ScriptFilter("needs-key", "Needs a key") { _, st -> st.needsKey },
-    ScriptFilter("failed", "Failed") { s, _ -> s.script.failed() },
-    ScriptFilter("off", "Off") { s, _ -> !s.script.enabled },
-    ScriptFilter("differs", "Differs from the library") { _, st -> st.differs },
-) + ScriptMeta.USES.map { what -> ScriptFilter("uses:$what", "Uses ${USES_SHORT[what] ?: what}") { s, _ -> what in s.uses } }
+/** What the filters know about [info]: see [ScriptFacts]. */
+private fun factsOf(info: ScriptInfo, copy: ScriptCopy?, needsKey: Boolean, tags: List<String>, selfUpdated: Boolean): ScriptFacts {
+    val s = info.script
+    return ScriptFacts(
+        name = s.name,
+        lang = s.lang.ext,
+        on = s.enabled,
+        failed = s.failed(),
+        needsKey = needsKey,
+        command = info.isCommand,
+        timer = info.timed,
+        event = info.events.isNotEmpty(),
+        pinned = info.grants.allows(ScriptAccess.HEADER),
+        source = copy?.source ?: ScriptSource.YOURS,
+        copy = copy?.state,
+        uses = info.uses.toSet(),
+        text = (listOfNotNull(s.name, info.title, info.desc, info.author) + tags).joinToString(" ").lowercase(),
+        lastRun = s.lastRun,
+        changedAt = s.changedAt,
+        selfUpdated = selfUpdated,
+    )
+}
 
 /**
  * The script manager in the Scripts tab (Material 3 Expressive). It shows one card per script.
- * - A compact card shows the title, kind, timers and last run on one line.
+ * - Above the cards: a search field, Filters (a sheet of chips, with a count of those on) and Sort.
+ *   The chips that are on show under the field, each with ×.
+ * - A note when Kolahal updated library scripts by itself, and a banner when copies differ from
+ *   the library or the shared version, with Review and Update all.
+ * - A compact card shows the title, how it runs and its last run on one line, and a pill for what
+ *   needs doing: Update, Reset or Add key.
  * - An expanded card also shows the status line, next run, usage, events and access.
- * - Chips and search filter the cards.
  * - Add script offers new, library, shared and imported scripts.
  * - Tapping a card opens the script's sheet.
  */
@@ -154,43 +198,53 @@ fun ScriptsScreen(
 ) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     val statuses by vm.statuses.collectAsStateWithLifecycle()
+    val notes by vm.scriptActions.pageNotes.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var sheetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var consentFor by remember { mutableStateOf<Script?>(null) }
-    var resetting by remember { mutableStateOf<LibRow?>(null) }
+    // The script whose Update or Reset asks first, because its edits would be lost.
+    var restoring by remember { mutableStateOf<Long?>(null) }
     // The script that Compare shows next to its library version.
     var comparing by remember { mutableStateOf<Long?>(null) }
+    var updatingAll by remember { mutableStateOf(false) }
+    // The script and the secret that Add key sets.
+    var addingKey by remember { mutableStateOf<Pair<Long, String>?>(null) }
+    // The filter chips that are on (ScriptFilters ids), the sort and the search. They survive rotation.
     var filters by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var sortName by rememberSaveable { mutableStateOf(ScriptSort.NAME.name) }
     var query by rememberSaveable { mutableStateOf("") }
-    var searching by rememberSaveable { mutableStateOf(false) }
+    var filtering by rememberSaveable { mutableStateOf(false) }
     // Details: whether all cards are open or closed, and the cards the user toggled after that.
     var expandAll by rememberSaveable { mutableStateOf(false) }
     var flipped by rememberSaveable { mutableStateOf(listOf<Long>()) }
+    val sort = runCatching { ScriptSort.valueOf(sortName) }.getOrDefault(ScriptSort.NAME)
     BackHandler {
         when {
-            searching -> { searching = false; query = "" }
+            query.isNotEmpty() -> query = ""
             else -> vm.closeScreen()
         }
     }
+    LaunchedEffect(vm) { vm.scriptActions.loadPageNotes() }
 
     // If a script declares access that nobody has allowed yet, switching it on asks first. All access is on in that dialog.
     fun setEnabled(s: Script, on: Boolean) {
         if (on && s.grants.undecided.isNotEmpty()) consentFor = s else vm.scriptActions.setScriptEnabled(s, on)
     }
 
-    // Reset to the library version. An edited copy loses its edits, so it asks first. An older unedited copy has nothing to lose.
-    fun resetFromLibrary(row: LibRow) {
-        if (row.state == ScriptLibrary.State.MODIFIED) resetting = row else vm.scriptActions.installFromLibrary(row.entry)
+    // Update or Reset. An edited copy loses its edits, so it asks first. An unedited one has nothing to lose: Undo is enough.
+    fun restore(s: Script, copy: ScriptCopy) {
+        if (copy.edited) restoring = s.id else vm.scriptActions.restore(listOf(copy.restore(s)))
     }
 
     val library by rememberLibraryRows(vm, scripts)
     val libByName = remember(library) { library.orEmpty().associateBy { it.entry.name } }
-    // Shared scripts that have a newer version. The list comes from the Get more scripts cache, so nothing is downloaded here.
-    val sharedUpdates by produceState(emptyMap(), scripts) {
+    // Copies from Get more scripts. The newest versions come from its kept list, so nothing is downloaded here.
+    val shared by produceState(emptyMap<String, SharedCopy>(), scripts) {
         value = withContext(Dispatchers.IO) {
-            vm.scriptActions.scriptCatalog.cached().orEmpty()
-                .filter { vm.scriptActions.scriptCatalog.state(it, scripts) == ScriptCatalog.State.UPDATE_AVAILABLE }.associateBy { it.name }
+            val catalog = vm.scriptActions.scriptCatalog
+            val latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()).associateBy { it.name }
+            scripts.mapNotNull { s -> catalog.copy(s, latest[s.name])?.let { s.name to SharedCopy(it, latest[s.name]) } }.toMap()
         }
     }
 
@@ -199,6 +253,21 @@ fun ScriptsScreen(
     val infos = remember(scripts) {
         keptCodes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
         scripts.map { s -> ScriptInfo(s, keptCodes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
+    }
+    // Library copies (the same name and language as a library script), then copies from Get more scripts. The rest are yours.
+    val copies = remember(infos, libByName, shared) {
+        infos.associate { i ->
+            val s = i.script
+            val lib = libByName[s.name]?.takeIf { it.state != ScriptLibrary.State.NOT_INSTALLED && it.entry.lang == s.lang }
+            s.id to (lib?.let(ScriptCopy::of) ?: shared[s.name]?.let { c ->
+                val state = when {
+                    c.copy.newer -> CopyState.NEW_VERSION
+                    c.copy.edited -> CopyState.EDITED
+                    else -> CopyState.UP_TO_DATE
+                }
+                ScriptCopy(ScriptSource.SHARED, state, c.copy.edited, shared = c.entry)
+            })
+        }
     }
     // Declared secrets with and without a value, by script name. The lists stay the same when the
     // page is rebuilt, so a card can skip recomposition when nothing of its own changed.
@@ -212,22 +281,30 @@ fun ScriptsScreen(
             }
         }
     }
-    fun stateOf(info: ScriptInfo) = ScriptState(
-        secretNames[info.script.name]?.missing.orEmpty().isNotEmpty(),
-        libByName[info.script.name]?.state.let { it == ScriptLibrary.State.MODIFIED || it == ScriptLibrary.State.UPDATE_AVAILABLE },
-    )
-    // Show only chips that match some script, with the count. A selected chip always stays, so the user can unselect it.
-    val chips = remember(infos, statuses, secretNames, libByName, filters) {
-        SCRIPT_FILTERS.map { f -> f to infos.count { f.keeps(it, stateOf(it)) } }.filter { it.second > 0 || it.first.id in filters }
+    // The library copies Kolahal updated by itself, while the note about them shows. Only those that are still here count.
+    val selfUpdate = notes?.selfUpdate
+    val selfUpdated = remember(selfUpdate, scripts) {
+        selfUpdate?.names.orEmpty().filterTo(HashSet()) { n -> scripts.any { it.name == n } }
     }
-    val shown = remember(infos, statuses, secretNames, libByName, filters, query) {
-        val active = SCRIPT_FILTERS.filter { it.id in filters }
-        val words = query.lowercase().split(' ').filter { it.isNotBlank() }
-        infos.filter { info ->
-            val text = listOfNotNull(info.script.name, info.title, info.desc).joinToString(" ").lowercase()
-            active.all { it.keeps(info, stateOf(info)) } && words.all { it in text }
+    val facts = remember(infos, copies, secretNames, shared, selfUpdated) {
+        infos.map { i ->
+            val name = i.script.name
+            factsOf(i, copies[i.script.id], secretNames[name]?.missing.orEmpty().isNotEmpty(), shared[name]?.entry?.tags.orEmpty(), name in selfUpdated)
         }
     }
+    val infoByName = remember(infos) { infos.associateBy { it.script.name } }
+    // Only chips this version has: a saved id of an older one is left out.
+    val chosen = remember(filters) { filters.filterTo(LinkedHashSet()) { ScriptFilters.byId(it) != null } }
+    val found = remember(facts, query) { facts.filter { ScriptFilters.found(it, query) } }
+    // Names only: facts are compared by value, so a change they don't hold (an access switch) keeps them
+    // equal. The cards must still get the scripts as they are now.
+    val shownNames = remember(found, chosen, sort) { ScriptFilters.sorted(found.filter { ScriptFilters.matches(it, chosen) }, sort).map { it.name } }
+    val shown = shownNames.mapNotNull { infoByName[it] }
+    // Copies that differ from where they came from, for the banner. It stays closed while the user closed it for these same ones.
+    val differing = remember(infos, copies) { infos.mapNotNull { i -> copies[i.script.id]?.takeIf { it.state != CopyState.UP_TO_DATE }?.let { i.script to it } } }
+    val signature = differing.map { (s, c) -> "${s.name}:${c.state}" }.toSet()
+    val bannerHidden = notes?.bannerHiddenFor?.split(',')?.toSet()
+    val showBanner = differing.isNotEmpty() && notes != null && (bannerHidden == null || !bannerHidden.containsAll(signature))
     val on = scripts.count { it.enabled }
 
     GuiTheme {
@@ -244,9 +321,6 @@ fun ScriptsScreen(
             onBack = vm::closeScreen,
             snackbar = snackbar,
             actions = {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { searching = !searching; if (!searching) query = "" }) {
-                    Icon(painterResource(R.drawable.ic_search), contentDescription = "Search scripts")
-                }
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = { expandAll = !expandAll; flipped = emptyList() }) {
                     Icon(
                         painterResource(R.drawable.ic_expand_more),
@@ -267,35 +341,42 @@ fun ScriptsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item(key = "tabs") { FeatureTabs(vm, Screen.SCRIPTS) }
-            if (searching) {
+            if (scripts.isNotEmpty()) {
                 item(key = "search") {
-                    TextField(
-                        colors = fieldColors(),
-                        value = query,
-                        onValueChange = { query = it },
-                        placeholder = { Text("Search by name, title or description") },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                        singleLine = true,
-                        shape = TextFieldDefaults.roundedShape,
-                        modifier = Modifier.fillMaxWidth(),
+                    SearchRow(query, { query = it }, chosen.size, onFilters = { filtering = true }, sort) { sortName = it.name }
+                }
+            }
+            if (chosen.isNotEmpty()) {
+                item(key = "chosen") {
+                    ChosenFilters(chosen, selfUpdate?.version, onRemove = { id -> filters = filters - id }) { filters = emptyList() }
+                }
+            }
+            if (selfUpdate != null && selfUpdated.isNotEmpty()) {
+                item(key = "self-updated") {
+                    SelfUpdateNote(
+                        selfUpdate.version,
+                        selfUpdated.size,
+                        onShow = { filters = listOf(ScriptFilters.SELF_UPDATED) },
+                        onClose = {
+                            filters = filters - ScriptFilters.SELF_UPDATED
+                            vm.scriptActions.dismissSelfUpdate()
+                        },
                     )
                 }
             }
-            if ((scripts.size > 1 && chips.isNotEmpty()) || filters.isNotEmpty()) {
-                // One row that scrolls sideways, because the number of chips grows with what scripts use.
-                item(key = "chips") {
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for ((f, count) in chips) {
-                            val selected = f.id in filters
-                            FilterChip(
-                                selected = selected,
-                                onClick = { filters = if (selected) filters - f.id else filters + f.id },
-                                label = { Text("${f.label} $count") },
-                            )
-                        }
-                    }
+            if (showBanner) {
+                item(key = "banner") {
+                    CopiesBanner(
+                        newer = differing.count { it.second.state == CopyState.NEW_VERSION },
+                        edited = differing.count { it.second.state == CopyState.EDITED },
+                        canUpdate = differing.any { it.second.canRestore },
+                        onReview = { filters = ScriptFilters.review(filters.toSet()).toList() },
+                        onUpdateAll = { updatingAll = true },
+                        onHide = { vm.scriptActions.hideBanner(signature.sorted().joinToString(",")) },
+                    )
                 }
             }
+            if (scripts.isNotEmpty()) item(key = "count") { CountLine(shown.size, scripts.size, sort) }
             when {
                 scripts.isEmpty() -> item(key = "empty") {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -311,14 +392,15 @@ fun ScriptsScreen(
                 }
                 else -> items(shown, key = { it.script.id }) { info ->
                     val s = info.script
+                    val copy = copies[s.id]
                     ScriptCard(
                         info,
                         line = statuses[s.name],
                         missingKeys = secretNames[s.name]?.missing.orEmpty(),
                         secretsSet = secretNames[s.name]?.set.orEmpty(),
                         expanded = expandAll != (s.id in flipped),
-                        updateAvailable = libByName[s.name]?.state == ScriptLibrary.State.UPDATE_AVAILABLE || s.name in sharedUpdates,
-                        library = libByName[s.name]?.state?.takeIf { it != ScriptLibrary.State.NOT_INSTALLED },
+                        copy = copy,
+                        selfUpdatedIn = selfUpdate?.version?.takeIf { s.name in selfUpdated },
                         onExpand = { flipped = if (s.id in flipped) flipped - s.id else flipped + s.id },
                         onClick = { sheetId = s.id },
                         onEnabled = { setEnabled(s, it) },
@@ -326,7 +408,8 @@ fun ScriptsScreen(
                         onAccess = { item, on -> vm.scriptActions.setScriptAccess(s, item, on) },
                         onNotify = { vm.scriptActions.setScriptNotify(s, it) },
                         onCompare = { comparing = s.id },
-                        onReset = { libByName[s.name]?.let(::resetFromLibrary) },
+                        onRestore = { copy?.let { restore(s, it) } },
+                        onAddKey = { secretNames[s.name]?.missing?.firstOrNull()?.let { addingKey = s.id to it } },
                     )
                 }
             }
@@ -340,11 +423,23 @@ fun ScriptsScreen(
         val sheetScript = sheetId?.let { id -> scripts.firstOrNull { it.id == id } }
         if (sheetScript != null) {
             ScriptSheet(
-                vm, sheetScript, libByName[sheetScript.name], sharedUpdates[sheetScript.name],
+                vm, sheetScript, copies[sheetScript.id],
                 onEnabled = { setEnabled(sheetScript, it) },
                 onDismiss = { sheetId = null },
                 onEdit = { sheetId = null; vm.openEditor(sheetScript) },
                 onExport = { onExportScript(sheetScript) },
+            )
+        }
+
+        if (filtering) {
+            FilterSheet(
+                groups = ScriptFilters.sheetGroups(facts, chosen),
+                counts = ScriptFilters.counts(found, chosen),
+                chosen = chosen,
+                shown = shown.size,
+                onToggle = { id -> filters = if (id in chosen) filters - id else filters + id },
+                onClear = { filters = emptyList() },
+                onDismiss = { filtering = false },
             )
         }
 
@@ -356,14 +451,39 @@ fun ScriptsScreen(
             }
         }
 
-        resetting?.let { lib ->
-            ResetDialog(lib, onDismiss = { resetting = null }) { resetting = null; vm.scriptActions.installFromLibrary(lib.entry) }
+        restoring?.let { id ->
+            val s = scripts.firstOrNull { it.id == id }
+            val copy = s?.let { copies[it.id] }?.takeIf { it.canRestore }
+            if (s != null && copy != null) {
+                RestoreDialog(vm, s, copy, onExport = { onExportScript(s) }, onDismiss = { restoring = null }) {
+                    restoring = null
+                    vm.scriptActions.restore(listOf(copy.restore(s)))
+                }
+            }
         }
 
         val compared = comparing?.let { id -> scripts.firstOrNull { it.id == id } }
-        val comparedLib = compared?.let { libByName[it.name] }?.takeIf { it.state.differs() }
-        if (compared != null && comparedLib != null) {
-            CompareDialog(vm, compared, comparedLib, onDismiss = { comparing = null }) { comparing = null; resetFromLibrary(comparedLib) }
+        val comparedCopy = compared?.let { copies[it.id] }?.takeIf { it.lib != null && it.canRestore }
+        if (compared != null && comparedCopy?.lib != null) {
+            CompareDialog(vm, compared, comparedCopy.lib, onDismiss = { comparing = null }) { comparing = null; restore(compared, comparedCopy) }
+        }
+
+        if (updatingAll) {
+            UpdateAllDialog(differing.filter { it.second.canRestore }, onDismiss = { updatingAll = false }) { picked ->
+                updatingAll = false
+                vm.scriptActions.restore(picked.map { (s, c) -> c.restore(s) })
+            }
+        }
+
+        addingKey?.let { (id, name) ->
+            val s = scripts.firstOrNull { it.id == id }
+            val secret = s?.let { infoByName[it.name] }?.secrets?.firstOrNull { it.name == name }
+            if (s != null && secret != null) {
+                SecretDialog(s.name, secret, isSet = false, onDismiss = { addingKey = null }) { value ->
+                    addingKey = null
+                    vm.scriptActions.setSecret(s.name, secret, value)
+                }
+            }
         }
 
         consentFor?.let { s ->

@@ -40,8 +40,10 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -207,12 +209,20 @@ internal fun GuiListPage(
     }
 }
 
-/** Shows [TerminalViewModel.notice] as a snackbar. Each new notice shows once. */
+/**
+ * Shows [TerminalViewModel.notice] as a snackbar. Each new notice shows once.
+ * A notice with Undo stays 10 seconds, longer than others, because it is about changes to scripts.
+ */
 @Composable
 internal fun rememberNoticeSnackbar(vm: TerminalViewModel): SnackbarHostState {
     val notice by vm.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it.text) } }
+    LaunchedEffect(notice) {
+        val n = notice ?: return@LaunchedEffect
+        val undo = n.undo
+        if (undo == null) snackbar.showSnackbar(n.text)
+        else if (snackbar.showSnackbar(n.text, actionLabel = "Undo", duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) undo()
+    }
     return snackbar
 }
 

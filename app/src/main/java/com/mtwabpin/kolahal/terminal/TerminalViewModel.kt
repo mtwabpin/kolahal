@@ -160,7 +160,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val actionsHost = object : ScriptActions.Host {
         override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
         override fun fileOp(label: String, block: suspend () -> Unit) = this@TerminalViewModel.fileOp(label, block)
-        override fun notice(text: String, error: Boolean) = this@TerminalViewModel.notice(text, error)
+        override fun notice(text: String, error: Boolean, undo: (() -> Unit)?) = this@TerminalViewModel.notice(text, error, undo)
         override fun show(text: String) = this@TerminalViewModel.show(text)
         override fun emit(event: UiEvent) { _events.tryEmit(event) }
         override fun openEditor(script: Script) = this@TerminalViewModel.openEditor(script)
@@ -1327,16 +1327,19 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     // ---- GUI screens (settings, script manager) ------------------------------------------
 
-    /** A message for the GUI screens. [seq] makes the same text shown twice count as two messages, so both show. */
-    data class Notice(val text: String, val seq: Long)
+    /**
+     * A message for the GUI screens. [seq] makes the same text shown twice count as two messages, so both show.
+     * With [undo], the page offers Undo for a while.
+     */
+    data class Notice(val text: String, val seq: Long, val undo: (() -> Unit)? = null)
 
     private val _notice = MutableStateFlow<Notice?>(null)
     private var noticeSeq = 0L
     /** A short result message shown on the GUI screens (also logged to the terminal). */
     val notice: StateFlow<Notice?> = _notice.asStateFlow()
 
-    private fun show(text: String) {
-        _notice.value = Notice(text, ++noticeSeq)
+    private fun show(text: String, undo: (() -> Unit)? = null) {
+        _notice.value = Notice(text, ++noticeSeq, undo)
     }
 
     /** Pages opened from other pages (Settings → Script manager). Back returns through them in order. */
@@ -1395,8 +1398,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         if (previous == Screen.SETUP || previous == Screen.ONBOARDING) refreshSetup()
     }
 
-    private fun notice(text: String, error: Boolean = false) {
-        show(text)
+    private fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null) {
+        show(text, undo)
         logs.add(if (error) LogKind.ERROR else LogKind.INFO, text)
     }
 

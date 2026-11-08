@@ -33,15 +33,28 @@ as editing, so the script still updates with Kolahal.
     they become what the new version sets.
   - Anything new that it asks for with `@uses` or `@on` stays off until you allow it. A line in the
     log lets you allow it.
-  - The log lists the updated scripts.
-- If you edited your copy, it isn't updated. It is marked **(edited)** in `script lib` and "edited"
-  in the script manager. The **Differs from the library** chip lists all of them.
-- **Compare** (in the card's details or the script's sheet) shows the differences. Lines only in
-  the library version are red. Lines only in yours are in the theme's colour. `script diff weather`
-  prints the same in the log.
-- Your edited copy is replaced only when you ask: run `script install weather --replace`, or tap
-  **Reset to library version** next to Compare (or at the bottom of Compare). Export your copy first
-  if you want to keep it.
+  - The log lists the updated scripts. The script manager shows one line, for example "Kolahal 0.5.1
+    updated 3 scripts". **Show** lists them, and their cards say "updated in 0.5.1" until you close
+    the line with ×.
+- If you edited your copy, it isn't updated. It is marked **(edited)** in `script lib`. In the
+  script manager, its card shows a pill:
+  - **Edited · Reset** when the library has nothing newer;
+  - **New version · Update** when the library changed since you installed it.
+
+  The **Library version** filters (Up to date, New version, Edited) list them. When any differ, a
+  banner says how many; **Review** shows them, and **Update all…** updates the ones you tick. New
+  versions start ticked; edited copies with nothing newer don't.
+- **Compare** (in the card's details, the script's sheet, or the question before a reset) shows the
+  differences. Lines only in the library version are red. Lines only in yours are in the theme's
+  colour. `script diff weather` prints the same in the log.
+- Your edited copy is replaced only when you ask: run `script install weather --replace`, or tap the
+  pill or **Reset to library version** next to Compare (or at the bottom of Compare). The app asks
+  first, and offers **Compare first** and **Export your copy first**.
+- A reset or an update changes only the code. The timers, options, access and pinning stay. The
+  message after it ("lobsters.lua is back to the library version", "hn.lua is updated") has
+  **Undo** for 10 seconds: it puts your copy back.
+- **Add script → From the library** lists your copies that differ first, under "Your copy differs",
+  with Compare and Update or Reset.
 
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.

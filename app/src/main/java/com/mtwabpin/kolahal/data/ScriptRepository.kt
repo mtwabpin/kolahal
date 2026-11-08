@@ -40,6 +40,8 @@ data class Script(
     val atTimes: List<String> = emptyList(),
     /** The user's access switches: item to on or off ([ScriptAccess]). A missing item is undecided. */
     val access: Map<String, Boolean> = emptyMap(),
+    /** When its code or name last changed. Null for a script not changed since Kolahal 0.5.1. */
+    val changedAt: Long? = null,
 ) {
     val grants: ScriptAccess.Grants get() = ScriptAccess.grants(code, access)
 }
@@ -68,6 +70,7 @@ class ScriptRepository private constructor(private val context: Context) {
             put("code", code)
             put("enabled", if (enabled) 1 else 0)
             if (enabled) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(code, emptyMap())))
+            put("changed_at", System.currentTimeMillis())
         })
         version.incrementAndGet()
         return byName(name)!!
@@ -92,6 +95,7 @@ class ScriptRepository private constructor(private val context: Context) {
         update(id) {
             put("code", code)
             put("access", ScriptAccess.encode(access))
+            put("changed_at", System.currentTimeMillis())
         }
         // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
         if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(context, s.name)
@@ -128,6 +132,7 @@ class ScriptRepository private constructor(private val context: Context) {
             put("code", code)
             put("enabled", 0)
             put("access", ScriptAccess.encode(s.access.filterValues { !it } + newInternet(s, code).associateWith { false }))
+            put("changed_at", System.currentTimeMillis())
         }
         // Its timers follow a changed `@every` or `@at` line, as after an edit. A timer set in its sheet stays.
         setInterval(id, ScriptMeta.intervalAfter(s.code, code, s.intervalMin))
@@ -146,6 +151,18 @@ class ScriptRepository private constructor(private val context: Context) {
     ).use { c ->
         c.moveToFirst()
         "${version.get()}:${c.getLong(0)}:${c.getLong(1)}:${c.getLong(2)}:${c.getLong(3)}"
+    }
+
+    /**
+     * Puts back the code, access and change time that [before] had. Undo after an update or a reset
+     * uses it, so the copy is exactly as it was. Its timers, switches and options were never changed.
+     */
+    fun putBack(before: Script) {
+        update(before.id) {
+            put("code", before.code)
+            put("access", ScriptAccess.encode(before.access))
+            if (before.changedAt == null) putNull("changed_at") else put("changed_at", before.changedAt)
+        }
     }
 
     fun setInterval(id: Long, minutes: Int) = update(id) { put("interval_min", minutes) }
@@ -202,7 +219,7 @@ class ScriptRepository private constructor(private val context: Context) {
         if (s.name == to) return
         val w = db.writableDatabase
         w.transaction {
-            update("scripts", ContentValues().apply { put("name", to) }, "id = ?", arrayOf(id.toString()))
+            update("scripts", ContentValues().apply { put("name", to); put("changed_at", System.currentTimeMillis()) }, "id = ?", arrayOf(id.toString()))
             delete("kv", "scope = ?", arrayOf(SecretStore.scope(to)))
             update("kv", ContentValues().apply { put("scope", SecretStore.scope(to)) }, "scope = ?", arrayOf(SecretStore.scope(s.name)))
             delete("kv", "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(to)))
@@ -264,6 +281,7 @@ class ScriptRepository private constructor(private val context: Context) {
             lastStatus = getString(getColumnIndexOrThrow("last_status")),
             atTimes = getString(getColumnIndexOrThrow("at_times"))?.split(',')?.filter { it.isNotBlank() }.orEmpty(),
             access = ScriptAccess.parse(getString(getColumnIndexOrThrow("access"))),
+            changedAt = getColumnIndexOrThrow("changed_at").let { if (isNull(it)) null else getLong(it) },
         )
     }
 

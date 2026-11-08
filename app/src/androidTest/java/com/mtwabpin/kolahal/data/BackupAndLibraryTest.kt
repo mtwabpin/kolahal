@@ -288,6 +288,53 @@ class BackupAndLibraryTest {
         }
     }
 
+    /** Updating from 0.5.0 (version 8) adds when each script last changed: none yet for the scripts already there. */
+    @Test fun scriptsGetAChangeTimeOnUpdate() {
+        val db = android.database.sqlite.SQLiteDatabase.create(null)
+        try {
+            // The scripts table of version 8, as onCreate made it, with one script.
+            db.execSQL(
+                "CREATE TABLE scripts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, lang TEXT NOT NULL, code TEXT NOT NULL, " +
+                    "interval_min INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, notify INTEGER NOT NULL DEFAULT 0, " +
+                    "last_run INTEGER, last_status TEXT, at_times TEXT, access TEXT)",
+            )
+            db.execSQL("CREATE TABLE logs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT NOT NULL, source TEXT, text TEXT NOT NULL, ctx TEXT, starred INTEGER NOT NULL DEFAULT 0)")
+            db.execSQL("INSERT INTO scripts (name, lang, code) VALUES ('old', 'lua', 'return 1')")
+            // Both processes may open the database after an update: the step runs once.
+            Db.get(context).upgrade(db, 8)
+            Db.get(context).upgrade(db, 8)
+            val columns = db.rawQuery("PRAGMA table_info(scripts)", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) } }
+            assertTrue(columns.toString(), "changed_at" in columns)
+            db.rawQuery("SELECT changed_at FROM scripts WHERE name = 'old'", null).use { c -> assertTrue(c.moveToFirst() && c.isNull(0)) }
+        } finally {
+            db.close()
+        }
+    }
+
+    /** A script's change time is set when it is made, and moves when its code or name changes; Undo of an update puts it back. */
+    @Test fun aScriptsChangeTimeFollowsItsCodeAndName() {
+        val start = System.currentTimeMillis()
+        val s = scripts.create("bktest", ScriptLang.LUA, "return 1")
+        assertTrue("${s.changedAt} >= $start", (s.changedAt ?: 0) >= start)
+        fun older() = scripts.putBack(scripts.byId(s.id)!!.copy(changedAt = 1L)).let { assertEquals(1L, scripts.byId(s.id)!!.changedAt) }
+        older()
+        scripts.saveCode(s.id, "return 2", byUser = true)
+        assertTrue((scripts.byId(s.id)!!.changedAt ?: 0) >= start)
+        older()
+        scripts.replaceCode(s.id, "return 3")
+        assertTrue((scripts.byId(s.id)!!.changedAt ?: 0) >= start)
+        older()
+        scripts.rename(s.id, "bknew")
+        assertTrue((scripts.byId(s.id)!!.changedAt ?: 0) >= start)
+        // A run is no change.
+        older()
+        scripts.recordRun(s.id, "ok")
+        assertEquals(1L, scripts.byId(s.id)!!.changedAt)
+        // putBack also clears it, for a script that had none.
+        scripts.putBack(scripts.byId(s.id)!!.copy(changedAt = null))
+        assertNull(scripts.byId(s.id)!!.changedAt)
+    }
+
     /** A backup from 0.4.1 or before brings its log back without the old `── name · 22:40 ──` lines. */
     @Test fun oldRunHeadersStayBehindOnRestore() {
         val logs = LogRepository.get(context)
@@ -558,7 +605,11 @@ class BackupAndLibraryTest {
         val lib = ScriptLibrary(context)
         val prefs = context.getSharedPreferences("script_library", android.content.Context.MODE_PRIVATE)
         val (kept, edited) = listOf("countdown", "charge-reminder").map { name -> lib.entries.single { it.name == name } }
+        // The note about copies Kolahal updated by itself is the phone's: it comes back after the test.
+        val notePrefs = context.getSharedPreferences("library_updates", android.content.Context.MODE_PRIVATE)
+        val noteWas = listOf("self_updated", "self_updated_in").associateWith { notePrefs.getString(it, null) }
         try {
+            lib.dismissSelfUpdate()
             for (e in listOf(kept, edited)) lib.install(e)
             // As an older Kolahal installed them: an older copy, recorded as installed.
             val older = "-- an older copy\nreturn 1"
@@ -577,13 +628,24 @@ class BackupAndLibraryTest {
             assertEquals(ScriptLibrary.State.MODIFIED, lib.state(edited, scripts.all()))
             assertEquals(older + "\n-- mine", scripts.byName(edited.name)!!.code)
             assertTrue(LogRepository.get(context).recent(20).any { it.text == "Library scripts updated with Kolahal: ${kept.name}" })
+            // The Scripts tab notes it, with this version.
+            val note = lib.selfUpdate()!!
+            assertEquals(com.mtwabpin.kolahal.BuildConfig.VERSION_NAME, note.version)
+            assertTrue(note.names.toString(), kept.name in note.names && edited.name !in note.names)
+            // The edited copy came from an older version, so the library has a newer one for it.
+            assertTrue(lib.hasNewer(edited, ScriptLibrary.State.MODIFIED))
             // Once per library: the next start does nothing.
             assertEquals(emptyList<String>(), lib.updateUnedited())
+            // The note stays until it is closed.
+            assertTrue(kept.name in lib.selfUpdate()!!.names)
+            lib.dismissSelfUpdate()
+            assertNull(lib.selfUpdate())
         } finally {
             for (e in listOf(kept, edited)) {
                 scripts.byName(e.name)?.let { scripts.delete(it.id) }
                 lib.forget(e.name)
             }
+            notePrefs.edit().apply { noteWas.forEach { (k, v) -> if (v == null) remove(k) else putString(k, v) } }.commit()
             LogRepository.get(context).recent(20).filter { it.text.startsWith("Library scripts updated") }.forEach { LogRepository.get(context).delete(it.id) }
         }
     }

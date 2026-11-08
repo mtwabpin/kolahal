@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val KEY_PENDING_EXPORT = "pending_export"
+private const val KEY_BANNER_HIDDEN = "banner_hidden"
 
 /**
  * The actions that the script screens perform on scripts:
@@ -50,7 +51,8 @@ class ScriptActions(
     interface Host {
         fun io(block: suspend () -> Unit)
         fun fileOp(label: String, block: suspend () -> Unit)
-        fun notice(text: String, error: Boolean = false)
+        /** Shows [text] on the page and logs it. With [undo], the page offers Undo for a while. */
+        fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null)
         fun show(text: String)
         fun emit(event: UiEvent)
         fun openEditor(script: Script)
@@ -62,7 +64,7 @@ class ScriptActions(
 
     private fun io(block: suspend () -> Unit) = host.io(block)
     private fun fileOp(label: String, block: suspend () -> Unit) = host.fileOp(label, block)
-    private fun notice(text: String, error: Boolean = false) = host.notice(text, error)
+    private fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null) = host.notice(text, error, undo)
     private fun show(text: String) = host.show(text)
     private fun openEditor(script: Script) = host.openEditor(script)
 
@@ -198,12 +200,117 @@ class ScriptActions(
 
     val library by lazy { ScriptLibrary(context) }
 
+    /** Installs [entry] from the library. If you have a copy already, it updates it as [restore] does. */
     fun installFromLibrary(entry: ScriptLibrary.Entry) {
         fileOp("install") {
+            scripts.byName(entry.name)?.let { return@fileOp restoreNow(listOf(Restore(it, library = entry))) }
             val s = changes.install(library, entry)
             refreshScriptCaches()
             notice("Installed ${s.name}.${s.lang.ext}" + if (entry.command) " — run it as '${s.name}'" else "")
         }
+    }
+
+    // ---- updates and resets of library and shared copies ----------------------------------
+
+    /** A copy to bring to its source's version: [library]'s, or [shared]'s from Get more scripts. */
+    class Restore(val script: Script, val library: ScriptLibrary.Entry? = null, val shared: ScriptCatalog.Entry? = null)
+
+    /**
+     * Brings each copy in [list] to the library's or the shared version. Only the code changes: its
+     * timers, options, access and pinning stay. The notice offers Undo, which puts every copy back as
+     * it was, with the text it was installed from, so it shows as edited or older again.
+     */
+    fun restore(list: List<Restore>) {
+        if (list.isNotEmpty()) fileOp("update") { restoreNow(list) }
+    }
+
+    /** A copy as it was before [restore], for Undo. */
+    private class Before(val script: Script, val libraryOriginal: String?, val sharedOrigin: String?, val secrets: Map<String, String>)
+
+    private suspend fun restoreNow(list: List<Restore>) {
+        val done = ArrayList<Before>()
+        val failed = ArrayList<String>()
+        // The words for one copy: an edited copy with nothing newer is reset, anything else is updated.
+        var reset: String? = null
+        for (r in list) {
+            val now = scripts.byId(r.script.id) ?: continue
+            val before = Before(now, library.recorded(now.name), scriptCatalog.recorded(now.name), secretStore.kept(now.name))
+            runCatching {
+                when {
+                    r.library != null -> {
+                        val state = library.state(r.library, listOf(now))
+                        if (state == ScriptLibrary.State.MODIFIED && !library.hasNewer(r.library, state)) reset = "library"
+                        changes.install(library, r.library)
+                    }
+                    r.shared != null -> {
+                        val copy = scriptCatalog.copy(now, r.shared)
+                        if (copy != null && copy.edited && !copy.newer) reset = "shared"
+                        scriptCatalog.install(r.shared, sharedScriptCode(r.shared), replace = true)
+                    }
+                    else -> throw IllegalStateException("it has nothing to update from")
+                }
+            }.onSuccess { done += before }.onFailure { failed += "${now.name} (${it.message ?: it.javaClass.simpleName})" }
+        }
+        refreshScriptCaches()
+        if (done.isEmpty() && failed.isEmpty()) return
+        val file = done.singleOrNull()?.script?.let { "${it.name}.${it.lang.ext}" }
+        val text = listOfNotNull(
+            when {
+                done.isEmpty() -> null
+                file != null && list.size == 1 && reset != null -> "$file is back to the $reset version"
+                file != null && list.size == 1 -> "$file is updated"
+                else -> "${done.size} ${if (done.size == 1) "script" else "scripts"} updated"
+            },
+            if (failed.isEmpty()) null else (if (done.isEmpty()) "Not updated: " else "not updated: ") + failed.joinToString(", "),
+        ).joinToString(" · ")
+        if (done.isEmpty()) return notice(text, error = true)
+        notice(text, error = failed.isNotEmpty(), undo = { io { putBack(done) } })
+    }
+
+    /** Undo of [restore]: each copy gets its code, access and recorded original back. */
+    private suspend fun putBack(done: List<Before>) {
+        for (b in done) {
+            scripts.byId(b.script.id) ?: continue
+            scripts.putBack(b.script)
+            library.record(b.script.name, b.libraryOriginal)
+            scriptCatalog.record(b.script.name, b.sharedOrigin)
+            secretStore.putBack(b.script.name, b.secrets)
+            scripts.byId(b.script.id)?.let { ScriptScheduler.sync(context, it) }
+        }
+        logs.onStatusChanged()
+        refreshScriptCaches()
+        val one = done.singleOrNull()?.script
+        notice(if (one != null) "${one.name}.${one.lang.ext} is as it was" else "${done.size} scripts are as they were")
+    }
+
+    // ---- notes on the Scripts tab ----------------------------------------------------------
+
+    /**
+     * What the Scripts tab notes above its list:
+     * - [selfUpdate]: the library copies Kolahal updated by itself, until the user closes the note;
+     * - [bannerHiddenFor]: the copies that the banner was about when the user closed it. It shows
+     *   again when they change.
+     */
+    data class PageNotes(val selfUpdate: ScriptLibrary.SelfUpdate?, val bannerHiddenFor: String?)
+
+    private val pagePrefs by lazy { context.getSharedPreferences("scripts_page", Context.MODE_PRIVATE) }
+
+    private val _pageNotes = MutableStateFlow<PageNotes?>(null)
+    /** Null until [loadPageNotes] read them. */
+    val pageNotes: StateFlow<PageNotes?> = _pageNotes.asStateFlow()
+
+    fun loadPageNotes() = io { _pageNotes.value = PageNotes(library.selfUpdate(), pagePrefs.getString(KEY_BANNER_HIDDEN, null)) }
+
+    /** The user closed the note about the copies Kolahal updated by itself. */
+    fun dismissSelfUpdate() {
+        _pageNotes.update { it?.copy(selfUpdate = null) }
+        io { library.dismissSelfUpdate() }
+    }
+
+    /** The user closed the banner about copies that differ. [signature] names them and their states. */
+    fun hideBanner(signature: String) {
+        _pageNotes.update { it?.copy(bannerHiddenFor = signature) }
+        io { pagePrefs.edit().putString(KEY_BANNER_HIDDEN, signature).apply() }
     }
 
     // ---- script secrets ------------------------------------------------------------------

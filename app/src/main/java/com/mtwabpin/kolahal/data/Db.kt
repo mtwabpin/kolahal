@@ -44,7 +44,8 @@ class Db private constructor(context: Context) :
                 last_run INTEGER,
                 last_status TEXT,
                 at_times TEXT,
-                access TEXT
+                access TEXT,
+                changed_at INTEGER
             )
             """.trimIndent()
         )
@@ -97,7 +98,10 @@ class Db private constructor(context: Context) :
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = upgrade(db, oldVersion)
+
+    /** Brings a database from [oldVersion] to [VERSION]. Tests run it on a database of their own. */
+    internal fun upgrade(db: SQLiteDatabase, oldVersion: Int) {
         // Both processes may open the database right after an update, so each step must run only once.
         if (oldVersion < 2 && !hasColumn(db, "scripts", "at_times")) db.execSQL("ALTER TABLE scripts ADD COLUMN at_times TEXT")
         if (oldVersion < 3) createProductivityTables(db)
@@ -112,6 +116,8 @@ class Db private constructor(context: Context) :
             if (!hasColumn(db, "logs", "starred")) db.execSQL("ALTER TABLE logs ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
             db.execSQL(STARRED_INDEX)
         }
+        // When a script's code or name last changed (version 9), for "Recently changed" in the Scripts tab. Older rows have none.
+        if (oldVersion < 9 && !hasColumn(db, "scripts", "changed_at")) db.execSQL("ALTER TABLE scripts ADD COLUMN changed_at INTEGER")
     }
 
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
@@ -138,7 +144,7 @@ class Db private constructor(context: Context) :
 
     companion object : Singleton<Db>(::Db) {
         private const val NAME = "kolahal.db"
-        private const val VERSION = 8
+        private const val VERSION = 9
 
         /** An index of only the starred lines, by kind. A trim counts them with it instead of reading every line. */
         private const val STARRED_INDEX = "CREATE INDEX IF NOT EXISTS logs_starred ON logs(kind) WHERE starred = 1"

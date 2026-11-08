@@ -89,6 +89,12 @@ class MainActivity : ComponentActivity() {
     private val exportScript =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { vm.scriptActions.finishExportScript(it) }
 
+    /** Asks where to save [s], then saves it there ([com.mtwabpin.kolahal.terminal.ScriptActions.finishExportScript]). */
+    private fun exportScriptFile(s: com.mtwabpin.kolahal.data.Script) {
+        vm.scriptActions.beginExportScript(s)
+        exportScript.launch("${s.name}.${s.lang.ext}")
+    }
+
     /** The add-a-widget flow (bind permission and configure activity). */
     private val widgetBinder = WidgetBinder(this) { _ ->
         if (vm.screen.value == Screen.WIDGET_PICKER) vm.closeScreen()
@@ -214,13 +220,10 @@ class MainActivity : ComponentActivity() {
                         Screen.SCRIPTS -> ScriptsScreen(
                             vm,
                             onImportFiles = { importScripts.launch(arrayOf("*/*")) },
-                            onExportScript = { s ->
-                                vm.scriptActions.beginExportScript(s)
-                                exportScript.launch("${s.name}.${s.lang.ext}")
-                            },
+                            onExportScript = ::exportScriptFile,
                         )
                         Screen.GET_SCRIPTS -> com.mtwabpin.kolahal.ui.GetScriptsScreen(vm)
-                        Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(vm)
+                        Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(vm, onExportScript = ::exportScriptFile)
                         Screen.FEEDS -> FeedsScreen(vm, onRequestNotifications = ::requestNotifications)
                         Screen.SETUP -> SetupScreen(vm)
                         Screen.ONBOARDING -> com.mtwabpin.kolahal.ui.OnboardingScreen(vm)
