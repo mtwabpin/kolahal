@@ -94,7 +94,6 @@ internal val TITLES = mapOf(
  */
 internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
     Keys.FONT_SIZE.key to false,
-    Keys.LOG_LINE_HEIGHT.key to false,
     Keys.LOG_SPACING.key to false,
     Keys.LOG_ITEM_SPACING.key to false,
     Keys.SELECTOR_HEIGHT.key to false,
@@ -215,7 +214,6 @@ private val CATEGORIES = listOf(
                 Keys.LOG_GUTTER,
                 Keys.LOG_SPACING,
                 Keys.LOG_ITEM_SPACING,
-                Keys.LOG_LINE_HEIGHT,
                 Keys.LOG_TALLER_TAPS,
                 Keys.LOG_TABLES,
                 Keys.LOG_FOLD,

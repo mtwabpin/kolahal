@@ -255,4 +255,20 @@ class ScriptCommandsTest {
         assertTrue(later.joinToString { it.text }, later.none { it.text == "sctest-cmd ran" || it.source == s.name })
         assertNull(scripts.byId(s.id)!!.lastRun)
     }
+
+    /**
+     * A run you start that shows nothing (as hn does with no new stories) says it finished, so
+     * "Running …" isn't left without an answer. One that logs a line says nothing more.
+     */
+    @Test fun aRunThatShowsNothingSaysSo() {
+        val quiet = create("quiet", "local x = 1")
+        val loud = create("loud", "log('sctest-loud ran')")
+        run("script run ${quiet.name}")
+        run("script run ${loud.name}")
+        com.mtwabpin.kolahal.waitUntil("both runs end", 30_000) { scripts.byId(quiet.id)!!.lastRun != null && scripts.byId(loud.id)!!.lastRun != null }
+        com.mtwabpin.kolahal.waitUntil("the quiet run says so", 5_000) { logs.recent(400, afterId = logLines.start).any { it.text == "${quiet.name} ran: nothing to show" } }
+        val later = logs.recent(400, afterId = logLines.start)
+        assertTrue(later.joinToString { it.text }, later.any { it.text == "sctest-loud ran" })
+        assertTrue(later.joinToString { it.text }, later.none { it.text == "${loud.name} ran: nothing to show" })
+    }
 }

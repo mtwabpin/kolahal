@@ -126,6 +126,10 @@ internal object ScriptRun {
                 logs.add(LogKind.OUTPUT, shown, name, LogContext.of(LogContext.COPY to shown) + errorCtx.values)
             } else if (repl && host.effects == 0) {
                 logs.add(LogKind.OUTPUT, "nil", name, errorCtx)
+            } else if (script != null && host.effects == 0 && on != "action" && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
+                // A run you started showed nothing (hn with no new stories, say). Say it finished, so
+                // "Running hn…" isn't left without an answer. A button's run is left out: its line shows it done.
+                logs.add(LogKind.INFO, "$name ran: nothing to show", name, errorCtx)
             }
             host.commit()
             "ok in ${System.currentTimeMillis() - started}ms"

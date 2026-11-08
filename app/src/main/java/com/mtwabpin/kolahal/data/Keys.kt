@@ -245,7 +245,7 @@ object Keys {
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header).
      */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT)
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, LOG_LINE_HEIGHT, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT)
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {
