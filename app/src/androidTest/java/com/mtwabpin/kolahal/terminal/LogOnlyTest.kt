@@ -154,4 +154,31 @@ class LogOnlyTest {
         type(vm, "/@loxkcd @loreleases")
         waitUntil("both scripts' lines") { vm.search.value?.total == 3 }
     }
+
+    /**
+     * A search's results follow lines a script changes in place (line.set): a changed line that
+     * still matches shows its new text, one that no longer matches leaves, and one that now
+     * matches comes in.
+     */
+    @Test fun aSearchFollowsLinesChangedInPlace() {
+        val vm = viewModel()
+        waitUntil("the lines load") { vm.entries.value.any { it.text == "lo second comic" } }
+        fun found() = vm.search.value?.rows.orEmpty().mapNotNull { (it as? LogRow.Entry)?.entry?.text }
+        type(vm, "/lo comic")
+        waitUntil("two comics") { found() == listOf("lo first comic", "lo second comic") }
+        val byText = logs.recent(200).associateBy { it.text }
+        val first = byText.getValue("lo first comic")
+        assertTrue(logs.update(first.id, "lo first comic, bigger", first.ctx))
+        waitUntil("changed where it is") { found() == listOf("lo first comic, bigger", "lo second comic") }
+        assertEquals(2, vm.search.value!!.total)
+        val second = byText.getValue("lo second comic")
+        assertTrue(logs.update(second.id, "lo second strip", second.ctx))
+        waitUntil("no longer a match") { found() == listOf("lo first comic, bigger") }
+        assertEquals(1, vm.search.value!!.total)
+        val release = byText.getValue("lo a release")
+        assertTrue(logs.update(release.id, "lo a release comic", release.ctx))
+        waitUntil("a new match") { found() == listOf("lo first comic, bigger", "lo a release comic") }
+        assertEquals(2, vm.search.value!!.total)
+        type(vm, "")
+    }
 }

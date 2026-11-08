@@ -607,15 +607,36 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // - A log change runs the search again, while home is shown. A search left in the prompt
             //   runs again once on return.
             // - Locking the private space hides its lines from the results too, as from the log.
+            // - Lines a script changes in place (line.set) are patched into the results, without
+            //   searching the whole log again ([patchSearch]).
             val locks = appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged()
+            // What the last whole search was for (its words, the log, the locks), and the last change
+            // in place it covers.
+            var searchedFor: Triple<List<String>?, Long, Set<Long>>? = null
+            var updatesSeen = 0L
             reading.flatMapLatest { on ->
                 if (!on) emptyFlow()
-                else combine(androidx.compose.runtime.snapshotFlow { searchWords(input.text) }.distinctUntilChanged(), logs.version, locks) { words, _, locked -> words to locked }
+                else combine(androidx.compose.runtime.snapshotFlow { searchWords(input.text) }.distinctUntilChanged(), logs.linesVersion, locks, logs.version) { words, lines, locked, _ ->
+                    Triple(words, lines, locked)
+                }
             }
-                .debounce { (words, _) -> if (words.isNullOrEmpty()) 0L else 120L }
-                .collectLatest { (words, locked) ->
+                .debounce { (words, _, _) -> if (words.isNullOrEmpty()) 0L else 120L }
+                .collectLatest { key ->
+                    val (words, _, locked) = key
                     // A failed search keeps the previous results instead of crashing home.
                     try {
+                        val current = _search.value
+                        if (words != null && current != null && key == searchedFor) {
+                            // Nothing changed but lines in place: patch them in, unless that needs a whole search.
+                            val patched = withContext(Dispatchers.IO) { patchSearch(current, locked, updatesSeen) }
+                            if (patched != null) {
+                                _search.value = patched.first
+                                updatesSeen = patched.second
+                                return@collectLatest
+                            }
+                        }
+                        // Changes in place from here on come after this search: the next patch reads them.
+                        val seq = logs.updatedSeq
                         _search.value = when {
                             words == null -> null
                             else -> {
@@ -635,6 +656,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                                 }
                             }
                         }
+                        searchedFor = key
+                        updatesSeen = seq
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Throwable) {
@@ -642,6 +665,32 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                     }
                 }
         }
+    }
+
+    /**
+     * [current] with the lines changed in place since change [since] read again (a script's
+     * `line.set`), and the latest change number. A line that still matches is replaced where it is,
+     * and one that no longer does goes. Null when the whole log must be searched instead: the
+     * changes are too old to know, or a changed line now matches but isn't among the results.
+     */
+    private fun patchSearch(current: LogSearch, locked: Set<Long>, since: Long): Pair<LogSearch, Long>? {
+        val seq = logs.updatedSeq
+        val ids = logs.updatedSince(since) ?: return null
+        if (ids.isEmpty()) return current to seq
+        val changed = logs.byIds(ids).associateBy { it.id }
+        // The results, oldest first, as buildRows takes them.
+        val shown = current.rows.mapNotNull { (it as? LogRow.Entry)?.entry }
+        val shownIds = shown.mapTo(HashSet()) { it.id }
+        fun matches(e: LogEntry) = e.ctx.userSerial !in locked &&
+            (current.sources.isEmpty() || current.sources.any { it.matches(e) }) && logs.matchesWords(e, current.words)
+        if (changed.values.any { it.id !in shownIds && matches(it) }) return null
+        if (changed.keys.none { it in shownIds }) return current to seq
+        var total = current.total
+        val entries = shown.mapNotNull { e ->
+            val now = changed[e.id] ?: return@mapNotNull e
+            if (matches(now)) now else null.also { total-- }
+        }
+        return current.copy(rows = buildRows(entries, trim = false), total = total) to seq
     }
 
     /** A search result was tapped. The search ends, and the log shows that line, loading older lines as far back as needed. */

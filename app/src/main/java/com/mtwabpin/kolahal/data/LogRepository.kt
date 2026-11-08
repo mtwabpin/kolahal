@@ -23,6 +23,14 @@ class LogRepository private constructor(private val context: Context) {
     /** Incremented on every change this process sees. */
     val version: StateFlow<Long> = _version.asStateFlow()
 
+    private val _linesVersion = MutableStateFlow(0L)
+
+    /**
+     * Like [version], but not for lines changed in place ([updateAll], a script's `line.set`). A log
+     * search runs again on this; for changes in place it patches its results ([updatedSince]).
+     */
+    val linesVersion: StateFlow<Long> = _linesVersion.asStateFlow()
+
     fun add(
         kind: LogKind,
         text: String,
@@ -232,14 +240,14 @@ class LogRepository private constructor(private val context: Context) {
     private fun noteUpdated(ids: Collection<Long>) {
         if (ids.isEmpty()) return
         // Another process (a script) tells home which lines changed.
-        if (!inMainProcess) return changed(updated = ids)
+        if (!inMainProcess) return changed(updated = ids, inPlace = true)
         synchronized(this) {
             for (id in ids) {
                 updates.addLast(++updatedSeq to id)
                 if (updates.size > REMOVALS_KEPT) updates.removeFirst()
             }
         }
-        changed()
+        changed(inPlace = true)
     }
 
     /** Another process changed these lines in place. */
@@ -394,7 +402,7 @@ class LogRepository private constructor(private val context: Context) {
                 }
                 if (match != null && !match(e)) continue
                 searched++
-                if (!candidate || !words.all { w -> searchable(e).any { it.contains(w, ignoreCase = true) } }) continue
+                if (!candidate || !matchesWords(e, words)) continue
                 total++
                 if (found.size < limit) found += e
             }
@@ -417,6 +425,9 @@ class LogRepository private constructor(private val context: Context) {
     var filter: String?
         get() = prefs.getString(KEY_FILTER, null)
         set(value) = prefs.edit { if (value == null) remove(KEY_FILTER) else putString(KEY_FILTER, value) }
+
+    /** Whether line [e] has every one of [words] where a search looks ([searchable]), ignoring case. A search checks each line it finds with this. */
+    fun matchesWords(e: LogEntry, words: List<String>): Boolean = words.all { w -> searchable(e).any { it.contains(w, ignoreCase = true) } }
 
     /** What a search looks in: what the line shows (including a script line's body, without styles), where it came from, and where it leads. */
     private fun searchable(e: LogEntry): List<String> =
@@ -647,6 +658,7 @@ class LogRepository private constructor(private val context: Context) {
     /** Called when another process tells us the log changed. */
     fun onExternalChange() {
         _version.value++
+        _linesVersion.value++
     }
 
     /** Another process changed the middle of the log, so reload the page. */
@@ -656,13 +668,15 @@ class LogRepository private constructor(private val context: Context) {
     fun onExternalTrim(upTo: Long) {
         trimmedUpTo = maxOf(trimmedUpTo, upTo)
         _version.value++
+        _linesVersion.value++
     }
 
     /** Makes home look again without a new line, because a script run's result was recorded after its last line. */
     fun touch() = changed()
 
-    private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList()) {
+    private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList(), inPlace: Boolean = false) {
         _version.value++
+        if (!inPlace) _linesVersion.value++
         // Other processes (scripts) tell home. Home's own writes already incremented the version above.
         if (!inMainProcess) {
             context.sendBroadcast(
