@@ -203,15 +203,16 @@ class LibraryScriptsTest {
         assertEquals(true, status.get(name)?.startsWith("Charging since "))
         // Unplugged still below 30%: the warning colour, and how much it added under it.
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"))
-        assertEquals(Triple("Unplugged at 20%", "+5% in 0m", StyledText.Colour.WARN), plainOnly())
-        // The battery as a bar under it, in the same colour.
+        assertEquals(Triple("Unplugged at 20%", "+5% in 0m\n15%\t20%", StyledText.Colour.WARN), plainOnly())
+        // A bar under it, in the same colour, from where the charge started (15%) to where it is (20%).
         val bar = StyledText.lines(lines().single().ctx.body!!).last().meter!!
+        assertEquals(0.15f, bar.from, 0.001f)
         assertEquals(0.2f, bar.to, 0.001f)
         assertEquals(StyledText.Colour.WARN, bar.colour)
         assertNull(status.get(name))
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 20, "plug" to "ac"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 90, "plug" to "ac"))
-        assertEquals(Triple("Unplugged at 90%", "+70% in 0m", StyledText.Colour.GOOD), plainOnly())
+        assertEquals(Triple("Unplugged at 90%", "+70% in 0m\n20%\t90%", StyledText.Colour.GOOD), plainOnly())
 
         run("charge-reminder.lua")
         val (title, body) = only()
@@ -221,7 +222,7 @@ class LibraryScriptsTest {
         // Its low option: 20% is fine above 10%.
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 15, "plug" to "usb"), options = mapOf("low" to "10"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"), options = mapOf("low" to "10"))
-        assertEquals(Triple("Unplugged at 20%", "+5% in 0m", StyledText.Colour.GOOD), plainOnly())
+        assertEquals(Triple("Unplugged at 20%", "+5% in 0m\n15%\t20%", StyledText.Colour.GOOD), plainOnly())
     }
 
     private val nm = context.getSystemService(android.app.NotificationManager::class.java)

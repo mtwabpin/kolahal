@@ -46,10 +46,15 @@ if event.name == "unplug" then
   end
   store.set("last", os.date("%H:%M") .. " · " .. line .. (detail and (" (" .. detail .. ")") or ""))
   -- Below the low mark in the warning colour, otherwise the good one; how much it added under it,
-  -- and the battery as a bar in the same colour.
+  -- and a bar in the same colour: on the whole 0–100% scale, from where this charge started to
+  -- where it is now (from 0 when the start isn't known).
   local colour = level and level < LOW and "warn" or "good"
   local body = detail and (detail:sub(1, 1):upper() .. detail:sub(2))
-  if level then body = (body and (body .. "\n") or "") .. fmt.bar(level, { max = 100, color = colour }) end
+  if level then
+    local bar = from and fmt.ranges({ { "", from, level } }, { min = 0, max = 100, unit = "%", color = colour })
+      or fmt.bar(level, { max = 100, color = colour })
+    body = (body and (body .. "\n") or "") .. bar
+  end
   log(fmt.color(colour, line), body)
   if level and level < LOW then
     notify("Battery at " .. pct(level), "Unplugged before it was charged — plug in again soon")

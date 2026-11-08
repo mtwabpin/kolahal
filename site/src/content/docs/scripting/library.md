@@ -252,7 +252,8 @@ football live                # the league's live matches, as a table
 **Charge reminder**: runs when you plug in the charger and when you unplug it. It has no timer and
 doesn't use the network.
 
-- It logs how much charge each session added, with the battery as a bar.
+- It logs how much charge each session added, with a bar from the level it started at to the level
+  when you unplugged.
 - It notifies you when you unplug below 30% (its `low` option).
 - When you run it yourself, it shows the last session.
 
