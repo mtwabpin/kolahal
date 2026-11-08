@@ -33,7 +33,8 @@ object Fetch {
     data class Row(val label: String, val value: String)
 
     /**
-     * The icon: two log lines with their coloured bars, then the prompt and its cursor.
+     * The icon: two answers with their coloured bars (a big number and a smaller one, then a range
+     * bar), then the prompt and its cursor.
      * It has no frame, because each log line is a separate row and the sides of a frame would not meet.
      * Each row has a colour mask:
      * - `m` muted
@@ -43,9 +44,9 @@ object Fetch {
      * - space: no colour
      */
     private val LOGO = listOf(
-        "▍ ━━━━━" to "w mmmmm",
-        "▍ ━━━  " to "g mmm  ",
-        "› ▆    " to "a a    ",
+        "▍ ███ ▄▄" to "w mmm mm",
+        "▍ ─━━━━─" to "g mggggm",
+        "› ▆     " to "a a     ",
     )
     private val LOGO_WIDTH = LOGO.first().first.length
     private const val GAP = 2

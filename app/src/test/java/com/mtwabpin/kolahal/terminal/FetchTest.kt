@@ -18,10 +18,10 @@ class FetchTest {
         val lines = plain(Fetch.layout("Pixel 9", rows, cols = 40))
         // Title, rule, a row per fact, a gap, the colours.
         assertEquals(2 + rows.size + 2, lines.size)
-        assertTrue(lines[0], lines[0].startsWith("▍ ━━━━━  kolahal@Pixel 9"))
-        assertTrue(lines[2], lines[2].startsWith("› ▆      OS      Android 16"))
+        assertTrue(lines[0], lines[0].startsWith("▍ ███ ▄▄  kolahal@Pixel 9"))
+        assertTrue(lines[2], lines[2].startsWith("› ▆       OS      Android 16"))
         // Past the icon, the facts keep their column.
-        assertTrue(lines[3], lines[3].startsWith("         Kernel  6.6.66"))
+        assertTrue(lines[3], lines[3].startsWith("          Kernel  6.6.66"))
         assertTrue(lines.all { it.length <= 40 })
         // Too long for its room: cut, and it says so.
         assertEquals(40, lines[3].length)
@@ -30,7 +30,7 @@ class FetchTest {
 
     @Test fun onANarrowScreenTheIconGoesAbove() {
         val lines = plain(Fetch.layout("Pixel 9", rows, cols = 30))
-        assertEquals(listOf("▍ ━━━━━", "▍ ━━━  ", "› ▆    ", ""), lines.take(4))
+        assertEquals(listOf("▍ ███ ▄▄", "▍ ─━━━━─", "› ▆     ", ""), lines.take(4))
         assertEquals("kolahal@Pixel 9", lines[4])
         assertTrue(lines.all { it.length <= 30 })
     }
