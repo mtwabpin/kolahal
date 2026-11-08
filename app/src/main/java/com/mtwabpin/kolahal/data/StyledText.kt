@@ -33,7 +33,10 @@ object StyledText {
      * it shows ("•", "◦", "3."). [spans] are its pieces. A table row has [row], a bar has [meter],
      * and then no spans.
      */
-    data class Line(val level: Int, val prefix: String, val spans: List<Span>, val row: Row? = null, val meter: Meter? = null)
+    data class Line(val level: Int, val prefix: String, val spans: List<Span>, val row: Row? = null, val meter: Meter? = null, val stats: List<Stat>? = null)
+
+    /** One of a line of big numbers ([stats]): its value, and its label under it. */
+    data class Stat(val value: List<Span>, val label: List<Span>)
 
     /** One cell of a table row: its pieces, and whether it lines up on the right (numbers). */
     data class Cell(val spans: List<Span>, val right: Boolean)
@@ -63,6 +66,8 @@ object StyledText {
     // A bar: a marker at the start of a line, then its numbers, then three parts before each of which
     // a CELL marker goes: the label, the text before the track and the text after it.
     private const val METER = BASE + 0x19
+    // Big numbers: a marker at the start of a line, then a CELL marker before each value and each label.
+    private const val STATS = BASE + 0x1A
     private const val COLOUR = BASE + 0x20
     private const val COLOUR_END = BASE + 0x2F
     private const val LAST = COLOUR_END
@@ -108,7 +113,7 @@ object StyledText {
         var last: String? = null
         for (line in lines(text)) {
             val spans = line.spans + line.row?.cells.orEmpty().flatMap { it.spans } +
-                line.meter?.let { it.label + it.start + it.end }.orEmpty()
+                line.meter?.let { it.label + it.start + it.end }.orEmpty() + line.stats.orEmpty().flatMap { it.value + it.label }
             for (s in spans) {
                 val url = s.url
                 if (url == null) { last = null; continue }
@@ -187,7 +192,7 @@ object StyledText {
     private fun withMore(lines: List<String>, more: Int) = (if (more > 0) lines + "+$more more" else lines).joinToString("\n")
 
     /** A piece of a row or a bar: one line, without the markers that start rows, cells or bars. */
-    private fun part(text: String): String = without(withoutBars(text), ROW..CELL_RIGHT).replace('\n', ' ')
+    private fun part(text: String): String = without(without(withoutBars(text), ROW..CELL_RIGHT), STATS..STATS).replace('\n', ' ')
 
     /** [text] without bars: each bar marker goes with its numbers (up to its first part or the line's end). */
     private fun withoutBars(text: String): String {
@@ -234,6 +239,19 @@ object StyledText {
 
     /** `fmt.bar(value, { max, color })`: one bar, [value] out of [max], as wide as the line. */
     fun bar(value: Double, max: Double = 1.0, colour: Colour? = null): String = meter(0.0, share(value, 0.0, max), colour)
+
+    /** The most numbers a line of big numbers keeps ([stats]). */
+    const val STATS_MAX = 5
+
+    /**
+     * `fmt.stats(items)`: a line of big numbers for a body, each `value` with its `label` under it.
+     * The first is big, the rest smaller. Up to [STATS_MAX]; more are left out. Each value and
+     * label is one line.
+     */
+    fun stats(items: List<Pair<String, String>>): String {
+        if (items.isEmpty()) return ""
+        return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) -> char(CELL) + part(value) + char(CELL) + part(label) }
+    }
 
     /** A row of [bars]: its [label], its [value], and the text after its bar (by default the value with the unit). */
     data class BarRow(val label: String, val value: Double, val text: String? = null)
@@ -294,7 +312,9 @@ object StyledText {
 
     private fun isMeter(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == METER
 
-    private fun isBlock(line: String): Boolean = isRow(line) || isMeter(line)
+    private fun isStats(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == STATS
+
+    private fun isBlock(line: String): Boolean = isRow(line) || isMeter(line) || isStats(line)
 
     /**
      * [body] split before its first table row or bar: the text above it, and the rest (the tables,
@@ -331,6 +351,10 @@ object StyledText {
         // Colours nest: the innermost one shows, and closing it brings back the one around it.
         val colours = ArrayDeque<Colour>()
         for (raw in text.split('\n')) {
+            if (isStats(raw)) {
+                out += Line(0, "", emptyList(), stats = statsOf(raw))
+                continue
+            }
             if (isMeter(raw)) {
                 out += Line(0, "", emptyList(), meter = meterOf(raw))
                 continue
@@ -416,6 +440,13 @@ object StyledText {
         return out
     }
 
+    /** A line of big numbers ([stats]) read back: each value with its label. */
+    private fun statsOf(raw: String): List<Stat> {
+        val parts = raw.substring(Character.charCount(STATS)).split(char(CELL)).drop(1)
+        fun spans(part: String) = if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
+        return parts.chunked(2).take(STATS_MAX).map { Stat(spans(it[0]), spans(it.getOrElse(1) { "" })) }
+    }
+
     /** A bar line ([meter]) read back. Numbers it can't read make an empty bar. */
     private fun meterOf(raw: String): Meter {
         val parts = raw.substring(Character.charCount(METER)).split(char(CELL))
@@ -457,6 +488,7 @@ object StyledText {
             // A table row: its cells, separated by tabs, so a copied table pastes into a spreadsheet.
             line.row?.let { row -> return@mapNotNull row.cells.joinToString("\t") { c -> words(c.spans) } }
             line.meter?.let { m -> return@mapNotNull listOf(m.label, m.start, m.end).map(::words).filter { it.isNotEmpty() }.joinToString("\t").ifEmpty { null } }
+            line.stats?.let { s -> return@mapNotNull s.joinToString(" · ") { listOf(words(it.value), words(it.label)).filter(String::isNotEmpty).joinToString(" ") }.ifEmpty { null } }
             val words = words(line.spans)
             when (line.level) {
                 0 -> words

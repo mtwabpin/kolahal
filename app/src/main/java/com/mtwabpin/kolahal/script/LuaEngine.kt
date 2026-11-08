@@ -230,6 +230,7 @@ class LuaEngine : ScriptEngine {
             "bar" to { l: Lua -> l.pushValue(fmt.bar(l.args())); 1 },
             "bars" to { l: Lua -> l.pushValue(fmt.bars(l.args())); 1 },
             "ranges" to { l: Lua -> l.pushValue(fmt.ranges(l.args())); 1 },
+            "stats" to { l: Lua -> l.pushValue(fmt.stats(l.args())); 1 },
             "plain" to { l: Lua -> l.pushValue(StyledText.plain(l.str(1) ?: "")); 1 },
         )
         lua.table(

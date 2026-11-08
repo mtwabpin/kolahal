@@ -128,6 +128,9 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             LogContext.PHONE to c.number,
             LogContext.CONTACT to c.lookupUri.toString().ifEmpty { null },
             LogContext.DESC to listOf(c.number, c.label).filter { it.isNotEmpty() }.joinToString(" · "),
+            // The picture beside the line: the photo, or the name's first letters.
+            LogContext.PERSON to c.name,
+            LogContext.PHOTO to c.photoUri,
         )
     }
 }

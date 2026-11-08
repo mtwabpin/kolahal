@@ -27,6 +27,8 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`fmt.link(text, url)`](#links) | text that opens a link |
 | [`fmt.tag(role?, text)`](#tags) | a label on a shaded chip |
 | [`fmt.bar(value, opts?)`, `fmt.bars`, `fmt.ranges`](#bars) | bars, for a body |
+| [`fmt.stats(items)`](#big-numbers) | a line of big numbers, for a body |
+| [`ctx.actions`](#buttons) | buttons under a line |
 | [`line.set(title, body?, ctx?)`](#lineset) | changes a line in place |
 | [`notify(title, body, ctx?)`](#notifytitle-body-ctx) | `true` if a notification was posted |
 | [`status(text, opts?)`](#statustext-opts) | nothing; sets or clears its status line |
@@ -78,6 +80,7 @@ line:
 | `copy` | What "Copy text" copies instead of the title and body. It must be all or part of what the line shows, or its `url`. Anything else is dropped. |
 | `image` | An image URL (http or https). The picture shows under the line, as wide as the log. Long-press offers "Open image". |
 | `mono` | `"1"`: the line keeps the terminal font even with `font.sans all`, so columns padded with spaces line up. |
+| `actions` | Up to 3 [buttons](#buttons) under the line, each `{ label, args }`. A tap runs this script again with those args. |
 
 A link or a picture counts as a network request:
 
@@ -178,6 +181,7 @@ Nothing else in the line is read as a style.
 | `fmt.color(role, text)` | in one of the theme's colours: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` |
 | `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) |
 | `fmt.link(text, url)` | text that opens a link: see [Links](#links) |
+| `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) |
 | `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. |
 | `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) |
 | `fmt.plain(text)` | the text without its styles |
@@ -342,6 +346,62 @@ log("Pune · 3 days", fmt.ranges({ { "Today", 23, 31 }, { "Tomorrow", 22, 30 } }
 log("Pune · AQI 168", "Unhealthy\n" + fmt.bar(168, { max: 300, color: "bad" }));
 log("Unlocks", fmt.bars([["Mon", 42], ["Tue", 21]], { color: "good" }));
 log("Pune · 3 days", fmt.ranges([["Today", 23, 31], ["Tomorrow", 22, 30]], { unit: "°", color: "warn" }));
+```
+</TabItem>
+</Tabs>
+
+### Big numbers
+
+`fmt.stats(items)` makes a line of big numbers for a body. Each item is `{ value, label }`: the
+value large, in the terminal font, and its label under it, small. The first value is the biggest;
+the others are smaller. They sit side by side and wrap when the screen is narrow.
+
+- Use it for the one number that matters and a few beside it: the weather, a score, a count.
+- Up to 5 items; more are left out. A value and a label are one line each, and take styles and colours.
+- Copy text gets them as `25°C ☀️ Sunny · 36% humidity · …`.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+log("Pune", fmt.stats({ { "25°C", "☀️ Sunny" }, { "36%", "humidity" }, { "9 km/h", "wind" } }))
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+log("Pune", fmt.stats([["25°C", "☀️ Sunny"], ["36%", "humidity"], ["9 km/h", "wind"]]));
+```
+</TabItem>
+</Tabs>
+
+### Buttons
+
+`ctx.actions` puts up to 3 buttons under a line: `{ { label, args }, … }`. A tap on one runs
+**this script** again, with that button's `args` (as if typed after its name) and
+`event.name` `"action"` (with `event.label`). A button never runs any other command.
+
+- Only a saved script's lines get buttons: code typed at the prompt has no script for them to run.
+- A label is one line, at most 24 characters. More than 3 buttons, or one without a label, is an
+  error that says so.
+- Once tapped, the line shows that button alone, with a ✓, so it can't run twice.
+- If the script is switched off, a tap says so instead of running it.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+if event and event.name == "action" then
+  if args[1] == "snooze" then store.set("until", tostring(os.time() + tonumber(args[2]) * 60)) end
+  return log("Snoozed for " .. args[2] .. " min")
+end
+log("Battery at 92%", "Unplug the charger.", { actions = { { "Snooze 30 min", "snooze 30" }, { "Not today", "snooze 720" } } })
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+if (event && event.name === "action") {
+  if (args[0] === "snooze") store.set("until", String(Date.now() + Number(args[1]) * 60000));
+  return log(`Snoozed for ${args[1]} min`);
+}
+log("Battery at 92%", "Unplug the charger.", { actions: [["Snooze 30 min", "snooze 30"], ["Not today", "snooze 720"]] });
 ```
 </TabItem>
 </Tabs>
@@ -923,6 +983,8 @@ Other runs:
   run is late. A script with two times can tell them apart.
 - A run that a [status line](#statustext-opts) asks for with `refresh` gets `event.name`
   `"refresh"`.
+- A run that a [button](#buttons) under one of the script's lines starts gets `event.name`
+  `"action"` and `event.label`, the button's label. Its arguments are in `args`.
 - All other runs get nil (null in JavaScript).
 
 ## Work profile

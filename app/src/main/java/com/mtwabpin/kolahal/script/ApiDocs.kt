@@ -34,12 +34,12 @@ object ApiDocs {
     private val VALUE = ApiDoc.Kind.VALUE
 
     val all: List<ApiDoc> = listOf(
-        ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it. line.set(title, body?, ctx?) changes it in place while the script runs"),
+        ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again. line.set(title, body?, ctx?) changes it in place while the script runs"),
         ApiDoc("logs", "logs(titles)", "Append one title line per item: logs({ \"a\", \"b\" }) or logs(\"a\", \"b\")"),
         ApiDoc("md", "md", "Markdown lines: log, escape", kind = NS),
         ApiDoc("md.log", "md.log(title, body?, ctx?) -> line", "Like log, reading Markdown: **bold**, *italic*, ~~strike~~, ++underline++, `code`, [text](https://…) links; lists (- item, 1. item) in the body"),
         ApiDoc("md.escape", "md.escape(text) -> string", "Text with Markdown marks escaped, to show web text literally in md.log"),
-        ApiDoc("fmt", "fmt", "Styles for any log line: bold, italic, underline, strike, code, color, tag, link, list, table, bar, bars, ranges, plain", kind = NS),
+        ApiDoc("fmt", "fmt", "Styles for any log line: bold, italic, underline, strike, code, color, tag, link, list, table, bar, bars, ranges, stats, plain", kind = NS),
         ApiDoc("fmt.bold", "fmt.bold(text) -> string", "Text shown bold in the log; join it with other text"),
         ApiDoc("fmt.italic", "fmt.italic(text) -> string", "Text shown in italics in the log"),
         ApiDoc("fmt.underline", "fmt.underline(text) -> string", "Text shown underlined in the log"),
@@ -53,6 +53,7 @@ object ApiDocs {
         ApiDoc("fmt.bar", "fmt.bar(value, {max?, color?}) -> string", "A bar as wide as the line, for a body: value out of max (1 by default), in a colour role"),
         ApiDoc("fmt.bars", "fmt.bars(rows, {max?, color?, unit?}) -> string", "A bar for each row { label, value, text? }, all on one scale, for a body"),
         ApiDoc("fmt.ranges", "fmt.ranges(rows, {min?, max?, color?, unit?}) -> string", "A bar from low to high for each row { label, low, high }, all on one scale, for a body: a forecast's days"),
+        ApiDoc("fmt.stats", "fmt.stats(items) -> string", "A line of big numbers for a body, each item { value, label }: the first big, the rest smaller, each label under its number. Up to 5"),
         ApiDoc("fmt.plain", "fmt.plain(text) -> string", "The text without its styles, for anything other than the log"),
         ApiDoc("notify", "notify(title, body, ctx?) -> bool", "Post a notification if enabled for the script; ctx.url opens on tap"),
         ApiDoc("status", "status(text, opts?)", "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) clears it"),
@@ -62,7 +63,7 @@ object ApiDocs {
         ApiDoc("print", "print(...)", "Log the values joined by tabs", LUA),
         ApiDoc("args", "args", "Arguments when run as a command (list of strings)", kind = VALUE),
         ApiDoc("argline", "argline", "Arguments joined by spaces", kind = VALUE),
-        ApiDoc("event", "event", "What started this run, an @on event, an @at time or a pinned status line's refresh (event.name, time, app, title, text, level…); nil/null otherwise", kind = VALUE),
+        ApiDoc("event", "event", "What started this run, an @on event, an @at time, a button under its line (action) or a pinned status line's refresh (event.name, time, label, app, title, text, level…); nil/null otherwise", kind = VALUE),
         ApiDoc("options", "options", "Its @option values by name, as text: your value if set, otherwise the default (options.city)", kind = VALUE),
 
         ApiDoc("http", "http", "HTTP client: get, cached, request", kind = NS),

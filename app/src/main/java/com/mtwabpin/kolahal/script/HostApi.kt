@@ -366,12 +366,42 @@ class HostApi(
         log(Markdown.inline(redact(title)), body?.let { Markdown.block(redact(it)) }, ctx)
 
     /**
+     * `ctx.actions`, as stored ([LogContext.ACTIONS]): up to [MAX_ACTIONS] buttons, each
+     * `{ label, args }`. A tap runs this script again with the args (and `event.name` "action"),
+     * so they are kept only for a saved script's line; code typed at the prompt has no script to run.
+     * Anything but a list of such pairs is an error that says what to pass.
+     */
+    private fun actionsJson(raw: Any?): String? {
+        if (raw == null || scriptId == null) return null
+        val bad = "ctx.actions expects a list of buttons, each { label, args }"
+        val list = when (raw) {
+            is List<*> -> raw
+            is Map<*, *> -> if (raw.isEmpty()) emptyList<Any?>() else throw IllegalArgumentException(bad)
+            else -> throw IllegalArgumentException(bad)
+        }
+        if (list.size > MAX_ACTIONS) throw IllegalArgumentException("ctx.actions: at most $MAX_ACTIONS buttons")
+        fun text(v: Any?) = when (v) {
+            null -> ""
+            is Double -> if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong().toString() else v.toString()
+            else -> v.toString()
+        }.replace('\n', ' ').trim()
+        val buttons = list.map { b ->
+            val pair = b as? List<*> ?: throw IllegalArgumentException(bad)
+            val label = StyledText.strip(text(pair.getOrNull(0))).takeIf { it.isNotEmpty() } ?: throw IllegalArgumentException("ctx.actions: each button needs a label")
+            listOf(label.take(MAX_ACTION_LABEL), text(pair.getOrNull(1)).take(MAX_ACTION_ARGS))
+        }
+        return if (buttons.isEmpty()) null else Json.stringify(buttons)
+    }
+
+    /**
      * The context a script may attach to its lines. Launcher-internal keys (tap-to-run commands,
      * script identity, app grids, error lines) are dropped, so a script can't plant a one-tap `clear all`.
      */
     private fun safeCtx(ctx: Map<*, *>?, text: String): Map<String, String> {
         // Keep only what a script's line may carry, so a key added to the launcher later stays out of reach.
         val m = Json.toStringMap(ctx).filterKeys { it in SCRIPT_CTX }.toMutableMap()
+        // Buttons: only on a saved script's line, since a tap runs that script again.
+        actionsJson(ctx?.get("actions"))?.let { m[LogContext.ACTIONS] = it }
         // A tap opens the link in another app at once, so allow web links only, not upi:, tel:, intent: …
         // Home fetches a picture as soon as the line shows, and opens a link on a tap. So:
         // - with internet switched off for this script, neither leaves the phone;
@@ -919,6 +949,11 @@ class HostApi(
 
         /** How many times a run can change its lines with `line.set`. Later changes are ignored. */
         const val MAX_SETS_PER_RUN = 300
+
+        /** At most this many buttons on a line (`ctx.actions`), each label at most [MAX_ACTION_LABEL] characters, its arguments [MAX_ACTION_ARGS]. */
+        const val MAX_ACTIONS = 3
+        const val MAX_ACTION_LABEL = 24
+        const val MAX_ACTION_ARGS = 200
         /** The longest text clipboard.set accepts (characters). */
         const val MAX_CLIP = 100_000
     }

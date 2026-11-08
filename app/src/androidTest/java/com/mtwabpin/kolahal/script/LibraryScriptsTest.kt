@@ -162,6 +162,23 @@ class LibraryScriptsTest {
         assertEquals(listOf("Too new · 9 points · 0 comments", "notified Lobsters"), lines().map { StyledText.plain(it.text) })
     }
 
+    /** Weather: the place as the title, then big numbers; a timer run keeps "Pune: ☀️ 25°C" as its status line. */
+    @Test fun weatherShowsBigNumbers() {
+        val answer = "Pune|☀️ |Sunny|+25°C|36%|←9km/h|3"
+        run("weather.lua", "Pune", before = luaStandIns(answer))
+        val e = lines().single()
+        assertEquals("Pune", e.text)
+        val stats = StyledText.lines(e.ctx.body!!).single().stats!!
+        assertEquals(listOf("25°C", "36%", "← 9 km/h", "3"), stats.map { s -> s.value.joinToString("") { it.text } })
+        assertEquals(listOf("☀️ Sunny", "humidity", "wind", "UV"), stats.map { s -> s.label.joinToString("") { it.text } })
+        assertNull(status.get(name))
+        run("weather.lua", before = luaStandIns(answer.replace("+25", "-3")))
+        assertEquals("Pune: ☀️ -3°C", status.get(name))
+        // Not the line it expects: a failure that says so.
+        run("weather.lua", "Pune", before = luaStandIns("Pune: ☀️ +25°C"))
+        assertEquals("No weather", only().first)
+    }
+
     /** Typed, the quote is on screen; the notification is for its daily time. */
     @Test fun quoteNotifiesOnlyAtItsTime() {
         val before = standIns("""[{"q":"Be kind","a":"Someone"}]""")

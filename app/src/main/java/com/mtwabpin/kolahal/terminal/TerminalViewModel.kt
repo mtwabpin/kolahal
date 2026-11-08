@@ -1006,6 +1006,25 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Single tap: runs the most likely action for this line. */
     fun onTap(entry: LogEntry) = lineActions.onTap(entry)
 
+    /**
+     * A tap on button [index] under a script's line (`ctx.actions`). The line's own script runs
+     * again with that button's arguments and `event` `{ name = "action", label }`, never any other
+     * command. The line then shows the button as done, so it isn't run twice; a second tap within
+     * 2 seconds does nothing either.
+     */
+    fun runLineAction(entry: LogEntry, index: Int) {
+        val name = entry.ctx.script ?: return
+        if (entry.ctx.values[LogContext.ACTION_DONE] != null) return
+        val (label, args) = LogContext.actionsOf(entry.ctx).getOrNull(index) ?: return
+        if (!itemTaps.allow("action:${entry.id}")) return
+        io {
+            val script = scripts.byName(name) ?: return@io run { logs.add(LogKind.ERROR, "No script named '$name' — 'script ls'") }
+            if (!script.enabled) return@io run { logs.add(LogKind.INFO, "$name is off: script on $name", ctx = LogContext.of(LogContext.COMMAND to "script on $name")) }
+            logs.update(entry.id, entry.text, entry.ctx + mapOf(LogContext.ACTION_DONE to index.toString()))
+            ScriptScheduler.runNow(context, script, args.split(Regex("\\s+")).filter { it.isNotEmpty() }, mapOf("name" to "action", "label" to label))
+        }
+    }
+
     /** Long-press: returns every action that makes sense for the saved context. Destructive ones come last. */
     fun actionsFor(entry: LogEntry): List<LogAction> = lineActions.actionsFor(entry)
 

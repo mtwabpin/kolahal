@@ -449,6 +449,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                         onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
                         onSwipeCopy = vm::swipeCopy,
                         onSwipeDelete = vm::swipeDelete,
+                        onAction = vm::runLineAction,
                     )
                 }
             }

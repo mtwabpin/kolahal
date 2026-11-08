@@ -115,7 +115,8 @@ discussion; a post that links to another site ends with a link to it.
 
 ## weather
 
-**Weather**: the current weather in one line, from wttr.in. On a timer, it also sets the result as
+**Weather**: the current weather from wttr.in, as big numbers: the temperature large with the sky
+under it, then humidity, wind and the UV index. On a timer, it also sets a one-line summary as
 its status line.
 
 ```sh

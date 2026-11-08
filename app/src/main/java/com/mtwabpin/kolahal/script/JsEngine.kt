@@ -171,6 +171,7 @@ class JsEngine : ScriptEngine {
             function("bar") { args -> fmt.bar(args.toList()) }
             function("bars") { args -> fmt.bars(args.toList()) }
             function("ranges") { args -> fmt.ranges(args.toList()) }
+            function("stats") { args -> fmt.stats(args.toList()) }
             function("plain") { args -> StyledText.plain(args.str(0).orEmpty()) }
         }
         js.define("secrets") {

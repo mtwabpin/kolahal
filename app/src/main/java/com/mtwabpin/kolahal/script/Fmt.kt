@@ -56,6 +56,10 @@ internal class Fmt(private val text: (Any?) -> String) {
         )
     }
 
+    /** `fmt.stats(items)`: each item `{ value, label }`; the first is big. */
+    fun stats(args: List<Any?>): String =
+        StyledText.stats(rows("fmt.stats", args.getOrNull(0), "{ value, label }").map { r -> text(r.getOrNull(0)) to (r.getOrNull(1)?.let(text) ?: "") })
+
     private fun role(call: String, value: Any?): StyledText.Colour = (value as? String)?.let(StyledText.Colour::named)
         ?: throw IllegalArgumentException("$call: no colour '${text(value)}'; use ${StyledText.Colour.entries.joinToString { it.role }}")
 

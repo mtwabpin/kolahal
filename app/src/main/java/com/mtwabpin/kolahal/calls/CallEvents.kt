@@ -47,6 +47,8 @@ class CallEvents private constructor(private val context: Context) {
         val durationSec: Long,
         val presentation: Int,
         val lookupUri: String?,
+        /** The contact's photo, as the call log keeps it (CACHED_PHOTO_URI); null without one. */
+        val photoUri: String? = null,
     )
 
     /** Starts watching if the permission is granted. Call it again after the permission is granted. */
@@ -107,6 +109,7 @@ class CallEvents private constructor(private val context: Context) {
             val projection = arrayOf(
                 CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE,
                 CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.NUMBER_PRESENTATION, CallLog.Calls.CACHED_LOOKUP_URI,
+                CallLog.Calls.CACHED_PHOTO_URI,
             )
             val selection = afterId?.let { "${CallLog.Calls._ID} > ?" }
             val args = afterId?.let { arrayOf(it.toString()) }
@@ -123,6 +126,7 @@ class CallEvents private constructor(private val context: Context) {
                                 durationSec = c.getLong(5),
                                 presentation = c.getInt(6),
                                 lookupUri = c.getString(7),
+                                photoUri = c.getString(8)?.takeIf { it.isNotBlank() },
                             ))
                         }
                     }
@@ -159,9 +163,16 @@ class CallEvents private constructor(private val context: Context) {
             return listOfNotNull(title, number, listOfNotNull(time, length).joinToString(" · ")).joinToString("\n")
         }
 
-        /** A tap dials back. A long-press offers call, message, copy and the contact. */
-        fun ctx(c: Call): LogContext =
-            if (c.number.isBlank() || c.presentation != CallLog.Calls.PRESENTATION_ALLOWED) LogContext.EMPTY
-            else LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number)
+        /**
+         * A tap dials back. A long-press offers call, message, copy and the contact. Every call line
+         * has its person ([LogContext.PERSON]): the name, the number, or "?" for a hidden one, and
+         * their photo when the contact has one.
+         */
+        fun ctx(c: Call): LogContext {
+            val shown = c.presentation == CallLog.Calls.PRESENTATION_ALLOWED && c.number.isNotBlank()
+            val person = LogContext.of(LogContext.PERSON to (c.name ?: c.number.takeIf { shown } ?: "?"), LogContext.PHOTO to c.photoUri)
+            return if (!shown) person
+            else person + LogContext.of(LogContext.PHONE to c.number, LogContext.CONTACT to c.lookupUri, LogContext.COPY to c.number).values
+        }
     }
 }

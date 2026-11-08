@@ -454,4 +454,41 @@ class LogLineTest {
         assertEquals(listOf("https://example.org/s"), opened.toList())
         assertTrue("the line's own tap didn't run: $tapped", tapped.isEmpty())
     }
+
+    /** A script's buttons show as pills under its line; a tap reaches onAction, not the line; a tapped one shows alone, done. */
+    @Test fun buttonsShowUnderTheLine() {
+        val actions = """[["Snooze 30 min","snooze 30"],["Not today","off today"]]"""
+        val e = entry("Battery at 92%", LogKind.SCRIPT, source = "charge", ctx = mapOf(LogContext.SCRIPT to "charge", LogContext.ACTIONS to actions))
+        val done = entry("Battery at 91%", LogKind.SCRIPT, source = "charge", ctx = mapOf(LogContext.SCRIPT to "charge", LogContext.ACTIONS to actions, LogContext.ACTION_DONE to "1"))
+        val pressed = CopyOnWriteArrayList<Pair<Long, Int>>()
+        show {
+            for (x in listOf(e, done)) LogLine(
+                row(x), TimeMode.OFF, TIMES, false, topGap = 0.dp, indents = INDENTS, highlighted = false, apps = { emptyList() },
+                onTap = { tapped += it }, onLongPress = {}, onAppTap = {}, onAppLongPress = {}, onAction = { l, i -> pressed += l.id to i },
+            )
+        }
+        part(e, "Not today").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(e.id to 1), pressed.toList())
+        assertTrue("the line's own tap didn't run: $tapped", tapped.isEmpty())
+        part(done, "✓ Not today").assertExists()
+        compose.onAllNodes(hasText("Snooze 30 min") and hasAnyAncestor(hasTestTag("line-${done.id}")), useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** A person's line starts with their picture: their name's first letters without a readable photo; a call's is bigger than a contact's. */
+    @Test fun aPersonsLineHasTheirPicture() {
+        val call = entry("Call from Ravi Kumar ↙\n+91 98765 43210\n10:42 · 4m 12s", LogKind.INFO, source = "calls",
+            ctx = mapOf(LogContext.PERSON to "Ravi Kumar", LogContext.PHOTO to "content://com.android.contacts/contacts/999999/photo"))
+        val contact = entry("Asha", ctx = mapOf(LogContext.PERSON to "Asha", LogContext.DESC to "+91 90000 00000 · mobile"))
+        val plain = entry("no person here")
+        show { Line(row(call)); Line(row(contact)); Line(row(plain)) }
+        fun avatar(e: LogEntry) = compose.onNode(hasTestTag("avatar") and hasAnyAncestor(hasTestTag("line-${e.id}")), useUnmergedTree = true)
+        // The photo can't be read here, so the letters show.
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("RK"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(36f, avatar(call).getUnclippedBoundsInRoot().let { it.right - it.left }.value, 0.5f)
+        assertEquals(24f, avatar(contact).getUnclippedBoundsInRoot().let { it.right - it.left }.value, 0.5f)
+        compose.onAllNodes(hasTestTag("avatar") and hasAnyAncestor(hasTestTag("line-${plain.id}")), useUnmergedTree = true).assertCountEquals(0)
+        // A screen reader hears the line, not the picture.
+        assertTrue(texts(call).joinToString().contains("Call from Ravi Kumar"))
+    }
 }

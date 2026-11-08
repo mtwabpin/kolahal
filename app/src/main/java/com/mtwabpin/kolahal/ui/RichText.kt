@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -137,6 +139,7 @@ internal fun RichBody(rest: String, style: TextStyle, start: Dp, bullet: TextUni
         for (block in blocks) when (block) {
             is Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
             is Block.Bars -> Meters(block.meters, style, Modifier.padding(vertical = 2.dp))
+            is Block.Stats -> StatsRow(block.stats, style, Modifier.padding(top = 4.dp, bottom = 2.dp))
             is Block.Text -> RichText(remember(block.raw, Term.palette) { buildAnnotatedString { appendBody(block.raw, 0.sp, bullet) } }, style = style)
         }
     }
@@ -145,6 +148,7 @@ internal fun RichBody(rest: String, style: TextStyle, start: Dp, bullet: TextUni
 private sealed interface Block {
     class Table(val rows: List<StyledText.Row>) : Block
     class Bars(val meters: List<StyledText.Meter>) : Block
+    class Stats(val stats: List<StyledText.Stat>) : Block
     class Text(val raw: String) : Block
 }
 
@@ -162,6 +166,7 @@ private fun blocks(rest: String): List<Block> {
         when {
             line?.row != null -> { endText(); endBars(); rows += line.row }
             line?.meter != null -> { endText(); endTable(); meters += line.meter }
+            line?.stats != null -> { endText(); endTable(); endBars(); out += Block.Stats(line.stats) }
             else -> { endTable(); endBars(); text += raw }
         }
     }
@@ -361,3 +366,87 @@ private fun FoldLink(open: Boolean, hidden: Int, onClick: () -> Unit) {
             .testTag("fold-link"),
     )
 }
+
+/**
+ * A line of big numbers (`fmt.stats`): the first value large, the others smaller, each in the
+ * terminal font with its label under it in the phone's font, all sitting on one line along their
+ * bottoms. They wrap onto a second line when the screen is too narrow. A screen reader hears each
+ * value with its label.
+ */
+@Composable
+internal fun StatsRow(stats: List<StyledText.Stat>, style: TextStyle, modifier: Modifier = Modifier) {
+    if (stats.isEmpty()) return
+    val palette = Term.palette
+    val spoken = remember(stats) {
+        stats.joinToString(", ") { s -> listOf(s.value, s.label).joinToString(" ") { spans -> spans.joinToString("") { it.text } }.trim() }
+    }
+    val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = modifier.testTag("log-stats").clearAndSetSemantics { contentDescription = spoken },
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(18.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+        itemVerticalAlignment = androidx.compose.ui.Alignment.Bottom,
+    ) {
+        stats.forEachIndexed { i, s ->
+            Column {
+                val valueStyle = style.copy(
+                    color = Term.fg,
+                    fontSize = size * if (i == 0) STAT_BIG else STAT_SMALL,
+                    lineHeight = size * (if (i == 0) STAT_BIG else STAT_SMALL) * 1.1f,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                )
+                RichText(remember(s.value, palette) { buildAnnotatedString { appendSpans(s.value, SpanStyle(color = Term.fg), Term.fg) } }, valueStyle, maxLines = 1, softWrap = false)
+                if (s.label.isNotEmpty()) {
+                    val labelStyle = TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Default, fontSize = (size.value - 2).sp, color = Term.dim)
+                    RichText(remember(s.label, palette) { buildAnnotatedString { appendSpans(s.label, SpanStyle(color = Term.dim), Term.fg) } }, labelStyle, maxLines = 1, softWrap = false)
+                }
+            }
+        }
+    }
+}
+
+/** How big the first value of a line of big numbers is, and the others, against the text. */
+private const val STAT_BIG = 1.9f
+private const val STAT_SMALL = 1.3f
+
+/**
+ * Buttons under a script's line (`ctx.actions`), as tonal pills: the accent colour on a light shade
+ * of it, in the phone's font. A tap runs the line's script with the button's arguments
+ * ([onAction]). Once one was tapped ([com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]), only it
+ * shows, muted, with a ✓, so it can't run twice.
+ */
+@Composable
+internal fun ActionPills(entry: com.mtwabpin.kolahal.data.LogEntry, actions: List<Pair<String, String>>, onAction: (com.mtwabpin.kolahal.data.LogEntry, Int) -> Unit) {
+    val done = entry.ctx.values[com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]?.toIntOrNull()
+    val dark = Term.bg.luminance() < 0.5f
+    val accent = Term.prompt
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    val textStyle = TextStyle(
+        fontFamily = androidx.compose.ui.text.font.FontFamily.Default,
+        fontSize = (Term.fontSize - 1).sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+    )
+    androidx.compose.foundation.layout.FlowRow(
+        Modifier.padding(top = 6.dp, bottom = 2.dp).testTag("line-actions"),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+    ) {
+        actions.forEachIndexed { i, (label, _) ->
+            if (done != null && i != done) return@forEachIndexed
+            val tapped = done != null
+            Box(
+                Modifier
+                    .heightIn(min = 34.dp)
+                    .clip(shape)
+                    .background(accent.copy(alpha = if (tapped) 0.08f else if (dark) 0.22f else 0.14f))
+                    .then(if (tapped) Modifier else Modifier.clickable(role = Role.Button, onClickLabel = label) { onAction(entry, i) })
+                    .padding(horizontal = 14.dp)
+                    .testTag("line-action-$i"),
+                contentAlignment = androidx.compose.ui.Alignment.Center,
+            ) {
+                Text(if (tapped) "✓ $label" else label, style = textStyle.copy(color = if (tapped) Term.dim else accent), maxLines = 1)
+            }
+        }
+    }
+}
+

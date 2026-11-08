@@ -32,6 +32,8 @@ data class Contact(
     val label: String,
     val starred: Boolean,
     val lookupUri: Uri,
+    /** The contact's small photo (a content: address), or null without one. */
+    val photoUri: String? = null,
 ) {
     /** Values that [ContactsRepository.search] compares. They are computed at the first search, not on every key press. */
     internal val lowerName: String by lazy(LazyThreadSafetyMode.PUBLICATION) { name.lowercase() }
@@ -146,6 +148,7 @@ class ContactsRepository private constructor(private val context: Context) {
             ContactsContract.CommonDataKinds.Phone.LABEL,
             ContactsContract.CommonDataKinds.Phone.STARRED,
             ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
+            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
         )
         context.contentResolver.query(
             ContactsContract.CommonDataKinds.Phone.CONTENT_URI, projection, null, null,
@@ -167,6 +170,7 @@ class ContactsRepository private constructor(private val context: Context) {
                     label = label,
                     starred = c.getInt(5) != 0,
                     lookupUri = ContactsContract.Contacts.getLookupUri(id, c.getString(6)),
+                    photoUri = c.getString(7)?.takeIf { it.isNotBlank() },
                 )
             }
         }

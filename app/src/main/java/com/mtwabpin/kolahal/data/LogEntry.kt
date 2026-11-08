@@ -102,6 +102,34 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
          */
         const val BAR = "bar"
 
+        /**
+         * A saved script's buttons under its line (`ctx.actions`), as JSON: `[["Snooze 30 min", "snooze 30"], …]`,
+         * each a label and the arguments the script runs with when it is tapped. [ACTION_DONE] is
+         * the index of the one tapped; the line then shows only that one, as done.
+         */
+        const val ACTIONS = "actions"
+        const val ACTION_DONE = "action-done"
+
+        /**
+         * A person's line (a call, a contact): [PERSON] is the name (or number) that their picture
+         * beside the line stands for, and [PHOTO] the contact's photo as Android keeps it (a
+         * content: address). Without a photo, or when it can't be read, the picture is the name's
+         * first letters. Only Kolahal's own lines have them.
+         */
+        const val PERSON = "person"
+        const val PHOTO = "photo"
+
+        /** The buttons in [ACTIONS]: each label and its arguments. Nothing that can't be read. */
+        fun actionsOf(ctx: LogContext): List<Pair<String, String>> {
+            val raw = ctx.values[ACTIONS] ?: return emptyList()
+            val list = runCatching { org.json.JSONArray(raw) }.getOrNull() ?: return emptyList()
+            return (0 until list.length()).mapNotNull { i ->
+                val a = list.optJSONArray(i) ?: return@mapNotNull null
+                val label = a.optString(0).takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                label to a.optString(1)
+            }
+        }
+
         /** [BAR] filled to [fraction] (0 to 1), in [role] (null: the accent colour). */
         fun bar(fraction: Double, role: String? = null): Map<String, String> =
             mapOf(BAR to "0,${StyledText.number(if (fraction.isNaN()) 0.0 else fraction.coerceIn(0.0, 1.0))},${role.orEmpty()}")

@@ -229,4 +229,21 @@ class StyledTextBlocksTest {
         assertEquals("0.125", StyledText.number(0.1249999))
         assertEquals("-2", StyledText.number(-2.0))
     }
+
+    /** fmt.stats: values with their labels, as a line of its own; plain text reads "24° Pune · 60% humidity". */
+    @Test fun statsAreALineOfBigNumbers() {
+        val body = "Now\n" + StyledText.stats(listOf("24°" to "Pune, clear", StyledText.colour(StyledText.Colour.GOOD, "60%") to "humidity", "12" to "")) + "\nlater"
+        val lines = StyledText.lines(body)
+        val stats = lines[1].stats!!
+        assertEquals(listOf("24°", "60%", "12"), stats.map { s -> s.value.joinToString("") { it.text } })
+        assertEquals(listOf("Pune, clear", "humidity", ""), stats.map { s -> s.label.joinToString("") { it.text } })
+        assertEquals(StyledText.Colour.GOOD, stats[1].value.single().colour)
+        assertEquals("Now\n24° Pune, clear · 60% humidity · 12\nlater", StyledText.plain(body))
+        assertTrue(StyledText.hasBlock(body))
+        assertEquals("Now" to StyledText.stats(listOf("24°" to "Pune, clear", StyledText.colour(StyledText.Colour.GOOD, "60%") to "humidity", "12" to "")) + "\nlater", StyledText.splitAtBlocks(body))
+        // Up to 5; a value is one line.
+        assertEquals(5, StyledText.lines(StyledText.stats(List(7) { "v$it\nx" to "l" })).single().stats!!.size)
+        assertEquals("v0 x", StyledText.lines(StyledText.stats(listOf("v0\nx" to "l"))).single().stats!!.single().value.single().text)
+        assertEquals("", StyledText.stats(emptyList()))
+    }
 }

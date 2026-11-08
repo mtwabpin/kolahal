@@ -133,6 +133,8 @@ fun LogLine(
     onAppLongPress: (AppEntry) -> Unit,
     onSwipeCopy: (LogEntry) -> Unit = {},
     onSwipeDelete: (LogEntry) -> Unit = {},
+    /** A tap on button `index` under a script's line (`ctx.actions`). */
+    onAction: (LogEntry, Int) -> Unit = { _, _ -> },
     /** Words a log search found. They are highlighted where the line shows them. */
     marks: List<String> = emptyList(),
 ) {
@@ -188,7 +190,9 @@ fun LogLine(
     val richRest = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) entry.ctx.body?.let { StyledText.splitAtBlocks(it).second } else null }
     // A built-in command's bar after the line's text (unlocks, usage, volume).
     val bar = remember(entry.ctx) { if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) lineBar(entry.ctx.values[LogContext.BAR]) else null }
-    val byPart = dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && marks.isEmpty() &&
+    // A script's buttons under its line (ctx.actions).
+    val actions = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) LogContext.actionsOf(entry.ctx) else emptyList() }
+    val byPart = dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && actions.isEmpty() && marks.isEmpty() &&
         remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
     // While the line is pressed, focused or under a pointer, and for a moment after, it fades whole.
     // Fading part by part would fade the ripple or highlight over the letters too, and the shade
@@ -303,6 +307,12 @@ fun LogLine(
     val timeStyle = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense)
     val timeShift = TimeShift.of(lineStyle, timeStyle)
     Row(Modifier.fillMaxWidth()) {
+        // A person's line (a call, a contact) starts with their picture: 36 dp beside a call and its
+        // details, 24 dp beside a one-line contact.
+        entry.ctx.values[LogContext.PERSON]?.let { person ->
+            Avatar(person, entry.ctx.values[LogContext.PHOTO], if ('\n' in entry.text) 36.dp else 24.dp, Modifier.align(Alignment.CenterVertically))
+            Spacer(Modifier.width(10.dp))
+        }
         Box(Modifier.weight(1f)) {
             when {
                 // Parsed once per entry (it decodes JSON and looks up every app), and again when the
@@ -327,7 +337,7 @@ fun LogLine(
                     val charDp = with(density) { (Term.fontSize * 0.6f).sp.toDp().value }
                     val lineChars = ((screen - 60) / charDp).toInt().coerceAtLeast(16)
                     val mayFold = remember(entry, lineChars, Term.foldLines) { entry.kind != LogKind.COMMAND && mayFold(entry, lineChars) } && marks.isEmpty()
-                    if (image == null && richRest == null && !mayFold) words()
+                    if (image == null && richRest == null && !mayFold && actions.isEmpty()) words()
                     else Column {
                         Foldable(entry.id, style, enabled = mayFold) {
                             Column {
@@ -340,6 +350,7 @@ fun LogLine(
                         }
                         // The picture stays in sight under a folded line.
                         image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
+                        if (actions.isNotEmpty()) ActionPills(entry, actions, onAction)
                     }
                 }
             }
