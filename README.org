@@ -83,7 +83,7 @@ On-device tests (=app/src/androidTest=) cover the script engines and sandbox, co
 backup, and the home and settings screens. The on-device ones install the debug build (package
 suffix =.debug=) and change its settings; run them on an emulator.
 
-*Coverage: 91.4%* of the app's code lines (0.4.16), counting a line when either kind of test runs it.
+*Coverage: 91.2%* of the app's code lines (0.5.0), counting a line when either kind of test runs it.
 It is measured at each release with JaCoCo, on an Android 16 emulator:
 
 #+begin_src sh
