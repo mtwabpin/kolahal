@@ -82,9 +82,13 @@ if (rows.length > 1) {
     url: "https://www.coingecko.com/",
   });
 } else if (rows.length === 1) {
+  // One coin: its name, then big numbers: the price large, with the coin and the currency under it,
+  // and the day's change in the good or bad colour. A tap opens its page.
   const r = rows[0];
-  const moved = r.change != null ? `  ${moves(r)} 24h` : "";
-  log(`${r.sym}  ${fmt.bold(r.price)} ${vs.toUpperCase()}` + moved, { url: `https://www.coingecko.com/en/coins/${r.id}` });
+  const name = r.id.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const numbers = [[r.price, `${r.sym} in ${vs.toUpperCase()}`]];
+  if (r.change != null) numbers.push([moves(r), "24 hours"]);
+  log(name, fmt.stats(numbers), { url: `https://www.coingecko.com/en/coins/${r.id}` });
 }
 
 if (words.length === 0 && parts.length > 0) status(parts.join(" · "));

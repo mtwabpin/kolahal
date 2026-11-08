@@ -1,7 +1,7 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.4
+// @version 1.5
 // @command
 // @usage [live|<team>]
 // @every 15m
@@ -99,6 +99,24 @@ function overs(event) {
   const text = `${m[1]}${m[2] ? "." + m[2] : ""}/${m[3]}`;
   if (/^\d+\s*\(/.test(batting) || /\/10\b/.test(batting)) return { share: 1, text: `all out, ${text}` };
   return { share: Math.min(1, (Number(m[1]) * 6 + Number(m[2] || 0)) / (Number(m[3]) * 6)), text };
+}
+
+// Big numbers for a live match (fmt.stats): the batting side's score large ("237/4"), with the side
+// and its overs under it; then, in a chase, the runs it needs and the balls left, as the summary
+// gives them ("India require 64 runs with 60 balls remaining"). Null when no side is batting.
+function scoreNumbers(event) {
+  const re = /\((\d+(?:\.\d)?)\/\d+ ov/;
+  const sides = teams(event);
+  const batting = sides.find((c) => (c.score || "").includes("target") && re.test(c.score)) || sides.find((c) => re.test(c.score || ""));
+  if (!batting) return null;
+  const who = (batting.team && (batting.team.shortDisplayName || batting.team.displayName)) || (batting.team && batting.team.abbreviation) || "?";
+  const numbers = [[batting.score.split(" (")[0].trim(), `${who} · ${batting.score.match(re)[1]} overs`]];
+  const s = (event.status && event.status.summary) || "";
+  const runs = s.match(/(\d+)\s+runs?\b/);
+  const balls = s.match(/(\d+)\s+balls?\b/);
+  if (runs) numbers.push([runs[1], "to win"]);
+  if (balls) numbers.push([balls[1], "balls left"]);
+  return { text: fmt.stats(numbers), chase: !!runs };
 }
 
 // How far the batting side's innings is, 0 to 1, for the status line's bar; null without a limit.
@@ -228,7 +246,11 @@ if (tables) {
   const card = fmt.table([["Team", "Score"], ...teams(e).map((c) => [(c.team && c.team.displayName) || abbr(c), c.score || "—"])], { header: true });
   const o = rich && state(e) === "in" ? overs(e) : null;
   const bar = o ? fmt.bars([["Overs", o.share, o.text]], { max: 1, color: "good" }) : "";
-  show([tag, e.name || line(e)].filter(Boolean).join(" "), [summary(e), card, bar, about].filter(Boolean).join("\n"));
+  // From Kolahal 0.5.0, while it's on: big numbers above the card. When they show what the summary
+  // says (the runs to win), the summary goes.
+  const big = typeof fmt.stats === "function" && state(e) === "in" ? scoreNumbers(e) : null;
+  const said = big && big.chase ? "" : summary(e);
+  show([tag, e.name || line(e)].filter(Boolean).join(" "), [said, big && big.text, card, bar, about].filter(Boolean).join("\n"));
 } else {
   log(line(e), [e.name, about].filter(Boolean).join(" · "));
 }

@@ -1,7 +1,7 @@
 // @title Air quality
 // @desc Air quality: aqi [city], without one its city option (US, Indian or European index; the nearest station's with a WAQI token)
 // @author Kolahal
-// @version 1.4
+// @version 1.5
 // @command
 // @usage [<city>]
 // @at 08:00
@@ -220,12 +220,24 @@ const name = `${scale.toUpperCase()} AQI`;
 const rows = [...figures.map(([n, v]) => [n, String(v), band(v)[0]]), ...readings];
 const tint = (i, text) => (i < figures.length ? fmt.color(band(figures[i][1])[1], text) : text);
 const where = [place.name, place.country_code].filter(Boolean).join(", ");
-if (newer) {
+// From Kolahal 0.4.16 a bar too: the first figure on the scale, up to the top of its second-worst
+// band (300 US, 400 India, 100 Europe), in its band's colour.
+const worst = BANDS[scale][BANDS[scale].length - 2][0];
+const bar = typeof fmt.bar === "function" ? fmt.bar(figures[0][1], { max: worst, color: band(figures[0][1])[1] }) : "";
+if (typeof fmt.stats === "function") {
+  // From Kolahal 0.5.0, big numbers: the first figure large, in its band's colour, with the band and
+  // what it covers under it; the other figure and PM2.5 smaller beside it. The bar, then the other
+  // readings in a table.
+  const pm = readings.find(([n]) => n === "PM2.5");
+  const numbers = [
+    ...figures.map(([n, v], i) => [tint(i, String(v)), i === 0 ? `${band(v)[0]} · ${n.toLowerCase()}` : n.toLowerCase()]),
+    ...(pm ? [[pm[1], `${pm[0]} ${pm[2]}`]] : []),
+  ];
+  const rest = readings.filter((r) => r !== pm);
+  const table = rest.length ? fmt.table(rest, { align: "lrl" }) : "";
+  show(`${where} · ${name}`, [fmt.stats(numbers), bar, table, ...notes].filter(Boolean).join("\n"), { url });
+} else if (newer) {
   const table = fmt.table(rows.map(([n, value, unit], i) => [n, tint(i, value), unit]), { align: "lrl" });
-  // From Kolahal 0.4.16 a bar under the table too: the first figure on the scale, up to the top of
-  // its second-worst band (300 US, 400 India, 100 Europe), in its band's colour.
-  const worst = BANDS[scale][BANDS[scale].length - 2][0];
-  const bar = typeof fmt.bar === "function" ? fmt.bar(figures[0][1], { max: worst, color: band(figures[0][1])[1] }) : "";
   show(`${where} · ${name}`, [table, bar, ...notes].filter(Boolean).join("\n"), { url });
 } else {
   const nameWidth = Math.max(...rows.map((r) => r[0].length));

@@ -1,7 +1,7 @@
 // @title Live football
 // @desc Live football scores from one league: the team option's live match as its status line, to pin at the top of home; football live lists them all
 // @author Kolahal
-// @version 1.4
+// @version 1.5
 // @command
 // @usage [live|<team>]
 // @every 15m
@@ -184,5 +184,19 @@ const when = state(found) === "pre" ? `Starts ${new Date(found.date).toLocaleStr
 const tag = rich ? { in: fmt.tag("bad", "LIVE"), post: fmt.tag("muted", "FT"), pre: fmt.tag("info", "UPCOMING") }[state(found)] : "";
 const p = rich && state(found) === "in" ? progress(found) : null;
 const bar = p == null ? "" : fmt.bars([["Minute", p, (found.status && found.status.displayClock) || ""]], { max: 1, color: "good" });
-show([tag, line(found)].filter(Boolean).join(" "), [[found.name, when].filter(Boolean).join(" · "), bar].filter(Boolean).join("\n"));
+// From Kolahal 0.5.0, once it has started: the match by its teams' names as the title, then big
+// numbers: the score large, with the teams under it, and the minute (HT, or FT at the end) beside it.
+const [home, away] = ["home", "away"].map((h) => sides(found).find((c) => c.homeAway === h) || {});
+const shortOf = (c) => (c.team && c.team.abbreviation) || "?";
+const nameOf = (c) => (c.team && c.team.displayName) || shortOf(c);
+if (typeof fmt.stats === "function" && (state(found) === "in" || state(found) === "post")) {
+  const type = (found.status && found.status.type) || {};
+  const clock = state(found) === "post" ? ["FT", "full time"]
+    : type.shortDetail === "HT" ? ["HT", "half time"]
+    : [(found.status && found.status.displayClock) || "", "minute"];
+  const numbers = fmt.stats([[`${home.score ?? ""}–${away.score ?? ""}`, `${shortOf(home)} v ${shortOf(away)}`], clock]);
+  show([tag, `${nameOf(home)} v ${nameOf(away)}`].filter(Boolean).join(" "), [numbers, bar].filter(Boolean).join("\n"));
+} else {
+  show([tag, line(found)].filter(Boolean).join(" "), [[found.name, when].filter(Boolean).join(" · "), bar].filter(Boolean).join("\n"));
+}
 if (state(found) === "in") follow(found);

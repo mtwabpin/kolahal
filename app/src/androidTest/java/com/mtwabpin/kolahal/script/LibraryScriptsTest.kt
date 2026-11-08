@@ -13,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.LocalDate
@@ -34,7 +35,9 @@ class LibraryScriptsTest {
         lines().forEach { logs.delete(it.id) }
         val entry = library.entries.single { it.file == file }
         val declared = ScriptMeta.options(library.code(entry)).associate { it.name to it.default }
-        val host = HostApi(context, name, scriptId = id, notifyEnabled = false, options = declared + options)
+        // Its @secret lines, none set yet, as after an install.
+        val secrets = HostApi.Secrets(ScriptMeta.secrets(library.code(entry)), emptyMap())
+        val host = HostApi(context, name, scriptId = id, notifyEnabled = false, options = declared + options, secrets = secrets)
         val args = argline.split(' ').filter(String::isNotEmpty)
         runBlocking { ScriptEngine.forLang(entry.lang).run(before + library.code(entry), name, host, 10_000, false, args, event) }
         host.flush()
@@ -191,6 +194,72 @@ class LibraryScriptsTest {
         assertEquals("No weather", only().first)
     }
 
+    /** The big numbers of a line's body: each value with its label, as they read. */
+    private fun bigNumbers(body: String) = StyledText.lines(body).first { it.stats != null }.stats!!.map { s ->
+        s.value.joinToString("") { it.text } to s.label.joinToString("") { it.text }
+    }
+
+    /** One coin: its name, then its price large and the day's change in its colour. */
+    @Test fun cryptoOneCoinShowsBigNumbers() {
+        run("crypto.js", "bitcoin", before = standIns("""{"bitcoin":{"usd":67120.4,"usd_24h_change":-1.234}}"""))
+        val e = lines().single()
+        assertEquals("Bitcoin", e.text)
+        assertEquals(listOf("67,120.40" to "BTC in USD", "▼ 1.2%" to "24 hours"), bigNumbers(e.ctx.body!!))
+        assertEquals(StyledText.Colour.BAD, StyledText.lines(e.ctx.body!!).first().stats!![1].value.single().colour)
+        assertEquals("https://www.coingecko.com/en/coins/bitcoin", e.ctx.url)
+    }
+
+    /** One currency: the value large, then the rate; the line copies the value. */
+    @Test fun exchangeOneCurrencyShowsBigNumbers() {
+        run("exchange.js", "100 usd inr", before = standIns("""{"result":"success","rates":{"INR":83.42,"USD":1}}"""))
+        val e = lines().single()
+        assertEquals("100 USD", e.text)
+        assertEquals(listOf("8,342.00" to "INR", "83.420" to "1 USD in INR"), bigNumbers(e.ctx.body!!))
+        assertEquals("8342.00", e.ctx.copy)
+    }
+
+    /** The index large in its band's colour, with the band under it; the 24-hour figure and PM2.5 beside it; the other readings in a table. */
+    @Test fun aqiLeadsWithBigNumbers() {
+        val hours = { v: Int -> List(24) { v }.joinToString(",", "[", "]") }
+        val geo = """{"results":[{"name":"Pune","country_code":"IN","latitude":18.5,"longitude":73.8}]}"""
+        val air = """{"current":{"european_aqi":60},"hourly":{"pm2_5":${hours(72)},"pm10":${hours(98)},"nitrogen_dioxide":${hours(31)},"sulphur_dioxide":${hours(5)},"carbon_monoxide":${hours(300)},"ozone":${hours(44)}}}"""
+        val before = "const http = { get: async (url) => ({ ok: true, status: 200, body: url.includes('geocoding') ? ${com.mtwabpin.kolahal.script.Json.stringify(geo)} : ${com.mtwabpin.kolahal.script.Json.stringify(air)} }) };\n"
+        run("aqi.js", "Pune", before = before)
+        val e = lines().first { it.text.startsWith("Pune, IN") }
+        val numbers = bigNumbers(e.ctx.body!!)
+        assertEquals(listOf("last hour", "24 hours", "PM2.5 µg/m³"), numbers.map { it.second.substringAfter(" · ") })
+        assertEquals("72", numbers[2].first)
+        assertTrue(numbers[0].second, numbers[0].second.startsWith("Unhealthy"))
+        val lines = StyledText.lines(e.ctx.body!!)
+        assertTrue(lines.any { it.meter != null })
+        assertEquals(listOf("PM10", "NO₂", "O₃"), lines.mapNotNull { it.row }.map { r -> r.cells[0].spans.joinToString("") { it.text } })
+    }
+
+    /** A live chase: the batting side's score large, then the runs to win and the balls left, which the summary said. */
+    @Test fun cricketLiveShowsTheScoreBig() {
+        val panel = """{"scores":[{"leagues":[{"id":"8000"}],"events":[{"id":"1","name":"India v New Zealand","date":"2026-11-08T08:00Z",
+            "status":{"summary":"India require 64 runs with 60 balls remaining","type":{"state":"in","detail":"40 ov"}},
+            "competitions":[{"description":"3rd ODI","class":{"internationalClassId":"2"},"competitors":[
+              {"team":{"displayName":"India","shortDisplayName":"India","abbreviation":"IND"},"score":"237/4 (40/50 ov, target 300)"},
+              {"team":{"displayName":"New Zealand","shortDisplayName":"New Zealand","abbreviation":"NZ"},"score":"299/8"}]}]}]}]}"""
+        run("cricket.js", "India", before = standIns(panel.replace("\n", "")))
+        val e = lines().single()
+        assertEquals(listOf("237/4" to "India · 40 overs", "64" to "to win", "60" to "balls left"), bigNumbers(e.ctx.body!!))
+        // The summary said the same, so it goes.
+        assertTrue(e.ctx.body!!, !StyledText.plain(e.ctx.body!!).contains("require"))
+    }
+
+    /** A live match: the teams' names as the title, then the score large and the minute. */
+    @Test fun footballLiveShowsTheScoreBig() {
+        val board = """{"events":[{"id":"9","name":"Chelsea at Arsenal","date":"2026-11-08T15:00Z","status":{"displayClock":"67'","type":{"state":"in","shortDetail":"67'"}},
+            "competitions":[{"competitors":[{"homeAway":"home","team":{"abbreviation":"ARS","displayName":"Arsenal"},"score":"2"},
+            {"homeAway":"away","team":{"abbreviation":"CHE","displayName":"Chelsea"},"score":"1"}]}]}]}"""
+        run("football.js", "Arsenal", before = standIns(board.replace("\n", "")))
+        val e = lines().single()
+        assertEquals("LIVE Arsenal v Chelsea", StyledText.plain(e.text))
+        assertEquals(listOf("2–1" to "ARS v CHE", "67'" to "minute"), bigNumbers(e.ctx.body!!))
+    }
+
     /** Typed, the quote is on screen; the notification is for its daily time. */
     @Test fun quoteNotifiesOnlyAtItsTime() {
         val before = standIns("""[{"q":"Be kind","a":"Someone"}]""")
@@ -204,12 +273,13 @@ class LibraryScriptsTest {
     @Test fun sunsDayLengthRoundsAsAWhole() {
         fun length(secs: Int): String {
             run("sun.js", "12.97 77.59", before = standIns("""{"daily":{"sunrise":["2026-10-16T06:12"],"sunset":["2026-10-16T17:12"],"daylight_duration":[$secs]}}"""))
-            // The body's first line: a bar of the daylight gone comes under it.
-            return only().second.orEmpty().let(StyledText::plain).lineSequence().first().substringAfterLast(" · ")
+            // That day is over here, so the big number is its length, with "of daylight today" under it.
+            val first = StyledText.lines(only().second!!).first().stats!!.first()
+            return listOf(first.value, first.label).joinToString(" ") { s -> s.joinToString("") { it.text } }
         }
-        assertEquals("11h 0m of daylight", length(39_570))
-        assertEquals("10h 50m of daylight", length(39_000))
-        assertEquals("10h 59m of daylight", length(39_569))
+        assertEquals("11h 0m of daylight today", length(39_570))
+        assertEquals("10h 50m of daylight today", length(39_000))
+        assertEquals("10h 59m of daylight today", length(39_569))
     }
 
     @Test fun releasesWatchesAndListsRepos() {
@@ -264,9 +334,9 @@ class LibraryScriptsTest {
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 15, "plug" to "usb"))
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(true, status.get(name)?.startsWith("Charging since "))
-        // Unplugged still below 30%: the warning colour, and how much it added under it.
+        // Unplugged still below 30%: the warning colour; under it, big numbers (the battery, what it added, how long) and the bar.
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"))
-        assertEquals(Triple("Unplugged at 20%", "+5% in 0m\n15%\t20%", StyledText.Colour.WARN), plainOnly())
+        assertEquals(Triple("Unplugged at 20%", "20% battery · +5% added · 0m charging\n15%\t20%", StyledText.Colour.WARN), plainOnly())
         // A bar under it, in the same colour, from where the charge started (15%) to where it is (20%).
         val bar = StyledText.lines(lines().single().ctx.body!!).last().meter!!
         assertEquals(0.15f, bar.from, 0.001f)
@@ -275,7 +345,7 @@ class LibraryScriptsTest {
         assertNull(status.get(name))
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 20, "plug" to "ac"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 90, "plug" to "ac"))
-        assertEquals(Triple("Unplugged at 90%", "+70% in 0m\n20%\t90%", StyledText.Colour.GOOD), plainOnly())
+        assertEquals(Triple("Unplugged at 90%", "90% battery · +70% added · 0m charging\n20%\t90%", StyledText.Colour.GOOD), plainOnly())
 
         run("charge-reminder.lua")
         val (title, body) = only()
@@ -285,7 +355,7 @@ class LibraryScriptsTest {
         // Its low option: 20% is fine above 10%.
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 15, "plug" to "usb"), options = mapOf("low" to "10"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"), options = mapOf("low" to "10"))
-        assertEquals(Triple("Unplugged at 20%", "+5% in 0m\n15%\t20%", StyledText.Colour.GOOD), plainOnly())
+        assertEquals(Triple("Unplugged at 20%", "20% battery · +5% added · 0m charging\n15%\t20%", StyledText.Colour.GOOD), plainOnly())
     }
 
     private val nm = context.getSystemService(android.app.NotificationManager::class.java)

@@ -63,25 +63,31 @@ try {
   const secs = d.daylight_duration ? d.daylight_duration[0] : null;
   // Rounded as a whole: the minutes alone could round up to "60m".
   const minutes = secs != null ? Math.round(secs / 60) : null;
-  const length = minutes != null ? ` · ${Math.floor(minutes / 60)}h ${minutes % 60}m of daylight` : "";
 
-  // How much of today's daylight has gone, as a bar, at the place's own time (Kolahal 0.4.16 has
-  // fmt.bars). The times are the place's clock, so they're read as UTC and compared with now moved
-  // by the place's offset from UTC.
-  let bar = "";
-  if (typeof fmt.bars === "function" && d.sunrise[0] && d.sunset[0]) {
-    const at = (iso) => Date.parse(iso.length === 16 ? `${iso}:00Z` : `${iso}Z`);
-    const from = at(d.sunrise[0]);
-    const to = at(d.sunset[0]);
-    const now = Date.now() + (data.utc_offset_seconds || 0) * 1000;
-    if (to > from) {
-      const left = Math.round((to - now) / 60000);
-      const text = now < from ? "not up yet" : now >= to ? "set" : `${Math.floor(left / 60)}h ${left % 60}m left`;
-      bar = "\n" + fmt.bars([["Daylight", Math.min(1, Math.max(0, (now - from) / (to - from))), text]], { max: 1, color: "warn" });
-    }
-  }
-
-  log(store.get("place") || `${lat}, ${lng}`, `Sunrise ${fmt.bold(rise)} · sunset ${fmt.bold(set)}${length}${bar}`);
+  // Big numbers: what matters now, large (the time to sunrise, the daylight left, or after sunset
+  // the day's length), then sunrise and sunset; under them a bar of how much daylight has gone. The
+  // times are the place's own, so they're read as UTC and compared with now moved by its offset.
+  const at = (iso) => Date.parse(iso.length === 16 ? `${iso}:00Z` : `${iso}Z`);
+  const from = d.sunrise[0] ? at(d.sunrise[0]) : NaN;
+  const to = d.sunset[0] ? at(d.sunset[0]) : NaN;
+  const now = Date.now() + (data.utc_offset_seconds || 0) * 1000;
+  const hm = (ms) => {
+    const m = Math.max(0, Math.round(ms / 60000));
+    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  };
+  const day = minutes != null ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : null;
+  let first;
+  if (!(to > from)) first = day ? [day, "of daylight"] : null;
+  else if (now < from) first = [hm(from - now), "to sunrise"];
+  else if (now < to) first = [hm(to - now), "daylight left"];
+  else first = day ? [day, "of daylight today"] : null;
+  const numbers = fmt.stats([first, [rise, "sunrise"], [set, "sunset"]].filter(Boolean));
+  const share = to > from ? Math.min(1, Math.max(0, (now - from) / (to - from))) : null;
+  const under = [
+    share == null ? null : fmt.bar(share, { color: "warn" }),
+    day && first && first[1] !== "of daylight today" && first[1] !== "of daylight" ? `${day} of daylight today` : null,
+  ].filter(Boolean);
+  log(store.get("place") || `${lat}, ${lng}`, [numbers, ...under].join("\n"));
   status(`Sun ${rise}–${set}`);
 } catch (e) {
   return fail("No sun times", `${e.message || e}`);

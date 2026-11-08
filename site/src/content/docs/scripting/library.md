@@ -138,8 +138,9 @@ On a timer, it sets today's summary as its status line.
 ## aqi
 
 **Air quality**: the US, Indian or European air quality index for a city, from Open-Meteo, with
-the last hour, the last 24 hours and the readings behind them, as a table. Each figure is in its
-band's colour, and a bar under the table shows the first one on the scale. A typed `aqi` shows
+the last hour, the last 24 hours and the readings behind them. The last hour shows large, in its
+band's colour with the band's name under it, and the 24-hour figure and PM2.5 beside it; then a bar of
+it on the scale, and the other readings in a table. A typed `aqi` shows
 "Fetching…" at once, which turns into the answer.
 
 ```sh
@@ -156,13 +157,15 @@ script pin aqi                 # at the top of home, with a coloured bar
   station instead of Open-Meteo's model.
 ## sun
 
-**Sunrise and sunset**, and the length of the day, from Open-Meteo, in the location's own time
-zone, with a bar of how much of today's daylight has gone. `sun Lisbon` or `sun 12.97 77.59` saves the
+**Sunrise and sunset** from Open-Meteo, in the location's own time zone, as big numbers: the daylight
+left large (before sunrise, the time to it; after sunset, the day's length), then sunrise and sunset,
+with a bar of how much of today's daylight has gone. `sun Lisbon` or `sun 12.97 77.59` saves the
 location. After that, just type `sun`.
 
 ## crypto
 
-**Crypto prices** with the 24-hour change, from CoinGecko: a table for several coins, a line for one. On a timer, its
+**Crypto prices** with the 24-hour change, from CoinGecko: a table for several coins; for one, its
+price large and the change beside it, in green or red. On a timer, its
 status line is short, for example `BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%`.
 
 ```sh
@@ -177,7 +180,8 @@ Its `coins` and `currency` options set what `crypto` shows with no arguments and
 
 **Currency converter** with daily rates from open.er-api.com. On a timer, or when you run it with no
 arguments, it converts its `from` option to its `to` options and pins the rates. By default this is
-USD to EUR, GBP, INR and JPY. For simple cases, the built-in
+USD to EUR, GBP, INR and JPY, as a table; one currency shows its value large, with the rate beside
+it. For simple cases, the built-in
 [`= 100 usd in eur`](/guides/web-and-calculator/#currency) is enough.
 
 ```sh
@@ -237,7 +241,8 @@ script pin cricket           # the score at the top of home
 ```
 
 - `cricket <team>` shows the match with a tag (LIVE, RESULT or UPCOMING), then a table of each
-  side's score and, while it's on, the overs as a bar. A typed command shows "Fetching scores…" at
+  side's score and, while it's on, the batting side's score large (with the runs to win and the
+  balls left in a chase) and the overs as a bar. A typed command shows "Fetching scores…" at
   once, which turns into the answer. If the match is live, the
   script follows that match until it ends, and its result stays 2 hours.
 - A team matches its name or its abbreviation. A name also matches teams whose name starts with it:
@@ -249,7 +254,8 @@ script pin cricket           # the score at the top of home
 
 **Live football** from one league: a team's live match as its status line, to pin at the top of
 home, with the minutes played as a bar. It uses ESPN's scores, like `cricket`. `football <team>` shows
-the match with a tag (LIVE, FT or UPCOMING) and, while it's on, the minutes played as a bar.
+the match with a tag (LIVE, FT or UPCOMING); once it has started, the score large with the minute
+beside it, and while it's on, the minutes played as a bar.
 
 ```sh
 football Arsenal             # Arsenal's match, followed while it's on
@@ -265,7 +271,8 @@ football live                # the league's live matches, as a table
 **Charge reminder**: runs when you plug in the charger and when you unplug it. It has no timer and
 doesn't use the network.
 
-- It logs how much charge each session added, with a bar from the level it started at to the level
+- It logs each session when you unplug: the battery large, then how much the charge added and how
+  long it took, and a bar from the level it started at to the level
   when you unplugged.
 - It notifies you when you unplug below 30% (its `low` option).
 - When you run it yourself, it shows the last session.

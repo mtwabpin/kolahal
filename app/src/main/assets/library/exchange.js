@@ -71,11 +71,14 @@ for (const to of targets) {
   rows.push({ to, value: num(amount * rate) });
   parts.push(`${to} ${num(rate)}`);
 }
-// Several targets: one table, the values on the right. One target: one line, which copies its value.
+// Several targets: one table, the values on the right. One target: big numbers, the value large
+// with its currency under it, then the rate for one unit; the line copies the value.
 if (rows.length > 1) {
   log(`${amountText} ${from}`, fmt.table(rows.map((r) => [r.to, r.value]), { align: "lr" }));
 } else {
-  for (const r of rows) log(`${amountText} ${from} = ${fmt.bold(r.value)} ${r.to}`, { copy: r.value.replace(/,/g, "") });
+  for (const r of rows) {
+    log(`${amountText} ${from}`, fmt.stats([[r.value, r.to], [num(data.rates[r.to]), `1 ${from} in ${r.to}`]]), { copy: r.value.replace(/,/g, "") });
+  }
 }
 
 if (background && parts.length > 0) status(`${from}: ` + parts.join(" · "));

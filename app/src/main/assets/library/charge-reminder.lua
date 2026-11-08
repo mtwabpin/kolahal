@@ -51,9 +51,13 @@ if event.name == "unplug" then
   local colour = level and level < LOW and "warn" or "good"
   local body = detail and (detail:sub(1, 1):upper() .. detail:sub(2))
   if level then
+    -- Big numbers: the battery large, in the same colour, then what the charge added and how long it took.
+    local numbers = { { fmt.color(colour, pct(level)), "battery" } }
+    if from then numbers[#numbers + 1] = { string.format("%+d%%", math.floor(level - from)), "added" } end
+    if since then numbers[#numbers + 1] = { minutes(since), "charging" } end
     local bar = from and fmt.ranges({ { "", from, level } }, { min = 0, max = 100, unit = "%", color = colour })
       or fmt.bar(level, { max = 100, color = colour })
-    body = (body and (body .. "\n") or "") .. bar
+    body = fmt.stats(numbers) .. "\n" .. bar
   end
   log(fmt.color(colour, line), body)
   if level and level < LOW then
