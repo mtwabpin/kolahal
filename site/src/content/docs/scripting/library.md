@@ -48,6 +48,7 @@ None of the network scripts need an API key.
 | Script | Lang | Command | Suggested timer | Notifies |
 | --- | --- | --- | --- | --- |
 | [hn](#hn) | Lua | | every 1h | yes |
+| [lobsters](#lobsters) | Lua | | every 1h | yes |
 | [releases](#releases) | Lua | yes | every 3h | yes |
 | [reddit](#reddit) | JS | yes | | |
 | [weather](#weather) | Lua | yes | every 1h | |
@@ -75,9 +76,18 @@ None of the network scripts need an API key.
 ## hn
 
 **Hacker News**: new front-page stories with 50 or more points since the last run (from
-hnrss.org), up to 10 lines, each with its points and a link to its comments. A tap on the rest of the line
-opens the story. It notifies you about the top new story. It keeps no status line, so it has nothing to pin.
+hnrss.org), up to 10 lines: each title, then its points and a link to its comments. A tap on the rest of
+the line opens the story. It notifies you about the top new story. It keeps no status line, so it has
+nothing to pin.
 Options: `points` (`0` for every story) and `lines`.
+
+## lobsters
+
+**Lobsters**: new front-page stories from lobste.rs since the last run, up to 10 lines. Each title
+has up to two of its tags, then its score and a link to its comments. A tap on the rest of the line
+opens the story, or the discussion for a text post. It notifies you about the top new story. A story
+shows once its score reaches the `score` option (5 to start with; `0` for every story). Options:
+`score` and `lines`.
 
 ## releases
 

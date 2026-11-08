@@ -11,7 +11,7 @@ class LibraryFilesTest {
         .mapNotNull { f -> ScriptLang.of(f.extension)?.let { f to it } }.sortedBy { it.first.name }
 
     @Test fun theyAreAllThere() {
-        assertEquals(24, files.size)
+        assertEquals(25, files.size)
     }
 
     /** Nothing the editor would point out on saving one. */
@@ -29,7 +29,7 @@ class LibraryFilesTest {
             assertEquals(f.name, declared, read.findAll(body).map { it.groupValues[1] }.toSet())
         }
         val withOptions = files.filter { (f, _) -> ScriptMeta.options(f.readText()).isNotEmpty() }.map { it.first.nameWithoutExtension }
-        assertEquals(listOf("aqi", "charge-reminder", "cricket", "crypto", "exchange", "football", "forecast", "hn", "night-dnd", "reddit", "template-timer", "weather", "wikipedia"), withOptions)
+        assertEquals(listOf("aqi", "charge-reminder", "cricket", "crypto", "exchange", "football", "forecast", "hn", "lobsters", "night-dnd", "reddit", "template-timer", "weather", "wikipedia"), withOptions)
     }
 
     @Test fun choicesAndQuotedDefaults() {

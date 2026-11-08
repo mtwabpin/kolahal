@@ -128,6 +128,40 @@ class LibraryScriptsTest {
         "const http = { get: async () => ({ ok: true, status: 200, body: ${com.mtwabpin.kolahal.script.Json.stringify(body)} }) };\n" +
             "const notify = (title) => log('notified ' + title);\n"
 
+    /** [standIns] for a Lua script: a network that answers with [body], and a notify that says so in the log. */
+    private fun luaStandIns(body: String) =
+        "http = { get = function() return { ok = true, status = 200, body = [==[$body]==] } end }\n" +
+            "notify = function(title) log('notified ' .. title) end\n"
+
+    /**
+     * Lobsters: each new story once, with its tags, score and a link to its comments; a text post's
+     * line opens its discussion; a story under the score option waits.
+     */
+    @Test fun lobstersShowsEachNewStoryOnce() {
+        val body = """[
+            {"short_id":"aaa","title":"A story","url":"https://a.example/x","score":28,"comment_count":37,"tags":["security","rust","web"],"comments_url":"https://lobste.rs/s/aaa/a_story","short_id_url":"https://lobste.rs/s/aaa"},
+            {"short_id":"bbb","title":"Ask: tools","url":"","score":61,"comment_count":1,"tags":["ask"],"comments_url":"https://lobste.rs/s/bbb/ask","short_id_url":"https://lobste.rs/s/bbb"},
+            {"short_id":"ccc","title":"Too new","url":"https://c.example","score":2,"comment_count":0,"tags":[],"comments_url":"https://lobste.rs/s/ccc/new","short_id_url":"https://lobste.rs/s/ccc"}
+        ]"""
+        run("lobsters.lua", before = luaStandIns(body))
+        val (story, ask, notified) = lines()
+        assertEquals("A story security rust · 28 points · 37 comments", StyledText.plain(story.text))
+        assertEquals("https://a.example/x", story.ctx.url)
+        assertEquals(listOf("37 comments" to "https://lobste.rs/s/aaa/a_story"), StyledText.linkTexts(story.text))
+        assertEquals(listOf("security", "rust"), StyledText.lines(story.text).single().spans.filter { StyledText.Style.TAG in it.styles }.map { it.text })
+        assertEquals("Ask: tools ask · 61 points · 1 comment", StyledText.plain(ask.text))
+        assertEquals("https://lobste.rs/s/bbb/ask", ask.ctx.url)
+        assertEquals(emptyList<Pair<String, String>>(), StyledText.linkTexts(ask.text))
+        assertEquals("notified Lobsters", notified.text)
+        assertEquals(3, lines().size)
+        // The same front page again: nothing new.
+        run("lobsters.lua", before = luaStandIns(body))
+        assertEquals(emptyList<LogEntry>(), lines())
+        // The waiting one, once it has the score.
+        run("lobsters.lua", before = luaStandIns(body.replace("\"score\":2,", "\"score\":9,")))
+        assertEquals(listOf("Too new · 9 points · 0 comments", "notified Lobsters"), lines().map { StyledText.plain(it.text) })
+    }
+
     /** Typed, the quote is on screen; the notification is for its daily time. */
     @Test fun quoteNotifiesOnlyAtItsTime() {
         val before = standIns("""[{"q":"Be kind","a":"Someone"}]""")
