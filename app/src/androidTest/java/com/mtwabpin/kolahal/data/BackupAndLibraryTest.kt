@@ -588,6 +588,40 @@ class BackupAndLibraryTest {
         }
     }
 
+    /**
+     * A copy whose installed text wasn't recorded (an older install, a restored backup) is still known
+     * as unedited when it is a version the library had, and it follows the library. Its timer follows
+     * too, as it was still the old version's. A copy that is the library's version gets its original recorded.
+     */
+    @Test fun copiesWithoutARecordFollowTheLibraryToo() {
+        val lib = ScriptLibrary(context)
+        val prefs = context.getSharedPreferences("script_library", android.content.Context.MODE_PRIVATE)
+        val (ip, countdown) = listOf("ip", "countdown").map { name -> lib.entries.single { it.name == name } }
+        // ip.lua as the library first had it: no timer.
+        val first = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets.open("library-past/ip.lua").use { it.readBytes().toString(Charsets.UTF_8) }
+        try {
+            for (e in listOf(ip, countdown)) lib.install(e)
+            scripts.saveCode(scripts.byName(ip.name)!!.id, first)
+            scripts.setInterval(scripts.byName(ip.name)!!.id, 0)
+            for (e in listOf(ip, countdown)) prefs.edit().remove("installed:${e.name}").commit()
+
+            assertTrue(lib.shipped(ip, first))
+            assertEquals(ScriptLibrary.State.UPDATE_AVAILABLE, lib.state(ip, scripts.all()))
+            assertEquals(listOf(ip.name), lib.updateUnedited())
+            val updated = scripts.byName(ip.name)!!
+            assertEquals(lib.code(ip), updated.code)
+            assertEquals("its timer follows the new version's", 30, updated.intervalMin)
+            assertEquals(lib.code(countdown), prefs.getString("installed:${countdown.name}", null))
+            assertEquals(ScriptLibrary.State.INSTALLED, lib.state(countdown, scripts.all()))
+        } finally {
+            for (e in listOf(ip, countdown)) {
+                scripts.byName(e.name)?.let { scripts.delete(it.id) }
+                lib.forget(e.name)
+            }
+            LogRepository.get(context).recent(20).filter { it.text.startsWith("Library scripts updated") }.forEach { LogRepository.get(context).delete(it.id) }
+        }
+    }
+
     @Test fun libraryLuaScriptsCompile() {
         val lib = ScriptLibrary(context)
         val lua = lib.entries.filter { it.lang == ScriptLang.LUA }

@@ -48,7 +48,11 @@ class ScriptLibrary(private val context: Context) {
         }
     }
 
-    /** The library state of [entry], compared with the user's scripts. */
+    /**
+     * The library state of [entry], compared with the user's scripts. A copy is unedited if it is the
+     * text that was installed, or any version the library ever had ([shipped]): so a copy whose
+     * installed text wasn't recorded (an older install, a restored backup) still follows the library.
+     */
     fun state(entry: Entry, installed: List<Script>): State {
         val script = installed.firstOrNull { it.name == entry.name } ?: return State.NOT_INSTALLED
         val original = installedOriginal(entry.name)
@@ -56,15 +60,29 @@ class ScriptLibrary(private val context: Context) {
         return when {
             script.code == bundled -> State.INSTALLED
             original != null && script.code == original -> State.UPDATE_AVAILABLE
+            script.lang == entry.lang && shipped(entry, script.code) -> State.UPDATE_AVAILABLE
             else -> State.MODIFIED
         }
+    }
+
+    /** Whether [code] is a version of [entry] that the library had, now or before (assets/library-history.txt). */
+    fun shipped(entry: Entry, code: String): Boolean = fingerprint(code) in history[entry.file].orEmpty()
+
+    /** Every version of each library file, by file: the first 16 hex digits of its SHA-256 (tools/library-history.sh). */
+    private val history: Map<String, Set<String>> by lazy {
+        runCatching {
+            context.assets.open(HISTORY).bufferedReader().readLines()
+                .filter { it.isNotBlank() && !it.startsWith("#") }
+                .mapNotNull { line -> line.trim().split(' ').takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+                .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+        }.getOrDefault(emptyMap())
     }
 
     /**
      * Installs [entry] with its suggested timers, or updates it and keeps its own timers. It remembers
      * the installed text, so a later app update can tell "update available" from "you edited it".
      */
-    fun install(entry: Entry): Script {
+    fun install(entry: Entry, followTimers: Boolean = false): Script {
         // A command script with a built-in's name could never run by that name.
         require(entry.name !in com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES) { "'${entry.name}' is a built-in command" }
         val repo = ScriptRepository.get(context)
@@ -75,6 +93,13 @@ class ScriptLibrary(private val context: Context) {
         } else {
             if (existing.lang != entry.lang) throw IllegalStateException("a ${existing.lang.ext} script '${entry.name}' already exists")
             repo.saveCode(existing.id, code)
+            // An update you didn't ask for keeps the timers you chose. The ones you left as the old
+            // version had them follow the new version.
+            if (followTimers) {
+                val every = { c: String -> ScriptMeta.every(c)?.coerceAtLeast(ScriptScheduler.MIN_INTERVAL_MIN) ?: 0 }
+                if (existing.intervalMin == every(existing.code)) repo.setInterval(existing.id, every(code))
+                if (existing.atTimes == ScriptMeta.at(existing.code)) repo.setAtTimes(existing.id, ScriptMeta.at(code))
+            }
             existing
         }
         prefs.edit { putString("installed:${entry.name}", code) }
@@ -82,20 +107,22 @@ class ScriptLibrary(private val context: Context) {
     }
 
     /**
-     * Library copies you never edited follow the app. When a new Kolahal brings new copies (or a
-     * different library), each copy that is still as installed becomes the new one. Its timers and
-     * switches are kept. Edited copies are left alone ([State.MODIFIED]); Reset brings back the
-     * library's version.
-     * Returns the names updated. It runs once per library, so a usual start costs nothing.
+     * Library copies you never edited follow the app. Each copy that is a version the library had
+     * ([state] is [State.UPDATE_AVAILABLE]) becomes the library's version now. Its switches are kept,
+     * and its timers too, unless they are still the old version's ([install]'s followTimers). Edited
+     * copies are left alone ([State.MODIFIED]); Reset brings back the library's version.
+     * A copy that is the library's version but has no recorded original gets one, so it shows as installed.
+     * Returns the names updated. It runs at every start: it reads the scripts once and compares a few texts.
      */
     fun updateUnedited(): List<String> {
-        val fingerprint = entries.joinToString("\n") { it.file + ":" + code(it).hashCode() }.hashCode()
-        if (prefs.getInt(KEY_LIBRARY, 0) == fingerprint) return emptyList()
         val installed = ScriptRepository.get(context).all()
-        val results = entries.filter { state(it, installed) == State.UPDATE_AVAILABLE }.map { e -> e.name to runCatching { install(e) }.isSuccess }
-        val updated = results.filter { it.second }.map { it.first }
-        // If one failed (a locked database, a changed language), it is tried again on the next start.
-        if (results.all { it.second }) prefs.edit { putInt(KEY_LIBRARY, fingerprint) }
+        for (e in entries) {
+            val script = installed.firstOrNull { it.name == e.name } ?: continue
+            if (installedOriginal(e.name) == null && script.lang == e.lang && script.code == code(e)) prefs.edit { putString("installed:${e.name}", script.code) }
+        }
+        // If one fails (a locked database), it is tried again on the next start.
+        val updated = entries.filter { state(it, installed) == State.UPDATE_AVAILABLE }
+            .filter { e -> runCatching { install(e, followTimers = true) }.isSuccess }.map { it.name }
         if (updated.isNotEmpty()) {
             com.mtwabpin.kolahal.data.LogRepository.get(context).add(
                 com.mtwabpin.kolahal.data.LogKind.INFO,
@@ -113,7 +140,11 @@ class ScriptLibrary(private val context: Context) {
     fun forget(name: String) = prefs.edit { remove("installed:$name") }
 
     private companion object {
-        /** The library version that [updateUnedited] last updated copies to (a fingerprint of its files). */
-        const val KEY_LIBRARY = "library"
+        /** Every version of each library file ([shipped]). */
+        const val HISTORY = "library-history.txt"
+
+        fun fingerprint(code: String): String =
+            java.security.MessageDigest.getInstance("SHA-256").digest(code.toByteArray(Charsets.UTF_8))
+                .take(8).joinToString("") { "%02x".format(it) }
     }
 }

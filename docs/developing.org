@@ -118,6 +118,7 @@ kolahal/
 │       ├── main/
 │       │   ├── AndroidManifest.xml   HOME activity, :script process, listener and accessibility services
 │       │   ├── assets/library/       ready-made scripts for `script lib`, each describing itself (@title, @every…)
+│       │   ├── assets/library-history.txt  every version of each library script, so an unedited copy follows the app (tools/library-history.sh)
 │       │   ├── assets/licenses/      OFL licences of the bundled fonts
 │       │   ├── java/…/launcher/      Kotlin sources, by package (table below)
 │       │   └── res/                  icons, fonts, XML config (accessibility service, backup rules, network security)
@@ -219,6 +220,9 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   checks the script's access (=may=), and one with an effect calls =live()= first.
 - Log line behaviour :: the tap and long-press logic is in =LogLineActions.onTap= / =actionsFor=,
   keyed on =LogContext= values. Rendering is in =ui/LogView.kt=, and the line's text in =ui/LogLineText.kt=.
+- Changed a library script :: run =tools/library-history.sh=, so its new version is listed in
+  =assets/library-history.txt=. A copy of a version listed there counts as unedited and follows the
+  app; =LibraryHistoryTest= fails until it is listed.
 - New action on the script screens :: it goes in =ScriptActions=, not the view model.
 - New control on a Material screen :: Material 3 Expressive only (Settings and everything else that
   isn't the terminal; the terminal draws its own). Read =@material3expressive= in the library's sources

@@ -26,8 +26,11 @@ as editing, so the script still updates with Kolahal.
 **Updates**
 
 - If you haven't edited your copy, it updates with Kolahal. When a Kolahal update has a newer
-  version, it replaces yours automatically.
-  - Its timers and switches are kept.
+  version, it replaces yours automatically, at the next start.
+  - Kolahal knows every version the library ever had. A copy that is one of them counts as not edited,
+    even an old copy, or one restored from a backup.
+  - Its switches are kept. So are its timers, unless they are still what the old version set: then
+    they become what the new version sets.
   - Anything new that it asks for with `@uses` or `@on` stays off until you allow it. A line in the
     log lets you allow it.
   - The log lists the updated scripts.
