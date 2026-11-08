@@ -212,8 +212,10 @@ quote as a notification.
 
 ## countdown
 
-**Countdowns**: the days until (or since) dates. The list is a table: each countdown's number (for `rm`), its date and when it is. Its status line is the
-nearest date. It doesn't use the network.
+**Countdowns**: the days until (or since) dates. A countdown shows its days in big numbers, with the
+date and its weekday beside them. The list starts with the next one that way, then a table: each
+countdown's number (for `rm`), its date and when it is. Its status line is the nearest date. It
+doesn't use the network.
 
 ```sh
 countdown 2026-12-25

@@ -57,8 +57,34 @@ local function tint(days, text)
   return text
 end
 
--- One countdown as a line, coloured by how near it is, with [under] (its date) below it.
-local function show(text, days, under) log(tint(days, text), under) end
+-- The date as it reads on a calendar: "25 Dec", with the year when it isn't this one.
+local function dayMonth(t)
+  local text = tonumber(os.date("%d", t)) .. " " .. os.date("%b", t)
+  if os.date("%Y", t) ~= os.date("%Y") then text = text .. " " .. os.date("%Y", t) end
+  return text
+end
+
+-- Big numbers (Kolahal 0.4.16's fmt.stats): the days, large and coloured by how near they are,
+-- with what they count under them ([what]: "to go" by default, or "to Christmas"), then the date
+-- with its weekday, smaller.
+local function big(days, t, what)
+  local count, under
+  if days == 0 then
+    count, under = "Today", what and what:gsub("^to ", "") or ""
+  elseif days > 0 then
+    count, under = tostring(days), (days == 1 and "day " or "days ") .. (what or "to go")
+  else
+    count, under = tostring(-days), (days == -1 and "day ago" or "days ago")
+  end
+  return fmt.stats({ { tint(days, count), under }, { dayMonth(t), os.date("%A", t) } })
+end
+
+-- One countdown: its name as the title, coloured by how near it is, the big numbers under it, and
+-- [after] (a note such as "Saved") under them.
+local function show(label, t, after)
+  local days = daysUntil(t)
+  log(tint(days, label), big(days, t) .. (after and ("\n" .. after) or ""))
+end
 
 local function usage() log(fmt.color("muted", "Usage: countdown YYYY-MM-DD | add YYYY-MM-DD label | rm N")) end
 
@@ -89,8 +115,7 @@ if cmd == "add" then
   local list = load()
   list[#list + 1] = { date = date, label = label }
   save(sorted(list))
-  local days = daysUntil(parseDate(date))
-  return show(describe(days, label), days, "Saved · " .. date)
+  return show(label, parseDate(date), fmt.color("muted", "Saved · countdown lists them"))
 end
 
 if cmd == "rm" then
@@ -105,8 +130,7 @@ end
 if cmd ~= "" then
   local t = parseDate(cmd)
   if not t then return usage() end
-  local days = daysUntil(t)
-  return show(describe(days, rest ~= "" and rest or cmd), days)
+  return show(rest ~= "" and rest or cmd, t)
 end
 
 -- No arguments: list saved countdowns and set the nearest upcoming one as the status line.
@@ -119,15 +143,19 @@ end
 -- One table: each countdown with its date and when it is, coloured by how near (past ones muted).
 -- The number is the one `countdown rm` takes.
 local rows = { { "#", "Countdown", "Date", "When" } }
-local nearest = nil
+local nearest, nearestBig = nil, nil
 for i, item in ipairs(list) do
   local t = parseDate(item.date)
   if t then
     local days = daysUntil(t)
     local function quiet(text) return days < 0 and fmt.color("muted", text) or text end
     rows[#rows + 1] = { tostring(i), quiet(item.label), quiet(item.date), tint(days, when(days)) }
-    if days >= 0 and nearest == nil then nearest = describe(days, item.label) end
+    if days >= 0 and nearest == nil then
+      nearest = describe(days, item.label)
+      nearestBig = big(days, t, "to " .. item.label)
+    end
   end
 end
-log("Countdowns", fmt.table(rows, { header = true, align = "rllr" }))
+-- The next one first, in big numbers, then the table.
+log("Countdowns", (nearestBig and (nearestBig .. "\n") or "") .. fmt.table(rows, { header = true, align = "rllr" }))
 status(nearest)

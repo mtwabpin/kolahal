@@ -61,22 +61,33 @@ class LibraryScriptsTest {
         run("countdown.lua")
         assertEquals(Triple("No countdowns yet: countdown add 2026-12-25 Christmas", null, StyledText.Colour.MUTED), only())
 
-        // Colours by how near: this week's in the warning colour, today's in the good one, past ones muted.
+        // A date as the script shows it, under the days: "25 Dec Friday", with the year when it isn't this one.
+        fun shown(d: LocalDate) = d.format(java.time.format.DateTimeFormatter.ofPattern(if (d.year == today.year) "d MMM" else "d MMM yyyy", java.util.Locale.ENGLISH)) +
+            " " + d.format(java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale.ENGLISH))
+        val saved = "Saved · countdown lists them"
+        // Its name is the title, coloured by how near: this week's in the warning colour, today's in
+        // the good one, past ones muted. Under it, big numbers: the days, then the date.
         run("countdown.lua", "add ${today.plusDays(3)} Soon")
-        assertEquals(Triple("Soon: in 3 days", "Saved · ${today.plusDays(3)}", StyledText.Colour.WARN), only())
+        assertEquals(Triple("Soon", "3 days to go · ${shown(today.plusDays(3))}\n$saved", StyledText.Colour.WARN), plainOnly())
+        val big = StyledText.lines(lines().single().ctx.body!!).first().stats!!
+        assertEquals(listOf("3", "days to go"), big.first().let { s -> listOf(s.value, s.label).map { p -> p.joinToString("") { it.text } } })
+        assertEquals(StyledText.Colour.WARN, big.first().value.single().colour)
         run("countdown.lua", "add $today Now")
-        assertEquals(StyledText.Colour.GOOD, only().third)
+        assertEquals(Triple("Now", "Today · ${shown(today)}\n$saved", StyledText.Colour.GOOD), plainOnly())
         run("countdown.lua", "add ${today.minusDays(10)} Past")
-        assertEquals(Triple("Past: 10 days ago", "Saved · ${today.minusDays(10)}", StyledText.Colour.MUTED), only())
+        assertEquals(Triple("Past", "10 days ago · ${shown(today.minusDays(10))}\n$saved", StyledText.Colour.MUTED), plainOnly())
         run("countdown.lua", "add ${today.plusDays(30)} Trip")
-        assertEquals(Triple("Trip: in 30 days", "Saved · ${today.plusDays(30)}", null), only())
+        assertEquals(Triple("Trip", "30 days to go · ${shown(today.plusDays(30))}\n$saved", null), plainOnly())
+        run("countdown.lua", today.plusDays(1).toString())
+        assertEquals("1 day to go · ${shown(today.plusDays(1))}", plainOnly().second)
 
         run("countdown.lua")
-        // The list is one table: the number `rm` takes, the countdown, its date and when it is.
+        // The next one in big numbers, then a table: the number `rm` takes, the countdown, its date and when it is.
         val list = lines().single()
         assertEquals("Countdowns", list.text)
         assertEquals(
             listOf(
+                "Today Now · ${shown(today)}",
                 "#\tCountdown\tDate\tWhen",
                 "1\tPast\t${today.minusDays(10)}\t10 days ago",
                 "2\tNow\t$today\ttoday",
@@ -86,7 +97,7 @@ class LibraryScriptsTest {
             StyledText.plain(list.ctx.body!!).lines(),
         )
         // "When" is coloured by how near it is, as a single countdown is; a past one is muted throughout.
-        val rows = StyledText.lines(list.ctx.body!!).map { it.row!! }
+        val rows = StyledText.lines(list.ctx.body!!).mapNotNull { it.row }
         assertEquals(
             listOf(StyledText.Colour.MUTED, StyledText.Colour.GOOD, StyledText.Colour.WARN, null),
             rows.drop(1).map { it.cells[3].spans.single().colour },
@@ -107,7 +118,7 @@ class LibraryScriptsTest {
 
         // A date on its own is counted, not saved.
         run("countdown.lua", "${today.plusDays(5)}")
-        assertEquals("${today.plusDays(5)}: in 5 days", only().first)
+        assertEquals(Triple("${today.plusDays(5)}", "5 days to go · ${shown(today.plusDays(5))}", StyledText.Colour.WARN), plainOnly())
         // Not saved: the list still has the three left.
         run("countdown.lua")
         assertEquals(3, StyledText.lines(lines().single().ctx.body!!).count { it.row?.header == false })
@@ -119,7 +130,8 @@ class LibraryScriptsTest {
         run("countdown.lua", "add $year-11-20 Later")
         run("countdown.lua", "add $year-11-5 Sooner")
         run("countdown.lua")
-        assertEquals(listOf("1\tSooner", "2\tLater"), StyledText.plain(lines().single().ctx.body!!).lines().drop(1).map { it.split('\t').take(2).joinToString("\t") })
+        // The table's rows, after the big numbers and the header.
+        assertEquals(listOf("1\tSooner", "2\tLater"), StyledText.plain(lines().single().ctx.body!!).lines().filter { '\t' in it && it.first().isDigit() }.map { it.split('\t').take(2).joinToString("\t") })
         assertEquals(true, status.get(name).orEmpty().contains("Sooner"))
     }
 
