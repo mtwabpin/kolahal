@@ -81,14 +81,14 @@ class ScriptCardsTest {
         val s = scripts.create("scpills", ScriptLang.LUA, "-- @uses clipboard\nif false then notify(\"a\", http.get(\"https://example.com\").body) end")
         scripts.setAccess(s.id, "clipboard", true)
         show()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("internet"))
-        compose.onNodeWithText("internet").performClick()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Internet"))
+        compose.onNodeWithText("Internet").performClick()
         compose.waitFor("internet off") { !scripts.byId(s.id)!!.grants.allows("internet") }
-        compose.onNodeWithText("clipboard").performClick()
+        compose.onNodeWithText("Clipboard").performClick()
         compose.waitFor("clipboard off") { !scripts.byId(s.id)!!.grants.allows("clipboard") }
-        compose.onNodeWithText("internet").performClick()
+        compose.onNodeWithText("Internet").performClick()
         compose.waitFor("internet on again") { scripts.byId(s.id)!!.grants.allows("internet") }
-        compose.onNodeWithText("notifies").performClick()
+        compose.onNodeWithText("Notifies").performClick()
         compose.waitFor("notifies on") { scripts.byId(s.id)!!.notify }
     }
 
@@ -100,12 +100,12 @@ class ScriptCardsTest {
         val s = scripts.create("scpills", ScriptLang.LUA, "-- @uses clipboard\n-- @on unlock\nclipboard.set(\"x\")")
         scripts.setAccess(s.id, "clipboard", true)
         show()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("unlock"))
-        compose.onNodeWithText("clipboard").assertExists()
-        listOf("internet", "pinned", "notifies").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
-        val access = compose.onNodeWithText("clipboard").getUnclippedBoundsInRoot()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Unlock"))
+        compose.onNodeWithText("Clipboard").assertExists()
+        listOf("Internet", "Pinned", "Notifies").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        val access = compose.onNodeWithText("Clipboard").getUnclippedBoundsInRoot()
         val events = compose.onNodeWithText("Events", useUnmergedTree = true).getUnclippedBoundsInRoot()
-        val unlock = compose.onNodeWithText("unlock").getUnclippedBoundsInRoot()
+        val unlock = compose.onNodeWithText("Unlock").getUnclippedBoundsInRoot()
         assertTrue("the Events label under the access pills: $access, $events", events.top >= access.bottom)
         assertTrue("the event's pill under its label: $events, $unlock", unlock.top >= events.bottom)
     }
@@ -120,20 +120,20 @@ class ScriptCardsTest {
         var shown by androidx.compose.runtime.mutableStateOf(true)
         compose.setContent { if (shown) ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
         fun details(event: String) {
-            compose.waitUntil(5_000) { vm.scriptList.value.any { it.name == "scpills" && event in it.code } }
+            compose.waitUntil(5_000) { vm.scriptList.value.any { it.name == "scpills" && event.lowercase() in it.code } }
             compose.onAllNodesWithContentDescription("Show details")[0].performClick()
             compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(event))
         }
-        details("unlock")
+        details("Unlock")
         compose.runOnIdle { shown = false }
         scripts.saveCode(s.id, "-- @on charger\nreturn 1", byUser = true)
         // A line logged: home reads the scripts again, as after a save.
         val line = com.mtwabpin.kolahal.data.LogRepository.get(app).add(com.mtwabpin.kolahal.data.LogKind.INFO, "scpills saved")
         try {
             compose.runOnIdle { shown = true }
-            details("charger")
-            compose.onNodeWithText("charger").assertExists()
-            compose.onNodeWithText("unlock").assertDoesNotExist()
+            details("Charger")
+            compose.onNodeWithText("Charger").assertExists()
+            compose.onNodeWithText("Unlock").assertDoesNotExist()
         } finally {
             com.mtwabpin.kolahal.data.LogRepository.get(app).delete(line)
         }

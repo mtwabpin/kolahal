@@ -251,18 +251,18 @@ private fun ScriptDetails(
             val (base, declared) = access.partition { it == ScriptAccess.INTERNET || it == ScriptAccess.HEADER }
             for (item in base + listOfNotNull("notify".takeIf { info.notifies }) + declared) {
                 if (item == "notify") {
-                    AccessPill("notifies", s.notify) { onNotify(!s.notify) }
+                    AccessPill("Notifies", s.notify, R.drawable.ic_notifications) { onNotify(!s.notify) }
                     continue
                 }
-                val name = USES_SHORT[item] ?: if (item == ScriptAccess.HEADER) "pinned" else ScriptAccess.label(item).lowercase()
+                val name = (USES_SHORT[item] ?: if (item == ScriptAccess.HEADER) "pinned" else ScriptAccess.label(item).lowercase()).replaceFirstChar { it.uppercase() }
                 val allowed = grants.allows(item)
-                AccessPill(if (item in grants.undecided) "$name · not allowed yet" else name, allowed) { onAccess(item, !allowed) }
+                AccessPill(if (item in grants.undecided) "$name · not allowed yet" else name, allowed, PILL_ICONS[item]) { onAccess(item, !allowed) }
             }
         }
         if (events.isNotEmpty()) PillGroup("Events") {
             for (item in events) {
                 val allowed = grants.allows(item)
-                AccessPill(item, allowed) { onAccess(item, !allowed) }
+                AccessPill(item.replaceFirstChar { it.uppercase() }, allowed, PILL_ICONS[item]) { onAccess(item, !allowed) }
             }
         }
         if (info.secrets.isNotEmpty()) {
@@ -331,21 +331,37 @@ private fun OutlinedAction(label: String, icon: Int, height: Dp, iconTint: Color
  * when off. A tap switches it.
  */
 @Composable
-private fun AccessPill(label: String, on: Boolean, onToggle: () -> Unit) {
+private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     FilterChip(
         selected = on,
         onClick = onToggle,
-        label = { Text(label) },
+        // One line: a long label is cut, so a pill never grows to two lines and breaks the row.
+        label = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+        leadingIcon = icon?.let { { Icon(painterResource(it), null, Modifier.size(FilterChipDefaults.IconSize)) } },
         colors = FilterChipDefaults.filterChipColors(
             labelColor = colors.outline,
+            iconColor = colors.outline,
             selectedContainerColor = colors.primary,
             selectedLabelColor = colors.onPrimary,
+            selectedLeadingIconColor = colors.onPrimary,
         ),
         border = FilterChipDefaults.filterChipBorder(enabled = true, selected = on, borderColor = colors.outlineVariant),
         modifier = Modifier.semantics { stateDescription = if (on) "on" else "off" },
     )
 }
+
+/**
+ * Icons for access and event pills, only where one says it clearly. Internet, clipboard, Do Not
+ * Disturb and headset have none that would.
+ */
+private val PILL_ICONS = mapOf(
+    ScriptAccess.HEADER to R.drawable.ic_home, "notifications" to R.drawable.ic_notifications, "apps" to R.drawable.ic_apps,
+    "commands" to R.drawable.ic_stat_terminal, "work" to R.drawable.ic_work,
+    "unlock" to R.drawable.ic_lock_open, "charger" to R.drawable.ic_battery, "unplug" to R.drawable.ic_battery,
+    "wifi" to R.drawable.ic_wifi, "offline" to R.drawable.ic_cloud_off, "notification" to R.drawable.ic_notifications,
+    "boot" to R.drawable.ic_restart,
+)
 
 /** A row of pills in a card under a small [label]: what a script may use, or the events it runs on. */
 @Composable

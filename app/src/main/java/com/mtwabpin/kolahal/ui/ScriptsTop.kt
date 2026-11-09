@@ -293,9 +293,7 @@ private fun ColumnScope.FilterGroups(groups: List<Pair<FilterGroup, List<ScriptF
                                 withStyle(SpanStyle(color = if (muted) colors.outline else colors.onSurfaceVariant)) { append("$count") }
                             })
                         },
-                        leadingIcon = if (on) {
-                            { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(FilterChipDefaults.IconSize)) }
-                        } else null,
+                        // No check mark: the filled chip already shows it is on.
                         colors = FilterChipDefaults.filterChipColors(labelColor = if (muted) colors.outline else colors.onSurfaceVariant),
                         border = FilterChipDefaults.filterChipBorder(enabled = true, selected = on, borderColor = if (muted) colors.outlineVariant else colors.outline),
                         modifier = Modifier.height(FilterChipDefaults.Height).testTag("filter:${chip.id}"),
