@@ -437,7 +437,7 @@ class BackupAndLibraryTest {
         val kept = listOf("Launched bkline-plain", "Launched bkline-work [W]", "bkline-word [Sunday] plans", "bkline-brackets [S]a")
         kept.forEach { logs.add(LogKind.INFO, it) }
         logs.add(LogKind.INFO, "Launched bkline-launched [S]")
-        logs.add(LogKind.INFO, "Updated bkline-updated [S] ↻\ncom.example\n1.0", "apps")
+        logs.add(LogKind.INFO, "Updated bkline-updated [S] ↑\ncom.example\n1.0", "apps")
         logs.add(LogKind.INFO, "Uninstalled bkline-gone [S] −", "apps")
         logs.add(LogKind.OUTPUT, "Call from bkline-call", CallEvents.SOURCE)
         logs.add(LogKind.COMMAND, "call bkline-typed")

@@ -50,7 +50,7 @@ fun markMatches(text: AnnotatedString, words: List<String>): AnnotatedString {
     }.toAnnotatedString()
 }
 
-/** A profile tag at the end of a line's first row, as in `Launched Maps [W]` or `Updated Maps [W] ↻`. */
+/** A profile tag at the end of a line's first row, as in `Launched Maps [W]` or `Updated Maps [W] ↑`. */
 private val profileTag = Regex(" \\[([PWSC])](?= \\S*$|$)")
 
 /** Appends [text] in [color]. A profile tag at the end gets its profile colour. */

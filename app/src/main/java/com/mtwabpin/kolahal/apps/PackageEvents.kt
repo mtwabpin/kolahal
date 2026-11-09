@@ -193,7 +193,7 @@ class PackageEvents private constructor(private val context: Context) {
                 kind != "uninstalled" && p.version.isNotEmpty() -> "\n${p.version}"
                 else -> ""
             }
-            val glyph = when (kind) { "installed" -> "+"; "updated" -> "↻"; else -> "−" }
+            val glyph = when (kind) { "installed" -> "+"; "updated" -> "↑"; else -> "−" }
             val pkg = key.substringBefore('#')
             val ctx = if (kind == "uninstalled") LogContext.of(LogContext.COPY to pkg)
             else LogContext.of(LogContext.PKG to pkg, LogContext.USER to key.substringAfter('#'), LogContext.COPY to pkg)

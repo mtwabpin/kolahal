@@ -382,16 +382,16 @@ class AppCommandsTest {
                 "history",
                 Json.stringify(
                     listOf(
-                        mapOf("t" to newer, "text" to "Updated Llat One ↻\ncom.example.one\n1.0 → 1.1"),
+                        mapOf("t" to newer, "text" to "Updated Llat One ↑\ncom.example.one\n1.0 → 1.1"),
                         mapOf("t" to older, "text" to "Installed Llat Two +\ncom.example.two\n2.0"),
                     ),
                 ),
             )
             val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.getDefault())
             val listed = lines("installs")
-            assertEquals(listOf("Updated Llat One ↻\ncom.example.one\n1.0 → 1.1", "Installed Llat Two +\ncom.example.two\n2.0"), listed.map { it.text })
+            assertEquals(listOf("Updated Llat One ↑\ncom.example.one\n1.0 → 1.1", "Installed Llat Two +\ncom.example.two\n2.0"), listed.map { it.text })
             assertEquals(listOf(fmt.format(java.util.Date(newer)), fmt.format(java.util.Date(older))), listed.map { it.ctx.values[LogContext.DESC] })
-            assertEquals(listOf("Updated Llat One ↻\ncom.example.one\n1.0 → 1.1"), run("updates 1"))
+            assertEquals(listOf("Updated Llat One ↑\ncom.example.one\n1.0 → 1.1"), run("updates 1"))
         } finally {
             store.set("history", historyBefore)
         }
