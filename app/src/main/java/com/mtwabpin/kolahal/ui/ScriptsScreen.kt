@@ -185,7 +185,8 @@ private fun factsOf(info: ScriptInfo, copy: ScriptCopy?, needsKey: Boolean, tags
  *   the library or the shared version, with Review and Update all.
  * - A compact card shows the title, how it runs and its last run on one line, and a pill for what
  *   needs doing: Update, Reset or Add key.
- * - An expanded card also shows the status line, next run, usage, events and access.
+ * - An expanded card also shows the status line and description, a line for each problem (with
+ *   its fix), and lines with an icon: when it runs, its usage and its access.
  * - Add script offers new, library, shared and imported scripts.
  * - Tapping a card opens the script's sheet.
  */
@@ -409,7 +410,7 @@ fun ScriptsScreen(
                         onNotify = { vm.scriptActions.setScriptNotify(s, it) },
                         onCompare = { comparing = s.id },
                         onRestore = { copy?.let { restore(s, it) } },
-                        onAddKey = { secretNames[s.name]?.missing?.firstOrNull()?.let { addingKey = s.id to it } },
+                        onAddKey = { name -> addingKey = s.id to name },
                     )
                 }
             }
@@ -514,13 +515,20 @@ private fun addActions(vm: TerminalViewModel, onNew: () -> Unit, onImportFiles: 
     Action(R.drawable.ic_upload, "Import a file", ".lua or .js; the file name becomes the script name", onClick = onImportFiles),
 )
 
-/** How [s] is started, for example `command · every 1h · daily 08:00 · on boot`, or "manual". */
-internal fun schedule(s: Script, isCommand: Boolean, events: List<String>): String = buildList {
-    if (isCommand) add("command")
-    if (s.intervalMin > 0) add("every ${CommandParsing.formatInterval(s.intervalMin)}")
-    if (s.atTimes.isNotEmpty()) add("daily ${s.atTimes.joinToString(", ")}")
-    if (events.isNotEmpty()) add("on ${events.joinToString(", ")}")
-}.joinToString(" · ").ifEmpty { "manual" }
+/**
+ * How [s] is started, in parts for a card's lines: for example "Command", "Every 1h", "Daily 08:00",
+ * "On boot". Each part starts with a capital.
+ * - [isCommand]: add "Command".
+ * - [events]: the events for "On …"; pass none to leave that part out.
+ * - [manual]: say "Manual" when there is no other part.
+ */
+internal fun scheduleParts(s: Script, isCommand: Boolean, events: List<String>, manual: Boolean = true): List<String> = buildList {
+    if (isCommand) add("Command")
+    if (s.intervalMin > 0) add("Every ${CommandParsing.formatInterval(s.intervalMin)}")
+    if (s.atTimes.isNotEmpty()) add("Daily ${s.atTimes.joinToString(", ")}")
+    if (events.isNotEmpty()) add("On ${events.joinToString(", ")}")
+    if (isEmpty() && manual) add("Manual")
+}
 
 internal fun Script.failed() = lastStatus?.let { it.startsWith("error") || it.startsWith("stopped") || it == "timeout" } == true
 

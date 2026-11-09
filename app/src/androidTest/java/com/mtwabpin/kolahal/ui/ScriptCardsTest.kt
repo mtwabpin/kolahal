@@ -55,7 +55,7 @@ class ScriptCardsTest {
     private val library = ScriptLibrary(app)
 
     @After fun tearDown() {
-        listOf("scpills", "countdown").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
+        listOf("scpills", "scplain", "countdown").forEach { n -> scripts.byName(n)?.let { scripts.delete(it.id) } }
         library.forget("countdown")
     }
 
@@ -94,7 +94,7 @@ class ScriptCardsTest {
 
     /**
      * Only what its code uses: no internet, pinning or notifications for one that doesn't go online, set a line or
-     * notify. The events it runs on have a line of their own, under its access.
+     * notify. The events it runs on are on the line about when it runs, above its access.
      */
     @Test fun aCardShowsOnlyWhatTheScriptUses() {
         val s = scripts.create("scpills", ScriptLang.LUA, "-- @uses clipboard\n-- @on unlock\nclipboard.set(\"x\")")
@@ -104,10 +104,10 @@ class ScriptCardsTest {
         compose.onNodeWithText("Clipboard").assertExists()
         listOf("Internet", "Pinned", "Notifies").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         val access = compose.onNodeWithText("Clipboard").getUnclippedBoundsInRoot()
-        val events = compose.onNodeWithText("Events", useUnmergedTree = true).getUnclippedBoundsInRoot()
         val unlock = compose.onNodeWithText("Unlock").getUnclippedBoundsInRoot()
-        assertTrue("the Events label under the access pills: $access, $events", events.top >= access.bottom)
-        assertTrue("the event's pill under its label: $events, $unlock", unlock.top >= events.bottom)
+        assertTrue("the event's pill above the access pills: $unlock, $access", unlock.bottom <= access.top)
+        // No labels: the lines have icons.
+        listOf("Access", "Events").forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertDoesNotExist() }
     }
 
     /**
@@ -159,8 +159,9 @@ class ScriptCardsTest {
         val s = library.install(entry)
         scripts.saveCode(s.id, library.code(entry) + "\n-- mine", byUser = true)
         show()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Reset to library version"))
-        compose.onNodeWithText("Reset to library version").performClick()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Reset to library"))
+        compose.onNodeWithText("Edited by you").assertExists()
+        compose.onNodeWithText("Reset to library").performClick()
         // Edits would be lost: it asks first.
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
         assertFalse(scripts.byId(s.id)!!.code == library.code(entry))
@@ -261,5 +262,107 @@ class ScriptCardsTest {
         } finally {
             com.mtwabpin.kolahal.script.SecretStore(app).clear("scpills")
         }
+    }
+
+    /** [scpills]'s card. */
+    private val scCard = hasTestTag("script-card") and hasText("scpills.lua")
+
+    /** The texts of [scpills]'s card, in order, without those of its buttons and pills. */
+    private fun cardTexts() = compose.onNode(scCard).fetchSemanticsNode()
+        .config[androidx.compose.ui.semantics.SemanticsProperties.Text].map { it.text }
+
+    /** The text of [scpills]'s summary line: the one after its file. */
+    private fun summary() = cardTexts().let { it[it.indexOf(" · yours") + 1] }
+
+    /** Opens [scpills]'s details from the closed list, and scrolls to [text]. */
+    private fun openDetails(text: String) {
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(scCard)
+        compose.onNode(hasContentDescription("Show details") and hasAnyAncestor(scCard)).performClick()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text, substring = true))
+    }
+
+    /**
+     * Open, a card says a failed run and a missing key once each, in a line of its own: the summary leaves
+     * them out and the pill is hidden. The key's line has Add key, and it works.
+     */
+    @Test fun anOpenCardSaysEachProblemOnceWithItsButton() {
+        val s = scripts.create("scpills", ScriptLang.LUA, "-- @secret SCP_KEY example.com A key for the test\nlocal k = secrets.get(\"SCP_KEY\")")
+        scripts.recordRun(s.id, "error: HTTP 401: invalid key")
+        try {
+            show(details = false)
+            compose.waitForNode(scCard and hasText(" · yours"))
+            // Closed: the summary has both, with the pill.
+            assertTrue(summary(), summary().startsWith("Manual · Failed "))
+            assertTrue(summary(), summary().endsWith(" · Needs SCP_KEY"))
+            compose.onNode(pill("scpills.lua") and hasText("Add key")).assertExists()
+
+            openDetails("SCP_KEY is not set")
+            assertEquals("Manual", summary())
+            compose.onNode(pill("scpills.lua")).assertDoesNotExist()
+            // "Failed" once in the card: only in its line, with the error.
+            val failed = cardTexts().filter { "Failed" in it }
+            assertEquals(cardTexts().toString(), 1, failed.size)
+            assertTrue(failed.single(), Regex("Failed .+ · HTTP 401: invalid key").matches(failed.single()))
+            assertTrue(cardTexts().toString(), "SCP_KEY is not set" in cardTexts())
+            assertTrue("the line about runs", "Manual" in cardTexts().drop(cardTexts().indexOf(failed.single())))
+
+            compose.onNode(hasText("Add key") and hasClickAction() and hasAnyAncestor(scCard)).performClick()
+            compose.onNodeWithText("SCP_KEY for scpills").assertExists()
+            compose.onNodeWithTag("secret-value").performTextInput("abcd1234")
+            inDialog("Save").performClick()
+            compose.waitFor("the key set") { com.mtwabpin.kolahal.script.SecretStore(app).get("scpills", "SCP_KEY")?.value == "abcd1234" }
+            // Its line goes. A key that is set doesn't show.
+            compose.waitFor("its line gone") { cardTexts().none { "SCP_KEY" in it } }
+            compose.onNode(hasText("Add key") and hasAnyAncestor(scCard)).assertDoesNotExist()
+        } finally {
+            com.mtwabpin.kolahal.script.SecretStore(app).clear("scpills")
+        }
+    }
+
+    /** Each part of the summary starts with a capital, and so does each part of the line about when it runs. */
+    @Test fun theSummaryPartsStartWithACapital() {
+        val s = scripts.create("scpills", ScriptLang.LUA, "-- @command\nlog(\"hi\")")
+        scripts.setInterval(s.id, 60)
+        show(details = false)
+        compose.waitForNode(scCard)
+        assertEquals("Command · Every 1h · Never run", summary())
+        openDetails("Next ")
+        assertTrue(cardTexts().toString(), cardTexts().any { Regex("Every 1h · Next about .+ · Never run").matches(it) })
+    }
+
+    /** The usage line shows for a command, and not for a script that isn't one. */
+    @Test fun onlyACommandHasAUsageLine() {
+        scripts.create("scpills", ScriptLang.LUA, "-- @command\n-- @usage scpills [a|b <n>]\nlog(\"hi\")")
+        scripts.create("scplain", ScriptLang.LUA, "-- @usage scplain [a|b <n>]\nlog(\"hi\")")
+        show(details = false)
+        compose.waitForNode(scCard)
+        openDetails("scpills [a|")
+        // It breaks only after "|": one part per choice.
+        assertTrue(cardTexts().toString(), cardTexts().containsAll(listOf("scpills [a|", "b <n>]")))
+        val plain = hasTestTag("script-card") and hasText("scplain.lua")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(plain)
+        compose.onNode(hasContentDescription("Show details") and hasAnyAncestor(plain)).performClick()
+        // Open: the line about when it runs shows, and no usage.
+        compose.waitForNode(hasContentDescription("Hide details") and hasAnyAncestor(plain))
+        compose.onNode(plain and hasText("[a|", substring = true)).assertDoesNotExist()
+    }
+
+    /** An older copy you never edited: its open card says "Newer version in the library" with Update only, and Update works at once. */
+    @Test fun anOpenCardUpdatesANewVersion() {
+        val entry = library.entries.single { it.name == "countdown" }
+        val old = "-- @command\n-- @title Countdowns\nprint('older countdown')\n"
+        val s = scripts.create("countdown", entry.lang, old)
+        library.record("countdown", old)
+        show(details = false)
+        val card = hasTestTag("script-card") and hasText("countdown.lua")
+        compose.waitForNode(card)
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(card)
+        compose.onNode(hasContentDescription("Show details") and hasAnyAncestor(card)).performClick()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Newer version in the library"))
+        compose.onNode(hasText("Updating replaces your edits")).assertDoesNotExist()
+        compose.onNode(hasText("Compare") and hasAnyAncestor(card)).assertDoesNotExist()
+        compose.onNode(hasText("Update") and hasClickAction() and hasAnyAncestor(card)).performClick()
+        compose.waitFor("the library version") { scripts.byId(s.id)!!.code == library.code(entry) }
+        compose.waitForText("countdown.lua is updated")
     }
 }

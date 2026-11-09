@@ -34,7 +34,7 @@ as editing, so the script still updates with Kolahal.
   - Anything new that it asks for with `@uses` or `@on` stays off until you allow it. A line in the
     log lets you allow it.
   - The log lists the updated scripts. The script manager shows one line, for example "Kolahal 0.5.1
-    updated 3 scripts". **Show** lists them, and their cards say "updated in 0.5.1" until you close
+    updated 3 scripts". **Show** lists them, and their cards say "Updated in 0.5.1" until you close
     the line with ×.
 - If you edited your copy, it isn't updated. It is marked **(edited)** in `script lib`. In the
   script manager, its card shows a pill:
@@ -48,8 +48,8 @@ as editing, so the script still updates with Kolahal.
   differences. Lines only in the library version are red. Lines only in yours are in the theme's
   colour. `script diff weather` prints the same in the log.
 - Your edited copy is replaced only when you ask: run `script install weather --replace`, or tap the
-  pill or **Reset to library version** next to Compare (or at the bottom of Compare). The app asks
-  first, and offers **Compare first** and **Export your copy first**.
+  pill, **Reset to library** in the card's details, or **Reset to library version** in the sheet or at
+  the bottom of Compare. The app asks first, and offers **Compare first** and **Export your copy first**.
 - A reset or an update changes only the code. The timers, options, access and pinning stay. The
   message after it ("lobsters.lua is back to the library version", "hn.lua is updated") has
   **Undo** for 10 seconds: it puts your copy back.

@@ -226,7 +226,7 @@ class ScriptsTopTest {
     }
 
     /**
-     * After Kolahal updated library copies by itself, one line says so; their cards say "updated in"
+     * After Kolahal updated library copies by itself, one line says so; their cards say "Updated in"
      * the version. Show filters the list to them, and × closes the note for good.
      */
     @Test fun theNoteSaysWhatKolahalUpdatedAndShowsThem() {
@@ -242,7 +242,7 @@ class ScriptsTopTest {
         val note = hasTestTag("self-update-note")
         compose.waitForNode(hasText("Kolahal $version updated", substring = true) and hasAnyAncestor(note))
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(card("countdown.lua"))
-        compose.onNode(card("countdown.lua") and hasText("updated in $version", substring = true)).assertExists()
+        compose.onNode(card("countdown.lua") and hasText("Updated in $version", substring = true)).assertExists()
 
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(note)
         compose.onNode(hasText("Show") and hasAnyAncestor(note)).performClick()
@@ -254,6 +254,6 @@ class ScriptsTopTest {
         assertNull(library.selfUpdate())
         compose.onNodeWithTag("chosen-filters").assertDoesNotExist()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(card("countdown.lua"))
-        compose.onNode(card("countdown.lua") and hasText("updated in", substring = true)).assertDoesNotExist()
+        compose.onNode(card("countdown.lua") and hasText("Updated in", substring = true)).assertDoesNotExist()
     }
 }

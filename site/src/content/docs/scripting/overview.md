@@ -94,10 +94,24 @@ shows:
 A card is tinted in the theme's colour when its script is on, and faded when it is off.
 
 The arrow on a card shows its details. The arrow at the top shows the details of all cards. The
-details are: its status line, next run, usage, and a pill for each thing it may do (internet,
-pinned at the top, notifications, what it declares, its events). A pill is filled in the theme's
-colour when it is on and faded when it is off. Tap a pill to switch it. A library script that
-differs also has **Compare** and **Reset to library version** (or **Update from library**) there.
+details are, from the top:
+
+- its status line and description.
+- a line for each problem, with its button at the right end:
+  - **Failed 10:42** and the error (the run's time and message are said only here).
+  - **API_KEY is not set** · **Add key**.
+  - **Edited by you** · **Compare**, **Reset to library**.
+  - **Newer version in the library** · **Update** (and **Compare** when you edited it; then
+    updating replaces your edits).
+- lines with a small icon in front:
+  - clock: how it runs, its next run and its last run. An event script has a pill for each event
+    here.
+  - terminal: how to call it (commands only).
+  - shield: a pill for each thing it may do (internet, pinned at the top, notifications, what it
+    declares).
+
+A pill is filled in the theme's colour when it is on and faded when it is off. Tap a pill to switch
+it. While the details are open, the pill next to the summary is hidden: the lines have the buttons.
 
 Above the cards:
 
