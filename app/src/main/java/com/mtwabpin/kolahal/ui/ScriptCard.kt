@@ -351,11 +351,10 @@ private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> U
     )
 }
 
-/**
- * Icons for access and event pills, only where one says it clearly. Internet, clipboard, Do Not
- * Disturb and headset have none that would.
- */
+/** An icon for every access and event pill, so the pills look alike. */
 private val PILL_ICONS = mapOf(
+    ScriptAccess.INTERNET to R.drawable.ic_public, "clipboard" to R.drawable.ic_clipboard, "dnd" to R.drawable.ic_do_not_disturb,
+    "headset" to R.drawable.ic_headset,
     ScriptAccess.HEADER to R.drawable.ic_home, "notifications" to R.drawable.ic_notifications, "apps" to R.drawable.ic_apps,
     "commands" to R.drawable.ic_stat_terminal, "work" to R.drawable.ic_work,
     "unlock" to R.drawable.ic_lock_open, "charger" to R.drawable.ic_battery, "unplug" to R.drawable.ic_battery,
