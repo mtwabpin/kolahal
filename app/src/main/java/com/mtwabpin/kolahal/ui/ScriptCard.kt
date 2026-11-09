@@ -228,7 +228,7 @@ private fun ScriptDetails(
         line?.let {
             Surface(shape = MaterialTheme.shapes.small, color = colors.surfaceContainerHighest) {
                 Text(
-                    "${s.name} ▸ $it",
+                    it,
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
