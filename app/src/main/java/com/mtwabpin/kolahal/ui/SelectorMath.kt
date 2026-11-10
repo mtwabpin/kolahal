@@ -405,7 +405,7 @@ internal object SelectorMath {
         if (contact.isNaN() || count <= 0) -1 else floor(contact).toInt().coerceIn(0, count - 1)
 
     /** Peak magnification of the focused row, and how far (rows) the fisheye reaches on each side. */
-    const val PEAK = 0.35f
+    const val PEAK = 0.2f
     const val REACH = 3f
 
     /** Fisheye bell: 1 at the contact point, falling smoothly to 0 at ±[REACH] rows. */

@@ -378,14 +378,14 @@ class AppSelectorTest {
         show(left = false, position = "bottom", browse = "apps")
         compose.onNodeWithTag("app-selector").performTouchInput { down(center); moveBy(Offset(0f, 4.dp.toPx())) }
         compose.waitForIdle()
-        assertTrue("sliding: ${magnified()}", magnified() > 1.3f)
+        assertTrue("sliding: ${magnified()}", magnified() > 1.15f)
         // Rows past the fisheye's reach move with it: no two rows come closer than plain ones.
         assertTrue("sliding: ${gaps()}", gaps().min() > 0.95f)
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.mainClock.advanceTimeBy(80)
         val easing = magnified()
-        assertTrue("just lifted: $easing", easing > 1.05f && easing < 1.3f)
+        assertTrue("just lifted: $easing", easing > 1.03f && easing < 1.18f)
         compose.mainClock.advanceTimeBy(400)
         assertEquals(1f, magnified(), 0.01f)
         compose.onNodeWithTag("app-selector-panel").assertIsDisplayed()
@@ -486,8 +486,9 @@ class AppSelectorTest {
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.waitForIdle()
         val open = compose.onNodeWithTag("app-selector-panel").getUnclippedBoundsInRoot().let { (it.right - it.left).value }
-        // 55% of the width, but at least 200dp; open, all but the 36dp strip and an 8dp gap.
-        assertEquals(200f, sliding, 1f)
+        // Sliding: up to the bubble (40dp, 4dp margin), which sits 98dp from the edge between the strip and
+        // the 200dp where picking starts. Open: all but the 36dp strip and an 8dp gap.
+        assertEquals(360f - 98f - 20f - 4f, sliding, 1f)
         assertEquals(360f - 36f - 8f, open, 1f)
     }
 
@@ -724,7 +725,7 @@ class AppSelectorTest {
         show(left = left, position = "bottom", list = list, browse = "apps")
         compose.onNodeWithTag("app-selector").performTouchInput { down(center); moveBy(Offset(0f, 4.dp.toPx())) }
         compose.waitForIdle()
-        assertTrue("magnified", magnified() > 1.3f)
+        assertTrue("magnified", magnified() > 1.15f)
         assertNamesEndInside("holding")
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.waitForIdle()

@@ -381,13 +381,22 @@ fun AppSelector(
         //   including the top ones (a row takes a tap anywhere along it).
         val wideW = maxWidth - STRIP_W - OPEN_GAP
         val narrowW = with(density) { (containerW * 0.55f).toDp() }.coerceAtLeast(minOf(200.dp, wideW)).coerceAtMost(wideW)
-        val panelW by animateDpAsState(if (state.mode == Mode.OPEN) wideW else narrowW, tween(160), label = "panel")
-        val panelWPx = with(density) { panelW.toPx() }
-        val panelXPx = if (left) containerW - panelWPx else 0f
-        // Width used while the thumb is down.
+        // Width used while the thumb is down: where picking starts and ends.
         val touchWPx = with(density) { narrowW.toPx() }
         val touchXPx = if (left) containerW - touchWPx else 0f
         val stripXPx = if (left) 0f else containerW - stripWPx
+        // The bubble sits between the strip and the list, as far from the edge as the gap allows.
+        val bubblePx = with(density) { BUBBLE.toPx() }
+        val marginPx = with(density) { 4.dp.toPx() }
+        val gapPx = containerW - touchWPx - stripWPx
+        val bubbleFromEdge = max(bubblePx / 2 + marginPx, min(stripWPx + gapPx / 2, stripWPx + gapPx - bubblePx / 2 - marginPx))
+        // While the thumb is down, names may use the room up to the bubble: the wave of letters swings out
+        // no further than the bubble, so nothing is drawn there. The list has no card, so this only moves
+        // where a long name's "…" falls.
+        val holdW = with(density) { (containerW - bubbleFromEdge - bubblePx / 2 - marginPx).toDp() }.coerceIn(narrowW, wideW)
+        val panelW by animateDpAsState(if (state.mode == Mode.OPEN) wideW else holdW, tween(160), label = "panel")
+        val panelWPx = with(density) { panelW.toPx() }
+        val panelXPx = if (left) containerW - panelWPx else 0f
         val exclusionPx = with(density) { 200.dp.toPx() }
         // With gesture navigation, a touch starts the selector only in the middle 200dp of the strip.
         val (zoneTopPx, zoneHPx) = SelectorMath.startZone(stripHPx, exclusionPx, edgeBackGesture)
@@ -398,11 +407,6 @@ fun AppSelector(
         val edgeMaxSpeed = with(density) { 1.1.dp.toPx() } // px per ms at full depth
         val pxPerDp = density.density
         val aimStepPx = aimDp * pxPerDp
-        // The bubble sits between the strip and the list, as far from the edge as the gap allows.
-        val bubblePx = with(density) { BUBBLE.toPx() }
-        val marginPx = with(density) { 4.dp.toPx() }
-        val gapPx = containerW - touchWPx - stripWPx
-        val bubbleFromEdge = max(bubblePx / 2 + marginPx, min(stripWPx + gapPx / 2, stripWPx + gapPx - bubblePx / 2 - marginPx))
         val restPx = with(density) { LETTER_REST.toPx() }
         val open = state.mode != Mode.CLOSED
 
