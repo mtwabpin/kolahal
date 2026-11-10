@@ -518,6 +518,32 @@ class AppSelectorTest {
         assertEquals("after lifting", held, rowCentre(first), 12f)
     }
 
+    /**
+     * Sliding on the edge marks no app: lifting there launches nothing. Off the edge, picking, the app
+     * at the thumb is marked, as lifting or holding launches it. Read from the pixels at the list's
+     * start, beside the row at the finger and beside a row far from it.
+     */
+    @Test fun onlyPickingMarksTheApp() {
+        show(left = false, position = "middle")
+        val strip = compose.onNodeWithTag("app-selector")
+        strip.performTouchInput { down(center) }
+        compose.waitForIdle()
+        val fingerY = strip.getUnclippedBoundsInRoot().let { (it.top + it.bottom) / 2 }
+        fun marked(): Boolean {
+            val panel = compose.onNodeWithTag("app-selector-panel").fetchSemanticsNode().boundsInRoot
+            val image = compose.onRoot().captureToImage().toPixelMap()
+            val x = panel.left.toInt() + 3
+            val atFinger = image[x, with(compose.density) { fingerY.toPx() }.toInt()]
+            val far = image[x, panel.top.toInt().coerceAtLeast(0) + 3]
+            return abs(atFinger.red - far.red) + abs(atFinger.green - far.green) + abs(atFinger.blue - far.blue) > 0.02f
+        }
+        assertTrue("on the edge, no app is marked", !marked())
+        strip.performTouchInput { moveBy(Offset(-60.dp.toPx(), 0f)) }
+        compose.waitForIdle()
+        assertTrue("picking, the app at the thumb is marked", marked())
+        strip.performTouchInput { cancel() }
+    }
+
     /** Keyboard up (inactive): nothing shows and an open list closes; down again, it is back as it was. */
     @Test fun inactiveItHidesAndClosesItsList() {
         var active by mutableStateOf(true)

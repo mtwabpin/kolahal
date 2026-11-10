@@ -942,8 +942,10 @@ private fun SelectorRow(
     onLongClick: () -> Unit,
 ) {
     val app = entry.item
+    // Highlighted only while picking, off the edge: there lifting or holding launches it. Sliding along
+    // the edge launches nothing, so no app is marked then.
     val focused by remember(index, count) {
-        derivedStateOf { SelectorMath.focusedIndex(state.contact, count) == index }
+        derivedStateOf { state.mode == Mode.SELECT && SelectorMath.focusedIndex(state.contact, count) == index }
     }
     val quiet = app.profile.quiet
     val holdColor = Term.prompt.copy(alpha = 0.3f)
@@ -985,11 +987,11 @@ private fun SelectorRow(
                 val p = measurable.measure(constraints.copy(minWidth = min(constraints.minWidth, w), maxWidth = w))
                 layout(constraints.maxWidth.coerceAtLeast(p.width), p.height) { p.place(0, 0) }
             }
-            // The row at the thumb gets a mark. The mark fades with the fisheye.
+            // While picking, the row at the thumb gets a mark. The mark fades with the fisheye.
             .drawBehind {
                 val c = state.contact
                 val l = lens()
-                if (l > 0f && SelectorMath.focusedIndex(if (c.isNaN()) state.lensAt else c, count) == index) {
+                if (l > 0f && state.mode == Mode.SELECT && SelectorMath.focusedIndex(if (c.isNaN()) state.lensAt else c, count) == index) {
                     drawRoundRect(focusColor, alpha = l, cornerRadius = CornerRadius(6.dp.toPx()))
                 }
             }
