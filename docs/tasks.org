@@ -16,6 +16,17 @@ app, a hidden screen, a shortcut the app offers.
 - Open questions: how to name an activity when its label is empty or repeated; whether to list
   them in suggestions as you type (could be noisy).
 
+* TODO App selector without the card
+When you slide on the selector's edge, the apps show on the other side in a card (=Term.surface=
+background, a border, round corners: the =LazyColumn= in =ui/AppSelector.kt=). Draw no card; keep
+everything else as it is (the dimmed home behind, the strip, letters, bubble, fisheye, the mark on
+the focused row, hold, pick, tap, long-press, the open list).
+
+- Long names must not reach the slider area: they end with "…". A magnified row (up to 1.35×,
+  =SelectorMath.PEAK=) ends earlier, so even magnified it stops where the card's edge was (while
+  holding) or 8 dp before the strip (list left open).
+- Draft: =selector.html= (waiting for approval).
+
 * TODO Space between notifications that arrive together
 When the work profile turns on, its apps post many notifications at once. They flood the log as
 one block of lines with no space between them, hard to tell apart.
