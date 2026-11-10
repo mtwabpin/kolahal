@@ -38,5 +38,28 @@ Rules, so this stays safe:
 - A script an assistant adds or changes arrives switched off, as an imported one does. Switching
   it on shows its access, as today. An assistant can never switch a script on or grant access.
 - A changed script shows "Edited" as any edit does, so Compare and Reset to library still work.
-- Check the minimum Android version, which assistants support it, and how the user allows an app
-  to call these functions.
+
+** What we found (10 November 2026): possible, but wait
+We could build it now; almost nothing could call it yet.
+
+- *It fits*: we already compile and target SDK 37 (the library needs 36+). minSdk 28 can stay:
+  the functions only work on Android 16 and newer. We'd add =androidx.appfunctions= and its KSP
+  compiler (we don't use KSP yet) and one service class whose functions carry annotations
+  (=@AppFunctionServiceEntryPoint=, =@AppFunctionDeclaration=). Its KDoc is what the agent reads.
+- *Testing*: =adb shell cmd app_function list-app-functions --package <pkg>= and =… execute …=.
+  Google's sample says these commands need Android 17.
+- *Who can call it*: only apps holding =EXECUTE_APP_FUNCTIONS=, which is meant for privileged
+  system agents. Gemini's support is a private preview for trusted testers; an ordinary assistant
+  app from the store can't call it.
+- *Still experimental*: Google calls it an experimental preview. The library is alpha or beta
+  (sources disagree on the exact version), and the annotations were already renamed once.
+- *Early access*: an Early Access Program sign-up form exists (on the overview page). Signing up
+  doesn't grant access; Google picks apps.
+
+Next: pick it up when Gemini support opens to all apps, or the library is stable. Cheap steps
+before then: sign up for early access; a small prototype (=listScripts=, =addScript=) tested only
+through adb, to learn the API.
+
+Sources: https://developer.android.com/ai/appfunctions ,
+https://android-developers.googleblog.com/2026/07/build-intelligent-android-apps-appfunctions.html ,
+https://developer.android.com/agents/skills/device-ai/appfunctions/skill
