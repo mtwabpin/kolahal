@@ -28,6 +28,14 @@ object CommandCatalog {
         ),
         CommandSpec("open", "open <app>[:shortcut] [-w|-p|-s]", "Launch an app or one of its shortcuts", short = "Open an app or shortcut", args = "<app>[:shortcut] · -w · -p · -s"),
         CommandSpec("shortcuts", "shortcuts <app>", "An app's launcher shortcuts", short = "An app's shortcuts", args = "<app>"),
+        CommandSpec(
+            "activity", "activity <app> [<name>]", "List an app's activities, or open one: a screen without an icon",
+            short = "Any screen of an app", args = "<app> [<name>]",
+            uses = listOf(
+                "activity <app>" to "the screens other apps may open; tap one to open it",
+                "activity <app> <name>" to "open one by its name or class, for an alias",
+            ),
+        ),
         CommandSpec("info", "info <app> [-w]", "Open app info", short = "An app's info page", args = "<app> · -w"),
         CommandSpec("uninstall", "uninstall <app> [-w]", "Uninstall an app", short = "Uninstall an app", args = "<app> · -w"),
         CommandSpec(
@@ -326,6 +334,7 @@ object CommandCatalog {
         "apps" to listOf(
             "open",
             "shortcuts",
+            "activity",
             "apps",
             "pin",
             "unpin",

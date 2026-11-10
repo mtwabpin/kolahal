@@ -221,6 +221,7 @@ class Completer(private val context: Context, private val data: Data) {
         fun words(options: List<String>, icon: Int? = null) = options.filter { it.starts(last) }
             .map { Suggestion.Completion(it, (parts.dropLast(1) + it).joinToString(" "), icon = icon) }
         return when (cmd) {
+            "activity" -> activitySuggestions(head, parts)
             "open" -> if (arg.contains(':')) shortcutSuggestions(head, arg)
                 else appsRepo.search(arg.replace(FLAGS, "").trim()).take(cap).map { Suggestion.App(it) }
             // `unhide` and `unpin` offer only the apps they can act on, not every app.
@@ -384,6 +385,36 @@ class Completer(private val context: Context, private val data: Data) {
             val tag = if (app.profile.kind == ProfileKind.PERSONAL) "" else " [${app.profile.kind.tag}]"
             val id = ids[app]
             Suggestion.Completion(app.label + tag + (id?.let { " · $it" } ?: ""), "$head ${id ?: app.label}" + flagFor(app), app = app)
+        }
+    }
+
+    /** The activities of the last app, so typing after `activity settings ` doesn't ask the system on every key. */
+    private var activityCache: Pair<String, List<ActivityItem>>? = null
+
+    /**
+     * `activity set` offers apps (personal profile only). After the app's name and a space,
+     * `activity settings wi` offers the app's activities that match.
+     */
+    private fun activitySuggestions(head: String, parts: List<String>): List<Suggestion> {
+        val words = parts.drop(1).filter { it.isNotEmpty() && !it.startsWith("-") }
+        if (words.isEmpty()) return emptyList()
+        fun appRows() = appsRepo.search(words.joinToString(" "), ProfileKind.PERSONAL).take(cap)
+            .map { Suggestion.Completion(it.label, "$head ${ActivityCommands.appToken(context, it)} ", app = it) }
+        val (appName, name) = ActivityMatch.split(words) { appsRepo.searchRanked(it, ProfileKind.PERSONAL).firstOrNull()?.second }
+            ?: return appRows()
+        // Still typing the app's name.
+        if (name.isEmpty() && parts.last().isNotEmpty()) return appRows()
+        val app = appsRepo.search(appName, ProfileKind.PERSONAL).firstOrNull() ?: return emptyList()
+        val items = activityCache?.takeIf { it.first == app.key }?.second
+            ?: ActivityCommands.activities(context, app).also { activityCache = app.key to it }
+        val shown = if (name.isEmpty()) items else when (val found = ActivityMatch.find(items, name)) {
+            is ActivityMatch.Found.One -> listOf(found.item)
+            is ActivityMatch.Found.Many -> found.items
+            ActivityMatch.Found.None -> emptyList()
+        }
+        return shown.take(cap).map { item ->
+            val itemName = ActivityMatch.nameFor(item, items)
+            Suggestion.Completion("${app.label} › ${item.label}", "$head ${ActivityCommands.appToken(context, app, itemName)} $itemName", app = app)
         }
     }
 

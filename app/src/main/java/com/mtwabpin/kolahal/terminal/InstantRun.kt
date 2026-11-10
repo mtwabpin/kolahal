@@ -82,6 +82,8 @@ object InstantRun {
         "nfc",
         "data",
         "info",
+        // Opens another app's screen. Typing `activity settings w` must not open the first match.
+        "activity",
     ) + com.mtwabpin.kolahal.control.ControlCommands.SENSITIVE
 
     /** Other names that the dispatcher accepts for a command. Checks always use the canonical name. */

@@ -1,6 +1,6 @@
 ---
 title: Apps
-description: Launching, listing, hiding and renaming apps, app shortcuts, aliases and screen time.
+description: Launching, listing, hiding and renaming apps, app shortcuts, any screen of an app, aliases and screen time.
 ---
 
 import { Image } from 'astro:assets';
@@ -75,6 +75,25 @@ open maps:home               # start the shortcut whose label best matches "home
 ```
 
 Shortcuts also appear in the action sheet of every app.
+
+## Any screen of an app
+
+An app has more screens than the one its icon opens. Some of them may be opened by other apps:
+a settings page deep inside the app, or a screen with no button at all.
+
+```sh
+activity settings            # list them; tap one to open it
+activity settings wifi       # open the screen that matches "wifi", or list them if several do
+```
+
+- Each line shows the screen's name, with its class name under it. When a screen has no name of
+  its own, the line shows the class name.
+- The name you type can be the class name (`WifiSettingsActivity`), the shown name (`Wi-Fi`) or
+  the start of either. Case doesn't matter. When several screens match, Kolahal lists them.
+- Long-press a line and choose **Copy command**. Use it in an alias: `alias wifi = activity Settings WifiSettingsActivity`.
+- Only apps in the personal profile. Android doesn't let a launcher open these screens in a work profile.
+- Some screens expect data from the app that opens them. They may close at once or show an error.
+  That is the app's choice, not a fault in Kolahal.
 
 ## Aliases
 
