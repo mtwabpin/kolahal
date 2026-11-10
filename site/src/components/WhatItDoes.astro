@@ -1,0 +1,293 @@
+---
+/**
+ * "What it does" on the home page: the features as tabs, and the one you pick drawn on a phone,
+ * as the app shows it. Without JavaScript, every feature shows, one under another.
+ */
+const FEATURES: { id: string; title: string; hint: string; text: string; screen: string }[] = [
+	{
+		id: 'launch',
+		title: 'Launch apps by typing',
+		hint: 'Type part of a name',
+		text: 'If your text is not a command, Kolahal matches it against app names. Press Enter to open the best match, which is highlighted. Turn on <code>suggestions.idle</code> to see your favourite and most-used apps when the prompt is empty.',
+		screen: `<div class="sug"><span class="dot" style="background:#e53935"></span>YT Music</div>
+			<div class="sug"><span class="dot" style="background:#1a73e8"></span>Messages</div>
+			<div class="sug hi"><span class="dot" style="background:#34a853"></span>Maps<span class="enter">↵</span></div>
+			<div class="pr">$ <span>ma</span></div>`,
+	},
+	{
+		id: 'log',
+		title: 'An interactive log',
+		hint: 'Tap and long-press lines',
+		text: 'Each command and its output form a group with a coloured bar. Tap a line to run its main action. Long-press a line to open a menu with copy, share, open, rerun and more.',
+		screen: `<div class="grp"><div><b class="p">$ </b>= 5 km in mi</div><div class="big">3.1069 mi</div><div class="dim">5 km</div></div>
+			<div class="menu"><span>Copy</span><span>Share</span><span>Rerun</span></div>
+			<div class="pr">$</div>`,
+	},
+	{
+		id: 'scripts',
+		title: 'Scripts in Lua or JavaScript',
+		hint: 'Timers, events, commands',
+		text: 'Scripts can run on timers (<code>every 30m</code>, <code>at 08:00</code>), post notifications, show status lines that you can pin at the top, and add <code>@command</code> commands that take arguments. Scripts run in a sandbox, in a separate process.',
+		screen: `<div class="grp"><div><span class="lk">• Show HN: A terminal launcher</span> <span class="dim">· 214 points · hn</span></div>
+			<div class="gap"><span class="lk">• Zig 0.15 released</span> <span class="tag">zig</span> <span class="dim">· lobsters</span></div></div>
+			<div class="pr">$</div>`,
+	},
+	{
+		id: 'feeds',
+		title: 'Feeds and notifications',
+		hint: 'RSS, unread counts',
+		text: 'Subscribe to RSS and Atom feeds and see unread counts. If you give Kolahal notification access, new notifications appear in the log. Each one ends with its app’s icon.',
+		screen: `<div class="grp"><div>New message from Priya <span class="dim">· Slack</span></div><div>Your order has shipped <span class="dim">· Gmail</span></div></div>
+			<div class="grp"><div><b class="p">$ </b>feed</div><div>Hacker News <span class="tag">12 unread</span></div></div>
+			<div class="pr">$</div>`,
+	},
+	{
+		id: 'tools',
+		title: 'Built-in tools',
+		hint: 'Calculator, search, screen time',
+		text: 'A calculator and converter (<code>= 2^10</code>, <code>= 5 km in mi</code>, <code>= 100 usd in eur</code>), web search, <code>call</code>, <code>sms</code>, app shortcuts, screen time and an unlock counter.',
+		screen: `<div class="grp"><div><b class="p">$ </b>unlocks</div><div class="big">42</div><div class="dim">today</div></div>
+			<div class="grp"><div><b class="p">$ </b>= 2^10</div><div class="big">1,024</div></div>
+			<div class="pr">$</div>`,
+	},
+	{
+		id: 'profiles',
+		title: 'Work profile and private space',
+		hint: 'One list, tagged',
+		text: 'If you use them, their apps appear in the same list as your personal apps. Work apps are tagged <code>[W]</code>, private space apps <code>[S]</code> and clones <code>[C]</code>. To pause or resume the work profile, use the quick actions or <code>work off</code>.',
+		screen: `<div class="sug"><b class="w">[W]</b> Slack</div>
+			<div class="sug"><b class="w">[W]</b> Outlook</div>
+			<div class="sug hi"><b class="w">[W]</b> Teams<span class="enter">↵</span></div>
+			<div class="pr">$ <span>te</span></div>`,
+	},
+];
+---
+
+<div class="wid not-content" data-wid>
+	<div class="tabs" role="tablist" aria-label="Features">
+		{FEATURES.map((f, i) => (
+			<button class="tab" role="tab" id={`wid-tab-${f.id}`} aria-controls={`wid-${f.id}`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1}>
+				{f.title}<small>{f.hint}</small>
+			</button>
+		))}
+	</div>
+	<div class="panels">
+		{FEATURES.map((f) => (
+			<section class="panel" role="tabpanel" id={`wid-${f.id}`} aria-labelledby={`wid-tab-${f.id}`}>
+				<div class="txt">
+					<h3>{f.title}</h3>
+					<p set:html={f.text} />
+				</div>
+				<div class="phone" aria-hidden="true" set:html={f.screen} />
+			</section>
+		))}
+	</div>
+</div>
+
+<script>
+	// Tabs: one feature at a time. Arrow keys move between tabs, as for any tab list.
+	for (const root of document.querySelectorAll<HTMLElement>('[data-wid]')) {
+		const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+		const panels = [...root.querySelectorAll<HTMLElement>('[role=tabpanel]')];
+		const pick = (i: number, focus = false) => {
+			tabs.forEach((t, j) => {
+				t.setAttribute('aria-selected', String(i === j));
+				t.tabIndex = i === j ? 0 : -1;
+			});
+			panels.forEach((p, j) => (p.hidden = i !== j));
+			if (focus) tabs[i].focus();
+		};
+		tabs.forEach((t, i) => {
+			t.addEventListener('click', () => pick(i));
+			t.addEventListener('keydown', (e) => {
+				const n = tabs.length;
+				const to = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: n - 1 }[e.key];
+				if (to === undefined) return;
+				e.preventDefault();
+				pick((to + n) % n, true);
+			});
+		});
+		root.classList.add('js');
+		pick(0);
+	}
+</script>
+
+<style>
+	.wid {
+		display: grid;
+		grid-template-columns: minmax(13rem, 17rem) 1fr;
+		gap: 1.75rem;
+		align-items: start;
+		margin-top: 1rem;
+	}
+	/* Without JavaScript there are no tabs: every feature shows. */
+	.wid:not(.js) {
+		grid-template-columns: 1fr;
+	}
+	.wid:not(.js) .tabs {
+		display: none;
+	}
+	.wid:not(.js) .panels {
+		display: grid;
+		gap: 2rem;
+	}
+	.tabs {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.tab {
+		all: unset;
+		box-sizing: border-box;
+		cursor: pointer;
+		padding: 0.7rem 0.9rem;
+		border-radius: 0.6rem;
+		font-weight: 600;
+		color: var(--k-fg);
+	}
+	.tab small {
+		display: block;
+		font-weight: 400;
+		font-size: var(--sl-text-sm);
+		color: var(--k-dim);
+	}
+	.tab:hover {
+		background: color-mix(in srgb, var(--k-surface) 60%, transparent);
+	}
+	.tab[aria-selected='true'] {
+		background: var(--k-surface);
+		box-shadow: inset 3px 0 0 var(--k-prompt);
+	}
+	.tab:focus-visible {
+		outline: 2px solid var(--k-prompt);
+		outline-offset: 2px;
+	}
+	.panel {
+		display: grid;
+		grid-template-columns: 1fr 18rem;
+		gap: 1.75rem;
+		align-items: center;
+	}
+	.panel[hidden] {
+		display: none;
+	}
+	.txt h3 {
+		margin: 0 0 0.5rem;
+		font-size: var(--sl-text-xl);
+	}
+	.txt p {
+		margin: 0;
+	}
+
+	/* The phone: the app's screen, bottom-aligned like the log above the prompt. */
+	.phone {
+		height: 26rem;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: 0.35rem;
+		padding: 1.1rem 0.9rem;
+		border-radius: 1.75rem;
+		border: 6px solid color-mix(in srgb, var(--k-dim) 30%, var(--k-bg));
+		background: var(--k-bg);
+		color: var(--k-fg);
+		font: 0.8rem/1.55 var(--sl-font-mono);
+	}
+	.phone :global(.sug) {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.35rem 0.5rem;
+		border-radius: 0.4rem;
+	}
+	.phone :global(.sug.hi) {
+		font-weight: 700;
+		background: color-mix(in srgb, var(--k-prompt) 16%, transparent);
+		box-shadow: inset 3px 0 0 var(--k-prompt);
+	}
+	.phone :global(.dot) {
+		width: 1.2rem;
+		height: 1.2rem;
+		border-radius: 50%;
+		flex: none;
+	}
+	.phone :global(.enter) {
+		margin-left: auto;
+		color: var(--k-dim);
+	}
+	.phone :global(.pr) {
+		margin-top: 0.5rem;
+		color: var(--k-prompt);
+		font-weight: 700;
+	}
+	.phone :global(.pr span) {
+		color: var(--k-fg);
+		font-weight: 400;
+	}
+	.phone :global(.grp) {
+		border-left: 3px solid var(--k-gutter);
+		padding-left: 0.6rem;
+		margin-bottom: 0.4rem;
+	}
+	.phone :global(.p) {
+		color: var(--k-prompt);
+	}
+	.phone :global(.big) {
+		font: 700 1.8rem/1.15 var(--sl-font-mono);
+	}
+	.phone :global(.dim) {
+		color: var(--k-dim);
+	}
+	.phone :global(.lk) {
+		color: var(--k-link);
+	}
+	.phone :global(.gap) {
+		margin-top: 0.3rem;
+	}
+	.phone :global(.w) {
+		color: var(--k-work);
+	}
+	.phone :global(.tag) {
+		font-size: 0.7rem;
+		padding: 0 0.35rem;
+		border-radius: 0.3rem;
+		color: var(--k-prompt);
+		background: color-mix(in srgb, var(--k-prompt) var(--k-chip), transparent);
+	}
+	.phone :global(.menu) {
+		display: flex;
+		gap: 0.4rem;
+		margin: 0.2rem 0 0;
+	}
+	.phone :global(.menu span) {
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		background: var(--k-surface);
+	}
+
+	@media (max-width: 50rem) {
+		.wid,
+		.panel {
+			grid-template-columns: 1fr;
+		}
+		.tabs {
+			flex-direction: row;
+			overflow-x: auto;
+			gap: 0.4rem;
+			padding-bottom: 0.25rem;
+		}
+		.tab {
+			white-space: nowrap;
+		}
+		.tab small {
+			display: none;
+		}
+		.tab[aria-selected='true'] {
+			box-shadow: inset 0 -3px 0 var(--k-prompt);
+		}
+		.phone {
+			height: 20rem;
+			max-width: 20rem;
+		}
+	}
+</style>

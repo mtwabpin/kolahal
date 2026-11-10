@@ -1,0 +1,117 @@
+---
+/**
+ * "Next steps" on the home page, drawn like the app's suggestion list: one row per place to go,
+ * the first one marked with ↵ as Enter would open it, the prompt under the list.
+ */
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const ROWS: { icon: string; name: string; text: string; href: string; external?: boolean }[] = [
+	{ icon: '↓', name: 'install', text: 'Download and install; the tour opens the first time', href: `${base}/getting-started/install/` },
+	{ icon: '?', name: 'basics', text: 'Suggestions, the key bar, tap and long-press, shortcuts', href: `${base}/getting-started/basics/` },
+	{ icon: 'λ', name: 'scripts', text: 'The scripting overview, the API and the library', href: `${base}/scripting/overview/` },
+	{ icon: '≡', name: 'commands', text: 'Every built-in command', href: `${base}/reference/commands/` },
+	{ icon: '#', name: 'discord', text: 'Ask a question', href: 'https://discord.gg/3D25w6gXR5', external: true },
+	{ icon: '!', name: 'github', text: 'Report a bug or ask for a feature', href: 'https://github.com/mtwabpin/kolahal/issues/new/choose', external: true },
+	{ icon: '⚿', name: 'security', text: 'Report a security problem privately', href: `${base}/reference/security/` },
+];
+---
+
+<nav class="next not-content" aria-label="Next steps">
+	<ul>
+		{ROWS.map((r, i) => (
+			<li>
+				<a href={r.href} class={i === 0 ? 'hi' : undefined}>
+					<span class="ic" aria-hidden="true">{r.icon}</span>
+					<span class="name">{r.name}</span>
+					<span class="text">{r.text}</span>
+					{r.external && <span class="ext" aria-label="(opens another site)">↗</span>}
+					{i === 0 && <span class="enter" aria-hidden="true">↵</span>}
+				</a>
+			</li>
+		))}
+	</ul>
+	<div class="prompt" aria-hidden="true">$ <span class="cursor">▍</span></div>
+</nav>
+
+<style>
+	.next {
+		max-width: 46rem;
+		margin-top: 1rem;
+		font-family: var(--sl-font-mono);
+	}
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	a {
+		display: flex;
+		align-items: center;
+		gap: 0.9rem;
+		padding: 0.75rem 0.9rem;
+		border-radius: 0.5rem;
+		color: var(--k-fg);
+		text-decoration: none;
+	}
+	a:hover,
+	a.hi {
+		background: color-mix(in srgb, var(--k-prompt) 16%, transparent);
+		box-shadow: inset 3px 0 0 var(--k-prompt);
+	}
+	a:focus-visible {
+		outline: 2px solid var(--k-prompt);
+		outline-offset: 2px;
+	}
+	.ic {
+		width: 1.4rem;
+		text-align: center;
+		color: var(--k-prompt);
+	}
+	.name {
+		font-weight: 700;
+		min-width: 9rem;
+	}
+	.text {
+		flex: 1;
+		color: var(--k-dim);
+		font-size: var(--sl-text-sm);
+	}
+	.ext,
+	.enter {
+		color: var(--k-dim);
+	}
+	.prompt {
+		margin-top: 0.4rem;
+		padding: 0.75rem 0.9rem;
+		border-top: 1px solid var(--k-rule);
+		color: var(--k-prompt);
+		font-weight: 700;
+	}
+	.cursor {
+		color: var(--k-fg);
+		font-weight: 400;
+		animation: blink 1.1s steps(1) infinite;
+	}
+	@keyframes blink {
+		50% {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cursor {
+			animation: none;
+		}
+	}
+	@media (max-width: 40rem) {
+		a {
+			flex-wrap: wrap;
+			row-gap: 0.1rem;
+		}
+		.name {
+			min-width: 0;
+		}
+		.text {
+			flex-basis: 100%;
+			padding-left: 2.3rem;
+		}
+	}
+</style>
