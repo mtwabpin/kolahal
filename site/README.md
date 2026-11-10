@@ -23,9 +23,9 @@ site/
 ├── public/favicon.svg
 └── src/
     ├── assets/             logo and screenshots (optimised by astro:assets)
-    ├── components/         Hero override and the fake terminal on the landing page
+    ├── components/         Hero and PageTitle overrides, the home screen demo, theme cards
     ├── content/docs/       the pages (.md / .mdx); the folder structure is the URL structure
-    └── styles/terminal.css colours (app "green" palette in dark mode, gruvbox light) and fonts
+    └── styles/terminal.css the look: the app's "green" theme, dark and light, and fonts
 ```
 
 Links between pages start at the site root without the base (`/reference/commands/#widgets`);

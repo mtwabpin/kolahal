@@ -1,11 +1,16 @@
 /*
- * Kolahal terminal look for Starlight.
- * Dark mode = the app's default "green" palette (ui/Theme.kt, Palettes.green).
- * Light mode = gruvbox light, the paper-ish cousin of the app's gruvbox themes.
+ * Kolahal's look for Starlight. Each part borrows a part of the app:
+ * - colours: the app's default theme, "green", in its dark and light versions (ui/Theme.kt);
+ * - h2: a typed command, `$ ` and bold, with the log's gutter bar;
+ * - the sidebar and "On this page": the suggestion list (the current row has the bar and ↵);
+ * - group labels and the page's section: dividers, like "── Yesterday ──";
+ * - links: fmt.link; inline code: the code style; tables: log.tables boxed;
+ * - asides: a log line with a tag; buttons: the pills under a script's line.
+ * Reading text stays in the reader's own font (like font.sans); the rest is JetBrains Mono.
  */
 
 :root {
-	/* App palette tokens (green), reused by the hero terminal and badges. */
+	/* The app's palette, by role (Palettes.green). The home demo and the theme cards use these. */
 	--k-bg: #0b0d0b;
 	--k-surface: #151915;
 	--k-fg: #d7ded3;
@@ -17,9 +22,13 @@
 	--k-script: #b5cea8;
 	--k-work: #f2b35b;
 	--k-private: #c792ea;
+	--k-good: #8fd18a;
+	--k-warn: #f2b35b;
+	/* How strong a tag's chip or a pill's shade is (RichText.drawChips: 24 % dark, 14 % light). */
+	--k-chip: 24%;
+	--k-rule: color-mix(in srgb, var(--k-dim) 25%, transparent);
+	--k-gutter: color-mix(in srgb, var(--k-prompt) 45%, transparent);
 
-	/* Reading text in the reader's own font (like the app's font.sans); code and the
-	   terminal bits stay in JetBrains Mono. */
 	--sl-font: var(--sl-font-system);
 	--sl-font-mono: 'JetBrains Mono', var(--sl-font-system-mono);
 
@@ -29,7 +38,7 @@
 
 	--sl-color-white: #f1f5ee;
 	--sl-color-gray-1: #d7ded3;
-	--sl-color-gray-2: #bcc6b8;
+	--sl-color-gray-2: #c3ccbf;
 	--sl-color-gray-3: #7f8a7b;
 	--sl-color-gray-4: #505b4d;
 	--sl-color-gray-5: #2a312a;
@@ -41,135 +50,414 @@
 	--sl-color-blue: #7fb8f0;
 	--sl-color-red: #f0907d;
 	--sl-color-green: #8fd18a;
+
+	--sl-color-text: var(--sl-color-gray-1);
+	--sl-color-bg-nav: var(--sl-color-black);
+	--sl-color-bg-sidebar: var(--sl-color-black);
+	--sl-color-bg-inline-code: var(--k-surface);
+	--sl-color-hairline: var(--k-rule);
+	--sl-color-hairline-light: var(--k-rule);
+	--sl-color-hairline-shade: var(--k-rule);
+	--sl-text-h1: var(--sl-text-4xl);
+	--sl-text-h2: var(--sl-text-2xl);
+	--sl-text-h3: var(--sl-text-xl);
+	--sl-text-h4: var(--sl-text-lg);
 }
 
+/* Palettes.greenLight: the same greens, darker, on a pale green-grey. */
 :root[data-theme='light'] {
-	--k-bg: #fbf1c7;
-	--k-surface: #ebdbb2;
-	--k-fg: #3c3836;
-	--k-dim: #7c6f64;
-	--k-prompt: #79740e;
-	--k-error: #9d0006;
-	--k-info: #427b58;
-	--k-link: #076678;
-	--k-script: #b57614;
-	--k-work: #af3a03;
-	--k-private: #8f3f71;
+	--k-bg: #f3f7f1;
+	--k-surface: #e3ebe0;
+	--k-fg: #1e2a1d;
+	--k-dim: #5b6957;
+	--k-prompt: #2f7d32;
+	--k-error: #b3261e;
+	--k-info: #4b6b4e;
+	--k-link: #1d63a8;
+	--k-script: #3f6b35;
+	--k-work: #9a5b00;
+	--k-private: #7a3fb0;
+	--k-good: #2f7d32;
+	--k-warn: #9a5b00;
+	--k-chip: 14%;
 
-	--sl-color-accent-low: #e5e0a8;
-	--sl-color-accent: #79740e;
-	--sl-color-accent-high: #4f4c08;
+	--sl-color-accent-low: #d3e6d0;
+	--sl-color-accent: #2f7d32;
+	--sl-color-accent-high: #1f5c22;
 
-	--sl-color-white: #282828;
-	--sl-color-gray-1: #3c3836;
-	--sl-color-gray-2: #504945;
-	--sl-color-gray-3: #7c6f64;
-	--sl-color-gray-4: #a89984;
-	--sl-color-gray-5: #d5c4a1;
-	--sl-color-gray-6: #ebdbb2;
-	--sl-color-gray-7: #f2e5bc;
-	--sl-color-black: #fbf1c7;
+	--sl-color-white: #111a10;
+	--sl-color-gray-1: #1e2a1d;
+	--sl-color-gray-2: #33412f;
+	--sl-color-gray-3: #5b6957;
+	--sl-color-gray-4: #8b9886;
+	--sl-color-gray-5: #c7d2c3;
+	--sl-color-gray-6: #e3ebe0;
+	--sl-color-gray-7: #ebf1e8;
+	--sl-color-black: #f3f7f1;
 
-	--sl-color-orange: #af3a03;
-	--sl-color-purple: #8f3f71;
-	--sl-color-blue: #076678;
-	--sl-color-red: #9d0006;
-	--sl-color-green: #79740e;
-	/* Starlight's light shades are cool pastels and blue-greys; these are gruvbox's, mixed into the
-	   paper: dark ones for titles, tints for backgrounds (badges, icons), a warm dim for overlays. */
-	--sl-color-orange-high: #af3a03;
-	--sl-color-purple-high: #8f3f71;
-	--sl-color-blue-high: #076678;
-	--sl-color-red-high: #9d0006;
-	--sl-color-green-high: #4f4c08;
-	--sl-color-orange-low: color-mix(in srgb, var(--sl-color-orange) 18%, var(--sl-color-black));
-	--sl-color-purple-low: color-mix(in srgb, var(--sl-color-purple) 18%, var(--sl-color-black));
-	--sl-color-blue-low: color-mix(in srgb, var(--sl-color-blue) 18%, var(--sl-color-black));
-	--sl-color-red-low: color-mix(in srgb, var(--sl-color-red) 18%, var(--sl-color-black));
-	--sl-color-green-low: color-mix(in srgb, var(--sl-color-green) 18%, var(--sl-color-black));
-	--sl-color-backdrop-overlay: rgb(60 56 54 / 0.6);
-	--sl-shadow-lg: 0px 25px 7px rgb(40 32 20 / 0.01), 0px 16px 6px rgb(40 32 20 / 0.03),
-		0px 9px 5px rgb(40 32 20 / 0.08), 0px 4px 4px rgb(40 32 20 / 0.16), 0px 4px 2px rgb(40 32 20 / 0.04);
-}
-
-/* Notes and tips on paper like the cards, not on Starlight's pastel blue or purple; the edge
-   and title keep the kind's colour. */
-:root[data-theme='light'] .starlight-aside {
-	background-color: var(--sl-color-gray-7);
+	--sl-color-orange: #9a5b00;
+	--sl-color-purple: #7a3fb0;
+	--sl-color-blue: #1d63a8;
+	--sl-color-red: #b3261e;
+	--sl-color-green: #2f7d32;
+	--sl-color-orange-high: #9a5b00;
+	--sl-color-purple-high: #7a3fb0;
+	--sl-color-blue-high: #1d63a8;
+	--sl-color-red-high: #b3261e;
+	--sl-color-green-high: #1f5c22;
+	--sl-color-orange-low: color-mix(in srgb, var(--sl-color-orange) 14%, var(--sl-color-black));
+	--sl-color-purple-low: color-mix(in srgb, var(--sl-color-purple) 14%, var(--sl-color-black));
+	--sl-color-blue-low: color-mix(in srgb, var(--sl-color-blue) 14%, var(--sl-color-black));
+	--sl-color-red-low: color-mix(in srgb, var(--sl-color-red) 14%, var(--sl-color-black));
+	--sl-color-green-low: color-mix(in srgb, var(--sl-color-green) 14%, var(--sl-color-black));
+	--sl-color-text-accent: var(--sl-color-accent);
+	--sl-color-backdrop-overlay: rgb(30 42 29 / 0.55);
+	--sl-shadow-lg: 0 25px 7px rgb(20 40 20 / 0.01), 0 16px 6px rgb(20 40 20 / 0.03), 0 9px 5px rgb(20 40 20 / 0.08),
+		0 4px 4px rgb(20 40 20 / 0.14), 0 4px 2px rgb(20 40 20 / 0.04);
 }
 
 body {
 	background: var(--sl-color-bg);
 }
 
-/* Headings read like prompt lines. */
-.sl-markdown-content :is(h2, h3) {
-	font-weight: 700;
-	letter-spacing: -0.01em;
-}
-.sl-markdown-content :is(h2, h3)::before {
-	font-family: var(--sl-font-mono);
-	font-weight: 400;
-}
-.sl-markdown-content h2::before {
-	content: '$ ';
-	color: var(--sl-color-accent);
-}
-.sl-markdown-content h3::before {
-	content: '› ';
-	color: var(--sl-color-gray-3);
+/* A log search marks what it found in the accent at 35 %; so does a selection here. */
+::selection {
+	background: color-mix(in srgb, var(--k-prompt) 35%, transparent);
 }
 
-/* Square-ish, terminal-like blocks. */
-.sl-markdown-content :not(pre) > code {
-	border-radius: 0.2rem;
-	padding: 0.05em 0.35em;
-	color: var(--sl-color-accent-high);
-}
-:root[data-theme='light'] .sl-markdown-content :not(pre) > code {
-	color: var(--sl-color-gray-1);
+:focus-visible {
+	outline: 2px solid var(--k-prompt);
+	outline-offset: 2px;
 }
 
-.sl-markdown-content table {
-	font-size: var(--sl-text-sm);
-}
-.sl-markdown-content table code {
-	white-space: nowrap;
-}
-.sl-markdown-content th {
-	color: var(--sl-color-accent);
-}
-
-/* Cards get the log's coloured gutter, and their icon its colour (not Starlight's rotating
-   pastels), large enough to read. */
-.card {
-	--sl-card-border: var(--sl-color-accent);
-	--sl-card-bg: var(--sl-color-accent-low);
-	border-radius: 0.25rem;
-	border-inline-start: 3px solid var(--sl-color-accent) !important;
-	background: var(--sl-color-gray-6);
-}
-.card .icon {
-	font-size: 1.75em;
-	padding: 0.25em;
-	border-radius: 0.375rem;
-	color: var(--sl-color-accent-high);
-}
-:root[data-theme='light'] .card {
-	background: var(--sl-color-gray-7);
-}
-
-.sl-link-button {
-	border-radius: 0.25rem !important;
-}
+/* ---- Header ---------------------------------------------------------------------------- */
 
 .site-title {
 	font-family: var(--sl-font-mono);
 	font-weight: 700;
 	letter-spacing: -0.02em;
+	color: var(--sl-color-white);
+}
+/* Search reads like the prompt: `$` and the text, on the surface. */
+@media (min-width: 50rem) {
+	site-search button[data-open-modal] {
+		border: 0;
+		border-radius: 0.5rem;
+		background: var(--k-surface);
+		font-family: var(--sl-font-mono);
+		color: var(--k-dim);
+	}
+	site-search button[data-open-modal]:hover {
+		color: var(--sl-color-white);
+		box-shadow: inset 3px 0 0 var(--k-prompt);
+	}
+	site-search button[data-open-modal] > svg {
+		display: none;
+	}
+	site-search button[data-open-modal]::before {
+		content: '$';
+		color: var(--k-prompt);
+		font-weight: 700;
+	}
+	site-search button[data-open-modal] > kbd {
+		background: var(--sl-color-bg);
+		font-family: var(--sl-font-mono);
+	}
 }
 
-/* Screenshots: phone frames */
+/* ---- Sidebar: the suggestion list ------------------------------------------------------- */
+
+#starlight__sidebar .sidebar-content summary {
+	padding-inline: 0.25rem;
+}
+/* Group labels are dividers: ── Guides ── */
+#starlight__sidebar .group-label .large {
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-xs);
+	font-weight: 400;
+	color: var(--k-dim);
+}
+#starlight__sidebar .group-label .large::before {
+	content: '── ';
+}
+#starlight__sidebar .group-label .large::after {
+	content: ' ──';
+}
+#starlight__sidebar summary .caret {
+	color: var(--k-dim);
+}
+#starlight__sidebar ul ul li {
+	margin-inline-start: 0;
+	padding-inline-start: 0;
+	border-inline-start: 0;
+}
+#starlight__sidebar ul ul a {
+	display: flex;
+	align-items: center;
+	min-height: 2.25rem;
+	border-radius: 0;
+	border-inline-start: 3px solid transparent;
+	padding-inline: 0.75rem 0.5rem;
+	color: var(--sl-color-gray-2);
+}
+#starlight__sidebar ul ul a:hover {
+	color: var(--sl-color-white);
+	background: color-mix(in srgb, var(--k-prompt) 8%, transparent);
+}
+/* The current page is the row that Enter would open: a 3 px bar, a 16 % shade, bold, and ↵. */
+#starlight__sidebar a[aria-current='page'],
+#starlight__sidebar a[aria-current='page']:hover,
+#starlight__sidebar a[aria-current='page']:focus {
+	color: var(--sl-color-white);
+	font-weight: 700;
+	background: color-mix(in srgb, var(--k-prompt) 16%, transparent);
+	border-inline-start-color: var(--k-prompt);
+}
+#starlight__sidebar a[aria-current='page']::after {
+	content: '↵';
+	margin-inline-start: auto;
+	padding-inline-start: 0.5rem;
+	color: var(--k-dim);
+	font-weight: 400;
+}
+
+/* ---- On this page ------------------------------------------------------------------------ */
+
+#starlight__on-this-page {
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-xs);
+	font-weight: 400;
+	color: var(--k-dim);
+}
+#starlight__on-this-page::before {
+	content: '── ';
+}
+#starlight__on-this-page::after {
+	content: ' ──';
+}
+starlight-toc a {
+	border-radius: 0;
+	border-inline-start: 3px solid transparent;
+}
+starlight-toc a[aria-current='true'] {
+	color: var(--sl-color-white);
+	font-weight: 600;
+	background: color-mix(in srgb, var(--k-prompt) 12%, transparent);
+	border-inline-start-color: var(--k-prompt);
+}
+
+/* ---- Page title: the section as a divider, then the title -------------------------------- */
+
+.k-section {
+	display: block;
+	margin-top: 1rem;
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-xs);
+	color: var(--k-dim);
+}
+#_top {
+	font-family: var(--sl-font-mono);
+	font-weight: 700;
+	letter-spacing: -0.03em;
+}
+
+/* ---- Content ----------------------------------------------------------------------------- */
+
+.sl-markdown-content :is(h2, h3, h4) {
+	color: var(--sl-color-white);
+}
+.sl-markdown-content :is(h2, h3) {
+	font-family: var(--sl-font-mono);
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+/* An h2 is a typed command: the gutter bar in the accent at 45 %, then `$ `. */
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+	border-inline-start: 2px solid var(--k-gutter);
+	padding-inline-start: 0.75rem;
+}
+.sl-markdown-content h2::before {
+	content: '$ ';
+	color: var(--k-prompt);
+}
+
+/* Links in the text: fmt.link, in the link colour, underlined. */
+.sl-markdown-content a:not(:where(.not-content *, .sl-link-button, .card a)) {
+	color: var(--k-link);
+	text-underline-offset: 0.18em;
+}
+.sl-markdown-content a:not(:where(.not-content *, .sl-link-button)):hover {
+	text-decoration-thickness: 2px;
+}
+
+/* Inline code: the app's code style, mono on the surface colour. */
+.sl-markdown-content :not(pre) > code {
+	border-radius: 0.25rem;
+	padding: 0.1em 0.35em;
+	color: var(--sl-color-gray-1);
+}
+.sl-markdown-content a > code {
+	color: inherit;
+}
+/* Commands are typed as written: no ligatures ("|-" must not turn into one sign). */
+.sl-markdown-content code,
+.expressive-code code {
+	font-variant-ligatures: none;
+}
+
+/* Tables: log.tables boxed. The surface colour, rounded, a rule between rows, the header muted. */
+.sl-markdown-content table:not(:where(.not-content *)) {
+	width: fit-content;
+	max-width: 100%;
+	font-size: var(--sl-text-sm);
+	background: var(--k-surface);
+	border-radius: 0.5rem;
+}
+.sl-markdown-content :is(th, td):not(:where(.not-content *)) {
+	border-bottom: 1px solid var(--k-rule);
+	padding: 0.5rem 0.875rem;
+}
+.sl-markdown-content :is(th:first-child, td:first-child):not(:where(.not-content *)) {
+	padding-inline-start: 0.875rem;
+}
+.sl-markdown-content :is(th:last-child, td:last-child):not(:where(.not-content *)) {
+	padding-inline-end: 0.875rem;
+}
+.sl-markdown-content tr:last-child td:not(:where(.not-content *)) {
+	border-bottom: 0;
+}
+.sl-markdown-content th:not(:where(.not-content *)) {
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-xs);
+	font-weight: 600;
+	color: var(--k-dim);
+	border-bottom-color: color-mix(in srgb, var(--k-dim) 45%, transparent);
+}
+.sl-markdown-content table code {
+	white-space: nowrap;
+	background: var(--sl-color-bg);
+}
+
+/* Asides: a log line. The gutter bar in the kind's colour, the title as a tag chip. */
+.starlight-aside {
+	border-inline-start-width: 2px;
+	border-radius: 0 0.5rem 0.5rem 0;
+	color: var(--sl-color-gray-1);
+}
+.starlight-aside--note {
+	--k-aside: var(--k-link);
+}
+.starlight-aside--tip {
+	--k-aside: var(--k-good);
+}
+.starlight-aside--caution {
+	--k-aside: var(--k-warn);
+}
+.starlight-aside--danger {
+	--k-aside: var(--k-error);
+}
+.starlight-aside[class*='starlight-aside--'] {
+	--sl-color-asides-border: var(--k-aside);
+	--sl-color-asides-text-accent: var(--k-aside);
+	background: color-mix(in srgb, var(--k-aside) 7%, var(--sl-color-bg));
+}
+.starlight-aside__title {
+	display: inline-flex;
+	gap: 0.35em;
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-xs);
+	font-weight: 700;
+	line-height: 1.5;
+	padding: 0 0.4em;
+	border-radius: 0.25rem;
+	background: color-mix(in srgb, var(--k-aside) var(--k-chip), transparent);
+}
+.starlight-aside__icon {
+	font-size: 1.15em;
+}
+.starlight-aside__content a {
+	color: var(--k-link);
+}
+
+/* Expressive Code: frames on the surface colour, like the script editor. */
+.expressive-code .frame {
+	box-shadow: none;
+}
+
+/* Cards: a log group with its gutter bar. */
+.card {
+	--sl-card-border: var(--k-gutter);
+	--sl-card-bg: transparent;
+	border: 0;
+	border-inline-start: 2px solid var(--k-gutter);
+	border-radius: 0;
+	background: transparent;
+	padding: 0.5rem 0 0.5rem 1.25rem;
+}
+.card .title {
+	font-family: var(--sl-font-mono);
+	font-weight: 700;
+	font-size: var(--sl-text-lg);
+	letter-spacing: -0.02em;
+}
+.card .icon {
+	font-size: 1.4em;
+	padding: 0.2em;
+	border-radius: 0.375rem;
+	color: var(--k-prompt);
+	background: color-mix(in srgb, var(--k-prompt) var(--k-chip), transparent);
+	border: 0;
+}
+.card .body a {
+	color: var(--k-link);
+}
+
+/* Buttons: the soft pills under a script's line (ctx.actions). Primary is filled. */
+.sl-link-button {
+	font-weight: 600;
+	border: 0;
+}
+.sl-link-button.primary {
+	background: var(--k-prompt);
+	color: var(--sl-color-black);
+}
+.sl-link-button.secondary {
+	background: color-mix(in srgb, var(--k-prompt) var(--k-chip), transparent);
+	color: var(--k-prompt);
+}
+.sl-link-button.secondary:hover {
+	background: color-mix(in srgb, var(--k-prompt) calc(var(--k-chip) + 10%), transparent);
+	color: var(--k-prompt);
+}
+.sl-link-button.minimal {
+	color: var(--k-link);
+}
+
+/* Previous and next: suggestion rows. */
+.pagination-links a {
+	border: 0;
+	border-inline-start: 3px solid transparent;
+	border-radius: 0 0.5rem 0.5rem 0;
+	background: var(--k-surface);
+	box-shadow: none;
+}
+.pagination-links a:hover {
+	border-inline-start-color: var(--k-prompt);
+}
+.pagination-links .link-title {
+	font-family: var(--sl-font-mono);
+	font-weight: 700;
+	color: var(--sl-color-white);
+}
+
+/* Tabs: the selected tab in the accent. */
+starlight-tabs [role='tab'][aria-selected='true'] {
+	border-color: var(--k-prompt);
+	color: var(--sl-color-white);
+}
+
+/* ---- Screenshots: phone frames ---------------------------------------------------------- */
+
 .shot {
 	display: block;
 	max-width: 100%;

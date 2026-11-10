@@ -56,11 +56,23 @@ export default defineConfig({
 			],
 			components: {
 				Hero: './src/components/Hero.astro',
+				PageTitle: './src/components/PageTitle.astro',
 			},
 			expressiveCode: {
-				themes: ['github-dark-dimmed', 'gruvbox-light-medium'],
+				themes: ['github-dark-dimmed', 'github-light'],
+				// Code sits on the theme's surface colour, as in the app's script editor.
 				styleOverrides: {
-					borderRadius: '0.25rem',
+					borderRadius: '0.5rem',
+					borderColor: 'transparent',
+					codeBackground: 'var(--k-surface)',
+					frames: {
+						editorTabBarBackground: 'var(--k-surface)',
+						editorActiveTabBackground: 'var(--k-surface)',
+						editorActiveTabIndicatorTopColor: 'var(--k-prompt)',
+						terminalTitlebarBackground: 'var(--k-surface)',
+						terminalBackground: 'var(--k-surface)',
+						frameBoxShadowCssValue: 'none',
+					},
 					codeFontFamily: "'JetBrains Mono', ui-monospace, monospace",
 					uiFontFamily: "'JetBrains Mono', ui-monospace, monospace",
 				},

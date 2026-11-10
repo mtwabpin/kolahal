@@ -1,0 +1,101 @@
+---
+/**
+ * The built-in themes, each in its dark and light version, with the colours from the app
+ * (ui/Theme.kt, Palettes). Each half draws a few log lines in that palette.
+ */
+type P = { bg: string; fg: string; dim: string; prompt: string; info: string; link: string };
+const p = (bg: string, fg: string, dim: string, prompt: string, info: string, link: string): P => ({ bg, fg, dim, prompt, info, link });
+
+const THEMES: { name: string; dark: P; light: P }[] = [
+	{ name: 'green', dark: p('#0B0D0B', '#D7DED3', '#7F8A7B', '#8FD18A', '#9DB8A0', '#7FB8F0'), light: p('#F3F7F1', '#1E2A1D', '#5B6957', '#2F7D32', '#4B6B4E', '#1D63A8') },
+	{ name: 'amber', dark: p('#0E0A05', '#FFCC80', '#A08256', '#FFB000', '#D9A25F', '#FFE0A3'), light: p('#FFF7E8', '#3D2A0C', '#7E6136', '#A05F00', '#8A5E22', '#7A4B00') },
+	{ name: 'mono', dark: p('#000000', '#E6E6E6', '#8C8C8C', '#FFFFFF', '#B0B0B0', '#CCCCCC'), light: p('#FFFFFF', '#141414', '#5E5E5E', '#000000', '#4A4A4A', '#2B2B2B') },
+	{ name: 'dracula', dark: p('#282A36', '#F8F8F2', '#8A93C2', '#50FA7B', '#8BE9FD', '#8BE9FD'), light: p('#FFFBEB', '#1F1F1F', '#635D97', '#14710A', '#036A96', '#036A96') },
+	{ name: 'solarized', dark: p('#002B36', '#93A1A1', '#7A9097', '#859900', '#2AA198', '#268BD2'), light: p('#FDF6E3', '#3D525A', '#657B83', '#6F8000', '#1A847C', '#1F76B5') },
+	{ name: 'gruvbox', dark: p('#282828', '#EBDBB2', '#A89984', '#B8BB26', '#8EC07C', '#83A598'), light: p('#FBF1C7', '#3C3836', '#7C6F64', '#79740E', '#427B58', '#076678') },
+	{ name: 'gruvbox-material', dark: p('#292828', '#D4BE98', '#A89984', '#A9B665', '#89B482', '#7DAEA3'), light: p('#FBF1C7', '#654735', '#7C6F64', '#6C782E', '#4C7A5D', '#45707A') },
+];
+const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-prompt:${c.prompt};--t-info:${c.info};--t-link:${c.link}`;
+---
+
+<ul class="themes not-content">
+	{THEMES.map((t) => (
+		<li>
+			<div class="pair" aria-hidden="true">
+				{[t.dark, t.light].map((c) => (
+					<div class="half" style={vars(c)}>
+						<div><b class="p">$ </b><b>open maps</b></div>
+						<div class="i">Launched Maps</div>
+						<div><span class="l">3 comments</span> <span class="tag">on</span></div>
+					</div>
+				))}
+			</div>
+			<code>theme {t.name}</code>{t.name === 'green' && <span class="default"> default</span>}
+		</li>
+	))}
+</ul>
+
+<style>
+	.themes {
+		list-style: none;
+		padding: 0;
+		margin-block: 1.5rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+		gap: 1.25rem 1rem;
+	}
+	.themes li {
+		margin: 0;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-gray-3);
+	}
+	.pair {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border-radius: 0.5rem;
+		overflow: hidden;
+		margin-bottom: 0.5rem;
+		box-shadow: 0 0 0 1px var(--k-rule);
+	}
+	.half {
+		background: var(--t-bg);
+		color: var(--t-fg);
+		font: 0.7rem/1.6 var(--sl-font-mono);
+		padding: 0.55rem 0.6rem;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+	.half > div {
+		border-inline-start: 2px solid color-mix(in srgb, var(--t-prompt) 45%, transparent);
+		padding-inline-start: 0.45rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.p {
+		color: var(--t-prompt);
+	}
+	.i {
+		color: var(--t-info);
+	}
+	.l {
+		color: var(--t-link);
+		text-decoration: underline;
+	}
+	.tag {
+		font-weight: 700;
+		font-size: 0.82em;
+		color: var(--t-prompt);
+		background: color-mix(in srgb, var(--t-prompt) 20%, transparent);
+		border-radius: 3px;
+		padding: 0 3px;
+	}
+	code {
+		font-family: var(--sl-font-mono);
+		color: var(--sl-color-gray-1);
+	}
+	.default {
+		color: var(--k-prompt);
+		font-family: var(--sl-font-mono);
+		font-size: var(--sl-text-xs);
+	}
+</style>

@@ -1,0 +1,36 @@
+---
+/**
+ * Starlight PageTitle override: the page's sidebar group as a divider above the title, as the
+ * app's log writes "── Yesterday ──" above a day.
+ */
+const { entry, sidebar } = Astro.locals.starlightRoute;
+
+type Entry = (typeof sidebar)[number];
+
+/** The label of the group that holds the current page, if any. */
+function section(entries: Entry[], parent?: string): string | undefined {
+	for (const e of entries) {
+		if (e.type === 'link' && e.isCurrent) return parent;
+		if (e.type === 'group') {
+			const found = section(e.entries, e.label);
+			if (found) return found;
+		}
+	}
+}
+const group = section(sidebar);
+---
+
+{group && <span class="k-section" aria-hidden="true">── {group} ──</span>}
+<h1 id="_top">{entry.data.title}</h1>
+
+<style>
+	h1 {
+		margin-top: 1rem;
+		font-size: var(--sl-text-h1);
+		line-height: var(--sl-line-height-headings);
+		color: var(--sl-color-white);
+	}
+	.k-section + h1 {
+		margin-top: 0.25rem;
+	}
+</style>

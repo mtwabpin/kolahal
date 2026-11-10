@@ -24,6 +24,7 @@ import { Image } from 'astro:assets';
 import terminal from '../../assets/terminal-feeds.png';
 import grid from '../../assets/app-grid.png';
 import setup from '../../assets/setup.png';
+import ThemeCards from '../../components/ThemeCards.astro';
 
 ## What it does
 
@@ -72,10 +73,10 @@ import setup from '../../assets/setup.png';
 
 ## Themes
 
-`theme green` (the default) · `amber` · `mono` · `dracula` · `solarized` · `gruvbox` · `gruvbox-material`
-
 Each theme has a dark and a light version. Kolahal uses the one that matches the phone's dark mode.
-This site uses the green theme in dark mode and gruvbox light in light mode.
+This site uses the green theme, the default, in both versions.
+
+<ThemeCards />
 
 ## Next steps
 
