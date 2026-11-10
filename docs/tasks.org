@@ -1,0 +1,42 @@
+#+TITLE: Tasks
+#+STARTUP: showall
+
+Work we plan to do, not yet started. Internal: nothing here is published. Move an item out when it
+ships (the release notes then say what changed).
+
+* TODO An activity launcher
+Open any exported activity of an app, not only its main one: a settings page buried deep in an
+app, a hidden screen, a shortcut the app offers.
+
+- A command, such as =activity <app>=: lists the app's exported activities (and its shortcuts),
+  one line each, with the activity's label and class name. A tap opens it.
+- =activity <app> <name>= opens one directly; aliases can then name it (=alias vpn = activity …=).
+- Only exported activities that need no permission: anything else fails to start, so leave it out.
+- Long-press on an app (app list, suggestions) could offer "Activities…" too.
+- Open questions: how to name an activity when its label is empty or repeated; whether to list
+  them in suggestions as you type (could be noisy).
+
+* TODO Space between notifications that arrive together
+When the work profile turns on, its apps post many notifications at once. They flood the log as
+one block of lines with no space between them, hard to tell apart.
+
+- Give notification lines the =log.item-spacing= gap (as list items have), at least when one
+  takes more than a line, so each one stands apart.
+- Maybe also: a burst (many in a few seconds, or right after =work on=) folds into one line,
+  "Work profile: 14 notifications", that opens to show them.
+- Check the same with the private space, and after the phone restarts.
+
+* TODO App Functions, so assistants can add and update scripts
+Android's App Functions (=androidx.appfunctions=, Android 16 and newer) let an assistant on the
+phone call functions an app declares. Kolahal could offer:
+
+- list scripts (name, what it does, on or off), read one script's code;
+- add a script, update a script's code;
+- run a command script and return what it logged.
+
+Rules, so this stays safe:
+- A script an assistant adds or changes arrives switched off, as an imported one does. Switching
+  it on shows its access, as today. An assistant can never switch a script on or grant access.
+- A changed script shows "Edited" as any edit does, so Compare and Reset to library still work.
+- Check the minimum Android version, which assistants support it, and how the user allows an app
+  to call these functions.
