@@ -1,7 +1,6 @@
 ---
 /**
- * Starlight Hero override: same title / tagline / actions as the default, with the fake
- * Kolahal terminal in place of the hero image.
+ * Starlight Hero override: the title, tagline and actions beside the demo of Kolahal's home screen.
  */
 import { LinkButton } from '@astrojs/starlight/components';
 import TerminalDemo from './TerminalDemo.astro';
@@ -18,7 +17,7 @@ const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//
 	<div class="demo"><TerminalDemo /></div>
 	<div class="stack">
 		<div class="copy">
-			<p class="kicker">$ kolahal --help</p>
+			<p class="kicker">── a launcher for Android ──</p>
 			<h1 id="_top" data-page-title set:html={title} />
 			{tagline && <div class="tagline" set:html={tagline} />}
 		</div>
@@ -43,7 +42,7 @@ const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//
 		display: grid;
 		grid-template-columns: 100%;
 		align-items: center;
-		gap: 2rem;
+		gap: 2.5rem;
 		padding-block: 1rem 2rem;
 	}
 	.stack {
@@ -58,28 +57,31 @@ const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//
 		gap: 1rem;
 		align-items: center;
 	}
+	/* Like the log's "── 2 new since you left ──" */
 	.kicker {
 		font-family: var(--sl-font-mono);
-		color: var(--sl-color-accent);
+		font-weight: 700;
+		color: var(--k-prompt);
 		font-size: var(--sl-text-sm);
 		margin: 0;
 	}
 	h1 {
-		font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 5vw), var(--sl-text-6xl));
-		line-height: var(--sl-line-height-headings);
+		font-family: var(--sl-font-mono);
+		font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 4.5vw), 3.5rem);
+		line-height: 1.12;
 		font-weight: 700;
-		letter-spacing: -0.03em;
+		letter-spacing: -0.04em;
 		color: var(--sl-color-white);
 		margin: 0;
 	}
 	.tagline {
 		font-size: clamp(var(--sl-text-base), calc(0.0625rem + 2vw), var(--sl-text-xl));
-		color: var(--sl-color-gray-2);
+		color: var(--sl-color-gray-1);
 		max-width: 46ch;
 	}
 	.actions {
 		display: flex;
-		gap: 1rem 1.5rem;
+		gap: 0.75rem;
 		flex-wrap: wrap;
 		justify-content: center;
 	}
@@ -94,7 +96,7 @@ const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//
 		margin: 0;
 	}
 	.note a {
-		color: var(--sl-color-accent);
+		color: var(--k-link);
 	}
 	.demo {
 		order: 2;
@@ -103,7 +105,7 @@ const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//
 		.hero {
 			grid-template-columns: 6fr 5fr;
 			gap: 3rem;
-			padding-block: clamp(2.5rem, calc(1rem + 8vmin), 7rem);
+			padding-block: clamp(2.5rem, calc(1rem + 6vmin), 5rem);
 		}
 		.stack {
 			text-align: start;
