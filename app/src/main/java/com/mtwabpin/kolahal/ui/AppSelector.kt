@@ -12,7 +12,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -53,7 +52,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -66,6 +64,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -439,7 +438,7 @@ fun AppSelector(
             exit = fadeOut(tween(140)) + slideOutHorizontally(tween(160)) { if (left) it / 4 else -it / 4 },
             modifier = Modifier.offset { IntOffset(panelXPx.roundToInt(), (panelTopPx + state.shiftPx).roundToInt()) },
         ) {
-            val shape = if (left) RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp) else RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp)
+            // No card: the rows stand on the dimmed home (the scrim) with no background, border or round corners.
             LazyColumn(
                 state = listState,
                 userScrollEnabled = state.mode == Mode.OPEN,
@@ -448,9 +447,9 @@ fun AppSelector(
                     .width(panelW)
                     .height(with(density) { panelHPx.toDp() })
                     .testTag("app-selector-panel")
-                    .clip(shape)
-                    .background(Term.surface, shape)
-                    .border(1.dp, Term.dim.copy(alpha = 0.25f), shape)
+                    // An invisible clip. The list already hides rows above and below it (the fisheye moves rows
+                    // there). This also keeps anything from drawing past its side, next to the strip.
+                    .clipToBounds()
                     // A sideways drag on the open panel must not turn the home page.
                     .pointerInput(Unit) { detectHorizontalDragGestures { change, _ -> change.consume() } },
             ) {
@@ -937,28 +936,42 @@ private fun SelectorRow(
     val quiet = app.profile.quiet
     val holdColor = Term.prompt.copy(alpha = 0.3f)
     val focusColor = Term.prompt.copy(alpha = 0.14f)
+    /** How much the fisheye magnifies this row now (1: not at all). Read only while laying out and drawing. */
+    fun scale(): Float {
+        val c = state.contact
+        // While the fisheye shrinks back, use the place where it last was.
+        val at = if (c.isNaN()) state.lensAt else c
+        val l = lens()
+        if (at.isNaN() || !fisheye || l == 0f) return 1f
+        return 1f + (SelectorMath.fisheyeScale(index + 0.5f - at) - 1f) * l
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            // Fisheye in the draw phase only: no recomposition or relayout per frame.
+            // Fisheye in the draw phase: no recomposition per frame. (Only a magnified row's width, below, needs a relayout.)
             .graphicsLayer {
                 val c = state.contact
-                // While the fisheye shrinks back, use the place where it last was.
                 val at = if (c.isNaN()) state.lensAt else c
                 val l = lens()
-                if (at.isNaN() || !fisheye || l == 0f) {
-                    scaleX = 1f; scaleY = 1f; translationY = 0f
-                } else {
-                    val x = index + 0.5f - at
-                    val s = 1f + (SelectorMath.fisheyeScale(x) - 1f) * l
-                    scaleX = s; scaleY = s
-                    translationY = SelectorMath.fisheyeShift(x) * rowPx * l
-                }
+                val s = scale()
+                scaleX = s; scaleY = s
+                // Rows past the fisheye's reach are not magnified, but still pushed apart.
+                translationY = if (at.isNaN() || !fisheye || l == 0f) 0f else SelectorMath.fisheyeShift(index + 0.5f - at) * rowPx * l
                 transformOrigin = TransformOrigin(0f, 0.5f)
                 val faded = dimOthers && entry.sectionIndex != state.letter && SelectorMath.focusedIndex(c, count) != index
                 alpha = (if (quiet) 0.45f else 1f) * (if (faded) 1f - 0.6f * dim() else 1f)
+            }
+            // A magnified row grows from its start. So it gets the list's width divided by its scale: magnified, it
+            // still ends at the list's edge, and a long name ends with "…" earlier. Only a relayout when the scale
+            // changes, no recomposition. The row is placed at the left, where the scale starts (as the scale, not
+            // by layout direction).
+            .layout { measurable, constraints ->
+                val s = scale()
+                val w = if (s > 1f && constraints.hasBoundedWidth) (constraints.maxWidth / s).toInt() else constraints.maxWidth
+                val p = measurable.measure(constraints.copy(minWidth = min(constraints.minWidth, w), maxWidth = w))
+                layout(constraints.maxWidth.coerceAtLeast(p.width), p.height) { p.place(0, 0) }
             }
             // The row at the thumb gets a mark. The mark fades with the fisheye.
             .drawBehind {
