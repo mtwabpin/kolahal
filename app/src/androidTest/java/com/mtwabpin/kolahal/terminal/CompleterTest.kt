@@ -148,6 +148,9 @@ class CompleterTest {
         assertEquals("= 1024", first.label)
         assertEquals("= 1024", first.replacement)
         assertEquals("5 km = 3.1069 mi", completer.suggestions("= 5 km in mi").first().label)
+        // Drawn large, as Enter logs it: the value, and what it answers under it.
+        assertEquals("1024" to "2^10 · tap to continue", first.big)
+        assertEquals("3.1069 mi" to "5 km · tap to continue", (completer.suggestions("= 5 km in mi").first() as Suggestion.Completion).big)
         assertTrue(completer.suggestions("= 2 +").isEmpty())
     }
 

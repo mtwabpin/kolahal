@@ -152,6 +152,13 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
                         } else {
                             Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = firstLine)
                         }
+                        // The calculator's answer: large, with what it answers under it, as Enter will log it.
+                        if (s.big != null) {
+                            val stats = androidx.compose.runtime.remember(s.big) {
+                                com.mtwabpin.kolahal.data.StyledText.lines(com.mtwabpin.kolahal.data.StyledText.stats(listOf(s.big))).first().stats.orEmpty()
+                            }
+                            StatsRow(stats, Term.text, Modifier.weight(1f).padding(vertical = 4.dp))
+                        } else {
                         Text(
                             taggedLabel(s.label),
                             style = Term.text.copy(color = Term.fg, fontWeight = if (first) FontWeight.Bold else FontWeight.Normal),
@@ -166,6 +173,7 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f).then(firstLine).then(if (wrapHelp) Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp) else Modifier),
                         )
+                        }
                     }
                 }
                 if (first) {

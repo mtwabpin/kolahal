@@ -771,7 +771,7 @@ internal fun useCommand(use: String): String =
     use.split(" ").takeWhile { w -> w.none { it in "<[|" } }.joinToString(" ") + " "
 
 /** A calculator's result longer than this stays a line of text: in big type it would wrap. */
-private const val ANSWER_MAX = 16
+internal const val ANSWER_MAX = 16
 
 /** An expression longer than this isn't shown under its result: it's on the command line above. */
 private const val ANSWER_LABEL_MAX = 32

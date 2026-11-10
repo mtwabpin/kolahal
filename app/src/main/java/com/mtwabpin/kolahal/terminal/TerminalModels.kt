@@ -49,6 +49,8 @@ sealed interface Suggestion {
         val icon: Int? = null,
         val help: String? = null,
         override val enter: Boolean = false,
+        /** The calculator's answer while you type: (the value, what goes under it), drawn large as in the log. */
+        val big: Pair<String, String>? = null,
     ) : Suggestion {
         override val key get() = "c:" + replacement.trimEnd()
     }

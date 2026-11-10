@@ -151,7 +151,13 @@ class Completer(private val context: Context, private val data: Data) {
         val answer = converted?.let { it to it.substringAfter("= ").substringBefore(' ').replace(",", "") }
             ?: runCatching { Calc.answer(expr) }.getOrNull()?.let { "= $it" to it }
         val row = answer?.takeIf { it.second != expr }?.let { (label, value) ->
-            Suggestion.Completion(label, "= $value", help = "the answer · tap to continue from it")
+            // Large, as Enter will show it in the log: the value, and what it answers under it.
+            val shown = converted?.substringAfter("= ") ?: value
+            val of = converted?.substringBefore(" = ") ?: expr
+            Suggestion.Completion(
+                label, "= $value", help = "the answer · tap to continue from it",
+                big = (shown to "$of · tap to continue").takeIf { shown.length <= ANSWER_MAX },
+            )
         }
         return (listOfNotNull(row) + historySuggestions(text)).distinctBy { it.key }
     }
