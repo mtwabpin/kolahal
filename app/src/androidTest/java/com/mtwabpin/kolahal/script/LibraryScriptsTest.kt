@@ -199,6 +199,32 @@ class LibraryScriptsTest {
         s.value.joinToString("") { it.text } to s.label.joinToString("") { it.text }
     }
 
+    /**
+     * Wiktionary: the word in your language, then one line per meaning, its sub-meanings apart and an
+     * example under it; with no entry in your language, the languages that have one.
+     */
+    @Test fun wiktionaryShowsMeaningsInYourLanguage() {
+        val answer = """{"other":[{"partOfSpeech":"Noun","language":"Alemannic German","definitions":[{"definition":"dog"}]}],""" +
+            """"de":[{"partOfSpeech":"Noun","language":"German","definitions":[{"definition":"<a href=\"/wiki/dog\">dog</a>, hound"},""" +
+            """{"definition":"scoundrel","parsedExamples":[{"example":"ein gemeiner <b>Hund</b>","translation":"a mean dog"}]}]}],""" +
+            """"en":[{"partOfSpeech":"Verb","language":"English","definitions":[{"definition":"To move swiftly.\n<ol><li>To move forward quickly","examples":["Run!"]}]}]}"""
+        run("wiktionary.js", "Hund", options = mapOf("lang" to "German"), before = standIns(answer))
+        assertEquals(listOf("Hund  German", "noun  dog, hound", "noun  scoundrel", "2 more languages on Wiktionary"), lines().map { StyledText.plain(it.text) })
+        assertEquals("“ein gemeiner Hund” (a mean dog)", lines()[2].ctx.body?.let(StyledText::plain))
+        assertEquals("https://en.wiktionary.org/wiki/Hund#German", lines()[2].ctx.url)
+        assertEquals("https://en.wiktionary.org/wiki/Hund", lines().last().ctx.url)
+
+        run("wiktionary.js", "Hund", options = mapOf("lang" to "English"), before = standIns(answer))
+        assertEquals("verb  To move swiftly.", StyledText.plain(lines()[1].text))
+        assertEquals(null, lines()[1].ctx.body)
+
+        run("wiktionary.js", "Hund", options = mapOf("lang" to "Hindi"), before = standIns(answer))
+        val shown = lines().map { StyledText.plain(it.text) }
+        assertEquals("No Hindi entry for 'Hund'. Other languages:", shown.first())
+        // The languages with a code come before "other": German before Alemannic German.
+        assertEquals(listOf("Hund  German", "Hund  English", "Hund  Alemannic German"), shown.filter { it.startsWith("Hund") })
+    }
+
     /** One coin: its name, then its price large and the day's change in its colour. */
     @Test fun cryptoOneCoinShowsBigNumbers() {
         run("crypto.js", "bitcoin", before = standIns("""{"bitcoin":{"usd":67120.4,"usd_24h_change":-1.234}}"""))

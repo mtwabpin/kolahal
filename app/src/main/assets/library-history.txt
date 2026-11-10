@@ -160,6 +160,7 @@ wikipedia.js a5a59f8f98fe0a14
 wikipedia.js d35fe789bd694da6
 wikipedia.js d8cfc1924462f818
 wikipedia.js f81a8abc18988c76
+wiktionary.js f962100b18dc8b21
 xkcd.js 0aa2259873c4e7de
 xkcd.js 2c9381ac32ed4247
 xkcd.js 331f996d34e65f12

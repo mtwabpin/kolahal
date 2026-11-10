@@ -75,6 +75,7 @@ None of the network scripts need an API key.
 | [exchange](#exchange) | JS | yes | | |
 | [ip](#ip) | Lua | yes | every 30m | yes |
 | [wikipedia](#wikipedia) | JS | yes | | |
+| [wiktionary](#wiktionary) | JS | yes | | |
 | [xkcd](#xkcd) | JS | yes | every 6h | yes |
 | [quote](#quote) | JS | yes | daily 08:00 | yes |
 | [countdown](#countdown) | Lua | yes | daily 00:05 | |
@@ -219,6 +220,16 @@ the IP changes and sets the IP as its status line. This helps you notice when a 
 - It tries the exact title first, then the best search match.
 - With no topic, it shows a random article.
 - Its `lang` option picks another language edition: `script set wikipedia lang de`.
+
+## wiktionary
+
+**A word's meanings** from Wiktionary, in any language: `wiktionary serendipity`.
+
+- One line per meaning, its part of speech first, with an example under it when Wiktionary has one.
+  Tap a line to open the entry.
+- Its `lang` option picks the language, as Wiktionary names it: `script set wiktionary lang German`.
+  `all` shows the first three languages that have the word.
+- A word with no entry in your language shows the languages that have one: `wiktionary Hund`.
 
 ## xkcd
 
