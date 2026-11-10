@@ -193,6 +193,20 @@ internal object SelectorMath {
         Triple(max(0f, shiftPx), max(0f, -shiftPx), scrollPx - min(0f, shiftPx))
 
     /**
+     * Room at the ends of an open list, so it scrolls as far as the strip reaches: the first app's top
+     * down to the strip's top, and the last app's bottom up to the strip's bottom. The panel is
+     * [panelH] tall from [panelTop]; the strip [stripH] tall from [stripTop]. [top] and [bottom] are the
+     * room [keepInPlace] already gives, and [scroll] its scroll. Room added at the start moves the
+     * scroll by as much, so the list stays where it is.
+     * Returns (room at the start, room at the end, the scroll).
+     */
+    fun reachStrip(top: Float, bottom: Float, scroll: Float, panelTop: Float, panelH: Float, stripTop: Float, stripH: Float): Triple<Float, Float, Float> {
+        val extraTop = max(0f, stripTop - panelTop - top)
+        val reachBottom = max(0f, panelTop + panelH - (stripTop + stripH))
+        return Triple(top + extraTop, max(bottom, reachBottom), scroll + extraTop)
+    }
+
+    /**
      * `selector.filter`: limits the panel's move so the whole panel stays on screen. The panel is
      * [panelH] tall. [shiftPx] is how far it moved down from its place at the bottom of [listH], the
      * height it may use.

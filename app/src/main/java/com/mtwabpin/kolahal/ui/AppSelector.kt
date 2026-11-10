@@ -849,27 +849,24 @@ fun AppSelector(
                                         // - Apps: the same. Near the list's start or end, the list was moved to reach the
                                         //   thumb; it stays there, so the app under the thumb doesn't jump away.
                                         state.contact = Float.NaN
-                                        if (byLetter && !onlyLetter) {
-                                            if (glide?.isActive == true) {
+                                        if (!onlyLetter) {
+                                            if (byLetter && glide?.isActive == true) {
                                                 glide.cancel()
                                                 val (s, sh) = SelectorMath.place(state.listY, SelectorMath.maxScroll(list.size, rowPx.toFloat(), panelH(list.size)))
                                                 show(s, sh)
                                             }
                                             val (top, bottom, scroll) = SelectorMath.keepInPlace(state.scrollPx, state.shiftPx)
-                                            state.padTop = top
-                                            state.padBottom = bottom
-                                            state.listY = scroll
-                                            state.scrollPx = scroll
+                                            // Open, the list scrolls as far as the strip reaches: the first app down to the
+                                            // strip's top, the last app up to its bottom, as sliding could put them.
+                                            val (padTop, padBottom, kept) = SelectorMath.reachStrip(
+                                                top, bottom, scroll, panelTop(list.size), panelH(list.size), stripTopPx, stripHPx,
+                                            )
+                                            state.padTop = padTop
+                                            state.padBottom = padBottom
+                                            state.listY = kept
+                                            state.scrollPx = kept
                                             state.shiftPx = 0f
-                                            listState.scrollToPx(scroll, rowPx)
-                                        } else if (!onlyLetter) {
-                                            val (top, bottom, scroll) = SelectorMath.keepInPlace(state.scrollPx, state.shiftPx)
-                                            state.padTop = top
-                                            state.padBottom = bottom
-                                            state.listY = scroll
-                                            state.scrollPx = scroll
-                                            state.shiftPx = 0f
-                                            listState.scrollToPx(scroll, rowPx)
+                                            listState.scrollToPx(kept, rowPx)
                                         }
                                         state.mode = Mode.OPEN
                                         state.interaction++

@@ -369,6 +369,17 @@ class SelectorMathTest {
         assertEquals(Triple(0f, 0f, 500f), SelectorMath.keepInPlace(500f, 0f))
     }
 
+    /** Open, the list scrolls far enough for the first app to reach the strip's top and the last its bottom. */
+    @Test fun anOpenListReachesTheStrip() {
+        // Panel 0..1000, strip 400..700: 400 more room at the start (the scroll moves with it), 300 at the end.
+        assertEquals(Triple(400f, 300f, 400f), SelectorMath.reachStrip(0f, 0f, 0f, 0f, 1000f, 400f, 300f))
+        // Room keepInPlace gave already counts.
+        assertEquals(Triple(400f, 300f, 250f), SelectorMath.reachStrip(250f, 0f, 100f, 0f, 1000f, 400f, 300f))
+        assertEquals(Triple(400f, 500f, 400f), SelectorMath.reachStrip(0f, 500f, 0f, 0f, 1000f, 400f, 300f))
+        // A strip at the panel's top and bottom needs no room.
+        assertEquals(Triple(0f, 0f, 0f), SelectorMath.reachStrip(0f, 0f, 0f, 0f, 1000f, 0f, 1000f))
+    }
+
     /** selector.filter: a letter's apps alone move level with it, but never off the screen. */
     @Test fun aLettersAppsStayOnScreen() {
         // A 190px list in a 700px space: it may move up to 510px from its place at the bottom.

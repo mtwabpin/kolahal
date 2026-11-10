@@ -11,6 +11,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.graphics.toPixelMap
 import kotlin.math.abs
@@ -542,6 +544,25 @@ class AppSelectorTest {
         compose.waitForIdle()
         assertTrue("picking, the app at the thumb is marked", marked())
         strip.performTouchInput { cancel() }
+    }
+
+    /** Left open, the list scrolls the first app down to the strip's top and the last app up to its bottom. */
+    @Test fun anOpenListScrollsAsFarAsTheStrip() {
+        val all = entries
+        show(left = false, position = "middle", browse = "apps")
+        val strip = compose.onNodeWithTag("app-selector-strip").getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("app-selector").performTouchInput { down(center); up() }
+        compose.waitForIdle()
+        val panel = compose.onNodeWithTag("app-selector-panel")
+        repeat(8) { panel.performTouchInput { swipeDown() } }
+        compose.waitForIdle()
+        // The first row's top at the strip's top: its middle half a row (under 48dp) below it.
+        val first = rowCentre(all.first().item.label)
+        assertTrue("the first app ($first) reaches the strip's top (${strip.top})", first >= strip.top.value && first <= strip.top.value + 48f)
+        repeat(12) { panel.performTouchInput { swipeUp() } }
+        compose.waitForIdle()
+        val last = rowCentre(all.last().item.label)
+        assertTrue("the last app ($last) reaches the strip's bottom (${strip.bottom})", last <= strip.bottom.value && last >= strip.bottom.value - 48f)
     }
 
     /** Keyboard up (inactive): nothing shows and an open list closes; down again, it is back as it was. */
