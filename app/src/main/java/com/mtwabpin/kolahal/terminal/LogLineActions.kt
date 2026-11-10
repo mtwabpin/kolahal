@@ -92,6 +92,10 @@ class LogLineActions(private val context: Context, private val processor: Comman
                 val id = ctx.values.getValue(LogContext.SHORTCUT)
                 host.io { runCatching { appsRepo.startShortcut(app, id) }.onFailure { logs.add(LogKind.ERROR, "Shortcut unavailable: ${it.message}") } }
             }
+            ctx.values[LogContext.ACTIVITY] != null && ctx.pkg != null -> {
+                val cls = ctx.values.getValue(LogContext.ACTIVITY)
+                host.io { ActivityCommands.openFromLine(context, ctx.pkg!!, cls) }
+            }
             ctx.values[LogContext.PHONE] != null -> host.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", ctx.values.getValue(LogContext.PHONE), null)))
             ctx.pkg != null -> appFor(ctx)?.let { app -> host.io { processor.launch(app) } }
             ctx.url != null -> openLink(ctx)
@@ -103,6 +107,12 @@ class LogLineActions(private val context: Context, private val processor: Comman
         val ctx = entry.ctx
         val actions = ArrayList<LogAction>()
         val danger = ArrayList<LogAction>()
+        // An activity line (`activity`): open it, or copy the command that opens it (for an alias).
+        ctx.values[LogContext.ACTIVITY]?.let { cls ->
+            val pkg = ctx.pkg ?: return@let
+            actions += LogAction("Open activity") { host.io { ActivityCommands.openFromLine(context, pkg, cls) } }
+            appFor(ctx)?.let { app -> actions += LogAction("Copy command") { copy(ActivityCommands.commandFor(context, app, cls)) } }
+        }
         val command = ctx.command ?: entry.text.takeIf { entry.kind == LogKind.COMMAND }
         if (command != null) {
             actions += LogAction("Run again") { host.setText(command); host.submit() }

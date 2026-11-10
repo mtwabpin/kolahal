@@ -62,6 +62,8 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val PHONE = "phone"
         /** An app shortcut id (with PKG/USER). A tap starts the shortcut. */
         const val SHORTCUT = "shortcut"
+        /** An activity's class name (with PKG/USER), from `activity`. A tap opens that activity. */
+        const val ACTIVITY = "activity"
         const val CONTACT = "contact"
         /** The source line of a script error. A tap opens the editor at that line. */
         const val LINE = "line"

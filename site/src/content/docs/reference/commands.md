@@ -20,6 +20,7 @@ How to read the usage:
 | --- | --- | --- |
 | `open <app>[:shortcut] [-w\|-p\|-s]` | `launch` | open an app, or one of its shortcuts (`open maps:home`) |
 | `shortcuts <app>` | | list an app's launcher shortcuts; tap one to start it |
+| `activity <app> [<name>]` | | list the screens of an app that other apps may open; tap one to open it. With a name, open the one that matches it, or list them if several do (`activity settings wifi`). Personal profile apps only |
 | `apps [work\|personal\|private\|hidden] [-l\|-a]` | `ls` | show the app grid (`-l`: one app per line; `-a`: include hidden apps) |
 | `info <app> [-w]` | | open app info |
 | `uninstall <app> [-w]` | | uninstall an app |

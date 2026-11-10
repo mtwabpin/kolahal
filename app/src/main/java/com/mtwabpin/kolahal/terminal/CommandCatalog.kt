@@ -16,6 +16,7 @@ object CommandCatalog {
         CommandSpec("apps", "apps [work|personal|private|hidden] [-l|-a]", "App grid (-l: one per line, -a: hidden apps too)"),
         CommandSpec("open", "open <app>[:shortcut] [-w|-p|-s]", "Launch an app or one of its shortcuts"),
         CommandSpec("shortcuts", "shortcuts <app>", "An app's launcher shortcuts"),
+        CommandSpec("activity", "activity <app> [<name>]", "List an app's activities, or open one: a screen without an icon"),
         CommandSpec("info", "info <app> [-w]", "Open app info"),
         CommandSpec("uninstall", "uninstall <app> [-w]", "Uninstall an app"),
         CommandSpec("work", "work [on|off|status]", "Pause / resume the work profile"),
@@ -143,6 +144,7 @@ object CommandCatalog {
         "apps" to listOf(
             "open",
             "shortcuts",
+            "activity",
             "apps",
             "pin",
             "unpin",

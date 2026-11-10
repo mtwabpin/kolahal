@@ -15,6 +15,7 @@ import java.util.Date
 /**
  * App commands:
  * - listing, opening and launching apps and their shortcuts;
+ * - opening any activity of an app (`activity`, in [ActivityCommands]);
  * - pins, hiding and renaming;
  * - work and private profiles;
  * - screen time and install history.
@@ -29,6 +30,7 @@ class AppCommands(
     private val apps = AppRepository.get(context)
     private val prefs = AppPrefs.get(context)
     private val unlocks = UnlockCounter.get(context)
+    private val activities by lazy { ActivityCommands(context) }
 
 
     /** Describes where a pinned app shows, based on the current settings. */
@@ -58,6 +60,7 @@ class AppCommands(
             "usage", "screentime" -> usage(args)
             "installs", "updates" -> installs(args)
             "shortcuts" -> withApp(args) { app -> listShortcuts(app) }
+            "activity" -> activities.run(args)
         }
     }
 
@@ -320,6 +323,7 @@ class AppCommands(
         val NAMES = setOf(
             "hide", "pin", "fav", "unpin", "unfav", "pins", "favs", "unhide", "rename", "apps", "ls", "open", "launch",
             "info", "uninstall", "work", "private", "usage", "screentime", "installs", "updates", "shortcuts",
+            "activity",
         )
     }
 }
