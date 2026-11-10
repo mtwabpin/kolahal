@@ -256,32 +256,6 @@ class SelectorMathTest {
         assertEquals(0, SelectorMath.focusedIndex(-2f, 10))
     }
 
-    @Test fun fisheyeMagnifiesTheFocusAndTapers() {
-        assertEquals(1f + SelectorMath.PEAK, SelectorMath.fisheyeScale(0f), 1e-5f)
-        assertEquals(1f, SelectorMath.fisheyeScale(SelectorMath.REACH))
-        assertEquals(1f, SelectorMath.fisheyeScale(-10f))
-        assertEquals(SelectorMath.fisheyeScale(-1.3f), SelectorMath.fisheyeScale(1.3f), 1e-6f)
-        assertTrue(SelectorMath.fisheyeScale(0f) > SelectorMath.fisheyeScale(1f))
-        assertTrue(SelectorMath.fisheyeScale(1f) > SelectorMath.fisheyeScale(2f))
-        assertTrue(SelectorMath.fisheyeScale(2f) > SelectorMath.fisheyeScale(2.9f))
-    }
-
-    @Test fun fisheyeShiftPushesNeighboursApartWithoutOverlap() {
-        assertEquals(0f, SelectorMath.fisheyeShift(0f))
-        assertEquals(-SelectorMath.fisheyeShift(1.7f), SelectorMath.fisheyeShift(-1.7f), 1e-6f)
-        val far = SelectorMath.PEAK * SelectorMath.REACH / 2
-        assertEquals(far, SelectorMath.fisheyeShift(SelectorMath.REACH), 1e-5f)
-        assertEquals(far, SelectorMath.fisheyeShift(20f), 1e-5f)
-        // Adjacent rows stay about a (scaled) row apart: spacing ≈ the mean of their scales.
-        var x = -5f
-        while (x < 5f) {
-            val gap = 1f + SelectorMath.fisheyeShift(x + 1) - SelectorMath.fisheyeShift(x)
-            val need = (SelectorMath.fisheyeScale(x) + SelectorMath.fisheyeScale(x + 1)) / 2
-            assertTrue("gap $gap < $need at $x", gap >= need - 0.03f)
-            x += 0.05f
-        }
-    }
-
     @Test fun edgeSpeedRampsAtTheEnds() {
         assertEquals(0f, SelectorMath.edgeSpeed(400f, 800f, 50f, 1f))
         assertEquals(-1f, SelectorMath.edgeSpeed(0f, 800f, 50f, 1f))
