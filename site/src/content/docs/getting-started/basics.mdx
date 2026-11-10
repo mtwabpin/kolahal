@@ -124,7 +124,7 @@ the back gesture works as usual. After your thumb is down, you can slide over th
 <ShotRow
 	items={[
 		{ src: selectorSlide, alt: 'Sliding along the right edge at G: the G bubble beside the thumb, Gmail and Google bright in the list', caption: '<strong>1.</strong> Slide along the edge to a letter. Its apps line up with your thumb.' },
-		{ src: selectorPick, alt: 'Picking Gmail in the list: its row marked and filling', caption: '<strong>2.</strong> Slide onto the list, move to an app and lift to open it. Or hold still until its row fills.' },
+		{ src: selectorPick, alt: 'Picking Gmail in the list: its row magnified and filling', caption: '<strong>2.</strong> Slide onto the list, move to an app and lift to open it. Or hold still until its row fills.' },
 		{ src: selectorOpen, alt: 'The app list left open, almost as wide as the screen', caption: '<strong>Or</strong> lift on the edge to keep the list open, then tap an app.' },
 	]}
 />
@@ -158,7 +158,7 @@ the back gesture works as usual. After your thumb is down, you can slide over th
   - Your thumb's position on the edge maps smoothly to the list: the top is the first app and the bottom is the last. Small moves
     give fine control, and a long slide covers the whole alphabet.
   - Each letter gets room on the edge by the square root of its number of apps. A letter with four times as many apps gets twice the length.
-  - The current app is at the same height as your thumb. The bubble shows its letter.
+  - The current app is at the same height as your thumb and magnified. The apps next to it are a little less magnified. The bubble shows its letter.
   - Slide slowly to move one app at a time. Below about 100 dp per second, the list moves one app for every 10 dp you slide,
     with a light vibration for each app. If you slide faster, the list catches up with your thumb.
     (Set these with `config set`: `selector.aim` and `selector.aim-speed`.)

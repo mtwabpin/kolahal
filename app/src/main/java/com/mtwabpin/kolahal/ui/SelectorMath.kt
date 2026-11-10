@@ -27,7 +27,7 @@ internal data class SelectorEntry<T>(
 )
 
 /**
- * Pure maths for the app selector: building the list and mapping the scrub. Unit-tested.
+ * Pure maths for the app selector: building the list, mapping the scrub, and the fisheye. Unit-tested.
  * Positions are in rows unless the name says `px`. Row `i` covers `[i, i + 1)` of the list.
  */
 internal object SelectorMath {
@@ -403,6 +403,27 @@ internal object SelectorMath {
     /** Row index at [contact], clamped to the list. Returns -1 when there is no contact (NaN) or the list is empty. */
     fun focusedIndex(contact: Float, count: Int): Int =
         if (contact.isNaN() || count <= 0) -1 else floor(contact).toInt().coerceIn(0, count - 1)
+
+    /** Peak magnification of the focused row, and how far (rows) the fisheye reaches on each side. */
+    const val PEAK = 0.2f
+    const val REACH = 3f
+
+    /** Fisheye bell: 1 at the contact point, falling smoothly to 0 at ±[REACH] rows. */
+    private fun bell(x: Float): Float =
+        if (abs(x) >= REACH) 0f else (1f + cos(PI.toFloat() * x / REACH)) / 2f
+
+    /** Scale of a row whose centre is [x] rows from the contact point. */
+    fun fisheyeScale(x: Float): Float = 1f + PEAK * bell(x)
+
+    /**
+     * Extra vertical move (rows) of a row whose centre is [x] rows from the contact. Magnified rows
+     * push their neighbours apart instead of overlapping. The value is the integral of the extra scale.
+     */
+    fun fisheyeShift(x: Float): Float {
+        val a = min(abs(x), REACH)
+        val integral = (a + REACH / PI.toFloat() * sin(PI.toFloat() * a / REACH)) / 2f
+        return sign(x) * PEAK * integral
+    }
 
     /**
      * Auto-scroll speed at the panel's ends (px/ms, negative = up) for a finger [y] px below the top

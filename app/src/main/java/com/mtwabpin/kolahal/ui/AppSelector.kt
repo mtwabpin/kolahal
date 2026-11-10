@@ -113,6 +113,8 @@ private class SelectorState {
     var mode by mutableStateOf(Mode.CLOSED)
     /** List position (rows) under the finger while it is down; NaN when there is no touch. */
     var contact by mutableFloatStateOf(Float.NaN)
+    /** Where the fisheye was last centred (rows, like [contact]). When the finger leaves the list, the fisheye shrinks back at this place. */
+    var lensAt by mutableFloatStateOf(Float.NaN)
     /** Scroll offset (px) set by scrubbing. */
     var scrollPx = 0f
     /**
@@ -148,7 +150,7 @@ private class SelectorState {
     }
 }
 
-/** How long the other letters' apps take to fade back or in. */
+/** How long the fisheye takes to grow or shrink back, and how long the other letters' apps take to fade back or in. */
 private const val LENS_MS = 220
 
 /** When the panel is left open, it stops this far from the strip. */
@@ -200,8 +202,9 @@ private fun LazyListState.scrollToPx(px: Float, rowPx: Int) {
  *   in a wave.
  * - Past the ends of the list, the panel itself moves to keep the letter's apps (or the focused
  *   row) level with the thumb.
- * - Slide off the edge toward the panel to pick a row. The row at the thumb is marked, and the
- *   list auto-scrolls at the panel's ends. Lift to launch, or hold still until the row fills.
+ * - Slide off the edge toward the panel to pick a row. The row and its neighbours are magnified
+ *   (fisheye), and the list auto-scrolls at the panel's ends. Lift to launch, or hold still until
+ *   the row fills.
  * - Lift on the edge to leave the panel open as a normal list (fling, tap, long-press). A tapped
  *   letter's apps stay next to it. A tap outside, Back, or 4 s idle closes it.
  *
@@ -298,8 +301,11 @@ fun AppSelector(
     }
     // The bubble and the wave come out from the edge while the thumb slides along it.
     val sliding = state.mode == Mode.SCRUB && letter in sectionLetters.indices
-    // While the thumb is down, the other letters' apps fade back; they fade in again after. No jump
-    // when the selector switches between sliding and the open list.
+    // The fisheye grows while the thumb picks from the list. When the finger lifts or goes back to
+    // the edge, the fisheye shrinks back where it was. The other letters' apps fade back and in the
+    // same way. Neither one jumps when the selector switches between sliding and the open list.
+    val lensOn by remember { derivedStateOf { !state.contact.isNaN() } }
+    val lens = animateFloatAsState(if (lensOn) 1f else 0f, tween(LENS_MS), label = "lens")
     val dim = animateFloatAsState(if (state.mode == Mode.SCRUB || state.mode == Mode.SELECT) 1f else 0f, tween(LENS_MS), label = "dim")
     val wave = animateFloatAsState(if (sliding) 1f else 0f, tween(140), label = "wave")
     val waveIn by wave
@@ -451,7 +457,8 @@ fun AppSelector(
                     .width(panelW)
                     .height(with(density) { panelHPx.toDp() })
                     .testTag("app-selector-panel")
-                    // An invisible clip: nothing draws past the list's side, next to the strip.
+                    // An invisible clip. The list already hides rows above and below it (the fisheye moves rows
+                    // there). This also keeps anything from drawing past its side, next to the strip.
                     .clipToBounds()
                     // A sideways drag on the open panel must not turn the home page.
                     .pointerInput(Unit) { detectHorizontalDragGestures { change, _ -> change.consume() } },
@@ -462,10 +469,14 @@ fun AppSelector(
                         index = index,
                         count = shown.size,
                         state = state,
+                        rowPx = rowPx,
                         height = rowH,
                         pinned = entry.item.key in pinned,
                         icon = if (icons) iconSize else null,
                         enabled = state.mode == Mode.OPEN,
+                        // A letter's few apps alone in the list: there is no room to magnify the ends.
+                        fisheye = !onlyLetter,
+                        lens = { lens.value },
                         dimOthers = byLetter && !onlyLetter,
                         dim = { dim.value },
                         text = text,
@@ -726,6 +737,7 @@ fun AppSelector(
                             // Picking: the app level with the finger, as it moves up and down. Along the edge with
                             // letters, no app is at the thumb yet; only the letter is.
                             state.contact = if (byLetter && !selecting) Float.NaN else SelectorMath.contact(state.listY, yIn, rowPx.toFloat())
+                            if (!state.contact.isNaN()) state.lensAt = state.contact
                             val f = SelectorMath.focusedIndex(state.contact, n)
                             val section = if (f >= 0) list[f].sectionIndex else onLetter
                             if (!byLetter) state.letter = section
@@ -911,11 +923,16 @@ private fun SelectorRow(
     index: Int,
     count: Int,
     state: SelectorState,
+    rowPx: Int,
     height: androidx.compose.ui.unit.Dp,
     pinned: Boolean,
     /** If not null, the app's icon at this size at the start of the row (Plan E). */
     icon: androidx.compose.ui.unit.Dp?,
     enabled: Boolean,
+    /** Magnify the row at the thumb and its neighbours while picking. */
+    fisheye: Boolean,
+    /** How far the fisheye is out (0 to 1), easing in and out. Read while drawing. */
+    lens: () -> Float,
     /** Letters: while the thumb is down, the apps of other letters fade back (unless picked). */
     dimOthers: Boolean,
     /** How far they are faded back (0 to 1), easing in and out. Read while drawing. */
@@ -934,20 +951,49 @@ private fun SelectorRow(
     val quiet = app.profile.quiet
     val holdColor = Term.prompt.copy(alpha = 0.3f)
     val focusColor = Term.prompt.copy(alpha = 0.14f)
+    /** How much the fisheye magnifies this row now (1: not at all). Read only while laying out and drawing. */
+    fun scale(): Float {
+        val c = state.contact
+        // While the fisheye shrinks back, use the place where it last was.
+        val at = if (c.isNaN()) state.lensAt else c
+        val l = lens()
+        if (at.isNaN() || !fisheye || l == 0f) return 1f
+        return 1f + (SelectorMath.fisheyeScale(index + 0.5f - at) - 1f) * l
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            // In the draw phase: no recomposition per frame.
+            // Fisheye in the draw phase: no recomposition per frame. (Only a magnified row's width, below, needs a relayout.)
             .graphicsLayer {
-                val faded = dimOthers && entry.sectionIndex != state.letter && SelectorMath.focusedIndex(state.contact, count) != index
+                val c = state.contact
+                val at = if (c.isNaN()) state.lensAt else c
+                val l = lens()
+                val s = scale()
+                scaleX = s; scaleY = s
+                // Rows past the fisheye's reach are not magnified, but still pushed apart.
+                translationY = if (at.isNaN() || !fisheye || l == 0f) 0f else SelectorMath.fisheyeShift(index + 0.5f - at) * rowPx * l
+                transformOrigin = TransformOrigin(0f, 0.5f)
+                val faded = dimOthers && entry.sectionIndex != state.letter && SelectorMath.focusedIndex(c, count) != index
                 alpha = (if (quiet) 0.45f else 1f) * (if (faded) 1f - 0.6f * dim() else 1f)
             }
-            // While picking, the row at the thumb gets a mark.
+            // A magnified row grows from its start. So it gets the list's width divided by its scale: magnified, it
+            // still ends at the list's edge, and a long name ends with "…" earlier. Only a relayout when the scale
+            // changes, no recomposition. The row is placed at the left, where the scale starts (as the scale, not
+            // by layout direction).
+            .layout { measurable, constraints ->
+                val s = scale()
+                val w = if (s > 1f && constraints.hasBoundedWidth) (constraints.maxWidth / s).toInt() else constraints.maxWidth
+                val p = measurable.measure(constraints.copy(minWidth = min(constraints.minWidth, w), maxWidth = w))
+                layout(constraints.maxWidth.coerceAtLeast(p.width), p.height) { p.place(0, 0) }
+            }
+            // While picking, the row at the thumb gets a mark. The mark fades with the fisheye.
             .drawBehind {
-                if (state.mode == Mode.SELECT && SelectorMath.focusedIndex(state.contact, count) == index) {
-                    drawRoundRect(focusColor, cornerRadius = CornerRadius(6.dp.toPx()))
+                val c = state.contact
+                val l = lens()
+                if (l > 0f && state.mode == Mode.SELECT && SelectorMath.focusedIndex(if (c.isNaN()) state.lensAt else c, count) == index) {
+                    drawRoundRect(focusColor, alpha = l, cornerRadius = CornerRadius(6.dp.toPx()))
                 }
             }
             // Plan B: the held row fills from its start while the hold counts (read in the draw phase only).
@@ -972,7 +1018,7 @@ private fun SelectorRow(
             modifier = Modifier.width(26.dp).padding(start = 10.dp),
             maxLines = 1,
         )
-        // Plan E: the app's icon, as the suggestions show it.
+        // Plan E: the app's icon, as the suggestions show it. It grows with the row in the fisheye.
         if (icon != null) AppIcon(app, icon, Modifier.padding(end = 8.dp).testTag("app-selector-icon"))
         if (app.profile.kind != ProfileKind.PERSONAL) {
             Text(

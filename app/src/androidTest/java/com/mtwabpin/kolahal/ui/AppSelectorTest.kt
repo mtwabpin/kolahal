@@ -370,22 +370,24 @@ class AppSelectorTest {
         return gaps.map { it / plain }
     }
 
-    /** The widest gap between the list's rows against a plain one: 1 when every row is the same size. */
+    /** The widest gap between the list's rows against a plain one: above 1 where the fisheye spreads them. */
     private fun magnified(): Float = gaps().max()
 
-    /** No row grows: sliding along the edge, picking off it, and left open, every row is the same size. */
-    @Test fun noAppIsMagnified() {
+    /** Lifted on the edge, the list stays open and its fisheye shrinks back, rather than the rows jumping flat. */
+    @Test fun theFisheyeShrinksBackWhenTheThumbLifts() {
         show(left = false, position = "bottom", browse = "apps")
-        val strip = compose.onNodeWithTag("app-selector")
-        strip.performTouchInput { down(center); moveBy(Offset(0f, 4.dp.toPx())) }
+        compose.onNodeWithTag("app-selector").performTouchInput { down(center); moveBy(Offset(0f, 4.dp.toPx())) }
         compose.waitForIdle()
-        assertEquals("sliding: ${gaps()}", 1f, magnified(), 0.01f)
-        strip.performTouchInput { moveBy(Offset(-60.dp.toPx(), 0f)) }
-        compose.waitForIdle()
-        assertEquals("picking: ${gaps()}", 1f, magnified(), 0.01f)
-        strip.performTouchInput { moveBy(Offset(60.dp.toPx(), 0f)); up() }
-        compose.waitForIdle()
-        assertEquals("left open", 1f, magnified(), 0.01f)
+        assertTrue("sliding: ${magnified()}", magnified() > 1.15f)
+        // Rows past the fisheye's reach move with it: no two rows come closer than plain ones.
+        assertTrue("sliding: ${gaps()}", gaps().min() > 0.95f)
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("app-selector").performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(80)
+        val easing = magnified()
+        assertTrue("just lifted: $easing", easing > 1.03f && easing < 1.18f)
+        compose.mainClock.advanceTimeBy(400)
+        assertEquals(1f, magnified(), 0.01f)
         compose.onNodeWithTag("app-selector-panel").assertIsDisplayed()
     }
 
@@ -515,7 +517,7 @@ class AppSelectorTest {
         val held = rowCentre(first)
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.waitForIdle()
-        // The row's middle may move a pixel or two as the list settles; it must not jump away.
+        // The fisheye shrinks back, so the row's middle may move a little; it must not jump away.
         assertEquals("after lifting", held, rowCentre(first), 12f)
     }
 
@@ -692,7 +694,7 @@ class AppSelectorTest {
     @Test fun onTheLeftTheListHasNoCard() = noCard(left = true)
 
     /**
-     * Every shown name ends with "…" and its row ends inside the list. So a long name never
+     * Every shown name, magnified or not, ends with "…" and its row ends inside the list. So a long name never
      * reaches the strip, the bubble or the wave.
      */
     private fun assertNamesEndInside(what: String) {
@@ -707,14 +709,14 @@ class AppSelectorTest {
             val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
             node.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(results)
             assertTrue("$what: ${results.single().layoutInput.text} ends with …", results.single().isLineEllipsized(0))
-            // Where the name's box ends on screen, not cut by any clip.
+            // Where the name's box ends on screen, with its scale, not cut by any clip.
             val c = node.layoutInfo.coordinates
             val right = c.localToRoot(Offset(c.size.width.toFloat(), c.size.height / 2f)).x / dp
             assertTrue("$what: a name ends at $right, past the list's edge ${panel.right}", right <= panel.right.value + 0.5f)
         }
     }
 
-    /** Long names end with "…" inside the list: while holding, and left open (wider). */
+    /** Long names end with "…" inside the list: magnified while holding, and left open (wider). */
     private fun longNamesEndInside(left: Boolean) {
         val app = apps.apps.value.first()
         val list = (10..49).map {
@@ -723,6 +725,7 @@ class AppSelectorTest {
         show(left = left, position = "bottom", list = list, browse = "apps")
         compose.onNodeWithTag("app-selector").performTouchInput { down(center); moveBy(Offset(0f, 4.dp.toPx())) }
         compose.waitForIdle()
+        assertTrue("magnified", magnified() > 1.15f)
         assertNamesEndInside("holding")
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.waitForIdle()
