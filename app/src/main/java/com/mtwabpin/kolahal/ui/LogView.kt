@@ -451,10 +451,13 @@ private const val FOLD_SLACK_LINES = 2
 @Composable
 private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = emptyList(), dense: Boolean = false, bar: StyledText.Meter? = null) {
     Row(Modifier.fillMaxWidth()) {
+        // Beside a bar (usage, toggles), the name stays on one line and ends with "…" when too long.
         RichText(
             markMatches(remember(entry.text, Term.palette) { styledText(entry.text) }, marks),
             style = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense),
             modifier = Modifier.weight(0.46f).padding(end = 8.dp),
+            maxLines = if (bar != null) 1 else Int.MAX_VALUE,
+            overflow = if (bar != null) androidx.compose.ui.text.style.TextOverflow.Ellipsis else androidx.compose.ui.text.style.TextOverflow.Clip,
         )
         val descText = @Composable { modifier: Modifier ->
             Text(markMatches(AnnotatedString(desc), marks), style = Term.text.copy(color = Term.dim).dense(dense), modifier = modifier)

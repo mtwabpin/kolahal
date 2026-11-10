@@ -353,14 +353,19 @@ class AppCommandsTest {
             // Big numbers: the time today, or a day's average and the total.
             val big = if (said == "today") "$duration screen time today" else "$duration a day on average · $duration in ${said.removePrefix("last ")}"
             assertTrue(first, Regex(big).matches(first))
-            val perApp = shown.drop(1)
-            assertTrue(typed, perApp.size in 1..12)
-            assertTrue(perApp.toString(), perApp.all { Regex(duration).matches(it.ctx.values[LogContext.DESC].orEmpty()) })
+            val rows = shown.drop(1)
+            // Up to 12 apps by name, then "Other apps" for the rest when it adds up to a minute.
+            val perApp = rows.filter { it.text != "Other apps" }
+            assertTrue(typed, perApp.size in 0..12)
+            assertTrue(typed, rows.indexOfFirst { it.text == "Other apps" } in listOf(-1, rows.size - 1))
+            assertTrue(rows.toString(), rows.all { Regex(duration).matches(it.ctx.values[LogContext.DESC].orEmpty()) })
             assertTrue(perApp.toString(), perApp.none { it.ctx.pkg == context.packageName })
-            // A drawn bar on one scale (LogContext.BAR, "0,share,"): the most-used app fills its bar.
-            val bars = perApp.map { it.ctx.values.getValue(LogContext.BAR).split(",")[1].toDouble() }
-            assertEquals(typed, 1.0, bars.first(), 0.0)
-            assertEquals(typed, bars.sortedDescending(), bars)
+            // An app's name, never its package (such as com.samsung.android.incallui).
+            assertTrue(perApp.toString(), perApp.none { Regex("[a-z0-9_]+(\\.[a-z0-9_]+)+").matches(it.text) })
+            // A drawn bar on one scale (LogContext.BAR, "0,share,"): the longest row fills its bar.
+            val bars = rows.map { it.ctx.values.getValue(LogContext.BAR).split(",")[1].toDouble() }
+            assertEquals(typed, 1.0, bars.max(), 0.0)
+            assertEquals(typed, bars.take(perApp.size).sortedDescending(), bars.take(perApp.size))
         }
         assumeTrue("no app usage recorded in 30 days, so no list to check", listed)
     }

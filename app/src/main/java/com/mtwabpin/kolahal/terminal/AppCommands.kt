@@ -298,16 +298,27 @@ class AppCommands(
         val big = if (days == 1) listOf(duration(sum) to "screen time today")
         else listOf(duration(sum / days) to "a day on average", duration(sum) to "in $days days")
         out(com.mtwabpin.kolahal.data.StyledText.stats(big))
-        val max = totals.first().value
-        totals.take(12).forEach { (pkg, ms) ->
+        // Each app by its name. A package with no name Kolahal can read (one without an icon, such as the
+        // phone's in-call screen) counts toward "Other apps" at the end, not as a package name.
+        val pm = context.packageManager
+        val named = totals.mapNotNull { (pkg, ms) ->
             val app = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
                 ?: apps.apps.value.firstOrNull { it.pkg == pkg }
+            val label = app?.label ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+            if (label.isNullOrBlank() || label == pkg) null else Triple(label, app, ms)
+        }
+        val shown = named.take(12)
+        val other = sum - shown.sumOf { it.third }
+        val max = maxOf(shown.firstOrNull()?.third ?: 0L, other)
+        shown.forEach { (label, app, ms) ->
             out(
-                app?.label ?: pkg,
+                label,
                 // A bar on one scale before the time: the most-used app fills its bar.
                 (if (app != null) appCtx(app) else LogContext.EMPTY) + mapOf(LogContext.DESC to duration(ms)) + LogContext.bar(ms.toDouble() / max),
             )
         }
+        // The rest, so the times add up to the total: apps past the first 12, and those without a name.
+        if (other >= 60_000) info("Other apps", LogContext.of(LogContext.DESC to duration(other)) + LogContext.bar(other.toDouble() / max))
     }
 
     /** The profile's name with a capital first letter, for the start of a sentence. */
