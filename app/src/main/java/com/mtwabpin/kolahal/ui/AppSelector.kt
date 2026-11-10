@@ -258,6 +258,8 @@ fun AppSelector(
     active: Boolean = true,
     /** Settings' preview of selector.row-height: the list stays open, as after lifting on the edge. */
     showList: Boolean = false,
+    /** Set while the list is open (0 to 1), so home fades out the log behind it. Null: dim home with a scrim instead. */
+    fade: androidx.compose.runtime.MutableFloatState? = null,
 ) {
     val text = if (systemFont) Term.phoneText else Term.text
     // Plan F: when the strip is at the bottom of the edge, favourites go last, where the thumb rests.
@@ -406,7 +408,11 @@ fun AppSelector(
 
         // While the selector is open, it has the screen: home dims behind it.
         val dimmed = animateFloatAsState(if (open && count > 0) 1f else 0f, tween(160), label = "dim")
-        val scrim by remember { derivedStateOf { dimmed.value > 0f } }
+        if (fade != null) {
+            LaunchedEffect(fade) { snapshotFlow { dimmed.value }.collect { fade.floatValue = it } }
+            androidx.compose.runtime.DisposableEffect(fade) { onDispose { fade.floatValue = 0f } }
+        }
+        val scrim by remember { derivedStateOf { fade == null && dimmed.value > 0f } }
         if (scrim) {
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = dimmed.value }.background(Term.bg.copy(alpha = 0.9f)).testTag("app-selector-scrim"))
         }
@@ -840,7 +846,8 @@ fun AppSelector(
                                         // Lifted on the edge: leave the list open for a tap or a fling.
                                         // - Letters: a tapped letter's apps stay where they are, next to it. The whole list
                                         //   keeps them there with extra room at its ends, so it can still scroll to every app.
-                                        // - Apps: the list goes back to its place (scrolled as far as it went).
+                                        // - Apps: the same. Near the list's start or end, the list was moved to reach the
+                                        //   thumb; it stays there, so the app under the thumb doesn't jump away.
                                         state.contact = Float.NaN
                                         if (byLetter && !onlyLetter) {
                                             if (glide?.isActive == true) {
@@ -856,8 +863,13 @@ fun AppSelector(
                                             state.shiftPx = 0f
                                             listState.scrollToPx(scroll, rowPx)
                                         } else if (!onlyLetter) {
-                                            state.listY = state.scrollPx
+                                            val (top, bottom, scroll) = SelectorMath.keepInPlace(state.scrollPx, state.shiftPx)
+                                            state.padTop = top
+                                            state.padBottom = bottom
+                                            state.listY = scroll
+                                            state.scrollPx = scroll
                                             state.shiftPx = 0f
+                                            listState.scrollToPx(scroll, rowPx)
                                         }
                                         state.mode = Mode.OPEN
                                         state.interaction++

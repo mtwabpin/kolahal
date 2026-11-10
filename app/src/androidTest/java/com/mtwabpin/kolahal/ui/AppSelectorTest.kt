@@ -63,12 +63,13 @@ class AppSelectorTest {
         filter: Boolean = false,
         rowHeightDp: Int = Keys.SELECTOR_ROW_HEIGHT.default,
         showList: Boolean = false,
+        fade: androidx.compose.runtime.MutableFloatState? = null,
     ) = compose.setContent {
         Box(Modifier.size(360.dp, 700.dp)) {
             AppSelector(
                 list, emptySet(), onLaunch = { launched = it }, onLongPress = { pressed = it }, heightDp = 300, left = left,
                 position = position, edgeBackGesture = backGesture, actions = actions, icons = icons, letters = letters,
-                browse = browse, filter = filter, rowHeightDp = rowHeightDp, showList = showList,
+                browse = browse, filter = filter, rowHeightDp = rowHeightDp, showList = showList, fade = fade,
             )
         }
     }
@@ -486,6 +487,35 @@ class AppSelectorTest {
         // 55% of the width, but at least 200dp; open, all but the 36dp strip and an 8dp gap.
         assertEquals(200f, sliding, 1f)
         assertEquals(360f - 36f - 8f, open, 1f)
+    }
+
+    /** On home, the selector fades the log out instead of dimming it with a scrim, and back in when it closes. */
+    @Test fun onHomeTheLogFadesInsteadOfAScrim() {
+        val fade = androidx.compose.runtime.mutableFloatStateOf(0f)
+        show(left = false, position = "bottom", fade = fade)
+        compose.onNodeWithTag("app-selector").performTouchInput { down(center) }
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("app-selector-scrim").assertCountEquals(0)
+        assertEquals(1f, fade.floatValue, 0.01f)
+        compose.onNodeWithTag("app-selector").performTouchInput { moveBy(Offset(-120.dp.toPx(), 0f)); up() }
+        compose.waitForIdle()
+        assertEquals(0f, fade.floatValue, 0.01f)
+    }
+
+    /**
+     * Browsing by app, the thumb at the strip's start: the list moves down to bring the first app level
+     * with it. Lifted there, the list stays: the first app doesn't jump to the top.
+     */
+    @Test fun liftedAtTheFirstAppTheListStays() {
+        val first = entries.first().item.label
+        show(left = false, position = "middle", browse = "apps")
+        compose.onNodeWithTag("app-selector").performTouchInput { down(Offset(centerX, 2f)) }
+        compose.waitForIdle()
+        val held = rowCentre(first)
+        compose.onNodeWithTag("app-selector").performTouchInput { up() }
+        compose.waitForIdle()
+        // The fisheye shrinks back, so the row's middle may move a little; it must not jump away.
+        assertEquals("after lifting", held, rowCentre(first), 12f)
     }
 
     /** Keyboard up (inactive): nothing shows and an open list closes; down again, it is back as it was. */

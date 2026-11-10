@@ -60,6 +60,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -100,7 +101,7 @@ private const val PREVIEW_INPUT = "s"
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit, showList: Boolean = false) {
+internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit, showList: Boolean = false, fadeLog: Boolean = false) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
     val railOn = remember(configVersion) { config[Keys.SELECTOR_RAIL] }
@@ -129,6 +130,7 @@ internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.k
         browse = remember(configVersion) { config[Keys.SELECTOR_BROWSE] },
         filter = remember(configVersion) { config[Keys.SELECTOR_FILTER] },
         systemFont = remember(configVersion) { config[Keys.SELECTOR_SYSTEM_FONT] },
+        fade = if (fadeLog) vm.selectorFade else null,
     )
 }
 
@@ -395,12 +397,14 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
             onSwipeCopy = vm::swipeCopy,
             onSwipeDelete = vm::swipeDelete,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 1f - vm.selectorFade.floatValue },
         ) else LazyColumn(
             state = listState,
             reverseLayout = true,
             modifier = Modifier
                 .fillMaxSize()
+                // While the app selector is open, the log fades out so the background shows behind the list.
+                .graphicsLayer { alpha = 1f - vm.selectorFade.floatValue }
                 .onSizeChanged { vm.onLogWidth(it.width) }
                 .testTag("log")
                 .then(pinch)
@@ -479,7 +483,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             visible = awayFromBottom && results == null,
             enter = androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = 1f - vm.selectorFade.floatValue },
         ) {
             val scope = rememberCoroutineScope()
             Box(
@@ -514,6 +518,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             onLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
             // While its row-height slider in Settings is dragged, open the list so its rows are visible.
             showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
+            fadeLog = preview == null,
         )
         // [/selector]
         }

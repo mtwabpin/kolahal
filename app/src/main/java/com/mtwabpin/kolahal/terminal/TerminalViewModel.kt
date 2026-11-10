@@ -1684,6 +1684,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     var selectorArea by mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
 
+    /**
+     * How far the log is faded out while the app selector is open: 0 shown, 1 gone. The selector sets
+     * it; the log reads it in the draw phase. So the wallpaper or the theme's background shows behind
+     * the list, not the log.
+     */
+    val selectorFade = androidx.compose.runtime.mutableFloatStateOf(0f)
+
     /** widgets.start: home opens on the widgets page, and Home and Back return to it. */
     private fun widgetsFirst() = config[Keys.WIDGETS_START] && config[Keys.WIDGETS_PAGE] != "off"
 
