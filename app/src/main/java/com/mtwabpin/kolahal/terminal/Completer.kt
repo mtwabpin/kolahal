@@ -225,7 +225,8 @@ class Completer(private val context: Context, private val data: Data) {
             "open" -> if (arg.contains(':')) shortcutSuggestions(head, arg)
                 else appsRepo.search(arg.replace(FLAGS, "").trim()).take(cap).map { Suggestion.App(it) }
             // `unhide` and `unpin` offer only the apps they can act on, not every app.
-            "info", "uninstall", "hide", "unhide", "rename", "shortcuts", "pin", "unpin" -> when (cmd) {
+            "shortcuts" -> shortcutApps(head, arg)
+            "info", "uninstall", "hide", "unhide", "rename", "pin", "unpin" -> when (cmd) {
                 "rename" if arg.contains('=') -> emptyList()
                 "unhide" -> appCompletions(head, arg, includeHidden = true) { appPrefs.isHidden(it.key) }
                 "unpin" -> appPrefs.pinned().toSet().let { pinned -> appCompletions(head, arg) { it.key in pinned } }
@@ -370,10 +371,30 @@ class Completer(private val context: Context, private val data: Data) {
      * - The profile flag is added when the app exists in several profiles.
      * - Apps outside the personal profile show their profile tag.
      */
-    private fun appCompletions(head: String, arg: String, includeHidden: Boolean = false, only: ((AppEntry) -> Boolean)? = null): List<Suggestion> {
-        val found = appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden)
-            .filter { only == null || only(it) }
-            .take(cap)
+    private fun appCompletions(head: String, arg: String, includeHidden: Boolean = false, only: ((AppEntry) -> Boolean)? = null): List<Suggestion> =
+        appRows(head, appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden).filter { only == null || only(it) }.take(cap))
+
+    /** The apps that have launcher shortcuts, asked again at most every 30 seconds while you type. */
+    private var shortcutApps: Pair<Long, Set<Pair<String, Long>>?>? = null
+
+    /**
+     * `shortcuts `: the apps that have shortcuts, at once, the most used first; typing narrows them.
+     * When Kolahal may not read shortcuts (it isn't the home app), every app is offered.
+     */
+    private fun shortcutApps(head: String, arg: String): List<Suggestion> {
+        val now = System.currentTimeMillis()
+        val has = shortcutApps?.takeIf { now - it.first < 30_000 }?.second
+            ?: appsRepo.appsWithShortcuts().also { shortcutApps = now to it }
+        val withShortcuts = { app: AppEntry -> has == null || (app.pkg to app.profile.serial) in has }
+        if (arg.replace(FLAGS, "").isNotBlank()) return appCompletions(head, arg, only = withShortcuts)
+        val order = appsRepo.top(appsRepo.apps.value.size).withIndex().associate { it.value.key to it.index }
+        val apps = appsRepo.apps.value.filter { !it.hidden && !it.profile.quiet && withShortcuts(it) }
+            .sortedWith(compareBy<AppEntry> { order[it.key] ?: Int.MAX_VALUE }.thenBy { it.lower })
+        return appRows(head, apps.take(cap))
+    }
+
+    /** One completion row per app in [found]. */
+    private fun appRows(head: String, found: List<AppEntry>): List<Suggestion> {
         // Two apps with the same name in one profile would complete to the same line, and the command
         // could reach only the first. So each one is named by its package (or package/activity) instead.
         val twins = found.groupBy { it.label.lowercase() to it.profile.kind }.values.filter { it.size > 1 }

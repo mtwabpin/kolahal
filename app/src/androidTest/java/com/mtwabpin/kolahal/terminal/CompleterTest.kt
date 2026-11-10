@@ -56,6 +56,16 @@ class CompleterTest {
     private fun labels(text: String) = completer.suggestions(text).map { it.label }
     private fun lines(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>().map { it.replacement.trim() }
 
+    /** `shortcuts ` offers apps before a letter is typed, the most used first; a letter narrows them. */
+    @Test fun shortcutsOffersAppsAtOnce() {
+        val rows = completer.suggestions("shortcuts ").filterIsInstance<Suggestion.Completion>().filter { it.app != null }
+        assertTrue(rows.toString(), rows.isNotEmpty())
+        assertTrue(rows.all { it.replacement.startsWith("shortcuts ") })
+        val app = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
+        val typed = completer.suggestions("shortcuts ${app.label.take(3)}").filterIsInstance<Suggestion.Completion>()
+        assertTrue(typed.toString(), typed.any { it.app?.key == app.key })
+    }
+
     /** Two apps of one name (one renamed to the other's): each completes to its package, and that names it. */
     @Test fun twoAppsOfOneNameCompleteApart() {
         val personal = apps.apps.value.filter { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL && !it.hidden }

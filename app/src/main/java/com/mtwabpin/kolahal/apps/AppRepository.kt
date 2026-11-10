@@ -288,6 +288,23 @@ class AppRepository private constructor(private val context: Context) {
             .sortedBy { it.rank }
     }.getOrDefault(emptyList())
 
+    /**
+     * The apps with at least one launcher shortcut, as (package, profile serial), in one query per
+     * profile. Null when Kolahal may not read shortcuts: only the default launcher can.
+     */
+    fun appsWithShortcuts(): Set<Pair<String, Long>>? {
+        if (runCatching { launcherApps.hasShortcutHostPermission() }.getOrDefault(false) != true) return null
+        val query = LauncherApps.ShortcutQuery().setQueryFlags(
+            LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+        )
+        return _profiles.value.filter { !it.quiet }.flatMap { profile ->
+            runCatching { launcherApps.getShortcuts(query, profile.user).orEmpty() }.getOrDefault(emptyList())
+                .filter { it.isEnabled }.map { it.`package` to profile.serial }
+        }.toSet()
+    }
+
     fun startShortcut(app: AppEntry, id: String) {
         launcherApps.startShortcut(app.pkg, id, null, null, app.profile.user)
         prefs.recordLaunch(app.key)
