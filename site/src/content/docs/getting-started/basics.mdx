@@ -26,7 +26,7 @@ The home screen has four parts, from top to bottom:
 
 Type a command, or any part of an app name, and press Enter. Kolahal reads what you type in this order:
 
-- **Commands** come first. `help` lists all commands in groups, and `help todo` shows one command. See the [command reference](/reference/commands/).
+- **Commands** come first. `help` lists all commands in sections: each one's name, what it does, and its arguments under that. `help todo` shows one command in full, with each way to use it. See the [command reference](/reference/commands/).
 - **Aliases** expand before anything else. You define them like this: `alias m = open maps`.
 - **Script commands** are scripts marked [`@command`](/scripting/overview/#command-scripts). You run them by name, with arguments.
 - **Anything else is an app name.** Enter opens the best match, which is the highlighted first
@@ -311,7 +311,7 @@ if you leave the home screen or restart. It ends when you tap ✕ on the bar, pr
 You can filter a command's output, like in a shell:
 
 ```sh
-help | grep feed              # rows mentioning "feed" (the description column counts too)
+help | grep feed              # rows mentioning "feed" (the description and the arguments count too)
 history | tail 5              # last five commands
 feed read | grep -v sponsored | head 3
 contacts | count              # how many lines

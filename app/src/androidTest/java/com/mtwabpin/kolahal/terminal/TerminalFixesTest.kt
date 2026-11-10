@@ -223,7 +223,7 @@ class TerminalFixesTest {
             assertTrue(run("alias $name = echo x").single().text.contains("built-in command"))
             assertNull(AppPrefs.get(app).aliases()[name])
         }
-        assertEquals("pins", run("help pins").first().text)
+        assertEquals("pins", com.mtwabpin.kolahal.data.StyledText.plain(run("help pins").first().text))
         assertTrue(run("help updates").any { it.text == "Also known as updates" })
     }
 

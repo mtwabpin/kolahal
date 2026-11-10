@@ -24,6 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger
 object Pipes {
     val FILTERS = listOf("grep", "head", "tail", "count", "wc", "sort", "uniq")
 
+    /** The filters that `help` names. `wc` is another name for `count`. */
+    val SHOWN = listOf("grep", "head", "tail", "sort", "uniq", "count")
+
     private val SPLIT = Regex("""(?<!\|)(\s*)\|\s*(?=(?:${FILTERS.joinToString("|")})\b)""")
 
     /** Commands whose arguments are a regex, code, or words that are kept or sent exactly as typed. */
@@ -85,8 +88,12 @@ object Pipes {
         return keep + result
     }
 
-    /** The text to search: the line's text, plus the right-hand description in two-column rows (help, config, script ls). */
-    private fun searchable(p: Pending): String = p.ctx.values[LogContext.DESC]?.let { "${p.text} $it" } ?: p.text
+    /**
+     * The text to search: the line's text, plus the right-hand description in two-column rows
+     * (help, config, script ls), and the arguments under it in `help`.
+     */
+    private fun searchable(p: Pending): String =
+        listOfNotNull(p.text, p.ctx.values[LogContext.DESC], p.ctx.values[LogContext.ARGS]).joinToString(" ")
 
     /** Reads the count from `head 5`, `head -5`, `head -n5` or `head -n 5`. The default is 10. */
     private fun count(args: List<String>): Int {

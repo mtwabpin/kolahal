@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
@@ -202,7 +203,10 @@ fun LogLine(
     // A script's buttons under its line (ctx.actions).
     val actions = remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) LogContext.actionsOf(entry.ctx) else emptyList() }
     val byPart = dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && actions.isEmpty() && marks.isEmpty() &&
-        remember(lineText, entry.text, desc) { if (lineText != null) fadesByPart(lineText) else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(AnnotatedString(desc!!)) }
+        remember(lineText, entry.text, desc) {
+            if (lineText != null) fadesByPart(lineText)
+            else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(styledText(desc!!)) && fadesByPart(AnnotatedString(entry.ctx.values[LogContext.ARGS].orEmpty()))
+        }
     // While the line is pressed, focused or under a pointer, and for a moment after, it fades whole.
     // Fading part by part would fade the ripple or highlight over the letters too, and the shade
     // would be slightly wrong.
@@ -330,6 +334,7 @@ fun LogLine(
                     val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
                     AppGrid(remember(entry.id, entry.ctx, installed) { apps(entry) }, onAppTap, onAppLongPress)
                 }
+                desc != null && entry.ctx.values[LogContext.NAME_COL] != null -> NameColumns(entry, desc, entry.ctx.values.getValue(LogContext.NAME_COL), marks, dense)
                 desc != null -> TwoColumns(entry, desc, marks, dense, bar)
                 else -> {
                     val text = lineText!!
@@ -459,6 +464,77 @@ private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = empt
             Track(bar, Modifier.weight(0.5f).height(6.dp))
             Spacer(Modifier.width(8.dp))
             descText(Modifier.weight(0.5f))
+        }
+    }
+}
+
+/**
+ * A row of `help` (or of the uses in `help <command>`): a bold name on the left, in a column
+ * just wide enough for [column] (the list's longest name), so names never wrap. Its description
+ * is on the right, with [LogContext.ARGS] muted and a little smaller under it.
+ * - The column takes at most [NAME_COL_MAX] of the width, so a very long name still leaves room.
+ * - Lines wrap only at a space or after "|" ([breaksAtSpaces]).
+ */
+@Composable
+private fun NameColumns(entry: LogEntry, desc: String, column: String, marks: List<String>, dense: Boolean) {
+    val nameStyle = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense)
+    val gap = 8.dp
+    val want = NameWidth.px(column, nameStyle) + with(LocalDensity.current) { gap.roundToPx() }
+    val args = entry.ctx.values[LogContext.ARGS]
+    Row(Modifier.fillMaxWidth()) {
+        RichText(
+            markMatches(remember(entry.text) { AnnotatedString(breaksAtSpaces(entry.text)) }, marks),
+            style = nameStyle,
+            modifier = Modifier
+                .layout { measurable, constraints ->
+                    val width = minOf(want, (constraints.maxWidth * NAME_COL_MAX).toInt())
+                    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                    layout(width, placeable.height) { placeable.place(0, 0) }
+                }
+                .padding(end = gap),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(markMatches(remember(desc, Term.palette) { styledText(breaksAtSpaces(desc)) }, marks), style = Term.text.copy(color = Term.fg).dense(dense))
+            if (!args.isNullOrEmpty()) {
+                Text(
+                    markMatches(AnnotatedString(breaksAtSpaces(args)), marks),
+                    style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 1).sp).dense(dense),
+                )
+            }
+        }
+    }
+}
+
+/** The most of a row's width that the name column of [NameColumns] takes. */
+private const val NAME_COL_MAX = 0.5f
+
+/**
+ * The width in px of a [NameColumns] column: its text on one line. Kept for each text and style,
+ * so a scroll measures nothing; a measurer is made only for a text not seen yet.
+ */
+private object NameWidth {
+    private data class Key(val text: String, val style: TextStyle, val density: Float, val fontScale: Float)
+
+    private val cache = HashMap<Key, Int>()
+
+    /** Most widths kept: a few lists, times each font size pinched to. */
+    private const val MAX = 64
+
+    @Composable
+    fun px(text: String, style: TextStyle): Int {
+        val density = LocalDensity.current
+        val fonts = LocalFontFamilyResolver.current
+        val direction = LocalLayoutDirection.current
+        val key = Key(text, style.copy(color = Color.Unspecified), density.density, density.fontScale)
+        return synchronized(cache) {
+            cache[key] ?: run {
+                val measured = TextMeasurer(fonts, density, direction, cacheSize = 0).measure(text, style, softWrap = false, maxLines = 1)
+                // Rounded up, so the last letter is never cut off.
+                (measured.size.width + 1).also {
+                    if (cache.size >= MAX) cache.clear()
+                    cache[key] = it
+                }
+            }
         }
     }
 }

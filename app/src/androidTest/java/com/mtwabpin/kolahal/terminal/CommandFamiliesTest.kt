@@ -85,20 +85,23 @@ class CommandFamiliesTest {
 
     @Test fun helpListsEveryCommandAndPipesFilterIt() {
         val help = run("help")
-        for (spec in CommandCatalog.COMMANDS) assertTrue("${spec.usage} missing from help", spec.usage in help)
+        for (spec in CommandCatalog.OFFERED) assertTrue("${spec.name} missing from help", spec.name in help)
         val grepped = run("help | grep crashes")
         assertTrue(grepped.toString(), grepped.isNotEmpty() && grepped.all { it.contains("crashes", ignoreCase = true) })
+        // A row is found by its description and its arguments too.
+        assertTrue(run("help | grep vibrate").contains("ring"))
         assertEquals(2, run("help | grep -v zzz | head 2").size)
     }
 
     /** `help todo` is that command alone; a synonym finds its command, a near miss the nearest ones. */
     @Test fun helpForOneCommand() {
         val todo = CommandCatalog.COMMANDS.first { it.name == "todo" }
-        val one = run("help todo")
-        assertEquals(todo.usage, one.first())
-        assertTrue(one.toString(), one.size <= 3)
-        assertTrue(run("help cls").let { it.first() == CommandCatalog.COMMANDS.first { c -> c.name == "clear" }.usage && "Also known as cls" in it })
-        assertTrue(run("help tod").toString(), todo.usage in run("help tod"))
+        val one = run("help todo").map(com.mtwabpin.kolahal.data.StyledText::plain)
+        assertEquals("todo", one.first().trim())
+        assertTrue(one.toString(), todo.help in one && todo.uses.all { it.first in one })
+        val cls = run("help cls").map(com.mtwabpin.kolahal.data.StyledText::plain)
+        assertTrue(cls.toString(), cls.first().trim() == "clear" && "Also known as cls" in cls)
+        assertTrue(run("help tod").toString(), "todo" in run("help tod"))
         assertTrue(run("help zzzzzz").single().startsWith("No command called 'zzzzzz'"))
     }
 

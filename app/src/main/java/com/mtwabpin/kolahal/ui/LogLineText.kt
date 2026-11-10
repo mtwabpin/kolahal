@@ -279,3 +279,28 @@ internal const val TAG_CHIP = "tag-chip"
 /** [text] with its [StyledText] styles (tags, colours, links), in the style its [Text] gives; plain text as it is. */
 internal fun styledText(text: String): AnnotatedString =
     if (!StyledText.has(text)) AnnotatedString(text) else buildAnnotatedString { appendStyled(text, SpanStyle(), Term.fg) }
+
+/**
+ * [text] that wraps only at a space or after "|", never inside a word, for `help`'s rows.
+ * - After each "|" goes a zero-width space, so `<5m|1h30m>` can wrap there.
+ * - After each "-", "–" and "/" goes a word joiner, so `--settings`, `0–100` and `a/b` stay whole.
+ * Both are invisible. Text with [StyledText] marks is left as it is.
+ */
+internal fun breaksAtSpaces(text: String): String {
+    if (StyledText.has(text) || text.none { it in BREAK_CHARS }) return text
+    val out = StringBuilder(text.length + 8)
+    text.forEachIndexed { i, c ->
+        out.append(c)
+        val next = text.getOrNull(i + 1)
+        if (next == null || next == ' ') return@forEachIndexed
+        when (c) {
+            '|' -> out.append(ZERO_WIDTH_SPACE)
+            '-', '–', '/' -> out.append(WORD_JOINER)
+        }
+    }
+    return out.toString()
+}
+
+private const val BREAK_CHARS = "|-–/"
+private const val ZERO_WIDTH_SPACE = '​'
+private const val WORD_JOINER = '⁠'

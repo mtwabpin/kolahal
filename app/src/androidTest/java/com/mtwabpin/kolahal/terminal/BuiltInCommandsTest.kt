@@ -406,14 +406,17 @@ class BuiltInCommandsTest {
         scripts.create("pctestbare", ScriptLang.LUA, "-- @command\nlog('hi')")
         run("help")
         val help = logs.recent(400).filter { it.id > logLines.start && it.kind != LogKind.COMMAND }
-        val start = help.indexOfFirst { it.text == "Your script commands" }
+        val start = help.indexOfFirst { com.mtwabpin.kolahal.data.StyledText.plain(it.text).startsWith("Your script commands · ") }
         assertTrue(help.map { it.text }.toString(), start >= 0)
         val mine = help.drop(start + 1).filter { it.ctx.values[LogContext.SCRIPT]?.startsWith("pctest") == true }
-        assertEquals(listOf("pctestcmd <name>", "pctestbare"), mine.map { it.text }.sortedDescending())
-        assertEquals("Says hello", mine.single { it.text == "pctestcmd <name>" }.ctx.values[LogContext.DESC])
+        // The name on the left; @desc beside it and @usage (without the name) muted under it.
+        assertEquals(listOf("pctestcmd", "pctestbare"), mine.map { it.text }.sortedDescending())
+        assertEquals("Says hello", mine.single { it.text == "pctestcmd" }.ctx.values[LogContext.DESC])
+        assertEquals("<name>", mine.single { it.text == "pctestcmd" }.ctx.values[LogContext.ARGS])
         assertEquals("lua script", mine.single { it.text == "pctestbare" }.ctx.values[LogContext.DESC])
+        assertEquals(null, mine.single { it.text == "pctestbare" }.ctx.values[LogContext.ARGS])
 
-        assertEquals(listOf("pctestcmd <name>"), run("help pctestcmd"))
+        assertEquals(listOf("pctestcmd"), run("help pctestcmd"))
         assertEquals("Says hello", logs.recent(1).single().ctx.values[LogContext.DESC])
     }
 }

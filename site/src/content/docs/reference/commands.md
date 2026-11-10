@@ -3,7 +3,7 @@ title: Commands
 description: Every built-in Kolahal command with its usage, aliases and subcommands.
 ---
 
-This page lists every built-in command, in about the same groups as `help`.
+This page lists every built-in command, in about the same sections as `help`.
 
 If what you type isn't a command, an [alias](/guides/apps/#aliases) or a
 [script command](/scripting/overview/#command-scripts), Kolahal matches it against app names.
@@ -177,7 +177,7 @@ Script names can use lowercase letters, digits, `-` and `_` (up to 40 characters
 
 | Usage | Aliases | Description |
 | --- | --- | --- |
-| `help [<command>]` | `?` | show the command list; with a command, show only its usage and what it does |
+| `help [<command>]` | `?` | show every command in its section: its name, what it does, and its arguments in a muted line under that. Each section heading says how many commands it has. With a command, show that command in full: what it does, each way to use it, its other names, and a link here |
 | `history` | | recent commands (tap one to use it again) |
 | `clear [history\|all]` | `cls` | clear the screen, the ↑ history, or both |
 | `backup [now\|every daily\|weekly\|off\|dir]` | | write the [backup file](/guides/backup/#automatic-backups) to your backup folder now, set automatic backups, or pick the folder |

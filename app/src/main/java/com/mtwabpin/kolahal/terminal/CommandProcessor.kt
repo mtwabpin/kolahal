@@ -19,6 +19,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.Net
@@ -654,42 +655,102 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     private fun startSettings(action: String) = startActivity(Intent(action))
 
-    /** Prints a command's line in help: its usage and what it does. A tap puts its name in the prompt. */
-    private fun helpLine(spec: CommandSpec) = out(spec.usage, LogContext.of(LogContext.COMMAND to spec.name + " ", LogContext.DESC to spec.help))
+    /**
+     * Prints a command's row in `help`: its name, in a column as wide as [column] (the longest name
+     * in the list), what it does, and its arguments muted under that. A tap puts its name in the prompt.
+     */
+    private fun helpLine(spec: CommandSpec, column: String = spec.name) = out(
+        spec.name,
+        LogContext.of(
+            LogContext.COMMAND to spec.name + " ",
+            LogContext.DESC to spec.short,
+            LogContext.NAME_COL to column,
+            LogContext.ARGS to spec.args.ifEmpty { null },
+        ),
+    )
 
-    /** Prints a script command's line in help, in the same form as a built-in's. */
-    private fun helpLine(s: Script) {
+    /** Prints a script command's row in `help`, in the same form as a built-in's: its @desc, and its @usage under it. */
+    private fun helpLine(s: Script, column: String = s.name) {
         val desc = ScriptMeta.description(s.code) ?: "${s.lang.ext} script"
-        out(ScriptMeta.usage(s.code, s.name) ?: s.name, LogContext.of(LogContext.COMMAND to s.name + " ", LogContext.SCRIPT to s.name, LogContext.DESC to desc))
+        val args = ScriptMeta.usage(s.code, s.name)?.removePrefix(s.name)?.trim()?.ifEmpty { null }
+        out(
+            s.name,
+            LogContext.of(
+                LogContext.COMMAND to s.name + " ",
+                LogContext.SCRIPT to s.name,
+                LogContext.DESC to desc,
+                LogContext.NAME_COL to column,
+                LogContext.ARGS to args,
+            ),
+        )
     }
 
+    /** A section's heading in `help`: its name, bold in the accent colour, and how many commands it has. */
+    private fun helpHeading(name: String, count: Int) = info(
+        StyledText.colour(StyledText.Colour.ACCENT, StyledText.wrap(StyledText.Style.BOLD, name)) + StyledText.colour(StyledText.Colour.MUTED, " · $count"),
+        LogContext(LogContext.ITEM),
+    )
+
+    /**
+     * `help`: every command, in sections, one row each (name, what it does, its arguments).
+     * Each built-in command is in a section of [HELP_SECTIONS]; the script commands come last.
+     */
     private fun help() {
         val byName = CommandCatalog.OFFERED.associateBy { it.name }
+        val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
+        // One column for the whole list, so the descriptions line up.
+        val column = (CommandCatalog.OFFERED.map { it.name } + commandScripts.map { it.name }).maxBy { it.length }
         val placed = HashSet<String>()
         for ((section, names) in HELP_SECTIONS) {
-            info(section.replaceFirstChar { it.uppercase() }, LogContext(LogContext.ITEM))
-            names.mapNotNull(byName::get).forEach { spec ->
+            val specs = names.mapNotNull(byName::get)
+            if (specs.isEmpty()) continue
+            helpHeading(section.replaceFirstChar { it.uppercase() }, specs.size)
+            specs.forEach { spec ->
                 placed += spec.name
-                helpLine(spec)
+                helpLine(spec, column)
             }
         }
-        CommandCatalog.OFFERED.filter { it.name !in placed }.forEach(::helpLine)
-        val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
-        if (commandScripts.isNotEmpty()) info("Your script commands", LogContext(LogContext.ITEM))
-        commandScripts.forEach(::helpLine)
-        info("Anything else is matched against app names · tap a line to use it · long-press for more", LogContext(LogContext.ITEM))
-        info("Pipes: help | grep feed · history | tail 5 · contacts | count  (grep [-v], head, tail, sort, uniq, count)")
+        // None should be left, but a command missing from HELP_SECTIONS still shows.
+        CommandCatalog.OFFERED.filter { it.name !in placed }.forEach { helpLine(it, column) }
+        if (commandScripts.isNotEmpty()) helpHeading("Your script commands", commandScripts.size)
+        commandScripts.forEach { helpLine(it, column) }
+        val muted = { text: String -> StyledText.colour(StyledText.Colour.MUTED, text) }
+        val key = { text: String -> StyledText.tag(StyledText.Colour.TEXT, text) }
+        info(muted("Anything else opens the app it matches"), LogContext(LogContext.ITEM))
+        info(key("tap") + muted(" a line to use it · ") + key("long-press") + muted(" for more"))
+        // No-break spaces keep the example on one line. A line may still break after "|" there; the word joiner stops it.
+        info(muted("Pipes: ") + Pipes.SHOWN.joinToString(" ") { key(it) } + muted(" · help\u00A0|\u2060\u00A0grep\u00A0feed"))
     }
 
-    /** `help todo`: prints that command's usage, what it does, its other names, and a link to more in the guide. */
+    /**
+     * `help todo`: that command in full. Its name large, what it does, then each way to use it
+     * ([CommandSpec.uses], or its usage line), its other names, and a link to more in the guide.
+     */
     private fun commandHelp(word: String) {
         val typed = word.lowercase()
         val offered = CommandCatalog.OFFERED
         offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
-            helpLine(spec)
+            out(StyledText.stats(listOf(spec.name to "")), LogContext.of(LogContext.COMMAND to spec.name + " "))
+            out(spec.help)
+            info(StyledText.colour(StyledText.Colour.MUTED, "Use"), LogContext(LogContext.ITEM))
+            if (spec.uses.isEmpty()) {
+                out(StyledText.wrap(StyledText.Style.BOLD, spec.usage), LogContext.of(LogContext.COMMAND to spec.name + " "))
+            } else {
+                val column = spec.uses.maxBy { it.first.length }.first
+                spec.uses.forEach { (use, does) ->
+                    out(
+                        use,
+                        LogContext.of(
+                            LogContext.COMMAND to useCommand(use),
+                            LogContext.DESC to StyledText.colour(StyledText.Colour.MUTED, does),
+                            LogContext.NAME_COL to column,
+                        ),
+                    )
+                }
+            }
             val also = InstantRun.SYNONYMS.filterValues { it == spec.name }.keys
-            if (also.isNotEmpty()) info("Also known as ${also.joinToString(", ")}")
-            info("More in the guide's command list", LogContext.of(LogContext.URL to com.mtwabpin.kolahal.ui.GUIDE_URL + "reference/commands/"))
+            if (also.isNotEmpty()) info("Also known as ${also.joinToString(", ")}", LogContext(LogContext.ITEM))
+            info("More in the guide's command list", LogContext.of(LogContext.URL to com.mtwabpin.kolahal.ui.GUIDE_URL + "reference/commands/") + if (also.isEmpty()) LogContext.ITEM else emptyMap())
             return
         }
         prefs.alias(typed)?.let { return info("$typed is your alias for: $it", LogContext.of(LogContext.COMMAND to "$typed ")) }
@@ -698,9 +759,16 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val near = offered.filter { it.name.startsWith(typed) || CommandParsing.editDistance(typed, it.name) <= (if (it.name.length <= 4) 1 else 2) }
         if (near.isEmpty()) return error("No command called '$word' · help lists them all")
         info("No command called '$word'; nearest:")
-        near.take(8).forEach(::helpLine)
+        near.take(8).let { shown -> shown.forEach { helpLine(it, shown.maxBy { s -> s.name.length }.name) } }
     }
 }
+
+/**
+ * What a tap on a use in `help <command>` puts in the prompt: its words up to the first one to fill
+ * in or choose. `todo done <n>` gives "todo done ", `script on|off <name>` gives "script ".
+ */
+internal fun useCommand(use: String): String =
+    use.split(" ").takeWhile { w -> w.none { it in "<[|" } }.joinToString(" ") + " "
 
 /** A calculator's result longer than this stays a line of text: in big type it would wrap. */
 private const val ANSWER_MAX = 16

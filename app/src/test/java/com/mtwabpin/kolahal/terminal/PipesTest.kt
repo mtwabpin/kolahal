@@ -65,6 +65,20 @@ class PipesTest {
         assertEquals(listOf("other"), Pipes.apply(listOf(row) + lines("other"), listOf("grep -v tasks")).getOrThrow().map { it.text })
     }
 
+    /** A row of `help` is found by the arguments under its description too. */
+    @Test fun grepReadsTheArgumentsLine() {
+        val row = pending(LogKind.OUTPUT, "ring", LogContext.of(LogContext.DESC to "Ringer mode", LogContext.ARGS to "normal · vibrate · silent"))
+        assertEquals(listOf("ring"), Pipes.apply(listOf(row) + lines("other"), listOf("grep vibrate")).getOrThrow().map { it.text })
+    }
+
+    /** A use in `help <command>` puts its words in the prompt, up to the first one to fill in or choose. */
+    @Test fun aUsePutsItsFixedWordsInThePrompt() {
+        assertEquals("todo ", useCommand("todo"))
+        assertEquals("todo done ", useCommand("todo done <n>"))
+        assertEquals("script ", useCommand("script on|off <name>"))
+        assertEquals("feed fetch ", useCommand("feed fetch [<id>]"))
+    }
+
     @Test fun grepWithoutAPatternSaysHow() {
         for (stage in listOf("grep", "grep -v")) {
             val failure = Pipes.apply(lines("a"), listOf(stage)).exceptionOrNull()

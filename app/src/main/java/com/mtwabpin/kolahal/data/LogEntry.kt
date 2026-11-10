@@ -82,6 +82,14 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val BODY = "body"
         /** The second column text (help, config and script listings show as two columns). */
         const val DESC = "desc"
+        /**
+         * A two-column row whose left column fits this text, not a fixed share of the width: the
+         * longest name in `help`, or the longest use in `help <command>`. [DESC] is then in the text
+         * colour; its own [StyledText] colours still apply.
+         */
+        const val NAME_COL = "namecol"
+        /** With [NAME_COL]: a muted, smaller line under [DESC], such as a command's arguments (`on · off · status`). */
+        const val ARGS = "args"
         /** A JSON list of {pkg, cls, user}. The line shows as a grid of app chips. */
         const val APPS = "apps"
         /** Productivity items by database id: a todo ("done" = 1 when finished), a note, a reminder. */

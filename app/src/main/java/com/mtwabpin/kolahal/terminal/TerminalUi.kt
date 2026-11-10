@@ -41,4 +41,20 @@ interface TerminalUi {
     fun askBackupFolder(thenBackUp: Boolean) {}
 }
 
-data class CommandSpec(val name: String, val usage: String, val help: String)
+/**
+ * One built-in command.
+ * - [usage]: its whole usage line. Completion and "Usage:" errors read it.
+ * - [help]: what it does, in full. Suggestions and `help <command>` show it.
+ * - [short]: what it does, in a few words, for the `help` list.
+ * - [args]: its arguments and subcommands, split by " · ", for the muted line under [short]
+ *   (`on · off · status`). Empty when it takes none.
+ * - [uses]: each way to use it and what that does, for `help <command>`. When empty, that shows [usage].
+ */
+data class CommandSpec(
+    val name: String,
+    val usage: String,
+    val help: String,
+    val short: String,
+    val args: String = "",
+    val uses: List<Pair<String, String>> = emptyList(),
+)

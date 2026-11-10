@@ -520,4 +520,44 @@ class LogLineTest {
         // A screen reader hears the line, not the picture.
         assertTrue(texts(call).joinToString().contains("Call from Ravi Kumar"))
     }
+
+    /**
+     * A row of `help`: only the name on the left, in a column that fits the longest name on one
+     * line; what it does on the right, with its arguments in a muted line under it.
+     */
+    @Test fun aHelpRowHasANameColumnAndItsArgumentsUnder() {
+        val ctx = { name: String, args: String? -> buildMap {
+            put(LogContext.COMMAND, "$name ")
+            put(LogContext.DESC, "Screen timeout")
+            put(LogContext.NAME_COL, "screen-timeout")
+            args?.let { put(LogContext.ARGS, it) }
+        } }
+        val long = entry("screen-timeout", ctx = ctx("screen-timeout", "15s · 30s · 1m · 2m · 5m · 10m · 30m"))
+        val short = entry("mp", ctx = ctx("mp", null))
+        show { Line(row(long)); Line(row(short)) }
+        fun node(e: LogEntry, text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("line-${e.id}")), useUnmergedTree = true)
+        val name = node(long, breaksAtSpaces("screen-timeout"))
+        assertEquals(1, name.layout().lineCount)
+        val args = node(long, breaksAtSpaces("15s · 30s · 1m · 2m · 5m · 10m · 30m"))
+        val desc = node(long, "Screen timeout")
+        // The description and the arguments start in the same column, right of the name, the arguments below.
+        val d = desc.getUnclippedBoundsInRoot()
+        val a = args.getUnclippedBoundsInRoot()
+        assertTrue("desc at ${d.left}, name ends at ${name.getUnclippedBoundsInRoot().right}", d.left >= name.getUnclippedBoundsInRoot().right)
+        assertEquals(d.left.value, a.left.value, 0.5f)
+        assertTrue(a.top >= d.bottom)
+        // A short name gets the same column, so the descriptions line up.
+        assertEquals(d.left.value, node(short, "Screen timeout").getUnclippedBoundsInRoot().left.value, 0.5f)
+        // The arguments are smaller than the description.
+        assertTrue(args.layout().layoutInput.style.fontSize < desc.layout().layoutInput.style.fontSize)
+        node(short, "mp").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(short.id), tapped.map { it.id })
+    }
+
+    private fun SemanticsNodeInteraction.layout(): androidx.compose.ui.text.TextLayoutResult {
+        val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]?.action?.invoke(results)
+        return results.single()
+    }
 }
