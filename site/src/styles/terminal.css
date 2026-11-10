@@ -307,7 +307,7 @@ starlight-toc a[aria-current='true'] {
 
 /* Tables: log.tables boxed. The surface colour, rounded, a rule between rows, the header muted. */
 .sl-markdown-content table:not(:where(.not-content *)) {
-	width: fit-content;
+	width: 100%;
 	max-width: 100%;
 	font-size: var(--sl-text-sm);
 	background: var(--k-surface);
@@ -333,8 +333,10 @@ starlight-toc a[aria-current='true'] {
 	color: var(--k-dim);
 	border-bottom-color: color-mix(in srgb, var(--k-dim) 45%, transparent);
 }
+/* Code in a table wraps at spaces and after "|", so a long usage doesn't push the
+   description off the edge. */
 .sl-markdown-content table code {
-	white-space: nowrap;
+	white-space: normal;
 	background: var(--sl-color-bg);
 }
 

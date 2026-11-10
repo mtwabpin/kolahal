@@ -392,8 +392,9 @@ const APP_ICONS: Record<string, { bg: string; path: string }> = {
 	.kd-group {
 		padding-top: 4.5px;
 	}
+	/* The app dims to 0.62 (log.dim). In the small demo, muted text then fades out, so dim less. */
 	.kd-group.dim {
-		opacity: 0.62;
+		opacity: 0.8;
 	}
 	.playing [data-step]:not(.shown) {
 		display: none;
