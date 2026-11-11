@@ -253,6 +253,45 @@ class CompleterReviewTest {
         assertTrue(all.drop(1).none { it.enter })
     }
 
+    /**
+     * `unhide` offers the hidden apps and `unpin` the pinned ones, before a letter is typed; `pin` and
+     * `hide` offer only apps not pinned or hidden yet. Earlier lines aren't offered: they may name an app
+     * that has changed since.
+     */
+    @Test fun hideAndPinOfferOnlyTheAppsTheyCanChange() {
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
+        val (hidden, pinned) = apps.apps.value.filter { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }.distinctBy { it.label }.take(2)
+        val pinnedBefore = prefs.pinned()
+        fun rows(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
+        try {
+            pinnedBefore.forEach { prefs.setPinned(it, false) }
+            prefs.setPinned(pinned.key, true)
+            prefs.setHidden(hidden.key, true)
+            apps.refresh()
+            eventually(5_000) { apps.apps.value.single { it.key == hidden.key }.hidden }
+            history = listOf("unhide ${pinned.label}", "hide ${hidden.label}", "pin ${pinned.label}", "unpin ${hidden.label}")
+
+            val unhide = rows("unhide ")
+            assertTrue(unhide.toString(), unhide.any { it.app?.key == hidden.key } && unhide.all { it.app != null && prefs.isHidden(it.app!!.key) })
+            assertEquals(listOf(pinned.key), rows("unpin ").map { it.app?.key })
+            val pin = rows("pin ")
+            assertTrue(pin.toString(), pin.isNotEmpty() && pin.all { it.app != null && it.app!!.key != pinned.key })
+            assertTrue(rows("pin ${pinned.label}").none { it.app?.key == pinned.key })
+            assertTrue(rows("hide ${hidden.label}").none { it.app?.key == hidden.key })
+            // Typing narrows them, and the first row is the app Enter acts on.
+            val unpin = rows("unpin ${pinned.label.take(2)}")
+            assertTrue(unpin.toString(), unpin.first().app?.key == pinned.key && unpin.first().enter)
+            assertTrue(rows("unhide ${hidden.label.take(2)}").first().let { it.app?.key == hidden.key && it.enter })
+        } finally {
+            history = emptyList()
+            prefs.setHidden(hidden.key, false)
+            prefs.pinned().forEach { prefs.setPinned(it, false) }
+            pinnedBefore.forEach { prefs.setPinned(it, true) }
+            apps.refresh()
+            eventually(5_000) { !apps.apps.value.single { it.key == hidden.key }.hidden }
+        }
+    }
+
     /** Only a row Enter acts on is marked: not `torch on` when Enter toggles, but the app `open` picks. */
     @Test fun theEnterRowIsWhatEnterDoes() {
         assertEquals("torch", labels("torch").first())

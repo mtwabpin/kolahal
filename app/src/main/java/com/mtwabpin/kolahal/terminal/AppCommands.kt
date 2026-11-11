@@ -45,11 +45,27 @@ class AppCommands(
     /** Runs one of [NAMES]. */
     fun run(name: String, args: List<String>) {
         when (name) {
-            "hide" -> withApp(args) { setHidden(it, true) }
-            "pin", "fav" -> if (args.isEmpty()) listPinned() else withApp(args) { app -> prefs.setPinned(app.key, true); info("Pinned ${app.label} — ${pinnedWhere()}") }
-            "unpin", "unfav" -> withApp(args) { app -> prefs.setPinned(app.key, false); info("Unpinned ${app.label}") }
+            // Each acts on the best match it can change: `unpin ma` unpins Maps, even when Mail matches better
+            // but isn't pinned. When none can be changed, it says so. The suggestions offer the same apps.
+            "hide" -> withAppItCanChange(args, can = { !it.hidden }) { app ->
+                if (app.hidden) info("${app.label} is hidden already · unhide ${app.label}") else setHidden(app, true)
+            }
+            "pin", "fav" -> if (args.isEmpty()) listPinned() else prefs.pinned().toSet().let { pinned ->
+                withAppItCanChange(args, can = { it.key !in pinned }) { app ->
+                    if (app.key in pinned) info("${app.label} is pinned already")
+                    else { prefs.setPinned(app.key, true); info("Pinned ${app.label} — ${pinnedWhere()}") }
+                }
+            }
+            "unpin", "unfav" -> prefs.pinned().toSet().let { pinned ->
+                withAppItCanChange(args, can = { it.key in pinned }) { app ->
+                    if (app.key !in pinned) info("${app.label} isn't pinned · pins lists them")
+                    else { prefs.setPinned(app.key, false); info("Unpinned ${app.label}") }
+                }
+            }
             "pins", "favs" -> listPinned()
-            "unhide" -> withApp(args, includeHidden = true) { setHidden(it, false) }
+            "unhide" -> withAppItCanChange(args, can = { prefs.isHidden(it.key) }) { app ->
+                if (!prefs.isHidden(app.key)) info("${app.label} isn't hidden · apps hidden lists them") else setHidden(app, false)
+            }
             "rename" -> rename(args)
             "apps", "ls" -> listApps(args)
             "open", "launch" -> open(args)
@@ -160,6 +176,16 @@ class AppCommands(
             matches.isEmpty() -> error("No app matches '${stripFlags(args)}'")
             else -> action(matches.first())
         }
+    }
+
+    /**
+     * Runs [action] on the best match for [args] that [can] keeps: an app the command can change. If
+     * none can be, on the best match of all (hidden ones too), so the command can say why it does nothing.
+     */
+    private fun withAppItCanChange(args: List<String>, can: (AppEntry) -> Boolean, action: (AppEntry) -> Unit) {
+        val matches = resolveApp(args, includeHidden = true)
+        if (matches.isEmpty()) return error("No app matches '${stripFlags(args)}'")
+        action(matches.firstOrNull(can) ?: matches.first())
     }
 
     private fun open(args: List<String>) {

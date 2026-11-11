@@ -123,6 +123,37 @@ class AppCommandsTest {
         assertEquals(listOf("No app matches 'Settings'"), run("open Settings -w"))
     }
 
+    /**
+     * Each acts on the best match it can change: `unpin Settings` unpins "Settings Extra" when only that
+     * one is pinned. When none can be changed, it says so.
+     */
+    @Test fun hideAndPinActOnAnAppTheyCanChange() {
+        settings()
+        assertEquals(listOf("Settings isn't hidden · apps hidden lists them"), run("unhide Settings"))
+        assertEquals(listOf("Settings isn't pinned · pins lists them"), run("unpin Settings"))
+        run("pin Settings")
+        assertEquals(listOf("Settings is pinned already"), run("pin Settings"))
+        run("hide Settings")
+        waitUntil("Settings hidden") { apps.apps.value.any { it.pkg == SETTINGS && it.hidden } }
+        assertEquals(listOf("Settings is hidden already · unhide Settings"), run("hide Settings"))
+        run("unhide Settings")
+        run("unpin Settings")
+
+        val other = apps.apps.value.first { !it.hidden && it.pkg != SETTINGS && it.profile.kind == ProfileKind.PERSONAL }
+        try {
+            prefs.setLabel(other.key, "Settings Extra")
+            apps.refresh()
+            waitUntil("the other app renamed") { apps.apps.value.any { it.key == other.key && it.label == "Settings Extra" } }
+            prefs.setPinned(other.key, true)
+            assertEquals(listOf("Unpinned Settings Extra"), run("unpin Settings"))
+            assertFalse(prefs.isPinned(other.key))
+        } finally {
+            prefs.setLabel(other.key, null)
+            apps.refresh()
+            waitUntil("the other app's name back") { apps.apps.value.any { it.key == other.key && it.label == it.originalLabel } }
+        }
+    }
+
     /** A hidden app is out of `apps` and `open`, in `apps hidden` and `apps -a`, until `unhide`. */
     @Test fun hideTakesAnAppOutOfListsUntilUnhide() {
         val s = settings()
@@ -178,12 +209,15 @@ class AppCommandsTest {
 
         config.set(Keys.SUGGEST_IDLE, "on")
         assertEquals(listOf("Pinned Settings — it comes first in suggestions on an empty prompt"), run("fav Settings"))
+        // Pinned already, it would only say so: unpin it first.
+        run("unpin Settings")
         config.set(Keys.SELECTOR_RAIL, "on")
         assertEquals(
             listOf("Pinned Settings — it comes first in suggestions on an empty prompt, and it is a ★ favourite in the app selector"),
             run("pin Settings"),
         )
         config.reset(Keys.SUGGEST_IDLE)
+        run("unpin Settings")
         assertEquals(listOf("Pinned Settings — it is a ★ favourite in the app selector"), run("pin Settings"))
         assertEquals(listOf(s.key), prefs.pinned())
         assertEquals(listOf("Unpinned Settings"), run("unfav Settings"))

@@ -122,7 +122,8 @@ class Completer(private val context: Context, private val data: Data) {
                 is Suggestion.App -> "$head ${s.app.label}"
             }.trim().lowercase()
         }
-        val rows = (specific + options + historySuggestions(text).filterNot { it.replacement.trim().lowercase() in covered })
+        val earlier = if (cmd in APP_STATE) emptyList() else historySuggestions(text)
+        val rows = (specific + options + earlier.filterNot { it.replacement.trim().lowercase() in covered })
             .filter { it !is Suggestion.Completion || it.replacement.trim() != typed }
             .distinctBy { it.key }
         // Usually Enter runs the line as typed, and no row matches that (`torch ` toggles, it isn't `torch on`).
@@ -130,7 +131,7 @@ class Completer(private val context: Context, private val data: Data) {
         // mark it as the Enter row.
         val arg = parts.drop(1).joinToString(" ").trim()
         val best = if (cmd in PICK_BEST_APP && arg.isNotEmpty() && FLAGS.find(" $arg") == null && !(cmd == "open" && ':' in arg)) {
-            appsRepo.search(arg).firstOrNull()
+            bestApp(cmd, arg)
         } else null
         val first = rows.firstOrNull() ?: return rows
         val picksBest = best != null && when (first) {
@@ -234,8 +235,18 @@ class Completer(private val context: Context, private val data: Data) {
             "shortcuts" -> shortcutApps(head, arg)
             "info", "uninstall", "hide", "unhide", "rename", "pin", "unpin" -> when (cmd) {
                 "rename" if arg.contains('=') -> emptyList()
-                "unhide" -> appCompletions(head, arg, includeHidden = true) { appPrefs.isHidden(it.key) }
-                "unpin" -> appPrefs.pinned().toSet().let { pinned -> appCompletions(head, arg) { it.key in pinned } }
+                // Before a name is typed: the hidden apps (A–Z), the pinned ones (in pin order), or the
+                // most used ones not pinned yet. Typing narrows them.
+                "unhide" -> if (noName(arg)) appRows(head, appsRepo.apps.value.filter { appPrefs.isHidden(it.key) }.sortedBy { it.lower }.take(cap))
+                    else appCompletions(head, arg, includeHidden = true) { appPrefs.isHidden(it.key) }
+                "unpin" -> appPrefs.pinned().let { pinned ->
+                    if (noName(arg)) appsRepo.apps.value.associateBy { it.key }.let { byKey -> appRows(head, pinned.mapNotNull { byKey[it] }.take(cap)) }
+                    else pinned.toSet().let { keys -> appCompletions(head, arg, includeHidden = true) { it.key in keys } }
+                }
+                "pin" -> appPrefs.pinned().toSet().let { pinned ->
+                    if (noName(arg)) appRows(head, appsRepo.top(cap + pinned.size).filter { it.key !in pinned }.take(cap))
+                    else appCompletions(head, arg) { it.key !in pinned }
+                }
                 else -> appCompletions(head, arg)
             }
             "notifs" -> when {
@@ -377,6 +388,20 @@ class Completer(private val context: Context, private val data: Data) {
      * - The profile flag is added when the app exists in several profiles.
      * - Apps outside the personal profile show their profile tag.
      */
+    /** True when [arg] has no app name yet (at most profile flags). */
+    private fun noName(arg: String) = arg.replace(FLAGS, "").isBlank()
+
+    /**
+     * The app [cmd] acts on for [arg], as AppCommands picks it. `hide` and `pin` take the best match
+     * not hidden or pinned yet; `unhide` and `unpin` the best hidden or pinned one.
+     */
+    private fun bestApp(cmd: String, arg: String): AppEntry? = when (cmd) {
+        "unhide" -> appsRepo.search(arg, includeHidden = true).firstOrNull { appPrefs.isHidden(it.key) }
+        "unpin" -> appPrefs.pinned().toSet().let { pinned -> appsRepo.search(arg, includeHidden = true).firstOrNull { it.key in pinned } }
+        "pin" -> appPrefs.pinned().toSet().let { pinned -> appsRepo.search(arg).firstOrNull { it.key !in pinned } }
+        else -> appsRepo.search(arg).firstOrNull()
+    }
+
     private fun appCompletions(head: String, arg: String, includeHidden: Boolean = false, only: ((AppEntry) -> Boolean)? = null): List<Suggestion> =
         appRows(head, appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden).filter { only == null || only(it) }.take(cap))
 
@@ -575,7 +600,13 @@ class Completer(private val context: Context, private val data: Data) {
         private val FLAGS = Regex("\\s-\\w+")
 
         /** Commands that act on the best match for the app name typed after them. Their first row shows that match. */
-        private val PICK_BEST_APP = setOf("open", "info", "uninstall", "hide", "shortcuts", "pin")
+        private val PICK_BEST_APP = setOf("open", "info", "uninstall", "hide", "shortcuts", "pin", "unpin", "unhide")
+
+        /**
+         * Commands that change an app's state. Their earlier lines aren't offered again: `hide Maps` from
+         * history would offer an app that is hidden already. The rows offer only the apps each can change.
+         */
+        private val APP_STATE = setOf("hide", "unhide", "pin", "unpin")
 
         /** `feed <sub> <id>`: the subcommands that take a feed. */
         private val FEED_ID_SUBCOMMANDS = setOf("rm", "remove", "url", "read", "all", "open", "notify", "every", "fetch", "refresh", "on", "off")
