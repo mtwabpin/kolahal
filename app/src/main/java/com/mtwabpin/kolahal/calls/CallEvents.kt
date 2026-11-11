@@ -131,7 +131,26 @@ class CallEvents private constructor(private val context: Context) {
                         }
                     }
                 }
-            }.getOrNull().orEmpty()
+            }.getOrNull().orEmpty().map { call ->
+                // The phone app fills the call log's copy of the contact (name, photo) when it gets to it,
+                // and some never copy the photo. A call read right after it ended may have none yet: then
+                // the photo comes from the contact itself.
+                if (call.photoUri != null || call.presentation != CallLog.Calls.PRESENTATION_ALLOWED) call
+                else call.copy(photoUri = contactPhoto(context, call.number))
+            }
+        }
+
+        /** The photo of the contact with this [number], from the contacts (needs READ_CONTACTS); null without one. */
+        private fun contactPhoto(context: Context, number: String): String? {
+            if (number.isBlank()) return null
+            if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return null
+            val uri = android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number))
+            val projection = arrayOf(android.provider.ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI, android.provider.ContactsContract.PhoneLookup.PHOTO_URI)
+            return runCatching {
+                context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+                    if (c.moveToFirst()) (c.getString(0) ?: c.getString(1))?.takeIf { it.isNotBlank() } else null
+                }
+            }.getOrNull()
         }
 
         /**
