@@ -96,7 +96,7 @@ private const val PREVIEW_INPUT = "s"
 
 /**
  * selector.rail: the fluid full-list app selector on an edge of home. It shows only while the
- * keyboard is down, over the log, and over the widgets page when home opens on it (widgets.start).
+ * keyboard is down, over the log and over the widgets page.
  * When [showList] is true, the list is open so its rows are visible.
  */
 @OptIn(ExperimentalLayoutApi::class)

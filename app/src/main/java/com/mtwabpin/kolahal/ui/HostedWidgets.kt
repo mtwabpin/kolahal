@@ -149,7 +149,7 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // When home opens on this page (widgets.start), the app selector is here too, as on the log.
+    // When home opens on this page (widgets.start), it has no title row.
     val first = remember(version) { Keys.widgetsFirst(vm.config) }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
@@ -160,10 +160,12 @@ fun WidgetPanel(vm: TerminalViewModel) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - vm.widgetsSelectorFade.floatValue }) {
             WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
         }
-        if (first) {
+        // The app selector is on this page too, whenever it is on (selector.rail): HomeAppSelector shows nothing otherwise.
+        run {
             // The list uses the whole page, from under the status bar (the clock stays clear) to above the
-            // navigation bar: there is no header or prompt here. The strip stays where the log has it, between the header and the
-            // prompt, so selector.position and selector.height put it under the same thumb on both pages.
+            // navigation bar: there is no header or prompt here. The strip stays where the log has it, between
+            // the header and the prompt, so selector.position and selector.height put it under the same thumb
+            // on both pages.
             var top by remember { mutableFloatStateOf(0f) }
             val area = vm.selectorArea
             Box(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().onGloballyPositioned { top = it.positionInWindow().y }) {
