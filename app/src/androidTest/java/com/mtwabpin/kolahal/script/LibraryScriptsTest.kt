@@ -117,7 +117,7 @@ class LibraryScriptsTest {
         run("countdown.lua", "rm 9")
         assertEquals(Triple("No countdown #9: countdown lists them", null, StyledText.Colour.MUTED), only())
         run("countdown.lua", "add someday Trip")
-        assertEquals(Triple("Usage: countdown YYYY-MM-DD | add YYYY-MM-DD label | rm N", null, StyledText.Colour.MUTED), only())
+        assertEquals(Triple("Usage: countdown YYYY-MM-DD | add [yearly] YYYY-MM-DD label | rm N", null, StyledText.Colour.MUTED), only())
 
         // A date on its own is counted, not saved.
         run("countdown.lua", "${today.plusDays(5)}")
@@ -136,6 +136,54 @@ class LibraryScriptsTest {
         // The table's rows, after the big numbers and the header.
         assertEquals(listOf("1\tSooner", "2\tLater"), StyledText.plain(lines().single().ctx.body!!).lines().filter { '\t' in it && it.first().isDigit() }.map { it.split('\t').take(2).joinToString("\t") })
         assertEquals(true, status.get(name).orEmpty().contains("Sooner"))
+    }
+
+    /**
+     * A birthday or an anniversary comes every year: it counts to its next day, never into the past,
+     * and says which one it is (25th). A date without a year comes every year too.
+     */
+    @Test fun countdownYearlyCountsToTheNextOne() {
+        val today = LocalDate.now()
+        fun next(d: LocalDate) = d.withYear(today.year).let { if (it < today) d.withYear(today.year + 1) else it }
+        fun days(d: LocalDate) = java.time.temporal.ChronoUnit.DAYS.between(today, next(d))
+        fun every(d: LocalDate) = "every ${d.dayOfMonth} " + d.format(java.time.format.DateTimeFormatter.ofPattern("MMM", java.util.Locale.ENGLISH))
+        val yearly = "Saved · every year · countdown lists them"
+
+        val wedding = today.plusDays(10).minusYears(25)
+        run("countdown.lua", "add yearly $wedding Wedding")
+        val (title, body) = plainOnly()
+        assertEquals("Wedding · ${next(wedding).year - wedding.year}th", title)
+        assertTrue(body, body!!.startsWith("${days(wedding)} days to go") && body.endsWith(yearly))
+
+        // Its day has passed this year: next year's, the 31st.
+        val birthday = today.minusDays(3).minusYears(30)
+        run("countdown.lua", "add yearly $birthday Asha")
+        assertEquals("Asha · 31st", plainOnly().first)
+        assertTrue(plainOnly().second, plainOnly().second!!.startsWith("${days(birthday)} days to go"))
+
+        // No year: every year, with no count.
+        val party = today.plusDays(2)
+        run("countdown.lua", "add ${party.format(java.time.format.DateTimeFormatter.ofPattern("MM-dd"))} Party")
+        assertEquals(Triple("Party", "2 days to go · ${party.dayOfMonth} ${party.format(java.time.format.DateTimeFormatter.ofPattern("MMM EEEE", java.util.Locale.ENGLISH))}\n$yearly", StyledText.Colour.WARN), plainOnly())
+
+        // Listed by when each comes next, with "every" and the day as the date.
+        run("countdown.lua")
+        assertEquals(
+            listOf(
+                "1\tParty\t${every(party)}\tin 2 days",
+                "2\tWedding · 25th\t${every(wedding)}\tin ${days(wedding)} days",
+                "3\tAsha · 31st\t${every(birthday)}\tin ${days(birthday)} days",
+            ),
+            StyledText.plain(lines().single().ctx.body!!).lines().filter { '\t' in it && it.first().isDigit() },
+        )
+        assertEquals("Party: in 2 days", status.get(name))
+        run("countdown.lua", "rm 1")
+        assertEquals("Removed Party", lines().single().shownText.lines().first())
+
+        // A one-time date over a year ago says how to have it every year.
+        val old = today.minusYears(5)
+        run("countdown.lua", "add $old Met")
+        assertTrue(plainOnly().second, plainOnly().second!!.endsWith("Every year instead: countdown add yearly $old Met"))
     }
 
     /** A network that answers with [body], and a notify that says so in the log. */

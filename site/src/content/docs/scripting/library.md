@@ -250,14 +250,19 @@ quote as a notification.
 
 ## countdown
 
-**Countdowns**: the days until (or since) dates. A countdown shows its days in big numbers, with the
-date and its weekday beside them. The list starts with the next one that way, then a table: each
-countdown's number (for `rm`), its date and when it is. Its status line is the nearest date. It
-doesn't use the network.
+**Countdowns**: the days until (or since) dates, and to the next birthday or anniversary. A
+countdown shows its days in big numbers, with the date and its weekday beside them. The list starts
+with the next one that way, then a table: each countdown's number (for `rm`), its date and when it
+is. Its status line is the nearest date. It doesn't use the network.
+
+A countdown with `yearly` comes every year: it counts to the next one, and says which one it is
+(`Wedding anniversary · 25th`). A date without a year (`06-15`) comes every year too.
 
 ```sh
 countdown 2026-12-25
 countdown add 2026-12-25 Christmas
+countdown add yearly 2001-06-15 Wedding anniversary
+countdown add 06-15 Mum's birthday
 countdown                    # list, nearest first
 countdown rm 2
 ```
