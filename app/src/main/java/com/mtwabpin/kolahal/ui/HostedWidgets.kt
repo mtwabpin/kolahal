@@ -32,9 +32,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.foundation.layout.offset
-import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -164,20 +161,21 @@ fun WidgetPanel(vm: TerminalViewModel) {
             WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
         }
         if (first) {
-            // Place the selector where the log has it, between the header and the prompt, with the same
-            // edges and height. So selector.position and the selector's height put it in the same place on both pages.
+            // The list uses the whole page, from under the status bar (the clock stays clear) to above the
+            // navigation bar: there is no header or prompt here. The strip stays where the log has it, between the header and the
+            // prompt, so selector.position and selector.height put it under the same thumb on both pages.
             var top by remember { mutableFloatStateOf(0f) }
             val area = vm.selectorArea
             Box(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().onGloballyPositioned { top = it.positionInWindow().y }) {
-                Box(
-                    if (area == null) Modifier.fillMaxSize()
-                    else Modifier.fillMaxWidth().offset { IntOffset(0, (area.top - top).roundToInt()) }.height(with(density) { area.height.toDp() })
-                ) {
-                    HomeAppSelector(vm, fade = vm.widgetsSelectorFade, onLongPress = { app ->
+                HomeAppSelector(
+                    vm,
+                    fade = vm.widgetsSelectorFade,
+                    stripArea = area?.let { (it.top - top)..(it.bottom - top) },
+                    onLongPress = { app ->
                         // An app's shortcuts come from the system. Build them off the main thread and show them when ready.
                         menuScope.launch { menu = ActionMenu(app.label, withContext(Dispatchers.IO) { vm.appActions(app) }, null) }
-                    })
-                }
+                    },
+                )
             }
             menu?.let { ActionSheet(it, onDismiss = { menu = null }) }
         }

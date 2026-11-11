@@ -66,12 +66,16 @@ class AppSelectorTest {
         rowHeightDp: Int = Keys.SELECTOR_ROW_HEIGHT.default,
         showList: Boolean = false,
         fade: androidx.compose.runtime.MutableFloatState? = null,
+        /** The strip's room in dp (as the widgets page passes the log's area); null: the whole height. */
+        stripAreaDp: ClosedFloatingPointRange<Float>? = null,
     ) = compose.setContent {
         Box(Modifier.size(360.dp, 700.dp)) {
+            val density = androidx.compose.ui.platform.LocalDensity.current.density
             AppSelector(
                 list, emptySet(), onLaunch = { launched = it }, onLongPress = { pressed = it }, heightDp = 300, left = left,
                 position = position, edgeBackGesture = backGesture, actions = actions, icons = icons, letters = letters,
                 browse = browse, filter = filter, rowHeightDp = rowHeightDp, showList = showList, fade = fade,
+                stripArea = stripAreaDp?.let { (it.start * density)..(it.endInclusive * density) },
             )
         }
     }
@@ -343,6 +347,27 @@ class AppSelectorTest {
         // Between the top gap (8dp) and the bottom one (72dp from the bottom).
         assertEquals(((8 + 628) / 2f), ((strip.top + strip.bottom) / 2).value, 1f)
     }
+    /**
+     * The widgets page: the strip stays in the log's area (here 100dp to 600dp), where selector.position puts it
+     * on the log, and the list uses the whole height, past that area.
+     */
+    @Test fun withAStripAreaTheStripStaysInItAndTheListUsesTheWholeHeight() {
+        show(left = false, position = "bottom", stripAreaDp = 100f..600f, showList = true)
+        val strip = compose.onNodeWithTag("app-selector-strip").getUnclippedBoundsInRoot()
+        // 72dp above the area's bottom, as on the log.
+        assertEquals(528f, strip.bottom.value, 1f)
+        assertEquals(300f, (strip.bottom - strip.top).value, 1f)
+        val list = compose.onNodeWithTag("app-selector-panel").getUnclippedBoundsInRoot()
+        // The list's bottom is 8dp above the whole height's bottom, not the area's.
+        assertEquals(692f, list.bottom.value, 1f)
+    }
+
+    @Test fun atTheTopOfAStripAreaTheStripStartsAtItsTop() {
+        show(left = true, position = "top", stripAreaDp = 100f..600f)
+        val strip = compose.onNodeWithTag("app-selector-strip").getUnclippedBoundsInRoot()
+        assertEquals(108f, strip.top.value, 1f)
+    }
+
     private fun bubble() = compose.onNodeWithTag("app-selector-bubble", useUnmergedTree = true).fetchSemanticsNode()
         .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString("")
 

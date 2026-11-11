@@ -107,6 +107,8 @@ internal fun HomeAppSelector(
     showList: Boolean = false,
     /** Set while the list is open, so the page behind fades out. Null: a scrim dims the page instead. */
     fade: androidx.compose.runtime.MutableFloatState? = null,
+    /** Where the strip goes, if only in part of the height ([AppSelector]'s stripArea). The list uses the whole height. */
+    stripArea: ClosedFloatingPointRange<Float>? = null,
 ) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
@@ -137,6 +139,7 @@ internal fun HomeAppSelector(
         filter = remember(configVersion) { config[Keys.SELECTOR_FILTER] },
         systemFont = remember(configVersion) { config[Keys.SELECTOR_SYSTEM_FONT] },
         fade = fade,
+        stripArea = stripArea,
     )
 }
 

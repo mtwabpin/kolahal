@@ -260,6 +260,13 @@ fun AppSelector(
     showList: Boolean = false,
     /** Set while the list is open (0 to 1), so home fades out the log behind it. Null: dim home with a scrim instead. */
     fade: androidx.compose.runtime.MutableFloatState? = null,
+    /**
+     * The part of the height (px, from the selector's top) where the strip goes, as if the selector
+     * had only that part: `selector.position` and `selector.height` place the strip in it. The list
+     * still uses the whole height. Null: the whole height. The widgets page passes the log's area, so
+     * the strip is under the same thumb on both pages.
+     */
+    stripArea: ClosedFloatingPointRange<Float>? = null,
 ) {
     val text = if (systemFont) Term.phoneText else Term.text
     // Plan F: when the strip is at the bottom of the edge, favourites go last, where the thumb rests.
@@ -348,11 +355,15 @@ fun AppSelector(
         // not the whole log height. Each letter still has its stretch of the strip (its top is the first
         // letter, or with apps the first app).
         val topPx = with(density) { TOP_GAP.toPx() }
-        val bottomPx = containerH - with(density) { BOTTOM_GAP.toPx() }
-        val stripHPx = min(bottomPx - topPx, with(density) { heightDp.dp.toPx() })
+        // The strip's room: the whole height, or only [stripArea] (the log's area, on the widgets page).
+        val areaTop = stripArea?.start?.coerceIn(0f, containerH) ?: 0f
+        val areaBottom = stripArea?.endInclusive?.coerceIn(areaTop, containerH) ?: containerH
+        val roomTopPx = areaTop + topPx
+        val bottomPx = areaBottom - with(density) { BOTTOM_GAP.toPx() }
+        val stripHPx = min(bottomPx - roomTopPx, with(density) { heightDp.dp.toPx() })
         val stripTopPx = when (position) {
-            "top" -> topPx
-            "middle" -> topPx + (bottomPx - topPx - stripHPx) / 2
+            "top" -> roomTopPx
+            "middle" -> roomTopPx + (bottomPx - roomTopPx - stripHPx) / 2
             else -> bottomPx - stripHPx
         }
         if (stripHPx < with(density) { 160.dp.toPx() }) return@BoxWithConstraints

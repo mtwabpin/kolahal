@@ -1677,8 +1677,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * The position of the log's app selector in the window: the log's area between the header and
-     * the prompt. The widgets page puts its selector in the same place, so selector.position and the
-     * selector's height are the same on both pages.
+     * the prompt. The widgets page puts its selector's strip in the same place, so selector.position
+     * and selector.height put it under the same thumb on both pages. Its list uses the whole page.
      * Only the vertical position and the height are used. The horizontal position changes on every
      * frame of a swipe between the pages, and the widgets page would be built again each time.
      */
