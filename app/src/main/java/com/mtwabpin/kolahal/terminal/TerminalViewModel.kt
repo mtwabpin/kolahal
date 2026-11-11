@@ -1691,8 +1691,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     val selectorFade = androidx.compose.runtime.mutableFloatStateOf(0f)
 
+    /** The same for the widgets page: its widgets fade out while its app selector is open. */
+    val widgetsSelectorFade = androidx.compose.runtime.mutableFloatStateOf(0f)
+
     /** widgets.start: home opens on the widgets page, and Home and Back return to it. */
-    private fun widgetsFirst() = config[Keys.WIDGETS_START] && config[Keys.WIDGETS_PAGE] != "off"
+    private fun widgetsFirst() = Keys.widgetsFirst(config)
 
     /** True when home shows the log page. (The widgets page can be first, see [widgetsFirst].) */
     @Volatile private var logShown = !widgetsFirst()

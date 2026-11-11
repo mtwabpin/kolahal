@@ -101,7 +101,13 @@ private const val PREVIEW_INPUT = "s"
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit, showList: Boolean = false, fadeLog: Boolean = false) {
+internal fun HomeAppSelector(
+    vm: TerminalViewModel,
+    onLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit,
+    showList: Boolean = false,
+    /** Set while the list is open, so the page behind fades out. Null: a scrim dims the page instead. */
+    fade: androidx.compose.runtime.MutableFloatState? = null,
+) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
     val railOn = remember(configVersion) { config[Keys.SELECTOR_RAIL] }
@@ -130,7 +136,7 @@ internal fun HomeAppSelector(vm: TerminalViewModel, onLongPress: (com.mtwabpin.k
         browse = remember(configVersion) { config[Keys.SELECTOR_BROWSE] },
         filter = remember(configVersion) { config[Keys.SELECTOR_FILTER] },
         systemFont = remember(configVersion) { config[Keys.SELECTOR_SYSTEM_FONT] },
-        fade = if (fadeLog) vm.selectorFade else null,
+        fade = fade,
     )
 }
 
@@ -518,7 +524,7 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             onLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
             // While its row-height slider in Settings is dragged, open the list so its rows are visible.
             showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
-            fadeLog = preview == null,
+            fade = if (preview == null) vm.selectorFade else null,
         )
         // [/selector]
         }

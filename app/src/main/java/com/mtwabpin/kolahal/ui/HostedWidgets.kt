@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -152,12 +153,16 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
     // When home opens on this page (widgets.start), the app selector is here too, as on the log.
-    val first = remember(version) { vm.config[Keys.WIDGETS_START] }
+    val first = remember(version) { Keys.widgetsFirst(vm.config) }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
     Box(Modifier.fillMaxSize().page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] }).testTag("widgets-page")) {
         // As home's first page, it has no title row. A long-press on a widget opens the screen to arrange widgets.
-        WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
+        // While the app selector is open, the widgets fade out, so only the page's background shows behind
+        // the list, as the log does on its page.
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - vm.widgetsSelectorFade.floatValue }) {
+            WidgetPanelContent(vm, widgets, panel, profiles, density, titleRow = !first)
+        }
         if (first) {
             // Place the selector where the log has it, between the header and the prompt, with the same
             // edges and height. So selector.position and the selector's height put it in the same place on both pages.
@@ -168,7 +173,7 @@ fun WidgetPanel(vm: TerminalViewModel) {
                     if (area == null) Modifier.fillMaxSize()
                     else Modifier.fillMaxWidth().offset { IntOffset(0, (area.top - top).roundToInt()) }.height(with(density) { area.height.toDp() })
                 ) {
-                    HomeAppSelector(vm, onLongPress = { app ->
+                    HomeAppSelector(vm, fade = vm.widgetsSelectorFade, onLongPress = { app ->
                         // An app's shortcuts come from the system. Build them off the main thread and show them when ready.
                         menuScope.launch { menu = ActionMenu(app.label, withContext(Dispatchers.IO) { vm.appActions(app) }, null) }
                     })

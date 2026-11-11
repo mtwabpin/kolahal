@@ -80,6 +80,19 @@ class CommandProcessorTest {
         assertEquals(14, config[Keys.FONT_SIZE])
     }
 
+    /** Home starts on the widgets page only with the app selector on, its way to open apps. */
+    @Test fun widgetsStartNeedsTheAppSelector() {
+        config.reset(Keys.SELECTOR_RAIL)
+        assertEquals(listOf("widgets.start needs the app selector first: config set selector.rail on"), run("config set widgets.start on"))
+        assertFalse(config[Keys.WIDGETS_START])
+        run("config set selector.rail on")
+        assertEquals(listOf("widgets.start = on"), run("config set widgets.start on"))
+        assertTrue(config[Keys.WIDGETS_START])
+        // Turning it off needs nothing.
+        config.reset(Keys.SELECTOR_RAIL)
+        assertEquals(listOf("widgets.start = off"), run("config set widgets.start off"))
+    }
+
     /** Names from before 0.3.0 still work in `config`, and say what the setting is called now. */
     @Test fun oldSettingNamesStillWork() {
         assertEquals(listOf("theme.name = amber", "theme is now called theme.name"), run("config set theme amber"))

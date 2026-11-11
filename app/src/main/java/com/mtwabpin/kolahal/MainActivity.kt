@@ -367,7 +367,7 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
         return
     }
     val terminalPage = if (side == "left") 1 else 0
-    val widgetsFirst = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_START] }
+    val widgetsFirst = androidx.compose.runtime.remember(version) { Keys.widgetsFirst(vm.config) }
     // The page that home opens on, and that Home and Back return to.
     val homePage = if (widgetsFirst) 1 - terminalPage else terminalPage
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = homePage) { 2 }

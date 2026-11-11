@@ -97,6 +97,10 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         // `config set keybar.row2 ""` sets an empty text, for settings whose help allows one.
         if (key is ConfigKey.Text && (value == "\"\"" || value == "''")) value = ""
         else if (value.isBlank()) return error("${key.key} = ${conf.display(key)}  (${hint(key)})")
+        // Home can start on the widgets page only with the app selector on: there it is the way to open apps.
+        if (key == Keys.WIDGETS_START && Keys.WIDGETS_START.parse(value) == true && !conf[Keys.SELECTOR_RAIL]) {
+            return error("widgets.start needs the app selector first: config set selector.rail on")
+        }
         if (conf.set(key, value)) info("${key.key} = ${conf.display(key)}")
         else error("Invalid value for ${key.key}: ${hint(key)}")
     }

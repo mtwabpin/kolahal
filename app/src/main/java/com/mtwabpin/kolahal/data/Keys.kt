@@ -149,7 +149,14 @@ object Keys {
     )
 
     val WIDGETS_PAGE = ConfigKey.Choice("widgets.page", "left", listOf("left", "right", "off"), "A widgets page beside the terminal: swipe sideways on the home screen to reach it")
-    val WIDGETS_START = ConfigKey.Bool("widgets.start", false, "Start on the widgets page: home opens on it, and Home and Back return to it; swipe sideways for the log")
+    val WIDGETS_START = ConfigKey.Bool("widgets.start", false, "Start on the widgets page: home opens on it, and Home and Back return to it; swipe sideways for the log. Needs the app selector (selector.rail)")
+
+    /**
+     * Whether home starts on the widgets page: widgets.start, with the widgets page on, and the app
+     * selector on. Without the selector, that page would have no way to open an app, so home starts on
+     * the log; widgets.start keeps its value for when the selector is back.
+     */
+    fun widgetsFirst(c: Config): Boolean = c[WIDGETS_START] && c[WIDGETS_PAGE] != "off" && c[SELECTOR_RAIL]
     val WIDGETS_WALLPAPER = ConfigKey.Num("widgets.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's colour")
 
     val GESTURE_DOUBLE_TAP = ConfigKey.Text("gesture.double-tap", if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "lock" else "none", "Double-tap empty log space: $GESTURE_ACTIONS, quick (quick actions) or none")

@@ -26,12 +26,14 @@ The page can show your phone's wallpaper (the one you set in Android) behind the
 The log has its own setting for this (`log.wallpaper`, under **Settings → Log**). So each page can show
 more or less of the wallpaper.
 
-You can make home open on the widgets page. Turn on **Settings → Widgets → Start on the widgets page**
-(`widgets.start`). Then:
+You can make home open on the widgets page. It needs the [app selector](/getting-started/parts/#app-selector)
+first: there it is your way to open apps. Turn it on in **Settings → App selector** (`selector.rail`), then
+**Settings → Widgets → Start on the widgets page** (`widgets.start`). Then:
 
 - Back and Home take you to the widgets page. Swipe sideways to reach the log.
 - The [app selector](/getting-started/parts/#app-selector) is on the widgets page too. It is in the same place and uses the same
-  settings as on the log.
+  settings as on the log. While its list is open, the widgets fade out behind it.
+- If you turn the app selector off, home opens on the log again. Turn the selector back on and home opens on the widgets page again.
 - If you type on a hardware keyboard, Kolahal switches to the log and puts the text in the prompt.
 - **Open the keyboard on Home** opens the keyboard when you reach the log.
 - The page has no **+ Add** and **Edit** row. Long-press a widget to arrange widgets, or use `widget add`.

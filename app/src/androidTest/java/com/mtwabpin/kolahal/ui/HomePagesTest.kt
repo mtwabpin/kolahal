@@ -41,6 +41,9 @@ class HomePagesTest {
     }
 
     @Test fun homeOpensOnTheWidgetsPageAndTypingBringsUpTheLog() {
+        // Not a first run: right after an install, the welcome tour would open over home a moment after start.
+        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("intro_shown", true).commit()
         config.set(Keys.WIDGETS_PAGE, "left")
         config.set(Keys.WIDGETS_START, "on")
         config.set(Keys.SELECTOR_RAIL, "on")
@@ -68,6 +71,13 @@ class HomePagesTest {
             waitFor(shown = false)
             // Home goes back to the widgets page.
             instrumentation.runOnMainSync { vm.onHomePressed() }
+            waitFor(shown = true)
+            // With the app selector off, home is the log: the widgets page would have no way to open an app.
+            // widgets.start keeps its value, for when the selector is back.
+            config.reset(Keys.SELECTOR_RAIL)
+            waitFor(shown = false)
+            assertEquals(true, config[Keys.WIDGETS_START])
+            config.set(Keys.SELECTOR_RAIL, "on")
             waitFor(shown = true)
             // Off again: home is the log, and the widgets page has its title row back.
             config.reset(Keys.WIDGETS_START)
