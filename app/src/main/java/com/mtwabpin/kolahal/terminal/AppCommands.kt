@@ -229,7 +229,11 @@ class AppCommands(
             return
         }
         runCatching { apps.launch(app) }
-            .onSuccess { logs.addReplacing(LogKind.INFO, "Launched ${appLine(app)}", appCtx(app)) }
+            // Launched by a tap (no typed command above it), it is an event of its own in the log.
+            .onSuccess {
+                val ctx = if (logs.currentCause == null) appCtx(app) + mapOf(LogContext.APART to "1") else appCtx(app)
+                logs.addReplacing(LogKind.INFO, "Launched ${appLine(app)}", ctx)
+            }
             .onFailure { error("Can't launch ${app.label}: ${it.message ?: it.javaClass.simpleName}") }
     }
 

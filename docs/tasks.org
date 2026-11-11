@@ -16,13 +16,12 @@ from the prompt, like an app.
   suggestion type.
 - Long-press on an app (app list, suggestions) could offer "Screens…".
 
-* TODO Space between notifications that arrive together
-When the work profile turns on, its apps post many notifications at once. They flood the log as
-one block of lines with no space between them, hard to tell apart.
+* TODO Fold a burst of notifications into one line
+When the work profile turns on, its apps post many notifications at once. Since 0.5.4 each one is a
+group of its own, with the =log.spacing= gap above it (=LogRows.buildRows=), so they stand apart.
+But a burst still fills the screen.
 
-- Give notification lines the =log.item-spacing= gap (as list items have), at least when one
-  takes more than a line, so each one stands apart.
-- Maybe also: a burst (many in a few seconds, or right after =work on=) folds into one line,
+- A burst (many in a few seconds, or right after =work on=) folds into one line,
   "Work profile: 14 notifications", that opens to show them.
 - Check the same with the private space, and after the phone restarts.
 

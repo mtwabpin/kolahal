@@ -261,11 +261,17 @@ class AppCommandsTest {
             assertEquals("Launched Settings", launched.text)
             assertEquals(LogKind.INFO, launched.kind)
             assertEquals(SETTINGS, launched.ctx.pkg)
+            // Typed, the line is the command's output, in its group.
+            assertEquals(null, launched.ctx.values[LogContext.APART])
             assertTrue("$score, then ${prefs.frecency(s.key)}", prefs.frecency(s.key) > score + 0.5)
             val resumed = Regex("ResumedActivity.{0,120}${Regex.escape(SETTINGS)}/")
             waitUntil("Settings in front", ms = 10_000) { resumed.containsMatchIn(shell("dumpsys activity activities")) }
             assertEquals(listOf("Launched Settings"), run("launch Settings"))
             assertEquals(1, logs.recent(400, afterId = logLines.start).count { it.text == "Launched Settings" })
+            // Launched by a tap, it stands apart: a group of its own in the log.
+            val before = logs.maxId()
+            commands.processor.launch(s)
+            assertEquals("1", logs.recent(50).single { it.id > before && it.text == "Launched Settings" }.ctx.values[LogContext.APART])
             assertEquals(listOf("App info: Settings"), run("info Settings"))
             assertEquals(listOf("No app matches 'zzqqxx'"), run("open zzqqxx"))
             assertEquals(listOf("No app matches 'zzqqxx'"), run("launch zzqqxx -p"))

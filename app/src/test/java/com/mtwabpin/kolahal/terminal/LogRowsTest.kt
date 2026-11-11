@@ -44,6 +44,29 @@ class LogRowsTest {
         assertEquals(listOf(false, false), starts(line(1, 0), line(2, GROUP_GAP_MS)))
     }
 
+    /** Two apps launched by a tap, a second apart: two events, each its own group. */
+    @Test
+    fun eachTapLaunchIsItsOwnGroup() {
+        val launched = LogContext.of(LogContext.APART to "1")
+        assertEquals(
+            listOf(true, false, true, true),
+            starts(line(1, 0, LogKind.COMMAND), line(2, 100, LogKind.OUTPUT), line(3, 900, ctx = launched), line(4, 1_900, ctx = launched)),
+        )
+    }
+
+    /** A burst of notifications from one app: each one its own group, named again. A script run stays one group. */
+    @Test
+    fun eachNotificationIsItsOwnGroup() {
+        fun notif(id: Long, at: Long) = line(id, at, LogKind.SCRIPT, LogContext.of("notif" to "k$id"), source = "Outlook")
+        val rows = entries(notif(1, 0), notif(2, 300), notif(3, 600))
+        assertEquals(listOf(true, true, true), rows.map { it.blockStart })
+        assertEquals(listOf(true, true, true), rows.map { it.showSource })
+        assertEquals(
+            listOf(true, false, false),
+            starts(line(1, 0, LogKind.SCRIPT, source = "hn"), line(2, 300, LogKind.SCRIPT, source = "hn"), line(3, 600, LogKind.SCRIPT, source = "hn")),
+        )
+    }
+
     @Test
     fun timestampsGoingBackNeverRepeatADayDivider() {
         // id order with days running D-2, D-1, D-2, D-1 (clock set back, or a buffered script line

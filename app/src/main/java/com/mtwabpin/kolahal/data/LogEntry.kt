@@ -121,6 +121,12 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         const val GAP = "gap"
 
         /**
+         * The line stands apart: an event of its own, such as an app launched by a tap. It starts its own
+         * group in the log, with the `log.spacing` gap above it, even right after another event.
+         */
+        const val APART = "apart"
+
+        /**
          * A saved script's buttons under its line (`ctx.actions`), as JSON: `[["Snooze 30 min", "snooze 30"], …]`,
          * each a label and the arguments the script runs with when it is tapped. [ACTION_DONE] is
          * the index of the one tapped; the line then shows only that one, as done.

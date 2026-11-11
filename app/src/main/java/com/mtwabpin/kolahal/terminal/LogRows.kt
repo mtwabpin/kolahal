@@ -63,6 +63,9 @@ sealed interface LogRow {
 /** A line that comes more than this long after the line before it starts a new group. */
 const val GROUP_GAP_MS = 3_000L
 
+/** The context key a notification's line carries ([com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY]). */
+private const val NOTIFICATION = com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY
+
 /**
  * Builds the log rows:
  * - Output older than the most recent command is dimmed, so the latest result stands out.
@@ -108,12 +111,15 @@ fun buildRows(
         val from = e.ctx.values[LogContext.FROM]?.toLongOrNull()
         val underItsCommand = from != null && previous != null &&
             (previous.id == from || previous.ctx.values[LogContext.FROM]?.toLongOrNull() == from)
+        // An event of its own: an app launched by a tap ([LogContext.APART]), or a notification, even in a
+        // burst from one app. It starts a group even right after another event.
+        val ownEvent = LogContext.APART in e.ctx.values || (e.kind == LogKind.SCRIPT && NOTIFICATION in e.ctx.values)
         // A group holds the lines of one action:
         // - a typed command and its output;
-        // - a background run, from its first line;
-        // - lines that arrived together.
-        // A line that comes alone later (a tap launch, an app event, a notification) starts its own group.
-        val blockStart = e.kind == LogKind.COMMAND || (runStart && !underItsCommand) ||
+        // - a background run (a script's, a feed's), from its first line;
+        // - one event: a notification, an app launched by a tap.
+        // A line more than [GROUP_GAP_MS] after the one before also starts a group, even in a run.
+        val blockStart = e.kind == LogKind.COMMAND || (runStart && !underItsCommand) || ownEvent ||
             (previous != null && e.ts - previous.ts > GROUP_GAP_MS)
         rows += LogRow.Entry(
             entry = e,
