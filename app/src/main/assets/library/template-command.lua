@@ -1,7 +1,7 @@
 -- @title Template: command
 -- @desc A starting point for a command you type: reads its words, logs lines that do something when tapped
 -- @author Kolahal
--- @version 1.2
+-- @version 1.3
 -- @command
 -- @usage [name]
 -- @tags template
@@ -9,6 +9,7 @@
 --
 -- A starting point for a command of your own. Try `template-command`, then `template-command Ada`.
 -- Edit this one, or start your own with `script new <name> --cmd` and copy what you need from here.
+-- template-command-js does the same in JavaScript.
 --
 -- The @command line makes the file's name a command you type. The @usage line says what may follow
 -- the name, the way a built-in command's usage reads ([x] optional, <x> needed, a|b one of): Kolahal

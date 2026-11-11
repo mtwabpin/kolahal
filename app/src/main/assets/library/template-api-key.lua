@@ -1,7 +1,7 @@
 -- @title Template: API key
 -- @desc A starting point for a script that needs an API key: you set the key on the phone, never in the code
 -- @author Kolahal
--- @version 1.3
+-- @version 1.4
 -- @every 6h
 -- @secret GITHUB_TOKEN api.github.com A GitHub token: github.com → Settings → Developer settings → Fine-grained tokens (no permissions needed)
 -- @tags template, github
@@ -9,7 +9,7 @@
 --
 -- A starting point for a script that calls an API with a key. This one keeps your GitHub followers
 -- as its status line: pin it (`script pin template-api-key`) to see it at the top of home.
--- Talks to: api.github.com.
+-- Talks to: api.github.com. template-api-key-js does the same in JavaScript.
 --
 -- The @secret line names the key (GITHUB_TOKEN), the site it may be sent to, and what it is. You
 -- set the value on the phone: Scripts → tap this script → Secrets, or

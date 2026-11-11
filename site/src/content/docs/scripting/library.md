@@ -3,7 +3,7 @@ title: Script library
 description: The 24 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
-Kolahal includes 24 ready-made scripts, five of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 33 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -85,10 +85,17 @@ None of the network scripts need an API key.
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
 | [night-work](#night-work) | Lua | | daily 23:00 and 07:00 | |
 | [template-command](#templates) | Lua | yes | | |
+| [template-command-js](#templates) | JS | yes | | |
 | [template-timer](#templates) | Lua | | every 6h | yes |
+| [template-timer-js](#templates) | JS | | every 6h | yes |
 | [template-event](#templates) | Lua | | on charger and unplug | |
+| [template-event-js](#templates) | JS | | on charger and unplug | |
 | [template-api-key](#templates) | Lua | | every 6h | |
+| [template-api-key-js](#templates) | JS | | every 6h | |
+| [template-fetch](#templates) | Lua | yes | | |
 | [template-js](#templates) | JS | yes | | |
+| [template-logs](#templates) | Lua | yes | | |
+| [template-logs-js](#templates) | JS | yes | | |
 
 ## hn
 
@@ -334,17 +341,23 @@ doesn't use the network.
 
 ## Templates
 
-Five short, commented scripts to start your own from. Each shows one way of working:
+Short, commented scripts to start your own from. Each shows one way of working, and each comes in
+Lua and in JavaScript: the JavaScript one has `-js` at the end of its name.
 
-- **template-command**: a command you type. It reads its words and logs lines that do something
-  when tapped.
-- **template-timer**: runs on a timer, remembers what it saw and tells you when it changes (here,
-  a GitHub project's latest release; its `repo` option picks the project).
-- **template-event**: runs when something happens on the phone (here, plugging the charger in and
-  out).
-- **template-api-key**: uses an API key that you set on the phone, never in the code
-  (`script secret template-api-key GITHUB_TOKEN`).
-- **template-js**: the same in JavaScript: a command that fetches JSON and logs a line you can tap.
+- **template-command** / **template-command-js**: a command you type. It reads its words and logs
+  lines that do something when tapped.
+- **template-timer** / **template-timer-js**: runs on a timer, remembers what it saw and tells you
+  when it changes (here, a GitHub project's latest release; its `repo` option picks the project).
+- **template-event** / **template-event-js**: runs when something happens on the phone (here,
+  plugging the charger in and out).
+- **template-api-key** / **template-api-key-js**: uses an API key that you set on the phone, never
+  in the code (`script secret template-api-key GITHUB_TOKEN`).
+- **template-fetch** / **template-js**: a command that fetches JSON from the web and logs a line you
+  can tap (here, a Wikipedia article's summary).
+- **template-logs** / **template-logs-js**: a reference for logging. Run it, and each of its lines
+  shows one kind of line next to the code that makes it: plain lines and bodies, links and Copy
+  text, styles and colours, tags, Markdown, lists, tables, bars, big numbers, a picture, a list with
+  a space between its items, buttons, `line.set`, and the status line.
 
 Install one, then copy it under a new name to make it yours, so library updates don't replace your
 changes: `script mv template-command mycommand`.

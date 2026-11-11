@@ -1,7 +1,7 @@
 // @title Template: JavaScript
 // @desc A starting point in JavaScript: a command that fetches JSON and logs a line you can tap
 // @author Kolahal
-// @version 1.2
+// @version 1.3
 // @command
 // @usage [topic]
 // @tags template, javascript
@@ -9,7 +9,8 @@
 //
 // The same building blocks as the Lua templates, in JavaScript (QuickJS). The script runs inside an
 // async function: `await` the http and rss calls, and `return` to stop early. Try `template-js`,
-// then `template-js Lua (programming language)`. Talks to: en.wikipedia.org.
+// then `template-js Lua (programming language)`. Talks to: en.wikipedia.org. template-fetch does the
+// same in Lua; every other template has a JavaScript version too (template-command-js, …).
 
 const topic = argline || "Android (operating system)";
 const r = await http.get(

@@ -1,7 +1,7 @@
 -- @title Template: timer
 -- @desc A starting point for a script on a timer: checks something, remembers it, tells you when it changes
 -- @author Kolahal
--- @version 1.3
+-- @version 1.4
 -- @every 6h
 -- @notify
 -- @tags template, github
@@ -10,6 +10,7 @@
 --
 -- A starting point for a script that runs by itself. This one watches a GitHub project for new
 -- releases: Kolahal's, until you change its repo option. Talks to: api.github.com.
+-- template-timer-js does the same in JavaScript.
 --
 -- The @every line suggests a timer (15m, 1h, 1d…), set when the script is added; an @at line
 -- (`@at 07:00, 18:30`) runs it at set times instead. Change either in the script's sheet. The

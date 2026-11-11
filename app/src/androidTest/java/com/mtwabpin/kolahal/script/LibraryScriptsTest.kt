@@ -199,6 +199,49 @@ class LibraryScriptsTest {
         s.value.joinToString("") { it.text } to s.label.joinToString("") { it.text }
     }
 
+    /** The command template, in Lua and in JavaScript: the same lines from the same words. */
+    @Test fun theCommandTemplatesSayHello() {
+        for (file in listOf("template-command.lua", "template-command-js.js")) {
+            run(file, "Ada Lovelace")
+            val titles = lines().map { StyledText.plain(it.text) }
+            assertEquals(file, "Hello, Ada Lovelace!", titles.first())
+            assertEquals(file, "You gave 2 words", lines().first().ctx.body?.let(StyledText::plain))
+            // The returned "It's 10:42" is the run's result: this test runs the code, without logging it.
+            assertEquals("$file: $titles", "The scripting guide", titles.last())
+        }
+    }
+
+    /** The event template, in Lua and in JavaScript: plugged in at 40%, unplugged at 75%, it says what the charge added. */
+    @Test fun theEventTemplatesSayWhatAChargeAdded() {
+        for (file in listOf("template-event.lua", "template-event-js.js")) {
+            run(file, event = mapOf("name" to "charger", "level" to 40, "plug" to "usb"))
+            assertEquals(file, "Charging from 40%", status.get(name))
+            run(file, event = mapOf("name" to "unplug", "level" to 75))
+            val (title, body, _) = plainOnly()
+            assertEquals(file, "Charged +35%", title)
+            assertEquals(file, "40% → 75% in 0m", body)
+        }
+    }
+
+    /**
+     * The logging template, in Lua and in JavaScript: every part logs its line, from 1 to 21 (the result),
+     * with the table, the bars and the big numbers as rich bodies, and the line that line.set changed.
+     */
+    @Test fun theLogsTemplatesShowEveryKindOfLine() {
+        for (file in listOf("template-logs.lua", "template-logs-js.js")) {
+            run(file)
+            val shown = lines()
+            val titles = shown.map { StyledText.plain(it.text) }
+            for (n in 1..19) assertTrue("$file: part $n in $titles", titles.any { it.startsWith("$n · ") })
+            assertTrue("$file: $titles", "19 · Done: line.set changed this line in place" in titles)
+            assertTrue("$file: $titles", titles.none { it.startsWith("19 · Working") || it.startsWith("19 · Step") })
+            fun body(title: String) = StyledText.lines(shown.first { StyledText.plain(it.text) == title }.ctx.body!!)
+            assertTrue(file, body("11 · A table").isNotEmpty())
+            assertTrue(file, body("13 · Big numbers").any { it.stats != null })
+            assertEquals(file, "https://imgs.xkcd.com/comics/exploits_of_a_mom.png", shown.first { StyledText.plain(it.text) == "14 · A picture" }.ctx.values["image"])
+        }
+    }
+
     /**
      * Wiktionary: the word in your language, then one line per meaning, its sub-meanings apart and an
      * example under it; with no entry in your language, the languages that have one.

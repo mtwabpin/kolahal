@@ -1,13 +1,14 @@
 -- @title Template: event
 -- @desc A starting point for a script that runs when something happens: here, plugging the charger in and out
 -- @author Kolahal
--- @version 1.2
+-- @version 1.3
 -- @on charger, unplug
 -- @tags template, battery
 -- @requires 0.4.1
 --
 -- A starting point for a script that runs when something happens on the phone. This one tells you
 -- how much a charge added, and how long it took. Nothing leaves the phone.
+-- template-event-js does the same in JavaScript.
 --
 -- The @on line lists the events it runs on: unlock, charger, unplug, wifi, offline, boot, headset,
 -- and notification (which also needs `@uses notifications`). A run gets `event`; event.name says

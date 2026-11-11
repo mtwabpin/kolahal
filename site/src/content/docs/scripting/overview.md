@@ -503,8 +503,10 @@ To share one of your scripts, see the repository's
 [contributing guide](https://github.com/mtwabpin/kolahal-scripts/blob/main/CONTRIBUTING.md).
 
 The scripts named `template-…` are starting points. Their comments explain each part. There is a
-template for a command, a timer, an API key, an event, and one in JavaScript. Install one and
-[rename it](#renaming-a-script) to make it yours.
+template for a command, a timer, an API key, an event and fetching from the web, each in Lua and in
+JavaScript (the JavaScript one ends in `-js`). `template-logs` shows every kind of line a script can
+log, next to the code that makes it. Install one and [rename it](#renaming-a-script) to make it yours.
+See [Templates](/scripting/library/#templates).
 
 ## Renaming a script
 
