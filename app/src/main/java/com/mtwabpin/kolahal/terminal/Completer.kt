@@ -236,7 +236,7 @@ class Completer(private val context: Context, private val data: Data) {
             "info", "uninstall", "hide", "unhide", "rename", "pin", "unpin" -> when (cmd) {
                 "rename" if arg.contains('=') -> emptyList()
                 // Before a name is typed: the hidden apps (A–Z), the pinned ones (in pin order), or the
-                // most used ones not pinned yet. Typing narrows them.
+                // most used ones not pinned yet, then the rest A–Z. Typing narrows them.
                 "unhide" -> if (noName(arg)) appRows(head, appsRepo.apps.value.filter { appPrefs.isHidden(it.key) }.sortedBy { it.lower }.take(cap))
                     else appCompletions(head, arg, includeHidden = true) { appPrefs.isHidden(it.key) }
                 "unpin" -> appPrefs.pinned().let { pinned ->
@@ -244,7 +244,12 @@ class Completer(private val context: Context, private val data: Data) {
                     else pinned.toSet().let { keys -> appCompletions(head, arg, includeHidden = true) { it.key in keys } }
                 }
                 "pin" -> appPrefs.pinned().toSet().let { pinned ->
-                    if (noName(arg)) appRows(head, appsRepo.top(cap + pinned.size).filter { it.key !in pinned }.take(cap))
+                    if (noName(arg)) {
+                        // Apps never opened have no use count: the list goes on A–Z after the used ones.
+                        val used = appsRepo.top(cap + pinned.size).filter { it.key !in pinned }
+                        val rest = appsRepo.apps.value.filter { !it.hidden && !it.profile.quiet && it.key !in pinned }.sortedBy { it.lower }
+                        appRows(head, (used + rest).distinctBy { it.key }.take(cap))
+                    }
                     else appCompletions(head, arg) { it.key !in pinned }
                 }
                 else -> appCompletions(head, arg)
