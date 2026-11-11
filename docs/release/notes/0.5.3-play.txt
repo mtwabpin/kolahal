@@ -1,0 +1,1 @@
+Each script template now comes in Lua and JavaScript, and a new template-logs shows every kind of line a script can log, next to its code. Starting on the widgets page now needs the app selector, and the widgets fade behind its list. usage keeps app names on one line and no longer shows package names.
