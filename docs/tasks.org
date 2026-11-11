@@ -16,6 +16,19 @@ from the prompt, like an app.
   suggestion type.
 - Long-press on an app (app list, suggestions) could offer "Screens…".
 
+* TODO App selector takes the full screen on the widgets page
+On the widgets page, the selector sits in the log page's area (=vm.selectorArea=: between the
+header and the prompt, =ui/HostedWidgets.kt=), so it looks the same on both pages. But the widgets
+page has no header or prompt there, so the selector's list stops short of the top and bottom of the
+screen. It should use the whole screen instead.
+
+- The list: from the top of the screen (under the status bar) to the bottom (above the navigation
+  bar), when the selector is open.
+- Decide what =selector.position= and =selector.height= mean there: the strip at the same place as on
+  the log (so the thumb finds it in the same spot), or measured against the full height.
+- The widgets fade out behind it, as now (0.5.3).
+- Check: Back, the widgets' own scrolling, and a long-press on a widget still work around the strip.
+
 * TODO Space between notifications that arrive together
 When the work profile turns on, its apps post many notifications at once. They flood the log as
 one block of lines with no space between them, hard to tell apart.
