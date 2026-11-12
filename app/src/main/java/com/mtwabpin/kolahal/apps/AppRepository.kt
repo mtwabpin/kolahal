@@ -85,6 +85,17 @@ class AppRepository private constructor(private val context: Context) {
     private var started = false
     private val refreshRequests = Channel<Unit>(Channel.CONFLATED)
 
+    /** Set when this start's own load has arrived. From then on, the saved list ([saved]) is never shown. */
+    private var loaded = false
+    private val loadLock = Any()
+    private val firstLoad = java.util.concurrent.CountDownLatch(1)
+
+    /**
+     * Waits up to [ms] for this start's first load of the list. Until then the list holds what was
+     * saved last time ([saved]), or nothing on a first start. Returns false when it didn't arrive.
+     */
+    fun awaitLoaded(ms: Long): Boolean = firstLoad.await(ms, java.util.concurrent.TimeUnit.MILLISECONDS)
+
     init {
         scope.launch { for (request in refreshRequests) runCatching { reload() } }
     }
@@ -121,6 +132,12 @@ class AppRepository private constructor(private val context: Context) {
         ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) = refresh()
         }, filter, ContextCompat.RECEIVER_EXPORTED)
+        // The list as last loaded, at once, until this start's own load arrives (up to a second for
+        // every app's name). Before, app names were "not found" and suggested nothing meanwhile.
+        scope.launch {
+            val kept = runCatching { saved() }.getOrDefault(emptyList())
+            if (kept.isNotEmpty()) synchronized(loadLock) { if (!loaded) _apps.value = kept }
+        }
         refresh()
     }
 
@@ -171,13 +188,68 @@ class AppRepository private constructor(private val context: Context) {
                             hidden = prefs.isHidden(key),
                         )
                     }
-            }.map { it to it.label.lowercase() }
-                // Lowercase each label once, not at every comparison of the sort.
-                .sortedWith(compareBy({ it.second }, { it.first.profile.kind.ordinal }))
-                .map { it.first }
-            _profiles.value = profiles
-            _apps.value = apps
+            }.let(::sorted)
+            synchronized(loadLock) {
+                loaded = true
+                _profiles.value = profiles
+                _apps.value = apps
+            }
+            firstLoad.countDown()
+            runCatching { save(apps) }
         }
+    }
+
+    /** [apps] A–Z by name, each profile's after the personal one's. */
+    private fun sorted(apps: List<AppEntry>): List<AppEntry> = apps.map { it to it.label.lowercase() }
+        // Lowercase each label once, not at every comparison of the sort.
+        .sortedWith(compareBy({ it.second }, { it.first.profile.kind.ordinal }))
+        .map { it.first }
+
+    // ---- the list as last loaded, for the next start ------------------------------------------
+
+    /**
+     * Where the list as last loaded is kept: one app per line, its profile's serial, kind and quiet
+     * flag, its component and its name. In noBackupFilesDir: it belongs to this phone, so backups and
+     * transfers leave it out. Private space apps aren't kept, so which apps are in it isn't in a file.
+     */
+    private val savedFile get() = java.io.File(context.noBackupFilesDir, "apps.tsv")
+
+    /** What [savedFile] holds, so an unchanged list isn't written again. */
+    @Volatile private var savedText: String? = null
+
+    private fun save(apps: List<AppEntry>) {
+        val text = apps.filter { it.profile.kind != ProfileKind.PRIVATE }.joinToString("\n") { app ->
+            listOf(
+                app.profile.serial, app.profile.kind.name, if (app.profile.quiet) "1" else "0",
+                app.component.flattenToString(), app.originalLabel.replace(FIELD_BREAKS, " "),
+            ).joinToString("\t")
+        }
+        if (text == savedText) return
+        val tmp = java.io.File(savedFile.path + ".tmp")
+        tmp.writeText(text)
+        if (!tmp.renameTo(savedFile)) tmp.delete()
+        savedText = text
+    }
+
+    /** The list [save] kept last, with today's names and hidden apps. Apps of a profile that is gone are left out. */
+    internal fun saved(): List<AppEntry> {
+        val file = savedFile
+        if (!file.exists()) return emptyList()
+        val text = file.readText()
+        savedText = text
+        val profiles = HashMap<Long, Profile?>()
+        return sorted(text.lineSequence().mapNotNull { line ->
+            val f = line.split('\t')
+            if (f.size != 5) return@mapNotNull null
+            val serial = f[0].toLongOrNull() ?: return@mapNotNull null
+            val kind = ProfileKind.entries.firstOrNull { it.name == f[1] } ?: return@mapNotNull null
+            val profile = profiles.getOrPut(serial) {
+                runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull()?.let { Profile(it, serial, kind, quiet = f[2] == "1") }
+            } ?: return@mapNotNull null
+            val component = ComponentName.unflattenFromString(f[3]) ?: return@mapNotNull null
+            val key = keyOf(component, profile)
+            AppEntry(label = prefs.label(key) ?: f[4], component = component, profile = profile, originalLabel = f[4], hidden = prefs.isHidden(key))
+        }.toList())
     }
 
     private fun loadProfiles(): List<Profile> {
@@ -398,6 +470,9 @@ class AppRepository private constructor(private val context: Context) {
         private const val PROBE_LABEL = "Kolahal"
     }
 }
+
+/** Tabs and line breaks in an app's name: the saved list ([AppRepository.saved]) separates its fields with them. */
+private val FIELD_BREAKS = Regex("[\\t\\r\\n]")
 
 internal fun keyOf(component: ComponentName, profile: Profile) =
     "${component.flattenToShortString()}#${profile.serial}"

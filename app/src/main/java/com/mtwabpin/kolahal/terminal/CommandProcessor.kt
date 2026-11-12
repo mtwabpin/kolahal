@@ -303,6 +303,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     /** Treats any input that isn't a command as an app name. */
     private fun fallbackLaunch(text: String) {
+        // Just after a start, with no saved list, the apps may not be read yet: wait a little rather than "not found".
+        if (apps.apps.value.isEmpty()) apps.awaitLoaded(3_000)
         val ranked = apps.searchRanked(text)
         val matches = ranked.map { it.first }
         when {

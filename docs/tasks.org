@@ -75,16 +75,6 @@ lint. Nothing was run on a device, so all times are estimates. Line numbers are 
 - Nothing critical or high was found. Lint: 0 errors, 11 warnings (last section).
 
 ** Fix first
-*** TODO [#A] After a reboot or an update, apps are missing for a moment
-The app list starts empty and is not saved (=apps/AppRepository.kt:79=). =reload()= (=:156-181=)
-loads every app's label first; it may take 0.2–1 s for 150–300 apps. Until then:
-- no app suggestions, and instant launch can't fire;
-- Enter on an app name prints "Command not found" (=terminal/CommandProcessor.kt:302=).
-
-Fix: save label, component, profile serial and hidden after each reload. Start =_apps= from the
-saved copy, then use the fresh list when it arrives. A smaller first step: say "Apps are still
-loading" instead of "Command not found" while the list is empty.
-
 ** Security
 *** TODO [#C] =script get= switches a script on with everything it asks for, then tells you
 =script/ScriptCatalog.kt:203-204= calls =setEnabled(…, grant = true)=. =terminal/ScriptCommands.kt:289-292=
