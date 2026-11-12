@@ -1,0 +1,7 @@
+Fixes and safety:
+• A command you turned off no longer breaks Kolahal's own buttons.
+• Apps are there right after a restart.
+• No hitches while typing activity, shortcuts or open app:, and typing is lighter.
+• A bad feed can't use up memory, a bad backup can't crash home, and script secrets survive a passing Keystore error.
+• If setting reminders or schedules fails, the log says so.
+• After moving to a new phone, the first check of your apps no longer lists every app as installed.
