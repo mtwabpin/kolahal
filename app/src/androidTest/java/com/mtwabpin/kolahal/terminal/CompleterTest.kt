@@ -64,6 +64,13 @@ class CompleterTest {
         val app = apps.apps.value.first { !it.hidden && it.profile.kind == ProfileKind.PERSONAL }
         val typed = completer.suggestions("shortcuts ${app.label.take(3)}").filterIsInstance<Suggestion.Completion>()
         assertTrue(typed.toString(), typed.any { it.app?.key == app.key })
+        // Which apps have shortcuts is asked off the main thread, once in 30 seconds, also when the
+        // answer is "Kolahal may not read them" (it isn't the home app here).
+        eventually(5_000) { completer.loaded.value > 0 }
+        val asked = completer.loaded.value
+        completer.suggestions("shortcuts ${app.label.take(2)}")
+        Thread.sleep(500)
+        assertEquals(asked, completer.loaded.value)
     }
 
     /** Two apps of one name (one renamed to the other's): each completes to its package, and that names it. */

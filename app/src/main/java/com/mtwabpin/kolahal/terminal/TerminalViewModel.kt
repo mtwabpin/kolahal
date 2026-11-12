@@ -996,6 +996,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         input = TextFieldValue(text, TextRange(text.length))
     }
 
+    /** Goes up when a list the suggestions wait for has arrived (an app's activities or shortcuts): work them out again. */
+    val suggestionsLoaded: StateFlow<Int> get() = completer.loaded
+
     fun suggestions(text: String): List<Suggestion> {
         if (searchWords(text) == null) return completer.suggestions(text)
         // `/@xk`: suggest the sources to search in.

@@ -14,6 +14,14 @@ import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.ui.TermFonts
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * Builds the suggestion strip for the typed text:
@@ -55,6 +63,30 @@ class Completer(private val context: Context, private val data: Data) {
 
     /** The most rows of one kind: what the strip shows (`suggestions.max`), but never fewer than 12. */
     private val cap: Int get() = maxOf(12, config[Keys.SUGGESTIONS])
+
+    /**
+     * Lists asked from Android (an app's activities or shortcuts, the apps that have shortcuts) can
+     * take tens of milliseconds, so they load off the main thread: the suggestions are worked out
+     * there, on each key. Until a list arrives, the rows show without it. [loaded] goes up when one
+     * arrives, so the suggestions are worked out again.
+     */
+    private val loads = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val loading: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    private val _loaded = MutableStateFlow(0)
+    val loaded: StateFlow<Int> = _loaded.asStateFlow()
+
+    /** Runs [load] off the main thread, once at a time for each [key]. */
+    private fun loadSoon(key: String, load: () -> Unit) {
+        if (!loading.add(key)) return
+        loads.launch {
+            try {
+                runCatching { load() }
+            } finally {
+                loading.remove(key)
+                _loaded.update { it + 1 }
+            }
+        }
+    }
 
     /** How many numbers each contact name has. Computed once per contact list, not on every keystroke. */
     private var countedContacts: List<Any>? = null
@@ -412,17 +444,22 @@ class Completer(private val context: Context, private val data: Data) {
     private fun appCompletions(head: String, arg: String, includeHidden: Boolean = false, only: ((AppEntry) -> Boolean)? = null): List<Suggestion> =
         appRows(head, appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden).filter { only == null || only(it) }.take(cap))
 
-    /** The apps that have launcher shortcuts, asked again at most every 30 seconds while you type. */
-    private var shortcutApps: Pair<Long, Set<Pair<String, Long>>?>? = null
+    /**
+     * The apps that have launcher shortcuts, and when they were asked. Null inside when Kolahal may
+     * not read shortcuts. Asked again at most every 30 seconds while you type.
+     */
+    @Volatile private var shortcutApps: Pair<Long, Set<Pair<String, Long>>?>? = null
 
     /**
      * `shortcuts `: the apps that have shortcuts, at once, the most used first; typing narrows them.
-     * When Kolahal may not read shortcuts (it isn't the home app), every app is offered.
+     * When Kolahal may not read shortcuts (it isn't the home app), or until the list arrives, every app is offered.
      */
     private fun shortcutApps(head: String, arg: String): List<Suggestion> {
-        val now = System.currentTimeMillis()
-        val has = shortcutApps?.takeIf { now - it.first < 30_000 }?.second
-            ?: appsRepo.appsWithShortcuts().also { shortcutApps = now to it }
+        val known = shortcutApps
+        if (known == null || System.currentTimeMillis() - known.first >= 30_000) {
+            loadSoon("shortcut-apps") { shortcutApps = System.currentTimeMillis() to appsRepo.appsWithShortcuts() }
+        }
+        val has = known?.second
         val withShortcuts = { app: AppEntry -> has == null || (app.pkg to app.profile.serial) in has }
         if (arg.replace(FLAGS, "").isNotBlank()) return appCompletions(head, arg, only = withShortcuts)
         val order = appsRepo.top(appsRepo.apps.value.size).withIndex().associate { it.value.key to it.index }
@@ -448,7 +485,7 @@ class Completer(private val context: Context, private val data: Data) {
     }
 
     /** The activities of the last app, so typing after `activity settings ` doesn't ask the system on every key. */
-    private var activityCache: Pair<String, List<ActivityItem>>? = null
+    @Volatile private var activityCache: Pair<String, List<ActivityItem>>? = null
 
     /**
      * `activity set` offers apps (personal profile only). After the app's name and a space,
@@ -464,8 +501,11 @@ class Completer(private val context: Context, private val data: Data) {
         // Still typing the app's name.
         if (name.isEmpty() && parts.last().isNotEmpty()) return appRows()
         val app = appsRepo.search(appName, ProfileKind.PERSONAL).firstOrNull() ?: return emptyList()
-        val items = activityCache?.takeIf { it.first == app.key }?.second
-            ?: ActivityCommands.activities(context, app).also { activityCache = app.key to it }
+        val items = activityCache?.takeIf { it.first == app.key }?.second ?: run {
+            // An app can have hundreds of activities, each with a label to load: rows come when they're read.
+            loadSoon("activities ${app.key}") { activityCache = app.key to ActivityCommands.activities(context, app) }
+            return emptyList()
+        }
         val shown = if (name.isEmpty()) items else when (val found = ActivityMatch.find(items, name)) {
             is ActivityMatch.Found.One -> listOf(found.item)
             is ActivityMatch.Found.Many -> found.items
@@ -478,16 +518,19 @@ class Completer(private val context: Context, private val data: Data) {
     }
 
     /** The shortcut labels of the last app, so typing after `open maps:` doesn't ask the system on every key. */
-    private var shortcutCache: Pair<String, List<String>>? = null
+    @Volatile private var shortcutCache: Pair<String, List<String>>? = null
 
     private var contactsLoadRequested = false
 
     /** `open maps:` → offers that app's launcher shortcuts. */
     private fun shortcutSuggestions(head: String, arg: String): List<Suggestion> {
         val app = appsRepo.search(arg.substringBefore(':').trim()).firstOrNull() ?: return emptyList()
-        val labels = shortcutCache?.takeIf { it.first == app.key }?.second
-            ?: appsRepo.shortcuts(app).mapNotNull { (it.shortLabel ?: it.longLabel)?.toString() }.distinct()
-                .also { shortcutCache = app.key to it }
+        val labels = shortcutCache?.takeIf { it.first == app.key }?.second ?: run {
+            loadSoon("shortcuts ${app.key}") {
+                shortcutCache = app.key to appsRepo.shortcuts(app).mapNotNull { (it.shortLabel ?: it.longLabel)?.toString() }.distinct()
+            }
+            return emptyList()
+        }
         val wanted = arg.substringAfter(':').trim()
         return labels.filter { it.contains(wanted, ignoreCase = true) }.take(cap)
             .map { Suggestion.Completion("${app.label} › $it", "$head ${app.label}:$it" + flagFor(app), app = app) }

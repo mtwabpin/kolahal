@@ -180,6 +180,10 @@ class ActivityCommandsTest {
         })
         fun lines(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>().map { it.replacement }
         assertTrue(lines("activity sett").toString(), "activity Settings " in lines("activity sett"))
+        // The app's activities are read off the main thread: none at first, then they arrive.
+        val loaded = completer.loaded.value
+        assertEquals(emptyList<String>(), lines("activity settings "))
+        waitUntil("the activities arrive") { completer.loaded.value > loaded }
         assertTrue(lines("activity settings ").size > 5)
         assertEquals(lines("activity settings wifisettingsact").toString(), "activity Settings WifiSettingsActivity", lines("activity settings wifisettingsact").first())
     }

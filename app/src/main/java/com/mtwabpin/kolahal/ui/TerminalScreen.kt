@@ -653,10 +653,11 @@ private fun PromptSuggestions(
     val commandNames by vm.commandNames.collectAsStateWithLifecycle()
     val prefsVersion by vm.appPrefsVersion.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val loaded by vm.suggestionsLoaded.collectAsStateWithLifecycle()
     val inputText = if (previewTyping) PREVIEW_INPUT else vm.input.text
     // Hidden, they aren't worked out: an idle home would rank every app again on each return.
     if (!always && inputText.isEmpty()) return
-    val suggestions = remember(inputText, apps, maxSuggestions, commandNames, prefsVersion, contacts) {
+    val suggestions = remember(inputText, apps, maxSuggestions, commandNames, prefsVersion, contacts, loaded) {
         vm.suggestions(inputText).take(maxSuggestions)
     }
     val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] }

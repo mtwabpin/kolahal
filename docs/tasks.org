@@ -126,23 +126,6 @@ Fix: when code from elsewhere is saved, remove access entries the new code no lo
 again for secrets stored without sites.
 
 ** Performance
-*** TODO [#B] Suggestions for =activity=, =shortcuts= and =open app:= call the system on the main thread
-They are worked out in =remember {}= in =PromptSuggestions= (=ui/TerminalScreen.kt:656-658=).
-
-- =activity <app> =: =terminal/Completer.kt:467-468= → =ActivityCommands.activities=
-  (=terminal/ActivityCommands.kt:172-185=): =getPackageInfo(GET_ACTIVITIES)= and a label for each
-  exported activity. Estimated 20–100+ ms for an app with hundreds of activities, once per app.
-- =shortcuts =: =Completer.kt:424-425= → =AppRepository.appsWithShortcuts= asks for every shortcut
-  of every app. Tens of ms, at most every 30 s.
-- =open x:=: =Completer.kt:234= → =AppRepository.kt:277-289=, once per app.
-- Side bug: when Kolahal isn't the home app, =appsWithShortcuts()= returns null, so the 30 s cache
-  never hits, and =hasShortcutHostPermission()= (a binder call) runs on every key.
-- =Completer.kt:461=, =:476=: =ActivityCommands.appToken= per row runs two or more app rankings
-  that miss the one-slot memo, for up to 12 rows per key /(unchecked)/.
-
-Fix: fetch these lists on =Dispatchers.IO= (as =showMenu= does) and show the rows when ready. Cache
-the null result too.
-
 *** TODO [#C] Avoidable work on each key press /(unchecked)/
 Each is small; together estimated 0.2–1 ms per key on a mid-range phone.
 
