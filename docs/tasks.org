@@ -86,21 +86,6 @@ saved copy, then use the fresh list when it arrives. A smaller first step: say "
 loading" instead of "Command not found" while the list is empty.
 
 ** Security
-*** TODO [#B] The Lua sandbox depends on one catch block never failing
-- =script/LuaEngine.kt:76-83= (=safe=) turns a Kotlin exception into a Lua error. The catch block
-  itself can throw: =host.redact= runs a regex over the message, then it pushes to the stack.
-- The timeout check function (=:40-45=) isn't wrapped in =safe=.
-- LuaJava 4.1.0 keeps a Java exception that leaves a function in the global =__jthrowable__=, as a
-  Java object with its reflective metatable. The prelude clears it only once, at start (=:385-387=).
-- If an exception ever escaped, a script would hold a Java object, with the app's UID: all of
-  =kolahal.db= (notification text too), the secrets, and every permission. The =:script= process
-  protects stability; it is not a security boundary.
-- No way to make an exception escape was found. Suspected, not shown.
-
-Fix: inside the catch, a second =try/catch= that pushes a fixed string. Wrap the check function the
-same way. Also: in the prelude, while =debug= is still there, clear =__index=, =__newindex= and
-=__call= on LuaJava's Java object, class and array metatables, so a leaked object can do nothing.
-
 *** TODO [#B] Release workflow: actions are pinned by tag in the job that holds the signing keys
 - =.github/workflows/release.yml:56= uses =gradle/actions/setup-gradle@v5=. The Gradle step
   (=:92-104=) has both keystores' passwords in its environment.

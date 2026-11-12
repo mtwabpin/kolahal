@@ -37,12 +37,12 @@ class LuaEngine : ScriptEngine {
         val watchdog = RunWatchdog(host, timeoutMs, NATIVE_LIMIT_MB)
         try {
             lua.openLibraries()
-            lua.push { l ->
+            lua.push(guarded("script stopped") { l ->
                 if (!ctx.isActive || System.currentTimeMillis() > deadline) {
                     l.push("script timed out after ${timeoutMs / 1000}s")
                     -1
                 } else 0
-            }
+            })
             lua.setGlobal("__kolahal_check")
             bindHost(lua, host)
             lua.push(code)
@@ -71,16 +71,32 @@ class LuaEngine : ScriptEngine {
         }
     }
 
+    /**
+     * [fn] as a Lua function that never throws. An exception that left it would reach the script as a
+     * Java object (LuaJava keeps it in `__jthrowable__`), with Java's reflection behind it. So an error
+     * becomes a Lua error: the text [message] gives, or [fallback] when even that fails.
+     */
+    private fun guarded(fallback: String, message: (Throwable) -> String = { fallback }, fn: (Lua) -> Int) = JFunction { l ->
+        try {
+            fn(l)
+        } catch (e: Throwable) {
+            val text = try {
+                message(e)
+            } catch (_: Throwable) {
+                fallback
+            }
+            try {
+                l.push(text)
+            } catch (_: Throwable) {
+                // No room for the message: the error carries whatever is on top, never a Java object.
+            }
+            -1
+        }
+    }
+
     private fun bindHost(lua: Lua, host: HostApi) {
         /** Turns Kotlin exceptions into Lua errors instead of letting them cross JNI. They are masked, as the script may see them. */
-        fun safe(fn: (Lua) -> Int) = JFunction { l ->
-            try {
-                fn(l)
-            } catch (e: Throwable) {
-                l.push(host.redact(e.message ?: e.javaClass.simpleName))
-                -1
-            }
-        }
+        fun safe(fn: (Lua) -> Int) = guarded("host error", { e -> host.redact(e.message ?: e.javaClass.simpleName) }, fn)
 
         fun Lua.global(name: String, fn: (Lua) -> Int) {
             push(safe(fn))
@@ -381,6 +397,19 @@ class LuaEngine : ScriptEngine {
             end
 
             -- Sandbox
+            -- A Java object that ever reached the script (none should) can do nothing: its metatables
+            -- keep only what frees it (__gc), and can't be read. The host functions are C closures
+            -- and don't use them.
+            do
+              local registry = debug.getregistry()
+              for _, kind in ipairs({ "__jobject__", "__jclass__", "__jarray__" }) do
+                local mt = registry[kind]
+                if type(mt) == "table" then
+                  for k in pairs(mt) do if k ~= "__gc" then mt[k] = nil end end
+                  mt.__metatable = false
+                end
+              end
+            end
             local realload = load
             java, debug, io, package, require, dofile, loadfile = nil, nil, nil, nil, nil, nil, nil
             -- LuaJava keeps a thrown Java exception (a reflective object) here; none should get this far.

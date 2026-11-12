@@ -43,6 +43,17 @@ class ScriptEngineTest {
         assertEquals(mapOf("a" to 1, "b" to listOf(1, 2, 3)), Json.parse(out))
     }
 
+    /**
+     * A host function's error reaches the script as text, never as a Java object (`__jthrowable__`).
+     * And the host functions still work with the Java metatables emptied.
+     */
+    @Test fun luaHostErrorsAreTextOnly() {
+        assertEquals(
+            "false\tstring\tnil\ttrue",
+            lua("local ok, err = pcall(json.decode, '{nope'); return tostring(ok) .. '\\t' .. type(err) .. '\\t' .. tostring(__jthrowable__) .. '\\t' .. tostring(json.decode('[1]')[1] == 1)"),
+        )
+    }
+
     @Test fun luaSandboxRemovesDangerousGlobals() {
         assertEquals("nil\tnil\tnil\tnil\tnil", lua("java, io, debug, require, os.execute"))
     }
