@@ -254,21 +254,6 @@ Steps:
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
    =BuildConfig.SELF_UPDATE= for R8 (=:138=).
 
-*** TODO [#B] A phone-to-phone transfer copies state that belongs to the old phone
-=res/xml/data_extraction_rules.xml= copies =kolahal.db= whole in =device-transfer=. In-app backups
-leave out the kv scopes =calls=, =packages=, =worker=, =shared-settings= and the notification
-mirror on purpose (=DEVICE_SCOPES=, =data/FullBackup.kt:59=).
-
-- =calls/CallEvents.kt:78-84= trusts the stored =LAST= id and asks for =_ID > last=. On the new
-  phone ids start low, so call lines don't appear until they pass the old phone's value.
-- =apps/PackageEvents.kt:160-172= diffs against the old phone's app list and logs wrong
-  installed, updated and removed lines.
-- How it works was checked; the effect after a real transfer wasn't seen. Widgets are already
-  handled (=WidgetHost.prune=).
-
-Fix: keep a random install id in =noBackupFilesDir=. On main-process start compare it with a copy in
-kv; when they differ, clear =DEVICE_SCOPES=. Make that list the one source for both. 3–4 hours.
-
 *** TODO [#B] Errors in start-up and scheduling work are dropped without a trace /(unchecked)/
 About 265 =runCatching= in main code; 62 drop the result; 2 =Log= calls in the whole app.
 

@@ -163,6 +163,8 @@ class PackageEvents private constructor(private val context: Context) {
         val (now, paused, present) = current()
         // If every profile, even the personal one, is missing at once, it is a glitch, not a removal.
         if (present.isEmpty()) return
+        // A database from another phone has that phone's apps: clear them first, so this is a first run.
+        com.mtwabpin.kolahal.data.ThisInstall.check(context)
         val before = load()
         if (before == null) {
             // First run: save what is installed, without logging every app as "installed".

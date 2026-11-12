@@ -75,6 +75,8 @@ class CallEvents private constructor(private val context: Context) {
     @Synchronized
     private fun scan() {
         if (!hasPermission(context)) return
+        // A database from another phone has its last call id: clear it first, or new calls would wait to pass it.
+        com.mtwabpin.kolahal.data.ThisInstall.check(context)
         val last = store.get(LAST)?.toLongOrNull()
         if (last == null) {
             // First run: start from the newest call and don't log older calls.

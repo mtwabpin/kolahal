@@ -52,11 +52,12 @@ object FullBackup {
      *   installed or updated),
      * - daily notes,
      * - settings copied for the :script process,
-     * - the copy of recent notifications kept for scripts.
+     * - the copy of recent notifications kept for scripts,
+     * - which install wrote the database ([ThisInstall]).
      * They don't go into a backup, and a restore keeps this phone's. If a backup file holds them,
-     * they are skipped.
+     * they are skipped. A transfer to a new phone copies them, so [ThisInstall] clears them there.
      */
-    private val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE, KolahalNotificationListener.MIRROR_SCOPE)
+    internal val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE, KolahalNotificationListener.MIRROR_SCOPE, ThisInstall.SCOPE)
 
     fun export(context: Context): Map<String, Any?> {
         // Rows too big for a cursor would make the whole export fail. They come from old versions; the
