@@ -48,7 +48,7 @@ class CommandProcessorTest {
     }
 
     @After fun tearDown() {
-        prefs.setAlias("tt", null)
+        for (name in listOf("tt", "t2", "tself", "tsec")) prefs.setAlias(name, null)
         ScriptRepository.get(context).byName("cptest")?.let { ScriptRepository.get(context).delete(it.id) }
     }
 
@@ -58,6 +58,22 @@ class CommandProcessorTest {
     @Test fun echoAndUnknown() {
         assertEquals(listOf("hello world"), run("echo hello world"))
         assertTrue(run("definitely-not-an-app-zzz").single().startsWith("Command not found"))
+    }
+
+    /** What the prompt shows for an alias is what Enter runs: chained aliases expanded, nothing left to expand. */
+    @Test fun anAbbreviationIsWhatEnterRuns() {
+        val processor = commands.processor
+        run("alias tt = t2 extra")
+        run("alias t2 = help|grep x")
+        assertEquals("help | grep x extra", processor.abbreviation("tt"))
+        assertEquals(null, processor.abbreviation("echo"))
+        assertEquals(null, processor.abbreviation("nope-zzz"))
+        // An alias that leads back to itself would expand again on Enter: it stays as typed.
+        run("alias tself = tself again")
+        assertEquals(null, processor.abbreviation("tself"))
+        // A script secret's value never shows in the prompt.
+        prefs.setAlias("tsec", "script secret cptest KEY value")
+        assertEquals(null, processor.abbreviation("tsec"))
     }
 
     @Test fun aliasExpands() {

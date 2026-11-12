@@ -810,6 +810,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val old = input.text
         // Cursor moves and IME composition updates must not abandon history navigation.
         if (value.text != old) historyIndex = -1
+        // An alias as the first word, then a space, expands. The line then waits for Enter, as an alias does.
+        abbreviated(old, value)?.let { input = it; return }
         input = value
         // Instant run fires only while typing forward at the end of the line, so backspacing or
         // editing in the middle never fires it.
@@ -877,8 +879,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val v = input
         val newText = v.text.replaceRange(v.selection.min, v.selection.max, text)
         historyIndex = -1
-        input = TextFieldValue(newText, TextRange(v.selection.min + text.length))
+        val value = TextFieldValue(newText, TextRange(v.selection.min + text.length))
+        input = abbreviated(v.text, value) ?: value
     }
+
+    /** [value] with an alias typed as its first word expanded ([Abbreviations]), or null. */
+    private fun abbreviated(old: String, value: TextFieldValue) = Abbreviations.onSpace(old, value, processor::abbreviation)
 
     fun historyUp() {
         if (history.isEmpty()) return
@@ -944,6 +950,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * with Tab counts as typing.
      */
     private fun pickCompletion(replacement: String, tapped: Boolean) {
+        // An alias picked as the first word (`a `) expands, as it does when typed with a space.
+        abbreviated(replacement.dropLast(1), TextFieldValue(replacement, TextRange(replacement.length)))?.let {
+            historyIndex = -1
+            input = it
+            return
+        }
         setText(replacement)
         if (searchWords(replacement) != null || !replacement.trim().contains(' ')) return
         // A contact tapped for `call` opens the dialer at once, as a tap in the log does. The

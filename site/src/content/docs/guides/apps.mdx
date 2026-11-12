@@ -104,8 +104,15 @@ alias m                      # show one
 unalias m                    # remove
 ```
 
-An alias replaces the first word of a command. Aliases can use other aliases, up to five levels deep,
-but they can't form a loop. You can't use a built-in command name as an alias.
+An alias replaces the first word of a command. It works like an abbreviation in the fish shell: type
+its name at the start of the line, then a space, and the prompt shows what it stands for. With
+`alias a = Authy`, typing `a` and a space leaves `Authy ` in the prompt. Press Enter, or add more
+words first. Picking an alias from the suggestions expands it too.
+
+- Only the first word expands. `echo a ` stays as it is.
+- Enter also runs an alias you didn't expand: `a`, then Enter, opens Authy.
+- Aliases can use other aliases, up to five levels deep, but they can't form a loop.
+- You can't use a built-in command name as an alias.
 
 ## App info and uninstall
 

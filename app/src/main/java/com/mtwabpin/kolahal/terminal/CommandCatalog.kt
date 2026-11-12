@@ -242,7 +242,7 @@ object CommandCatalog {
             uses = listOf(
                 "alias" to "your aliases",
                 "alias <name>" to "what one stands for",
-                "alias <name> = <command>" to "make one",
+                "alias <name> = <command>" to "make one: <name> and a space at the start of the line becomes <command>",
                 "unalias <name>" to "remove one",
             ),
         ),

@@ -205,6 +205,20 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         return current
     }
 
+    /**
+     * What the alias [word] stands for, for the prompt to show in its place ([Abbreviations]),
+     * expanded as Enter would expand it. Null when:
+     * - [word] isn't an alias (or is a built-in name);
+     * - the line would carry a script secret, which the prompt must not show;
+     * - Enter would expand the line again (an alias that leads back to itself).
+     */
+    fun abbreviation(word: String): String? {
+        if (prefs.alias(word) == null) return null
+        val line = expandAliases(word).trim()
+        if (line == word || ScriptCommands.carriesSecret(line) || expandAliases(line).trim() != line) return null
+        return line
+    }
+
     private fun alias(rest: String) {
         if (rest.isBlank()) {
             val all = prefs.aliases()

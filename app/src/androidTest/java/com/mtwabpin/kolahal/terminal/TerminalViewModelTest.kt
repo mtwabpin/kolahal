@@ -325,6 +325,39 @@ class TerminalViewModelTest {
         assertEquals("", vm.input.text)
     }
 
+    /** An alias typed as the first word, then a space, becomes what it stands for; elsewhere it stays. */
+    @Test fun anAliasExpandsWhenASpaceFollowsIt() {
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(app)
+        prefs.setAlias("tvab", "echo expanded")
+        try {
+            val vm = home()
+            // From the keyboard.
+            vm.typed("tvab")
+            vm.typed("tvab ")
+            assertEquals(TextFieldValue("echo expanded ", TextRange(14)), vm.input)
+            // From the key bar's space.
+            main { vm.onKeyBar(KeyBarKey.ESC) }
+            vm.typed("tvab")
+            main { vm.onKeyBar(KeyBarKey.SPACE) }
+            assertEquals("echo expanded ", vm.input.text)
+            // Tab on its suggestion.
+            main { vm.onKeyBar(KeyBarKey.ESC) }
+            vm.typed("tva")
+            main { vm.onKeyBar(KeyBarKey.TAB) }
+            assertEquals("echo expanded ", vm.input.text)
+            // Not as a later word, and not when pasted whole.
+            main { vm.onKeyBar(KeyBarKey.ESC) }
+            vm.typed("echo tvab")
+            vm.typed("echo tvab ")
+            assertEquals("echo tvab ", vm.input.text)
+            main { vm.onKeyBar(KeyBarKey.ESC) }
+            vm.typed("tvab ")
+            assertEquals("tvab ", vm.input.text)
+        } finally {
+            prefs.setAlias("tvab", null)
+        }
+    }
+
     /** The key bar's keyboard key opens the keyboard on the prompt. */
     @Test fun theKeyboardKeyFocusesThePrompt() {
         val vm = home()
