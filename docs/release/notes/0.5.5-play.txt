@@ -1,0 +1,1 @@
+Turn off the commands you don't use: Settings → Commands has a switch for each one. A command that is off isn't suggested or listed in help, and its name opens the app it matches, so maps can open Maps. Aliases now expand as you type, like abbreviations in the fish shell: with alias a = Authy, typing a and a space leaves Authy in the prompt.
