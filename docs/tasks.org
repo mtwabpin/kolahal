@@ -254,19 +254,6 @@ Steps:
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
    =BuildConfig.SELF_UPDATE= for R8 (=:138=).
 
-*** TODO [#B] Errors in start-up and scheduling work are dropped without a trace /(unchecked)/
-About 265 =runCatching= in main code; 62 drop the result; 2 =Log= calls in the whole app.
-
-- =LauncherApp.kt:99-117=, =:140=: =ScriptScheduler.syncAll=, =ReminderScheduler.rescheduleAll=,
-  =FeedScheduler.sync=, =updateUnedited= and =trimIfDue= each sit in a bare =runCatching=. If
-  =rescheduleAll= fails after a reboot, reminders don't fire, and nothing says why.
-- =productivity/Reminders.kt:211=, =:213=, =script/ScriptAlarms.kt:59=.
-- =data/Backup.kt:185-207=: an import reports success while timers, font or widgets failed.
-- =runCatching= around suspending calls: 3, none harmful.
-
-Fix: a =quietly("what") { }= helper that writes one ERROR line per tag per day, as
-=ScriptRun.reportBlocked= does. Use it at these sites first. Half a day.
-
 *** TODO [#B] =TerminalViewModel= depends on the order of its =init= blocks /(unchecked)/
 =terminal/TerminalViewModel.kt:352-383=, =:610-674=, =:1081-1084=, =:1760-1775=. =viewModelScope= is
 =Main.immediate=, so each =launch= in an early =init= runs during construction. Only the 40 ms

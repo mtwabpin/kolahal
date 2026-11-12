@@ -208,9 +208,9 @@ class ReminderBootReceiver : BroadcastReceiver() {
                 val result = goAsync()
                 Thread {
                     try {
-                        runCatching { ReminderScheduler.rescheduleAll(context) }
+                        com.mtwabpin.kolahal.data.Quietly.run(context, "Setting reminders again") { ReminderScheduler.rescheduleAll(context) }
                         // Scripts' daily times are alarms too. They are exact once that is allowed.
-                        runCatching { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
+                        com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling scripts") { com.mtwabpin.kolahal.script.ScriptScheduler.syncAll(context) }
                     } finally {
                         result.finish()
                     }

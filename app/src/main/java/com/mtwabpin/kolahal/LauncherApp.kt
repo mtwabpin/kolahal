@@ -98,13 +98,15 @@ class LauncherApp : Application(), Configuration.Provider {
             // icons on the main thread.
             runCatching { com.mtwabpin.kolahal.notifications.NotifIcons.preload(this) }
             runCatching { CrashReports.announce(this) }
+            // These must not stop each other, but a failure is logged (once a day): a reminder not set again stays unseen otherwise.
+            val quietly = com.mtwabpin.kolahal.data.Quietly
             // Library scripts that nobody edited are updated to the app's library.
-            runCatching { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
-            runCatching { ScriptScheduler.syncAll(this) }
+            quietly.run(this, "Updating library scripts") { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
+            quietly.run(this, "Scheduling scripts") { ScriptScheduler.syncAll(this) }
             runCatching { com.mtwabpin.kolahal.data.StatusLines.pinShownOnce(this) }
-            runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
-            runCatching { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
-            runCatching { LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS]) }
+            quietly.run(this, "Scheduling feeds") { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
+            quietly.run(this, "Setting reminders again") { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
+            quietly.run(this, "Trimming the old log") { LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS]) }
             // This scans the whole table, so it runs once per app version. It repairs rows from old
             // versions before anything reads them. A backup's export depends on it.
             runCatching {

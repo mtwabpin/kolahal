@@ -183,7 +183,7 @@ class Backup(private val context: Context) {
                     if (on) scripts.byId(script.id)?.let { com.mtwabpin.kolahal.script.ScriptAccess.askForNew(context, it) }
                 }
             }
-            runCatching { scripts.byId(script.id)?.let { ScriptScheduler.sync(context, it) } }
+            runCatching { scripts.byId(script.id)?.let { ScriptScheduler.sync(context, it) } }.onFailure { skipped += "timers of script $name" }
             count++
         }
         (root["font"] as? Map<*, *>)?.let { font ->
@@ -194,18 +194,20 @@ class Backup(private val context: Context) {
                     val dir = java.io.File(context.filesDir, "fonts").apply { mkdirs() }
                     dir.listFiles()?.filter { it.name.startsWith("custom.") }?.forEach { it.delete() }
                     java.io.File(dir, name).writeBytes(data)
-                }
-            }
+                }.onFailure { skipped += "font" }
+            } else skipped += "font"
         }
         (root["widgets"] as? List<*>)?.let { list ->
             @Suppress("UNCHECKED_CAST")
             runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).importWidgets(list.filterIsInstance<Map<String, Any?>>()) }
+                .onFailure { skipped += "widgets" }
         }
         if (data != null) {
             FullBackup.importScriptStores(context, data)
-            runCatching { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
-            runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) }
-            runCatching { ScriptScheduler.syncAll(context) }
+            // Home restarts after this and does them again; a failure is logged either way.
+            Quietly.run(context, "Setting reminders again") { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
+            Quietly.run(context, "Scheduling feeds") { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) }
+            Quietly.run(context, "Scheduling scripts") { ScriptScheduler.syncAll(context) }
         }
         // A backup decides where searches go, what a gesture runs and what an alias runs. List those worth a look:
         // the settings that aren't the defaults, and the aliases that run code or change settings ([toReview]). An
