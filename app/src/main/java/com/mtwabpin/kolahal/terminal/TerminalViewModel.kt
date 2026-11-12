@@ -743,9 +743,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val exact = com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
         if (exact && exactAlarms == false) io { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
         exactAlarms = exact
-        io { logs.trimIfDue(config[Keys.LOG_KEEP_DAYS]) }
-        // Daily times drift (late runs, a daylight-saving change), so they are set again every few hours.
-        io { ScriptScheduler.syncAllIfDue(context) }
+        // Housekeeping runs beside the command queue, not in it: an app opened right after returning
+        // mustn't wait behind a trim or the scripts' schedule.
+        viewModelScope.launch(Dispatchers.IO) {
+            com.mtwabpin.kolahal.data.Quietly.run(context, "Trimming the old log") { logs.trimIfDue(config[Keys.LOG_KEEP_DAYS]) }
+            // Daily times drift (late runs, a daylight-saving change), so they are set again every few hours.
+            com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling scripts") { ScriptScheduler.syncAllIfDue(context) }
+        }
         // A crash in the script process doesn't restart home. So its report is announced here,
         // outside the command queue, so that a command typed at once doesn't wait for it.
         viewModelScope.launch(Dispatchers.IO) { runCatching { com.mtwabpin.kolahal.CrashReports.announce(context) } }

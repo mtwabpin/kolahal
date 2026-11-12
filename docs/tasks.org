@@ -129,17 +129,13 @@ The drop is on purpose (see the comment in =LauncherApp=).
 Fix: keep the icons of the top N apps by frecency (under 0.5 MB) across this trim, and warm them on
 resume.
 
-*** TODO [#C] Return to home: binder calls on the main thread, housekeeping on the command lane
-- Main thread, =MainActivity.kt:104-111=, =:252-257=: =WidgetHost.startListening()= (also with no
-  widgets), =watchBattery(true)=, =HomeClock.acquire=, =ReminderScheduler.canBeExact=,
-  =mediaRepo.start()=. Estimated 1–3 ms.
-- =terminal/TerminalViewModel.kt:745-747=, =:773-774=: =trimIfDue=, =syncAllIfDue=, =tipOfTheDay=
-  use =io {}=, the single-thread lane (=:1061=) that also launches apps (=:846=, =:983=, =:1055=).
-  Every 6 h =syncAll= runs, every 12 h the age trim. An app opened right after returning then waits
-  behind them, maybe a few hundred ms with many scripts.
+*** TODO [#C] Return to home: binder calls on the main thread
+Main thread, =MainActivity.kt:104-111=, =:252-257=: =WidgetHost.startListening()= (also with no
+widgets), =watchBattery(true)=, =HomeClock.acquire=, =ReminderScheduler.canBeExact=,
+=mediaRepo.start()=. Estimated 1–3 ms.
 
-Fix: run resume housekeeping on plain =Dispatchers.IO=, as =CrashReports.announce= already does.
-Skip =startListening= with no widget placed. Check the two permissions off the main thread.
+Fix: skip =startListening= with no widget placed. Check the two permissions off the main thread.
+(The housekeeping on return left the command lane in 0.5.6.)
 
 *** TODO [#C] Start-up: binder calls and prefs loads on the main thread /(unchecked)/
 =LauncherApp.kt:76-93= (channels, =AppRepository.start=, =UnlockCounter.start=,
@@ -227,8 +223,8 @@ Fix: while folded, give the text only its first few thousand characters.
   =docs/developing.org= names 5.
 
 Steps:
-1. A JVM test that reads the =when= labels from the source and checks them against the catalog and
-   =SYNONYMS=, as =ApiDocsTest= does for the engines. About 1 hour.
+1. Done in 0.5.6: =DispatchNamesTest= reads the =when= labels from the source and checks them
+   against the catalog and =SYNONYMS=, so the guards can no longer fail open unseen.
 2. Add =synonyms=, =sensitive=, =section= and =feature= to =CommandSpec=, and derive the existing
    sets from it, keeping their names. 2–4 hours.
 3. Replace the =when= with a map of handlers checked against the specs. About a day. Blockers:
