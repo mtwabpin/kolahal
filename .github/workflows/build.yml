@@ -26,7 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # The token isn't saved in .git/config, where every later step (Gradle, its plugins) could read it.
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@v6
         with:
@@ -43,7 +46,7 @@ jobs:
 
       # Also checks the Gradle wrapper is the published one. v5: v6 brings caching under Gradle's
       # own terms of use rather than the MIT licence.
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2: a commit, as a tag can be moved
 
       - name: Unit tests and builds
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease :app:bundlePlay :app:assemblePlay

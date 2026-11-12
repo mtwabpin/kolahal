@@ -86,19 +86,6 @@ saved copy, then use the fresh list when it arrives. A smaller first step: say "
 loading" instead of "Command not found" while the list is empty.
 
 ** Security
-*** TODO [#B] Release workflow: actions are pinned by tag in the job that holds the signing keys
-- =.github/workflows/release.yml:56= uses =gradle/actions/setup-gradle@v5=. The Gradle step
-  (=:92-104=) has both keystores' passwords in its environment.
-- =:24-27=: =contents: write= and =id-token: write=. The checkout (=:40=) keeps its credentials.
-- =.github/workflows/site.yml:11-14= sets =pages: write= and =id-token: write= for the whole
-  workflow, so =pnpm install= and =pnpm build= (outside npm code) run with them.
-  =pnpm/action-setup@v6= is pinned by tag too.
-- Whoever can move a tag gets code into the build that sees the keys.
-
-Fix: pin actions to commit SHAs. Add =persist-credentials: false= to the checkouts. Move the
-=site.yml= permissions to the deploy job. Check the =release= environment's protection rules on
-GitHub (not checked).
-
 *** TODO [#C] =script get= switches a script on with everything it asks for, then tells you
 =script/ScriptCatalog.kt:203-204= calls =setEnabled(…, grant = true)=. =terminal/ScriptCommands.kt:289-292=
 prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:102-106=) compares with
