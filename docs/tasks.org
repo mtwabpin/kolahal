@@ -75,27 +75,6 @@ lint. Nothing was run on a device, so all times are estimates. Line numbers are 
 - Nothing critical or high was found. Lint: 0 errors, 11 warnings (last section).
 
 ** Fix first
-*** TODO [#A] Restore keeps three things a backup file should not set
-Each one needs you to import a hostile file.
-
-- *Aliases that expand to code.* Only built-in names are blocked (=data/Backup.kt:121-130=,
-  =data/FullBackup.kt:136=). An alias named like an app can expand to =lua …=, =js …= or ~= …~.
-  Code typed at the prompt runs with no grants object (=script/HostApi.kt:183=), so it can use the
-  clipboard, the app list, the internet, DND and =launcher.run=. The review list
-  (=data/Backup.kt:210=) covers only =search.url= and the three gestures. Since 0.5.5 an alias
-  shows its expansion as you type, which helps a little.
-- *Feed item links.* The =items= table is restored row by row (=data/FullBackup.kt:119-123=), so
-  =link= skips =FeedFetcher.safeLink=. =feed open= then opens it as given
-  (=terminal/FeedCommands.kt:113=, =ui/FeedsScreen.kt:259=): any scheme works, such as =tel:=,
-  payment or app links, or =content:=.
-- *Tap actions on restored lines.* =safeCtx= (=data/FullBackup.kt:308-316=) drops RUN, SHORTCUT
-  and COMMAND, but keeps ACTIVITY and PHONE. One tap then opens that activity, or the dialer with
-  that number (=terminal/LogLineActions.kt:94-98=).
-
-Fix: put aliases whose expansion is sensitive (=InstantRun.isSensitive=) on the review list, or
-restore them off. Run restored =items.link= through =safeLink=. Drop ACTIVITY and PHONE in
-=safeCtx=.
-
 *** TODO [#A] After a reboot or an update, apps are missing for a moment
 The app list starts empty and is not saved (=apps/AppRepository.kt:79=). =reload()= (=:156-181=)
 loads every app's label first; it may take 0.2–1 s for 150–300 apps. Until then:

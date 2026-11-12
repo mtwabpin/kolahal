@@ -130,20 +130,26 @@ class BackupActionsTest {
     @Test fun importNamesWhatItSkippedAndWhatToCheck() {
         val backup = file(
             "settings.json",
-            """{"kolahal":3,"config":{"search.url":"https://example.com/?q=%s","no.such.key":"x"},"aliases":{"help":"clear all"},""" +
+            """{"kolahal":3,"config":{"search.url":"https://example.com/?q=%s","no.such.key":"x"},"aliases":{"help":"clear all","ba-fine":"echo hi","ba-calc":"= os.time()"},""" +
                 """"scripts":[{"name":"ba-bk","lang":"lua","code":"return 1"},{"name":"ba-bk2","lang":"js","code":"log(1)"}]}""",
         )
-        actions.importBackup(Uri.fromFile(backup))
-        assertEquals(
-            RecordingHost.Notice(
-                "Imported 1 setting, 0 aliases, 2 scripts (2 new scripts are off — turn them on in Scripts)" +
-                    " · skipped config no.such.key, alias help (built-in command)" +
-                    " · check these settings from the file: search.url = https://example.com/?q=%s",
-                false,
-            ),
-            host.lastNotice(),
-        )
-        assertNull(prefs.alias("help"))
+        try {
+            actions.importBackup(Uri.fromFile(backup))
+            // An alias that runs code is worth a look too: it may have an app's name.
+            assertEquals(
+                RecordingHost.Notice(
+                    "Imported 1 setting, 2 aliases, 2 scripts (2 new scripts are off — turn them on in Scripts)" +
+                        " · skipped config no.such.key, alias help (built-in command)" +
+                        " · check these from the file: search.url = https://example.com/?q=%s, alias ba-calc = = os.time()",
+                    false,
+                ),
+                host.lastNotice(),
+            )
+            assertNull(prefs.alias("help"))
+        } finally {
+            prefs.setAlias("ba-fine", null)
+            prefs.setAlias("ba-calc", null)
+        }
     }
 
     /** A file that isn't a Kolahal backup fails, saying so, and changes nothing: not even a config section it has. */

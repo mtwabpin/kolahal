@@ -119,6 +119,7 @@ object FullBackup {
                     val clean = when (t.name) {
                         "logs" -> withSafeCtx(row)
                         "reminders" -> withReadableRepeat(row)
+                        "items" -> withWebLink(row)
                         else -> row
                     }
                     // A value too big to read back would break home for good: every row must fit the 2 MB
@@ -296,8 +297,18 @@ object FullBackup {
     }
 
     /**
+     * A feed item opens its link as given (`feed open`, a tap in Feeds), so a restored one keeps only a
+     * web link, as a fetched one does ([com.mtwabpin.kolahal.feeds.FeedFetcher.safeLink]). Any other
+     * (`tel:`, an app or payment link, `content:`) only an edited file has.
+     */
+    private fun withWebLink(row: Map<*, *>): Map<*, *> {
+        val link = row["link"] as? String ?: return row
+        return if (com.mtwabpin.kolahal.script.Net.webUrl(link) != null) row else row.toMutableMap().apply { put("link", null) }
+    }
+
+    /**
      * A restored line must not do more on a tap than the line it claims to be: no commands that
-     * run at once, no app shortcuts, and links only to the web, maps or the store.
+     * run at once, no app shortcuts or screens, no number to dial, and links only to the web, maps or the store.
      */
     private fun withSafeCtx(row: Map<*, *>): Map<*, *> {
         val ctx = LogContext.fromJson(row["ctx"] as? String)
@@ -307,13 +318,14 @@ object FullBackup {
 
     /**
      * [ctx] with only what a restored line may do on a tap:
-     * - no command that runs, and no app shortcut,
+     * - no command that runs, no app shortcut, and no app screen ([LogContext.ACTIVITY]),
+     * - no number to dial ([LogContext.PHONE]): lines with numbers aren't exported, so only an edited file has one,
      * - links only to the web, maps or the store,
      * - a contact only from the contacts app.
      */
     internal fun safeCtx(ctx: LogContext): LogContext = LogContext(ctx.values.filter { (k, v) ->
         when (k) {
-            LogContext.RUN, LogContext.SHORTCUT, LogContext.COMMAND -> false
+            LogContext.RUN, LogContext.SHORTCUT, LogContext.COMMAND, LogContext.ACTIVITY, LogContext.PHONE -> false
             LogContext.URL -> com.mtwabpin.kolahal.script.Net.webUrl(v) != null || v.startsWith("geo:") || v.startsWith("market:")
             LogContext.IMAGE -> com.mtwabpin.kolahal.script.Net.webUrl(v) != null
             LogContext.CONTACT -> v.startsWith("content://com.android.contacts/")

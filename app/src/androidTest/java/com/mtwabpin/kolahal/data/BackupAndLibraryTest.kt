@@ -157,14 +157,17 @@ class BackupAndLibraryTest {
         }
     }
 
-    /** A restored line may not run a command on a tap, nor open a contact URI from anywhere but the contacts app. */
+    /**
+     * A restored line may not run a command on a tap, open an app's shortcut or screen, or dial a
+     * number, nor open a contact URI from anywhere but the contacts app.
+     */
     @Test fun restoredLinesKeepOnlySafeContext() {
         val ctx = LogContext.of(
             LogContext.COMMAND to "brightness 0", LogContext.RUN to "clear all", LogContext.SHORTCUT to "x",
             LogContext.URL to "https://example.com/", LogContext.PHONE to "+15550100", LogContext.CONTACT to "upi://pay?pa=x",
-            LogContext.PKG to "com.example", LogContext.COPY to "text",
+            LogContext.PKG to "com.example", LogContext.COPY to "text", LogContext.ACTIVITY to "com.example.Reset",
         )
-        assertEquals(setOf(LogContext.URL, LogContext.PHONE, LogContext.PKG, LogContext.COPY), FullBackup.safeCtx(ctx).values.keys)
+        assertEquals(setOf(LogContext.URL, LogContext.PKG, LogContext.COPY), FullBackup.safeCtx(ctx).values.keys)
         val contact = "content://com.android.contacts/contacts/lookup/abc"
         assertEquals(contact, FullBackup.safeCtx(LogContext.of(LogContext.CONTACT to contact)).values[LogContext.CONTACT])
     }
@@ -204,6 +207,28 @@ class BackupAndLibraryTest {
         assertEquals("interval below the minimum is clamped", 15, imported.intervalMin)
         assertEquals(30, scripts.byName("bktest")!!.intervalMin)
         file.delete()
+    }
+
+    /** A restored feed item keeps only a web link: `feed open` opens it as given. */
+    @Test fun restoredFeedItemsKeepOnlyWebLinks() {
+        val feeds = com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
+        val feed = feeds.add("https://example.com/bk-feed-links.xml")
+        try {
+            feeds.insertItems(feed.id, listOf(
+                com.mtwabpin.kolahal.feeds.FeedRepository.NewItem("bk-web", "Web", "https://example.com/a", null, null),
+                com.mtwabpin.kolahal.feeds.FeedRepository.NewItem("bk-tel", "Tel", "https://example.com/b", null, null),
+            ))
+            @Suppress("UNCHECKED_CAST") val data = FullBackup.export(context).toMutableMap()
+            @Suppress("UNCHECKED_CAST") val tables = (data["tables"] as Map<String, Any?>).toMutableMap()
+            @Suppress("UNCHECKED_CAST") val rows = tables["items"] as List<Map<String, Any?>>
+            tables["items"] = rows.map { if (it["guid"] == "bk-tel") it + ("link" to "tel:+15550100") else it }
+            data["tables"] = tables
+            FullBackup.importRaw(context, data)
+            val links = feeds.items(feed.id).associate { it.guid to it.link }
+            assertEquals(mapOf("bk-web" to "https://example.com/a", "bk-tel" to null), links)
+        } finally {
+            feeds.all().filter { it.url.contains("bk-feed-links") }.forEach { feeds.remove(it.id) }
+        }
     }
 
     /** "Backup everything": todos, notes, feeds, script stores and pins survive export → wipe → import. */

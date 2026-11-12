@@ -36,7 +36,7 @@ class BackupActions(
                     (if (r.disabled == 1) " (1 new script is off — turn it on in Scripts)" else "") +
                     (if (r.disabled > 1) " (${r.disabled} new scripts are off — turn them on in Scripts)" else "") +
                     (if (r.skipped.isNotEmpty()) " · skipped ${r.skipped.joinToString()}" else "") +
-                    (if (r.review.isNotEmpty()) " · check these settings from the file: ${r.review.joinToString()}" else "") +
+                    (if (r.review.isNotEmpty()) " · check these from the file: ${r.review.joinToString()}" else "") +
                     if (r.full) " — restarting to load it all" else ""
             )
             // A full restore replaced the preferences and tables, so every in-memory cache is now stale.

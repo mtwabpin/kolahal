@@ -6,6 +6,7 @@ import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.terminal.InstantRun
 
 /**
  * One JSON file with everything a user customises: settings, aliases, hidden/renamed apps and
@@ -85,7 +86,7 @@ class Backup(private val context: Context) {
         /** Rows restored from the raw data section (0 for older backups that hold only settings). */
         val restored: Int = 0,
         val full: Boolean = false,
-        /** Settings from the file that are worth a look: where searches go, and what gestures run. */
+        /** What from the file is worth a look: where searches go, what gestures run, and aliases that run code or change settings. */
         val review: List<String> = emptyList(),
     )
 
@@ -206,13 +207,35 @@ class Backup(private val context: Context) {
             runCatching { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(context) }
             runCatching { ScriptScheduler.syncAll(context) }
         }
-        // A backup decides where searches go and what a gesture runs. List those that aren't the defaults.
+        // A backup decides where searches go, what a gesture runs and what an alias runs. List those worth a look:
+        // the settings that aren't the defaults, and the aliases that run code or change settings ([toReview]). An
+        // alias can have an app's name, so typing that name would run it. (Read from the file: the raw data skips the cache.)
+        val sensitiveAliases = context.getSharedPreferences("aliases", Context.MODE_PRIVATE).all
+            .mapNotNull { (name, body) -> (body as? String)?.takeIf(::toReview)?.let { name to it } }
+            .sortedBy { it.first }
+            .map { (name, body) -> "alias $name = ${if (body.length > 60) body.take(59) + "…" else body}" }
         val review = listOf(Keys.SEARCH_URL, Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)
-            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" }
+            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases
         return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review)
     }
 
     companion object {
+        /**
+         * Commands that an alias from a file is worth a look for: they run code, change settings or
+         * aliases, delete things, or call and text. (Narrower than [InstantRun.SENSITIVE], which also
+         * holds harmless commands that typing must not start by itself.)
+         */
+        private val REVIEW = setOf(
+            "lua", "js", "config", "alias", "unalias", "script", "scripts", "clear", "uninstall", "update",
+            "backup", "wallpaper", "call", "sms", "url",
+        )
+
+        /** Whether an alias that runs [body] is worth a look after an import ([REVIEW], or the calculator `=`, which runs Lua). */
+        internal fun toReview(body: String): Boolean {
+            val line = body.trim()
+            return line.startsWith("=") || InstantRun.canonical(line.substringBefore(' ').lowercase()) in REVIEW
+        }
+
         const val VERSION = 3
         const val FILE_NAME = "kolahal-backup.json"
         private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES

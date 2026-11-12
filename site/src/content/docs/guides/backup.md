@@ -51,9 +51,12 @@ When you import a file:
   hasn't changed. If its code changed, it is also imported switched off.
 - Scripts with the same name as a built-in command are skipped.
 - A script with the same name as an existing script but a different language is skipped.
-- Restored log lines keep their text. When you tap them, they can't run commands or app shortcuts.
-  They keep only web, map and store links.
-- The import result lists settings you may want to check: a custom search address and gesture commands.
+- Restored log lines keep their text. When you tap them, they can't run commands, open app shortcuts
+  or screens, or dial a number. They keep only web, map and store links.
+- Restored feed items keep only web links.
+- The import result lists what you may want to check: a custom search address, gesture commands, and
+  aliases that run code or change settings (`lua`, `js`, `=`, `config` and the like). An alias can
+  have an app's name, so typing that name would run it.
 - Timer intervals under 15 minutes are raised to 15, because that is Android's minimum.
 
 Hidden apps and labels are saved per component and profile. They only carry over to a new phone if those match.
