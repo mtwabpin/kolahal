@@ -60,6 +60,27 @@ class CommandProcessorTest {
         assertTrue(run("definitely-not-an-app-zzz").single().startsWith("Command not found"))
     }
 
+    /** A command turned off (commands.off) is as if it weren't there: its names open apps, and help leaves it out. */
+    @Test fun aCommandTurnedOffOpensTheAppOfItsName() {
+        assertTrue(config.set(Keys.COMMANDS_OFF, "yt,maps,wiki"))
+        // Another name for it opens the app now; before, it ran the YouTube search.
+        assertTrue(apps.apps.value.any { it.label == "YouTube" })
+        assertEquals(listOf("Launched YouTube"), run("youtube"))
+        // No app matches: it says why.
+        assertEquals(listOf("Command not found: maps cafe  (maps is turned off · Settings → Commands)"), run("maps cafe"))
+        // help leaves them out, and names them at the end.
+        val help = run("help").map(com.mtwabpin.kolahal.data.StyledText::plain)
+        assertFalse(help.any { it == "yt" || it == "wiki" || it == "maps" })
+        assertTrue(help.toString(), help.any { it.startsWith("Turned off: ") && "yt" in it && "maps" in it && "wiki" in it })
+        assertTrue(run("help youtube").single().startsWith("yt is turned off"))
+        // A typo isn't corrected to it.
+        assertTrue(run("wikk").none { "did you mean" in it })
+        // The commands that turn it on again stay on.
+        assertFalse(config.set(Keys.COMMANDS_OFF, "config"))
+        assertTrue(config.set(Keys.COMMANDS_OFF, "none"))
+        assertTrue("yt" in run("help").map(com.mtwabpin.kolahal.data.StyledText::plain))
+    }
+
     /** What the prompt shows for an alias is what Enter runs: chained aliases expanded, nothing left to expand. */
     @Test fun anAbbreviationIsWhatEnterRuns() {
         val processor = commands.processor

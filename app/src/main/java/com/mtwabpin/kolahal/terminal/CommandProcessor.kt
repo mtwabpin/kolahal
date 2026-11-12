@@ -114,6 +114,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val rest = trimmed.substringAfter(' ', "").trim()
         val args = CommandParsing.tokenize(rest)
         runCatching {
+            // A command turned off (commands.off) is as if it didn't exist: its name opens the app it matches.
+            if (CommandsOff.isOff(name, off())) return@runCatching fallbackLaunch(trimmed)
             when (name) {
                 "alias" -> alias(rest)
                 "unalias" -> unalias(args)
@@ -309,11 +311,17 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
+    /** The built-in commands turned off (commands.off). */
+    private fun off() = CommandsOff.names(conf[Keys.COMMANDS_OFF])
+
     /** Unknown input: suggests the closest command, in case the first word has a typo. */
     private fun notFound(text: String) {
         val head = text.substringBefore(' ').lowercase()
         val rest = text.substringAfter(' ', "")
-        val candidates = CommandCatalog.OFFERED_NAMES + prefs.aliases().keys +
+        val off = off()
+        // A command turned off, and no app of that name: say why it didn't run.
+        if (CommandsOff.isOff(head, off)) return error("Command not found: $text  (${InstantRun.canonical(head)} is turned off · Settings → Commands)")
+        val candidates = CommandCatalog.OFFERED_NAMES - off + prefs.aliases().keys +
             scripts.all().filter { ScriptMeta.isCommand(it.code) }.map { it.name }
         val best = candidates.filter { it.length > 1 }
             .map { it to CommandParsing.editDistance(head, it) }
@@ -710,10 +718,12 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
      * Each built-in command is in a section of [HELP_SECTIONS]; the script commands come last.
      */
     private fun help() {
-        val byName = CommandCatalog.OFFERED.associateBy { it.name }
+        val off = off()
+        val offered = CommandCatalog.OFFERED.filter { it.name !in off }
+        val byName = offered.associateBy { it.name }
         val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) }
         // One column for the whole list, so the descriptions line up.
-        val column = (CommandCatalog.OFFERED.map { it.name } + commandScripts.map { it.name }).maxBy { it.length }
+        val column = (offered.map { it.name } + commandScripts.map { it.name }).maxBy { it.length }
         val placed = HashSet<String>()
         for ((section, names) in HELP_SECTIONS) {
             val specs = names.mapNotNull(byName::get)
@@ -725,12 +735,13 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             }
         }
         // None should be left, but a command missing from HELP_SECTIONS still shows.
-        CommandCatalog.OFFERED.filter { it.name !in placed }.forEach { helpLine(it, column) }
+        offered.filter { it.name !in placed }.forEach { helpLine(it, column) }
         if (commandScripts.isNotEmpty()) helpHeading("Your script commands", commandScripts.size)
         commandScripts.forEach { helpLine(it, column) }
         val muted = { text: String -> StyledText.colour(StyledText.Colour.MUTED, text) }
         val key = { text: String -> StyledText.tag(StyledText.Colour.TEXT, text) }
         info(muted("Anything else opens the app it matches"), LogContext(LogContext.ITEM))
+        if (off.isNotEmpty()) info(muted("Turned off: ") + CommandsOff.CHOICES.filter { it in off }.joinToString(", ") + muted(" · Settings → Commands"), LogContext(LogContext.ITEM))
         info(key("tap") + muted(" a line to use it · ") + key("long-press") + muted(" for more"))
         // No-break spaces keep the example on one line. A line may still break after "|" there; the word joiner stops it.
         info(muted("Pipes: ") + Pipes.SHOWN.joinToString(" ") { key(it) } + muted(" · help\u00A0|\u2060\u00A0grep\u00A0feed"))
@@ -742,7 +753,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
      */
     private fun commandHelp(word: String) {
         val typed = word.lowercase()
-        val offered = CommandCatalog.OFFERED
+        val off = off()
+        if (CommandsOff.isOff(typed, off)) return info("${InstantRun.canonical(typed)} is turned off: its name opens the app it matches · Settings → Commands turns it on")
+        val offered = CommandCatalog.OFFERED.filter { it.name !in off }
         offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
             out(StyledText.stats(listOf(spec.name to "")), LogContext.of(LogContext.COMMAND to spec.name + " "))
             out(spec.help)

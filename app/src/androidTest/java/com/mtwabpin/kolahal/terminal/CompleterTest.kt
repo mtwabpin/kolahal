@@ -312,6 +312,20 @@ class CompleterReviewTest {
         assertTrue(completer.suggestions(best.label).first().let { it is Suggestion.App && it.app == best && it.enter })
     }
 
+    /** A command turned off (commands.off) isn't offered: its names are plain words, so Enter launches the app they match. */
+    @Test fun aCommandTurnedOffIsntOffered() {
+        val config = com.mtwabpin.kolahal.data.Config.get(context)
+        assertTrue("yt" in labels("y"))
+        assertTrue(config.set(com.mtwabpin.kolahal.data.Keys.COMMANDS_OFF, "yt,contacts"))
+        assertFalse(labels("y").toString(), "yt" in labels("y"))
+        assertFalse(labels("help y").toString(), "yt" in labels("help y"))
+        assertTrue("no options after it", rows("contacts ").isEmpty())
+        // `contact` was another name for the command; now Enter opens the Contacts app.
+        val contacts = apps.apps.value.firstOrNull { it.label == "Contacts" && it.profile.kind == ProfileKind.PERSONAL }
+        org.junit.Assume.assumeTrue("the Contacts app", contacts != null)
+        assertTrue(completer.suggestions("contact").first().let { it is Suggestion.App && it.app.key == contacts!!.key && it.enter })
+    }
+
     /** Among the commands; an app Enter would launch still comes before them. */
     @Test fun commandsUsedLatelyComeFirst() {
         history = listOf("todo milk", "help")

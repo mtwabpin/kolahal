@@ -221,6 +221,7 @@ fun SettingsScreen(
                         )
                     }
                 }
+                if (open.id == COMMANDS_CATEGORY) commandsPage(vm, version)
                 if (open.id == "look") {
                     item(key = "h:own-themes") { PeekFade(peek) { GroupHeader("Your themes") } }
                     item(key = "own-themes") {

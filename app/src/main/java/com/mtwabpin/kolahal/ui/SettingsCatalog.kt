@@ -313,6 +313,8 @@ private val CATEGORIES = listOf(
             ),
         ),
     ),
+    // Its switches set commands.off (CommandsPage).
+    Category(COMMANDS_CATEGORY, "Commands", "Turn off the ones you don't use", R.drawable.ic_terminal, listOf(null to emptyList())),
     Category(
         "gestures", "Gestures", "Double-tap and swipes", R.drawable.ic_touch,
         listOf(null to listOf(Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)),

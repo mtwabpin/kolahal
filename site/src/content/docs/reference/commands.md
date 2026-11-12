@@ -6,7 +6,8 @@ description: Every built-in Kolahal command with its usage, aliases and subcomma
 This page lists every built-in command, in about the same sections as `help`.
 
 If what you type isn't a command, an [alias](/guides/apps/#aliases) or a
-[script command](/scripting/overview/#command-scripts), Kolahal matches it against app names.
+[script command](/scripting/overview/#command-scripts), Kolahal matches it against app names. You can
+[turn off](#turning-commands-off) the commands you don't use.
 
 How to read the usage:
 
@@ -243,3 +244,19 @@ If you have a work profile, a private space or cloned apps, app commands take a 
 - `-c`: clone
 
 See [Work profile & private space](/guides/profiles/).
+
+## Turning commands off
+
+You can turn off the commands you don't use: **Settings → Commands** has a switch for each one.
+This helps when a command has the name of an app you open often. With `maps` off, typing `maps`
+opens Maps.
+
+A command that is off:
+
+- isn't suggested, and `help` doesn't list it (`help` names the commands that are off at the end);
+- doesn't run, by its name or its other names: with `yt` off, `youtube` opens the YouTube app;
+- can't be run by scripts, gestures or taps on log lines either.
+
+`help`, `config` and `settings` always stay on, so you can turn the others back on. From the
+prompt: `config set commands.off yt,wiki,maps`, and `config set commands.off none` turns them all
+back on.

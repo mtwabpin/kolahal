@@ -32,10 +32,11 @@ object Tips {
     val DAYS = 1..14
 
     /** Returns the first tip that is not shown yet and whose commands are not in [history]. Returns null when no tip is left. */
-    fun next(history: List<String>, shown: Set<String>): Tip? {
+    fun next(history: List<String>, shown: Set<String>, off: Set<String> = emptySet()): Tip? {
         val typed = history.mapTo(HashSet()) { line ->
             line.trim().let { if (it.startsWith("=")) "=" else InstantRun.canonical(it.substringBefore(' ')) }
         }
-        return ALL.firstOrNull { it.id !in shown && it.used.none { name -> name in typed } }
+        // Not a tip whose example runs a command turned off (commands.off).
+        return ALL.firstOrNull { it.id !in shown && it.used.none { name -> name in typed } && !CommandsOff.isOff(it.example.substringBefore(' '), off) }
     }
 }

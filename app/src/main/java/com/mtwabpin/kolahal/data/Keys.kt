@@ -140,6 +140,12 @@ object Keys {
         "Web search engine for search / g",
     )
     val SEARCH_URL = ConfigKey.Text("search.url", "https://duckduckgo.com/?q=%s", "Custom search URL (%s = query), used when search.engine = custom")
+    // Settings → Commands sets it with a switch per command.
+    val COMMANDS_OFF = ConfigKey.Text(
+        "commands.off", "",
+        "Built-in commands turned off, separated by commas (none: all on). A command that is off isn't suggested or listed in help, and its name opens the app it matches (maps opens Maps). help, config and settings stay on",
+        com.mtwabpin.kolahal.terminal.CommandsOff::parse,
+    )
     val FOCUS_ON_HOME = ConfigKey.Bool("keyboard.on-home", false, "Open the on-screen keyboard whenever the home screen is shown")
     val BACKUP_AUTO = ConfigKey.Choice("backup.auto", "off", listOf("off", "daily", "weekly"), "Write a backup file to a folder you pick, every day or every week")
     val BACKUP_KEEP = ConfigKey.Num("backup.keep", 7, 1..60, "How many automatic backups to keep in the folder; older ones are deleted")
@@ -229,6 +235,7 @@ object Keys {
         LOG_TIPS,
         SEARCH_ENGINE,
         SEARCH_URL,
+        COMMANDS_OFF,
         FOCUS_ON_HOME,
         IME_SUGGESTIONS,
         BACKUP_AUTO,
@@ -252,7 +259,7 @@ object Keys {
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header).
      */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, LOG_LINE_HEIGHT, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT)
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, LOG_LINE_HEIGHT, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT, COMMANDS_OFF)
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {

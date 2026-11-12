@@ -132,6 +132,7 @@ The `theme` and `font` commands didn't change.
 | `suggestions.max` | number 0–30 | `30` | the most suggestions shown while you type |
 | `search.engine` | choice: `duckduckgo` `google` `bing` `brave` `startpage` `kagi` `custom` | `duckduckgo` | web search engine for `search` / `g` |
 | `search.url` | text | `https://duckduckgo.com/?q=%s` | custom search URL (`%s` is replaced by the search text). Used when `search.engine` is `custom` |
+| `commands.off` | text | empty | built-in commands turned off, separated by commas, such as `yt,wiki,maps` (`none`: all on). See [turning commands off](/reference/commands/#turning-commands-off). In Settings it is the Commands page |
 
 ## Gestures
 

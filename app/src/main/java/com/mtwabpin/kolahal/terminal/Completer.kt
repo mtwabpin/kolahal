@@ -78,8 +78,10 @@ class Completer(private val context: Context, private val data: Data) {
         // The command that a synonym stands for. It decides the completions. [head] is what goes back into the prompt.
         val cmd = InstantRun.canonical(head)
         val scriptList = data.scripts
+        // Commands turned off (commands.off) aren't offered: their names are plain words, for apps.
+        val off = CommandsOff.names(config[Keys.COMMANDS_OFF])
         if (parts.size == 1) {
-            val names = CommandCatalog.OFFERED_NAMES +
+            val names = CommandCatalog.OFFERED_NAMES - off +
                 data.commandNames +
                 appPrefs.aliases().keys
             // Commands used lately come first, then the rest in their usual order.
@@ -94,7 +96,7 @@ class Completer(private val context: Context, private val data: Data) {
             // match, or with launch.top on a prefix match. Then that app is the first, highlighted row,
             // so Enter, TAB and the highlight agree.
             val top = ranked.firstOrNull()
-            val enterLaunches = top != null && names.none { it == head } && head !in InstantRun.SYNONYMS &&
+            val enterLaunches = top != null && names.none { it == head } && (head !in InstantRun.SYNONYMS || cmd in off) &&
                 (top.first.label.equals(head, ignoreCase = true) || (ranked.size == 1 && config[Keys.AUTO_LAUNCH]) ||
                     (config[Keys.LAUNCH_TOP] && top.second <= 2))
             val apps = ranked.map { Suggestion.App(it.first) }
@@ -106,11 +108,11 @@ class Completer(private val context: Context, private val data: Data) {
             } else emptyList()
             val options = if (cmd in names) usageOptions(cmd, listOf(head, "")).map { it.copy(label = "$head ${it.label}") } else emptyList()
             // Not a command name: after the apps, show commands and settings whose description matches it.
-            val about = if (cmd !in names) described(head, shown = cmds.take(3).mapTo(HashSet()) { it.label }) else emptyList()
+            val about = if (cmd !in names) described(head, shown = cmds.take(3).mapTo(HashSet()) { it.label } + off) else emptyList()
             return (if (enterLaunches) listOf(apps.first().copy(enter = true)) + cmds.take(3) + apps.drop(1) + about else whole + options + cmds.take(3) + apps + about).distinctBy { it.key }
         }
         // Commands that this build leaves out (Play build: the call log, the screen lock, `update`) get no suggestions.
-        if (cmd in CommandCatalog.UNAVAILABLE) return emptyList()
+        if (cmd in CommandCatalog.UNAVAILABLE || cmd in off) return emptyList()
         val specific = argSuggestions(cmd, head, parts, scriptList)
         // Commands without their own completer still get the options that their usage line lists.
         val options = if (specific.isEmpty()) usageOptions(cmd, parts) else emptyList()
@@ -265,7 +267,7 @@ class Completer(private val context: Context, private val data: Data) {
                 else Suggestion.Completion("$name = $command", "$head $name = $command")
             } else emptyList()
             // `help to`: offer the command names.
-            "help" -> if (parts.size == 2) CommandCatalog.OFFERED_NAMES.filter { it.starts(last) }
+            "help" -> if (parts.size == 2) (CommandCatalog.OFFERED_NAMES - CommandsOff.names(config[Keys.COMMANDS_OFF])).filter { it.starts(last) }
                 .map { Suggestion.Completion(it, "$head $it", help = CommandCatalog.COMMANDS.firstOrNull { c -> c.name == it }?.help) } else emptyList()
             "status" -> if (parts.size == 3 && parts[1] == "clear") words(data.statusNames.toList() + "all", R.drawable.ic_code) else emptyList()
             "feed" -> when (parts.size) {

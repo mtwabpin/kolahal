@@ -22,6 +22,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -117,6 +119,25 @@ class SettingsScreenTest {
         } finally {
             compose.mainClock.autoAdvance = true
         }
+    }
+
+    /** Settings → Commands: a switch for each command that can be turned off; a tap writes commands.off. */
+    @Test fun theCommandsPageTurnsCommandsOffAndOn() {
+        show(COMMANDS_CATEGORY)
+        val list = compose.onNode(hasScrollToKeyAction())
+        list.performScrollToKey("command:yt")
+        val yt = compose.onNodeWithTag("command yt")
+        yt.assertIsOn()
+        yt.performClick()
+        compose.waitUntil(5_000) { config[Keys.COMMANDS_OFF] == "yt" }
+        yt.assertIsOff()
+        yt.performClick()
+        compose.waitUntil(5_000) { config[Keys.COMMANDS_OFF] == "" }
+        yt.assertIsOn()
+        // The ones that turn the others back on have no switch.
+        list.performScrollToKey("command:history")
+        compose.onNodeWithTag("command help").assertDoesNotExist()
+        compose.onNodeWithTag("command config").assertDoesNotExist()
     }
 
     @Test fun aTapOnTheEyeSaysToHold() {

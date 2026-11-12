@@ -189,6 +189,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** The script names in the bundled library, read once. `script install` completes them. */
     private val libraryNames: List<String> by lazy { ScriptLibrary(context).entries.map { it.name } }
 
+    /** [commandUsages] without the built-in commands turned off (commands.off): their names are plain words. */
+    private fun usages(): Map<String, String> {
+        val off = CommandsOff.names(config[Keys.COMMANDS_OFF])
+        return if (off.isEmpty()) commandUsages else commandUsages - off
+    }
+
     private fun setCommandScripts(list: List<Script>) {
         val commands = list.filter { it.enabled && ScriptMeta.isCommand(it.code) }
         scriptUsages = commands.mapNotNull { s -> ScriptMeta.usage(s.code, s.name)?.let { s.name to it } }.toMap()
@@ -790,7 +796,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val installed = installedAt ?: return
         if ((System.currentTimeMillis() - installed) / 86_400_000L !in Tips.DAYS) return
         val shown = prefs.getStringSet("shown", emptySet()).orEmpty()
-        val tip = Tips.next(logs.commandHistory(), shown) ?: return
+        val tip = Tips.next(logs.commandHistory(), shown, CommandsOff.names(config[Keys.COMMANDS_OFF])) ?: return
         prefs.edit { putString("day", today).putStringSet("shown", shown + tip.id) }
         // The first tip says how to turn tips off.
         val off = if (shown.isEmpty()) " (config set log.tips off to stop them)" else ""
@@ -831,7 +837,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val target = InstantRun.target(
             text, config[Keys.LAUNCH_INSTANT], config[Keys.LAUNCH_INSTANT_MIN],
             rankedApps = { appsRepo.searchRanked(it) }, appLabel = { it.label },
-            commands = commandUsages, aliases = appPrefs.aliases(), scriptCommands = _commandNames.value,
+            commands = usages(), aliases = appPrefs.aliases(), scriptCommands = _commandNames.value,
             isOn = { !it.profile.quiet },
         ) ?: return
         setText("")
@@ -849,9 +855,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private fun runsOnTap(line: String) = config[Keys.LAUNCH_INSTANT] == InstantRun.ALL &&
         // A trailing space marks a prefill ("apps " from help) that waits for an argument.
         !line.endsWith(' ') &&
-        (InstantRun.canRun(line, commandUsages, appPrefs.aliases(), _commandNames.value, tapped = true) { name ->
+        (InstantRun.canRun(line, usages(), appPrefs.aliases(), _commandNames.value, tapped = true) { name ->
             appsRepo.searchRanked(name).firstOrNull()?.second == 0
-        } || InstantRun.wholeLine(line, commandUsages, appPrefs.aliases()))
+        } || InstantRun.wholeLine(line, usages(), appPrefs.aliases()))
 
     fun submit() {
         val line = input.text
