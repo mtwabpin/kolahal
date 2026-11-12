@@ -349,7 +349,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         runCatching { context.unregisterReceiver(runCommandReceiver) }
     }
 
-    init {
+    /** Now playing, scripts' commands, and the log's reloads while home is shown. Started by the init at the end. */
+    private fun startWatching() {
         mediaRepo.start()
         androidx.core.content.ContextCompat.registerReceiver(
             context, runCommandReceiver, android.content.IntentFilter(HostApi.ACTION_RUN_COMMAND),
@@ -364,8 +365,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             // Reload only while home is shown, because nobody sees the page otherwise.
             // - On return, it reads what arrived in the meantime at once, and only once.
             // - Bursts wait as before (debounce).
-            // - The first read waits too. Otherwise, since it starts here, it could run before the
-            //   fields further down are set.
+            // - The first read waits too.
             reading.flatMapLatest { on -> if (on) combine(logs.version, reloadRequests) { a, b -> a to b }.withIndex() else emptyFlow() }
                 .debounce { if (it.index == 0 && back) 0L.also { back = false } else 40L }
                 .collectLatest {
@@ -607,7 +607,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** A line to scroll the log to once it is loaded (after a search result is tapped). */
     val jumpTo: StateFlow<Long?> = _jumpTo.asStateFlow()
 
-    init {
+    /** The log search that follows the prompt. Started by the init at the end. */
+    private fun startSearch() {
         viewModelScope.launch {
             // - Wait for typing to settle before a search. Leaving search happens at once.
             // - A log change runs the search again, while home is shown. A search left in the prompt
@@ -1080,11 +1081,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * swiped line's gap on screen.
      */
     private val deleteIo = Dispatchers.IO.limitedParallelism(1)
-
-    init {
-        // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
-        viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }
-    }
 
     /** Main thread only. */
     private fun offerUndo(offer: UndoOffer) {
@@ -1761,10 +1757,23 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun consumeArrival(): Arrival? = arrival.also { arrival = null }
 
-    // Keep this init last in the class. The first-run check starts at once on another thread and
-    // opens the setup screen, which reads fields declared above. If it started from an earlier init,
-    // it could find them still unset and crash the first start (seen as a crash soon after install).
+    /**
+     * The view model's one init, last in the class. Everything it starts runs at once: viewModelScope
+     * runs a launch up to its first suspension right here, and the work on other threads doesn't wait.
+     * So every field must be set by then. With inits spread through the class, one that started work
+     * early could find fields further down still unset (a first-run crash once came from that).
+     * Keep it last, and start new work from here.
+     */
     init {
+        startWatching()
+        startSearch()
+        // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
+        viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }
+        checkFirstRun()
+    }
+
+    /** On the first start: a welcome and the tour, which sets up the first few things. */
+    private fun checkFirstRun() {
         viewModelScope.launch(Dispatchers.IO) {
             // Use a persistent flag, so `clear all` doesn't look like a first run.
             val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)

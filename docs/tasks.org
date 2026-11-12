@@ -254,14 +254,6 @@ Steps:
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
    =BuildConfig.SELF_UPDATE= for R8 (=:138=).
 
-*** TODO [#B] =TerminalViewModel= depends on the order of its =init= blocks /(unchecked)/
-=terminal/TerminalViewModel.kt:352-383=, =:610-674=, =:1081-1084=, =:1760-1775=. =viewModelScope= is
-=Main.immediate=, so each =launch= in an early =init= runs during construction. Only the 40 ms
-debounce keeps =reload()= away from =pageLimit= and =loaded= (declared at =:386-413=). The comments
-at =:367= and =:1760= say a crash from this has shipped once. No problem today.
-
-Fix: move the four =init= blocks into one, at the end of the class. About an hour.
-
 *** TODO [#C] The watchdog kills the whole =:script= process
 =script/RunWatchdog.kt:20=, =:29-34=: it compares the process's native heap with its own baseline and
 calls =killProcess(myPid())=. The run lock is per script, so different scripts can run at once.
