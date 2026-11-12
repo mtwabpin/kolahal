@@ -65,6 +65,23 @@ class ScriptLogLimitsTest {
         assertEquals("More than 256K characters in one run: the rest aren't logged", out.last().text)
     }
 
+    /**
+     * line.set counts toward the run's characters too: growing lines past the limit stops there, with
+     * the same line saying so. And a line keeps only what the log keeps, however long the text set.
+     */
+    @Test fun lineSetStopsAtTheRunsCharacters() {
+        val host = host()
+        val numbers = (1..10).map { host.log("short $it") }
+        numbers.forEach { host.setLine(it, markdown = false, raw = "y".repeat(40_000)) }
+        host.setLine(numbers.first(), markdown = false, raw = "z".repeat(5_000_000))
+        host.flush()
+        val out = lines()
+        assertEquals("More than 256K characters in one run: the rest aren't logged", out.last().text)
+        // 6 lines of 40,000 fit in 256K with the rest; the 7th set is refused, and so is everything after.
+        assertEquals(6, out.count { it.text == "y".repeat(40_000) })
+        assertEquals("short 7", out[6].text)
+    }
+
     @Test fun aLinesLinkCountsTowardTheCharacters() {
         val host = host()
         val link = "https://example.com/" + "a".repeat(10_000)

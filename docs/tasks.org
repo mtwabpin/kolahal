@@ -87,24 +87,6 @@ prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:10
 
 Fix: show the grants and ask before switching it on. Or sign the index with a key pinned in the app.
 
-*** TODO [#C] Cloud backup uploads notification icon files, whose names are the apps that notify you
-Icons are saved as =filesDir/notif-icons/<package>_<resId>_<versionCode>.png=
-(=notifications/NotifIcons.kt:30=, =:37=). =res/xml/backup_rules.xml= and the =cloud-backup= part of
-=res/xml/data_extraction_rules.xml= exclude only =crash/= in the =file= domain. Their own comments
-say which apps you use is "not for the cloud". What Android really uploads wasn't tested.
-
-Fix: exclude =notif-icons/= in both files, or keep the icons in =noBackupFilesDir=.
-
-*** TODO [#C] =line.set= can hold unlimited text in the script process /(unchecked)/
-=script/HostApi.kt:242=, =:276-277=, =:332-338=: =RunLine= keeps the full text and context. The
-run's budget counts each field clipped to 64 K, and =setLine= adds to =chars= but never sets =full=.
-A script can log 500 short lines and then set each to megabytes. The Java heap of =:script= runs
-out; the watchdog watches only Lua's native heap. It also makes the Lua finding above easier to
-reach.
-
-Fix: clip title and body to =MAX_FIELD= before storing them in =RunLine=. Check
-=MAX_CHARS_PER_RUN= in =setLine= too.
-
 *** TODO [#C] A =@uses= grant that an update removed comes back without asking /(unchecked)/
 - =data/ScriptRepository.kt:88-94=: =newUses = uses(code) - uses(s.code) - s.access.keys=. A
   =true= stays in =access= after an update drops the =@uses= line. A later update that declares it

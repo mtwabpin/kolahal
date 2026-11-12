@@ -257,10 +257,7 @@ class HostApi(
             val size = stored(text, ctx)
             chars += size
             if (lines > MAX_LINES_PER_RUN || chars > MAX_CHARS_PER_RUN) {
-                full = true
-                val what = if (lines > MAX_LINES_PER_RUN) "$MAX_LINES_PER_RUN lines" else "${MAX_CHARS_PER_RUN / 1024}K characters"
-                pending += LogRepository.Pending(LogKind.INFO, "More than $what in one run: the rest aren't logged", scriptName, LogContext(baseCtx), System.currentTimeMillis())
-                pendingLines += null
+                stopLogging(if (lines > MAX_LINES_PER_RUN) "$MAX_LINES_PER_RUN lines" else "${MAX_CHARS_PER_RUN / 1024}K characters")
                 return 0
             }
             pending += LogRepository.Pending(kind, text, scriptName, ctx, System.currentTimeMillis())
@@ -270,6 +267,13 @@ class HostApi(
             if (pending.size >= 50 || System.currentTimeMillis() - lastFlush > 300) flushLocked()
             return number
         }
+    }
+
+    /** Past the run's limit of [what]: one line says so, and nothing more is logged or changed. Under the lock. */
+    private fun stopLogging(what: String) {
+        full = true
+        pending += LogRepository.Pending(LogKind.INFO, "More than $what in one run: the rest aren't logged", scriptName, LogContext(baseCtx), System.currentTimeMillis())
+        pendingLines += null
     }
 
     /** The characters a line takes as stored, as the run's limit counts them. */
@@ -310,7 +314,11 @@ class HostApi(
         val text = redact(safeLinks(raw))
         val under = body?.let { redact(safeLinks(it)) }?.takeIf { it.isNotEmpty() }
         val title = mapOf(LogContext.TITLE to "1") + (under?.let { mapOf(LogContext.BODY to it) } ?: emptyMap())
-        return text to LogContext(baseCtx + title + safeCtx(ctx, listOfNotNull(text, under).joinToString("\n")).entries.associate { (k, v) -> redact(k) to redact(v) })
+        val values = baseCtx + title + safeCtx(ctx, listOfNotNull(text, under).joinToString("\n")).entries.associate { (k, v) -> redact(k) to redact(v) }
+        // Kept only as long as the log keeps them, cut after secrets are masked. The log cuts them the same way
+        // (one character over is enough for its "…"). The line is kept for line.set, and a run could otherwise
+        // hold 500 lines of megabytes each.
+        return text.take(LogRepository.MAX_FIELD + 1) to LogContext(values.mapValues { (_, v) -> v.take(LogRepository.MAX_FIELD / 4 + 1) })
     }
 
     /**
@@ -330,11 +338,13 @@ class HostApi(
             // The same text again changes nothing, and doesn't count.
             if (text == line.text && lineCtx == line.ctx) return
             if (full || over || ++sets > MAX_SETS_PER_RUN) return
+            // Only what the line grew by counts toward the run's characters, and the run's limit holds here too.
+            val size = stored(text, lineCtx)
+            val grown = maxOf(0, size - line.length)
+            if (chars + grown > MAX_CHARS_PER_RUN) return stopLogging("${MAX_CHARS_PER_RUN / 1024}K characters")
+            chars += grown
             line.text = text
             line.ctx = lineCtx
-            // Only what the line grew by counts toward the run's characters.
-            val size = stored(text, lineCtx)
-            chars += maxOf(0, size - line.length)
             line.length = size
             when {
                 line.slot >= 0 -> pending[line.slot] = pending[line.slot].copy(text = text, ctx = lineCtx)

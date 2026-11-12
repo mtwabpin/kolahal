@@ -29,6 +29,8 @@
         <exclude domain="sharedpref" path="picked_contacts.xml" />
         <!-- wallpaper match's wallpaper id: another phone's same number is someone's own wallpaper. -->
         <exclude domain="sharedpref" path="wallpaper_match.xml" />
+        <!-- Saved notification icons: their names are the apps that notify you. -->
+        <exclude domain="file" path="notif-icons/" />
         <!-- Crash reports belong to this phone. -->
         <exclude domain="file" path="crash/" />
         <exclude domain="sharedpref" path="crash.xml" />
