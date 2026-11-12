@@ -7,7 +7,10 @@ package com.mtwabpin.kolahal.terminal
  * A command that is off works as if it didn't exist:
  * - Its name, or another name for it (`youtube` for `yt`), opens the app it matches.
  * - It isn't suggested, listed in `help`, or run by instant launch.
- * - Scripts, gestures and taps on log lines can't run it either.
+ * - Scripts and gestures can't run it either, nor a tap on a command line you typed.
+ *
+ * Kolahal's own buttons and tap-to-run lines still run it (a header tap, a quick action, a setup
+ * fix, "tap to allow"): they need the command, whatever its name opens ([CommandProcessor.run]).
  *
  * [ALWAYS_ON] can't be turned off, so there is always a way to turn the others back on.
  */

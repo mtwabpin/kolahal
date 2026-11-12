@@ -134,6 +134,9 @@ object FullBackup {
             val safe = when (file) {
                 // The same rule as `alias`: an alias never hides a built-in command.
                 "aliases" -> entries.filterKeys { it?.toString()?.lowercase() !in BUILT_INS }
+                // Settings are text. A number or a switch there (only an edited file has one) would
+                // break home at every start.
+                "config" -> entries.filterValues { tagged -> (tagged as? Map<*, *>)?.keys?.none { it in TYPED } == true }
                 "logs" -> logIdsWithin(entries, LogRepository.get(context).maxId())
                 else -> entries
             }
@@ -185,6 +188,9 @@ object FullBackup {
     }
 
     // ---- preferences: values are tagged so that ints, longs and string sets survive JSON ---------
+
+    /** The tags of values that aren't text ([importPrefs]). */
+    private val TYPED = setOf("b", "i", "l", "f", "set")
 
     private fun exportPrefs(context: Context, file: String): Map<String, Any?> =
         context.getSharedPreferences(file, Context.MODE_PRIVATE).all.mapValues { (_, v) ->

@@ -62,3 +62,426 @@ through adb, to learn the API.
 Sources: https://developer.android.com/ai/appfunctions ,
 https://android-developers.googleblog.com/2026/07/build-intelligent-android-apps-appfunctions.html ,
 https://developer.android.com/agents/skills/device-ai/appfunctions/skill
+
+* Code scan findings (12 November 2026)
+A read-only scan of 0.5.6-dev (=3485a339=): security, performance and architecture, plus Android
+lint. Nothing was run on a device, so all times are estimates. Line numbers are from that commit.
+
+- Paths are under =app/src/main/java/com/mtwabpin/kolahal/=, unless they start with =.github/= or
+  =res/= (=app/src/main/res/=).
+- Priority: =[#A]= fix first, =[#B]= medium, =[#C]= low.
+- /(unchecked)/: the finding rests on one audit's reading of the code. The others were checked
+  against the code again.
+- Nothing critical or high was found. Lint: 0 errors, 11 warnings (last section).
+
+** Fix first
+*** TODO [#A] Restore keeps three things a backup file should not set
+Each one needs you to import a hostile file.
+
+- *Aliases that expand to code.* Only built-in names are blocked (=data/Backup.kt:121-130=,
+  =data/FullBackup.kt:136=). An alias named like an app can expand to =lua …=, =js …= or ~= …~.
+  Code typed at the prompt runs with no grants object (=script/HostApi.kt:183=), so it can use the
+  clipboard, the app list, the internet, DND and =launcher.run=. The review list
+  (=data/Backup.kt:210=) covers only =search.url= and the three gestures. Since 0.5.5 an alias
+  shows its expansion as you type, which helps a little.
+- *Feed item links.* The =items= table is restored row by row (=data/FullBackup.kt:119-123=), so
+  =link= skips =FeedFetcher.safeLink=. =feed open= then opens it as given
+  (=terminal/FeedCommands.kt:113=, =ui/FeedsScreen.kt:259=): any scheme works, such as =tel:=,
+  payment or app links, or =content:=.
+- *Tap actions on restored lines.* =safeCtx= (=data/FullBackup.kt:308-316=) drops RUN, SHORTCUT
+  and COMMAND, but keeps ACTIVITY and PHONE. One tap then opens that activity, or the dialer with
+  that number (=terminal/LogLineActions.kt:94-98=).
+
+Fix: put aliases whose expansion is sensitive (=InstantRun.isSensitive=) on the review list, or
+restore them off. Run restored =items.link= through =safeLink=. Drop ACTIVITY and PHONE in
+=safeCtx=.
+
+*** TODO [#A] After a reboot or an update, apps are missing for a moment
+The app list starts empty and is not saved (=apps/AppRepository.kt:79=). =reload()= (=:156-181=)
+loads every app's label first; it may take 0.2–1 s for 150–300 apps. Until then:
+- no app suggestions, and instant launch can't fire;
+- Enter on an app name prints "Command not found" (=terminal/CommandProcessor.kt:302=).
+
+Fix: save label, component, profile serial and hidden after each reload. Start =_apps= from the
+saved copy, then use the fresh list when it arrives. A smaller first step: say "Apps are still
+loading" instead of "Command not found" while the list is empty.
+
+** Security
+*** TODO [#B] The Lua sandbox depends on one catch block never failing
+- =script/LuaEngine.kt:76-83= (=safe=) turns a Kotlin exception into a Lua error. The catch block
+  itself can throw: =host.redact= runs a regex over the message, then it pushes to the stack.
+- The timeout check function (=:40-45=) isn't wrapped in =safe=.
+- LuaJava 4.1.0 keeps a Java exception that leaves a function in the global =__jthrowable__=, as a
+  Java object with its reflective metatable. The prelude clears it only once, at start (=:385-387=).
+- If an exception ever escaped, a script would hold a Java object, with the app's UID: all of
+  =kolahal.db= (notification text too), the secrets, and every permission. The =:script= process
+  protects stability; it is not a security boundary.
+- No way to make an exception escape was found. Suspected, not shown.
+
+Fix: inside the catch, a second =try/catch= that pushes a fixed string. Wrap the check function the
+same way. Also: in the prelude, while =debug= is still there, clear =__index=, =__newindex= and
+=__call= on LuaJava's Java object, class and array metatables, so a leaked object can do nothing.
+
+*** TODO [#B] Release workflow: actions are pinned by tag in the job that holds the signing keys
+- =.github/workflows/release.yml:56= uses =gradle/actions/setup-gradle@v5=. The Gradle step
+  (=:92-104=) has both keystores' passwords in its environment.
+- =:24-27=: =contents: write= and =id-token: write=. The checkout (=:40=) keeps its credentials.
+- =.github/workflows/site.yml:11-14= sets =pages: write= and =id-token: write= for the whole
+  workflow, so =pnpm install= and =pnpm build= (outside npm code) run with them.
+  =pnpm/action-setup@v6= is pinned by tag too.
+- Whoever can move a tag gets code into the build that sees the keys.
+
+Fix: pin actions to commit SHAs. Add =persist-credentials: false= to the checkouts. Move the
+=site.yml= permissions to the deploy job. Check the =release= environment's protection rules on
+GitHub (not checked).
+
+*** TODO [#C] =script get= switches a script on with everything it asks for, then tells you
+=script/ScriptCatalog.kt:203-204= calls =setEnabled(…, grant = true)=. =terminal/ScriptCommands.kt:289-292=
+prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:102-106=) compares with
+=index.json= from the same GitHub Pages site as the script.
+
+- Who: someone who can change the kolahal-scripts repository or its Pages output.
+- Copies already installed don't update on their own, so only new installs and manual updates are
+  exposed.
+
+Fix: show the grants and ask before switching it on. Or sign the index with a key pinned in the app.
+
+*** TODO [#C] Cloud backup uploads notification icon files, whose names are the apps that notify you
+Icons are saved as =filesDir/notif-icons/<package>_<resId>_<versionCode>.png=
+(=notifications/NotifIcons.kt:30=, =:37=). =res/xml/backup_rules.xml= and the =cloud-backup= part of
+=res/xml/data_extraction_rules.xml= exclude only =crash/= in the =file= domain. Their own comments
+say which apps you use is "not for the cloud". What Android really uploads wasn't tested.
+
+Fix: exclude =notif-icons/= in both files, or keep the icons in =noBackupFilesDir=.
+
+*** TODO [#C] =line.set= can hold unlimited text in the script process /(unchecked)/
+=script/HostApi.kt:242=, =:276-277=, =:332-338=: =RunLine= keeps the full text and context. The
+run's budget counts each field clipped to 64 K, and =setLine= adds to =chars= but never sets =full=.
+A script can log 500 short lines and then set each to megabytes. The Java heap of =:script= runs
+out; the watchdog watches only Lua's native heap. It also makes the Lua finding above easier to
+reach.
+
+Fix: clip title and body to =MAX_FIELD= before storing them in =RunLine=. Check
+=MAX_CHARS_PER_RUN= in =setLine= too.
+
+*** TODO [#C] A =@uses= grant that an update removed comes back without asking /(unchecked)/
+- =data/ScriptRepository.kt:88-94=: =newUses = uses(code) - uses(s.code) - s.access.keys=. A
+  =true= stays in =access= after an update drops the =@uses= line. A later update that declares it
+  again gets it at once.
+- =script/SecretStore.kt:34=: =covers= is true when =hosts == null=. A secret set before sites were
+  stored goes to whatever sites the code names now.
+
+Fix: when code from elsewhere is saved, remove access entries the new code no longer declares. Ask
+again for secrets stored without sites.
+
+** Performance
+*** TODO [#B] Suggestions for =activity=, =shortcuts= and =open app:= call the system on the main thread
+They are worked out in =remember {}= in =PromptSuggestions= (=ui/TerminalScreen.kt:656-658=).
+
+- =activity <app> =: =terminal/Completer.kt:467-468= → =ActivityCommands.activities=
+  (=terminal/ActivityCommands.kt:172-185=): =getPackageInfo(GET_ACTIVITIES)= and a label for each
+  exported activity. Estimated 20–100+ ms for an app with hundreds of activities, once per app.
+- =shortcuts =: =Completer.kt:424-425= → =AppRepository.appsWithShortcuts= asks for every shortcut
+  of every app. Tens of ms, at most every 30 s.
+- =open x:=: =Completer.kt:234= → =AppRepository.kt:277-289=, once per app.
+- Side bug: when Kolahal isn't the home app, =appsWithShortcuts()= returns null, so the 30 s cache
+  never hits, and =hasShortcutHostPermission()= (a binder call) runs on every key.
+- =Completer.kt:461=, =:476=: =ActivityCommands.appToken= per row runs two or more app rankings
+  that miss the one-slot memo, for up to 12 rows per key /(unchecked)/.
+
+Fix: fetch these lists on =Dispatchers.IO= (as =showMenu= does) and show the rows when ready. Cache
+the null result too.
+
+*** TODO [#C] Avoidable work on each key press /(unchecked)/
+Each is small; together estimated 0.2–1 ms per key on a mid-range phone.
+
+- =terminal/Completer.kt:84-86=, =:90=: =OFFERED_NAMES - off + commandNames + aliases=, then
+  =distinct()=: about 5 copies of a set of about 100 names. =terminal/InstantRun.kt:186-187= builds
+  the same union again.
+- =Completer.kt:88-89=: the =recent= map is rebuilt from up to 200 history lines, though it depends
+  only on the history.
+- =Completer.kt:111=, =:174-187= (=described()=): from the third letter of a word that isn't a
+  command, it scans about 99 commands and 83 settings (2–3 k =startsWith= calls).
+- =apps/AppRepository.kt:233-243= with =apps/AppPrefs.kt:91-106=: each new query scans all apps.
+  Each match then costs a locked prefs read, two substrings, two number parses and =exp=. One letter
+  matches most apps.
+- =ui/SuggestionList.kt:91-190=: rows are inline in the item lambda, so every visible row re-runs
+  on each key. =:125= builds an =AnnotatedString= and =:50= runs a regex per row, not remembered.
+
+Fix: cache =names= and =recent= on their inputs. Keep a frecency snapshot keyed on
+=AppPrefs.version=. Make the row its own skippable composable.
+
+*** TODO [#C] App icons are all dropped after 10 minutes away
+=LauncherApp.kt:45-53=, =:70-73=: at =TRIM_MEMORY_UI_HIDDEN= a delayed =AppIcons.trim()= runs
+=cache.evictAll()= (=ui/AppIcons.kt:64=). The first keys after 10 minutes away then start up to
+about 8 jobs, each a binder call and an icon decode (estimated 3–15 ms each). Icons pop in late.
+The drop is on purpose (see the comment in =LauncherApp=).
+
+- =trim()= doesn't bump =generation=, so the selector's preload (=ui/AppSelector.kt:378-380=)
+  doesn't run again after it.
+
+Fix: keep the icons of the top N apps by frecency (under 0.5 MB) across this trim, and warm them on
+resume.
+
+*** TODO [#C] Return to home: binder calls on the main thread, housekeeping on the command lane
+- Main thread, =MainActivity.kt:104-111=, =:252-257=: =WidgetHost.startListening()= (also with no
+  widgets), =watchBattery(true)=, =HomeClock.acquire=, =ReminderScheduler.canBeExact=,
+  =mediaRepo.start()=. Estimated 1–3 ms.
+- =terminal/TerminalViewModel.kt:745-747=, =:773-774=: =trimIfDue=, =syncAllIfDue=, =tipOfTheDay=
+  use =io {}=, the single-thread lane (=:1061=) that also launches apps (=:846=, =:983=, =:1055=).
+  Every 6 h =syncAll= runs, every 12 h the age trim. An app opened right after returning then waits
+  behind them, maybe a few hundred ms with many scripts.
+
+Fix: run resume housekeeping on plain =Dispatchers.IO=, as =CrashReports.announce= already does.
+Skip =startListening= with no widget placed. Check the two permissions off the main thread.
+
+*** TODO [#C] Start-up: binder calls and prefs loads on the main thread /(unchecked)/
+=LauncherApp.kt:76-93= (channels, =AppRepository.start=, =UnlockCounter.start=,
+=TriggerDispatcher.start=, =DeviceStatus.start=, contacts, =PackageEvents=, =CallEvents=),
+=apps/AppPrefs.kt:28-29=, =data/Config.kt:16-22=: about 15 binder calls and 4–5 blocking prefs
+loads, estimated 10–30 ms before the first frame.
+
+- =apps/PackageEvents.kt:55= runs a diff 2 s after start: it asks for the activity list again and
+  calls =getPackageInfo= for each app, because =asked= lives only in memory. It overlaps the app
+  list load and the first log reload.
+
+Fix: move registrations that the first frame doesn't need to after it. Run the package diff when
+idle.
+
+*** TODO [#C] A cold start can flash the "empty log" hint /(unchecked)/
+=ui/TerminalScreen.kt:432-434= shows the hint when there are no rows. Rows start as =emptyList()=
+(=terminal/TerminalViewModel.kt:279=), and the first reload waits 40 ms and runs about 6 queries.
+Nothing tells "not loaded yet" from "empty". Whether the first frame wins the race wasn't measured.
+
+Fix: start with "not loaded" (nullable rows or a flag), and draw nothing until the first reload.
+
+*** TODO [#C] =vm.selectorArea= changes on every frame of the keyboard animation /(unchecked)/
+=ui/TerminalScreen.kt:388= writes it in =onGloballyPositioned=; the box shrinks under =imePadding()=.
+=ui/HostedWidgets.kt:170-175= reads it in composition, and the widgets page is composed beside the
+terminal. With =selector.rail= on, =AppSelector='s =pointerInput= (=ui/AppSelector.kt:642=) restarts
+each frame as the keyboard goes down.
+
+Fix: don't update it while the keyboard is up (the strip shows only with it down), or read it in
+layout through a lambda.
+
+*** TODO [#C] With =log only …= on, a full reload parses the whole log /(unchecked)/
+=terminal/TerminalViewModel.kt:513-521=, =data/LogRepository.kt:359=, =:398=: with =match= set, every
+row goes through =c.entry()= and =LogContext.fromJson=. Estimated 50–100 ms at the default 5,000
+lines, up to about 1 s at 50,000, on the IO thread: new lines show late. It happens on a full
+reload (at most once a minute, after 60 s away, after a delete). The filter also survives restarts.
+
+Fix: narrow in SQL for the common filters (=source=, =starred=, =kind=).
+
+*** TODO [#C] Media sessions are followed even with home stopped /(unchecked)/
+=control/MediaRepository.kt:150-156=, =:202=: the sessions listener and each controller callback
+run on the main thread for the life of the process; =stop()= runs only when access is lost. Every
+playback update from any player runs =recompute()=. Probably too small to matter for CPU.
+
+Fix: unregister in =onStop=, read the sessions again in =onStart=. The =idleSince= logic would then
+need =lastPositionUpdateTime=.
+
+*** TODO [#C] Script process: =store.set= scans the whole store; the Lua watchdog wakes 100 times a second /(unchecked)/
+- =data/KvStore.kt:33-43=: before each write, =SUM(length(…))= over the script's store, which can
+  hold 16 MB. A loop of =store.set= is O(store size) per call.
+- =script/RunWatchdog.kt:27=, =:48=: =WATCH_EVERY_MS = 10= for every Lua run, also while it waits on
+  the network, for up to 60 s.
+
+Fix: keep a running size per scope. Poll less often (50–100 ms) while the heap doesn't grow.
+
+*** TODO [#C] A very long line is laid out in full even when folded /(unchecked)/
+=ui/RichText.kt:331-345= measures the whole body. Lines are capped at 64 K characters
+(=data/LogRepository.kt:720=), not at a number of rows. A 64 K line folded to 8 rows still lays out
+all of it: tens of ms, one long frame, when it scrolls into view.
+
+Fix: while folded, give the text only its first few thousand characters.
+
+*** TODO [#C] The baseline profile doesn't cover the selector rail, the widgets page or the editor
+=baselineprofile/= covers start, typing, commands, log scroll and Settings.
+
+** Architecture
+*** TODO [#B] Command facts live in about 16 lists in 9 files
+=terminal/CommandCatalog.kt= (=COMMANDS=, =HELP_SECTIONS=, =FEATURE_COMMANDS=, =PRODUCTIVITY=),
+=terminal/InstantRun.kt:20-140= (=SYNONYMS=, sensitive names), the =when= in
+=terminal/CommandProcessor.kt:119-188=, =terminal/AppCommands.kt:364=,
+=control/ControlCommands.kt:491-509=, =terminal/Completer.kt:232=, =:610=, =:616=,
+=terminal/Pipes.kt= (=KEEP_WORDS=), =script/HostApi.kt:937= (=WEB_COMMANDS=),
+=data/FullBackup.kt:258=, =terminal/TerminalViewModel.kt:79=, =terminal/Tips.kt=.
+
+- =isSensitive= and =CommandsOff.isOff= check =canonical(head)=; dispatch checks the raw word
+  against =when= labels. Both guards fail open: a name in neither list can be instant-run and
+  script-run.
+- Example: add ="clear", "cls", "wipe"= to the =when= and forget =SYNONYMS=. Then
+  =launcher.run("wipe all")= from a script passes both sensitivity checks and deletes the log.
+- =ReservedNamesTest= pins only the three group =NAMES= sets. Nothing pins the 70 labels in
+  =execute=.
+- No drift today (96 specs, 26 synonyms, 122 dispatch labels cross-checked) /(unchecked)/. One small
+  case: the ="vol"= row in =ControlCommands.ARGS= is dead, because =Completer.kt:387= passes the
+  canonical name.
+- =commands.off= needed 12 call sites in 5 files. Adding a command needs 3 edits plus up to 8 lists;
+  =docs/developing.org= names 5.
+
+Steps:
+1. A JVM test that reads the =when= labels from the source and checks them against the catalog and
+   =SYNONYMS=, as =ApiDocsTest= does for the engines. About 1 hour.
+2. Add =synonyms=, =sensitive=, =section= and =feature= to =CommandSpec=, and derive the existing
+   sets from it, keeping their names. 2–4 hours.
+3. Replace the =when= with a map of handlers checked against the specs. About a day. Blockers:
+   handlers take different arguments; three branches depend on which synonym was typed or fall
+   through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
+   =BuildConfig.SELF_UPDATE= for R8 (=:138=).
+
+*** TODO [#B] A phone-to-phone transfer copies state that belongs to the old phone
+=res/xml/data_extraction_rules.xml= copies =kolahal.db= whole in =device-transfer=. In-app backups
+leave out the kv scopes =calls=, =packages=, =worker=, =shared-settings= and the notification
+mirror on purpose (=DEVICE_SCOPES=, =data/FullBackup.kt:59=).
+
+- =calls/CallEvents.kt:78-84= trusts the stored =LAST= id and asks for =_ID > last=. On the new
+  phone ids start low, so call lines don't appear until they pass the old phone's value.
+- =apps/PackageEvents.kt:160-172= diffs against the old phone's app list and logs wrong
+  installed, updated and removed lines.
+- How it works was checked; the effect after a real transfer wasn't seen. Widgets are already
+  handled (=WidgetHost.prune=).
+
+Fix: keep a random install id in =noBackupFilesDir=. On main-process start compare it with a copy in
+kv; when they differ, clear =DEVICE_SCOPES=. Make that list the one source for both. 3–4 hours.
+
+*** TODO [#B] Errors in start-up and scheduling work are dropped without a trace /(unchecked)/
+About 265 =runCatching= in main code; 62 drop the result; 2 =Log= calls in the whole app.
+
+- =LauncherApp.kt:99-117=, =:140=: =ScriptScheduler.syncAll=, =ReminderScheduler.rescheduleAll=,
+  =FeedScheduler.sync=, =updateUnedited= and =trimIfDue= each sit in a bare =runCatching=. If
+  =rescheduleAll= fails after a reboot, reminders don't fire, and nothing says why.
+- =productivity/Reminders.kt:211=, =:213=, =script/ScriptAlarms.kt:59=.
+- =data/Backup.kt:185-207=: an import reports success while timers, font or widgets failed.
+- =runCatching= around suspending calls: 3, none harmful.
+
+Fix: a =quietly("what") { }= helper that writes one ERROR line per tag per day, as
+=ScriptRun.reportBlocked= does. Use it at these sites first. Half a day.
+
+*** TODO [#B] =TerminalViewModel= depends on the order of its =init= blocks /(unchecked)/
+=terminal/TerminalViewModel.kt:352-383=, =:610-674=, =:1081-1084=, =:1760-1775=. =viewModelScope= is
+=Main.immediate=, so each =launch= in an early =init= runs during construction. Only the 40 ms
+debounce keeps =reload()= away from =pageLimit= and =loaded= (declared at =:386-413=). The comments
+at =:367= and =:1760= say a crash from this has shipped once. No problem today.
+
+Fix: move the four =init= blocks into one, at the end of the class. About an hour.
+
+*** TODO [#C] The watchdog kills the whole =:script= process
+=script/RunWatchdog.kt:20=, =:29-34=: it compares the process's native heap with its own baseline and
+calls =killProcess(myPid())=. The run lock is per script, so different scripts can run at once.
+
+- Script A hangs while B runs: B dies mid-run and loses its buffered lines, its =commit()= and its
+  run record, with no log line.
+- Two Lua runs of about 64 MB each can trip A's 128 MB limit and blame A.
+- That two remote workers really overlap wasn't checked on a device; =ScriptRunService= overlaps
+  by design.
+
+Fix: one process-wide lock in =ScriptRun.run=, or log a "stopped" line for each run in flight before
+the kill. 1–2 hours.
+
+*** TODO [#C] =:script= reads prefs it never sees updated
+- =script/HostApi.kt:733=: =device.unlocks()= → =UnlockCounter.countFor= (=unlock/UnlockCounter.kt:92=).
+  Without Usage Access it reads =unlocks.xml= from =:script='s own cached copy; the main process
+  writes it with =apply()=. A script at 18:00 can get the 09:00 count.
+- =script/HostApi.kt:852=: =launcher.run= reads =AppPrefs.aliases()=, cached for the process's
+  life. Only a wrong refusal; the main process checks again (=TerminalViewModel.kt:344=).
+- Trap: nothing stops the next host function from calling =Config.get=, whose =migrate()= can write
+  from the second process.
+
+Fix: keep the fallback unlock count in =KvStore= (as =SharedSettings= does for =log.keep-lines=).
+Drop the alias read in =HostApi.runCommand=. Make =Singleton.get= complain for main-only singletons
+in =:script=. Half a day.
+
+*** TODO [#C] Storage names and versions are implicit
+- =data/Db.kt= has no =onDowngrade=. A newer database meeting an older app (a downgrade) throws on
+  every open.
+- The backup writes ="kolahal": 3=, but import only checks that the key exists (=data/Backup.kt:95=).
+- 29 =getSharedPreferences("…")= sites; ="launcher"= is opened by three classes (=LauncherApp.kt:111=,
+  =data/StatusLines.kt:85=, =TerminalViewModel.kt:1766=).
+- What travels in a backup is decided in four hand-made lists with opposite defaults:
+  =FullBackup.PREFS= allows, kv scopes deny, the two XML files deny. A new prefs file is left out of
+  in-app backups and goes into cloud backups, silently.
+- Formats parsed twice: the pinned list (=apps/AppPrefs.kt:65=, =data/FullBackup.kt:272=), the
+  =pkg#serial= key (=PackageEvents= ×5, =FullBackup.kt:266=). Theme JSON is read by regex.
+- The log's view markers live in the =logs= prefs, beside the table; that is why
+  =FullBackup.logIdsWithin= has to clamp them.
+
+Fix: one =Stores= object naming every prefs file and kv scope with a "travels" flag, and a test that
+compares it with the XML files. Half a day. Moving the log markers into kv: another half day.
+
+*** TODO [#C] =TerminalViewModel= holds state for every screen
+1776 lines, 93 public functions, 23 =@Volatile= fields, four lanes (main, =serialIo=, =deleteIo=,
+=Dispatchers.IO=). 22 UI files use 97 of its members. =onResume= (=:739-778=) does nine unrelated
+jobs.
+
+Low-risk moves, in the existing Host-interface style (about half a day each):
+- log search (=:594-700=);
+- navigation (=:1346-1422=, =:1666-1758=);
+- permission and appearance results (=:1449-1664=);
+- header and quick actions (=:1200-1281=).
+Keep =reload()= where it is. Also: the restart block is in both =terminal/CommandProcessor.kt:641-650=
+and =terminal/BackupActions.kt:45-52=.
+
+*** TODO [#C] Pure logic needs a phone to test
+957 device tests and 582 JVM tests; =terminal= alone has 284 on device. =CommandGroup(context)= takes
+=LogRepository.get(context)=; =Completer= takes a Context and four singletons. So help, alias, calc,
+cal, pipes, =commands.off= and typo suggestions need a device. Device tests share the app's real
+=kolahal.db=, so they can't run in parallel. Four tests read private fields of =ScriptActions= by
+reflection (=GetScriptsScreenTest:134=, =:218=, =ScriptActionsTest:438=, =:535=).
+
+Fix: a small =LogSink= interface (add, addAll, capture, batched, withCause, last) with an in-memory
+fake, passed to =CommandGroup=. About a day; tests can move over time.
+
+*** TODO [#C] Package cycles: data ↔ script ↔ terminal ↔ ui
+- =data= imports =script= (6 files; =ScriptRepository= holds the access rules and writes log lines),
+  =terminal= (=Keys= → =CommandsOff::parse=; backups → =CommandCatalog=, =InstantRun=) and =ui=
+  (=Backup= → =TermFonts=).
+- =terminal= imports =ui= in 5 files.
+- =HostApi= imports =InstantRun=, which pulls =ControlCommands= into =:script=.
+- So =docs/codebase-guide.org='s "Model knows nothing above it" and "InstantRun needs nothing" are
+  no longer true. Step 2 of the command-facts task above fixes the =InstantRun= part.
+
+*** TODO [#C] Per-command context rides on thread-locals
+=data/LogRepository.kt:103=, =:135=, =:157=, =script/ScriptScheduler.kt:256-272=,
+=terminal/CommandProcessor.kt:60-67=: cause, batch, capture and =byScript= are thread-locals;
+=background()= copies only =cause=. A handler that becomes =suspend=, or starts a script inside
+=background {}=, loses the "sent by a script" mark with no error. No handler does today.
+
+Fix: pass an explicit invocation object, once step 3 of the command-facts task exists.
+
+*** TODO [#C] =HostApi= repeats one security rule three times
+=script/HostApi.kt:354-355=, =:414-419=, =:469-470=: the same "web link only, internet allowed,
+=checkSecrets=" chain for inline links, context links and notification links. "Is this a private
+space" is decided two ways (=:791=, =:803=).
+
+Fix: one =safeWebUrl()=. 30 minutes.
+
+*** TODO [#C] =TerminalUi= fakes ignore new calls
+8 of its 16 calls have empty default bodies, so a test fake silently ignores a new one.
+
+** Lint warnings (0 errors, 11 warnings)
+*** TODO [#C] Newer versions
+- Gradle 9.8.2 → 9.9.1 (=gradle/wrapper/gradle-wrapper.properties:3=).
+- =com.android.application= and =com.android.test= 9.5.0 → 9.5.1 (=gradle/libs.versions.toml:2=).
+- =quickjs-kt= 1.0.15 → 1.0.18 (=gradle/libs.versions.toml:15=).
+*** TODO [#C] Code hints
+- =ui/LogView.kt:350=: =Configuration.screenWidthDp= instead of =LocalWindowInfo.current.containerSize=.
+- =ui/GuiComponents.kt:168=: the modifier parameter should be named =modifier= and be the first
+  optional parameter.
+- KTX: =String.toUri= at =ui/Avatars.kt:104= and =terminal/TerminalViewModel.kt:1114=;
+  =Bitmap.scale= at =ui/Avatars.kt:107=; =SharedPreferences.edit= at =terminal/ScriptActions.kt:313=.
+
+** In good shape: keep as it is
+- Self-update: checks the package, the version, a higher version code, and that the signers match
+  the installed ones and the pinned certificate. The FileProvider covers only =cache/updates/=.
+- Script permissions fail closed. =launcher.run= is checked in both processes. Secrets are sealed
+  with a Keystore key, filled only for declared https sites, and masked everywhere.
+- IPC: every PendingIntent is immutable, =MainActivity= reads no extras, broadcasts between the two
+  processes use =setPackage=.
+- Backup import parses before it changes anything, uses one transaction per table, strips run
+  contexts, drops unknown columns, and imported scripts arrive off.
+- The log: SQLite in WAL mode, incremental reload, stable keys; caches are bounded.
+- The two-process design overall: shared state goes through =kolahal.db=.
+- =Keys= / =Config=: one typed list drives Settings, =config=, completion and backups.
+- =tools/check-play-build.sh= runs in CI on every push and checks what Play cares about.
+- No =GlobalScope=, no =runBlocking=; singletons hold the application context.

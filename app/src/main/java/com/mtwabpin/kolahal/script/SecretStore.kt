@@ -1,11 +1,13 @@
 package com.mtwabpin.kolahal.script
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import com.mtwabpin.kolahal.data.KvStore
 import java.security.KeyStore
+import java.security.UnrecoverableKeyException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -98,9 +100,14 @@ class SecretStore(private val context: Context) {
 
     private fun key(): SecretKey = synchronized(SecretStore::class.java) {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        // If the Keystore can no longer read the key (it was reset), the key can't open anything again, so start over.
-        // Values sealed with the old key then read as not set, and setting them again works.
-        val existing = runCatching { keyStore.getKey(ALIAS, null) as? SecretKey }.getOrElse {
+        val existing = try {
+            keyStore.getKey(ALIAS, null) as? SecretKey
+        } catch (e: UnrecoverableKeyException) {
+            // The Keystore can't read the key any more (it was reset, or the key is damaged), so the key can't open
+            // anything again: start over. Values sealed with the old key then read as not set, and setting them again
+            // works. An error that may pass, or that isn't about the key, fails only this call: deleting the key
+            // then would lose every value for good.
+            if (mayPass(e)) throw e
             runCatching { keyStore.deleteEntry(ALIAS) }
             null
         }
@@ -117,6 +124,14 @@ class SecretStore(private val context: Context) {
     }
 
     companion object {
+        /**
+         * Whether [e] comes from a Keystore error that may pass on its own, or that is about the Keystore rather than
+         * the key. Only Android 13 and newer say so; before, every such error counts as the key's.
+         */
+        internal fun mayPass(e: Throwable): Boolean = Build.VERSION.SDK_INT >= 33 && generateSequence(e) { it.cause }.take(8).any {
+            it is android.security.KeyStoreException && (it.isTransientFailure || it.isSystemError)
+        }
+
         /** Kv scopes that hold secrets start with this. Backups skip them. */
         const val SCOPE_PREFIX = "secret:"
         fun scope(script: String) = SCOPE_PREFIX + script

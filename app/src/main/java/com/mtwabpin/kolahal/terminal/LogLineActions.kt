@@ -71,7 +71,8 @@ class LogLineActions(private val context: Context, private val processor: Comman
             ctx.values[LogContext.RUN] != null -> {
                 val cmd = ctx.values.getValue(LogContext.RUN)
                 host.emit(UiEvent.ScrollToBottom)
-                host.io { processor.run(cmd, expand = false) }
+                // Only Kolahal writes these (scripts can't, restores drop them), so a command turned off runs too.
+                host.io { processor.run(cmd, expand = false, fromApp = true) }
             }
             entry.kind == LogKind.COMMAND || ctx.command != null -> {
                 val line = ctx.command ?: entry.text

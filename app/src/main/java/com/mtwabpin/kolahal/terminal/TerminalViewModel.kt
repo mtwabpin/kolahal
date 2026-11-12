@@ -1282,11 +1282,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * Runs [cmd] as if typed, but without alias expansion. [byScript] is true when a script sent it;
-     * then the scripts it starts can't send more commands.
+     * then the scripts it starts can't send more commands, and a command turned off doesn't run.
+     * Otherwise Kolahal sent it (a button, a header tap), so it runs even when turned off.
      */
     fun runCommand(cmd: String, byScript: Boolean = false) {
         _events.tryEmit(UiEvent.ScrollToBottom)
-        io { if (byScript) ScriptScheduler.sentByScript { processor.run(cmd, expand = false) } else processor.run(cmd, expand = false) }
+        io { if (byScript) ScriptScheduler.sentByScript { processor.run(cmd, expand = false) } else processor.run(cmd, expand = false, fromApp = true) }
     }
 
     fun saveFontSize(size: Int) {
@@ -1402,7 +1403,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** Opens the system page for a check. The list refreshes when the user comes back. */
     fun fixSetup(check: SetupCheck) {
-        check.fix?.let { cmd -> io { processor.run(cmd, expand = false) } }
+        check.fix?.let { cmd -> io { processor.run(cmd, expand = false, fromApp = true) } }
     }
 
     /** Back from a page: returns to the page it was opened from, or to the terminal. */

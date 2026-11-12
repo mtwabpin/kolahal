@@ -278,6 +278,9 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
     // The prompt's text is read only where it shows ([PromptSuggestions], [Prompt]). If it were read
     // here, every key press would rebuild all of home.
     val hasInput by remember(preview?.typing) { derivedStateOf { preview?.typing == true || vm.input.text.isNotEmpty() } }
+    // The same for the preview of `theme …` or `font …` typed at the prompt: home is rebuilt only when it changes.
+    // It also compares with the saved settings, hence the config version.
+    val livePreview by remember(configVersion) { derivedStateOf { vm.livePreview } }
     val timeMode = remember(configVersion) {
         when (config[Keys.SHOW_TIMESTAMPS]) {
             "groups" -> TimeMode.GROUPS
@@ -577,11 +580,11 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 if (result.resultCode != Activity.RESULT_OK) homeSettings()
                 vm.refreshIsHome()
             }
-            DefaultHomeBand(!isHome && vm.livePreview == null) {
+            DefaultHomeBand(!isHome && livePreview == null) {
                 SetupChecks.homeRoleRequest(context)?.let { askHome.launch(it) } ?: homeSettings()
             }
         }
-        LivePreviewBand(if (preview == null) vm.livePreview else null)
+        LivePreviewBand(if (preview == null) livePreview else null)
         Prompt(
             vm = vm,
             focus = focus,

@@ -17,12 +17,18 @@ class Config private constructor(private val prefs: SharedPreferences) {
         migrate()
     }
 
-    /** Moves settings saved under names from before 0.3.0 ([Keys.RENAMED]) to today's names. Drops settings that no longer exist ([Keys.REMOVED]). */
+    /**
+     * Moves settings saved under names from before 0.3.0 ([Keys.RENAMED]) to today's names. Drops settings that no
+     * longer exist ([Keys.REMOVED]), and values that aren't text (only an edited backup can hold one).
+     */
     fun migrate() {
-        val saved = prefs.all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap()
+        val all = prefs.all
+        val saved = all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap()
+        val notText = all.keys - saved.keys
         val moved = Keys.migrate(saved)
-        if (moved == saved) return
+        if (moved == saved && notText.isEmpty()) return
         prefs.edit(commit = true) {
+            notText.forEach { remove(it) }
             saved.keys.filter { it !in moved }.forEach { remove(it) }
             moved.forEach { (k, v) -> putString(k, v) }
         }
@@ -38,8 +44,15 @@ class Config private constructor(private val prefs: SharedPreferences) {
 
     @Suppress("UNCHECKED_CAST")
     operator fun <T> get(key: ConfigKey<T>): T {
-        val raw = previews[key.key] ?: prefs.getString(key.key, null) ?: return key.default
+        val raw = previews[key.key] ?: saved(key.key) ?: return key.default
         return key.parse(raw) ?: key.default
+    }
+
+    /** The text saved for [key], or null. A value that isn't text counts as not set: reading it as text would throw, at every start. */
+    private fun saved(key: String): String? = try {
+        prefs.getString(key, null)
+    } catch (_: ClassCastException) {
+        null
     }
 
     /** Shows [raw] for [key] everywhere without saving it. Null goes back to the saved value. */

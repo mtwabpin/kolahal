@@ -66,8 +66,14 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** With [expand] = false, runs [line] exactly as given. Aliases must not rewrite tap-to-run lines. */
-    fun run(line: String, expand: Boolean = true) {
+    /**
+     * Runs [line] as typed.
+     * - [expand] = false runs it exactly as given. Aliases must not rewrite tap-to-run lines.
+     * - [fromApp] = true: Kolahal itself sent it (a button, a header tap, a setup fix, a tap-to-run
+     *   line). A command turned off ([CommandsOff]) still runs then. Typed lines, gestures and
+     *   scripts keep the check.
+     */
+    fun run(line: String, expand: Boolean = true, fromApp: Boolean = false) {
         val typed = CommandParsing.spaces(line).trim()
         if (typed.isEmpty()) return
         // Which command lines are logged:
@@ -86,28 +92,28 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         // Running a command ends `log only`, because what you typed and what it prints must be visible.
         if (!ScriptScheduler.runningSentCommand && typed.substringBefore(' ').lowercase() != "log") ui.filterLog(null)
         // Everything it prints, now or later (a script, a feed fetch, a download), is marked as its output.
-        logs.withCause(commandId) { runLogged(typed, expand) }
+        logs.withCause(commandId) { runLogged(typed, expand, fromApp) }
     }
 
     /** Writes the command's output together ([LogRepository.batched]): one write for a page of output, not one per line. */
-    private fun runLogged(typed: String, expand: Boolean) = logs.batched {
+    private fun runLogged(typed: String, expand: Boolean, fromApp: Boolean) = logs.batched {
         // Expand aliases first, so `alias hf = help | grep feed` pipes too. The `alias` command itself keeps the pipe in its definition.
         val expanded = if (expand) expandAliases(typed) else typed
         val stages = if (expanded.substringBefore(' ').lowercase() == "alias") listOf(expanded) else Pipes.split(expanded)
         if (stages.size > 1) {
             // `cmd | grep x | head 5`: capture what the command prints right away, then filter it.
-            val (_, captured) = logs.capture { execute(stages[0]) }
+            val (_, captured) = logs.capture { execute(stages[0], fromApp) }
             Pipes.apply(captured, stages.drop(1)).fold(
                 onSuccess = { logs.addAll(it) },
                 onFailure = { logs.addAll(captured); error(it.message ?: "Invalid pipe") },
             )
             return@batched
         }
-        execute(expanded)
+        execute(expanded, fromApp)
     }
 
-    /** Runs one command whose aliases are already expanded. */
-    private fun execute(trimmed: String) {
+    /** Runs one command whose aliases are already expanded. [fromApp]: see [run]. */
+    private fun execute(trimmed: String, fromApp: Boolean) {
         // "= 6*7" is a quick calculator. It accepts any Lua expression.
         if (trimmed.startsWith("=")) return calc(trimmed.drop(1).trim())
         val name = trimmed.substringBefore(' ').lowercase()
@@ -115,7 +121,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val args = CommandParsing.tokenize(rest)
         runCatching {
             // A command turned off (commands.off) is as if it didn't exist: its name opens the app it matches.
-            if (CommandsOff.isOff(name, off())) return@runCatching fallbackLaunch(trimmed)
+            // Kolahal's own buttons and tap-to-run lines still run it.
+            if (!fromApp && CommandsOff.isOff(name, off())) return@runCatching fallbackLaunch(trimmed)
             when (name) {
                 "alias" -> alias(rest)
                 "unalias" -> unalias(args)

@@ -542,6 +542,29 @@ class BackupAndLibraryTest {
         }
     }
 
+    /**
+     * Settings are text. A number or a switch among them (only an edited file has one) is left out
+     * of a restore: read as text, it would break home at every start. One that is there anyway
+     * reads as not set, and the next start drops it.
+     */
+    @Test fun aSettingThatIsntTextIsLeftOut() {
+        val saved = context.getSharedPreferences("config", android.content.Context.MODE_PRIVATE)
+        @Suppress("UNCHECKED_CAST") val data = FullBackup.export(context).toMutableMap()
+        @Suppress("UNCHECKED_CAST") val files = (data["prefs"] as Map<String, Any?>).toMutableMap()
+        @Suppress("UNCHECKED_CAST") val settings = (files["config"] as? Map<String, Any?>).orEmpty()
+        files["config"] = settings + mapOf(Keys.FONT_SIZE.key to mapOf("i" to 18), Keys.THEME.key to mapOf("s" to "amber"))
+        data["prefs"] = files
+        FullBackup.importRaw(context, data)
+        assertFalse(saved.contains(Keys.FONT_SIZE.key))
+        assertEquals("amber", config[Keys.THEME])
+
+        saved.edit().putInt(Keys.FONT_SIZE.key, 18).commit()
+        assertEquals(Keys.FONT_SIZE.default, config[Keys.FONT_SIZE])
+        config.migrate()
+        assertFalse(saved.contains(Keys.FONT_SIZE.key))
+        assertEquals("amber", config[Keys.THEME])
+    }
+
     /** The boot `@on boot` last fired for is this phone's: restored, an older one would read as a new boot. */
     @Test fun theLastBootStaysOutOfBackups() {
         val triggers = context.getSharedPreferences("triggers", android.content.Context.MODE_PRIVATE)

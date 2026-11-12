@@ -211,6 +211,26 @@ class TerminalViewModelTest {
         assertEquals(Screen.SETTINGS, vm.screen.value)
     }
 
+    /**
+     * A command turned off (commands.off) still runs from Kolahal's own header and tap-to-run lines:
+     * they need the command, not the app its name opens. A command a script sends is still refused.
+     */
+    @Test fun aCommandTurnedOffStillRunsFromKolahalsOwnButtons() {
+        assertTrue(config.set(Keys.COMMANDS_OFF, "todo"))
+        val vm = home()
+        fun runs() = added().filter { it.kind == LogKind.COMMAND && it.text == "todo" }
+        fun printedAfter(id: Long) = added().any { it.id > id && it.kind != LogKind.COMMAND }
+        main { vm.onHeaderTap(HeaderTarget.TODO) }
+        waitUntil("todo ran from the header") { runs().size == 1 && printedAfter(runs().single().id) }
+        val tapLine = logs.add(LogKind.INFO, "tvm tap to list todos", ctx = LogContext.of(LogContext.RUN to "todo"))
+        main { vm.onTap(logs.byIds(listOf(tapLine)).single()) }
+        waitUntil("todo ran from a tap") { runs().size == 2 && printedAfter(runs().last().id) }
+        assertTrue(added().none { it.text.startsWith("Command not found") })
+        // From a script, it is as if it weren't there.
+        main { vm.runCommand("todo", byScript = true) }
+        waitUntil("a script's todo is refused") { added().any { it.text.startsWith("Command not found: todo") } }
+    }
+
     /** Tapping a running work profile asks for a second tap, on a line that pauses it. */
     @Test fun pausingAProfileAsksForASecondTap() {
         val vm = home()

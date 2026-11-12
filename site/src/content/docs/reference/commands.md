@@ -255,7 +255,10 @@ A command that is off:
 
 - isn't suggested, and `help` doesn't list it (`help` names the commands that are off at the end);
 - doesn't run, by its name or its other names: with `yt` off, `youtube` opens the YouTube app;
-- can't be run by scripts, gestures or taps on log lines either.
+- can't be run by scripts or gestures either, or by a tap on a command line you typed.
+
+Kolahal's own buttons still work: a tap on the header's todo count still runs `todo`, and "tap to
+allow" lines still run `script`, even with those commands off.
 
 `help`, `config` and `settings` always stay on, so you can turn the others back on. From the
 prompt: `config set commands.off yt,wiki,maps`, and `config set commands.off none` turns them all

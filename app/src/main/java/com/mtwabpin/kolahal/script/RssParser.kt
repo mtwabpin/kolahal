@@ -32,9 +32,16 @@ object RssParser {
     /** The most items read from one feed. The rest of a huge feed is not parsed, because feeds list the newest items first. */
     const val MAX_ITEMS = 300
 
+    /** The most characters kept from one element's text. Feeds are at most 3 MB, but a script can pass more. */
+    private const val MAX_TEXT = 256 * 1024
+
     fun parse(xml: String): Feed {
         val parser = Xml.newPullParser().apply {
             setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+            // Android's parser expands a feed's own <!ENTITY> declarations, with no limit: a few nested
+            // ones grow a small feed to gigabytes ("billion laughs"). Without DOCTYPE processing, they
+            // aren't stored, so a reference to one fails or reads as nothing.
+            setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, false)
             // A feed's text must not be able to style a log line.
             setInput(StringReader(com.mtwabpin.kolahal.data.StyledText.strip(xml)))
         }
@@ -97,13 +104,16 @@ object RssParser {
         return Feed(feedTitle?.trim(), feedLink, items)
     }
 
-    /** Reads all text inside the current element, including nested markup (e.g. Atom XHTML content). */
+    /** Reads all text inside the current element, including nested markup (e.g. Atom XHTML content), up to [MAX_TEXT] characters. */
     private fun readText(parser: XmlPullParser): String {
         val sb = StringBuilder()
         var depth = 1
         while (depth > 0) {
             when (parser.next()) {
-                XmlPullParser.TEXT, XmlPullParser.CDSECT -> sb.append(parser.text)
+                XmlPullParser.TEXT, XmlPullParser.CDSECT -> if (sb.length < MAX_TEXT) {
+                    val text = parser.text
+                    sb.append(text, 0, minOf(text.length, MAX_TEXT - sb.length))
+                }
                 XmlPullParser.START_TAG -> depth++
                 XmlPullParser.END_TAG -> depth--
                 XmlPullParser.END_DOCUMENT -> break

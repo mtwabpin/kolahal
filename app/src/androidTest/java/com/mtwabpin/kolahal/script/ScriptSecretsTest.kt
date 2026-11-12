@@ -47,6 +47,19 @@ class ScriptSecretsTest {
         }
     }
 
+    /**
+     * The key is deleted, and every value with it, only when the Keystore can't read the key any
+     * more: not on an error that may pass, or that is about the Keystore rather than the key.
+     * (Android's own Keystore error, which says which it is, can't be made in a test: its
+     * constructors are hidden.)
+     */
+    @Test fun onlyTheKeysOwnFailureStartsOver() {
+        assertFalse(SecretStore.mayPass(java.security.UnrecoverableKeyException("the key is damaged")))
+        assertFalse(SecretStore.mayPass(java.io.IOException("something else")))
+        store.set("secrets-test", "KEY", value, key.hosts)
+        assertEquals(value, store.get("secrets-test", "KEY")?.value)
+    }
+
     @Test fun aScriptGetsAMarkNotTheValue() {
         val h = host()
         val mark = h.secretGet("KEY")!!
