@@ -62,6 +62,21 @@ object StatusLines {
         }.sortedBy { it.name }
     }
 
+    /** Whether [name]'s line is stored as [text], with [extras] ([encodeExtras]) beside it. Setting the same again changes nothing. */
+    fun isSet(context: Context, name: String, text: String?, extras: String?): Boolean =
+        KvStore(context, Stores.STATUS).get(name) == text && KvStore(context, Stores.STATUS_EXTRAS).get(name) == extras
+
+    /**
+     * Stores [name]'s line as [text], with [extras] ([encodeExtras]) beside it, and tells home to draw
+     * it. A null [text] removes the line. A run's `status(text, opts)` ends here
+     * ([com.mtwabpin.kolahal.script.HostApi.status]).
+     */
+    fun set(context: Context, name: String, text: String?, extras: String?) {
+        KvStore(context, Stores.STATUS).set(name, text)
+        KvStore(context, Stores.STATUS_EXTRAS).set(name, extras)
+        LogRepository.get(context).onStatusChanged()
+    }
+
     /**
      * Removes a script's line and what it adds. Called when the script is deleted, switched off or
      * on, or changed from outside.

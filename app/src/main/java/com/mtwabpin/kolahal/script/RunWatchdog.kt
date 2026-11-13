@@ -1,8 +1,8 @@
 package com.mtwabpin.kolahal.script
 
-import android.app.Application
 import android.os.Debug
 import android.os.Process
+import com.mtwabpin.kolahal.data.Singleton
 import kotlin.concurrent.thread
 
 /**
@@ -45,7 +45,7 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
                     else -> null
                 } ?: continue
                 runCatching { host.logStopped("${host.scriptName}: $reason, killed script process") }
-                if (Application.getProcessName().endsWith(":script")) {
+                if (Singleton.inScriptProcess) {
                     stopOthers(host)
                     Process.killProcess(Process.myPid())
                 }

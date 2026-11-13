@@ -240,7 +240,7 @@ class LogRepository private constructor(private val context: Context) {
     private fun noteUpdated(ids: Collection<Long>) {
         if (ids.isEmpty()) return
         // Another process (a script) tells home which lines changed.
-        if (!inMainProcess) return changed(updated = ids, inPlace = true)
+        if (Singleton.inScriptProcess) return changed(updated = ids, inPlace = true)
         synchronized(this) {
             for (id in ids) {
                 updates.addLast(++updatedSeq to id)
@@ -289,7 +289,7 @@ class LogRepository private constructor(private val context: Context) {
 
     private fun noteRemoved(ids: Collection<Long>) {
         if (ids.isEmpty()) return
-        if (!inMainProcess) return restructured()
+        if (Singleton.inScriptProcess) return restructured()
         synchronized(this) {
             for (id in ids) {
                 removals.addLast(++removedSeq to id)
@@ -683,8 +683,8 @@ class LogRepository private constructor(private val context: Context) {
     private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList(), inPlace: Boolean = false) {
         _version.value++
         if (!inPlace) _linesVersion.value++
-        // Other processes (scripts) tell home. Home's own writes already incremented the version above.
-        if (!inMainProcess) {
+        // The other process (scripts) tells home. Home's own writes already incremented the version above.
+        if (Singleton.inScriptProcess) {
             context.sendBroadcast(
                 Intent(ACTION_LOGS_CHANGED).setPackage(context.packageName)
                     .putExtra(EXTRA_RESTRUCTURE, restructure)
@@ -693,8 +693,6 @@ class LogRepository private constructor(private val context: Context) {
             )
         }
     }
-
-    private val inMainProcess by lazy { android.app.Application.getProcessName() == context.packageName }
 
     /** Caps a line's text, so one huge value (an HTTP body, a script's log(bigString)) stays readable. */
     private fun clip(s: String) = if (s.length <= MAX_FIELD) s else s.takeWhole(MAX_FIELD - 1) + "…"

@@ -25,6 +25,23 @@ object ReminderScheduler {
     fun canBeExact(context: Context): Boolean =
         Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
+    /**
+     * Sets an alarm for [at] that also goes off while the phone is idle. Reminders and scripts' daily
+     * times use it.
+     * - It is exact when Kolahal may set exact alarms ([canBeExact]). Otherwise it is inexact.
+     * - If Android refuses the exact one after all, the inexact one is set instead.
+     * - What the inexact one throws (Android refuses an app's 500th alarm) is the caller's to handle.
+     */
+    fun setAlarm(context: Context, at: Long, pi: PendingIntent) {
+        val am = context.getSystemService(AlarmManager::class.java)
+        if (canBeExact(context)) {
+            runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+                .onFailure { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+        } else {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        }
+    }
+
     private fun pending(context: Context, id: Long, flags: Int = PendingIntent.FLAG_UPDATE_CURRENT): PendingIntent? =
         PendingIntent.getBroadcast(
             context, id.toInt(),
@@ -33,19 +50,11 @@ object ReminderScheduler {
         )
 
     fun schedule(context: Context, r: Reminder) {
-        val am = context.getSystemService(AlarmManager::class.java)
         val pi = pending(context, r.id) ?: return
         // If the time passed while the phone was off, the alarm fires right away.
         val at = r.at.coerceAtLeast(System.currentTimeMillis() + 1_000)
         // Android refuses an app's 500th alarm. A failure here must not stop the other alarms.
-        runCatching {
-            if (canBeExact(context)) {
-                runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
-                    .onFailure { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-            }
-        }
+        runCatching { setAlarm(context, at, pi) }
     }
 
     fun cancel(context: Context, id: Long) {

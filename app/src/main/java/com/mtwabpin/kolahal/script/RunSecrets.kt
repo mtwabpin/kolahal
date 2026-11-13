@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.sha256Hex
+
 /**
  * One run's secrets ([HostApi] keeps one for the run): the marks that stand for the values, where a
  * mark may become its value, and the masking that keeps a value out of what the run shows or stores.
@@ -119,6 +121,6 @@ internal class RunSecrets(
     fun urlKey(prefix: String, url: String): String {
         if (redact(url) == url) return prefix + url
         val stable = marks.replace(url) { "\u0000" + it.groupValues[1] }
-        return prefix + "#" + java.security.MessageDigest.getInstance("SHA-256").digest(stable.toByteArray()).joinToString("") { "%02x".format(it) }
+        return prefix + "#" + sha256Hex(stable.toByteArray())
     }
 }

@@ -7,10 +7,10 @@ import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.sha256Hex
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
-import java.security.MessageDigest
 
 /**
  * Scripts shared in the kolahal-scripts repository. Used by Scripts → Get more scripts, and by `script get`.
@@ -102,7 +102,7 @@ class ScriptCatalog(private val context: Context) {
     /** Downloads [e]'s file and checks it against the list. Throws when it doesn't match (the list changed, so refresh it). */
     fun download(e: Entry): String {
         val bytes = get(BASE_URL + e.path, MAX_SCRIPT)
-        if (sha256(bytes) != e.sha256) throw IOException("${e.name} doesn't match the script list; refresh it and try again")
+        if (sha256Hex(bytes) != e.sha256) throw IOException("${e.name} doesn't match the script list; refresh it and try again")
         return bytes.toString(Charsets.UTF_8)
     }
 
@@ -199,9 +199,6 @@ class ScriptCatalog(private val context: Context) {
             return bytes
         }
     }
-
-    private fun sha256(bytes: ByteArray) =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     companion object {
         const val SOURCE = "kolahal-scripts"

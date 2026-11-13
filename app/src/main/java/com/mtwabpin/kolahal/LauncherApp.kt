@@ -85,7 +85,7 @@ class LauncherApp : Application(), Configuration.Provider {
         CrashReports.install(this)
         Notifier.createChannels(this)
         // The :script process only needs the database and notifications.
-        if (getProcessName() != packageName) return
+        if (com.mtwabpin.kolahal.data.Singleton.inScriptProcess) return
 
         // Load custom themes before the theme is applied, because `theme.name` may name one of them.
         com.mtwabpin.kolahal.data.CustomThemes.load(this)

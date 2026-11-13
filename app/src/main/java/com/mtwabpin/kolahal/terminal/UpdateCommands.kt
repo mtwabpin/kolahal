@@ -109,7 +109,7 @@ internal class UpdateCommands(
             val signatures = packageInfo.signingInfo?.apkContentsSigners
                 ?: packageInfo.signatures
                 ?: throw IllegalStateException("Could not read APK signing certificates.")
-            return signatures.map { hex(MessageDigest.getInstance("SHA-256").digest(it.toByteArray())) }.toSet()
+            return signatures.map { com.mtwabpin.kolahal.data.sha256Hex(it.toByteArray()) }.toSet()
         }
 
         /** Where the APK waits for the installer. */

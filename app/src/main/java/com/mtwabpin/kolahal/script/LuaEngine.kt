@@ -242,11 +242,6 @@ class LuaEngine : ScriptEngine {
         )
     }
 
-    /**
-     * Argument [index] as text, as `tostring` shows it. Null for nil or none.
-     * - A boolean becomes true/false and a table becomes JSON (lua_tostring gives nil for both).
-     * - A number is written as Lua writes it.
-     */
     /** A table cell from Lua: text as it is, a whole number without ".0", nothing as an empty cell. */
     private fun cellText(v: Any?): String = when (v) {
         null -> ""
@@ -254,6 +249,11 @@ class LuaEngine : ScriptEngine {
         else -> v.toString()
     }
 
+    /**
+     * Argument [index] as text, as `tostring` shows it. Null for nil or none.
+     * - A boolean becomes true/false and a table becomes JSON (lua_tostring gives nil for both).
+     * - A number is written as Lua writes it.
+     */
     private fun Lua.str(index: Int): String? = when {
         top < index || isNil(index) -> null
         isBoolean(index) -> toBoolean(index).toString()

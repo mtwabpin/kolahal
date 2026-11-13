@@ -7,6 +7,7 @@ import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.sha256Hex
 
 /** Ready-made scripts bundled in assets/library. Each one describes itself with its directives ([ScriptMeta]). */
 class ScriptLibrary(private val context: Context) {
@@ -200,8 +201,7 @@ class ScriptLibrary(private val context: Context) {
         const val SELF_UPDATED = "self_updated"
         const val SELF_UPDATED_IN = "self_updated_in"
 
-        fun fingerprint(code: String): String =
-            java.security.MessageDigest.getInstance("SHA-256").digest(code.toByteArray(Charsets.UTF_8))
-                .take(8).joinToString("") { "%02x".format(it) }
+        /** The first 8 bytes of the code's SHA-256, as 16 hex digits. */
+        fun fingerprint(code: String): String = sha256Hex(code.toByteArray(Charsets.UTF_8)).take(16)
     }
 }

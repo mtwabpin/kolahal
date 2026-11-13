@@ -506,13 +506,9 @@ class HostApi(
         // A status line is plain text. Styles only show in the log.
         val value = text?.let(::redact)?.let(StyledText::plain)?.lines()?.firstOrNull()?.take(STATUS_MAX)?.takeIf { it.isNotBlank() }
         val extras = value?.let { StatusLines.encodeExtras(progress, refresh, colour) }
-        val lines = KvStore(context, Stores.STATUS)
-        val added = KvStore(context, Stores.STATUS_EXTRAS)
         // Each write tells home to redraw. So unchanged writes are skipped, and a loop stops after a few.
-        if ((lines.get(scriptName) == value && added.get(scriptName) == extras) || ++statusWrites > MAX_STATUS_PER_RUN) return
-        lines.set(scriptName, value)
-        added.set(scriptName, extras)
-        logs.onStatusChanged()
+        if (StatusLines.isSet(context, scriptName, value, extras) || ++statusWrites > MAX_STATUS_PER_RUN) return
+        StatusLines.set(context, scriptName, value, extras)
     }
 
     /** Status line writes in this run. */

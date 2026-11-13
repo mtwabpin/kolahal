@@ -53,17 +53,9 @@ object ScriptAlarms {
     /** Sets the alarm for [time] ("HH:mm") after [from]. It replaces an alarm already set. */
     fun set(context: Context, id: Long, time: String, from: ZonedDateTime = ZonedDateTime.now()) {
         val pi = pending(context, id, time, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
-        val am = context.getSystemService(AlarmManager::class.java)
         val at = from.toInstant().toEpochMilli() + ScriptScheduler.millisUntil(time, from)
         // Android refuses an app's 500th alarm. A failure here must not stop the other alarms, but it is logged (once a day).
-        com.mtwabpin.kolahal.data.Quietly.run(context, "Setting a script's daily time") {
-            if (ReminderScheduler.canBeExact(context)) {
-                runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
-                    .onFailure { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-            }
-        }
+        com.mtwabpin.kolahal.data.Quietly.run(context, "Setting a script's daily time") { ReminderScheduler.setAlarm(context, at, pi) }
     }
 
     fun cancel(context: Context, id: Long, time: String) {
