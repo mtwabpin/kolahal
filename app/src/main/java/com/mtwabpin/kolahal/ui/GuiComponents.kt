@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -13,14 +14,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenuGroup
@@ -35,6 +42,7 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SelectableDropdownMenuItem
@@ -48,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -68,6 +77,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -130,6 +140,12 @@ fun GroupHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp),
     )
+}
+
+/** The title over a group of rows on a sheet. A page uses [GroupHeader]. */
+@Composable
+internal fun SectionTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
@@ -235,6 +251,35 @@ internal fun rememberExpandedSheetState(): SheetState =
     rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
 /**
+ * A bottom sheet over a GUI page. It is fully open or closed ([rememberExpandedSheetState]), in
+ * the sheets' colour, and its content is a column with 24 dp at each side.
+ * - [scroll]: the column scrolls. For a sheet that can be taller than the screen.
+ * - [scrimColor]: what dims the page behind it. Transparent leaves the page as it is.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun GuiSheet(
+    onDismiss: () -> Unit,
+    scroll: Boolean = false,
+    scrimColor: Color = BottomSheetDefaults.ScrimColor,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberExpandedSheetState(),
+        scrimColor = scrimColor,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            (if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+            content = content,
+        )
+    }
+}
+
+/**
  * Asks for confirmation before an action that cannot be undone.
  * - [confirm] uses the error colour and runs [onConfirm].
  * - Cancel, Back and a tap outside run [onDismiss].
@@ -247,14 +292,20 @@ internal fun ConfirmDialog(title: String, text: String, confirm: String, icon: I
         icon = if (icon != null) { { Icon(painterResource(icon), null) } } else null,
         title = { Text(title) },
         text = { Text(text) },
-        confirmButton = {
-            TextButton(
-                shapes = ButtonDefaults.shapes(),
-                onClick = onConfirm,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) { Text(confirm) }
-        },
+        confirmButton = { ErrorTextButton(onClick = onConfirm) { Text(confirm) } },
         dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** A text button in the error colour, for an action that removes or replaces something. */
+@Composable
+internal fun ErrorTextButton(onClick: () -> Unit, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
+    TextButton(
+        shapes = ButtonDefaults.shapes(),
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        content = content,
     )
 }
 
@@ -328,6 +379,37 @@ internal fun SwitchRow(
 }
 
 /**
+ * A full-width row like [SwitchRow], with a value at its end instead of a switch. A tap opens what
+ * changes the value. [name] is in the code font: it is a name from a script.
+ * - [detail] shows under the name, unless it is blank.
+ * - [value] is in [valueColor]. With [valueMaxWidth], it stays on one line of at most that width,
+ *   and a longer one is cut with "…".
+ */
+@Composable
+internal fun ValueRow(name: String, detail: String, value: String, valueColor: Color, valueMaxWidth: Dp? = null, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace))
+                if (detail.isNotBlank()) {
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.labelLarge,
+                color = valueColor,
+                // Without a width limit, these are the defaults of Text: as many lines as it needs.
+                maxLines = if (valueMaxWidth != null) 1 else Int.MAX_VALUE,
+                overflow = if (valueMaxWidth != null) TextOverflow.Ellipsis else TextOverflow.Clip,
+                modifier = if (valueMaxWidth != null) Modifier.widthIn(max = valueMaxWidth) else Modifier,
+            )
+        }
+    }
+}
+
+/**
  * Material's Expressive text field colours, but with the container colour of the tonal buttons
  * beside it. The default container (`surfaceContainer`) is barely visible on a sheet in these themes.
  */
@@ -336,6 +418,36 @@ internal fun fieldColors() = TextFieldDefaults.tonalColors().copy(
     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
 )
+
+/**
+ * A page's search field: one line, with the search icon in front and [placeholder] while it is empty.
+ * - [clear]: the name of the × button. It shows while there is text, and empties the field. Null: no button.
+ * - [keyboardOptions]: for example, a Search key on the keyboard.
+ */
+@Composable
+internal fun SearchField(
+    query: String,
+    onQuery: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    clear: String? = null,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+) {
+    TextField(
+        shape = TextFieldDefaults.roundedShape,
+        colors = fieldColors(),
+        value = query,
+        onValueChange = onQuery,
+        singleLine = true,
+        placeholder = { Text(placeholder) },
+        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
+        trailingIcon = if (clear != null && query.isNotEmpty()) {
+            { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), clear) } }
+        } else null,
+        keyboardOptions = keyboardOptions,
+        modifier = modifier,
+    )
+}
 
 /**
  * Picks how often something runs. It is a row like [SwitchRow]. Its button shows the interval and

@@ -16,13 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -37,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -290,19 +284,13 @@ fun SettingsScreen(vm: TerminalViewModel) {
             item(key = "tabs") { PeekFade(peek) { FeatureTabs(vm, Screen.SETTINGS) } }
             item(key = "search") {
               PeekFade(peek) {
-                TextField(
-                    shape = TextFieldDefaults.roundedShape,
-                    colors = fieldColors(),
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    placeholder = { Text("Search settings") },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                    trailingIcon = if (query.isNotEmpty()) {
-                        { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { query = "" }) { Icon(painterResource(R.drawable.ic_close), "Clear") } }
-                    } else null,
+                SearchField(
+                    query,
+                    { query = it },
+                    "Search settings",
+                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+                    clear = "Clear",
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                 )
               }
             }

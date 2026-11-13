@@ -93,13 +93,7 @@ internal fun RestoreDialog(vm: TerminalViewModel, s: Script, copy: ScriptCopy, o
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onExport) { IconLabel(R.drawable.ic_download, "Export your copy first") }
             }
         },
-        confirmButton = {
-            TextButton(
-                shapes = ButtonDefaults.shapes(),
-                onClick = onConfirm,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) { Text(if (update) "Update" else "Reset") }
-        },
+        confirmButton = { ErrorTextButton(onClick = onConfirm) { Text(if (update) "Update" else "Reset") } },
         dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
     )
     // Compare's own Update or Reset answers this dialog too.

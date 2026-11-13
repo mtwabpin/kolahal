@@ -7,28 +7,21 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -94,16 +87,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
             },
         ) {
             item(key = "search") {
-                TextField(
-                    shape = TextFieldDefaults.roundedShape,
-                    colors = fieldColors(),
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text("Search by name, author or tag") },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                )
+                SearchField(query, { query = it }, "Search by name, author or tag", Modifier.fillMaxWidth().padding(bottom = 8.dp))
             }
             if (shared.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp)) }
             shared.error?.let { error ->
@@ -193,90 +177,81 @@ private fun SharedRow(e: ScriptCatalog.Entry, state: ScriptCatalog.State?, index
 }
 
 /** The sheet for one shared script: what it is, how it runs, what it uses, its code, and Install or Update. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: ScriptCatalog.State?, onDismiss: () -> Unit) {
-    val sheet = rememberExpandedSheetState()
     var asking by remember(e.name) { mutableStateOf(false) }
     var confirmReplace by remember(e.name) { mutableStateOf(false) }
     // Download the file and check it against the list, so the user can read it before installing.
     val code by produceState<Result<String>?>(null, e.sha256) { value = runCatching { vm.scriptActions.sharedScriptCode(e) } }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start = 24.dp, end = 24.dp, bottom = 16.dp)
-        ) {
-            Text(e.title, style = MaterialTheme.typography.titleLarge)
-            Text(
-                listOfNotNull("${e.name}.${e.lang.ext}", e.version.ifBlank { null }?.let { "v$it" }, e.author.ifBlank { null }?.let { "by $it" })
-                    .joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (e.desc.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(e.desc, style = MaterialTheme.typography.bodyLarge)
-            }
-            Spacer(Modifier.height(12.dp))
-            // Once the file is downloaded (and checked against the list), use it, because the file
-            // is what installing grants. Until then, use the list's values.
-            val text = code?.getOrNull()
-            val uses = remember(text) { text?.let { ScriptMeta.uses(it).toList() } ?: e.uses }
-            Fact("Runs", remember(text) { text?.let { runs(it) } ?: runs(e) }.ifEmpty { "manually" })
-            Fact("Uses", if (uses.isEmpty()) "nothing private" else uses.joinToString(", ") { ScriptAccess.label(it).lowercase() })
-            code?.getOrNull()?.let(ScriptMeta::secrets)?.takeIf { it.isNotEmpty() }?.let { keys ->
-                Fact("Keys", keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
-            }
-            if (e.tags.isNotEmpty()) Fact("Tags", e.tags.joinToString(", "))
-
-            Spacer(Modifier.height(16.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                when (state) {
-                    ScriptCatalog.State.NOT_INSTALLED, null -> Button(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = { if (uses.isEmpty()) vm.scriptActions.installSharedScript(e) else asking = true },
-                        enabled = code?.isSuccess == true,
-                    ) {
-                        IconLabel(R.drawable.ic_download, "Install")
-                    }
-                    ScriptCatalog.State.UPDATE_AVAILABLE -> Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.installSharedScript(e) }, enabled = code?.isSuccess == true) {
-                        Text("Update to ${e.version}")
-                    }
-                    ScriptCatalog.State.MODIFIED -> TextButton(
-                        shapes = ButtonDefaults.shapes(),
-                        onClick = { confirmReplace = true },
-                        enabled = code?.isSuccess == true,
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text("Replace your edited copy") }
-                    ScriptCatalog.State.INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {}, enabled = false) { Text("Installed") }
-                    ScriptCatalog.State.NAME_TAKEN -> Text(
-                        "One of your scripts, a command or an app already has the name ${e.name}.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    ScriptCatalog.State.NEEDS_NEWER -> Text(
-                        "Needs Kolahal ${e.requires} or newer.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text("Code", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    GuiSheet(onDismiss, scroll = true) {
+        Text(e.title, style = MaterialTheme.typography.titleLarge)
+        Text(
+            listOfNotNull("${e.name}.${e.lang.ext}", e.version.ifBlank { null }?.let { "v$it" }, e.author.ifBlank { null }?.let { "by $it" })
+                .joinToString(" · "),
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (e.desc.isNotBlank()) {
             Spacer(Modifier.height(8.dp))
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
-                val result = code
-                Text(
-                    when {
-                        result == null -> "Downloading…"
-                        result.isSuccess -> result.getOrThrow()
-                        else -> "Can't download it: ${result.exceptionOrNull()?.message}"
-                    },
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
-                    modifier = Modifier.padding(12.dp),
+            Text(e.desc, style = MaterialTheme.typography.bodyLarge)
+        }
+        Spacer(Modifier.height(12.dp))
+        // Once the file is downloaded (and checked against the list), use it, because the file
+        // is what installing grants. Until then, use the list's values.
+        val text = code?.getOrNull()
+        val uses = remember(text) { text?.let { ScriptMeta.uses(it).toList() } ?: e.uses }
+        Fact("Runs", remember(text) { text?.let { runs(it) } ?: runs(e) }.ifEmpty { "manually" })
+        Fact("Uses", if (uses.isEmpty()) "nothing private" else uses.joinToString(", ") { ScriptAccess.label(it).lowercase() })
+        code?.getOrNull()?.let(ScriptMeta::secrets)?.takeIf { it.isNotEmpty() }?.let { keys ->
+            Fact("Keys", keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
+        }
+        if (e.tags.isNotEmpty()) Fact("Tags", e.tags.joinToString(", "))
+
+        Spacer(Modifier.height(16.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            when (state) {
+                ScriptCatalog.State.NOT_INSTALLED, null -> Button(
+                    shapes = ButtonDefaults.shapes(),
+                    onClick = { if (uses.isEmpty()) vm.scriptActions.installSharedScript(e) else asking = true },
+                    enabled = code?.isSuccess == true,
+                ) {
+                    IconLabel(R.drawable.ic_download, "Install")
+                }
+                ScriptCatalog.State.UPDATE_AVAILABLE -> Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.installSharedScript(e) }, enabled = code?.isSuccess == true) {
+                    Text("Update to ${e.version}")
+                }
+                ScriptCatalog.State.MODIFIED -> ErrorTextButton(onClick = { confirmReplace = true }, enabled = code?.isSuccess == true) {
+                    Text("Replace your edited copy")
+                }
+                ScriptCatalog.State.INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {}, enabled = false) { Text("Installed") }
+                ScriptCatalog.State.NAME_TAKEN -> Text(
+                    "One of your scripts, a command or an app already has the name ${e.name}.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                ScriptCatalog.State.NEEDS_NEWER -> Text(
+                    "Needs Kolahal ${e.requires} or newer.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        SectionTitle("Code")
+        Spacer(Modifier.height(8.dp))
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
+            val result = code
+            Text(
+                when {
+                    result == null -> "Downloading…"
+                    result.isSuccess -> result.getOrThrow()
+                    else -> "Can't download it: ${result.exceptionOrNull()?.message}"
+                },
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
+                modifier = Modifier.padding(12.dp),
+            )
         }
     }
 

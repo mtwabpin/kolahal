@@ -40,8 +40,6 @@ import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,19 +71,7 @@ import com.mtwabpin.kolahal.R
 internal fun SearchRow(query: String, onQuery: (String) -> Unit, filters: Int, onFilters: () -> Unit, sort: ScriptSort, onSort: (ScriptSort) -> Unit) {
     var sorting by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        TextField(
-            colors = fieldColors(),
-            shape = TextFieldDefaults.roundedShape,
-            value = query,
-            onValueChange = onQuery,
-            placeholder = { Text("Search scripts") },
-            leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-            trailingIcon = if (query.isNotEmpty()) {
-                { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), "Clear the search") } }
-            } else null,
-            singleLine = true,
-            modifier = Modifier.weight(1f).testTag("script-search"),
-        )
+        SearchField(query, onQuery, "Search scripts", Modifier.weight(1f).testTag("script-search"), clear = "Clear the search")
         IconButton(shapes = IconButtonDefaults.shapes(), onClick = onFilters) {
             BadgedBox(badge = { if (filters > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$filters") } }) {
                 Icon(painterResource(R.drawable.ic_tune), contentDescription = "Filters")

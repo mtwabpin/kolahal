@@ -33,8 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -176,16 +174,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item(key = "search") {
-                TextField(
-                    shape = TextFieldDefaults.roundedShape,
-                    colors = fieldColors(),
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    placeholder = { Text("Search widgets") },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                SearchField(query, { query = it }, "Search widgets", Modifier.fillMaxWidth())
             }
             when {
                 shown == null -> Unit

@@ -5,21 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,42 +81,34 @@ internal fun aboutThisPhone(): String =
     "\n\n--\n$VERSION_TEXT · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}"
 
 /** Actions for a tapped crash report: email it to the developer, share it, or delete it. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CrashSheet(crash: CrashRow, onDismiss: () -> Unit, onEmail: () -> Unit, onShare: () -> Unit, onDelete: () -> Unit) {
-    val state = rememberExpandedSheetState()
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = state,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(Modifier.navigationBarsPadding().padding(start = 24.dp, end = 24.dp, bottom = 16.dp)) {
-            Text(crash.title, style = MaterialTheme.typography.titleLarge)
-            Text(
-                crash.summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Emailing or sharing it includes the whole report: the app and Android versions, the phone model and the error. " +
-                    "It opens in the other app, and nothing is sent until you send it.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
-            )
-            Spacer(Modifier.height(16.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(shapes = ButtonDefaults.shapes(), onClick = onEmail) {
-                    IconLabel(R.drawable.ic_mail, "Email us")
-                }
-                OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onShare) {
-                    Icon(painterResource(R.drawable.ic_share), "Share", Modifier.size(ButtonDefaults.IconSize))
-                }
-                OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onDelete) {
-                    Icon(painterResource(R.drawable.ic_delete), "Delete", Modifier.size(ButtonDefaults.IconSize))
-                }
+    GuiSheet(onDismiss) {
+        Text(crash.title, style = MaterialTheme.typography.titleLarge)
+        Text(
+            crash.summary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Emailing or sharing it includes the whole report: the app and Android versions, the phone model and the error. " +
+                "It opens in the other app, and nothing is sent until you send it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+        Spacer(Modifier.height(16.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(shapes = ButtonDefaults.shapes(), onClick = onEmail) {
+                IconLabel(R.drawable.ic_mail, "Email us")
+            }
+            OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onShare) {
+                Icon(painterResource(R.drawable.ic_share), "Share", Modifier.size(ButtonDefaults.IconSize))
+            }
+            OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onDelete) {
+                Icon(painterResource(R.drawable.ic_delete), "Delete", Modifier.size(ButtonDefaults.IconSize))
             }
         }
     }

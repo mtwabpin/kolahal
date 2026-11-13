@@ -8,14 +8,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,13 +24,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHostState
@@ -422,7 +418,6 @@ private fun UnreadBadge(unread: Int, total: Int) {
 
 // ---- per-feed sheet -----------------------------------------------------------------------------
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FeedSheet(
     feed: FeedInfo,
@@ -435,65 +430,54 @@ private fun FeedSheet(
     onEditAddress: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    val state = rememberExpandedSheetState()
     var confirmRemove by remember(feed.id) { mutableStateOf(false) }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = state,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(Modifier.navigationBarsPadding().padding(start = 24.dp, end = 24.dp, bottom = 16.dp)) {
-            Text(feed.displayTitle(), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                feed.url,
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                listOfNotNull(
-                    "${feed.unread} unread of ${feed.total}",
-                    feed.lastFetch?.let { "fetched ${relative(it)}" } ?: "never fetched",
-                    feed.lastStatus,
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (feed.lastStatus?.startsWith("error") == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-            )
+    GuiSheet(onDismiss) {
+        Text(feed.displayTitle(), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            feed.url,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            listOfNotNull(
+                "${feed.unread} unread of ${feed.total}",
+                feed.lastFetch?.let { "fetched ${relative(it)}" } ?: "never fetched",
+                feed.lastStatus,
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (feed.lastStatus?.startsWith("error") == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+        )
 
-            Spacer(Modifier.height(16.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(shapes = ButtonDefaults.shapes(), onClick = onRefresh) {
-                    IconLabel(R.drawable.ic_refresh, "Refresh now")
-                }
-                FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
-                    IconLabel(R.drawable.ic_done_all, "Mark all read")
-                }
+        Spacer(Modifier.height(16.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(shapes = ButtonDefaults.shapes(), onClick = onRefresh) {
+                IconLabel(R.drawable.ic_refresh, "Refresh now")
             }
+            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
+                IconLabel(R.drawable.ic_done_all, "Mark all read")
+            }
+        }
 
-            Spacer(Modifier.height(8.dp))
-            SwitchRow("Notifications", "Post a notification for new items", feed.notify, onChange = onNotify)
-            SwitchRow("Enabled", "Fetch this feed on its schedule", feed.enabled, onChange = onEnabled)
+        Spacer(Modifier.height(8.dp))
+        SwitchRow("Notifications", "Post a notification for new items", feed.notify, onChange = onNotify)
+        SwitchRow("Enabled", "Fetch this feed on its schedule", feed.enabled, onChange = onEnabled)
 
-            Spacer(Modifier.height(12.dp))
-            IntervalSelector("Refresh every", feed.intervalMin, onInterval, FEED_INTERVALS)
+        Spacer(Modifier.height(12.dp))
+        IntervalSelector("Refresh every", feed.intervalMin, onInterval, FEED_INTERVALS)
 
-            // Actions that change the subscription itself are grouped at the end:
-            // - Edit address, to fix a typo or follow a feed that moved, without removing and adding it again.
-            // - Remove feed.
-            Spacer(Modifier.height(16.dp))
-            Row {
-                TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress) {
-                    IconLabel(R.drawable.ic_edit, "Edit address")
-                }
-                TextButton(
-                    shapes = ButtonDefaults.shapes(),
-                    onClick = { confirmRemove = true },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    IconLabel(R.drawable.ic_delete, "Remove feed")
-                }
+        // Actions that change the subscription itself are grouped at the end:
+        // - Edit address, to fix a typo or follow a feed that moved, without removing and adding it again.
+        // - Remove feed.
+        Spacer(Modifier.height(16.dp))
+        Row {
+            TextButton(shapes = ButtonDefaults.shapes(), onClick = onEditAddress) {
+                IconLabel(R.drawable.ic_edit, "Edit address")
+            }
+            ErrorTextButton(onClick = { confirmRemove = true }) {
+                IconLabel(R.drawable.ic_delete, "Remove feed")
             }
         }
     }

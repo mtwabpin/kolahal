@@ -30,14 +30,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHost
@@ -340,10 +338,8 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
  * Picks [colour] for [role] with hue, saturation and lightness sliders, a hex code, or a swatch.
  * Each change is sent at once ([onChange]). The sheet does not dim the screen, so the preview above shows the change.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ColourSheet(role: String, colour: Int, swatches: List<Int>, onChange: (Int) -> Unit, onDismiss: () -> Unit) {
-    val state = rememberExpandedSheetState()
     val start = remember(role) { FloatArray(3).also { ColorUtils.colorToHSL(colour, it) } }
     var h by remember(role) { mutableFloatStateOf(start[0]) }
     var s by remember(role) { mutableFloatStateOf(start[1]) }
@@ -362,46 +358,39 @@ private fun ColourSheet(role: String, colour: Int, swatches: List<Int>, onChange
     }
     val (title, help) = ROLE_TEXT.getValue(role)
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = state,
-        scrimColor = Color.Transparent,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(Modifier.navigationBarsPadding().padding(start = 24.dp, end = 24.dp, bottom = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Swatch(Color(colour), 40.dp)
-                Spacer(Modifier.width(16.dp))
-                Column {
-                    Text(title, style = MaterialTheme.typography.titleLarge)
-                    Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+    GuiSheet(onDismiss, scrimColor = Color.Transparent) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Swatch(Color(colour), 40.dp)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(Modifier.height(12.dp))
-            GradientSlider("Hue", h, 0f..360f, Brush.horizontalGradient((0..6).map { Color.hsl(it * 60f, 1f, 0.5f) })) { h = it; fromSliders() }
-            GradientSlider("Saturation", s, 0f..1f, Brush.horizontalGradient(listOf(Color.hsl(h, 0f, l), Color.hsl(h, 1f, l)))) { s = it; fromSliders() }
-            GradientSlider("Lightness", l, 0f..1f, Brush.horizontalGradient(listOf(Color.Black, Color.hsl(h, s, 0.5f), Color.White))) { l = it; fromSliders() }
-            TextField(
-                shape = TextFieldDefaults.roundedShape,
-                colors = fieldColors(),
-                value = hex,
-                onValueChange = { typed -> hex = typed; CustomThemes.parseHex(typed)?.let { take(it, typed = true) } },
-                label = { Text("Hex") },
-                singleLine = true,
-                isError = CustomThemes.parseHex(hex) == null,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
-            Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                swatches.forEach { c ->
-                    Box(Modifier.clip(CircleShape).clickable { take(c) }) { Swatch(Color(c), 32.dp) }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Button(shapes = ButtonDefaults.shapes(), onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
         }
+        Spacer(Modifier.height(12.dp))
+        GradientSlider("Hue", h, 0f..360f, Brush.horizontalGradient((0..6).map { Color.hsl(it * 60f, 1f, 0.5f) })) { h = it; fromSliders() }
+        GradientSlider("Saturation", s, 0f..1f, Brush.horizontalGradient(listOf(Color.hsl(h, 0f, l), Color.hsl(h, 1f, l)))) { s = it; fromSliders() }
+        GradientSlider("Lightness", l, 0f..1f, Brush.horizontalGradient(listOf(Color.Black, Color.hsl(h, s, 0.5f), Color.White))) { l = it; fromSliders() }
+        TextField(
+            shape = TextFieldDefaults.roundedShape,
+            colors = fieldColors(),
+            value = hex,
+            onValueChange = { typed -> hex = typed; CustomThemes.parseHex(typed)?.let { take(it, typed = true) } },
+            label = { Text("Hex") },
+            singleLine = true,
+            isError = CustomThemes.parseHex(hex) == null,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            swatches.forEach { c ->
+                Box(Modifier.clip(CircleShape).clickable { take(c) }) { Swatch(Color(c), 32.dp) }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Button(shapes = ButtonDefaults.shapes(), onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
     }
 }
 
