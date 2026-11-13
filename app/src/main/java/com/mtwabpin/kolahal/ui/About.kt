@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,9 +81,72 @@ internal fun emailDeveloper(context: Context, subject: String, body: String): Bo
 internal fun aboutThisPhone(): String =
     "\n\n--\n$VERSION_TEXT · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}"
 
-/** Actions for a tapped crash report: email it to the developer, share it, or delete it. */
+/**
+ * The About page's rows: the guide, the tour, Discord, the source code, crash reports, email and
+ * the version.
+ * - [crashCount]: how many crash reports are kept. Null while they are read.
+ * - [onTour] and [onCrashReports] open those pages.
+ * - [say] shows a message, when no app on the phone can open a link or send email.
+ */
+internal fun LazyListScope.aboutItems(crashCount: Int?, onTour: () -> Unit, onCrashReports: () -> Unit, say: (String) -> Unit) {
+    item(key = "h:about") { Spacer(Modifier.height(8.dp)) }
+    item(key = "about") {
+        val context = LocalContext.current
+        val kept = when (crashCount) {
+            null -> "Reports kept on this phone"
+            0 -> "None so far"
+            1 -> "1 report kept on this phone"
+            else -> "$crashCount reports kept on this phone"
+        }
+        ActionGroup(
+            listOf(
+                Action(R.drawable.ic_book, "Guide", "How everything works, on the Kolahal website") {
+                    if (!openGuide(context)) say("No browser to open ${Links.GUIDE}")
+                },
+                Action(R.drawable.ic_info, "Tour", "How Kolahal works, and a few initial settings", chevron = true, onClick = onTour),
+                Action(R.drawable.ic_forum, "Discord", "Questions, ideas and help from other people using Kolahal") {
+                    if (!openLink(context, Links.DISCORD)) say("No app to open ${Links.DISCORD}")
+                },
+                Action(R.drawable.ic_code, "Source code", "Kolahal on GitHub") {
+                    if (!openLink(context, Links.SOURCE)) say("No browser to open ${Links.SOURCE}")
+                },
+                Action(R.drawable.ic_bug, "Crash reports", kept, chevron = true, onClick = onCrashReports),
+                Action(R.drawable.ic_mail, "Email us", Links.DEVELOPER_EMAIL) {
+                    if (!emailDeveloper(context, VERSION_TEXT, aboutThisPhone())) say("No app on this phone can send email")
+                },
+                Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
+                    context.getSystemService(android.content.ClipboardManager::class.java)
+                        ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
+                    // Android 13 and later show their own "copied" confirmation.
+                    if (Build.VERSION.SDK_INT < 33) say("Copied")
+                },
+            )
+        )
+    }
+}
+
+/**
+ * The sheet of a tapped crash report: email it to the developer, share it, or delete it.
+ * - It stays open after Email and Share, so the user can delete the report after sending it.
+ * - Delete closes it ([onDismiss]) and deletes the report. Then [onDeleted] runs, for the page to
+ *   read its list again.
+ * - [say] shows a message: no app can send the report, or it was deleted.
+ */
 @Composable
-internal fun CrashSheet(crash: CrashRow, onDismiss: () -> Unit, onEmail: () -> Unit, onShare: () -> Unit, onDelete: () -> Unit) {
+internal fun CrashSheet(crash: CrashRow, onDismiss: () -> Unit, onDeleted: () -> Unit, say: (String) -> Unit) {
+    val context = LocalContext.current
+    val onEmail = {
+        if (!emailDeveloper(context, "$VERSION_TEXT: ${crash.title}", crash.report.text())) say("No app on this phone can send email")
+    }
+    val onShare = {
+        if (runCatching { context.startActivity(CrashReports.shareIntent(crash.report.text())) }.isFailure) say("No app on this phone can share it")
+    }
+    val onDelete = {
+        onDismiss()
+        crash.report.delete()
+        onDeleted()
+        say("Crash report deleted")
+    }
     GuiSheet(onDismiss) {
         Text(crash.title, style = MaterialTheme.typography.titleLarge)
         Text(

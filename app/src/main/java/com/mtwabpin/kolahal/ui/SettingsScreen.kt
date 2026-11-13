@@ -36,7 +36,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.CrashReports
-import com.mtwabpin.kolahal.Links
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
@@ -143,6 +142,8 @@ fun SettingsScreen(vm: TerminalViewModel) {
     GuiTheme {
       Box(Modifier.fillMaxSize()) {
         val snackbar = rememberNoticeSnackbar(vm)
+        // A message from the About and crash pages (ui/About.kt): for example, no app can open a link.
+        val say: (String) -> Unit = { text -> tapScope.launch { snackbar.showSnackbar(text) } }
 
         GuiListPage(
             title = { Text(open?.title ?: if (crashPage) "Crash reports" else if (aboutPage) "About" else "Settings") },
@@ -230,41 +231,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
             }
 
             if (aboutPage) {
-                item(key = "h:about") { Spacer(Modifier.height(8.dp)) }
-                item(key = "about") {
-                    val kept = when (val n = crashList?.size) {
-                        null -> "Reports kept on this phone"
-                        0 -> "None so far"
-                        1 -> "1 report kept on this phone"
-                        else -> "$n reports kept on this phone"
-                    }
-                    ActionGroup(
-                        listOf(
-                            Action(R.drawable.ic_book, "Guide", "How everything works, on the Kolahal website") {
-                                if (!openGuide(context)) tapScope.launch { snackbar.showSnackbar("No browser to open ${Links.GUIDE}") }
-                            },
-                            Action(R.drawable.ic_info, "Tour", "How Kolahal works, and a few initial settings", chevron = true) { vm.openScreen(Screen.ONBOARDING) },
-                            Action(R.drawable.ic_forum, "Discord", "Questions, ideas and help from other people using Kolahal") {
-                                if (!openLink(context, Links.DISCORD)) tapScope.launch { snackbar.showSnackbar("No app to open ${Links.DISCORD}") }
-                            },
-                            Action(R.drawable.ic_code, "Source code", "Kolahal on GitHub") {
-                                if (!openLink(context, Links.SOURCE)) tapScope.launch { snackbar.showSnackbar("No browser to open ${Links.SOURCE}") }
-                            },
-                            Action(R.drawable.ic_bug, "Crash reports", kept, chevron = true) { openId = CRASHES_PAGE },
-                            Action(R.drawable.ic_mail, "Email us", Links.DEVELOPER_EMAIL) {
-                                if (!emailDeveloper(context, VERSION_TEXT, aboutThisPhone())) {
-                                    tapScope.launch { snackbar.showSnackbar("No app on this phone can send email") }
-                                }
-                            },
-                            Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
-                                context.getSystemService(android.content.ClipboardManager::class.java)
-                                    ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
-                                // Android 13 and later show their own "copied" confirmation.
-                                if (android.os.Build.VERSION.SDK_INT < 33) tapScope.launch { snackbar.showSnackbar("Copied") }
-                            },
-                        )
-                    )
-                }
+                aboutItems(crashList?.size, onTour = { vm.openScreen(Screen.ONBOARDING) }, onCrashReports = { openId = CRASHES_PAGE }, say = say)
                 return@GuiListPage
             }
 
@@ -273,9 +240,9 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     crashList,
                     onOpen = { openCrash = it },
                     onDeleteAll = {
-                        val n = com.mtwabpin.kolahal.CrashReports.clear(context)
+                        val n = CrashReports.clear(context)
                         crashReads++
-                        tapScope.launch { snackbar.showSnackbar(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports") }
+                        say(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports")
                     },
                 )
                 return@GuiListPage
@@ -333,29 +300,8 @@ fun SettingsScreen(vm: TerminalViewModel) {
             }
         }
         if (peek != null) PeekHint(Modifier.align(Alignment.TopCenter))
-        // The tapped crash report. The sheet stays open after Email, so the user can delete the report after sending it.
-        openCrash?.let { c ->
-            CrashSheet(
-                c,
-                onDismiss = { openCrash = null },
-                onEmail = {
-                    if (!emailDeveloper(context, "$VERSION_TEXT: ${c.title}", c.report.text())) {
-                        tapScope.launch { snackbar.showSnackbar("No app on this phone can send email") }
-                    }
-                },
-                onShare = {
-                    if (runCatching { context.startActivity(CrashReports.shareIntent(c.report.text())) }.isFailure) {
-                        tapScope.launch { snackbar.showSnackbar("No app on this phone can share it") }
-                    }
-                },
-                onDelete = {
-                    openCrash = null
-                    c.report.delete()
-                    crashReads++
-                    tapScope.launch { snackbar.showSnackbar("Crash report deleted") }
-                },
-            )
-        }
+        // The tapped crash report. After a delete, the list is read again.
+        openCrash?.let { c -> CrashSheet(c, onDismiss = { openCrash = null }, onDeleted = { crashReads++ }, say = say) }
       }
     }
 }
