@@ -172,6 +172,51 @@ class WidgetWordsTest {
         assertEquals("Trip: 3 hours, Goa trip", WidgetWords.description("Trip", trip, now, utc))
     }
 
+    @Test fun anAgeIsShortOnTheCardAndInWholeWordsForAScreenReader() {
+        val now = 1_800_000_000_000L
+        val minute = 60_000L
+        val hour = 60 * minute
+        assertEquals("just now", WidgetWords.age(now - 30_000, now))
+        assertEquals("5 min ago", WidgetWords.age(now - 5 * minute, now))
+        assertEquals("2 h ago", WidgetWords.age(now - 2 * hour - 5, now))
+        assertEquals("3 d ago", WidgetWords.age(now - 3 * 24 * hour, now))
+        assertEquals("5 minutes ago", WidgetWords.age(now - 5 * minute, now, whole = true))
+        assertEquals("1 minute ago", WidgetWords.age(now - minute, now, whole = true))
+        assertEquals("1 hour ago", WidgetWords.age(now - hour, now, whole = true))
+        assertEquals("2 days ago", WidgetWords.age(now - 50 * hour, now, whole = true))
+        assertEquals("just now", WidgetWords.age(now - 30_000, now, whole = true))
+    }
+
+    @Test fun theFooterSaysAFailureOrTheAgeOfOldContent() {
+        val hour = 3_600_000L
+        val now = ZonedDateTime.of(2026, 12, 20, 12, 0, 0, 0, utc).toInstant().toEpochMilli()
+        assertNull("current content: no footer", WidgetWords.footer(hasContent = true, old = false, setAt = now - hour, triedAt = now - hour, failed = false, now = now, zone = utc))
+        assertEquals(
+            WidgetWords.Footer("2 h ago", "Updated 2 hours ago", failed = false),
+            WidgetWords.footer(hasContent = true, old = true, setAt = now - 2 * hour, triedAt = now - 2 * hour, failed = false, now = now, zone = utc),
+        )
+        assertNull("nothing stored: nothing has an age", WidgetWords.footer(hasContent = false, old = true, setAt = 0, triedAt = 0, failed = false, now = now, zone = utc))
+        // A failure wins over the age, and the old content stays on the card.
+        val at = ZonedDateTime.of(2026, 12, 20, 10, 42, 0, 0, utc).toInstant().toEpochMilli()
+        assertEquals(
+            WidgetWords.Footer("Failed 10:42", "Failed at 10:42", failed = true),
+            WidgetWords.footer(hasContent = true, old = true, setAt = now - 5 * hour, triedAt = at, failed = true, now = now, zone = utc),
+        )
+        assertEquals(
+            "not today: how long ago",
+            WidgetWords.Footer("Failed 2 d ago", "Failed 2 days ago", failed = true),
+            WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = now - 49 * hour, failed = true, now = now, zone = utc),
+        )
+        // The time is the phone's: 10:42 in UTC is 16:12 in India.
+        assertEquals("Failed 16:12", WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = at, failed = true, now = now, zone = ZoneId.of("Asia/Kolkata"))!!.text)
+    }
+
+    @Test fun anErrorsFirstLineIsItsFirstLineWithText() {
+        assertEquals("wttr.in answered HTTP 500", WidgetWords.firstLine("\n  wttr.in answered HTTP 500\n  at line 7"))
+        assertNull(WidgetWords.firstLine("  \n "))
+        assertNull(WidgetWords.firstLine(null))
+    }
+
     @Test fun aListDrawsTheRowsThatFitAndCountsTheRest() {
         // All fit: no "+ more" line.
         assertEquals(3, WidgetWords.rowsShown(3, 152, 48, 20))

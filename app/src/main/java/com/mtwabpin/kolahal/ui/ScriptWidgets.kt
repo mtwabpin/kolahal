@@ -79,6 +79,9 @@ internal enum class CardNote {
     /** The script showed nothing, or cleared its widget. */
     NOTHING,
 
+    /** The last run failed and nothing is stored. The card shows the error's first line. */
+    FAILED,
+
     /** The stored content can't be read, or nothing can fill this widget. */
     UNAVAILABLE,
 }
@@ -88,7 +91,9 @@ internal enum class CardNote {
  * - It has its own opaque surface, so its text reads over any wallpaper.
  * - It draws [spec] for the box it gets ([WidgetSizes.box]): large has the title in a row on top,
  *   wide has the badge at its start, small has the content only.
- * - With a [note], it shows that and not the content.
+ * - With a [note], it shows that and not the content. [failure] is the text of [CardNote.FAILED].
+ * - [footer] is the content's age, or "Failed 10:42". Large has it as its last line, wide at the
+ *   end of the title's line. Small has no room for it.
  * - [description] is the whole card for a screen reader, in one item. Rows with their own tap are
  *   items of their own inside it.
  * - [onClick] is a tap on the card and [onLongClick] a long-press. [onTap] gets a row's own action.
@@ -102,6 +107,8 @@ internal fun WidgetCard(
     note: CardNote?,
     description: String,
     modifier: Modifier = Modifier,
+    failure: String? = null,
+    footer: WidgetWords.Footer? = null,
     onClick: (() -> Unit)? = null,
     onClickLabel: String? = null,
     onLongClick: (() -> Unit)? = null,
@@ -128,15 +135,23 @@ internal fun WidgetCard(
             modifier = Modifier.fillMaxSize().testTag("widget-card"),
         ) {
             Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
-                CardLayout(title, spec, note, box, onTap)
+                CardLayout(title, spec, note, failure, footer, box, onTap)
             }
         }
     }
 }
 
-/** The title, the badge and the content, placed for [box]. */
+/** The title, the badge, the content and the footer, placed for [box]. */
 @Composable
-private fun CardLayout(title: String, spec: WidgetSpec?, note: CardNote?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
+private fun CardLayout(
+    title: String,
+    spec: WidgetSpec?,
+    note: CardNote?,
+    failure: String?,
+    footer: WidgetWords.Footer?,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)?,
+) {
     val type = MaterialTheme.typography
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val icon = spec?.base?.icon
@@ -151,7 +166,8 @@ private fun CardLayout(title: String, spec: WidgetSpec?, note: CardNote?, box: W
                 Text(title, style = type.titleSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
             Spacer(Modifier.height(8.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, box, onTap) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap) }
+            if (footer != null) FooterLine(footer, Modifier.padding(top = 4.dp))
         }
         WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
@@ -159,25 +175,44 @@ private fun CardLayout(title: String, spec: WidgetSpec?, note: CardNote?, box: W
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                Text(title, style = type.labelMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, box, onTap) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, style = type.labelMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap) }
             }
         }
-        // No room for a title: the content alone. A screen reader still hears the title.
-        WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, box, onTap) }
+        // No room for a title or a footer: the content alone. A screen reader still hears both.
+        WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap) }
     }
+}
+
+/**
+ * The card's small line: the age of its content, or "Failed 10:42". A failure is in the error
+ * colour, and its words say it too.
+ */
+@Composable
+private fun FooterLine(footer: WidgetWords.Footer, modifier: Modifier = Modifier) {
+    Text(
+        footer.text,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (footer.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = modifier,
+    )
 }
 
 /** The content, or what the card says without any. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CardBody(spec: WidgetSpec?, note: CardNote?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
+private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     val small = box == WidgetSizes.Box.SMALL
     when {
         note == CardNote.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             // The shape changes form for as long as it is drawn. So it is drawn only while the page is in view.
             if (LocalWidgetsShown.current) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp))
         }
+        note == CardNote.FAILED -> QuietLine(failure ?: WidgetWords.NOTHING, small)
         note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)
         note == CardNote.UNAVAILABLE -> QuietLine(WidgetWords.UNAVAILABLE, small)
         note == null && spec != null -> KindBody(spec, box, onTap)
@@ -314,25 +349,36 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         delay(LOADING_MS)
         gaveUp = true
     }
+    // The failed run's own words, for a card with nothing else to show.
+    val failure = remember(s?.error) { WidgetWords.firstLine(s?.error) }
     val note = when {
         s == null -> CardNote.WAITING
         spec != null -> null
         // Something is stored, and it can't be read.
         s.hasContent -> CardNote.UNAVAILABLE
+        failure != null -> CardNote.FAILED
         fresh && !gaveUp -> CardNote.LOADING
         else -> CardNote.NOTHING
     }
     val title = spec?.base?.title ?: name
-    // Only a countdown's words change with the time, by the minute.
-    val now = if (spec is WidgetSpec.Countdown) rememberNow().first.time / 1000 else 0L
-    val description = remember(title, spec, note, now) {
-        when {
-            spec != null -> WidgetWords.description(title, spec, now, ZoneId.systemDefault())
+    // The minute's tick, from the header's clock: content grows old, and a countdown's words change.
+    val (minute, zoneChanges) = rememberNow()
+    val zone = remember(zoneChanges) { ZoneId.systemDefault() }
+    val footer = remember(s, minute, zone) {
+        s?.let { WidgetWords.footer(it.hasContent, WidgetAge.old(it.setAt, it.spec?.base?.staleAfter, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone) }
+    }
+    // Only a countdown's own words change with the time.
+    val now = if (spec is WidgetSpec.Countdown) minute.time / 1000 else 0L
+    val description = remember(title, spec, note, failure, footer, now, zone) {
+        val content = when {
+            spec != null -> WidgetWords.description(title, spec, now, zone)
             note == CardNote.LOADING -> "$title: loading"
+            note == CardNote.FAILED -> "$title: $failure"
             note == CardNote.NOTHING -> "$title: ${WidgetWords.NOTHING}"
             note == CardNote.UNAVAILABLE -> "$title: ${WidgetWords.UNAVAILABLE}"
             else -> title
         }
+        if (footer == null) content else "$content. ${footer.said}"
     }
     val tap = spec?.base?.tap
     val onClick: (() -> Unit)? = remember(actions, name, tap) { actions?.let { a -> { a.tap(name, tap ?: NO_TAP) } } }
@@ -345,6 +391,8 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         note = note,
         description = description,
         modifier = Modifier.testTag("widget:$name"),
+        failure = failure,
+        footer = footer,
         onClick = onClick,
         // With no action of its own, a tap on the card refreshes it.
         onClickLabel = if (tap == null) "refresh" else tap.label,

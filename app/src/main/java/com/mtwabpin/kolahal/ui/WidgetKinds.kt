@@ -66,6 +66,7 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
@@ -227,6 +228,46 @@ internal object WidgetWords {
         val said = parts.filterNot { it.isNullOrBlank() }.joinToString(", ")
         return if (title.isNullOrBlank()) said else "$title: $said"
     }
+
+    /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
+    data class Footer(val text: String, val said: String, val failed: Boolean)
+
+    private val HH_MM = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
+
+    /**
+     * How long ago [then] was at [now], both in milliseconds: "just now", "5 min ago", "2 h ago",
+     * "3 d ago". With [whole], in whole words: "5 minutes ago", "1 hour ago".
+     */
+    fun age(then: Long, now: Long, whole: Boolean = false): String {
+        val seconds = (now - then) / 1000
+        fun words(n: Long, short: String, long: String) = if (!whole) "$n $short ago" else if (n == 1L) "1 $long ago" else "$n ${long}s ago"
+        return when {
+            seconds < 60 -> "just now"
+            seconds < HOUR -> words(seconds / 60, "min", "minute")
+            seconds < DAY -> words(seconds / HOUR, "h", "hour")
+            else -> words(seconds / DAY, "d", "day")
+        }
+    }
+
+    /**
+     * The footer of a card at [now] (milliseconds), or null for a card with nothing to say.
+     * - The last run failed: "Failed 10:42", or "Failed 2 d ago" when that was not today. The content
+     *   that was there stays on the card.
+     * - The content is [old]: its age, "2 h ago".
+     * - Current content has no footer.
+     */
+    fun footer(hasContent: Boolean, old: Boolean, setAt: Long, triedAt: Long, failed: Boolean, now: Long, zone: ZoneId): Footer? {
+        if (failed) {
+            val at = Instant.ofEpochMilli(triedAt).atZone(zone)
+            val today = at.toLocalDate() == Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+            return if (today) Footer("Failed ${HH_MM.format(at)}", "Failed at ${HH_MM.format(at)}", failed = true)
+            else Footer("Failed ${age(triedAt, now)}", "Failed ${age(triedAt, now, whole = true)}", failed = true)
+        }
+        return if (hasContent && old) Footer(age(setAt, now), "Updated ${age(setAt, now, whole = true)}", failed = false) else null
+    }
+
+    /** The first line of an error with something on it, for a card with nothing else to show. */
+    fun firstLine(error: String?): String? = error?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotEmpty() }
 
     /**
      * How many of [count] rows to draw in [heightDp], each [rowDp] tall. When rows are left out,
