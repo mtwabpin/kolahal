@@ -4,6 +4,7 @@
 // @version 1.5
 // @command
 // @usage [<city>]
+// @widget progress 2x1
 // @at 08:00
 // @tags weather, air, health
 // @requires 0.4.7
@@ -15,6 +16,7 @@
 // api.waqi.info when you set a WAQI token. `aqi Delhi`, or `aqi` for its city option (`script set
 // aqi city Pune`); `script set aqi scale in` for India's index. On a timer (no arguments) it keeps
 // the latest figure as its status line: pin it (`script pin aqi`) to see it at the top of home.
+// Its widget, once you placed it on the widgets page, shows that figure in a ring.
 //
 // Where the numbers come from:
 // - Without a token, or with scale in or eu: Open-Meteo's model (CAMS, on a grid tens of km wide),
@@ -31,8 +33,15 @@
 //   there is none. A station more than 50 km away or 6 hours old, or an error, goes back to
 //   Open-Meteo and says why. WAQI gives only the US scale, so in and eu stay on Open-Meteo.
 
-// A failure: what didn't work, in the theme's bad colour, and why under it.
-const fail = (what, why) => show(fmt.color("bad", what), why);
+// The widgets page asked for this run: it fills the widget and logs nothing.
+const quiet = !!event && event.name === "widget";
+
+// A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
+// widget it is an error instead, so the run counts as failed.
+const fail = (what, why) => {
+  if (quiet) throw new Error(`${what}: ${why}`);
+  return show(fmt.color("bad", what), why);
+};
 
 const line = (argline || "").trim();
 
@@ -44,12 +53,14 @@ if (setDefault) {
 
 // A city saved with --default still counts until the option is set.
 const city = line || (options.city || "").trim() || store.get("city");
+if (!city && quiet) throw new Error("No city yet: script set aqi city <city>");
 if (!city) return log(fmt.color("muted", "No city yet: aqi <city>, or script set aqi city <city> to keep one"));
 
 // From Kolahal 0.4.16: "Fetching…" at once, which turns into the answer in place (log returns the
 // line). An older Kolahal has no fmt.bar, and logs the answer when it comes, as before.
-const pending = typeof fmt.bar === "function" ? log(fmt.color("muted", `Fetching the air quality for ${city}…`)) : null;
+const pending = !quiet && typeof fmt.bar === "function" ? log(fmt.color("muted", `Fetching the air quality for ${city}…`)) : null;
 function show(...a) {
+  if (quiet) return undefined;
   return pending ? pending.set(...a) : log(...a);
 }
 
@@ -250,7 +261,7 @@ if (typeof fmt.stats === "function") {
 }
 
 // Once, without a token: how to get the nearest station's reading instead of the model's.
-if (!token && scale === "us" && !store.get("tokenHint")) {
+if (!quiet && !token && scale === "us" && !store.get("tokenHint")) {
   store.set("tokenHint", "1");
   log(fmt.color("muted", "For the nearest station's reading: a free token from aqicn.org, then script secret aqi WAQI_TOKEN"),
     { url: "https://aqicn.org/data-platform/token/" });
@@ -264,3 +275,18 @@ const GOOD_TOP = BANDS[scale][0][0];
 const aqi = figures[0][1];
 const text = `${name} ${aqi} · ${place.name}`;
 if (!line) status(text, newer ? { progress: Math.min(1, aqi / GOOD_TOP), color: band(aqi)[1] } : undefined);
+
+// Its widget, in the same runs: the figure in a ring, in its band's colour, with the band's name.
+// The ring is full at the top of the scale's second-worst band, as the bar in the log is. A tap
+// runs aqi again and turns home to the log, for the readings.
+if (typeof widget !== "undefined" && !line) {
+  widget.show({
+    title: `${name} · ${place.name}`,
+    value: aqi,
+    max: worst,
+    text: String(aqi),
+    label: band(aqi)[0],
+    color: band(aqi)[1],
+    tap: { args: "", page: "log" },
+  });
+}

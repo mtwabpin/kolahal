@@ -4,6 +4,7 @@ aqi.js 048f67b61b57ddd5
 aqi.js 547262a89d7c8351
 aqi.js 7af2168a5db0d726
 aqi.js 8215182dc7638982
+aqi.js d74923abbcc7d718
 charge-reminder.lua 16c8ee78fa2ffb95
 charge-reminder.lua 1db9b8545cf4a013
 charge-reminder.lua 465dc3fb808798a1
