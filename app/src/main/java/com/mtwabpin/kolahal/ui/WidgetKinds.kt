@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -25,15 +27,22 @@ import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
+import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSizes
@@ -243,6 +252,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Stat -> StatBody(spec, box)
         is WidgetSpec.Text -> TextBody(spec, box)
         is WidgetSpec.Rows -> RowsBody(spec, onTap)
+        is WidgetSpec.Progress -> ProgressBody(spec, box)
         else -> PlainBody(spec, box)
     }
 }
@@ -288,6 +298,16 @@ private fun valueStyle(box: WidgetSizes.Box) = when (box) {
     WidgetSizes.Box.LARGE -> MaterialTheme.typography.headlineLarge
 }
 
+/** A kind's big text, on one line. A text too long for its room gets smaller, down to 12 sp, before it is cut with "…". */
+@Composable
+private fun BigText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
+    val size = remember(style.fontSize) {
+        val largest = style.fontSize.value.let { if (it.isNaN()) 22f else maxOf(it, 12f) }
+        TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = largest.sp, stepSize = 1.sp)
+    }
+    Text(text, modifier = modifier, color = color, autoSize = size, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+}
+
 /**
  * `stat`: one big value with its label.
  * - Small: the value and the label, centred.
@@ -301,7 +321,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val scheme = MaterialTheme.colorScheme
     if (box == WidgetSizes.Box.SMALL) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(WidgetWords.joined(spec.value, spec.unit), style = valueStyle(box), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            BigText(WidgetWords.joined(spec.value, spec.unit), valueStyle(box))
             spec.label?.let { Text(it, style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         return
@@ -316,14 +336,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Row {
-                        Text(
-                            spec.value,
-                            style = valueStyle(box),
-                            color = scheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
-                        )
+                        BigText(spec.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
                         spec.unit?.let {
                             Text(it, style = type.titleMedium, color = scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 2.dp).alignByBaseline())
                         }
@@ -439,6 +452,134 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((
         }
         row.trailing?.let {
             Text(it, style = type.labelLarge, color = colour ?: scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+/**
+ * `progress`: how far along something is.
+ * - A ring with its text in the middle, or a bar. With no `style`, a wide box gets the bar and the
+ *   others get the ring.
+ * - With `items`, it is several bars, each with its label and its text while there is room.
+ * - With `moving`, the ring and the bars are waves while the page is in view.
+ */
+@Composable
+private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
+    val colour = roleColour(spec.base)
+    when {
+        spec.items.isNotEmpty() -> BarsBody(spec, colour)
+        spec.style == "ring" || (spec.style != "bar" && box != WidgetSizes.Box.WIDE) -> RingBody(spec, box, colour)
+        else -> BarBody(spec, box, colour)
+    }
+}
+
+/** A ring from 0 to 1 in [colour], [side] across. It moves to a new value on the theme's spring. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
+    val shown by animateFloatAsState(fraction, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "ring")
+    // A bigger ring gets a thicker line.
+    val stroke = with(LocalDensity.current) { Stroke(width = (side / 12).coerceIn(4.dp, 10.dp).toPx(), cap = StrokeCap.Round) }
+    CircularWavyProgressIndicator(
+        progress = { shown.coerceIn(0f, 1f) },
+        modifier = Modifier.size(side),
+        color = colour,
+        trackColor = colour.copy(alpha = 0.24f),
+        stroke = stroke,
+        trackStroke = stroke,
+        amplitude = if (moving && LocalWidgetsShown.current) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
+    )
+}
+
+/**
+ * The ring.
+ * - Small and large: as big as the box allows, with its text inside. Large has the label under it.
+ * - Wide: the ring at the start, with its text and its label beside it.
+ */
+@Composable
+private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+    val type = MaterialTheme.typography
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val fraction = WidgetWords.fraction(spec.value, spec.max)
+    val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (box == WidgetSizes.Box.WIDE) {
+            val side = min(maxHeight, maxWidth / 2).coerceAtLeast(24.dp)
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Ring(fraction, spec.moving, colour, side)
+                Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                    BigText(text, type.titleLarge)
+                    spec.label?.let { Text(it, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+            }
+        } else {
+            val label = spec.label.takeIf { box == WidgetSizes.Box.LARGE }
+            val labelRoom = if (label != null) 24.dp else 0.dp
+            val side = min(maxWidth, maxHeight - labelRoom).coerceAtLeast(24.dp)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(side), contentAlignment = Alignment.Center) {
+                    Ring(fraction, spec.moving, colour, side)
+                    // The text stays clear of the ring's line.
+                    BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 6))
+                }
+                if (label != null) {
+                    Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(labelRoom).wrapContentHeight())
+                }
+            }
+        }
+    }
+}
+
+/** One bar under its text. The label is beside the text. */
+@Composable
+private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+        Row {
+            BigText(spec.text ?: WidgetWords.percent(spec.value, spec.max), valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+            if (box != WidgetSizes.Box.SMALL) spec.label?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 8.dp).widthIn(max = 96.dp).alignByBaseline(),
+                )
+            }
+        }
+        LevelBar(WidgetWords.fraction(spec.value, spec.max), spec.moving, colour, Modifier.padding(top = 4.dp))
+    }
+}
+
+/** A bar with its label and its text over it needs this much height, in dp. */
+private const val NAMED_BAR_DP = 30
+
+/** A bar alone needs this much. */
+private const val BAR_DP = 14
+
+/**
+ * Several bars. Each has its label and its text over it when the box is tall enough for all of
+ * them. A lower box draws the bars alone, as many as fit. A bar's own colour wins over the card's.
+ */
+@Composable
+private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
+    val type = MaterialTheme.typography
+    val scheme = MaterialTheme.colorScheme
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val named = maxHeight >= NAMED_BAR_DP.dp * spec.items.size
+        val count = if (named) spec.items.size else (maxHeight / BAR_DP.dp).toInt().coerceIn(1, spec.items.size)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
+            spec.items.take(count).forEachIndexed { i, bar ->
+                key(i) {
+                    Column {
+                        if (named) Row {
+                            Text(bar.label.orEmpty(), style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text(bar.text ?: WidgetWords.percent(bar.value, bar.max), style = type.labelMedium, color = scheme.onSurface, maxLines = 1)
+                        }
+                        LevelBar(WidgetWords.fraction(bar.value, bar.max), spec.moving, bar.color?.let { colourOf(it) } ?: colour)
+                    }
+                }
+            }
         }
     }
 }
