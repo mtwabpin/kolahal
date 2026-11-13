@@ -31,8 +31,9 @@ class JsEngine : ScriptEngine {
         val js = QuickJs.create(Dispatchers.IO)
         host.startClock(timeoutMs)
         // QuickJS stops a run at its timeout only at points where the bytecode checks. Some built-ins
-        // never check (Array.prototype.includes over 2^53 slots), and promise jobs can keep queuing one
-        // another after the interrupt. The watchdog has the last word.
+        // never check (Array.prototype.includes over 2^53 slots). Promise jobs that queue one another
+        // stop at the timeout since quickjs-kt 1.0.17; before, only the watchdog stopped them. The
+        // watchdog has the last word.
         val watchdog = RunWatchdog(host, timeoutMs, nativeLimitMb = null)
         try {
             js.memoryLimit = MEMORY_LIMIT

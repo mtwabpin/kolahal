@@ -326,10 +326,6 @@ Fix: one =safeWebUrl()=. 30 minutes.
 8 of its 16 calls have empty default bodies, so a test fake silently ignores a new one.
 
 ** Lint warnings (0 errors, 11 warnings)
-*** TODO [#C] Newer versions
-- Gradle 9.8.2 → 9.9.1 (=gradle/wrapper/gradle-wrapper.properties:3=).
-- =com.android.application= and =com.android.test= 9.5.0 → 9.5.1 (=gradle/libs.versions.toml:2=).
-- =quickjs-kt= 1.0.15 → 1.0.18 (=gradle/libs.versions.toml:15=).
 *** TODO [#C] Code hints
 - =ui/LogView.kt:350=: =Configuration.screenWidthDp= instead of =LocalWindowInfo.current.containerSize=.
 - =ui/GuiComponents.kt:168=: the modifier parameter should be named =modifier= and be the first

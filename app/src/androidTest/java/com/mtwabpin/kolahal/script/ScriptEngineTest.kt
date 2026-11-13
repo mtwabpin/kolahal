@@ -235,22 +235,24 @@ class ScriptEngineTest {
     }
 
     /**
-     * Promise jobs that queue one another and loop: QuickJS turns its interrupt into a rejection and
-     * runs the next job. In the :script process the watchdog stops the run past its timeout, once.
+     * Promise jobs that queue one another and loop stop at the run's timeout, once. Since quickjs-kt
+     * 1.0.17, QuickJS ends such a loop itself ("timed out"). Before, it turned its interrupt into a
+     * rejection and ran the next job, and only the watchdog stopped it by killing the :script process.
+     * The watchdog stays the last word for anything that never checks the interrupt.
      */
     @Test fun aRunawayJsJobLoopIsStoppedInTheScriptProcess() {
         val logs = LogRepository.get(context)
         val marker = "jobloop-" + System.nanoTime()
         ScriptScheduler.eval(context, ScriptLang.JS, "log('$marker'); function spin() { Promise.resolve().then(spin); for (;;) {} } spin();")
-        fun stops(): List<String> {
+        fun after(): List<String> {
             val recent = logs.recent(200)
             val at = recent.indexOfFirst { it.text == marker }
-            if (at < 0) return emptyList()
-            return recent.drop(at + 1).map { it.text }.filter { "killed script process" in it }
+            return if (at < 0) emptyList() else recent.drop(at + 1).map { it.text }
         }
+        fun stops() = after().filter { "killed script process" in it || "timed out after" in it }
         val deadline = System.currentTimeMillis() + ScriptWorker.TIMEOUT_MS + 30_000
         while (System.currentTimeMillis() < deadline && stops().isEmpty()) Thread.sleep(500)
-        assertTrue("never stopped", stops().isNotEmpty())
+        assertTrue("never stopped: ${after()}", stops().isNotEmpty())
         scriptRunsSettle()
         assertEquals("ran again", 1, logs.recent(200).count { it.text == marker })
     }
