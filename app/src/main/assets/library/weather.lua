@@ -3,6 +3,7 @@
 -- @desc Current weather: weather [city] (default: its city option, or your location)
 -- @usage [<city>]
 -- @title Weather
+-- @widget stat 2x1
 -- @every 1h
 -- @option city "" Default city; empty: your IP address's location
 --
@@ -11,7 +12,8 @@
 --   weather Paris           weather for Paris
 --
 -- On a timer (no arguments) it sets the result as its status line; pin it
--- (script pin weather) to see it at the top of home.
+-- (script pin weather) to see it at the top of home. It also fills its widget, once you
+-- placed it on the widgets page: the temperature, the sky, humidity and wind.
 
 local function urlencode(s)
   return (s:gsub("[^%w%-_%.~]", function(c)
@@ -23,8 +25,15 @@ local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- A failure: what didn't work, in the theme's bad colour, and why under it.
-local function fail(what, why) log(fmt.color("bad", what), why) end
+-- The widgets page asked for this run: it fills the widget and logs nothing.
+local quiet = event and event.name == "widget"
+
+-- A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
+-- widget it is an error instead, so the run counts as failed.
+local function fail(what, why)
+  if quiet then error(what .. ": " .. why, 0) end
+  log(fmt.color("bad", what), why)
+end
 
 local line = trim(argline or "")
 
@@ -63,6 +72,16 @@ end)
 
 -- Only background runs (no arguments) update the status line: "Pune: ☀️ 25°C".
 if line == "" then status(place .. ": " .. icon .. " " .. temp) end
+-- Its widget, in the same runs: the temperature big, the sky under it, humidity and wind smaller.
+-- A tap runs weather again and turns home to the log, for the full report.
+if widget and line == "" then
+  widget.show{
+    title = place, icon = icon, value = temp, label = sky,
+    more = { { value = humidity, label = "humidity" }, { value = wind, label = "wind" } },
+    tap = { args = "", page = "log" },
+  }
+end
+if quiet then return end
 -- The place is the title; under it, the temperature big, with the sky under it, then humidity,
 -- wind and the UV index, smaller.
 log(place, fmt.stats({

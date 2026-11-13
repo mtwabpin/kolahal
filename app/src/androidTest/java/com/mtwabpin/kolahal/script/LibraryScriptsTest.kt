@@ -38,7 +38,8 @@ class LibraryScriptsTest {
         val declared = ScriptMeta.options(library.code(entry)).associate { it.name to it.default }
         // Its @secret lines, none set yet, as after an install.
         val secrets = HostApi.Secrets(ScriptMeta.secrets(library.code(entry)), emptyMap())
-        val host = HostApi(context, name, scriptId = id, notifyEnabled = false, options = declared + options, secrets = secrets)
+        // Its @widget line, as a run has it. The widget isn't placed here, so widget.show checks and stores nothing.
+        val host = HostApi(context, name, scriptId = id, notifyEnabled = false, options = declared + options, secrets = secrets, widget = ScriptMeta.widget(library.code(entry)))
         val args = argline.split(' ').filter(String::isNotEmpty)
         runBlocking { ScriptEngine.forLang(entry.lang).run(before + library.code(entry), name, host, 10_000, false, args, event) }
         host.flush()

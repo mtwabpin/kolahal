@@ -37,6 +37,7 @@ crypto.js 7245f09a7be27be0
 crypto.js 91b3c31f4beb14c3
 crypto.js b2a9bd4f8044e290
 crypto.js b70332c429b5bc87
+crypto.js bb8187491c673c01
 crypto.js c1170d4f29e7056b
 crypto.js d83be4f8ca5f1c3a
 exchange.js 1acf4b149d2f1824
@@ -73,6 +74,7 @@ hn.lua 23d2bbbed84c5e9c
 hn.lua 3d1b1faf27b83155
 hn.lua 542b6a456f28fc60
 hn.lua 5742fa9049ea2ac9
+hn.lua 5dedcba9d9549642
 hn.lua 962d194f8edbd501
 hn.lua a23c20bda6c3c181
 hn.lua acc5c237c02f2204
@@ -95,6 +97,7 @@ night-work.lua 4a5390218bb41547
 night-work.lua 639645bd4fc54757
 quote.js 00781894f6456c1d
 quote.js 269efab3b7c0a8ca
+quote.js 4c6e605da198e0ee
 quote.js 83d956fbad8e453b
 quote.js 91190c744033953b
 quote.js db29b79188693299
@@ -163,6 +166,7 @@ weather.lua 4d5cb544f9f16cf1
 weather.lua 5892242f20f61307
 weather.lua 5e9eaf36cb98a4be
 weather.lua 6c7e726827e7bb75
+weather.lua 6cfe91e4243fcbe7
 weather.lua 9455c13ffb57463b
 weather.lua e10119b75310166b
 weather.lua ef720bfa0c80c47f

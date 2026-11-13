@@ -3,6 +3,7 @@
 // @desc Coin prices: crypto [ids…] [--vs eur] (default: its coins and currency options)
 // @usage [<ids…>] [--vs <currency>]
 // @title Crypto prices
+// @widget list 2x2
 // @every 30m
 // @option coins "bitcoin ethereum" Default CoinGecko ids
 // @option currency usd Price currency, unless set with --vs
@@ -13,13 +14,21 @@
 //   crypto bitcoin --vs eur      in another currency
 //
 // On a timer (no arguments) its status line is a compact price line, e.g. "BTC 67.1k ▲ 1.2% · ETH 3.1k ▼ 0.4%".
+// Its widget, once you placed it on the widgets page, lists the same coins with their prices.
 
 const list = (s) => (s || "").trim().split(/[\s,]+/).filter(Boolean).map((w) => w.toLowerCase());
 const DEFAULT_IDS = list(options.coins).length > 0 ? list(options.coins) : ["bitcoin", "ethereum"];
 const SYMBOLS = { bitcoin: "BTC", ethereum: "ETH", solana: "SOL", dogecoin: "DOGE", litecoin: "LTC", monero: "XMR", cardano: "ADA", ripple: "XRP" };
 
-// A failure: what didn't work, in the theme's bad colour, and why under it.
-const fail = (what, why) => log(fmt.color("bad", what), why);
+// The widgets page asked for this run: it fills the widget and logs nothing.
+const quiet = !!event && event.name === "widget";
+
+// A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
+// widget it is an error instead, so the run counts as failed.
+const fail = (what, why) => {
+  if (quiet) throw new Error(`${what}: ${why}`);
+  return log(fmt.color("bad", what), why);
+};
 
 const words = (argline || "").trim().split(/[\s,]+/).filter(Boolean);
 let vs = list(options.currency)[0] || "usd";
@@ -40,6 +49,7 @@ try {
 } catch (e) {
   return fail("No prices", `Network error: ${e.message || e}`);
 }
+if (r.status === 429 && quiet) return fail("CoinGecko says wait", "too many requests");
 if (r.status === 429) return log(fmt.color("warn", "CoinGecko says wait"), "Too many requests: try again in a minute");
 if (!r.ok) return fail("No prices", `CoinGecko answered HTTP ${r.status}`);
 
@@ -66,7 +76,8 @@ const parts = [];
 for (const id of ids) {
   const p = prices[id];
   if (!p || p[vs] == null) {
-    fail(`${id}: no such coin`, `or no ${vs.toUpperCase()} price for it`);
+    // One coin without a price doesn't stop a run for the widget: the other coins still show.
+    if (!quiet) fail(`${id}: no such coin`, `or no ${vs.toUpperCase()} price for it`);
     continue;
   }
   const change = p[`${vs}_24h_change`];
@@ -77,7 +88,26 @@ for (const id of ids) {
 // Several coins: one table, the price and the day's change on the right, the change in the theme's
 // good or bad colour (the arrow says it too). One coin: one line, and a tap opens its page.
 const moves = (r) => (r.change != null ? fmt.color(r.change >= 0 ? "good" : "bad", arrow(r.change)) : "");
-if (rows.length > 1) {
+// Its widget, for its own coins (no arguments): each coin with its price, and the day's change in
+// the theme's good or bad colour. A tap runs crypto again and turns home to the log.
+if (typeof widget !== "undefined" && words.length === 0) {
+  widget.show({
+    title: `Prices in ${vs.toUpperCase()}`,
+    items: rows.map((r) => {
+      const item = { title: r.sym, trailing: r.price };
+      if (r.change != null) {
+        item.detail = arrow(r.change);
+        item.color = r.change >= 0 ? "good" : "bad";
+      }
+      return item;
+    }),
+    empty: "No prices",
+    tap: { args: "", page: "log" },
+  });
+}
+if (quiet) {
+  // A run for the widget logs nothing.
+} else if (rows.length > 1) {
   log(`Prices in ${vs.toUpperCase()}`, fmt.table([["Coin", "Price", "24h"], ...rows.map((r) => [r.sym, r.price, moves(r)])], { header: true, align: "lrr" }), {
     url: "https://www.coingecko.com/",
   });

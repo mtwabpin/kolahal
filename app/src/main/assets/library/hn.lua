@@ -1,6 +1,7 @@
 -- hn.lua — Hacker News front page, only stories you have not seen yet.
 -- @desc Hacker News front page: new stories since the last run
 -- @title Hacker News
+-- @widget list 4x2
 -- @every 1h
 -- @notify
 -- @option points 50 Only stories with at least this many points; 0: every story
@@ -9,10 +10,38 @@
 -- Runs well on a timer (every 30-60 min). Each run logs the new front-page stories, each followed
 -- by its points and a link to its comments (tap the line to open the story). It notifies about the
 -- top new one, and keeps no status line: a list of stories has nothing to pin at the top of home.
+-- Its widget, once you placed it on the widgets page, lists the front page as it is now.
 
 local POINTS = math.floor(tonumber(options.points) or 50)
 local FEED = "https://hnrss.org/frontpage" .. (POINTS > 0 and ("?points=" .. POINTS) or "")
 local MAX_LINES = math.max(1, math.floor(tonumber(options.lines) or 10))
+
+-- The widgets page asked for this run: it fills the widget and logs nothing.
+local quiet = event and event.name == "widget"
+
+-- Its widget: the first 8 stories of the front page, new or not, each with its points. A tap on a
+-- row opens the story. Only a placed widget is filled, because this reads the feed once more.
+if widget and (quiet or allowed("widget")) then
+  local read, front = pcall(rss.fetch, FEED)
+  if read then
+    local rows = {}
+    for i, item in ipairs(front.items or {}) do
+      if i > 8 then break end
+      local link = (item.link or ""):match("^https?://%S+$")
+      rows[i] = {
+        title = item.title or "(untitled)",
+        trailing = (item.summary or ""):match("Points:%s*(%d+)"),
+        tap = link and { url = link } or nil,
+      }
+    end
+    widget.show{ title = "Hacker News", items = rows, empty = "No stories" }
+  elseif quiet then
+    error("Couldn't fetch Hacker News: " .. tostring(front), 0)
+  end
+end
+-- A run for the widget stops here. It must not read the new stories: they would count as seen
+-- without ever being logged.
+if quiet then return end
 
 -- rss.fresh raises an error on HTTP failure; catch it so a flaky network
 -- produces one short line instead of a stack trace.
