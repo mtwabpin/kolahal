@@ -856,7 +856,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** One serial worker. Commands and actions run in order. Failures are logged and never crash home. */
     private val serialIo = Dispatchers.IO.limitedParallelism(1)
     private val errors = CoroutineExceptionHandler { _, e ->
-        runCatching { logs.add(LogKind.ERROR, "Error: ${e.message ?: e.javaClass.simpleName}") }
+        runCatching { logs.add(LogKind.ERROR, "Error: ${e.reason()}") }
     }
 
     private fun io(block: suspend () -> Unit) {
@@ -1145,7 +1145,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     private fun fileOp(label: String, block: suspend () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { block() }.onFailure { notice("$label failed: ${it.message ?: it.javaClass.simpleName}", error = true) }
+            runCatching { block() }.onFailure { notice("$label failed: ${it.reason()}", error = true) }
         }
     }
 

@@ -439,7 +439,9 @@ all. That is the payoff of depending on an interface rather than on the ViewMode
 
 1. sets up edge-to-edge drawing and applies the theme;
 2. re-applies the theme whenever =vm.config.version= changes;
-3. collects =vm.events= for the requests only an Activity can carry out (permissions, the font picker);
+3. collects =vm.events= for the requests only an Activity can carry out: permissions, and the file
+   pickers (a font, a script folder, a backup to export or import, scripts to import, a script to
+   export). A screen never gets a callback for these: it asks the ViewModel, which emits the event;
 4. calls =setContent { ... }=, which picks what to show: the script editor if =vm.editing= is
    set, otherwise the page named by =vm.screen=.
 

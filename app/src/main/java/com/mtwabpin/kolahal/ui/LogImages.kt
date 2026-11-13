@@ -26,7 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
-import java.security.MessageDigest
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -107,7 +106,7 @@ object LogImages {
     /** The cached download of [url], fetching it first if needed. */
     private fun file(context: Context, url: String): File? {
         val dir = File(context.cacheDir, "log-images").apply { mkdirs() }
-        val name = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+        val name = com.mtwabpin.kolahal.data.sha256Hex(url.toByteArray())
         val file = File(dir, name)
         if (file.exists()) {
             file.setLastModified(System.currentTimeMillis())
