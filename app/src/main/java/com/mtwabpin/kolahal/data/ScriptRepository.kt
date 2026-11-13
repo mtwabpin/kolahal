@@ -88,11 +88,12 @@ class ScriptRepository private constructor(private val context: Context) {
      *   you switched off stays off.
      * - A pin at the top ([ScriptAccess.HEADER]) stays, even while the code doesn't call `status()`:
      *   it is your choice of where its line shows, not something the code may do.
+     * - Its place on the widgets page ([ScriptAccess.WIDGET]) stays in the same way: the placed list decides it.
      */
     fun saveCode(id: Long, code: String, byUser: Boolean = false) {
         val found = byId(id) ?: return
         val declared = ScriptAccess.items(code).toSet()
-        val s = found.copy(access = found.access.filter { (item, on) -> !on || item in declared || item == ScriptAccess.HEADER })
+        val s = found.copy(access = found.access.filter { (item, on) -> !on || item in declared || item == ScriptAccess.HEADER || item == ScriptAccess.WIDGET })
         val newUses = ScriptMeta.uses(code) - ScriptMeta.uses(s.code) - s.access.keys
         val newEvents = ScriptMeta.events(code) - ScriptMeta.events(s.code).toSet() - s.access.keys
         val newInternet = newInternet(s, code)
@@ -129,7 +130,7 @@ class ScriptRepository private constructor(private val context: Context) {
      * Code from a file, a folder or a backup replaces an existing script's code.
      * - The script is switched off.
      * - What it was allowed goes back to undecided, so switching it on asks again. What you switched
-     *   off stays off.
+     *   off stays off. Its place on the widgets page ([ScriptAccess.WIDGET]) stays: the placed list decides it.
      * - Internet that it didn't use before starts off.
      * - Its secret values ([com.mtwabpin.kolahal.script.SecretStore]) stay for the sites they were set
      *   for, except for `@secret` lines it no longer has.
@@ -139,7 +140,7 @@ class ScriptRepository private constructor(private val context: Context) {
         update(id) {
             put("code", code)
             put("enabled", 0)
-            put("access", ScriptAccess.encode(s.access.filterValues { !it } + newInternet(s, code).associateWith { false }))
+            put("access", ScriptAccess.encode(s.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(s, code).associateWith { false }))
             put("changed_at", System.currentTimeMillis())
         }
         // Its timers follow a changed `@every` or `@at` line, as after an edit. A timer set in its sheet stays.

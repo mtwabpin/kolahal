@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.widgets
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -148,5 +149,106 @@ class WidgetModelTest {
             )
         )
         assertEquals(listOf(4, WidgetLayout.COLUMNS, WidgetLayout.COLUMNS), imported.map { it.span })
+    }
+
+    // ---- widgets Kolahal draws itself: the provider field holds a source ----
+
+    private fun script(name: String, order: Int = 0, span: Int = 6) = PlacedWidget(null, WidgetSource.script(name), 0L, 96, order, span = span)
+
+    @Test fun aSourceIsAPrefixAndAName() {
+        assertTrue(WidgetSource.isSource("script:weather"))
+        assertTrue(WidgetSource.isSource("status:cricket"))
+        assertTrue(WidgetSource.isSource("builtin:battery"))
+        // No name, no known prefix, or one of the stored line's separators.
+        assertFalse(WidgetSource.isSource("script:"))
+        assertFalse(WidgetSource.isSource("weather"))
+        assertFalse(WidgetSource.isSource("other:weather"))
+        assertFalse(WidgetSource.isSource("com.a/.W"))
+        assertFalse(WidgetSource.isSource("script:a/b"))
+        assertFalse(WidgetSource.isSource("script:a|b"))
+        assertFalse(WidgetSource.isSource("script:a\nb"))
+        assertEquals("script:weather", WidgetSource.script("weather"))
+        assertEquals("weather", WidgetSource.scriptName("script:weather"))
+        // A Status card is another widget: removing it must not touch the script's own.
+        assertNull(WidgetSource.scriptName("status:weather"))
+        assertNull(WidgetSource.scriptName("com.a/.W"))
+        assertNull(WidgetSource.scriptName(null))
+    }
+
+    /** A widget with a source has no id and is still placed. Only an app's widget without an id waits to be added again. */
+    @Test fun aSourceIsPlacedNotPending() {
+        val s = script("weather")
+        assertEquals("script:weather", s.source)
+        assertFalse(s.pending)
+        assertNull(w(5, 0).source)
+        assertFalse(w(5, 0).pending)
+        assertTrue(w(null, 0).pending)
+        // It is on the page with the app widgets, in one order.
+        val all = listOf(w(5, 1), script("weather", order = 0), w(null, 2))
+        assertEquals(listOf("s:script:weather", "w5"), WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
+    }
+
+    @Test fun sourceLinesRoundTrip() {
+        val all = listOf(w(5, 0), script("weather", order = 1), PlacedWidget(null, "status:cricket", 0L, 72, 2, span = 12), w(null, 3))
+        val text = WidgetCodec.encode(all)
+        assertTrue(text.lines().contains("-|script:weather|0|96|1|panel|6"))
+        assertEquals(all, WidgetCodec.decode(text))
+        // A source has no AppWidget id, whatever the line says.
+        assertNull(WidgetCodec.decode("7|script:weather|0|96|1|panel|6").single().id)
+        // Not a source and not a component: skipped, as before.
+        assertTrue(WidgetCodec.decode("-|script:|0|96|1|panel|6\n-|other:x|0|96|1|panel|6\n-|weather|0|96|1|panel|6").isEmpty())
+    }
+
+    /** Lines saved before sources existed read as they did: an id, or a pending entry. */
+    @Test fun oldLinesReadAsBefore() {
+        val got = WidgetCodec.decode("3|com.a/.W|0|120|0|panel\n-|com.b/.W|10|200|1|panel|6")
+        assertEquals(listOf(3, null), got.map { it.id })
+        assertEquals(listOf(false, true), got.map { it.pending })
+        assertTrue(got.all { it.source == null })
+        assertEquals(listOf("w3", "p:com.b/.W:10:panel:1"), got.map { it.key })
+    }
+
+    /** Its key holds no order, so it is the same wherever the widget moves and after a restart. */
+    @Test fun aSourcesKeyIsStable() {
+        val all = listOf(w(1, 0), script("weather", order = 1), w(2, 2))
+        val key = all[1].key
+        assertEquals("s:script:weather", key)
+        val moved = WidgetOrder.move(all, key, -1)
+        assertEquals(0, moved.single { it.source != null }.order)
+        assertEquals(key, moved.single { it.source != null }.key)
+        assertEquals(listOf(key, "w1", "w2"), WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.key })
+        assertEquals(key, WidgetCodec.decode(WidgetCodec.encode(moved)).single { it.source != null }.key)
+        // The script's widget and its Status card are two entries.
+        assertTrue(key != PlacedWidget(null, "status:weather", 0L, 96, 3).key)
+    }
+
+    /** A backup holds the source where an app widget has its provider, and a restore places it: it needs no "Add again". */
+    @Test fun backupsCarrySources() {
+        val exported = WidgetCodec.export(listOf(w(9, 0), script("weather", order = 1, span = 6)))
+        assertEquals(listOf("com.a/.W0", "script:weather"), exported.map { it["provider"] })
+        val imported = WidgetCodec.fromExport(
+            listOf(
+                mapOf("provider" to "script:weather", "height" to 96.0, "order" to 1.0, "span" to 6.0),
+                mapOf("provider" to "script:bad|name"),
+                mapOf("provider" to "script:"),
+                mapOf("provider" to "com.a/.W0"),
+            )
+        )
+        assertEquals(listOf("script:weather", "com.a/.W0"), imported.map { it.provider })
+        assertFalse(imported[0].pending)
+        assertEquals(6, imported[0].span)
+        assertEquals(96, imported[0].heightDp)
+        assertTrue(imported[1].pending)
+    }
+
+    /** A widget with a source is placed once: importing a backup again, or over the same widget, adds nothing. */
+    @Test fun importSkipsASourceAlreadyPlaced() {
+        val list = listOf(mapOf<String, Any?>("provider" to "script:weather", "order" to 4), mapOf("provider" to "script:news", "order" to 5))
+        val existing = listOf(w(1, 0), script("weather", order = 1))
+        val merged = WidgetCodec.mergePending(existing, WidgetCodec.fromExport(list))
+        assertEquals(listOf("w1", "s:script:weather", "s:script:news"), merged.map { it.key })
+        // The one already placed keeps its place.
+        assertEquals(1, merged.single { it.source == "script:weather" }.order)
+        assertEquals(merged, WidgetCodec.mergePending(merged, WidgetCodec.fromExport(list)))
     }
 }

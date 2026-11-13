@@ -1,5 +1,8 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetSize
+
 /**
  * Directives read from a script's comments:
  *
@@ -19,6 +22,7 @@ package com.mtwabpin.kolahal.script
  *   -- @every <15m|1h|1d>, @at <HH:mm>[, ...], @notify — the timers and notifications it suggests,
  *                            set when it is added from a file or the library
  *   -- @requires <x.y.z>   — the oldest Kolahal it works with; older versions don't import it
+ *   -- @widget <kind> [<size>] — it has a widget for the widgets page ([Widget]): `@widget stat 2x1`
  */
 object ScriptMeta {
     private val command = Regex("""^\s*(--|//)\s*@command\b""", RegexOption.MULTILINE)
@@ -149,6 +153,23 @@ object ScriptMeta {
         val choices = if (!raw.startsWith('"') && '|' in raw) raw.split('|').filter { it.isNotEmpty() }.distinct() else emptyList()
         Option(name, choices.firstOrNull() ?: raw.removeSurrounding("\""), choices, rest.groupValues[2].trim())
     }.distinctBy { it.name }.toList()
+
+    /** `@widget stat 2x1`: the script has a widget of this [kind]. [size] is the size it gets when placed. */
+    data class Widget(val kind: WidgetKind, val size: WidgetSize)
+
+    private val widgetLine = Regex("""^\s*(--|//)\s*@widget\b[ \t]*(.*)$""", RegexOption.MULTILINE)
+
+    /**
+     * The script's `@widget <kind> [<size>]` line. The first such line counts.
+     * - Null when there is no line, or when its kind is not one Kolahal draws ([WidgetKind]).
+     * - Without a size, or with a word that is not a size ([WidgetSize]), the kind's own size is used.
+     *   So a wrong size does not hide the widget.
+     */
+    fun widget(code: String): Widget? {
+        val words = widgetLine.find(code)?.groupValues?.get(2)?.split(' ', '\t')?.filter { it.isNotBlank() } ?: return null
+        val kind = WidgetKind.named(words.firstOrNull()) ?: return null
+        return Widget(kind, WidgetSize.named(words.getOrNull(1)) ?: kind.size)
+    }
 
     fun title(code: String): String? = value(code, "title")
 

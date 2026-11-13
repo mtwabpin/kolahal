@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetSize
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -193,5 +195,65 @@ class ScriptMetaTest {
         // Its status line shows at the top only once you pin it.
         assertFalse(ScriptAccess.grants(online, emptyMap()).allows(ScriptAccess.HEADER))
         assertTrue(ScriptAccess.grants(online, mapOf(ScriptAccess.HEADER to true)).allows(ScriptAccess.HEADER))
+    }
+
+    /** `@widget <kind> [<size>]`: the script has a widget. Without a size, the kind's own is used. */
+    @Test fun theWidgetLineNamesAKindAndASize() {
+        assertEquals(ScriptMeta.Widget(WidgetKind.STAT, WidgetSize.S2X1), ScriptMeta.widget("-- @title Weather\n-- @widget stat 2x1\nwidget.show{}"))
+        assertEquals(ScriptMeta.Widget(WidgetKind.LIST, WidgetSize.S4X4), ScriptMeta.widget("// @widget list 4x4\nwidget.show({})"))
+        // Any case, tabs, and the × people type.
+        assertEquals(ScriptMeta.Widget(WidgetKind.CHART, WidgetSize.S4X2), ScriptMeta.widget("--  @widget\tChart   4×2  "))
+        // Each kind has a size of its own.
+        assertEquals(WidgetSize.S2X1, ScriptMeta.widget("-- @widget stat")!!.size)
+        assertEquals(WidgetSize.S2X2, ScriptMeta.widget("-- @widget text")!!.size)
+        assertEquals(WidgetSize.S4X2, ScriptMeta.widget("-- @widget list")!!.size)
+        assertEquals(WidgetSize.S2X1, ScriptMeta.widget("-- @widget progress")!!.size)
+        assertEquals(WidgetSize.S2X2, ScriptMeta.widget("-- @widget chart")!!.size)
+        assertEquals(WidgetSize.S2X1, ScriptMeta.widget("-- @widget countdown")!!.size)
+        // A wrong size does not hide the widget.
+        assertEquals(ScriptMeta.Widget(WidgetKind.TEXT, WidgetSize.S2X2), ScriptMeta.widget("-- @widget text 9x9"))
+        // No line, no kind, a kind Kolahal doesn't draw, another directive, or a call in the code.
+        assertNull(ScriptMeta.widget("log('hi')"))
+        assertNull(ScriptMeta.widget("-- @widget"))
+        assertNull(ScriptMeta.widget("-- @widget hologram 2x2"))
+        assertNull(ScriptMeta.widget("-- @widgets stat"))
+        assertNull(ScriptMeta.widget("widget.show{ value = 1 }"))
+    }
+
+    @Test fun sizesAndKindsHaveNames() {
+        assertEquals(listOf("1x1", "2x1", "2x2", "4x1", "4x2", "4x4"), WidgetSize.entries.map { it.id })
+        assertEquals(listOf(3, 6, 6, 12, 12, 12), WidgetSize.entries.map { it.span })
+        assertEquals(listOf(1, 1, 2, 1, 2, 4), WidgetSize.entries.map { it.rows })
+        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown"), WidgetKind.entries.map { it.id })
+        assertEquals(WidgetSize.S4X1, WidgetSize.named(" 4X1 "))
+        assertNull(WidgetSize.named("3x1"))
+        assertNull(WidgetSize.named(null))
+        assertEquals(WidgetKind.COUNTDOWN, WidgetKind.named("Countdown"))
+        assertNull(WidgetKind.named("buttons"))
+        assertNull(WidgetKind.named(null))
+    }
+
+    /** The widgets page item is off until the widget is placed, and nothing asks for it: placing is the user's act. */
+    @Test fun theWidgetItemIsOffUntilPlaced() {
+        val code = "-- @widget stat\nwidget.show{ value = 1 }"
+        assertEquals(listOf(ScriptAccess.WIDGET), ScriptAccess.items(code))
+        assertEquals("On the widgets page", ScriptAccess.label(ScriptAccess.WIDGET))
+        assertEquals(emptyList<String>(), ScriptAccess.asksFor(code))
+        // Not placed: undecided or off. An event is on unless switched off; this item is not.
+        assertFalse(ScriptAccess.grants(code, emptyMap()).allows(ScriptAccess.WIDGET))
+        assertFalse(ScriptAccess.grants(code, mapOf(ScriptAccess.WIDGET to false)).allows(ScriptAccess.WIDGET))
+        assertTrue(ScriptAccess.grants(code, mapOf(ScriptAccess.WIDGET to true)).allows(ScriptAccess.WIDGET))
+        // Switching the script on allows what it declares with @uses, and not this.
+        assertEquals(emptyMap<String, Boolean>(), ScriptAccess.allowUndecided(code, emptyMap()))
+        assertTrue(ScriptAccess.grants(code, emptyMap()).undecided.isEmpty())
+        // A script without the line never has it, even with a stored "on".
+        val plain = "log('hi')"
+        assertEquals(emptyList<String>(), ScriptAccess.items(plain))
+        assertFalse(ScriptAccess.grants(plain, mapOf(ScriptAccess.WIDGET to true)).allows(ScriptAccess.WIDGET))
+        // It comes after the internet and the pin, before @uses and events.
+        assertEquals(
+            listOf(ScriptAccess.INTERNET, ScriptAccess.HEADER, ScriptAccess.WIDGET, "apps", "unlock"),
+            ScriptAccess.items("-- @widget list\n-- @uses apps\n-- @on unlock\nstatus(http.get(u).body)"),
+        )
     }
 }

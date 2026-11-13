@@ -22,7 +22,11 @@ import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.script.ScriptAccess
+import com.mtwabpin.kolahal.script.ScriptScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -158,7 +162,8 @@ class WidgetHost private constructor(context: Context) {
 
     /** Main thread. Listens if home shows and a widget is placed; the first widget added starts it. */
     private fun listenIfNeeded() {
-        if (listening || !shown || _widgets.value.isEmpty()) return
+        // Only an app's widget needs the host. A widget Kolahal draws itself gets no updates from it.
+        if (listening || !shown || _widgets.value.none { it.source == null }) return
         listening = runCatching { host.startListening() }.isSuccess
     }
 
@@ -224,10 +229,83 @@ class WidgetHost private constructor(context: Context) {
         _widgets.value.firstOrNull { it.id == id }?.let { applySize(id, it.heightDp, it.span) }
     }
 
+    /**
+     * Removes a widget from the page. For a script's own widget, its `widget` access goes off and what
+     * it showed is forgotten ([follow]).
+     */
     fun remove(key: String) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
         w.id?.let { forget(it); runCatching { host.deleteAppWidgetId(it) } }
         update { all -> all.filterNot { it.key == key } }
+        WidgetSource.scriptName(w.source)?.let { follow(it) }
+    }
+
+    // ---- widgets Kolahal draws itself -------------------------------------------------------
+
+    /** Whether the widget with this [source] is on the page. A widget with a source is placed once. */
+    fun isPlaced(source: String): Boolean = _widgets.value.any { it.source == source }
+
+    /**
+     * Places [script]'s own widget at the end of the page, at [size]. Returns false when it is already
+     * placed (or its name can't be stored), and changes nothing then.
+     * - The entry is on the page when this returns.
+     * - Then, on [checks]' thread, the script's `widget` access goes on, and only after that a
+     *   `"widget"` run is queued ([ScriptScheduler.refreshWidget]): the run reads the access from the database.
+     */
+    fun placeScript(script: Script, size: WidgetSize): Boolean {
+        val source = WidgetSource.script(script.name)
+        if (!WidgetSource.isSource(source)) return false
+        var added = false
+        update { all ->
+            added = all.none { it.source == source }
+            if (!added) return@update all
+            all + PlacedWidget(
+                id = null,
+                provider = source,
+                profileSerial = runCatching { serialOf(Process.myUserHandle()) }.getOrDefault(0L),
+                heightDp = WidgetSizes.heightDp(size, pageWidthDp()).coerceIn(WidgetSizes.MIN_HEIGHT_DP, WidgetLayout.MAX_DP),
+                order = WidgetOrder.nextOrder(all),
+                span = size.span,
+            )
+        }
+        if (added) follow(script.name, run = true)
+        return added
+    }
+
+    /**
+     * Makes one script's `widget` access say what the placed list says, on [checks]' thread: the
+     * database is not written on the caller's thread, and the changes happen in the order they were asked for.
+     * - Placed: the access goes on. With [run], a `"widget"` run is queued after that.
+     * - Not placed: the access goes off, and what the widget showed is forgotten.
+     * It reads the list when it runs, not when it is asked. So after a quick remove and add, the last one wins.
+     */
+    private fun follow(name: String, run: Boolean = false) = checks.execute {
+        runCatching {
+            val scripts = ScriptRepository.get(app)
+            val script = scripts.byName(name)
+            val placed = isPlaced(WidgetSource.script(name))
+            if (script != null && (script.access[ScriptAccess.WIDGET] == true) != placed) scripts.setAccess(script.id, ScriptAccess.WIDGET, placed)
+            if (!placed) WidgetStates.forget(app, name)
+            else if (run && script != null) ScriptScheduler.refreshWidget(app, script)
+        }
+    }
+
+    /**
+     * Makes every script's `widget` access follow the placed list: on for each placed `script:<name>`
+     * entry, off for every other script. The placed list wins, because it is the one the user changes.
+     * - It runs at start and after a backup is imported. A backup carries only the access you switched
+     *   off, so without this a restored widget would stay empty.
+     * - It writes only where the two differ, on [checks]' thread.
+     */
+    fun syncAccess() = checks.execute {
+        runCatching {
+            val scripts = ScriptRepository.get(app)
+            val placed = _widgets.value.mapNotNull { WidgetSource.scriptName(it.source) }.toSet()
+            scripts.all().forEach { s ->
+                val on = s.name in placed
+                if ((s.access[ScriptAccess.WIDGET] == true) != on) scripts.setAccess(s.id, ScriptAccess.WIDGET, on)
+            }
+        }
     }
 
     fun move(key: String, direction: Int) = update { WidgetOrder.move(it, key, direction) }
@@ -241,7 +319,8 @@ class WidgetHost private constructor(context: Context) {
     /** Makes the widget wider or narrower by [delta] columns of the page. */
     fun resizeWidth(key: String, delta: Int) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
-        val span = WidgetLayout.resizeSpan(w.span, delta)
+        // A widget Kolahal draws itself is at least one cell wide.
+        val span = WidgetLayout.resizeSpan(w.span, delta).coerceAtLeast(if (w.source != null) WidgetSizes.MIN_SPAN else WidgetLayout.MIN_SPAN)
         if (span != w.span) update { all -> all.map { if (it.key == key) it.copy(span = span) else it } }
     }
 
@@ -252,7 +331,7 @@ class WidgetHost private constructor(context: Context) {
     }
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
-        val min = w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.MIN_DP
+        val min = if (w.source != null) WidgetSizes.MIN_HEIGHT_DP else w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.MIN_DP
         val h = WidgetLayout.resize(heightDp, 0, min)
         if (h != w.heightDp) update { all -> all.map { if (it.key == w.key) it.copy(heightDp = h) else it } }
     }
@@ -421,9 +500,13 @@ class WidgetHost private constructor(context: Context) {
 
     /**
      * For Backup: widget ids can't be restored. So imported entries become "pending re-add" rows on
-     * the Widgets page, each with a one-tap "Add again".
+     * the Widgets page, each with a one-tap "Add again". A widget Kolahal draws itself needs no id:
+     * it is placed as it comes, and the scripts' `widget` access follows ([syncAccess]).
      */
-    fun importWidgets(list: List<Map<String, Any?>>) = update { WidgetCodec.mergePending(it, WidgetOrder.onePage(WidgetCodec.fromExport(list))) }
+    fun importWidgets(list: List<Map<String, Any?>>) {
+        update { WidgetCodec.mergePending(it, WidgetOrder.onePage(WidgetCodec.fromExport(list))) }
+        syncAccess()
+    }
 
     companion object : Singleton<WidgetHost>(::WidgetHost) {
         /** "KO" in ASCII. */
@@ -437,13 +520,15 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
     val all = widgets.value
     val ordered = WidgetOrder.inLocation(all, WidgetLocation.PANEL) + WidgetOrder.sorted(all.filter { it.pending })
     return ordered.mapIndexed { i, w ->
-        val label = w.id?.let { info(it) }?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
+        val source = w.source
+        // A widget Kolahal draws itself: its name ("weather"), and what it is ("script") where an app's widget has its package.
+        val label = source?.substringAfter(':') ?: w.id?.let { info(it) }?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
         val state = when {
             w.pending -> "pending re-add"
-            isPaused(w.profileSerial) -> "paused"
+            source == null && isPaused(w.profileSerial) -> "paused"
             else -> null
         }
-        "${i + 1}. $label" to listOfNotNull(state, "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp", w.packageName).joinToString(" · ")
+        "${i + 1}. $label" to listOfNotNull(state, "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp", source?.substringBefore(':') ?: w.packageName).joinToString(" · ")
     }
 }
 

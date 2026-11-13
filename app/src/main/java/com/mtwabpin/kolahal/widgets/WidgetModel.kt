@@ -14,10 +14,41 @@ object WidgetLocation {
 }
 
 /**
+ * Where a widget that Kolahal draws itself gets its content. Such a widget has no AppWidget id. Its
+ * placed entry holds the source where an app widget's entry holds its provider.
+ */
+object WidgetSource {
+    /** `script:<name>`: the widget a script fills with `widget.show`. */
+    const val SCRIPT = "script:"
+    /** `status:<name>`: the Status card of a script's status line. */
+    const val STATUS = "status:"
+    /** `builtin:<id>`: a built-in widget, such as `builtin:battery`. */
+    const val BUILTIN = "builtin:"
+
+    private val PREFIXES = listOf(SCRIPT, STATUS, BUILTIN)
+
+    /**
+     * Whether [provider] names a source: one of the prefixes, then something. A flattened
+     * ComponentName always has a `/` and a source never does, so the two can't be mixed up. The
+     * stored line's separators (`|`, a line break) are refused too.
+     */
+    fun isSource(provider: String): Boolean {
+        val prefix = PREFIXES.firstOrNull { provider.startsWith(it) } ?: return false
+        return provider.length > prefix.length && provider.none { it == '/' || it == '|' || it == '\n' || it == '\r' }
+    }
+
+    /** The source of the script [name]'s own widget. */
+    fun script(name: String): String = SCRIPT + name
+
+    /** The script's name when [source] is a script's own widget. Null for anything else, a Status card included. */
+    fun scriptName(source: String?): String? = source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)
+}
+
+/**
  * A placed widget.
  * - [id] is the AppWidget id. It is null for an entry restored from a backup that must still be bound
- *   again ("pending re-add").
- * - [provider] is a flattened ComponentName.
+ *   again ("pending re-add"), and for a widget Kolahal draws itself ([source]).
+ * - [provider] is a flattened ComponentName, or a source ([WidgetSource]).
  */
 data class PlacedWidget(
     val id: Int?,
@@ -29,9 +60,15 @@ data class PlacedWidget(
     /** Its width, in twelfths of the page ([WidgetLayout.COLUMNS]). Narrower widgets sit side by side. */
     val span: Int = WidgetLayout.COLUMNS,
 ) {
-    val pending: Boolean get() = id == null
-    /** Stable key for lists: the widget id, or provider and order for pending entries. */
-    val key: String get() = id?.let { "w$it" } ?: "p:$provider:$profileSerial:$location:$order"
+    /** The source, for a widget Kolahal draws itself: `script:weather`. Null for an app's widget. */
+    val source: String? get() = provider.takeIf(WidgetSource::isSource)
+    /** An app's widget that must be bound again. A widget with a [source] needs no id, so it is never pending. */
+    val pending: Boolean get() = id == null && source == null
+    /**
+     * Stable key for lists: the source, or the widget id, or provider and order for pending entries.
+     * A source's key does not hold its order, so it stays the same when the widget moves.
+     */
+    val key: String get() = source?.let { "s:$it" } ?: id?.let { "w$it" } ?: "p:$provider:$profileSerial:$location:$order"
     /** The package part of [provider]: "com.example/.Clock" -> "com.example". */
     val packageName: String get() = provider.substringBefore('/')
 }
@@ -145,9 +182,12 @@ object WidgetOrder {
 
 /**
  * Stores one record per line in SharedPreferences: `id|provider|serial|height|order|location|span`.
- * - A pending entry has `-` as its id.
+ * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
+ *   its source (`script:weather`, see [WidgetSource]).
  * - Lines saved before widths existed have no span. They are full width.
- * - Flattened ComponentNames never contain `|`.
+ * - Flattened ComponentNames never contain `|`, and a source with one is refused.
+ * - A Kolahal from before sources skips a line whose provider has no `/`. So going back to it drops
+ *   these widgets and breaks nothing.
  */
 object WidgetCodec {
     fun encode(all: List<PlacedWidget>): String = all.joinToString("\n") {
@@ -156,9 +196,12 @@ object WidgetCodec {
 
     fun decode(text: String?): List<PlacedWidget> = text.orEmpty().lineSequence().mapNotNull { line ->
         val f = line.split('|')
-        if (f.size < 6 || f[1].isBlank() || !f[1].contains('/')) return@mapNotNull null
+        if (f.size < 6 || f[1].isBlank()) return@mapNotNull null
+        val source = WidgetSource.isSource(f[1])
+        if (!source && !f[1].contains('/')) return@mapNotNull null
         PlacedWidget(
-            id = f[0].toIntOrNull(),
+            // A source has no AppWidget id, whatever the line says.
+            id = if (source) null else f[0].toIntOrNull(),
             provider = f[1],
             profileSerial = f[2].toLongOrNull() ?: 0L,
             heightDp = (f[3].toIntOrNull() ?: WidgetLayout.MIN_DP).coerceIn(WidgetLayout.MIN_DP, WidgetLayout.MAX_DP),
@@ -180,9 +223,14 @@ object WidgetCodec {
         )
     }
 
-    /** Parses backup maps into pending entries. Numbers may come as Int, Long, Double or String. */
+    /**
+     * Parses backup maps. An app's widget becomes a pending entry. A widget with a source
+     * (`"provider": "script:weather"`) needs no id, so it is placed as it comes. Numbers may come as
+     * Int, Long, Double or String.
+     */
     fun fromExport(list: List<Map<String, Any?>>): List<PlacedWidget> = list.mapNotNull { m ->
-        val provider = m["provider"]?.toString()?.takeIf { it.contains('/') && !it.contains('|') && !it.contains('\n') }
+        val provider = m["provider"]?.toString()
+            ?.takeIf { WidgetSource.isSource(it) || (it.contains('/') && !it.contains('|') && !it.contains('\n')) }
             ?: return@mapNotNull null
         fun num(key: String): Long? = when (val v = m[key]) {
             is Number -> v.toLong()
@@ -200,9 +248,12 @@ object WidgetCodec {
         )
     }
 
-    /** Adds imported pending entries, skipping ones that duplicate an existing pending entry. */
+    /**
+     * Adds imported entries. It skips a pending entry that duplicates an existing pending one, and a
+     * source that is already placed: a widget with a source is placed once.
+     */
     fun mergePending(existing: List<PlacedWidget>, imported: List<PlacedWidget>): List<PlacedWidget> {
-        val seen = existing.filter { it.pending }.map { it.key }.toMutableSet()
+        val seen = existing.filter { it.pending || it.source != null }.map { it.key }.toMutableSet()
         return existing + imported.filter { seen.add(it.key) }
     }
 }

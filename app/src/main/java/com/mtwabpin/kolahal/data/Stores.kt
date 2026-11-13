@@ -83,6 +83,13 @@ object Stores {
     const val NOTIFICATIONS_MIRROR = "system"
     /** Which install wrote the database ([ThisInstall]). This phone only. */
     const val INSTALL = "install"
+    /**
+     * What each placed script widget shows, by script name: the checked description as JSON
+     * ([com.mtwabpin.kolahal.widgets.WidgetStates]). A run makes it again, and it may hold private text. This phone only.
+     */
+    const val WIDGET = "widget"
+    /** When a widget's content was set, when a run was last tried, and its last error, by script name. This phone only. */
+    const val WIDGET_META = "widget.meta"
     /** Scripts' status lines, by script name. */
     const val STATUS = "status"
     /** What a status line shows besides its text, by script name. */
@@ -108,7 +115,7 @@ object Stores {
      * backup file holds them, they are skipped. A transfer to a new phone copies them, so [ThisInstall]
      * clears them there.
      */
-    val THIS_PHONE = listOf(CALLS, PACKAGES, WORKER, SHARED_SETTINGS, NOTIFICATIONS_MIRROR, INSTALL)
+    val THIS_PHONE = listOf(CALLS, PACKAGES, WORKER, SHARED_SETTINGS, NOTIFICATIONS_MIRROR, INSTALL, WIDGET, WIDGET_META)
 
     val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, LOG_MARKS, OLD_PINS)
 }

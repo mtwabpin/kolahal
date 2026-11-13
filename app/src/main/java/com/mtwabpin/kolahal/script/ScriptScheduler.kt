@@ -191,6 +191,30 @@ object ScriptScheduler {
         )
     }
 
+    /** The `event` of a run the widgets page asks for: its widget was just placed, its content is old, or it set a `refresh`. */
+    const val WIDGET = "widget"
+
+    /**
+     * Runs a placed widget's script again, so it calls `widget.show`. Like [refreshPinned], there are
+     * never two at once: while one waits (for a network, say) or runs, the next one is dropped. The
+     * run is not interactive, and its `event.name` is [WIDGET].
+     */
+    fun refreshWidget(context: Context, script: Script) {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "script-${script.id}-widget",
+            androidx.work.ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<ScriptWorker>()
+                .apply { if (ScriptMeta.goesOnline(script.code)) setConstraints(online()) }
+                .setInputData(remoteData(context) {
+                    putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
+                    putBoolean(ScriptWorker.KEY_SCHEDULED, true)
+                    putString(ScriptWorker.KEY_EVENT, Json.stringify(mapOf("name" to WIDGET)))
+                })
+                .addTag("script")
+                .build(),
+        )
+    }
+
     /**
      * One non-interactive run started by a device event (`@on`). [payload] becomes the script's
      * `event` global. The worker skips the run if the script was disabled in the meantime.

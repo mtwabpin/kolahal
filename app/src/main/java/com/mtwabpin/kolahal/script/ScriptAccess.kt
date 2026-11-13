@@ -18,6 +18,9 @@ import com.mtwabpin.kolahal.data.Script
  *   off. A script that doesn't use it never has it, so the switches shown are all it may do.
  * - [HEADER], pinned at the top: a script that sets a status line ([ScriptMeta.setsStatus]) shows it
  *   at the top of home only after you pin it (`script pin`, or its menus). No script pins itself.
+ * - [WIDGET], on the widgets page: a script with a `@widget` line has it only while its widget is
+ *   placed there. Kolahal sets it from the placed list ([com.mtwabpin.kolahal.widgets.WidgetHost.syncAccess]).
+ *   While it is off, `widget.show` stores nothing.
  * - Each `@on` event: on unless switched off.
  * When an item is off, the script gets an empty answer where that is honest (no apps, no
  * notifications, no clipboard). Where it isn't honest (internet), the script stops.
@@ -27,10 +30,15 @@ import com.mtwabpin.kolahal.data.Script
 object ScriptAccess {
     const val INTERNET = "internet"
     const val HEADER = "header"
+    /** Its widget is placed on the widgets page. Off until you place it there. */
+    const val WIDGET = "widget"
 
-    /** Which of [INTERNET] and [HEADER] the [code] uses. */
-    internal fun base(code: String): List<String> =
-        listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }, HEADER.takeIf { ScriptMeta.setsStatus(code) })
+    /** Which of [INTERNET], [HEADER] and [WIDGET] the [code] uses. */
+    internal fun base(code: String): List<String> = listOfNotNull(
+        INTERNET.takeIf { ScriptMeta.usesInternet(code) },
+        HEADER.takeIf { ScriptMeta.setsStatus(code) },
+        WIDGET.takeIf { ScriptMeta.widget(code) != null },
+    )
 
     /**
      * What a shared script asks for, named before `script get` switches it on: the internet when
@@ -46,6 +54,7 @@ object ScriptAccess {
     fun label(item: String): String = when (item) {
         INTERNET -> "Internet"
         HEADER -> "Pinned at the top"
+        WIDGET -> "On the widgets page"
         "notifications" -> "Your notifications"
         "apps" -> "Your app list"
         "clipboard" -> "Clipboard"
@@ -58,6 +67,7 @@ object ScriptAccess {
     fun help(item: String): String = when (item) {
         INTERNET -> "Web requests and feeds to any address, including your local network, and links and images in its output; when off, a run that needs a request stops"
         HEADER -> "Its status line at the top of home, in turns with what's playing and other pinned scripts; when off, it shows in its card and in status"
+        WIDGET -> "Its widget on the widgets page, on while the widget is placed there; when off, what it shows is not stored"
         "notifications" -> "Reads your recent notifications; when off, it sees none"
         "apps" -> "Lists your installed apps; when off, it sees none"
         "clipboard" -> "Reads and sets the clipboard; when off, it can't"
@@ -69,13 +79,16 @@ object ScriptAccess {
 
     /**
      * A script's access. It combines what its code declares with `@uses`, which of [INTERNET] and
-     * [HEADER] it uses ([base]), and what the user decided. [HEADER] is off until pinned.
+     * [HEADER] it uses ([base]), and what the user decided. [HEADER] is off until pinned, and
+     * [WIDGET] is off until its widget is placed.
      */
     class Grants(val declared: Set<String>, private val values: Map<String, Boolean>, private val base: Set<String> = setOf(INTERNET, HEADER)) {
         fun allows(item: String): Boolean = when (item) {
             in ScriptMeta.USES -> item in declared && values[item] == true
             INTERNET -> item in base && values[item] != false
             HEADER -> item in base && values[item] == true
+            // Its own case: the last one would make it "on unless switched off".
+            WIDGET -> item in base && values[item] == true
             else -> values[item] != false
         }
 
