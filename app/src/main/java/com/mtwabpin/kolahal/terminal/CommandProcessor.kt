@@ -28,6 +28,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.Net
@@ -264,7 +265,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private fun now() {
         val now = java.time.ZonedDateTime.now()
         val clock24 = Config.get(context)[Keys.CLOCK_24H]
-        val time = now.format(java.time.format.DateTimeFormatter.ofPattern(if (clock24) "HH:mm" else "h:mm a"))
+        val time = now.format(java.time.format.DateTimeFormatter.ofPattern(TimeFormats.clock(clock24)))
         val day = now.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy"))
         out(com.mtwabpin.kolahal.data.StyledText.stats(listOf(time to day)), LogContext.of(LogContext.COPY to DateFormat.getDateTimeInstance().format(Date())))
     }
@@ -346,17 +347,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             info("Tap here to allow usage access for accurate counts", LogContext.of(LogContext.RUN to "usage-access"))
         }
         val today = java.time.LocalDate.now()
-        val fmt = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.getDefault())
-        val rows = unlocks.history(days).map { (day, count) ->
-            val label = when (day) {
-                today -> "Today"
-                today.minusDays(1) -> "Yesterday"
-                else -> day.format(fmt)
-            }
-            label to count
-        }
+        val history = unlocks.history(days)
+        val rows = history.map { (day, count) -> TimeFormats.dayLabel(day, today, capital = true) to count }
         // Big numbers: today's count; over several days, the average and the total too.
-        val todayCount = rows.firstOrNull { it.first == "Today" }?.second ?: 0
+        val todayCount = history.firstOrNull { it.first == today }?.second ?: 0
         val big = mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
         if (days > 1) {
             val total = rows.sumOf { it.second }

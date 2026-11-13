@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.data.TimeFormats
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -159,11 +160,7 @@ fun lineDetail(
 ): String {
     val at = Instant.ofEpochMilli(e.ts).atZone(zone)
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    val day = when (at.toLocalDate()) {
-        today -> "today"
-        today.minusDays(1) -> "yesterday"
-        else -> at.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
-    }
+    val day = TimeFormats.dayLabel(at.toLocalDate(), today, locale)
     val time = at.format(DateTimeFormatter.ofPattern(if (clock24) "HH:mm:ss" else "h:mm:ss a", locale))
     return listOfNotNull(e.source?.takeIf { e.kind == LogKind.SCRIPT }, "$day $time").joinToString(" · ")
 }

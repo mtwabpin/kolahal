@@ -14,6 +14,7 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.shortTime
 import com.mtwabpin.kolahal.productivity.TimeSpec
 import java.util.concurrent.Executors
@@ -181,7 +182,7 @@ class CallEvents private constructor(private val context: Context) {
                 else -> null
             }
             val number = c.number.takeIf { c.name != null && it.isNotBlank() }
-            val time = (if (withDay) java.text.SimpleDateFormat("EEE d MMM, ", java.util.Locale.getDefault()).format(java.util.Date(c.date)) else "") + config.shortTime(c.date)
+            val time = (if (withDay) java.text.SimpleDateFormat("${TimeFormats.DAY}, ", java.util.Locale.getDefault()).format(java.util.Date(c.date)) else "") + config.shortTime(c.date)
             return listOfNotNull(title, number, listOfNotNull(time, length).joinToString(" · ")).joinToString("\n")
         }
 

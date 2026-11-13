@@ -9,6 +9,7 @@ import android.provider.Settings
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.productivity.NoteStore
@@ -292,12 +293,12 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
     private fun whenLabel(at: Long): String {
         val zone = ZoneId.systemDefault()
         val t = Instant.ofEpochMilli(at).atZone(zone)
-        val time = DateTimeFormatter.ofPattern(if (conf[Keys.CLOCK_24H]) "HH:mm" else "h:mm a", Locale.getDefault()).format(t)
+        val time = TimeFormats.clockFormat(conf[Keys.CLOCK_24H]).format(t)
         val today = LocalDate.now(zone)
         return when (t.toLocalDate()) {
             today -> time
             today.plusDays(1) -> "tomorrow $time"
-            else -> DateTimeFormatter.ofPattern(if (t.year == today.year) "EEE d MMM" else "EEE d MMM yyyy", Locale.getDefault()).format(t) + " " + time
+            else -> DateTimeFormatter.ofPattern(if (t.year == today.year) TimeFormats.DAY else "${TimeFormats.DAY} yyyy", Locale.getDefault()).format(t) + " " + time
         }
     }
 
@@ -353,7 +354,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         }
         val is24h = conf[Keys.CLOCK_24H]
         val timeFmt = DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mma", Locale.getDefault())
-        val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
+        val dayFmt = TimeFormats.dayFormat()
         fun span(e: com.mtwabpin.kolahal.productivity.AgendaEvent): String {
             val b = timeFmt.format(Instant.ofEpochMilli(e.begin).atZone(zone))
             val en = timeFmt.format(Instant.ofEpochMilli(e.end).atZone(zone))

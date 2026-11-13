@@ -1,9 +1,9 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.TimeFormats
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 
@@ -90,7 +90,7 @@ object WorldClock {
     fun line(place: Place, now: Instant, here: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): Line {
         val there = now.atZone(place.zone)
         val local = now.atZone(here)
-        val time = there.format(DateTimeFormatter.ofPattern(if (clock24) "HH:mm" else "h:mm a", locale))
+        val time = there.format(TimeFormats.clockFormat(clock24, locale))
         val minutes = (there.offset.totalSeconds - local.offset.totalSeconds) / 60
         val apart = abs(minutes).let { m -> "${m / 60}h" + if (m % 60 == 0) "" else (m % 60).toString().padStart(2, '0') }
         val relative = when {
@@ -98,7 +98,7 @@ object WorldClock {
             minutes > 0 -> "$apart ahead"
             else -> "$apart behind"
         }
-        val day = if (there.toLocalDate() == local.toLocalDate()) "" else there.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
+        val day = if (there.toLocalDate() == local.toLocalDate()) "" else there.format(TimeFormats.dayFormat(locale))
         return Line(place.name, time + (if (day.isEmpty()) "" else " $day") + " · $relative", time, day, relative)
     }
 
