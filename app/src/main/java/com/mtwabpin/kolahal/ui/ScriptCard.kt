@@ -88,9 +88,8 @@ private val LINE_ICON = 14.dp
 internal fun ScriptCard(
     info: ScriptInfo,
     line: String?,
-    /** Declared secrets with no value yet, and (in [secretsSet]) those that have one. */
+    /** Declared secrets with no value yet. */
     missingKeys: List<String>,
-    secretsSet: List<String>,
     expanded: Boolean,
     /** How a library or shared copy compares with its source. Null for a script the user wrote. */
     copy: ScriptCopy?,

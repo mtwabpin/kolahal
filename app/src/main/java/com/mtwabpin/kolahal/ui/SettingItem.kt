@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
@@ -67,12 +66,12 @@ import kotlin.math.roundToInt
 @Composable
 internal fun SettingItem(
     vm: TerminalViewModel,
-    config: Config,
     key: ConfigKey<*>,
     version: State<Int>,
     index: Int,
     count: Int,
 ) {
+    val config = vm.config
     // Only this row recomposes when its own value changes.
     val value by remember(key) { derivedStateOf { version.value; config.display(key) } }
     val changed by remember(key) { derivedStateOf { version.value; !config.isDefault(key) } }

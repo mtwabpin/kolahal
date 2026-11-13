@@ -394,7 +394,6 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                         info,
                         line = statuses[s.name],
                         missingKeys = secretNames[s.name]?.missing.orEmpty(),
-                        secretsSet = secretNames[s.name]?.set.orEmpty(),
                         expanded = expandAll != (s.id in flipped),
                         copy = copy,
                         selfUpdatedIn = selfUpdate?.version?.takeIf { s.name in selfUpdated },

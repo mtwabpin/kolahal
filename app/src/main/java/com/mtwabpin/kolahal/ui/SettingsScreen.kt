@@ -193,7 +193,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     keys.forEachIndexed { index, key ->
                         item(key = key.key) {
                             PeekFade(peek, keep = peek?.key == key.key, modifier = Modifier.animateItem()) {
-                                SettingItem(vm, config, key, version, index, keys.size)
+                                SettingItem(vm, key, version, index, keys.size)
                             }
                         }
                     }
@@ -321,7 +321,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                 hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
                     item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
                     keys.forEachIndexed { index, key ->
-                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, config, key, version, index, keys.size) } }
+                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, key, version, index, keys.size) } }
                     }
                 }
                 return@GuiListPage
@@ -388,7 +388,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.categorySettings(
         if (keys.isEmpty()) continue
         item(key = "h:$id:$title") { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
         keys.forEachIndexed { index, key ->
-            item(key = key.key) { SettingItem(vm, vm.config, key, version, index, keys.size) }
+            item(key = key.key) { SettingItem(vm, key, version, index, keys.size) }
         }
     }
 }
