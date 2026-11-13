@@ -90,7 +90,7 @@ object FullBackup {
                     // Keep this device's script stores (attached again by name afterwards) and script secrets.
                     db.delete(
                         "kv", "scope NOT LIKE ? AND scope NOT LIKE ? AND scope NOT IN (${Stores.THIS_PHONE.joinToString { "?" }})",
-                        arrayOf("$Stores.SCRIPT_PREFIX%", "${Stores.SECRET_PREFIX}%") + Stores.THIS_PHONE,
+                        arrayOf("${Stores.SCRIPT_PREFIX}%", "${Stores.SECRET_PREFIX}%") + Stores.THIS_PHONE,
                     )
                 } else {
                     db.delete(t.name, null, null)
