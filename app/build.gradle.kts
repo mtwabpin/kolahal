@@ -123,6 +123,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Device tests run without window animations (am instrument --no-window-animation): each UI test
+    // starts an activity, and its transition no longer slows the test down. tools/device-tests.sh
+    // does the same.
+    testOptions {
+        animationsDisabled = true
+    }
 }
 
 dependencies {
