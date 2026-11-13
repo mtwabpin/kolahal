@@ -23,6 +23,19 @@ object EditorLogic {
             return if (lo == starts.size) 0 else lo
         }
 
+        /**
+         * Index of the match to go to from a cursor at [offset]: the next one ([forward]), or the
+         * one before. Both wrap around: after the last match comes the first, and before the first
+         * comes the last. -1 when there are no matches.
+         */
+        fun indexFrom(offset: Int, forward: Boolean): Int {
+            if (starts.isEmpty()) return -1
+            if (forward) return indexAtOrAfter(offset + 1)
+            // 0 means either "the first match is at/after the cursor" or "no match is". Both wrap to the last match.
+            val i = indexAtOrAfter(offset)
+            return if (i == 0) size - 1 else i - 1
+        }
+
         companion object {
             val EMPTY = Matches(IntArray(0), 0, false)
         }
@@ -45,6 +58,19 @@ object EditorLogic {
             i = text.indexOf(query, i + query.length, ignoreCase)
         }
         return Matches(out.copyOf(n), query.length, capped = false)
+    }
+
+    /**
+     * The matches to draw: at most [max], around the current one. Null when there are none.
+     * [current] is the index of the current match. With none (-1), the first ones are drawn, and
+     * none is marked as current.
+     */
+    internal fun highlights(matches: Matches, current: Int, max: Int = MAX_HIGHLIGHTS): MatchHighlights? {
+        if (matches.size == 0) return null
+        val c = current.coerceIn(0, matches.size - 1)
+        val from = (c - max / 2).coerceAtLeast(0)
+        val to = (from + max).coerceAtMost(matches.size)
+        return MatchHighlights(matches.starts.copyOfRange(from, to), matches.length, if (current >= 0) matches.starts[c] else -1)
     }
 
     /** Replaces every match of [query] in [text]. Returns the new text and the number of replacements. */
@@ -146,6 +172,36 @@ object EditorLogic {
         ApiDoc.Kind.FUNCTION -> if (nextChar == '(') doc.member else doc.member + "("
         ApiDoc.Kind.NAMESPACE -> if (nextChar == '.') doc.member else doc.member + "."
         else -> doc.member
+    }
+
+    /** The text after an edit the editor made for the user, and where the cursor goes. */
+    data class Edited(val text: String, val cursor: Int)
+
+    /**
+     * [text] after the user accepts the completion [doc] at [cursor]: its [insertion] replaces the
+     * identifier being typed. The cursor goes after it, and steps over a `(` or `.` that was already
+     * there. Null when no identifier is being typed at [cursor].
+     */
+    fun accept(text: String, cursor: Int, doc: ApiDoc): Edited? {
+        val p = prefixAt(text, cursor) ?: return null
+        val next = text.getOrNull(cursor)
+        val ins = insertion(doc, next)
+        var after = p.start + ins.length
+        // Step over an existing `(` / `.` that the insertion relied on.
+        if ((doc.kind == ApiDoc.Kind.FUNCTION && next == '(') || (doc.kind == ApiDoc.Kind.NAMESPACE && next == '.')) after++
+        return Edited(text.replaceRange(p.start, cursor, ins), after)
+    }
+
+    /**
+     * [text] with the directive [line] (`-- @every `, `-- @command\n`) added. A directive is a line
+     * of its own: it goes above the line the cursor is on. The cursor goes after it, to type what
+     * follows, or to the line below when nothing follows ([line] ends with a line break).
+     */
+    fun insertDirective(text: String, cursor: Int, line: String): Edited {
+        val start = if (cursor == 0) 0 else text.lastIndexOf('\n', cursor - 1) + 1
+        val body = if (line.endsWith("\n")) line else line + "\n"
+        val caret = start + if (line.endsWith("\n")) body.length else line.length
+        return Edited(text.substring(0, start) + body + text.substring(start), caret)
     }
 
     /**

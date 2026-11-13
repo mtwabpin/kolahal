@@ -94,21 +94,19 @@ internal class ScriptCopy(
 
     companion object {
         /** A library copy of [lib]'s script. */
-        fun of(lib: LibRow) = ScriptCopy(
-            ScriptSource.LIBRARY,
-            when {
-                lib.newer -> CopyState.NEW_VERSION
-                lib.state == ScriptLibrary.State.MODIFIED -> CopyState.EDITED
-                else -> CopyState.UP_TO_DATE
-            },
-            edited = lib.state == ScriptLibrary.State.MODIFIED,
-            lib = lib,
-        )
+        fun of(lib: LibRow): ScriptCopy {
+            val edited = lib.state == ScriptLibrary.State.MODIFIED
+            return ScriptCopy(ScriptSource.LIBRARY, CopyState.of(newer = lib.newer, edited = edited), edited, lib = lib)
+        }
+
+        /** A copy from Get more scripts. */
+        fun of(shared: SharedCopy) =
+            ScriptCopy(ScriptSource.SHARED, CopyState.of(newer = shared.copy.newer, edited = shared.copy.edited), shared.copy.edited, shared = shared.entry)
     }
 }
 
 /** A shared copy: what is known of it, and its entry in the kept list (null if none). */
-private class SharedCopy(val copy: ScriptCatalog.Copy, val entry: ScriptCatalog.Entry?)
+internal class SharedCopy(val copy: ScriptCatalog.Copy, val entry: ScriptCatalog.Entry?)
 
 /** Facts read from a script's code, for its card and the filters. They are read once per version of the code. */
 internal class ScriptCode(code: String, name: String) {
@@ -155,30 +153,7 @@ internal class ScriptInfo(val script: Script, private val code: ScriptCode) {
 }
 
 /** A script's `@secret` names, split into those with no value yet and those that are set. Both keep the declared order. */
-private class SecretNames(val missing: List<String>, val set: List<String>)
-
-/** What the filters know about [info]: see [ScriptFacts]. */
-private fun factsOf(info: ScriptInfo, copy: ScriptCopy?, needsKey: Boolean, tags: List<String>, selfUpdated: Boolean): ScriptFacts {
-    val s = info.script
-    return ScriptFacts(
-        name = s.name,
-        lang = s.lang.ext,
-        on = s.enabled,
-        failed = s.failed(),
-        needsKey = needsKey,
-        command = info.isCommand,
-        timer = info.timed,
-        event = info.events.isNotEmpty(),
-        pinned = info.grants.allows(ScriptAccess.HEADER),
-        source = copy?.source ?: ScriptSource.YOURS,
-        copy = copy?.state,
-        uses = info.uses.toSet(),
-        text = (listOfNotNull(s.name, info.title, info.desc, info.author) + tags).joinToString(" ").lowercase(),
-        lastRun = s.lastRun,
-        changedAt = s.changedAt,
-        selfUpdated = selfUpdated,
-    )
-}
+internal class SecretNames(val missing: List<String>, val set: List<String>)
 
 /**
  * The script manager in the Scripts tab (Material 3 Expressive). It shows one card per script.
@@ -240,69 +215,39 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     val shared by produceState(emptyMap<String, SharedCopy>(), scripts) {
         value = withContext(Dispatchers.IO) {
             val catalog = vm.scriptActions.scriptCatalog
-            val latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()).associateBy { it.name }
-            scripts.mapNotNull { s -> catalog.copy(s, latest[s.name])?.let { s.name to SharedCopy(it, latest[s.name]) } }.toMap()
+            ScriptPage.sharedCopies(scripts, latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()), copyOf = catalog::copy)
         }
     }
 
+    // What the page works out from here on is in ScriptPage (plain functions, with JVM tests).
     // The list is rebuilt when a script runs (its last run changes) or is saved. Only code that
     // changed is read again, also after the page was closed.
-    val infos = remember(scripts) {
-        keptCodes.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
-        scripts.map { s -> ScriptInfo(s, keptCodes.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
-    }
+    val infos = remember(scripts) { ScriptPage.infos(scripts, keptCodes) }
     // Library copies (the same name and language as a library script), then copies from Get more scripts. The rest are yours.
-    val copies = remember(infos, libByName, shared) {
-        infos.associate { i ->
-            val s = i.script
-            val lib = libByName[s.name]?.takeIf { it.state != ScriptLibrary.State.NOT_INSTALLED && it.entry.lang == s.lang }
-            s.id to (lib?.let(ScriptCopy::of) ?: shared[s.name]?.let { c ->
-                val state = when {
-                    c.copy.newer -> CopyState.NEW_VERSION
-                    c.copy.edited -> CopyState.EDITED
-                    else -> CopyState.UP_TO_DATE
-                }
-                ScriptCopy(ScriptSource.SHARED, state, c.copy.edited, shared = c.entry)
-            })
-        }
-    }
+    val copies = remember(infos, libByName, shared) { ScriptPage.copies(infos, libByName, shared) }
     // Declared secrets with and without a value, by script id. The lists stay the same when the
     // page is rebuilt, so a card can skip recomposition when nothing of its own changed.
     // By id, not by name: a script renamed on its sheet keeps its lists until they are read again.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
     val secretNames by produceState(emptyMap<Long, SecretNames>(), infos, secretsVersion) {
-        value = withContext(Dispatchers.IO) {
-            infos.filter { it.secrets.isNotEmpty() }.associate { i ->
-                val declared = i.secrets.map { it.name }
-                val set = vm.scriptActions.secretsSet(i.script)
-                i.script.id to SecretNames(missing = declared.filter { it !in set }, set = declared.filter { it in set })
-            }
-        }
+        value = withContext(Dispatchers.IO) { ScriptPage.secretNames(infos, isSet = vm.scriptActions::secretsSet) }
     }
     // The library copies Kolahal updated by itself, while the note about them shows. Only those that are still here count.
     val selfUpdate = notes?.selfUpdate
-    val selfUpdated = remember(selfUpdate, scripts) {
-        selfUpdate?.names.orEmpty().filterTo(HashSet()) { n -> scripts.any { it.name == n } }
-    }
-    val facts = remember(infos, copies, secretNames, shared, selfUpdated) {
-        infos.map { i ->
-            val name = i.script.name
-            factsOf(i, copies[i.script.id], secretNames[i.script.id]?.missing.orEmpty().isNotEmpty(), shared[name]?.entry?.tags.orEmpty(), name in selfUpdated)
-        }
-    }
+    val selfUpdated = remember(selfUpdate, scripts) { ScriptPage.selfUpdated(selfUpdate?.names.orEmpty(), scripts) }
+    val facts = remember(infos, copies, secretNames, shared, selfUpdated) { ScriptPage.facts(infos, copies, secretNames, shared, selfUpdated) }
     val infoByName = remember(infos) { infos.associateBy { it.script.name } }
     // Only chips this version has: a saved id of an older one is left out.
-    val chosen = remember(filters) { filters.filterTo(LinkedHashSet()) { ScriptFilters.byId(it) != null } }
+    val chosen = remember(filters) { ScriptFilters.known(filters) }
     val found = remember(facts, query) { facts.filter { ScriptFilters.found(it, query) } }
     // Names only: facts are compared by value, so a change they don't hold (an access switch) keeps them
     // equal. The cards must still get the scripts as they are now.
     val shownNames = remember(found, chosen, sort) { ScriptFilters.sorted(found.filter { ScriptFilters.matches(it, chosen) }, sort).map { it.name } }
     val shown = shownNames.mapNotNull { infoByName[it] }
     // Copies that differ from where they came from, for the banner. It stays closed while the user closed it for these same ones.
-    val differing = remember(infos, copies) { infos.mapNotNull { i -> copies[i.script.id]?.takeIf { it.state != CopyState.UP_TO_DATE }?.let { i.script to it } } }
-    val signature = differing.map { (s, c) -> "${s.name}:${c.state}" }.toSet()
-    val bannerHidden = notes?.bannerHiddenFor?.split(',')?.toSet()
-    val showBanner = differing.isNotEmpty() && notes != null && (bannerHidden == null || !bannerHidden.containsAll(signature))
+    val differing = remember(infos, copies) { ScriptPage.differing(infos, copies) }
+    val signature = ScriptPage.bannerSignature(differing)
+    val showBanner = notes != null && ScriptPage.bannerShows(signature, notes?.bannerHiddenFor)
     val on = scripts.count { it.enabled }
 
     GuiTheme {
@@ -370,7 +315,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                         canUpdate = differing.any { it.second.canRestore },
                         onReview = { filters = ScriptFilters.review(filters.toSet()).toList() },
                         onUpdateAll = { updatingAll = true },
-                        onHide = { vm.scriptActions.hideBanner(signature.sorted().joinToString(",")) },
+                        onHide = { vm.scriptActions.hideBanner(ScriptPage.hiddenText(signature)) },
                     )
                 }
             }
@@ -516,8 +461,6 @@ internal fun scheduleParts(s: Script, isCommand: Boolean, events: List<String>, 
     if (events.isNotEmpty()) add("On ${events.joinToString(", ")}")
     if (isEmpty() && manual) add("Manual")
 }
-
-internal fun Script.failed() = lastStatus?.let { it.startsWith("error") || it.startsWith("stopped") || it == "timeout" } == true
 
 /**
  * When a switched-on script next runs by itself: its next daily time, or about one interval after

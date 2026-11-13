@@ -42,6 +42,20 @@ class ScriptFiltersTest {
         script("units", on = false, command = true, source = ScriptSource.SHARED, uses = setOf("clipboard")),
     )
 
+    /** A chip saved by another version of Kolahal, which this one doesn't have, is left out. The order stays. */
+    @Test fun onlyChipsThisVersionHasAreKept() {
+        assertEquals(listOf("shared", "command", ScriptFilters.EDITED), ScriptFilters.known(listOf("shared", "gone", "command", "uses:nothing", ScriptFilters.EDITED)).toList())
+        assertEquals(emptySet<String>(), ScriptFilters.known(emptyList()))
+    }
+
+    /** A newer version comes before edits: an edited copy with a newer version is "New version". */
+    @Test fun aCopysStatePutsANewVersionFirst() {
+        assertEquals(CopyState.UP_TO_DATE, CopyState.of(newer = false, edited = false))
+        assertEquals(CopyState.EDITED, CopyState.of(newer = false, edited = true))
+        assertEquals(CopyState.NEW_VERSION, CopyState.of(newer = true, edited = false))
+        assertEquals(CopyState.NEW_VERSION, CopyState.of(newer = true, edited = true))
+    }
+
     private val a2 = setOf("command", "library", "shared")
 
     private fun names(list: List<ScriptFacts>) = list.map { it.name }

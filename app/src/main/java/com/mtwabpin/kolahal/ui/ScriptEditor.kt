@@ -305,14 +305,7 @@ fun ScriptEditor(
     fun gotoMatch(delta: Int) {
         val m = matches
         if (m.size == 0) return
-        val from = value.selection.min
-        current = if (delta > 0) {
-            m.indexAtOrAfter(from + 1)
-        } else {
-            // 0 means either "the first match is at/after the cursor" or "no match is". Both wrap to the last match.
-            val i = m.indexAtOrAfter(from)
-            if (i == 0) m.size - 1 else i - 1
-        }
+        current = m.indexFrom(value.selection.min, forward = delta > 0)
         select(m.starts[current], m.length)
     }
 
@@ -410,14 +403,8 @@ fun ScriptEditor(
     }
 
     fun accept(doc: ApiDoc) {
-        val c = value.selection.end
-        val p = EditorLogic.prefixAt(value.text, c) ?: return
-        val next = value.text.getOrNull(c)
-        val ins = EditorLogic.insertion(doc, next)
-        var cursor = p.start + ins.length
-        // Step over an existing `(` / `.` that the insertion relied on.
-        if ((doc.kind == ApiDoc.Kind.FUNCTION && next == '(') || (doc.kind == ApiDoc.Kind.NAMESPACE && next == '.')) cursor++
-        edit(TextFieldValue(value.text.replaceRange(p.start, c, ins), TextRange(cursor)))
+        val done = EditorLogic.accept(value.text, value.selection.end, doc) ?: return
+        edit(TextFieldValue(done.text, TextRange(done.cursor)))
     }
 
     fun gotoLine(line: Int) {
@@ -451,15 +438,7 @@ fun ScriptEditor(
         }
     }
 
-    val highlights = remember(findOpen, matches, current) {
-        if (!findOpen || matches.size == 0) null
-        else {
-            val c = current.coerceIn(0, matches.size - 1)
-            val from = (c - EditorLogic.MAX_HIGHLIGHTS / 2).coerceAtLeast(0)
-            val to = (from + EditorLogic.MAX_HIGHLIGHTS).coerceAtMost(matches.size)
-            MatchHighlights(matches.starts.copyOfRange(from, to), matches.length, if (current >= 0) matches.starts[c] else -1)
-        }
-    }
+    val highlights = remember(findOpen, matches, current) { if (findOpen) EditorLogic.highlights(matches, current) else null }
     // In a big script, only the lines around the view are coloured: colouring costs several times
     // the plain text's layout at every key. The coloured range follows the view after scrolling
     // stops, so a fling doesn't cause new layouts along the way.
@@ -751,13 +730,9 @@ fun ScriptEditor(
             },
             onDirective = { line ->
                 referenceOpen = false
-                // A directive is a line of its own. It goes above the line the cursor is on. The
-                // cursor goes after it to type what follows, or to the line below when nothing does.
-                val text = value.text
-                val start = if (value.selection.min == 0) 0 else text.lastIndexOf('\n', value.selection.min - 1) + 1
-                val body = if (line.endsWith("\n")) line else line + "\n"
-                val caret = start + if (line.endsWith("\n")) body.length else line.length
-                edit(TextFieldValue(text.substring(0, start) + body + text.substring(start), TextRange(caret)))
+                // A directive is a line of its own. It goes above the line the cursor is on.
+                val done = EditorLogic.insertDirective(value.text, value.selection.min, line)
+                edit(TextFieldValue(done.text, TextRange(done.cursor)))
                 focusEditor()
             },
         )

@@ -51,6 +51,49 @@ class EditorLogicTest {
         assertEquals(-1, EditorLogic.Matches.EMPTY.indexAtOrAfter(0))
     }
 
+    /** Next and previous go around: after the last match comes the first, before the first the last. */
+    @Test fun nextAndPreviousMatchWrapAround() {
+        val m = EditorLogic.findMatches("a.a.a", "a", false) // 0, 2, 4
+        // Next, from a cursor on a match or between two.
+        assertEquals(1, m.indexFrom(0, forward = true))
+        assertEquals(1, m.indexFrom(1, forward = true))
+        assertEquals(2, m.indexFrom(2, forward = true))
+        assertEquals(0, m.indexFrom(4, forward = true))
+        assertEquals(0, m.indexFrom(5, forward = true))
+        // Previous.
+        assertEquals(1, m.indexFrom(4, forward = false))
+        assertEquals(1, m.indexFrom(3, forward = false))
+        assertEquals(0, m.indexFrom(2, forward = false))
+        assertEquals(2, m.indexFrom(0, forward = false))
+        // Past the last match, the one before the cursor is the last.
+        assertEquals(2, m.indexFrom(5, forward = false))
+        // A single match is both the next and the previous one.
+        val one = EditorLogic.findMatches("xax", "a", false)
+        assertEquals(listOf(0, 0), listOf(one.indexFrom(1, forward = true), one.indexFrom(1, forward = false)))
+        assertEquals(-1, EditorLogic.Matches.EMPTY.indexFrom(0, forward = true))
+        assertEquals(-1, EditorLogic.Matches.EMPTY.indexFrom(0, forward = false))
+    }
+
+    /** Only the matches around the current one are drawn, and the current one is marked by where it starts. */
+    @Test fun highlightsAreTheMatchesAroundTheCurrentOne() {
+        val m = EditorLogic.findMatches("x".repeat(10), "x", false) // starts 0 to 9
+        // They all fit.
+        assertEquals(MatchHighlights(IntArray(10) { it }, 1, 3), EditorLogic.highlights(m, 3))
+        // Room for 4: two before the current one, itself, and one after.
+        assertEquals(MatchHighlights(intArrayOf(3, 4, 5, 6), 1, 5), EditorLogic.highlights(m, 5, max = 4))
+        // Near the first match they start at the first. Near the last they end at the last, and are fewer.
+        assertEquals(MatchHighlights(intArrayOf(0, 1, 2, 3), 1, 1), EditorLogic.highlights(m, 1, max = 4))
+        assertEquals(MatchHighlights(intArrayOf(7, 8, 9), 1, 9), EditorLogic.highlights(m, 9, max = 4))
+        // No current match yet (-1): the first ones, and none is marked.
+        assertEquals(MatchHighlights(intArrayOf(0, 1, 2, 3), 1, -1), EditorLogic.highlights(m, -1, max = 4))
+        // An index past the end (the text got shorter) counts as the last match.
+        assertEquals(MatchHighlights(intArrayOf(7, 8, 9), 1, 9), EditorLogic.highlights(m, 50, max = 4))
+        // The length is the query's.
+        assertEquals(MatchHighlights(intArrayOf(0, 4), 2, 4), EditorLogic.highlights(EditorLogic.findMatches("ab  ab", "ab", false), 1))
+        assertNull(EditorLogic.highlights(EditorLogic.Matches.EMPTY, -1))
+        assertNull(EditorLogic.highlights(EditorLogic.Matches.EMPTY, 0))
+    }
+
     @Test fun replaceAllCountsAndReplaces() {
         val (out, n) = EditorLogic.replaceAll("Foo foo FOO", "foo", "bar", ignoreCase = true)
         assertEquals("bar bar bar", out)
@@ -131,6 +174,45 @@ class EditorLogicTest {
         assertEquals("get", EditorLogic.insertion(get, '('))
         val ns = EditorLogic.completions("ht", 2, ScriptLang.LUA).first { it.kind == ApiDoc.Kind.NAMESPACE }
         assertEquals("http.", EditorLogic.insertion(ns, null))
+    }
+
+    /** Accepting a completion replaces what was typed of the name, and puts the cursor where typing goes on. */
+    @Test fun acceptingACompletionReplacesWhatWasTyped() {
+        val get = ApiDoc("http.get", "", "")
+        val http = ApiDoc("http", "", "", kind = ApiDoc.Kind.NAMESPACE)
+        val local = ApiDoc("local", "", "", kind = ApiDoc.Kind.KEYWORD)
+        // A function gets its bracket, and the cursor is after it.
+        assertEquals(EditorLogic.Edited("x = http.get(", 13), EditorLogic.accept("x = http.g", 10, get))
+        // A bracket that is already there is kept, and the cursor steps over it.
+        assertEquals(EditorLogic.Edited("http.get(url)", 9), EditorLogic.accept("http.g(url)", 6, get))
+        // The same for a namespace and its dot.
+        assertEquals(EditorLogic.Edited("http.", 5), EditorLogic.accept("ht", 2, http))
+        assertEquals(EditorLogic.Edited("http.get", 5), EditorLogic.accept("ht.get", 2, http))
+        // A keyword gets nothing after it.
+        assertEquals(EditorLogic.Edited("local x", 5), EditorLogic.accept("lo x", 2, local))
+        // Only the text before the cursor is replaced.
+        assertEquals(EditorLogic.Edited("http.get(XY", 9), EditorLogic.accept("http.gXY", 6, get))
+        // Nothing to complete: a number is being typed, or the cursor is outside the text.
+        assertNull(EditorLogic.accept("12", 2, get))
+        assertNull(EditorLogic.accept("ht", 9, http))
+    }
+
+    /** A directive from the reference goes on a line of its own, above the cursor's line. */
+    @Test fun aDirectiveGoesAboveTheCursorsLine() {
+        val text = "local a = 1\nlocal b = 2"
+        // One that takes a value: the cursor waits after it, on its line.
+        assertEquals(EditorLogic.Edited("local a = 1\n-- @every \nlocal b = 2", 22), EditorLogic.insertDirective(text, 15, "-- @every "))
+        // One that takes nothing: the cursor goes to the line below, where it was.
+        assertEquals(EditorLogic.Edited("local a = 1\n-- @command\nlocal b = 2", 24), EditorLogic.insertDirective(text, 15, "-- @command\n"))
+        // The cursor at the start of its line, or at the end of the text: the same line.
+        assertEquals(EditorLogic.Edited("local a = 1\n-- @command\nlocal b = 2", 24), EditorLogic.insertDirective(text, 12, "-- @command\n"))
+        assertEquals(EditorLogic.Edited("local a = 1\n-- @command\nlocal b = 2", 24), EditorLogic.insertDirective(text, text.length, "-- @command\n"))
+        // On the first line, at its start or its end: above everything.
+        assertEquals(EditorLogic.Edited("-- @command\nlocal a = 1\nlocal b = 2", 12), EditorLogic.insertDirective(text, 0, "-- @command\n"))
+        assertEquals(EditorLogic.Edited("-- @every \nlocal a = 1\nlocal b = 2", 10), EditorLogic.insertDirective(text, 11, "-- @every "))
+        // An empty script.
+        assertEquals(EditorLogic.Edited("// @command\n", 12), EditorLogic.insertDirective("", 0, "// @command\n"))
+        assertEquals(EditorLogic.Edited("// @every \n", 10), EditorLogic.insertDirective("", 0, "// @every "))
     }
 
     // ---- inline docs ----
