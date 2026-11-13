@@ -87,10 +87,6 @@ prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:10
 
 Fix: show the grants and ask before switching it on. Or sign the index with a key pinned in the app.
 
-** Performance
-*** TODO [#C] The baseline profile doesn't cover the selector rail, the widgets page or the editor
-=baselineprofile/= covers start, typing, commands, log scroll and Settings.
-
 ** Architecture
 *** TODO [#B] Command facts live in about 16 lists in 9 files
 =terminal/CommandCatalog.kt= (=COMMANDS=, =HELP_SECTIONS=, =FEATURE_COMMANDS=, =PRODUCTIVITY=),
