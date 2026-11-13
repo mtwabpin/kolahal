@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,6 +38,27 @@ class CommandParsingTest {
         assertEquals("2h", CommandParsing.formatInterval(120))
         assertEquals("1d", CommandParsing.formatInterval(1440))
         assertEquals("not whole hours", "90m", CommandParsing.formatInterval(90))
+    }
+
+    /** A typo is one letter off for a short name (four letters or fewer), two for a longer one. */
+    @Test fun aTypoIsNearItsName() {
+        assertTrue(CommandParsing.isNear("tod", "todo"))
+        assertFalse(CommandParsing.isNear("td", "todo"))
+        assertTrue(CommandParsing.isNear("wether", "weather"))
+        assertTrue(CommandParsing.isNear("weathr", "weather"))
+        assertFalse(CommandParsing.isNear("wthr", "weather"))
+    }
+
+    /** "Did you mean": the closest near name, the first one on a tie; one-letter names never. */
+    @Test fun theNearestNameIsSuggested() {
+        assertEquals("help", CommandParsing.nearest("hlp", listOf("todo", "help")))
+        assertEquals("notes", CommandParsing.nearest("notez", listOf("notes", "note")))
+        assertEquals("calc", CommandParsing.nearest("calx", listOf("calc", "cal")))
+        assertEquals("cal", CommandParsing.nearest("calx", listOf("cal", "calc")))
+        assertNull(CommandParsing.nearest("zzzz", listOf("help", "todo")))
+        assertNull(CommandParsing.nearest("q", listOf("x")))
+        // Swapped letters count as two, so a four-letter name isn't offered for them.
+        assertNull(CommandParsing.nearest("hepl", listOf("help")))
     }
 
     /** A week at most; a number too big to multiply is refused, not wrapped round to some other time. */

@@ -377,7 +377,7 @@ class ScriptActions(
     /** The shared scripts, whether they are loading, and the error if they couldn't be read. */
     data class SharedScripts(val entries: List<ScriptCatalog.Entry> = emptyList(), val loading: Boolean = false, val error: String? = null)
 
-    private val _shared = MutableStateFlow(SharedScripts())
+    @androidx.annotation.VisibleForTesting internal val _shared = MutableStateFlow(SharedScripts())
     val sharedScripts: StateFlow<SharedScripts> = _shared.asStateFlow()
 
     /**
@@ -394,7 +394,7 @@ class ScriptActions(
     }
 
     /** Downloaded code, keyed by SHA-256. It is downloaded once for a script's sheet, and then installed from this copy. */
-    private val sharedCode = java.util.concurrent.ConcurrentHashMap<String, String>()
+    @androidx.annotation.VisibleForTesting internal val sharedCode = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     suspend fun sharedScriptCode(e: ScriptCatalog.Entry): String =
         withContext(Dispatchers.IO) { sharedCode.getOrPut(e.sha256) { scriptCatalog.download(e) } }

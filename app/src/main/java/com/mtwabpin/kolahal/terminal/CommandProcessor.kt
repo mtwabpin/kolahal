@@ -199,21 +199,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     // ---- aliases --------------------------------------------------------------------------
 
-    /** Expands the first word through user aliases (up to 5 levels, with no cycles). */
-    private fun expandAliases(line: String): String {
-        // Add spaces around pipes, so `hf|head 5` is the alias `hf` and a filter.
-        var current = Pipes.spaced(line)
-        val seen = HashSet<String>()
-        repeat(5) {
-            val head = current.substringBefore(' ')
-            // A built-in always wins, even over an alias that got in some other way (from an old backup).
-            if (head.lowercase() in RESERVED_NAMES) return current
-            if (!seen.add(head)) return current
-            val expansion = prefs.alias(head) ?: return current
-            current = Pipes.spaced(expansion + " " + current.substringAfter(' ', ""))
-        }
-        return current
-    }
+    /** Expands the first word through your aliases ([Aliases.expand]). */
+    private fun expandAliases(line: String): String = Aliases.expand(line, RESERVED_NAMES) { prefs.alias(it) }
 
     /**
      * What the alias [word] stands for, for the prompt to show in its place ([Abbreviations]),
@@ -230,22 +217,18 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     }
 
     private fun alias(rest: String) {
-        if (rest.isBlank()) {
-            val all = prefs.aliases()
-            if (all.isEmpty()) info("No aliases — e.g. alias m = open maps")
-            all.forEach { (k, v) -> out("$k = $v", LogContext.of(LogContext.COMMAND to k)) }
-            return
-        }
-        // Lowercase the name, because typed lines are matched in lowercase. So `alias Help = …` can't hide behind the built-in.
-        val name = rest.substringBefore('=').trim().substringBefore(' ').lowercase()
-        val expansion = rest.substringAfter('=', "").trim().removeSurrounding("\"").removeSurrounding("'")
-        when {
-            !rest.contains('=') -> prefs.alias(name)?.let { out("$name = $it") } ?: error("No alias '$name'")
-            name.isEmpty() || expansion.isEmpty() -> error("Usage: alias <name> = <command>")
-            name in RESERVED_NAMES -> error("'$name' is a built-in command and can't be an alias")
-            else -> {
-                prefs.setAlias(name, expansion)
-                info("Alias $name = $expansion")
+        when (val request = Aliases.parse(rest, RESERVED_NAMES)) {
+            Aliases.Request.ShowAll -> {
+                val all = prefs.aliases()
+                if (all.isEmpty()) info("No aliases — e.g. alias m = open maps")
+                all.forEach { (k, v) -> out("$k = $v", LogContext.of(LogContext.COMMAND to k)) }
+            }
+            is Aliases.Request.Show -> prefs.alias(request.name)?.let { out("${request.name} = $it") } ?: error("No alias '${request.name}'")
+            Aliases.Request.Usage -> error("Usage: alias <name> = <command>")
+            is Aliases.Request.BuiltIn -> error("'${request.name}' is a built-in command and can't be an alias")
+            is Aliases.Request.Define -> {
+                prefs.setAlias(request.name, request.expansion)
+                info("Alias ${request.name} = ${request.expansion}")
             }
         }
     }
@@ -333,10 +316,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         if (CommandsOff.isOff(head, off)) return error("Command not found: $text  (${InstantRun.canonical(head)} is turned off · Settings → Commands)")
         val candidates = CommandCatalog.OFFERED_NAMES - off + prefs.aliases().keys +
             scripts.all().filter { ScriptMeta.isCommand(it.code) }.map { it.name }
-        val best = candidates.filter { it.length > 1 }
-            .map { it to CommandParsing.editDistance(head, it) }
-            .filter { (c, d) -> d <= (if (c.length <= 4) 1 else 2) }
-            .minByOrNull { it.second }?.first
+        val best = CommandParsing.nearest(head, candidates)
         if (best == null) {
             error("Command not found: $text  (try 'help')")
         } else {
@@ -787,7 +767,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         prefs.alias(typed)?.let { return info("$typed is your alias for: $it", LogContext.of(LogContext.COMMAND to "$typed ")) }
         scripts.all().firstOrNull { it.name == typed && ScriptMeta.isCommand(it.code) }?.let { return helpLine(it) }
         // Not a command. Show the commands it may be the start of, or a typo of.
-        val near = offered.filter { it.name.startsWith(typed) || CommandParsing.editDistance(typed, it.name) <= (if (it.name.length <= 4) 1 else 2) }
+        val near = offered.filter { it.name.startsWith(typed) || CommandParsing.isNear(typed, it.name) }
         if (near.isEmpty()) return error("No command called '$word' · help lists them all")
         info("No command called '$word'; nearest:")
         near.take(8).let { shown -> shown.forEach { helpLine(it, shown.maxBy { s -> s.name.length }.name) } }

@@ -29,7 +29,6 @@ import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
-import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -130,8 +129,7 @@ class GetScriptsScreenTest {
         lateinit var vm: TerminalViewModel
         compose.runOnUiThread {
             vm = vms.terminal(app)
-            @Suppress("UNCHECKED_CAST")
-            val code = ScriptActions::class.java.getDeclaredField("sharedCode").apply { isAccessible = true }.get(vm.scriptActions) as MutableMap<String, String>
+            val code = vm.scriptActions.sharedCode
             downloaded.forEach { code[it.sha] = it.code }
             vm.openScreen(Screen.GET_SCRIPTS)
         }
@@ -214,8 +212,7 @@ class GetScriptsScreenTest {
         val vm = show()
         compose.waitForText("Tide times")
         compose.runOnUiThread {
-            @Suppress("UNCHECKED_CAST")
-            val shared = ScriptActions::class.java.getDeclaredField("_shared").apply { isAccessible = true }.get(vm.scriptActions) as MutableStateFlow<ScriptActions.SharedScripts>
+            val shared = vm.scriptActions._shared
             shared.value = ScriptActions.SharedScripts(shared.value.entries, error = "HTTP 503 from mtwabpin.github.io")
         }
         compose.waitForText("Can't read the list: HTTP 503 from mtwabpin.github.io")

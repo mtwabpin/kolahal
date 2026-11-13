@@ -434,9 +434,7 @@ class ScriptActionsTest {
         catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
         val entry = ScriptCatalog(context).cached()!!.single()
         // What reading it for the sheet keeps, so no download is needed here.
-        @Suppress("UNCHECKED_CAST")
-        val read = ScriptActions::class.java.getDeclaredField("sharedCode").apply { isAccessible = true }.get(actions)
-            as java.util.concurrent.ConcurrentHashMap<String, String>
+        val read = actions.sharedCode
         read[entry.sha256] = "-- @command\nlog('v1')"
         kotlinx.coroutines.runBlocking { assertEquals("-- @command\nlog('v1')", actions.sharedScriptCode(entry)) }
 
@@ -531,9 +529,7 @@ class ScriptActionsTest {
         val installed = catalog.install(entry, "-- @command\nlog('v1')")
         repo.saveCode(installed.id, "-- @command\nlog('mine')", byUser = true)
         val newer = entry.copy(version = "1.1", sha256 = "b".repeat(64))
-        @Suppress("UNCHECKED_CAST")
-        val read = ScriptActions::class.java.getDeclaredField("sharedCode").apply { isAccessible = true }.get(actions)
-            as java.util.concurrent.ConcurrentHashMap<String, String>
+        val read = actions.sharedCode
         read[newer.sha256] = "-- @command\nlog('v2')"
         val mine = now(installed)
         assertEquals(true, catalog.copy(mine, newer)?.let { it.edited && it.newer })

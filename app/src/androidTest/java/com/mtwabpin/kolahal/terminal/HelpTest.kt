@@ -58,10 +58,8 @@ class HelpTest {
         assertTrue(StyledText.Style.BOLD in first.styles)
     }
 
-    /** No command is left without a section: fetch is a device command, log a terminal one. */
-    @Test fun everyCommandHasASection() {
-        val sectioned = CommandCatalog.HELP_SECTIONS.values.flatten().toSet()
-        assertEquals(emptyList<String>(), CommandCatalog.COMMANDS.map { it.name }.filter { it !in sectioned })
+    /** Each command shows under its section: fetch is a device command, log a terminal one. (HelpCatalogTest checks each has one.) */
+    @Test fun commandsShowUnderTheirSection() {
         val lines = help()
         fun sectionOf(name: String): String {
             val at = lines.indexOfFirst { it.text == name && it.ctx.values[LogContext.NAME_COL] != null }
@@ -113,21 +111,5 @@ class HelpTest {
         // A command with no uses listed shows its usage line.
         val mp = commands.lines("help mp").map { StyledText.plain(it.text) }
         assertEquals(listOf("mp", "Play / pause media", "Use", "mp"), mp.take(4))
-    }
-
-    /** Every command with several subcommands lists its uses, and each use starts with the command's name. */
-    @Test fun usesStartWithTheirCommand() {
-        val needed = listOf(
-            "todo", "notes", "feed", "notifs", "script", "media", "dnd", "volume", "brightness", "config", "backup",
-            "clear", "work", "private", "alias", "font", "crashes", "status", "log", "apps",
-        )
-        for (name in needed) {
-            val spec = CommandCatalog.COMMANDS.first { it.name == name }
-            assertTrue("$name has no uses", spec.uses.size >= 2)
-            // alias lists unalias, the command that undoes it.
-            assertTrue(name, spec.uses.all { it.first == name || it.first.startsWith("$name ") || (name == "alias" && it.first.startsWith("unalias ")) })
-        }
-        assertEquals("script ", useCommand("script on|off <name>"))
-        assertEquals("feed every ", useCommand("feed every <id> <2h>"))
     }
 }

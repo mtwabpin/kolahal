@@ -76,6 +76,20 @@ object CommandParsing {
         return DailyTimes.Times(times.distinct().sorted())
     }
 
+    /**
+     * Whether [typed] could be a typo of [name]: at most one letter off for a name of four letters
+     * or fewer, two for a longer one.
+     */
+    fun isNear(typed: String, name: String): Boolean = editDistance(typed, name) <= (if (name.length <= 4) 1 else 2)
+
+    /**
+     * The name in [names] that [typed] is most likely a typo of ([isNear]), for "did you mean".
+     * The closest wins; on a tie, the first in [names]. One-letter names are left out. Null when
+     * none is near.
+     */
+    fun nearest(typed: String, names: Collection<String>): String? =
+        names.filter { it.length > 1 && isNear(typed, it) }.minByOrNull { editDistance(typed, it) }
+
     /** Levenshtein distance, for "did you mean". */
     fun editDistance(a: String, b: String): Int {
         var prev = IntArray(b.length + 1) { it }
