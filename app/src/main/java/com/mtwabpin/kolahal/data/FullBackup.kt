@@ -77,6 +77,8 @@ object FullBackup {
     fun importRaw(context: Context, data: Map<*, *>): Int {
         var rows = 0
         val tables = data["tables"] as? Map<*, *>
+        // A mark changed just before (leaving home) must not reach the database after the backup's.
+        LogRepository.get(context).marks.flush()
         for (t in TABLES) {
             // What an export leaves out stays out, whatever the file holds:
             // - secrets (only this phone's are kept),

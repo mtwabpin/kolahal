@@ -36,6 +36,7 @@ class LogMarksTest {
     /** After the update, the old file's marks are in the database, and they win: the file has some only then, or after an older backup. */
     @Test fun marksFromBeforeMoveToTheDatabaseOnce() {
         marks.set(LogMarks.SEEN_UP_TO to 40L, LogMarks.HIDDEN_UP_TO to 2L)
+        marks.flush()
         old.edit(commit = true) {
             putLong(LogMarks.HIDDEN_UP_TO, 7L)
             putString(LogMarks.FILTER, "only feeds")
@@ -64,12 +65,23 @@ class LogMarksTest {
     @Test fun theScriptProcessReadsWhatHomeWrote() {
         val elsewhere = LogMarks(context, inMemory = false)
         marks.set(LogMarks.HIDDEN_UP_TO to 11L)
+        marks.flush()
         assertEquals(11L, elsewhere.long(LogMarks.HIDDEN_UP_TO))
         marks.set(LogMarks.HIDDEN_UP_TO to 12L)
+        marks.flush()
         assertEquals(12L, elsewhere.long(LogMarks.HIDDEN_UP_TO))
         // It never moves the old file's marks: only the main process does.
         old.edit(commit = true) { putLong(LogMarks.HIDDEN_UP_TO, 3L) }
         elsewhere.moveFromPrefs()
         assertEquals(3L, old.getLong(LogMarks.HIDDEN_UP_TO, 0L))
+    }
+
+    /** Home changes a mark on the main thread: memory has it at once, and the database gets every change in order. */
+    @Test fun changesReachTheDatabaseInOrder() {
+        val elsewhere = LogMarks(context, inMemory = false)
+        for (id in 1L..50L) marks.set(LogMarks.SEEN_UP_TO to id)
+        assertEquals("in memory at once", 50L, marks.long(LogMarks.SEEN_UP_TO))
+        marks.flush()
+        assertEquals("the last one wins in the database", 50L, elsewhere.long(LogMarks.SEEN_UP_TO))
     }
 }

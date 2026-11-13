@@ -17,13 +17,16 @@ import androidx.core.content.edit
  * move to a new phone carry both together, and both processes read the same values. Before 0.5.8 they
  * were in the `logs` prefs ([Stores.OLD_LOGS]): [moveFromPrefs] brings them here once.
  *
- * Home reads them for each page of the log, some on the main thread. So with [inMemory] (the main
- * process) they are kept in memory, read on a thread of their own as preferences are. Only the main
- * process changes them; the :script process reads the database each time.
+ * Home reads them for each page of the log and changes them on leaving home and from the filter bar,
+ * on the main thread. So with [inMemory] (the main process) they work as preferences do:
+ * - they are kept in memory, read ahead on a thread of their own;
+ * - a change goes to memory at once, then to the database on that thread, in order ([set]).
+ * Only the main process changes them. The :script process reads the database each time, so it sees a
+ * change a moment later.
  *
- * Never call these from inside a database transaction: a change takes this object's lock, then a
- * transaction of its own. A thread holding a transaction while it waits for the lock could deadlock
- * with one that holds the lock and waits for the database.
+ * Never call [restored], [replaceAll] or [moveFromPrefs] from inside a database transaction: they take
+ * this object's lock, then a transaction of their own. A thread holding a transaction while it waits
+ * for the lock could deadlock with one that holds the lock and waits for the database.
  */
 class LogMarks(context: Context, private val inMemory: Boolean) {
     private val app = context.applicationContext
@@ -31,9 +34,12 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
     private val lock = Any()
     private var memory: MutableMap<String, String>? = null
 
+    /** The main process's database work for the marks: one task at a time, in order. */
+    private val writes = if (inMemory) java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "log-marks") } else null
+
     init {
         // Read ahead, so the first read on the main thread doesn't open the database there.
-        if (inMemory) Thread({ synchronized(lock) { loaded() } }, "log-marks").start()
+        writes?.execute { synchronized(lock) { loaded() } }
     }
 
     /** Under [lock]: the marks in memory, moved from the old prefs and read the first time. */
@@ -46,13 +52,25 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
 
     fun long(key: String, default: Long = 0L): Long = string(key)?.toLongOrNull() ?: default
 
-    /** Sets [values] together, in one transaction. A null value removes its mark. */
+    /**
+     * Sets [values] together, in one transaction. A null value removes its mark. In the main process,
+     * memory changes at once and the database a moment later, off the calling thread: home calls this
+     * on the main thread. The old prefs' marks come over first ([loaded]), so they can't overwrite a
+     * newer value.
+     */
     fun set(vararg values: Pair<String, Any?>) {
         val strings = values.associate { (k, v) -> k to v?.toString() }
+        val writes = writes ?: return kv.setAll(strings)
         synchronized(lock) {
-            kv.setAll(strings)
-            if (inMemory) loaded().apply { strings.forEach { (k, v) -> if (v == null) remove(k) else put(k, v) } }
+            loaded().apply { strings.forEach { (k, v) -> if (v == null) remove(k) else put(k, v) } }
+            // Queued under the lock, so the database gets the changes in the order memory did.
+            writes.execute { kv.setAll(strings) }
         }
+    }
+
+    /** Waits until every change made so far is in the database. Not on the main thread. */
+    fun flush() {
+        writes?.submit {}?.get()
     }
 
     /**
@@ -60,10 +78,13 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
      * from before 0.5.8), now with no id past [newest], the newest line in the log. The lines past a
      * mark stayed behind or are gone; left as it is, the mark would hide the next lines logged.
      */
-    fun restored(newest: Long) = synchronized(lock) {
-        moveFromPrefs()
-        kv.setAll(clamped(kv.all(), newest))
-        memory = null
+    fun restored(newest: Long) {
+        flush()
+        synchronized(lock) {
+            moveFromPrefs()
+            kv.setAll(clamped(kv.all(), newest))
+            memory = null
+        }
     }
 
     /** Every mark, for a test to put back after it ([replaceAll]). */
@@ -72,9 +93,12 @@ class LogMarks(context: Context, private val inMemory: Boolean) {
 
     /** Puts back what [all] gave: a mark not in [values] goes. */
     @VisibleForTesting
-    internal fun replaceAll(values: Map<String, String>) = synchronized(lock) {
-        kv.setAll(kv.all().keys.associateWith { null } + values)
-        memory = null
+    internal fun replaceAll(values: Map<String, String>) {
+        flush()
+        synchronized(lock) {
+            kv.setAll(kv.all().keys.associateWith { null } + values)
+            memory = null
+        }
     }
 
     /**
