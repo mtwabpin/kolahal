@@ -66,7 +66,6 @@ import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
-import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.Dispatchers
@@ -119,14 +118,30 @@ private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Pro
     }.sortedWith(compareBy({ it.label.lowercase() }, { it.work?.ordinal ?: -1 }))
 }
 
-/** A saved script with a `@widget` line, for the picker's Kolahal section. [search] is its title, name and kind in lowercase. */
-private class ScriptWidget(val script: Script, val title: String, val kind: WidgetKind, val size: WidgetSize, val search: String)
+/**
+ * One of a saved script's widgets, for the picker's Kolahal section.
+ * - [source] says which: the script's own widget (`script:<name>`), or the Status card of its status line (`status:<name>`).
+ * - [what] is the row's second line: the kind, or "Status card".
+ * - [search] is its title, name and kind in lowercase.
+ */
+internal class PickerScriptRow(val script: Script, val title: String, val source: String, val what: String, val size: WidgetSize, val search: String) {
+    val isStatus: Boolean get() = source.startsWith(WidgetSource.STATUS)
+    /** What a message calls it: "Weather", "Weather status". */
+    val name: String get() = if (isStatus) "$title status" else title
+}
 
-/** The scripts that have a widget, by title. */
-private fun scriptWidgets(scripts: List<Script>): List<ScriptWidget> = scripts.mapNotNull { s ->
-    val widget = ScriptMeta.widget(s.code) ?: return@mapNotNull null
+/**
+ * The widgets your scripts have, by title: one for a script with a `@widget` line, and a Status card
+ * for a script that sets a status line. A script with both has two rows, its own widget first.
+ */
+internal fun pickerScriptRows(scripts: List<Script>): List<PickerScriptRow> = scripts.flatMap { s ->
     val title = ScriptMeta.title(s.code) ?: s.name
-    ScriptWidget(s, title, widget.kind, widget.size, "$title ${s.name} ${widget.kind.id}".lowercase())
+    listOfNotNull(
+        ScriptMeta.widget(s.code)?.let { w ->
+            PickerScriptRow(s, title, WidgetSource.script(s.name), w.kind.id.replaceFirstChar { it.uppercase() }, w.size, "$title ${s.name} ${w.kind.id}".lowercase())
+        },
+        if (ScriptMeta.setsStatus(s.code)) PickerScriptRow(s, title, WidgetSource.STATUS + s.name, "Status card", WidgetSize.S2X1, "$title ${s.name} status card".lowercase()) else null,
+    )
 }.sortedBy { it.title.lowercase() }
 
 /** The header of the picker's first section: Kolahal's own widgets, which your scripts fill. */
@@ -134,8 +149,9 @@ private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, empty
 
 /**
  * The widget picker.
- * - First come Kolahal's own widgets: each saved script with a `@widget` line. Picking one places it
- *   at once ([WidgetHost.placeScript]) and goes to the Widgets screen, as an app's widget does once it is bound.
+ * - First come Kolahal's own widgets: each saved script with a `@widget` line, and a Status card for
+ *   each script that sets a status line. Picking one places it at once ([WidgetHost.placeScript],
+ *   [WidgetHost.placeStatus]) and goes to the Widgets screen, as an app's widget does once it is bound.
  * - Then the installed providers from every profile, grouped by app. Work and private apps get a
  *   badge. Each provider shows its preview and default size. Picking one starts the bind flow in MainActivity.
  */
@@ -145,7 +161,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val widgets = remember { WidgetHost.get(context) }
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     val placed by widgets.widgets.collectAsStateWithLifecycle()
-    val own = remember(scripts) { scriptWidgets(scripts) }
+    val own = remember(scripts) { pickerScriptRows(scripts) }
     val added = remember(placed) { placed.mapNotNull { it.source }.toSet() }
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by vm.profiles.collectAsStateWithLifecycle()
@@ -206,15 +222,16 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             }
             if (ownShown.isNotEmpty()) {
                 item(key = "g:kolahal") { AppHeader(kolahalGroup) }
-                items(ownShown, key = { "s:${it.script.name}" }) { w ->
-                    ScriptWidgetCard(w, added = WidgetSource.script(w.script.name) in added) {
-                        if (widgets.placeScript(w.script, w.size)) {
-                            widgets.message("Added ${w.title}")
+                items(ownShown, key = { "s:${it.source}" }) { w ->
+                    ScriptWidgetCard(w, added = w.source in added) {
+                        val placedNow = if (w.isStatus) widgets.placeStatus(w.script, w.size) else widgets.placeScript(w.script, w.size)
+                        if (placedNow) {
+                            widgets.message("Added ${w.name}")
                             // As after an app's widget is bound: the picker closes and the Widgets screen shows it.
                             if (vm.screen.value == Screen.WIDGET_PICKER) vm.closeScreen()
                             if (vm.screen.value != Screen.WIDGETS) vm.openScreen(Screen.WIDGETS)
                         } else {
-                            widgets.message("${w.title} is already on the widgets page")
+                            widgets.message("${w.name} is already on the widgets page")
                         }
                     }
                 }
@@ -250,11 +267,11 @@ private fun AppHeader(g: ProviderGroup) {
 }
 
 /**
- * One of your scripts' widgets: its title, its kind, and the size it starts with. A placed one says
- * "Added": a script's widget is placed once. A plain row for now, with no drawn sample of the kind.
+ * One of your scripts' widgets: its title, its kind (or "Status card"), and the size it starts with.
+ * A placed one says "Added": such a widget is placed once. A plain row for now, with no drawn sample of the kind.
  */
 @Composable
-private fun ScriptWidgetCard(w: ScriptWidget, added: Boolean, onClick: () -> Unit) {
+private fun ScriptWidgetCard(w: PickerScriptRow, added: Boolean, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -265,7 +282,7 @@ private fun ScriptWidgetCard(w: ScriptWidget, added: Boolean, onClick: () -> Uni
             Column(Modifier.weight(1f)) {
                 Text(w.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
-                    w.kind.id.replaceFirstChar { it.uppercase() },
+                    w.what,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

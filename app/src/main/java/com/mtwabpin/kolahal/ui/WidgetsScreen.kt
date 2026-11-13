@@ -340,7 +340,11 @@ private fun WidgetCard(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp)) {
                         Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            if (WidgetSource.scriptName(w.source) != null) "Script widget" else "Kolahal widget",
+                            when {
+                                WidgetSource.scriptName(w.source) != null -> "Script widget"
+                                w.provider.startsWith(WidgetSource.STATUS) -> "Status card"
+                                else -> "Kolahal widget"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             maxLines = 1,
