@@ -112,7 +112,7 @@ object ApiDocs {
         ApiDoc("device", "device", "Device info: battery, network, unlocks; Do Not Disturb, the work profile", kind = NS),
         ApiDoc("device.battery", "device.battery() -> { level, charging }", "Battery percent and charging state"),
         ApiDoc("device.network", "device.network() -> string", "\"wifi\", \"cell\", \"eth\", \"net\" or \"offline\""),
-        ApiDoc("device.unlocks", "device.unlocks() -> number", "Today's unlock count"),
+        ApiDoc("device.unlocks", "device.unlocks(days?) -> number | list", "Today's unlock count; with days (1 to 30), a list of the counts of the last days instead, the oldest first and today's last"),
         ApiDoc("device.dnd", "device.dnd() -> string?", "Do Not Disturb: \"off\", \"priority\", \"alarms\" or \"none\" (needs @uses dnd)"),
         ApiDoc("device.setDnd", "device.setDnd(mode) -> bool", "Set Do Not Disturb to \"off\", \"on\", \"alarms\" or \"none\"; false without Do Not Disturb access (needs @uses dnd)"),
         ApiDoc("device.work", "device.work() -> string?", "The work profile: \"on\" or \"paused\"; nil/null without one (needs @uses work)"),

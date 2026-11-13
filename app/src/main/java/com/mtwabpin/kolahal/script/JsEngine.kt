@@ -120,7 +120,7 @@ class JsEngine : ScriptEngine {
         js.define("device") {
             function("battery") { toJs(host.battery()) }
             function("network") { host.network() }
-            function("unlocks") { host.unlocksToday() }
+            function("unlocks") { args -> toJs(host.unlocks(args.getOrNull(0))) }
             function("dnd") { host.dnd() }
             function("setDnd") { args -> host.setDnd(args.req()) }
             function("work") { host.work() }

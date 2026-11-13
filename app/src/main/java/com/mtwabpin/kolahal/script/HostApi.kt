@@ -640,6 +640,21 @@ class HostApi(
 
     fun unlocksToday(): Int = com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).countFor(java.time.LocalDate.now())
 
+    /**
+     * `device.unlocks(days?)`:
+     * - Without [days]: today's count, as a number.
+     * - With [days]: a list with one count for each of the last [days] days ([unlockDays]), the
+     *   oldest first. So today's count is the last one.
+     *
+     * It needs no `@uses` item. Today's count never needed one, and the days before are the same
+     * kind of data: one number a day, which says nothing about what you did. The `unlocks` command
+     * shows the same numbers.
+     */
+    fun unlocks(days: Any?): Any {
+        val n = unlockDays(days) ?: return unlocksToday()
+        return com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).history(n).map { it.second }
+    }
+
     /** Do Not Disturb now: `off`, `priority`, `alarms` or `none`. Nil when it is switched off for the script. */
     fun dnd(): String? {
         if (!may("dnd", "device.dnd")) return null
@@ -869,4 +884,22 @@ class HostApi(
         /** The longest text clipboard.set accepts (characters). */
         const val MAX_CLIP = 100_000
     }
+}
+
+/** The most days `device.unlocks(days)` returns: as many as the `unlocks` command shows. */
+internal const val MAX_UNLOCK_DAYS = 30
+
+/**
+ * How many days `device.unlocks(days)` returns, for the argument [days] a script passed:
+ * - nothing (`nil`, `null`, no argument): null. The call then returns today's count as a number.
+ * - a number: that many days, from 1 to [MAX_UNLOCK_DAYS]. A fraction is dropped, and a number
+ *   out of that range is held at its nearest end.
+ * - anything else: an error that says what to pass.
+ *
+ * It is outside [HostApi] so a JVM test can call it without Android.
+ */
+internal fun unlockDays(days: Any?): Int? = when (days) {
+    null -> null
+    is Number -> days.toDouble().let { if (it.isNaN()) 1 else it.coerceIn(1.0, MAX_UNLOCK_DAYS.toDouble()).toInt() }
+    else -> throw IllegalArgumentException("device.unlocks: days must be a number from 1 to $MAX_UNLOCK_DAYS")
 }

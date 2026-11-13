@@ -163,7 +163,7 @@ class LuaEngine : ScriptEngine {
             "device",
             "battery" to { l: Lua -> l.pushValue(host.battery()); 1 },
             "network" to { l: Lua -> l.push(host.network()); 1 },
-            "unlocks" to { l: Lua -> l.push(host.unlocksToday().toLong()); 1 },
+            "unlocks" to { l: Lua -> l.pushValue(host.unlocks(l.args().firstOrNull())); 1 },
             "dnd" to { l: Lua -> l.pushValue(host.dnd()); 1 },
             "setDnd" to { l: Lua -> l.push(host.setDnd(l.checkString())); 1 },
             "work" to { l: Lua -> l.pushValue(host.work()); 1 },
