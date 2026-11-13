@@ -234,6 +234,12 @@ class WidgetParserTest {
         assertEquals(-2L, countdown("to" to -1.5).to)
     }
 
+    /** Any date with a four-digit year is a time in seconds: the last second of 9999 passes. */
+    @Test fun aCountdownTakesAnyDateToTheYear9999() {
+        assertEquals(253_402_300_799L, countdown("to" to 253_402_300_799).to)
+        assertEquals("widget: to must be a time in seconds, not in milliseconds: divide it by 1000", refused(mapOf("to" to 253_402_300_800), WidgetKind.COUNTDOWN))
+    }
+
     @Test fun whatACountdownRefuses() {
         fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.COUNTDOWN)
         assertEquals("widget: to is needed: the moment, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)", no("label" to "x"))

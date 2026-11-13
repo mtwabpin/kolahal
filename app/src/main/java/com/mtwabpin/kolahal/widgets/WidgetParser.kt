@@ -57,10 +57,11 @@ object WidgetParser {
     const val MAX_POINTS = 60
 
     /**
-     * The largest time a countdown takes, in seconds (the year 5138). A larger number is a time in
-     * milliseconds, as JavaScript's `Date.now()` gives it: an error that says to divide it.
+     * The largest time a countdown takes, in seconds: the end of the year 9999, so any date a
+     * script can write passes. A larger number is a time in milliseconds, as JavaScript's
+     * `Date.now()` gives it: an error that says to divide it.
      */
-    private const val MAX_TIME = 100_000_000_000.0
+    private const val MAX_TIME = 253_402_300_799.0
 
     const val MIN_STALE = 60
     const val MAX_STALE = 604_800
