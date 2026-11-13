@@ -3,6 +3,7 @@
 // @desc 3-day forecast: forecast [city] (default: its city option)
 // @usage [<city>]
 // @title 3-day forecast
+// @widget list 2x2
 // @at 07:00
 // @option city "" Default city; empty: London
 //
@@ -10,10 +11,18 @@
 //   forecast                  forecast for its city option (London if it's empty)
 //   forecast Tokyo            forecast for Tokyo
 //
-// On a timer (no arguments) it sets today's summary as its status line.
+// On a timer (no arguments) it sets today's summary as its status line. Its widget, once you
+// placed it on the widgets page, lists the three days.
 
-// A failure: what didn't work, in the theme's bad colour, and why under it.
-const fail = (what, why) => log(fmt.color("bad", what), why);
+// The widgets page asked for this run: it fills the widget and logs nothing.
+const quiet = !!event && event.name === "widget";
+
+// A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
+// widget it is an error instead, so the run counts as failed.
+const fail = (what, why) => {
+  if (quiet) throw new Error(`${what}: ${why}`);
+  return log(fmt.color("bad", what), why);
+};
 
 const line = (argline || "").trim();
 
@@ -102,8 +111,20 @@ const days = rows.map((r) => {
   const rain = r.rain != null && r.rain >= 30 ? " " + fmt.color(r.rain >= 60 ? "warn" : "muted", `☂ ${r.rain}%`) : "";
   return [`${r.label} ${icon(r.code)}`, r.lo, r.hi, `${r.lo}°`, `${r.hi}°${rain}`];
 });
-log(where, fmt.ranges(days, { color: "warn" }), {
-  url: `https://open-meteo.com/en/docs#latitude=${place.latitude}&longitude=${place.longitude}`,
-});
+if (!quiet) {
+  log(where, fmt.ranges(days, { color: "warn" }), {
+    url: `https://open-meteo.com/en/docs#latitude=${place.latitude}&longitude=${place.longitude}`,
+  });
+}
 
 if (!line) status(todayLine);
+
+// Its widget, in the same runs: one row a day, with its sky and its low and high. A tap runs
+// forecast again and turns home to the log, for the bars.
+if (typeof widget !== "undefined" && !line) {
+  widget.show({
+    title: where,
+    items: rows.map((r) => ({ title: r.label, icon: icon(r.code), detail: describe(r.code), trailing: `${r.lo}–${r.hi}°` })),
+    tap: { args: "", page: "log" },
+  });
+}
