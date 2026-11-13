@@ -23,13 +23,15 @@ concurrency:
 
 jobs:
   # A commit is often pushed more than once: a version branch, then master and its tag at a
-  # release. Build it once. A push is skipped when a Release run of the same commit exists (it
-  # runs the same tests and builds, and more), or another Build of it runs or passed. A failed or
-  # cancelled run doesn't count. Pull requests and manual runs always build.
+  # release. Build it once. A push is skipped when a Release run of the same commit passed (it runs
+  # the same tests and builds, and more), or an earlier Build of it passed. While one of those is
+  # still going, it waits for it: if that run fails or is cancelled, this one builds after all.
+  # Pull requests and manual runs always build.
   once:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Long enough to wait for a Release run or another Build to end.
+    timeout-minutes: 50
     permissions:
       actions: read
     outputs:
@@ -43,16 +45,25 @@ jobs:
         run: |
           # A tag pushed with the branch starts its Release run in the same few seconds.
           sleep 10
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" > runs.json
-          jq -r --argjson me "$GITHUB_RUN_ID" '.workflow_runs[]
-            | select(.id != $me and (.status != "completed" or .conclusion == "success"))
+          # The runs that build this commit too: a Release, or an earlier Build of a push. Only earlier
+          # ones, so two Builds never wait for each other.
+          others='.workflow_runs[] | select(.id != $me)
             | select((.path | endswith("/release.yml"))
-                or ((.path | endswith("/build.yml")) and .event == "push" and .id < $me))
-            | .html_url' runs.json > others.txt
-          if [ -s others.txt ]; then
-            echo "Already built by: $(head -1 others.txt)" | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "built=true" >> "$GITHUB_OUTPUT"
-          fi
+                or ((.path | endswith("/build.yml")) and .event == "push" and .id < $me))'
+          for attempt in $(seq 1 90); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" > runs.json
+            passed=$(jq -r --argjson me "$GITHUB_RUN_ID" "[$others | select(.status == \"completed\" and .conclusion == \"success\") | .html_url] | first // empty" runs.json)
+            if [ -n "$passed" ]; then
+              echo "Already built by: $passed" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "built=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            going=$(jq --argjson me "$GITHUB_RUN_ID" "[$others | select(.status != \"completed\")] | length" runs.json)
+            # None passed and none is going: this run builds.
+            [ "$going" -gt 0 ] || exit 0
+            sleep 30
+          done
+          echo "Waited 45 minutes for another run of this commit; building it here." | tee -a "$GITHUB_STEP_SUMMARY"
 
   build:
     needs: once

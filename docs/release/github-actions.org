@@ -23,10 +23,10 @@ its APK is signed with the runner's own debug key and its bundle is unsigned, so
 looking at (the run's *Artifacts*), not for installing over a release.
 
 It builds each commit once. Its first job, =once=, looks at the other runs of the same commit and
-skips the build when there is a Release run, or another Build that is running or passed: a
-version branch and then master often get the same commit, and a release builds it anyway. A
-failed or cancelled run doesn't count. Pull requests and manual runs (=workflow_dispatch=) always
-build.
+skips the build when a Release run or an earlier Build of it passed: a version branch and then
+master often get the same commit, and a release builds it anyway. While such a run is still going,
+=once= waits for it (up to 45 minutes); if it fails or is cancelled, this Build builds after all.
+Pull requests and manual runs (=workflow_dispatch=) always build.
 
 * What a release run does
 
