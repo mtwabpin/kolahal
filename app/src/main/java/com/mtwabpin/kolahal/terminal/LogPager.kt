@@ -101,6 +101,23 @@ internal fun patchFilterPage(
 }
 
 /**
+ * Whether `log only …` can be patched from what it showed ([patchFilterPage]) instead of searching
+ * the whole log: the same [filter] as then ([filteredFor]), a page no bigger ([limit], [filteredLimit]),
+ * no line removed ([removed]), and the same locked private spaces ([locked], [filteredLocks]). A
+ * space locked since keeps its lines out only after a whole search: a patch looks at new lines only.
+ */
+internal fun canPatchFilter(
+    filter: LogFilter?,
+    incremental: Boolean,
+    filteredFor: LogFilter?,
+    limit: Int,
+    filteredLimit: Int,
+    removed: Boolean,
+    locked: Set<Long>,
+    filteredLocks: Set<Long>,
+): Boolean = filter != null && incremental && filter == filteredFor && limit <= filteredLimit && !removed && locked == filteredLocks
+
+/**
  * The page of the log that home shows: the newest lines, and older ones as the user scrolls back.
  * It keeps the page between reloads, so a reload usually reads only what changed. The view model
  * holds one as `pager`, and its reload collector calls [reload]. The pager starts no work itself.
@@ -168,6 +185,8 @@ class LogPager(
     private var filtered: List<LogEntry> = emptyList()
     private var filteredFor: LogFilter? = null
     private var filteredLimit = 0
+    /** The locked private spaces when [filtered] was made. */
+    private var filteredLocks: Set<Long> = emptySet()
 
     /** The newest line loaded so far, with or without a filter. It is kept even if the page becomes empty. */
     val newest: Long? get() = newestLoaded
@@ -249,12 +268,13 @@ class LogPager(
         // `log only …` takes its lines from the whole log, not just this page (which may have none of them).
         // - New lines are checked as they arrive, and lines changed in place are patched ([patchFilterPage]).
         // - The whole log is searched when the whole page is read, when the filter or the page size
-        //   changed, after a line was removed, and when a changed line now matches but wasn't shown.
+        //   changed, after a line was removed, when a private space was locked or unlocked, and when a
+        //   changed line now matches but wasn't shown ([canPatchFilter]).
         val filter = only.value
         var count = _filterCount.value
-        val patched = if (filter != null && incremental && filter == filteredFor && limit <= filteredLimit && gone.isEmpty()) {
-            patchFilterPage(FilterPage(filtered, count), again, fresh, limit, locked, filter::matches)
-        } else null
+        val patched = filter?.takeIf { canPatchFilter(it, incremental, filteredFor, limit, filteredLimit, gone.isNotEmpty(), locked, filteredLocks) }?.let { f ->
+            patchFilterPage(FilterPage(filtered, count), again, fresh, limit, locked, f::matches)
+        }
         val shown = when {
             filter == null -> list
             patched != null -> patched.lines.also { count = patched.count }
@@ -285,6 +305,7 @@ class LogPager(
         filtered = if (filter == null) emptyList() else shown
         filteredFor = filter
         filteredLimit = limit
+        filteredLocks = locked
         _filterCount.value = count
         _entries.value = shown
         _rows.value = withContext(Dispatchers.Default) { buildRows(shown, seenUpTo(), unreadUntil()) }

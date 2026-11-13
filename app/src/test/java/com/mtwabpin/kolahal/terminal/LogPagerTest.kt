@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
@@ -276,5 +277,25 @@ class LogPagerTest {
                 assertEquals("round $round, step $step", search(log, limit), shown)
             }
         }
+    }
+
+    /**
+     * `log only` is searched again, not patched, once a private space is locked or unlocked: a patch
+     * looks at new lines only, so the space's lines already shown would stay, or stay missing.
+     */
+    @Test fun aLockedSpaceSearchesTheWholeLogAgain() {
+        val feeds = LogFilter.parse("feeds")!!
+        fun can(locked: Set<Long>, filteredLocks: Set<Long>) =
+            canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = false, locked, filteredLocks)
+        assertTrue(can(emptySet(), emptySet()))
+        assertTrue(can(setOf(11L), setOf(11L)))
+        assertFalse("locked since", can(setOf(11L), emptySet()))
+        assertFalse("unlocked since", can(emptySet(), setOf(11L)))
+        // The other reasons still hold.
+        assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = true, emptySet(), emptySet()))
+        assertFalse(canPatchFilter(feeds, incremental = false, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
+        assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = LogFilter.parse("starred"), limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
+        assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 200, filteredLimit = 100, removed = false, emptySet(), emptySet()))
+        assertFalse(canPatchFilter(null, incremental = true, filteredFor = null, limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
     }
 }
