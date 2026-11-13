@@ -125,6 +125,8 @@ internal class ScriptCode(code: String, name: String) {
     val base = ScriptAccess.base(code).toSet()
     /** The items its sheet and expanded card list: first its access, then its events ([ScriptAccess.items]). */
     val accessItems = ScriptAccess.items(code)
+    /** `@version`. Only the script's sheet shows it, so it is read when the sheet first asks. */
+    val version by lazy { ScriptMeta.version(code) }
 }
 
 /**
@@ -134,11 +136,12 @@ internal class ScriptCode(code: String, name: String) {
  */
 private val keptCodes = HashMap<Pair<String, String>, ScriptCode>()
 
-/** The data a script's card shows and the filters match against. */
-internal class ScriptInfo(val script: Script, code: ScriptCode) {
+/** The data a script's card and sheet show, and the filters match against. */
+internal class ScriptInfo(val script: Script, private val code: ScriptCode) {
     val title = code.title
     val desc = code.desc
     val author = code.author
+    val version get() = code.version
     val isCommand = code.isCommand
     val usage = code.usage
     val events = code.events
@@ -266,15 +269,16 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             })
         }
     }
-    // Declared secrets with and without a value, by script name. The lists stay the same when the
+    // Declared secrets with and without a value, by script id. The lists stay the same when the
     // page is rebuilt, so a card can skip recomposition when nothing of its own changed.
+    // By id, not by name: a script renamed on its sheet keeps its lists until they are read again.
     val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
-    val secretNames by produceState(emptyMap<String, SecretNames>(), infos, secretsVersion) {
+    val secretNames by produceState(emptyMap<Long, SecretNames>(), infos, secretsVersion) {
         value = withContext(Dispatchers.IO) {
             infos.filter { it.secrets.isNotEmpty() }.associate { i ->
                 val declared = i.secrets.map { it.name }
                 val set = vm.scriptActions.secretsSet(i.script)
-                i.script.name to SecretNames(missing = declared.filter { it !in set }, set = declared.filter { it in set })
+                i.script.id to SecretNames(missing = declared.filter { it !in set }, set = declared.filter { it in set })
             }
         }
     }
@@ -286,7 +290,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     val facts = remember(infos, copies, secretNames, shared, selfUpdated) {
         infos.map { i ->
             val name = i.script.name
-            factsOf(i, copies[i.script.id], secretNames[name]?.missing.orEmpty().isNotEmpty(), shared[name]?.entry?.tags.orEmpty(), name in selfUpdated)
+            factsOf(i, copies[i.script.id], secretNames[i.script.id]?.missing.orEmpty().isNotEmpty(), shared[name]?.entry?.tags.orEmpty(), name in selfUpdated)
         }
     }
     val infoByName = remember(infos) { infos.associateBy { it.script.name } }
@@ -393,7 +397,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                     ScriptCard(
                         info,
                         line = statuses[s.name],
-                        missingKeys = secretNames[s.name]?.missing.orEmpty(),
+                        missingKeys = secretNames[s.id]?.missing.orEmpty(),
                         expanded = expandAll != (s.id in flipped),
                         copy = copy,
                         selfUpdatedIn = selfUpdate?.version?.takeIf { s.name in selfUpdated },
@@ -416,10 +420,12 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             }
         }
 
-        val sheetScript = sheetId?.let { id -> scripts.firstOrNull { it.id == id } }
-        if (sheetScript != null) {
+        // The sheet shows what the page already read: the script's info and which of its secrets are set.
+        val sheetInfo = sheetId?.let { id -> infos.firstOrNull { it.script.id == id } }
+        if (sheetInfo != null) {
+            val sheetScript = sheetInfo.script
             ScriptSheet(
-                vm, sheetScript, copies[sheetScript.id],
+                vm, sheetInfo, secretNames[sheetScript.id]?.set.orEmpty(), copies[sheetScript.id],
                 onEnabled = { setEnabled(sheetScript, it) },
                 onDismiss = { sheetId = null },
                 onEdit = { sheetId = null; vm.openEditor(sheetScript) },

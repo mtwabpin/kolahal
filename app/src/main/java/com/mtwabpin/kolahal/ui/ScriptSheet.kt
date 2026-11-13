@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
@@ -65,12 +64,18 @@ internal fun Fact(label: String, value: String) {
     Text("$label: $value", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** The sheet for one script: run, edit, export, on/off, notifications, timers, library and delete. */
+/**
+ * The sheet for one script: run, edit, export, on/off, notifications, timers, library and delete.
+ * It reads nothing from the script's code but its options: the page already read the rest ([info]).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ScriptSheet(
     vm: TerminalViewModel,
-    s: Script,
+    /** The script, and what the page read from its code. */
+    info: ScriptInfo,
+    /** Its declared secrets that have a value, as the page read them. */
+    secretsSet: List<String>,
     /** How a library or shared copy compares with its source. Null for a script the user wrote. */
     copy: ScriptCopy?,
     onEnabled: (Boolean) -> Unit,
@@ -78,6 +83,7 @@ internal fun ScriptSheet(
     onEdit: () -> Unit,
     onExport: () -> Unit,
 ) {
+    val s = info.script
     val state = rememberExpandedSheetState()
     var confirmDelete by remember(s.id) { mutableStateOf(false) }
     var confirmReplace by remember(s.id) { mutableStateOf(false) }
@@ -90,18 +96,16 @@ internal fun ScriptSheet(
     var times by remember(s.id, s.atTimes) { mutableStateOf(s.atTimes.joinToString(", ")) }
     var pickingTime by remember(s.id) { mutableStateOf(false) }
     var timesError by remember(s.id) { mutableStateOf(false) }
-    val isCommand = remember(s.code) { ScriptMeta.isCommand(s.code) }
-    val desc = remember(s.code) { ScriptMeta.description(s.code) }
-    val title = remember(s.code) { ScriptMeta.title(s.code) }
+    val isCommand = info.isCommand
+    val desc = info.desc
+    val title = info.title
     // `@version` and `@author`, if the script has them: v1.2 · by Someone
-    val byLine = remember(s.code) {
-        listOfNotNull(ScriptMeta.version(s.code)?.let { "v$it" }, ScriptMeta.author(s.code)?.let { "by $it" }).joinToString(" · ").ifEmpty { null }
+    val byLine = remember(info) {
+        listOfNotNull(info.version?.let { "v$it" }, info.author?.let { "by $it" }).joinToString(" · ").ifEmpty { null }
     }
-    val access = remember(s.code) { ScriptAccess.items(s.code) }
-    val notifies = remember(s.code) { ScriptMeta.postsNotifications(s.code) }
-    val secrets = remember(s.code) { ScriptMeta.secrets(s.code) }
-    val secretsVersion by vm.scriptActions.secretsVersion.collectAsStateWithLifecycle()
-    val secretsSet by produceState(emptySet(), s.code, s.name, secretsVersion) { value = withContext(Dispatchers.IO) { vm.scriptActions.secretsSet(s) } }
+    val access = info.accessItems
+    val notifies = info.notifies
+    val secrets = info.secrets
     var editingSecret by remember(s.id) { mutableStateOf<ScriptMeta.Secret?>(null) }
     val options = remember(s.code) { ScriptMeta.options(s.code) }
     val optionsVersion by vm.scriptActions.optionsVersion.collectAsStateWithLifecycle()
@@ -109,7 +113,7 @@ internal fun ScriptSheet(
         value = withContext(Dispatchers.IO) { vm.scriptActions.optionValues(s) }
     }
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
-    val grants = remember(s.code, s.access) { s.grants }
+    val grants = info.grants
     var renaming by remember(s.id) { mutableStateOf(false) }
 
     ModalBottomSheet(
