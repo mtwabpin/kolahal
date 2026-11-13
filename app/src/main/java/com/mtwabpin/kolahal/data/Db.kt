@@ -8,8 +8,11 @@ import android.database.sqlite.SQLiteOpenHelper
  * A single SQLite database shared by the UI process and the `:script` process.
  * WAL mode and SQLite's file locking make concurrent access from both processes safe.
  */
-class Db private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {
+class Db internal constructor(context: Context, name: String) :
+    SQLiteOpenHelper(context.applicationContext, name, null, VERSION) {
+
+    /** The app's database. Tests open one of their own by name. */
+    private constructor(context: Context) : this(context, NAME)
 
     override fun onConfigure(db: SQLiteDatabase) {
         db.enableWriteAheadLogging()
@@ -100,9 +103,19 @@ class Db private constructor(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = upgrade(db, oldVersion)
 
+    /**
+     * A database from a newer Kolahal (Android's transfer from a phone with a newer version, or a
+     * downgrade) is kept as it is. Android's default throws instead, at every open, so home would
+     * crash at every start. Newer versions only add tables, columns and indexes, which an older
+     * one doesn't read. Its version number goes down to this one's, so the next update runs the
+     * steps above it again: each step in [upgrade] must be safe to run twice.
+     */
+    override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+
     /** Brings a database from [oldVersion] to [VERSION]. Tests run it on a database of their own. */
     internal fun upgrade(db: SQLiteDatabase, oldVersion: Int) {
-        // Both processes may open the database right after an update, so each step must run only once.
+        // Both processes may open the database right after an update, and a database kept through a
+        // downgrade ([onDowngrade]) runs the steps again later. So each step must be safe to run twice.
         if (oldVersion < 2 && !hasColumn(db, "scripts", "at_times")) db.execSQL("ALTER TABLE scripts ADD COLUMN at_times TEXT")
         if (oldVersion < 3) createProductivityTables(db)
         if (oldVersion < 4) addScriptAccess(db)

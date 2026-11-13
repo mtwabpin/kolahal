@@ -58,10 +58,14 @@ object AppIcons {
     fun cached(app: AppEntry, px: Int): ImageBitmap? = cache.get("${app.key}@$px")
 
     /**
-     * Called when Android is low on memory. It drops the cached icons. Icons on screen stay;
+     * Drops the cached icons, except those of the apps in [keep] (their keys). Icons on screen stay;
      * the others load again when shown.
      */
-    fun trim() = cache.evictAll()
+    fun trim(keep: Set<String> = emptySet()) {
+        if (keep.isEmpty()) return cache.evictAll()
+        // Keys are the app's key and the size: `com.example/.Main#0@96`.
+        cache.snapshot().keys.filter { it.substringBeforeLast('@') !in keep }.forEach { cache.remove(it) }
+    }
 
     fun load(context: Context, app: AppEntry, px: Int): ImageBitmap? {
         cached(app, px)?.let { return it }

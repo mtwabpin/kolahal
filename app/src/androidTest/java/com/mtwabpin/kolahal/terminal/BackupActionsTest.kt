@@ -152,6 +152,19 @@ class BackupActionsTest {
         }
     }
 
+    /** A backup from a newer Kolahal imports what this version knows, and says the rest was skipped. */
+    @Test fun aNewerBackupSaysWhatItSkipped() {
+        val backup = file("newer.json", """{"kolahal":${com.mtwabpin.kolahal.data.Backup.VERSION + 1},"config":{"log.spacing":"20"},"later":{"x":1}}""")
+        actions.importBackup(Uri.fromFile(backup))
+        assertEquals(
+            RecordingHost.Notice(
+                "Imported 1 setting, 0 aliases, 0 scripts · this backup is from a newer Kolahal, so what this version doesn't know was skipped",
+                false,
+            ),
+            host.lastNotice(),
+        )
+    }
+
     /** A file that isn't a Kolahal backup fails, saying so, and changes nothing: not even a config section it has. */
     @Test fun aFileThatIsntABackupSaysSo() {
         actions.importBackup(Uri.fromFile(file("list.json", "[1, 2]")))

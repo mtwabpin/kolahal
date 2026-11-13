@@ -56,6 +56,39 @@ class ScriptLifecycleTest {
         assertNull(context.getSharedPreferences("script_catalog", android.content.Context.MODE_PRIVATE).getString("installed:lc-a", null))
     }
 
+    /**
+     * An update that drops a `@uses` line takes the permission with it: a later update that declares
+     * it again asks, instead of finding it still allowed. What you switched off stays off.
+     */
+    @Test fun aPermissionTheCodeDroppedIsAskedForAgain() {
+        val s = repo.create("lc-d", ScriptLang.LUA, "-- @uses clipboard\n-- @uses apps\nreturn 1")
+        assertEquals(mapOf("clipboard" to true, "apps" to true), repo.byId(s.id)!!.access.filterKeys { it in setOf("clipboard", "apps") })
+        repo.setAccess(s.id, "apps", false)
+        repo.saveCode(s.id, "return 1")
+        assertEquals(mapOf("apps" to false), repo.byId(s.id)!!.access)
+        repo.saveCode(s.id, "-- @uses clipboard\n-- @uses apps\nreturn 2")
+        // Undecided, so not allowed until you say so (a line asks).
+        val back = repo.byId(s.id)!!
+        assertEquals(mapOf("apps" to false), back.access)
+        assertFalse(back.grants.allows("clipboard"))
+        assertFalse(back.grants.allows("apps"))
+    }
+
+    /**
+     * A secret value from before 0.4.0 has no sites stored. It is no longer sent until it is set
+     * again, so you see where it goes. A line that names no sites never sends it, so it still counts there.
+     */
+    @Test fun aSecretFromBeforeSitesIsSetAgain() {
+        secrets.setWithoutSites("lc-a", "KEY", "value-1234")
+        assertTrue(secrets.withoutSites("lc-a", key))
+        assertFalse(secrets.isSet("lc-a", key))
+        assertEquals(emptyMap<String, String>(), secrets.usable("lc-a", listOf(key)))
+        assertTrue(secrets.isSet("lc-a", ScriptMeta.Secret("KEY", emptyList(), "")))
+        secrets.set("lc-a", "KEY", "value-1234", key.hosts)
+        assertFalse(secrets.withoutSites("lc-a", key))
+        assertTrue(secrets.isSet("lc-a", key))
+    }
+
     @Test fun aNewScriptStartsWithNothingAnEarlierOneLeft() {
         status.set("lc-c", "left by a deleted script")
         secrets.set("lc-c", "KEY", "old-value-1234", key.hosts)

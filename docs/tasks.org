@@ -87,16 +87,6 @@ prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:10
 
 Fix: show the grants and ask before switching it on. Or sign the index with a key pinned in the app.
 
-*** TODO [#C] A =@uses= grant that an update removed comes back without asking /(unchecked)/
-- =data/ScriptRepository.kt:88-94=: =newUses = uses(code) - uses(s.code) - s.access.keys=. A
-  =true= stays in =access= after an update drops the =@uses= line. A later update that declares it
-  again gets it at once.
-- =script/SecretStore.kt:34=: =covers= is true when =hosts == null=. A secret set before sites were
-  stored goes to whatever sites the code names now.
-
-Fix: when code from elsewhere is saved, remove access entries the new code no longer declares. Ask
-again for secrets stored without sites.
-
 ** Performance
 *** TODO [#C] Avoidable work on each key press /(unchecked)/
 Each is small; together estimated 0.2–1 ms per key on a mid-range phone.
@@ -116,18 +106,6 @@ Each is small; together estimated 0.2–1 ms per key on a mid-range phone.
 
 Fix: cache =names= and =recent= on their inputs. Keep a frecency snapshot keyed on
 =AppPrefs.version=. Make the row its own skippable composable.
-
-*** TODO [#C] App icons are all dropped after 10 minutes away
-=LauncherApp.kt:45-53=, =:70-73=: at =TRIM_MEMORY_UI_HIDDEN= a delayed =AppIcons.trim()= runs
-=cache.evictAll()= (=ui/AppIcons.kt:64=). The first keys after 10 minutes away then start up to
-about 8 jobs, each a binder call and an icon decode (estimated 3–15 ms each). Icons pop in late.
-The drop is on purpose (see the comment in =LauncherApp=).
-
-- =trim()= doesn't bump =generation=, so the selector's preload (=ui/AppSelector.kt:378-380=)
-  doesn't run again after it.
-
-Fix: keep the icons of the top N apps by frecency (under 0.5 MB) across this trim, and warm them on
-resume.
 
 *** TODO [#C] Return to home: binder calls on the main thread
 Main thread, =MainActivity.kt:104-111=, =:252-257=: =WidgetHost.startListening()= (also with no
@@ -173,14 +151,6 @@ lines, up to about 1 s at 50,000, on the IO thread: new lines show late. It happ
 reload (at most once a minute, after 60 s away, after a delete). The filter also survives restarts.
 
 Fix: narrow in SQL for the common filters (=source=, =starred=, =kind=).
-
-*** TODO [#C] Media sessions are followed even with home stopped /(unchecked)/
-=control/MediaRepository.kt:150-156=, =:202=: the sessions listener and each controller callback
-run on the main thread for the life of the process; =stop()= runs only when access is lost. Every
-playback update from any player runs =recompute()=. Probably too small to matter for CPU.
-
-Fix: unregister in =onStop=, read the sessions again in =onStart=. The =idleSince= logic would then
-need =lastPositionUpdateTime=.
 
 *** TODO [#C] Script process: =store.set= scans the whole store; the Lua watchdog wakes 100 times a second /(unchecked)/
 - =data/KvStore.kt:33-43=: before each write, =SUM(length(…))= over the script's store, which can
@@ -232,19 +202,6 @@ Steps:
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
    =BuildConfig.SELF_UPDATE= for R8 (=:138=).
 
-*** TODO [#C] The watchdog kills the whole =:script= process
-=script/RunWatchdog.kt:20=, =:29-34=: it compares the process's native heap with its own baseline and
-calls =killProcess(myPid())=. The run lock is per script, so different scripts can run at once.
-
-- Script A hangs while B runs: B dies mid-run and loses its buffered lines, its =commit()= and its
-  run record, with no log line.
-- Two Lua runs of about 64 MB each can trip A's 128 MB limit and blame A.
-- That two remote workers really overlap wasn't checked on a device; =ScriptRunService= overlaps
-  by design.
-
-Fix: one process-wide lock in =ScriptRun.run=, or log a "stopped" line for each run in flight before
-the kill. 1–2 hours.
-
 *** TODO [#C] =:script= reads prefs it never sees updated
 - =script/HostApi.kt:733=: =device.unlocks()= → =UnlockCounter.countFor= (=unlock/UnlockCounter.kt:92=).
   Without Usage Access it reads =unlocks.xml= from =:script='s own cached copy; the main process
@@ -259,9 +216,6 @@ Drop the alias read in =HostApi.runCommand=. Make =Singleton.get= complain for m
 in =:script=. Half a day.
 
 *** TODO [#C] Storage names and versions are implicit
-- =data/Db.kt= has no =onDowngrade=. A newer database meeting an older app (a downgrade) throws on
-  every open.
-- The backup writes ="kolahal": 3=, but import only checks that the key exists (=data/Backup.kt:95=).
 - 29 =getSharedPreferences("…")= sites; ="launcher"= is opened by three classes (=LauncherApp.kt:111=,
   =data/StatusLines.kt:85=, =TerminalViewModel.kt:1766=).
 - What travels in a backup is decided in four hand-made lists with opposite defaults:

@@ -58,6 +58,9 @@ class FeedDb private constructor(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
 
+    /** A database from a newer Kolahal is kept as it is, as [com.mtwabpin.kolahal.data.Db] does. Android's default would throw at every open. */
+    override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+
     companion object : Singleton<FeedDb>(::FeedDb) {
         private const val NAME = "feeds.db"
         private const val VERSION = 1

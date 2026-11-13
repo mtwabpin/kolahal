@@ -30,14 +30,23 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class SecretStore(private val context: Context) {
 
-    /** A value and the sites it was set for. [hosts] is null for a value set before sites were stored. */
+    /** A value and the sites it was set for. [hosts] is null for a value set before sites were stored (before 0.4.0). */
     class Stored(val value: String, val hosts: List<String>?) {
-        /** Whether this value was set for every site that [secret] names now. */
-        fun covers(secret: ScriptMeta.Secret): Boolean = hosts == null || secret.hosts.all { it in hosts }
+        /**
+         * Whether this value was set for every site that [secret] names now. A value from before sites
+         * were stored covers none: it is set again once, so you see where it goes. (Before, it went to
+         * whatever sites the code named.)
+         */
+        fun covers(secret: ScriptMeta.Secret): Boolean = if (hosts == null) secret.hosts.isEmpty() else secret.hosts.all { it in hosts }
     }
 
     fun get(script: String, name: String): Stored? =
         KvStore(context, scope(script)).get(name)?.let { runCatching { decode(decrypt(it)) }.getOrNull() }
+
+    /** A value stored as before 0.4.0, without its sites. For tests. */
+    @androidx.annotation.VisibleForTesting internal fun setWithoutSites(script: String, name: String, value: String) {
+        KvStore(context, scope(script)).set(name, encrypt(value))
+    }
 
     /** Sets [name] for [script], for the sites [hosts] that its line names. Null or blank clears it. */
     fun set(script: String, name: String, value: String?, hosts: List<String>) {
@@ -46,6 +55,9 @@ class SecretStore(private val context: Context) {
 
     /** Whether [secret] has a value that may go to the sites its line names now. */
     fun isSet(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.covers(secret) == true
+
+    /** True when it has a value set before sites were stored (before 0.4.0), so it must be set again. */
+    fun withoutSites(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.hosts == null && get(script, secret.name) != null
 
     /** True when it has a value, but its line names sites the value wasn't set for. */
     fun hostsChanged(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.let { !it.covers(secret) } == true

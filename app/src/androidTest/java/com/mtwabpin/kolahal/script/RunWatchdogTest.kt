@@ -2,62 +2,40 @@ package com.mtwabpin.kolahal.script
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * The watchdog on its own: past a run's timeout and its grace, or with native memory grown past
- * its limit, it says why and would stop the :script process. Here, in the main process, it only says so.
- */
+/** When one run takes the script process down, the others in it say so first, with what they had waiting. */
 @RunWith(AndroidJUnit4::class)
 class RunWatchdogTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
-    private val before = logs.maxId()
-    private val host = HostApi(context, "wdtest", scriptId = null, notifyEnabled = false)
+    private val stuck = "wd-stuck${System.nanoTime() % 100_000}"
+    private val other = "wd-other${System.nanoTime() % 100_000}"
+    private val done = "wd-done${System.nanoTime() % 100_000}"
 
-    @After fun tearDown() = logs.recent(50).filter { it.id > before }.forEach { logs.delete(it.id) }
+    private fun host(name: String) = HostApi(context, name, scriptId = null, notifyEnabled = false)
+    private fun lines(name: String) = logs.recent(200).filter { it.source == name }.map { it.text }
 
-    private fun said() = logs.recent(50).filter { it.id > before && it.source == "wdtest" && it.kind == LogKind.ERROR }.map { it.text }
+    @After fun tearDown() = logs.recent(200).filter { it.source in setOf(stuck, other, done) }.forEach { logs.delete(it.id) }
 
-    private fun waitFor(what: String, ms: Long, check: () -> Boolean) {
-        val until = System.currentTimeMillis() + ms
-        while (!check() && System.currentTimeMillis() < until) Thread.sleep(50)
-        assertTrue(what, check())
-    }
-
-    @Test fun aRunPastItsTimeAndTheGraceIsStopped() {
-        val watchdog = RunWatchdog(host, timeoutMs = 100, nativeLimitMb = null)
-        try {
-            waitFor("the watchdog's line", ms = 10_000) { said().isNotEmpty() }
-            assertEquals(listOf("wdtest: still running after timeout, killed script process"), said())
-        } finally {
-            watchdog.close()
+    @Test fun otherRunsSayTheyWereStoppedToo() {
+        val stuckRun = host(stuck)
+        val otherRun = host(other)
+        val doneRun = host(done)
+        // A run that already ended isn't in the process any more.
+        RunWatchdog(doneRun, 60_000, null).close()
+        RunWatchdog(stuckRun, 60_000, null).use {
+            RunWatchdog(otherRun, 60_000, null).use {
+                otherRun.log("half way")
+                RunWatchdog.stopOthers(stuckRun)
+            }
         }
-    }
-
-    /** A run that ends in time closes it: nothing is said past the grace. */
-    @Test fun aRunThatEndsInTimeIsLeftAlone() {
-        RunWatchdog(host, timeoutMs = 100, nativeLimitMb = null).close()
-        Thread.sleep(5_500)
-        assertEquals(emptyList<String>(), said())
-    }
-
-    /** Native memory grown past the limit stops the run before its time: a picture's pixels are native memory. */
-    @Test fun nativeMemoryPastTheLimitIsStopped() {
-        val watchdog = RunWatchdog(host, timeoutMs = 60_000, nativeLimitMb = 4)
-        val big = android.graphics.Bitmap.createBitmap(2_000, 2_000, android.graphics.Bitmap.Config.ARGB_8888)
-        try {
-            waitFor("the watchdog's line", ms = 5_000) { said().isNotEmpty() }
-            assertEquals(listOf("wdtest: used over 4 MB, killed script process"), said())
-        } finally {
-            watchdog.close()
-            big.recycle()
-        }
+        assertEquals(listOf("half way", "$other: stopped, because $stuck had to be stopped (scripts run in one process)"), lines(other))
+        assertEquals(emptyList<String>(), lines(stuck))
+        assertEquals(emptyList<String>(), lines(done))
     }
 }

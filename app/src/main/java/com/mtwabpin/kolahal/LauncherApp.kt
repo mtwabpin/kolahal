@@ -59,7 +59,7 @@ class LauncherApp : Application(), Configuration.Provider {
     }
 
     private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
-    private val awayTrim = Runnable { trimKept() }
+    private val awayTrim = Runnable { trimKept(away = true) }
 
     /** [AWAY_TRIM_MS]. Tests make it shorter. */
     @androidx.annotation.VisibleForTesting internal var awayTrimMs = AWAY_TRIM_MS
@@ -67,9 +67,15 @@ class LauncherApp : Application(), Configuration.Provider {
     /** Call when home shows again (MainActivity's onStart). The kept pictures and icons stay. */
     fun homeShown() = main.removeCallbacks(awayTrim)
 
-    private fun trimKept() {
+    /**
+     * Drops the log pictures and the app icons. After time [away], the icons of the most-used apps
+     * stay (about 1 MB at most): they are the first you type, and would pop in late otherwise.
+     * When Android is short of memory, everything goes.
+     */
+    private fun trimKept(away: Boolean = false) {
         com.mtwabpin.kolahal.ui.LogImages.trim()
-        com.mtwabpin.kolahal.ui.AppIcons.trim()
+        val keep = if (away) runCatching { AppRepository.get(this).top(KEEP_ICONS).map { it.key }.toSet() }.getOrDefault(emptySet()) else emptySet()
+        com.mtwabpin.kolahal.ui.AppIcons.trim(keep)
     }
 
     override fun onCreate() {
@@ -103,6 +109,8 @@ class LauncherApp : Application(), Configuration.Provider {
             // Library scripts that nobody edited are updated to the app's library.
             quietly.run(this, "Updating library scripts") { com.mtwabpin.kolahal.script.ScriptLibrary(this).updateUnedited() }
             quietly.run(this, "Scheduling scripts") { ScriptScheduler.syncAll(this) }
+            // Once: secret values from before 0.4.0 have no sites, and must be set again. Each script with one says so.
+            quietly.run(this, "Checking script secrets") { com.mtwabpin.kolahal.script.ScriptAccess.askForSecretsWithoutSites(this) }
             runCatching { com.mtwabpin.kolahal.data.StatusLines.pinShownOnce(this) }
             quietly.run(this, "Scheduling feeds") { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
             quietly.run(this, "Setting reminders again") { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
@@ -175,5 +183,8 @@ class LauncherApp : Application(), Configuration.Provider {
     companion object {
         /** The same as the default wait of `log.fresh`. After that time, home starts clean anyway. */
         const val AWAY_TRIM_MS = 10 * 60_000L
+
+        /** The most-used apps whose icons stay after time away: more than a strip of suggestions shows. */
+        const val KEEP_ICONS = 24
     }
 }

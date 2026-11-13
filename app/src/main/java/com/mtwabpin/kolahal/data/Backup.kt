@@ -88,12 +88,17 @@ class Backup(private val context: Context) {
         val full: Boolean = false,
         /** What from the file is worth a look: where searches go, what gestures run, and aliases that run code or change settings. */
         val review: List<String> = emptyList(),
+        /** The file is from a newer Kolahal ([VERSION] is lower than its format). What this version doesn't know was skipped. */
+        val newer: Boolean = false,
     )
 
     fun import(uri: Uri): Result {
         val text = Files.readText(context, uri, Files.MAX_BACKUP_BYTES)
         val root = Json.parse(text) as? Map<*, *> ?: throw IllegalStateException("not a Kolahal backup")
         if (root["kolahal"] == null) throw IllegalStateException("not a Kolahal backup (missing \"kolahal\")")
+        // A newer format still imports as far as this version understands it: unknown settings, columns and
+        // sections are skipped. The result says so, rather than refusing the whole file.
+        val newer = ((root["kolahal"] as? Number)?.toInt() ?: 0) > VERSION
         val skipped = ArrayList<String>()
 
         // Raw data first, so the readable sections below (which people edit by hand) win.
@@ -218,7 +223,7 @@ class Backup(private val context: Context) {
             .map { (name, body) -> "alias $name = ${if (body.length > 60) body.take(59) + "…" else body}" }
         val review = listOf(Keys.SEARCH_URL, Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)
             .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases
-        return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review)
+        return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review, newer = newer)
     }
 
     companion object {

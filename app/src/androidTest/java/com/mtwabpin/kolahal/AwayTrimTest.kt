@@ -60,6 +60,37 @@ class AwayTrimTest {
     }
 
     /**
+     * App icons go too after a while away, except the most-used apps': you type those first, and
+     * they'd pop in late. Under memory pressure, they all go.
+     */
+    @Test fun aWhileAwayKeepsTheMostUsedAppsIcons() {
+        val repo = com.mtwabpin.kolahal.apps.AppRepository.get(context)
+        repo.refresh()
+        assertTrue(eventually(5_000) { repo.apps.value.isNotEmpty() })
+        val icons = com.mtwabpin.kolahal.ui.AppIcons
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
+        // A pinned app counts among the most used, and a test phone has no launches to rank.
+        val used = repo.apps.value.first { !it.hidden && it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
+        val wasPinned = prefs.isPinned(used.key)
+        prefs.setPinned(used.key, true)
+        try {
+            val top = repo.top(LauncherApp.KEEP_ICONS)
+            assertTrue(top.any { it.key == used.key })
+            val other = repo.apps.value.firstOrNull { a -> !a.hidden && top.none { it.key == a.key } }
+            assertNotNull(icons.load(context, used, 48))
+            other?.let { assertNotNull(icons.load(context, it, 48)) }
+            trim(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+            assertTrue("the time away passed", eventually(5_000) { LogImages.cached(url, width) == null })
+            assertNotNull(icons.cached(used, 48))
+            other?.let { assertNull(icons.cached(it, 48)) }
+            @Suppress("DEPRECATION") trim(ComponentCallbacks2.TRIM_MEMORY_BACKGROUND)
+            assertNull(icons.cached(used, 48))
+        } finally {
+            prefs.setPinned(used.key, wasPinned)
+        }
+    }
+
+    /**
      * Back on home before the time is up, they're kept. Home's return is told here as MainActivity's
      * start tells it (`homeShown`); the activity itself isn't started.
      */

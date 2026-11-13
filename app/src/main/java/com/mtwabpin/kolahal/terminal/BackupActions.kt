@@ -37,6 +37,7 @@ class BackupActions(
                     (if (r.disabled > 1) " (${r.disabled} new scripts are off — turn them on in Scripts)" else "") +
                     (if (r.skipped.isNotEmpty()) " · skipped ${r.skipped.joinToString()}" else "") +
                     (if (r.review.isNotEmpty()) " · check these from the file: ${r.review.joinToString()}" else "") +
+                    (if (r.newer) " · this backup is from a newer Kolahal, so what this version doesn't know was skipped" else "") +
                     if (r.full) " — restarting to load it all" else ""
             )
             // A full restore replaced the preferences and tables, so every in-memory cache is now stale.

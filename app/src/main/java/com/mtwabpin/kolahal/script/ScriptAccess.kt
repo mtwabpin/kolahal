@@ -90,12 +90,29 @@ object ScriptAccess {
      * the user to set it. A value that was set for other sites than the ones the line names now must
      * be set again.
      */
+    /**
+     * Once per install: each switched-on script with a secret value from before 0.4.0 (stored without
+     * its sites) asks for it again ([askForSecrets]). Such a value is no longer used until then.
+     */
+    fun askForSecretsWithoutSites(context: Context) {
+        val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+        if (prefs.getBoolean(SECRET_SITES_ASKED, false)) return
+        val store = SecretStore(context)
+        com.mtwabpin.kolahal.data.ScriptRepository.get(context).all()
+            .filter { s -> s.enabled && ScriptMeta.secrets(s.code).any { store.withoutSites(s.name, it) } }
+            .forEach { askForSecrets(context, it) }
+        prefs.edit().putBoolean(SECRET_SITES_ASKED, true).apply()
+    }
+
+    private const val SECRET_SITES_ASKED = "secret_sites_asked"
+
     fun askForSecrets(context: Context, s: Script) {
         if (!s.enabled) return
         val store = SecretStore(context)
         for (d in ScriptMeta.secrets(s.code)) {
             if (store.isSet(s.name, d)) continue
-            val text = if (store.hostsChanged(s.name, d)) "${s.name} now sends ${d.name} to ${d.hosts.joinToString()} — tap to set it again"
+            val text = if (store.withoutSites(s.name, d)) "${s.name}: set ${d.name} again, so it goes only to ${d.hosts.joinToString()} — tap to set it"
+            else if (store.hostsChanged(s.name, d)) "${s.name} now sends ${d.name} to ${d.hosts.joinToString()} — tap to set it again"
             else "${s.name} needs ${d.name}" + (if (d.desc.isBlank()) "" else " (${d.desc})") + " — tap to set it"
             LogRepository.get(context).add(LogKind.INFO, text, s.name, LogContext.of(LogContext.RUN to "script secret ${s.name} ${d.name}"))
         }

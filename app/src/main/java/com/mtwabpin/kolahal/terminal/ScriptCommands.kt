@@ -311,6 +311,7 @@ class ScriptCommands(
                 out(
                     d.name.padEnd(16) + when {
                         store.isSet(s.name, d) -> StyledText.tag(StyledText.Colour.GOOD, "set")
+                        store.withoutSites(s.name, d) -> StyledText.tag(StyledText.Colour.WARN, "set it again")
                         store.hostsChanged(s.name, d) -> StyledText.tag(StyledText.Colour.WARN, "set for other sites")
                         else -> StyledText.tag(StyledText.Colour.MUTED, "not set")
                     },

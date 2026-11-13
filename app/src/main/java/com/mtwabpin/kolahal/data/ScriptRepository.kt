@@ -82,9 +82,15 @@ class ScriptRepository private constructor(private val context: Context) {
      *   `@uses` is allowed, because you wrote it. What an update left for you to decide stays undecided.
      * - Code from elsewhere (a library or shared-script update): what it newly declares stays off,
      *   `@on` events included, and a line offers to allow it.
+     * - What was allowed and the code no longer declares is forgotten. If a later version declares it
+     *   again, it is new again: allowed for your own code, asked for code from elsewhere. Before, an
+     *   update could drop a `@uses` line and a later one bring it back, allowed without a word. What
+     *   you switched off stays off.
      */
     fun saveCode(id: Long, code: String, byUser: Boolean = false) {
-        val s = byId(id) ?: return
+        val found = byId(id) ?: return
+        val declared = ScriptAccess.items(code).toSet()
+        val s = found.copy(access = found.access.filter { (item, on) -> !on || item in declared })
         val newUses = ScriptMeta.uses(code) - ScriptMeta.uses(s.code) - s.access.keys
         val newEvents = ScriptMeta.events(code) - ScriptMeta.events(s.code).toSet() - s.access.keys
         val newInternet = newInternet(s, code)
