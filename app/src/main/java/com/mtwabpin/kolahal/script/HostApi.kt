@@ -47,7 +47,7 @@ class HostApi(
     /** What the script declares and the user allows ([ScriptAccess]). Null for code typed at the prompt, which may use anything. */
     private val grants: ScriptAccess.Grants? = null,
     /** The script's `@secret` names and the values you set for them ([SecretStore]). Null for code typed at the prompt. */
-    private val secrets: Secrets? = null,
+    secrets: Secrets? = null,
     /** The line of the typed command that started this run. The run's lines are that command's output. */
     from: Long? = null,
     /** Its `@option`s with your values or their defaults ([ScriptOptions]). This is the `options` table. */
@@ -102,78 +102,20 @@ class HostApi(
         if (over) throw IllegalStateException("$scriptName has finished running")
     }
 
-    /**
-     * `secrets.get(name)`: returns a mark that stands for the value you set for a declared `@secret`
-     * name (nil until you set one). It never returns the value itself.
-     * - The script puts the mark where a request needs the value.
-     * - [httpRequest] replaces the mark with the value, but only for the sites the `@secret` line
-     *   names, and only over https.
-     * - The script never gets the value back from Kolahal. A mark can't be part of a site's name,
-     *   because the address lookup would carry the value in plain text, and its error would quote
-     *   it. Errors from a failed request are masked ([masked]). Only a site the line names could
-     *   send the value back.
-     * - The mark holds this run's [nonce], so it means nothing outside the run.
-     */
-    fun secretGet(name: String): String? {
-        val s = secrets ?: throw IllegalStateException("secrets.get only works in saved scripts")
-        if (s.declared.none { it.name == name }) {
-            throw IllegalStateException("secrets.get(\"$name\") needs `@secret $name <site> <description>` at the top of the script")
-        }
-        return if (s.values[name] != null) "__kolahal_secret_${name}_${nonce}__" else null
-    }
+    /** This run's secrets: their marks, where a mark becomes its value, and the masking ([RunSecrets]). */
+    private val runSecrets = RunSecrets(secrets)
 
-    private val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(12)
+    /** `secrets.get(name)`: a mark that stands for the value of a declared `@secret` name, never the value itself ([RunSecrets.mark]). */
+    fun secretGet(name: String): String? = runSecrets.mark(name)
 
-    /** This run's marks ([secretGet]). They use ASCII letters, digits and underscores, so URLs, JSON and headers carry them unchanged. */
-    private val marks = Regex("__kolahal_secret_([A-Za-z][A-Za-z0-9_]{0,39})_${nonce}__")
-
-    /**
-     * [text] with this run's marks replaced by their values, for a request to [url]'s host.
-     * This happens only for a site that the secret's `@secret` line names, only over https, and never
-     * with a mark in the site's name or its user name. Anything else stops the run.
-     */
-    internal fun fillSecrets(text: String, url: okhttp3.HttpUrl): String = marks.replace(text) { m ->
-        val name = m.groupValues[1]
-        val secret = secrets?.declared?.firstOrNull { it.name == name } ?: return@replace m.value
-        val value = secrets.values[name] ?: return@replace m.value
-        // `https://<mark>.api.example.com` ends in an allowed site, but the value would go to the
-        // address lookup in plain text, and the lookup's error would give it to the script.
-        if (listOf(url.host, url.username, url.password).any(marks::containsMatchIn)) {
-            throw java.io.IOException("$name can't be part of a site's name, only of its path, query, headers or body")
-        }
-        if (!secret.allows(url.host)) throw java.io.IOException("$name may only be sent to ${secret.hosts.joinToString()}, not ${url.host}")
-        if (!url.isHttps) throw java.io.IOException("$name may only be sent over https, not to http://${url.host}")
-        value
-    }
-
-    /**
-     * This script's secret values in every form a request or a line may carry them (as typed,
-     * URL-encoded, JSON-escaped), longest first. They are needed because a site could send one back.
-     * Values shorter than [SecretStore.MIN_LENGTH] can't be set.
-     */
-    private val secretForms: List<String> =
-        secrets?.values?.values.orEmpty().filter { it.length >= SecretStore.MIN_LENGTH }.flatMap(::forms).distinct().sortedByDescending { it.length }
+    /** [text] with this run's marks replaced by their values, for a request to [url]'s host, where that is allowed ([RunSecrets.fill]). */
+    internal fun fillSecrets(text: String, url: okhttp3.HttpUrl): String = runSecrets.fill(text, url)
 
     /** [text] with this script's secrets masked, both values and marks. So nothing a run shows ever shows a key. */
-    fun redact(text: String): String = secretForms.fold(marks.replace(text, "••••")) { t, v -> t.replace(v, "••••") }
+    fun redact(text: String): String = runSecrets.redact(text)
 
-    /**
-     * [e] as the script may see it: with this script's secrets masked in its message, or [e] itself
-     * when the message holds none. A request's error can quote an address or a header that contains
-     * a value (OkHttp names the header and value of a bad character), and the script reads the
-     * message. The cause is left out, because it would carry the value on.
-     */
-    fun masked(e: Throwable): Throwable {
-        if (e is kotlinx.coroutines.CancellationException) return e
-        val message = e.message ?: return e
-        val shown = redact(message)
-        if (shown == message) return e
-        return when (e) {
-            is java.io.IOException -> java.io.IOException(shown)
-            is IllegalArgumentException -> IllegalArgumentException(shown)
-            else -> IllegalStateException(shown)
-        }
-    }
+    /** [e] as the script may see it: with this script's secrets masked in its message ([RunSecrets.masked]). */
+    fun masked(e: Throwable): Throwable = runSecrets.masked(e)
 
     /**
      * Private data is only for scripts that declare it. If the script didn't declare it, that is a
@@ -223,82 +165,14 @@ class HostApi(
         (if (scriptId != null) mapOf(LogContext.SCRIPT to scriptName) else emptyMap()) +
             (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
 
-    // Script lines are batched: one transaction and one UI refresh per ~300 ms, instead of one per line.
-    private val pending = ArrayList<LogRepository.Pending>()
-    private var lastFlush = System.currentTimeMillis()
-
     /**
-     * The lines this run has logged, and their characters as stored. Past [MAX_LINES_PER_RUN] or
-     * [MAX_CHARS_PER_RUN], the rest are dropped with one note. Error lines count too.
+     * The run's lines on their way to the log ([RunLog]): batched, held to the run's limits
+     * ([MAX_LINES_PER_RUN], [MAX_CHARS_PER_RUN]), and open to `line.set` ([setLine]).
      */
-    private var lines = 0
-    private var chars = 0
-    private var full = false
-
-    /**
-     * A line this run logged, which the script can change with `line.set` ([setLine]): where it
-     * waits in [pending] ([slot], -1 once written), its id once written, its length as stored, and
-     * its text and context as last logged or set.
-     */
-    private class RunLine(var slot: Int, var length: Int, var text: String, var ctx: LogContext, var id: Long = 0)
-
-    /** The lines this run logged with `log` or `md.log`, in order. A script's line handle is its number here, from 1. */
-    private val runLines = ArrayList<RunLine>()
-    /** The line in [runLines] that each entry of [pending] is, if any. */
-    private val pendingLines = ArrayList<RunLine?>()
-    /** Changes to written lines, waiting for the next flush. */
-    private val changes = LinkedHashMap<RunLine, Pair<String, LogContext>>()
-    private var sets = 0
-
-    /** Returns the line's number for `line.set` (from 1) when it is a [LogKind.SCRIPT] line that will be logged, or 0. */
-    private fun buffer(kind: LogKind, text: String, ctx: LogContext): Int {
-        synchronized(pending) {
-            if (full || over) return 0
-            lines++
-            val size = stored(text, ctx)
-            chars += size
-            if (lines > MAX_LINES_PER_RUN || chars > MAX_CHARS_PER_RUN) {
-                stopLogging(if (lines > MAX_LINES_PER_RUN) "$MAX_LINES_PER_RUN lines" else "${MAX_CHARS_PER_RUN / 1024}K characters")
-                return 0
-            }
-            pending += LogRepository.Pending(kind, text, scriptName, ctx, System.currentTimeMillis())
-            val line = if (kind == LogKind.SCRIPT) RunLine(pending.size - 1, size, text, ctx).also { runLines += it } else null
-            pendingLines += line
-            val number = if (line != null) runLines.size else 0
-            if (pending.size >= 50 || System.currentTimeMillis() - lastFlush > 300) flushLocked()
-            return number
-        }
-    }
-
-    /** Past the run's limit of [what]: one line says so, and nothing more is logged or changed. Under the lock. */
-    private fun stopLogging(what: String) {
-        full = true
-        pending += LogRepository.Pending(LogKind.INFO, "More than $what in one run: the rest aren't logged", scriptName, LogContext(baseCtx), System.currentTimeMillis())
-        pendingLines += null
-    }
-
-    /** The characters a line takes as stored, as the run's limit counts them. */
-    private fun stored(text: String, ctx: LogContext) =
-        minOf(text.length, LogRepository.MAX_FIELD) + minOf(ctx.values.entries.sumOf { (k, v) -> k.length + v.length }, LogRepository.MAX_FIELD)
+    private val runLog = RunLog(scriptName, baseCtx, over = { over }, write = logs::addAll, change = { logs.updateAll(it) })
 
     /** Writes buffered lines, and the changes to lines already written. The worker calls this when the run ends (success or failure). */
-    fun flush() = synchronized(pending) { flushLocked() }
-
-    private fun flushLocked() {
-        // Null when the lines aren't written yet (a pipe's capture): those lines can't be changed later.
-        val ids = logs.addAll(pending.toList())
-        pendingLines.forEachIndexed { i, line ->
-            line ?: return@forEachIndexed
-            line.slot = -1
-            line.id = ids?.getOrNull(i) ?: 0
-        }
-        pending.clear()
-        pendingLines.clear()
-        // The changes of this flush in one write, and one notice to home.
-        logs.updateAll(changes.entries.filter { it.key.id > 0 }.associate { (line, change) -> line.id to change })
-        changes.clear()
-        lastFlush = System.currentTimeMillis()
-    }
+    fun flush() = runLog.flush()
 
     /**
      * `log(title, body?, ctx?)`: a bold title line, with [body] (any number of lines) muted under it.
@@ -307,7 +181,7 @@ class HostApi(
     fun log(raw: String, body: String? = null, ctx: Map<*, *>? = null): Int {
         effects++
         val (text, lineCtx) = lineOf(raw, body, ctx)
-        return buffer(LogKind.SCRIPT, text, lineCtx)
+        return runLog.add(LogKind.SCRIPT, text, lineCtx)
     }
 
     /** A script line's text and context, as [log] stores them: links checked ([safeLinks]), secrets masked, only the context a script may set. */
@@ -333,25 +207,9 @@ class HostApi(
      */
     fun setLine(number: Int, markdown: Boolean, raw: String, body: String? = null, ctx: Map<*, *>? = null) {
         live()
-        val line = runLines.getOrNull(number - 1) ?: throw IllegalArgumentException("line.set: not a line this run logged")
-        val (text, lineCtx) = if (markdown) lineOf(Markdown.inline(redact(raw)), body?.let { Markdown.block(redact(it)) }, ctx) else lineOf(raw, body, ctx)
-        synchronized(pending) {
-            // The same text again changes nothing, and doesn't count.
-            if (text == line.text && lineCtx == line.ctx) return
-            if (full || over || ++sets > MAX_SETS_PER_RUN) return
-            // Only what the line grew by counts toward the run's characters, and the run's limit holds here too.
-            val size = stored(text, lineCtx)
-            val grown = maxOf(0, size - line.length)
-            if (chars + grown > MAX_CHARS_PER_RUN) return stopLogging("${MAX_CHARS_PER_RUN / 1024}K characters")
-            chars += grown
-            line.text = text
-            line.ctx = lineCtx
-            line.length = size
-            when {
-                line.slot >= 0 -> pending[line.slot] = pending[line.slot].copy(text = text, ctx = lineCtx)
-                line.id > 0 -> changes[line] = text to lineCtx
-            }
-            if (System.currentTimeMillis() - lastFlush > 300) flushLocked()
+        // The line is found first, then its new text is checked (links, secrets), then it is changed ([RunLog.set]).
+        runLog.set(number) {
+            if (markdown) lineOf(Markdown.inline(redact(raw)), body?.let { Markdown.block(redact(it)) }, ctx) else lineOf(raw, body, ctx)
         }
     }
 
@@ -369,12 +227,12 @@ class HostApi(
      * - only web links (http and https), not upi:, tel:, intent: …;
      * - none with internet switched off for this script;
      * - like a request, none that carries a secret to a site other than those its `@secret` line
-     *   names, or over plain http. That stops the run ([checkSecrets]).
+     *   names, or over plain http. That stops the run ([RunSecrets.check]).
      * Null when the link may not be used. Used for links in text, a line's `url` and `image`, and a notification's link.
      */
     private fun safeWebUrl(link: String): String? {
         val web = Net.webUrl(link)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) } ?: return null
-        web.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(web), it.isHttps) }
+        web.toHttpUrlOrNull()?.let { runSecrets.check(it.host, listOf(web), it.isHttps) }
         return web
     }
 
@@ -454,7 +312,7 @@ class HostApi(
 
     /** `console.error`, and calls the launcher refuses. They count with the run's other lines. */
     fun logError(text: String) {
-        buffer(LogKind.ERROR, redact(text), LogContext(baseCtx))
+        runLog.add(LogKind.ERROR, redact(text), LogContext(baseCtx))
     }
 
     /** The watchdog's last line before it stops the process. It is written at once, whatever the run logged. */
@@ -543,10 +401,10 @@ class HostApi(
             .method(m, if (m != "GET" && m != "HEAD") reqBody else null)
             // Redirects too: every hop is checked, with what it carries, before it is sent.
             .tag(Net.HopCheck::class.java, Net.HopCheck { hop ->
-                checkSecrets(hop.url.host, listOf(hop.url.toString()) + hop.headers.map { it.second } + if (hop.body != null) listOf(realBody.orEmpty()) else emptyList(), hop.url.isHttps)
+                runSecrets.check(hop.url.host, listOf(hop.url.toString()) + hop.headers.map { it.second } + if (hop.body != null) listOf(realBody.orEmpty()) else emptyList(), hop.url.isHttps)
             })
             .build()
-        checkSecrets(request.url.host, listOf(request.url.toString(), realBody.orEmpty()) + h.values, request.url.isHttps)
+        runSecrets.check(request.url.host, listOf(request.url.toString(), realBody.orEmpty()) + h.values, request.url.isHttps)
         val call = client.newCall(request)
         // No longer than the time the run has left (the client's own limit is 30 s).
         call.timeout().timeout(minOf(remainingMs(), Net.CALL_TIMEOUT_MS), TimeUnit.MILLISECONDS)
@@ -558,39 +416,6 @@ class HostApi(
                 "headers" to resp.headers.associate { (k, v) -> k.lowercase() to v },
             )
         }
-    }
-
-    /**
-     * A secret goes only to the sites its `@secret` line names, and only over [https]. If a request
-     * carries it ([carried]: the URL, body and headers) anywhere else, or over plain http, the run
-     * stops. A script that holds the value (because its site sent it back) could still disguise it.
-     * So this protects against mistakes more than against a script written to leak.
-     */
-    private fun checkSecrets(host: String, carried: List<String>, https: Boolean) {
-        val s = secrets ?: return
-        for (secret in s.declared) {
-            val value = s.values[secret.name]?.takeIf { it.length >= SecretStore.MIN_LENGTH } ?: continue
-            val forms = forms(value)
-            if (carried.none { text -> forms.any { it in text } }) continue
-            if (!secret.allows(host)) throw java.io.IOException("${secret.name} may only be sent to ${secret.hosts.joinToString()}, not $host")
-            // A script must assume a hostile network, where plain http shows the value to anyone on the way.
-            if (!https) throw java.io.IOException("${secret.name} may only be sent over https, not to http://$host")
-        }
-    }
-
-    /** The forms a value can take in a URL, a body or a line: as typed, URL-encoded, and JSON-escaped (Lua's json.encode writes `\/`). */
-    private fun forms(value: String): Set<String> =
-        setOf(value, java.net.URLEncoder.encode(value, "UTF-8"), android.net.Uri.encode(value), value.replace("/", "\\/"))
-
-    /**
-     * A store key for [url] ([prefix] + the URL).
-     * - A URL that carries a secret is hashed, so the key never sits in the script's store, or in a backup.
-     * - A mark counts by its name, so the key is the same in every run.
-     */
-    private fun urlKey(prefix: String, url: String): String {
-        if (redact(url) == url) return prefix + url
-        val stable = marks.replace(url) { "\u0000" + it.groupValues[1] }
-        return prefix + "#" + java.security.MessageDigest.getInstance("SHA-256").digest(stable.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 
     fun httpGet(url: String, headers: Map<*, *>? = null) = httpRequest(url, headers = headers)
@@ -614,7 +439,7 @@ class HostApi(
 
     fun rssFresh(url: String): Map<String, Any?> {
         val feed = fetchFeed(url)
-        val key = urlKey("rss.seen:", url)
+        val key = runSecrets.urlKey("rss.seen:", url)
         // JavaScript runs host calls side by side, so two rss.fresh calls that finish together must not lose ids.
         val fresh = synchronized(pendingSeen) {
             // Ids are stored, and a store goes into backups. So a key in an item's link is masked, the same way in each run.
@@ -888,7 +713,7 @@ class HostApi(
 
     /** GET with a per-script cache. Returns the stored response if it is younger than [maxAgeSeconds]. */
     fun httpCached(url: String, maxAgeSeconds: Int): Map<String, Any?> {
-        val key = urlKey(HTTP_CACHE, url)
+        val key = runSecrets.urlKey(HTTP_CACHE, url)
         val cached = store.get(key)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
         val at = (cached?.get("at") as? Number)?.toLong() ?: 0L
         // A response cached before bodies holding a key were excluded is removed now, and not returned.
