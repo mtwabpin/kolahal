@@ -234,7 +234,7 @@ class AppCommands(
                 val ctx = if (logs.currentCause == null) appCtx(app) + mapOf(LogContext.APART to "1") else appCtx(app)
                 logs.addReplacing(LogKind.INFO, "Launched ${appLine(app)}", ctx)
             }
-            .onFailure { error("Can't launch ${app.label}: ${it.message ?: it.javaClass.simpleName}") }
+            .onFailure { error("Can't launch ${app.label}: ${it.reason()}") }
     }
 
     /** Turns the paused profile back on, waits until it is available, then opens [app]. */

@@ -456,12 +456,6 @@ class Completer(private val context: Context, private val data: Data) {
         }
     }
 
-    /**
-     * Returns `<head> <app>` completions.
-     * - If [only] is given, only apps that pass it are included.
-     * - The profile flag is added when the app exists in several profiles.
-     * - Apps outside the personal profile show their profile tag.
-     */
     /** True when [arg] has no app name yet (at most profile flags). */
     private fun noName(arg: String) = arg.replace(FLAGS, "").isBlank()
 
@@ -476,6 +470,12 @@ class Completer(private val context: Context, private val data: Data) {
         else -> appsRepo.search(arg).firstOrNull()
     }
 
+    /**
+     * Returns `<head> <app>` completions.
+     * - If [only] is given, only apps that pass it are included.
+     * - The profile flag is added when the app exists in several profiles.
+     * - Apps outside the personal profile show their profile tag.
+     */
     private fun appCompletions(head: String, arg: String, includeHidden: Boolean = false, only: ((AppEntry) -> Boolean)? = null): List<Suggestion> =
         appRows(head, appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden).filter { only == null || only(it) }.take(cap))
 

@@ -70,7 +70,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         val cause = logs.currentCause
         backgroundScope.launch {
             logs.withCause(cause) {
-                runCatching(block).onFailure { error("$label: ${it.message ?: it.javaClass.simpleName}") }
+                runCatching(block).onFailure { error("$label: ${it.reason()}") }
             }
         }
     }
@@ -202,7 +202,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 in PRODUCTIVITY -> productivity.run(name, rest)
                 else -> scriptCommands.runCommand(name, args) ?: fallbackLaunch(trimmed)
             }
-        }.onFailure { error("$name: ${it.message ?: it.javaClass.simpleName}") }
+        }.onFailure { error("$name: ${it.reason()}") }
     }
 
     // ---- aliases --------------------------------------------------------------------------

@@ -250,7 +250,7 @@ class ScriptActions(
                     }
                     else -> throw IllegalStateException("it has nothing to update from")
                 }
-            }.onSuccess { done += before }.onFailure { failed += "${now.name} (${it.message ?: it.javaClass.simpleName})" }
+            }.onSuccess { done += before }.onFailure { failed += "${now.name} (${it.reason()})" }
         }
         refreshScriptCaches()
         if (done.isEmpty() && failed.isEmpty()) return
@@ -387,7 +387,7 @@ class ScriptActions(
         _shared.value = _shared.value.copy(loading = true, error = null)
         scope.launch(Dispatchers.IO) {
             _shared.value = runCatching { SharedScripts(scriptCatalog.entries(refresh)) }.getOrElse {
-                SharedScripts(_shared.value.entries.ifEmpty { scriptCatalog.cached().orEmpty() }, error = it.message ?: it.javaClass.simpleName)
+                SharedScripts(_shared.value.entries.ifEmpty { scriptCatalog.cached().orEmpty() }, error = it.reason())
             }
         }
     }

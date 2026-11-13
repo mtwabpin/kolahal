@@ -176,7 +176,7 @@ internal class UpdateCommands(
             try {
                 report(parseRelease(Net.get(API_URL)), install)
             } catch (e: Exception) {
-                error("Update failed: ${e.message ?: e.javaClass.simpleName}", releaseLink)
+                error("Update failed: ${e.reason()}", releaseLink)
             } finally {
                 running.set(false)
             }

@@ -199,7 +199,7 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
             } catch (_: SecurityException) {
                 "Can't open $label: the app doesn't let other apps open it"
             } catch (e: RuntimeException) {
-                "Can't open $label: ${e.message ?: e.javaClass.simpleName}"
+                "Can't open $label: ${e.reason()}"
             }
         }
 

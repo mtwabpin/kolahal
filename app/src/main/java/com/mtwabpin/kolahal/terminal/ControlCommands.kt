@@ -198,7 +198,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                 ControlArgs.Level.Unmute -> audio.adjustStreamVolume(s, AudioManager.ADJUST_UNMUTE, flags)
                 ControlArgs.Level.Auto -> Unit
             }
-        }.onFailure { return error("Volume: ${it.message ?: it.javaClass.simpleName}") }
+        }.onFailure { return error("Volume: ${it.reason()}") }
         val (line, bar) = volumeLine()
         out(line, bar + mapOf(LogContext.COMMAND to "volume "))
     }
@@ -360,7 +360,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     private fun open(intent: Intent, what: String) {
         runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onSuccess { info("Opened $what") }
-            .onFailure { error("Can't open $what: ${it.message ?: it.javaClass.simpleName}") }
+            .onFailure { error("Can't open $what: ${it.reason()}") }
     }
 
     private fun wifiOn(): Boolean? = runCatching {
@@ -379,7 +379,6 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         null -> "?"
     }
 
-    /** Shows one line per toggle. A tap on a line toggles it, or opens its panel. */
     /** "on" and "off" as tags, in the good and muted colours, so a state reads at a glance. Anything else stays as it is. */
     private fun shown(value: String) = when {
         value == "on" || value.startsWith("on ") -> StyledText.tag(StyledText.Colour.GOOD, "on") + value.removePrefix("on")
@@ -387,6 +386,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         else -> value
     }
 
+    /** Shows one line per toggle. A tap on a line toggles it, or opens its panel. */
     private fun toggles() {
         fun row(name: String, value: String, run: String, hint: String, extra: Map<String, String> = emptyMap()) =
             out(name.padEnd(15) + shown(value), LogContext.of(LogContext.RUN to run, LogContext.DESC to hint) + LogContext.ALIGNED + extra)

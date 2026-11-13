@@ -34,8 +34,10 @@ object WorldClock {
         override fun toString() = "Place(name=$name, zone=$zone)"
     }
 
-    /** The output for one place: its name, and its time with how far ahead or behind it is. */
-    /** [detail] is [time], [day] (when it isn't today here) and [relative] together: `04:26 · 3h30 ahead`. */
+    /**
+     * The output for one place: its name, and its time with how far ahead or behind it is.
+     * [detail] is [time], [day] (when it isn't today here) and [relative] together: `04:26 · 3h30 ahead`.
+     */
     data class Line(val place: String, val detail: String, val time: String = "", val day: String = "", val relative: String = "")
 
     private val OFFSET = Regex("^([+-])(\\d{1,2})(?::(\\d{2}))?$")

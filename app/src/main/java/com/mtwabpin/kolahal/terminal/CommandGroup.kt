@@ -7,6 +7,9 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 
+/** What went wrong, for a line the user reads: the error's message, or the error's class name when it has none. */
+internal fun Throwable.reason(): String = message ?: javaClass.simpleName
+
 /** Base class for each group of commands. It gives them ways to print to the log and to start other screens. */
 abstract class CommandGroup(protected val context: Context) {
     protected val logs = LogRepository.get(context)
