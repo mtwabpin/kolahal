@@ -86,9 +86,11 @@ internal object ScriptRun {
         if (script != null && on != null && on in ScriptMeta.EVENTS && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false) &&
             (!script.grants.allows(on) || (on == "notification" && !script.grants.allows("notifications")))
         ) return true
-        // A pinned status line's refresh runs every few seconds while home shows it. So what stays the same
-        // isn't reported again: an error shows once until a run works, and a returned result isn't logged.
-        val refresh = script != null && on == ScriptScheduler.REFRESH && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
+        // A pinned status line's refresh runs every few seconds while home shows it, and a widget's run
+        // whenever its card is old. So what stays the same isn't reported again: an error shows once until
+        // a run works, and a returned result isn't logged.
+        val widgetRun = on == ScriptScheduler.WIDGET
+        val refresh = script != null && (on == ScriptScheduler.REFRESH || widgetRun) && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
         val refreshes = KvStore(ctx, Stores.WORKER)
         val refreshKey = "refresh-error:${script?.id}"
         val lastError = if (refresh) refreshes.get(refreshKey) else null
@@ -175,6 +177,8 @@ internal object ScriptRun {
             ScriptAccess.askToAllow(ctx, name, host.undecided.toList(), "needs permission for")
         }
         if (refresh && failed != lastError) refreshes.set(refreshKey, failed)
+        // The card says when its last run failed ("Failed 10:42"), and forgets it after one that works.
+        if (widgetRun && script != null) runCatching { com.mtwabpin.kolahal.widgets.WidgetStates.ran(ctx, name, failed) }
         script?.let {
             // If a refresh ended the same way as the last one, leave the script's row as it is. Writing it
             // every few seconds would make home read every script again.

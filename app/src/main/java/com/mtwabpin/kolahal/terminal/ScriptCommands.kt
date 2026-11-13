@@ -392,7 +392,7 @@ class ScriptCommands(
     /** `script access <name>`: lists each switch, whether it is on or off, and where it comes from. Tap one to change it. */
     private fun listAccess(s: Script) {
         val grants = s.grants
-        val items = ScriptAccess.items(s.code)
+        val items = ScriptAccess.switchable(s.code)
         if (items.isEmpty() && !ScriptMeta.postsNotifications(s.code)) {
             return info("${s.name}.${s.lang.ext} has no access switches: no internet, status line to pin, notifications, @uses or @on", scriptCtx(s))
         }
@@ -430,7 +430,10 @@ class ScriptCommands(
 
     /** `script allow|deny <name> <what…>`. `notify` is the notifications switch. */
     private fun setAccess(s: Script, items: List<String>, on: Boolean) {
-        val all = ScriptAccess.items(s.code)
+        val all = ScriptAccess.switchable(s.code)
+        if (ScriptAccess.WIDGET in items && ScriptAccess.WIDGET in ScriptAccess.items(s.code)) {
+            return error("${s.name}'s widget is on while it is placed: add or remove it on the widgets page")
+        }
         items.firstOrNull { it != "notify" && it !in all }?.let { item ->
             val has = all + listOfNotNull("notify".takeIf { ScriptMeta.postsNotifications(s.code) })
             return error(

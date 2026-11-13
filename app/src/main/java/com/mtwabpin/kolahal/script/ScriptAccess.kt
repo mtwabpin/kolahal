@@ -51,6 +51,13 @@ object ScriptAccess {
     /** Everything a script with [code] can be switched for, in display order. Only what it uses is included. */
     fun items(code: String): List<String> = base(code) + ScriptMeta.uses(code) + ScriptMeta.events(code)
 
+    /**
+     * The items a user switches by hand: the script's sheet and card, `script access` and
+     * `script allow|deny`. [WIDGET] isn't one: placing the widget turns it on, and removing it turns
+     * it off ([com.mtwabpin.kolahal.widgets.WidgetHost.placeScript]).
+     */
+    fun switchable(code: String): List<String> = items(code) - WIDGET
+
     fun label(item: String): String = when (item) {
         INTERNET -> "Internet"
         HEADER -> "Pinned at the top"

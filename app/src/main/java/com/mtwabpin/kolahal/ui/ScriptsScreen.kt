@@ -121,8 +121,8 @@ internal class ScriptCode(code: String, name: String) {
     val notifies = ScriptMeta.postsNotifications(code)
     /** Whether it uses the internet and a status line ([ScriptAccess.base]). */
     val base = ScriptAccess.base(code).toSet()
-    /** The items its sheet and expanded card list: first its access, then its events ([ScriptAccess.items]). */
-    val accessItems = ScriptAccess.items(code)
+    /** The items its sheet and expanded card list: first its access, then its events ([ScriptAccess.switchable]). */
+    val accessItems = ScriptAccess.switchable(code)
     /** `@version`. Only the script's sheet shows it, so it is read when the sheet first asks. */
     val version by lazy { ScriptMeta.version(code) }
 }

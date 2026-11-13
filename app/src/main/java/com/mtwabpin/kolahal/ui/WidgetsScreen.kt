@@ -331,29 +331,15 @@ private fun WidgetCard(
         modifier = Modifier.fillMaxWidth().semantics { this.selected = selected },
     ) {
         Box {
-            // A widget Kolahal draws itself has no hosted view. Here it is a box of its size with its name: a tap selects it.
+            // A widget Kolahal draws itself shows its real card here, without taps of its own: a tap
+            // anywhere on it selects it, as on an app's widget.
             if (w.source != null) {
-                Box(
-                    Modifier.fillMaxWidth().height(w.heightDp.dp).clickable(onClickLabel = "change $label", onClick = onSelect),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp)) {
-                        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            when {
-                                WidgetSource.scriptName(w.source) != null -> "Script widget"
-                                w.provider.startsWith(WidgetSource.STATUS) -> "Status card"
-                                else -> "Kolahal widget"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                Box(Modifier.fillMaxWidth().height(w.heightDp.dp)) {
+                    SourceWidget(w, w.heightDp.dp, actions = null)
+                    Box(Modifier.matchParentSize().clickable(onClickLabel = "change $label", onClick = onSelect))
                 }
             }
-            HostedWidget(w, w.heightDp.dp, pausedKind, onSelect) { why ->
+            if (w.source == null) HostedWidget(w, w.heightDp.dp, pausedKind, onSelect) { why ->
                 Box(
                     Modifier.fillMaxWidth().height(w.heightDp.dp).alpha(0.6f),
                     contentAlignment = Alignment.Center,

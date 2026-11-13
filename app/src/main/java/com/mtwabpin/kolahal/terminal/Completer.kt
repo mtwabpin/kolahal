@@ -396,7 +396,7 @@ class Completer(private val context: Context, private val data: Data) {
                         // What can be switched: its access items, and `notify` if it posts notifications. Each is offered once.
                         val s = scriptList.firstOrNull { it.name == parts[2] }
                         val given = parts.subList(3, parts.size - 1)
-                        (s?.let { ScriptAccess.items(it.code) + listOfNotNull("notify".takeIf { _ -> ScriptMeta.postsNotifications(it.code) }) }).orEmpty()
+                        (s?.let { ScriptAccess.switchable(it.code) + listOfNotNull("notify".takeIf { _ -> ScriptMeta.postsNotifications(it.code) }) }).orEmpty()
                             .filter { it.starts(last) && it !in given }
                             .map { Suggestion.Completion(it, (parts.dropLast(1) + it).joinToString(" ") + " ") }
                     } else emptyList()
