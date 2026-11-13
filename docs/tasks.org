@@ -77,38 +77,6 @@ lint. Nothing was run on a device, so all times are estimates. Line numbers are 
 ** Fix first
 ** Security
 ** Architecture
-*** TODO [#B] Command facts live in about 16 lists in 9 files
-=terminal/CommandCatalog.kt= (=COMMANDS=, =HELP_SECTIONS=, =FEATURE_COMMANDS=, =PRODUCTIVITY=),
-=terminal/InstantRun.kt:20-140= (=SYNONYMS=, sensitive names), the =when= in
-=terminal/CommandProcessor.kt:119-188=, =terminal/AppCommands.kt:364=,
-=control/ControlCommands.kt:491-509=, =terminal/Completer.kt:232=, =:610=, =:616=,
-=terminal/Pipes.kt= (=KEEP_WORDS=), =script/HostApi.kt:937= (=WEB_COMMANDS=),
-=data/FullBackup.kt:258=, =terminal/TerminalViewModel.kt:79=, =terminal/Tips.kt=.
-
-- =isSensitive= and =CommandsOff.isOff= check =canonical(head)=; dispatch checks the raw word
-  against =when= labels. Both guards fail open: a name in neither list can be instant-run and
-  script-run.
-- Example: add ="clear", "cls", "wipe"= to the =when= and forget =SYNONYMS=. Then
-  =launcher.run("wipe all")= from a script passes both sensitivity checks and deletes the log.
-- =ReservedNamesTest= pins only the three group =NAMES= sets. Nothing pins the 70 labels in
-  =execute=.
-- No drift today (96 specs, 26 synonyms, 122 dispatch labels cross-checked) /(unchecked)/. One small
-  case: the ="vol"= row in =ControlCommands.ARGS= is dead, because =Completer.kt:387= passes the
-  canonical name.
-- =commands.off= needed 12 call sites in 5 files. Adding a command needs 3 edits plus up to 8 lists;
-  =docs/developing.org= names 5.
-
-Steps:
-1. Done in 0.5.6: =DispatchNamesTest= reads the =when= labels from the source and checks them
-   against the catalog and =SYNONYMS=, so the guards can no longer fail open unseen.
-2. Done in 0.5.7: each =CommandSpec= has its other names (=aka=) and =sensitive=; =SYNONYMS= and
-   =SENSITIVE= are derived from them. (=section= and =feature= stayed as they are: =help= keeps its
-   order, and only four commands are left out of the Play build.)
-3. Replace the =when= with a map of handlers checked against the specs. About a day. Blockers:
-   handlers take different arguments; three branches depend on which synonym was typed or fall
-   through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
-   =BuildConfig.SELF_UPDATE= for R8 (=:138=).
-
 *** TODO [#C] The log's view markers live in the =logs= prefs, beside the table
 =data/Stores.kt= now names every prefs file and kv scope with where it travels, and =StoresTest= checks
 it against the backup XML files (done in 0.5.7). Left: the log's view markers (cleared, hidden, seen)
@@ -132,15 +100,6 @@ Model may read. Left: 5 files in =terminal/= use names defined in =ui/= (=TermFo
 =HeaderTarget=, =KeyBarKey=, =PinnedTurns=, =WallpaperMatch=, =crashReportShare=). Moving those names
 beside the code that uses them is about half a day.
 
-*** TODO [#C] Per-command context rides on thread-locals
-=data/LogRepository.kt:103=, =:135=, =:157=, =script/ScriptScheduler.kt:256-272=,
-=terminal/CommandProcessor.kt:60-67=: cause, batch, capture and =byScript= are thread-locals;
-=background()= copies only =cause=. A handler that becomes =suspend=, or starts a script inside
-=background {}=, loses the "sent by a script" mark with no error. No handler does today.
-
-Fix: pass an explicit invocation object, once step 3 of the command-facts task exists. Waits for that
-decision.
-
 ** In good shape: keep as it is
 - Self-update: checks the package, the version, a higher version code, and that the signers match
   the installed ones and the pinned certificate. The FileProvider covers only =cache/updates/=.
@@ -155,3 +114,9 @@ decision.
 - =Keys= / =Config=: one typed list drives Settings, =config=, completion and backups.
 - =tools/check-play-build.sh= runs in CI on every push and checks what Play cares about.
 - No =GlobalScope=, no =runBlocking=; singletons hold the application context.
+- Commands (decided 13 November 2026): the =when= in =CommandProcessor= stays. Each =CommandSpec=
+  holds its other names and whether it is sensitive, and =DispatchNamesTest= checks the =when= labels
+  against the catalog, so the guards can't fail open unseen. A map of handlers would cost a day for
+  little more.
+- Per-command context (cause, batch, capture, =byScript=) stays on thread-locals: no handler is
+  =suspend= or starts a script inside =background {}=. A handler that does must pass the context on.
