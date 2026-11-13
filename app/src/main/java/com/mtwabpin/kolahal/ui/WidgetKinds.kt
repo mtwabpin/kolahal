@@ -25,9 +25,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,11 +46,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -253,6 +260,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Text -> TextBody(spec, box)
         is WidgetSpec.Rows -> RowsBody(spec, onTap)
         is WidgetSpec.Progress -> ProgressBody(spec, box)
+        is WidgetSpec.Countdown -> CountdownBody(spec, box)
         else -> PlainBody(spec, box)
     }
 }
@@ -581,6 +589,51 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
                 }
             }
         }
+    }
+}
+
+/**
+ * `countdown`: the time to a moment, or since it. Kolahal does the ticking: the script gave the
+ * moment once, and no run is needed as time passes.
+ * - The time moves by the minute, with the header's clock ([rememberNow]).
+ * - It moves by the second only while the text shows seconds and the page is in view.
+ * - With a start (`from`), a bar runs from the start to the moment, as a wave until the moment
+ *   comes. In a wide box the bar takes the label's place. A small box has no bar.
+ */
+@Composable
+private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
+    val (minute, zoneChanges) = rememberNow()
+    val zone = remember(zoneChanges) { ZoneId.systemDefault() }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
+    // The minute's tick. It also comes when home is back on screen, and when the clock is set.
+    LaunchedEffect(minute) { now = System.currentTimeMillis() / 1000 }
+    val count = WidgetWords.countdown(spec.to, now, spec.style, spec.reached, zone)
+    if (count.ticks && LocalWidgetsShown.current) {
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        LaunchedEffect(lifecycle) {
+            // Only while home is on screen.
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val ms = System.currentTimeMillis()
+                    now = ms / 1000
+                    // Wake when the next second starts.
+                    delay(1000 - ms % 1000)
+                }
+            }
+        }
+    }
+    val small = box == WidgetSizes.Box.SMALL
+    val bar = if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now)
+    Column(
+        Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        BigText(count.text, valueStyle(box))
+        if (bar == null || box == WidgetSizes.Box.LARGE) spec.label?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (bar != null) LevelBar(bar, moving = now < spec.to, roleColour(spec.base), Modifier.padding(top = 4.dp))
     }
 }
 
