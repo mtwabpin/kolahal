@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.terminal.Screen
@@ -146,7 +145,7 @@ fun WidgetPanel(vm: TerminalViewModel) {
     val widgets = remember { WidgetHost.get(context) }
     val all by widgets.widgets.collectAsStateWithLifecycle()
     val panel = remember(all) { WidgetOrder.inLocation(all, WidgetLocation.PANEL) }
-    val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
+    val profiles by vm.profiles.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
     // When home opens on this page (widgets.start), it has no title row.

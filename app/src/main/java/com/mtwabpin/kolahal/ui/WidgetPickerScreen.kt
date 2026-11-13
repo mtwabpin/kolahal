@@ -56,7 +56,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
@@ -124,7 +123,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
-    val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
+    val profiles by vm.profiles.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
     val iconPx = with(LocalDensity.current) { 40.dp.roundToPx() }

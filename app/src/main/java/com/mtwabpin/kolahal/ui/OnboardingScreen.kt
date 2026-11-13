@@ -203,6 +203,13 @@ private fun Choices(vm: TerminalViewModel, key: ConfigKey<*>, choices: List<Pair
     ConnectedChoices(choices.map { it.first }, selected) { label -> vm.setConfig(key, choices.first { it.first == label }.second) }
 }
 
+/** A switch for the on/off setting [key]: [title], and [help] under it. It follows the setting, and a tap changes it. */
+@Composable
+private fun ConfigSwitch(vm: TerminalViewModel, key: ConfigKey<Boolean>, title: String, help: String) {
+    val version by vm.config.version.collectAsStateWithLifecycle()
+    SwitchRow(title, help, remember(version, key) { vm.config[key] }) { vm.setConfig(key, if (it) "on" else "off") }
+}
+
 @Composable
 private fun Welcome() = Page("") {
     Text("Kolahal", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 8.dp))
@@ -287,28 +294,15 @@ private fun Look(vm: TerminalViewModel) {
         Setting("Clock", "In the header and the log.") {
             Choices(vm, Keys.CLOCK_24H, listOf("12-hour" to "off", "24-hour" to "on"))
         }
-        SwitchRow(
-            "Header",
-            "The time, the date, the battery and what else you choose, in a line at the top of home",
-            remember(version) { vm.config[Keys.HEADER_SHOW] },
-        ) { vm.setConfig(Keys.HEADER_SHOW, if (it) "on" else "off") }
+        ConfigSwitch(vm, Keys.HEADER_SHOW, "Header", "The time, the date, the battery and what else you choose, in a line at the top of home")
     }
 }
 
 @Composable
 private fun Keyboard(vm: TerminalViewModel) {
-    val version by vm.config.version.collectAsStateWithLifecycle()
     Page("Above the keyboard", preview = { KeyboardPreview(vm) }) {
-        SwitchRow(
-            "Key bar",
-            "History, arrows and a few symbols under the prompt, for keys the keyboard lacks",
-            remember(version) { vm.config[Keys.KEYBAR_SHOW] },
-        ) { vm.setConfig(Keys.KEYBAR_SHOW, if (it) "on" else "off") }
-        SwitchRow(
-            "Most-used apps",
-            "Your most-used apps above an empty prompt, a tap away",
-            remember(version) { vm.config[Keys.SUGGEST_IDLE] },
-        ) { vm.setConfig(Keys.SUGGEST_IDLE, if (it) "on" else "off") }
+        ConfigSwitch(vm, Keys.KEYBAR_SHOW, "Key bar", "History, arrows and a few symbols under the prompt, for keys the keyboard lacks")
+        ConfigSwitch(vm, Keys.SUGGEST_IDLE, "Most-used apps", "Your most-used apps above an empty prompt, a tap away")
     }
 }
 

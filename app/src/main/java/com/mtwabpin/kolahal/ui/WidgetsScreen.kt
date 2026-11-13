@@ -64,7 +64,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
@@ -114,7 +113,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     val widgets = remember { WidgetHost.get(context) }
     val all by widgets.widgets.collectAsStateWithLifecycle()
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
-    val profiles by remember { AppRepository.get(context).profiles }.collectAsStateWithLifecycle()
+    val profiles by vm.profiles.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
     // With widgets.page off, no page next to the terminal shows the widgets, so this screen says so.
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }

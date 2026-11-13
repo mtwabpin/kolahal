@@ -179,6 +179,13 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     // Read through updated state, so a keyboard attached later (configChanges=keyboard) is seen.
     val currentKeyboard by rememberUpdatedState(keyboard)
     val currentHasHardwareKeyboard by rememberUpdatedState(hasHardwareKeyboard)
+    // Puts the focus in the prompt and brings up the on-screen keyboard. It reads the keyboard
+    // through the updated state above: the effect below starts once and must call the current one.
+    // With [show] false, only the focus moves. The effect passes that when a hardware keyboard is attached.
+    fun focusPrompt(show: Boolean = true) {
+        runCatching { focus.requestFocus() }
+        if (show) currentKeyboard?.show()
+    }
     if (preview == null) LaunchedEffect(Unit) {
         // Home was pressed on another page: scroll and focus now that the terminal is shown.
         // Scrolls are requested for the list's next layout, never forced inside this one.
@@ -188,8 +195,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             listState.requestScrollToItem(0)
             if (a.focus) {
                 androidx.compose.runtime.withFrameNanos { } // the prompt's focus target is attached after the first frame
-                runCatching { focus.requestFocus() }
-                if (!currentHasHardwareKeyboard) currentKeyboard?.show()
+                focusPrompt(show = !currentHasHardwareKeyboard)
             }
         }
         vm.events.collect { e ->
@@ -200,10 +206,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 UiEvent.PickFont, UiEvent.PickBackupFolder, UiEvent.PickScriptFolder,
                 UiEvent.ExportBackup, UiEvent.ImportBackup, UiEvent.ImportScripts, is UiEvent.ExportScript -> Unit
                 UiEvent.ShowQuick -> Unit // opened by the collector below, where the menu lives
-                UiEvent.FocusPrompt -> {
-                    runCatching { focus.requestFocus() }
-                    if (!currentHasHardwareKeyboard) currentKeyboard?.show()
-                }
+                UiEvent.FocusPrompt -> focusPrompt(show = !currentHasHardwareKeyboard)
                 UiEvent.HideKeyboard -> currentKeyboard?.hide()
             }
         }
@@ -297,6 +300,9 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     fun showMenu(title: String, id: Long?, url: String? = null, detail: String? = null, build: () -> List<LogAction>) {
         menuScope.launch { menu = ActionMenu(title, kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { build() }, id, url = url, detail = detail) }
     }
+    // A long-press on an app opens its menu, wherever the app shows: in a line, in the search
+    // results, in the selector and in the suggestions.
+    val onAppLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit = { app -> showMenu(app.label, null) { vm.appActions(app) } }
     val clock24 = remember(configVersion) { config[Keys.CLOCK_24H] }
     if (preview == null) LaunchedEffect(Unit) {
         vm.events.collect { if (it == UiEvent.ShowQuick) menu = ActionMenu("Quick actions", vm.quickActions(), null, systemFont = true) }
@@ -414,7 +420,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onOpen = vm::showInLog,
             onLongPress = { e -> showMenu(com.mtwabpin.kolahal.data.StyledText.plain(e.text), e.id, e.ctx.url, com.mtwabpin.kolahal.terminal.lineDetail(e, clock24)) { vm.actionsFor(e) } },
             onAppTap = vm::launchApp,
-            onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
+            onAppLongPress = onAppLongPress,
             onSwipeCopy = vm::swipeCopy,
             onSwipeDelete = vm::swipeDelete,
             modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 1f - vm.selectorFade.floatValue },
@@ -433,10 +439,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 .pointerInput(doubleTapOn) {
                     detectTapGestures(
                         onDoubleTap = if (doubleTapOn) { _ -> vm.onGesture(Keys.GESTURE_DOUBLE_TAP) } else null,
-                    ) {
-                        runCatching { focus.requestFocus() }
-                        keyboard?.show()
-                    }
+                    ) { focusPrompt() }
                 },
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
         ) {
@@ -473,7 +476,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                         onTap = vm::onTap,
                         onLongPress = { e -> showMenu(com.mtwabpin.kolahal.data.StyledText.plain(e.text), e.id, e.ctx.url, com.mtwabpin.kolahal.terminal.lineDetail(e, clock24)) { vm.actionsFor(e) } },
                         onAppTap = vm::launchApp,
-                        onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
+                        onAppLongPress = onAppLongPress,
                         onSwipeCopy = vm::swipeCopy,
                         onSwipeDelete = vm::swipeDelete,
                         onAction = vm::runLineAction,
@@ -536,7 +539,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
         HomeAppSelector(
             vm,
-            onLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
+            onLongPress = onAppLongPress,
             // While its row-height slider in Settings is dragged, open the list so its rows are visible.
             showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
             fade = if (preview == null) vm.selectorFade else null,
@@ -569,7 +572,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             previewTyping = preview?.typing == true,
             always = !suggestionsAuto || typing,
             configVersion = configVersion,
-            onAppLongPress = { app -> showMenu(app.label, null) { vm.appActions(app) } },
+            onAppLongPress = onAppLongPress,
         )
         // [/selector]
         }
@@ -607,15 +610,9 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onToggleKeyBar = {
                 config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
                 // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
-                if (!keyBarOn && keyBarAuto && !typing) {
-                    runCatching { focus.requestFocus() }
-                    keyboard?.show()
-                }
+                if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
             },
-            onTapPrompt = {
-                runCatching { focus.requestFocus() }
-                keyboard?.show()
-            },
+            onTapPrompt = { focusPrompt() },
         )
         // Below the prompt, so it sits on the keyboard like an extra row of keys, and the best
         // suggestion stays right above the typed text. It slides up into place and back down, like
@@ -631,12 +628,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 specs = remember(configVersion) { listOf(config[Keys.KEYBAR], config[Keys.KEYBAR2]) },
                 rowHeight = remember(configVersion) { config[Keys.KEYBAR_HEIGHT].dp },
                 onKey = { key ->
-                    if (key == KeyBarKey.KBD) {
-                        runCatching { focus.requestFocus() }
-                        keyboard?.show()
-                    } else {
-                        vm.onKeyBar(key)
-                    }
+                    if (key == KeyBarKey.KBD) focusPrompt() else vm.onKeyBar(key)
                 },
                 onText = vm::insert,
             )
