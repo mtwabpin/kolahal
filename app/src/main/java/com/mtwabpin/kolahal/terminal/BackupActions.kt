@@ -43,13 +43,7 @@ class BackupActions(
             // A full restore replaced the preferences and tables, so every in-memory cache is now stale.
             // Restart the app to load everything again.
             if (r.full) {
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    context.startActivity(
-                        Intent(context, com.mtwabpin.kolahal.MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    )
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                }, 2_000)
+                com.mtwabpin.kolahal.LauncherApp.restart(context, afterMs = 2_000)
             }
         }
     }

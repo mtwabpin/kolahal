@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.work.Data
 import androidx.work.WorkerParameters
@@ -88,7 +89,7 @@ internal object ScriptRun {
         // A pinned status line's refresh runs every few seconds while home shows it. So what stays the same
         // isn't reported again: an error shows once until a run works, and a returned result isn't logged.
         val refresh = script != null && on == ScriptScheduler.REFRESH && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
-        val refreshes = KvStore(ctx, "worker")
+        val refreshes = KvStore(ctx, Stores.WORKER)
         val refreshKey = "refresh-error:${script?.id}"
         val lastError = if (refresh) refreshes.get(refreshKey) else null
         var failed: String? = null
@@ -195,7 +196,7 @@ internal object ScriptRun {
 
     /** Logs one "tap to allow" line per day ([key] tells the kinds apart), instead of one per blocked call. */
     private fun reportBlocked(context: Context, logs: LogRepository, name: String, key: String, what: String, fix: String) {
-        val store = KvStore(context, "worker")
+        val store = KvStore(context, Stores.WORKER)
         val today = java.time.LocalDate.now().toString()
         if (store.get(key) == today) return
         store.set(key, today)

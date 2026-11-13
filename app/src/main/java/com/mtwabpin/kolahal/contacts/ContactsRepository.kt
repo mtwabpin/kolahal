@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.contacts
 
+import com.mtwabpin.kolahal.data.Stores
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -86,7 +87,7 @@ class ContactsRepository private constructor(private val context: Context) {
     var picker = !BuildConfig.CONTACTS
         internal set(value) { field = value; _contacts.value = emptyList(); refresh() }
 
-    private val prefs by lazy { context.getSharedPreferences(PICKED, Context.MODE_PRIVATE) }
+    private val prefs by lazy { Stores.PICKED_CONTACTS.open(context) }
 
     fun hasPermission() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
         PackageManager.PERMISSION_GRANTED
@@ -240,8 +241,6 @@ class ContactsRepository private constructor(private val context: Context) {
 
     companion object : Singleton<ContactsRepository>(::ContactsRepository) {
         private const val RELOAD_DEBOUNCE_MS = 1_000L
-        /** Prefs file for picked contacts. Cloud backups leave it out (data_extraction_rules.xml). */
-        private const val PICKED = "picked_contacts"
         private const val KEY_PICKED = "list"
         private const val MAX_PICKED = 200
 

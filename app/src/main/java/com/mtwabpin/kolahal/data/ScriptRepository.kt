@@ -298,7 +298,7 @@ class ScriptRepository private constructor(private val context: Context) {
          */
         const val STATUS_MAX = 200
 
-        fun scopeOf(scriptId: Long) = "script:$scriptId"
+        fun scopeOf(scriptId: Long) = Stores.SCRIPT_PREFIX + scriptId
 
         /** Incremented on every write in this process. Caches compare it to know when to reload. */
         val version = java.util.concurrent.atomic.AtomicLong()

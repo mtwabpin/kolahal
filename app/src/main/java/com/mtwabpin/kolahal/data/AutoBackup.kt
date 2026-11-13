@@ -19,13 +19,12 @@ import java.util.concurrent.TimeUnit
  * written on the same day replaces that day's file.
  */
 object AutoBackup {
-    private const val PREFS = "auto_backup"
     private const val KEY_FOLDER = "folder"
     private const val KEY_LAST = "last"
     private const val WORK = "auto-backup"
     private val NAME = Regex("""^kolahal-backup-\d{4}-\d{2}-\d{2}\.json$""")
 
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = Stores.AUTO_BACKUP.open(context)
 
     fun folder(context: Context): Uri? = prefs(context).getString(KEY_FOLDER, null)?.let(Uri::parse)
 

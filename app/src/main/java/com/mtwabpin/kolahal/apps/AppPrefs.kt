@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.apps
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.Singleton
@@ -18,14 +19,14 @@ import kotlin.math.exp
  * It also stores command aliases.
  */
 class AppPrefs private constructor(context: Context) {
-    private val apps = context.getSharedPreferences("apps", Context.MODE_PRIVATE)
-    private val aliasPrefs = context.getSharedPreferences("aliases", Context.MODE_PRIVATE)
+    private val apps = Stores.APPS.open(context)
+    private val aliasPrefs = Stores.ALIASES.open(context)
     /**
      * Launch counts and times. They have their own file, so Android's cloud backup can leave them out
      * (data_extraction_rules.xml) but still back up pins, labels and hidden apps. They are moved out
      * of "apps" once.
      */
-    private val usage = context.getSharedPreferences(USAGE_FILE, Context.MODE_PRIVATE).also { u ->
+    private val usage = Stores.APP_USAGE.open(context).also { u ->
         val old = apps.all.filterKeys { it.startsWith("launch:") }
         if (old.isNotEmpty()) {
             u.edit { old.forEach { (k, v) -> putString(k, v as? String) } }
@@ -75,11 +76,11 @@ class AppPrefs private constructor(context: Context) {
     // ---- favourites ------------------------------------------------------------------------
 
     /** Pinned app keys in the user's order. They show first in the idle suggestion strip. */
-    fun pinned(): List<String> = apps.getString("pinned", null)?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
+    fun pinned(): List<String> = parsePinned(apps.getString(PINNED, null))
 
     fun setPinned(key: String, pinned: Boolean) {
         val list = pinned().filter { it != key }.let { if (pinned) it + key else it }
-        apps.edit { putString("pinned", list.joinToString("\n")) }
+        apps.edit { putString(PINNED, formatPinned(list)) }
         _version.update { it + 1 }
     }
 
@@ -145,7 +146,13 @@ class AppPrefs private constructor(context: Context) {
     }
 
     companion object : Singleton<AppPrefs>(::AppPrefs, mainOnly = true) {
-        const val USAGE_FILE = "app_usage"
+        /** The key of the pinned apps in the "apps" file: their keys, one per line, in order. */
+        const val PINNED = "pinned"
+
+        fun parsePinned(raw: String?): List<String> = raw?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
+
+        fun formatPinned(keys: List<String>): String = keys.joinToString("\n")
+
         private const val LN2 = 0.6931471805599453
         private const val HALF_LIFE_DAYS = 7.0
 

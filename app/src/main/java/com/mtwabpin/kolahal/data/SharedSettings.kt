@@ -8,7 +8,7 @@ import android.content.Context
  * read, whenever they change ([com.mtwabpin.kolahal.LauncherApp]).
  */
 object SharedSettings {
-    const val SCOPE = "shared-settings"
+    const val SCOPE = Stores.SHARED_SETTINGS
 
     fun <T> get(context: Context, key: ConfigKey<T>): T =
         KvStore(context, SCOPE).get(key.key)?.let { key.parse(it) } ?: key.default

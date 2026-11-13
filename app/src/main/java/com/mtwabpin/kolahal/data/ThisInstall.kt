@@ -22,7 +22,7 @@ import java.util.UUID
  */
 object ThisInstall {
     /** The kv scope of the database's copy of the id. It never goes into a backup. */
-    const val SCOPE = "install"
+    const val SCOPE = Stores.INSTALL
     private const val KEY = "id"
     private const val FILE = "install-id"
 

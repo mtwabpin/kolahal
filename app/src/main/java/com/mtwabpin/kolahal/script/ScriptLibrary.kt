@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.BuildConfig
@@ -148,10 +149,10 @@ class ScriptLibrary(private val context: Context) {
         return updated
     }
 
-    private val prefs by lazy { context.getSharedPreferences("script_library", Context.MODE_PRIVATE) }
+    private val prefs by lazy { Stores.SCRIPT_LIBRARY.open(context) }
 
     /** The note about copies Kolahal updated by itself. It is about this phone, so it stays out of backups (unlike [prefs]). */
-    private val notePrefs by lazy { context.getSharedPreferences(NOTE_PREFS, Context.MODE_PRIVATE) }
+    private val notePrefs by lazy { Stores.LIBRARY_UPDATES.open(context) }
 
     private fun installedOriginal(name: String): String? = prefs.getString("installed:$name", null)
 
@@ -196,8 +197,6 @@ class ScriptLibrary(private val context: Context) {
         /** Every version of each library file ([shipped]). */
         const val HISTORY = "library-history.txt"
 
-        /** The prefs file and keys of the copies Kolahal updated by itself, and its version then ([selfUpdate]). */
-        const val NOTE_PREFS = "library_updates"
         const val SELF_UPDATED = "self_updated"
         const val SELF_UPDATED_IN = "self_updated_in"
 

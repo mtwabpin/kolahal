@@ -145,7 +145,7 @@ class SecretStore(private val context: Context) {
         }
 
         /** Kv scopes that hold secrets start with this. Backups skip them. */
-        const val SCOPE_PREFIX = "secret:"
+        const val SCOPE_PREFIX = com.mtwabpin.kolahal.data.Stores.SECRET_PREFIX
         fun scope(script: String) = SCOPE_PREFIX + script
 
         /** Shorter values can't be told apart from ordinary text, so they couldn't be kept out of the log. */

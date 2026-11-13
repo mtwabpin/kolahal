@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
@@ -103,7 +104,7 @@ object CrashReports {
      */
     @Synchronized
     fun announce(context: Context) {
-        val prefs = context.getSharedPreferences(DIR, Context.MODE_PRIVATE)
+        val prefs = Stores.CRASH.open(context)
         if (Build.VERSION.SDK_INT >= 30) runCatching { collectExits(context, prefs) }
         val reports = list(context)
         val announced = prefs.getStringSet("announced", null).orEmpty()

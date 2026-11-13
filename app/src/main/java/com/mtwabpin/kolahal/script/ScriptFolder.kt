@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -16,7 +17,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
  * - Timers and flags go to `kolahal.json` in the same folder.
  */
 class ScriptFolder(private val context: Context) {
-    private val prefs = context.getSharedPreferences("script_folder", Context.MODE_PRIVATE)
+    private val prefs = Stores.SCRIPT_FOLDER.open(context)
     private val scripts = ScriptRepository.get(context)
 
     val uri: Uri? get() = prefs.getString(KEY_URI, null)?.let(Uri::parse)

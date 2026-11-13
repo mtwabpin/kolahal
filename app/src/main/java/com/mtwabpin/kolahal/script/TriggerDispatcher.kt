@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -197,7 +198,7 @@ class TriggerDispatcher private constructor(private val context: Context) {
 
     /** `boot` fires on the first launcher start after each device boot. The launcher starts at boot. */
     private fun checkBoot() {
-        val prefs = context.getSharedPreferences("triggers", Context.MODE_PRIVATE)
+        val prefs = Stores.TRIGGERS.open(context)
         val bootId = runCatching {
             Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT).toLong()
         }.getOrNull()

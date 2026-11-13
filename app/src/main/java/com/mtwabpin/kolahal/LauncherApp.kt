@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -123,7 +124,7 @@ class LauncherApp : Application(), Configuration.Provider {
             // This scans the whole table, so it runs once per app version. It repairs rows from old
             // versions before anything reads them. A backup's export depends on it.
             runCatching {
-                val prefs = getSharedPreferences("launcher", MODE_PRIVATE)
+                val prefs = Stores.LAUNCHER.open(this)
                 val version = packageManager.getPackageInfo(packageName, 0).longVersionCode
                 if (prefs.getLong("repaired_for", -1L) != version) {
                     com.mtwabpin.kolahal.data.KvStore.repairOversized(this)
@@ -186,6 +187,19 @@ class LauncherApp : Application(), Configuration.Provider {
     }
 
     companion object {
+        /**
+         * Starts home again in a new process after [afterMs], so every cache is read again: `restart`, and
+         * after a full restore replaced the files and tables under it. The wait lets the line saying so show.
+         */
+        fun restart(context: Context, afterMs: Long) {
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                context.startActivity(
+                    Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                )
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }, afterMs)
+        }
+
         /** The same as the default wait of `log.fresh`. After that time, home starts clean anyway. */
         const val AWAY_TRIM_MS = 10 * 60_000L
 

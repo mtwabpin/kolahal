@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.notifications
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.Singleton
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * When [logToTerminal] is false, no app is logged. The in-memory feed still works.
  */
 class NotifPrefs private constructor(context: Context) {
-    private val prefs = context.getSharedPreferences("notif_prefs", Context.MODE_PRIVATE)
+    private val prefs = Stores.NOTIF_PREFS.open(context)
 
     private val _muted = MutableStateFlow(prefs.getStringSet(KEY_MUTED, emptySet())!!.toSet())
     val muted: StateFlow<Set<String>> = _muted.asStateFlow()

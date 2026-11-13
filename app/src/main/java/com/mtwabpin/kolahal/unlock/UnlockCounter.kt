@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.unlock
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageEventsQuery
@@ -145,7 +146,7 @@ class UnlockCounter private constructor(private val context: Context) {
     /** Counts from before 0.5.7 were in the "unlocks" prefs file: moved here once. A count already here is kept. */
     @androidx.annotation.VisibleForTesting
     internal fun moveFromPrefs() {
-        val prefs = context.getSharedPreferences(OLD_PREFS, Context.MODE_PRIVATE)
+        val prefs = Stores.OLD_UNLOCKS.open(context)
         val old = prefs.all.takeIf { it.isNotEmpty() } ?: return
         for ((k, v) in old) if (v is Int && counts.get(k) == null) counts.set(k, v.toString())
         prefs.edit(commit = true) { clear() }
@@ -153,7 +154,6 @@ class UnlockCounter private constructor(private val context: Context) {
 
     companion object : Singleton<UnlockCounter>(::UnlockCounter) {
         /** The kv scope of the fallback counts. Keys are "d:<date>". */
-        const val SCOPE = "unlocks"
-        private const val OLD_PREFS = "unlocks"
+        const val SCOPE = Stores.UNLOCKS
     }
 }

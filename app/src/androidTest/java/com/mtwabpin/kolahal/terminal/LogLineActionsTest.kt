@@ -72,7 +72,7 @@ class LogLineActionsTest {
     private val mutedBefore = notifPrefs.muted.value
     private val storeBefore = NotificationStore.items.value
     private val intentsBefore = storeBefore.associate { it.key to NotificationStore.intent(it.key) }
-    private val usage = context.getSharedPreferences(AppPrefs.USAGE_FILE, Context.MODE_PRIVATE)
+    private val usage = com.mtwabpin.kolahal.data.Stores.APP_USAGE.open(context)
     private val launchesBefore = usage.all.filterKeys { it.startsWith("launch:") }
 
     private val processor = CommandProcessor(context, TerminalUiStub())

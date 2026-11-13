@@ -477,5 +477,15 @@ class AppRepository private constructor(private val context: Context) {
 /** Tabs and line breaks in an app's name: the saved list ([AppRepository.saved]) separates its fields with them. */
 private val FIELD_BREAKS = Regex("[\\t\\r\\n]")
 
+/**
+ * An app's key, "<component>#<serial>": the same app in two profiles has two keys. Package keys
+ * ([PackageEvents]) are "<package>#<serial>". [nameOf] and [serialOf] read either kind back.
+ */
 internal fun keyOf(component: ComponentName, profile: Profile) =
     "${component.flattenToShortString()}#${profile.serial}"
+
+/** The component or package of a key ([keyOf]). */
+internal fun nameOf(key: String) = key.substringBeforeLast('#')
+
+/** The profile's serial in a key ([keyOf]), or null for a key without one. */
+internal fun serialOf(key: String): Long? = key.substringAfterLast('#', "").toLongOrNull()

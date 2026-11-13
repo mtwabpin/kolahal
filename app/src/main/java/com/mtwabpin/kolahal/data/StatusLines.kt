@@ -23,7 +23,7 @@ data class StatusLine(val name: String, val text: String, val progress: Float? =
  * next to it ([EXTRAS_SCOPE]).
  */
 object StatusLines {
-    const val EXTRAS_SCOPE = "status.extra"
+    const val EXTRAS_SCOPE = Stores.STATUS_EXTRAS
 
     /** The fastest a status line can run again, and the slowest refresh worth asking for. */
     const val MIN_REFRESH = 10
@@ -82,14 +82,14 @@ object StatusLines {
      * - The dev builds' `pin()` items are removed too.
      */
     fun pinShownOnce(context: Context) {
-        val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+        val prefs = Stores.LAUNCHER.open(context)
         if (prefs.getBoolean(PINS_CARRIED, false)) return
         val scripts = ScriptRepository.get(context)
         val lines = KvStore(context, HostApi.STATUS_SCOPE).all().keys
         for (s in scripts.all()) {
             if (s.name in lines && ScriptAccess.HEADER !in s.access && ScriptMeta.setsStatus(s.code)) scripts.setAccess(s.id, ScriptAccess.HEADER, true)
         }
-        KvStore(context, "pin").let { old -> old.all().keys.forEach { old.set(it, null) } }
+        KvStore(context, Stores.OLD_PINS).let { old -> old.all().keys.forEach { old.set(it, null) } }
         prefs.edit { putBoolean(PINS_CARRIED, true) }
         LogRepository.get(context).onStatusChanged()
     }

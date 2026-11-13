@@ -12,7 +12,7 @@ import android.content.Context
  */
 object Quietly {
     /** Where the day of the last report is kept: a scope about this phone, never in a backup. */
-    private const val SCOPE = "worker"
+    private const val SCOPE = Stores.WORKER
 
     fun run(context: Context, what: String, block: () -> Unit) {
         try {

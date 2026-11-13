@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.widgets
 
+import com.mtwabpin.kolahal.data.Stores
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
@@ -48,7 +49,7 @@ class WidgetHost private constructor(context: Context) {
     val manager: AppWidgetManager = AppWidgetManager.getInstance(app)
     private val userManager = app.getSystemService(UserManager::class.java)
     private val launcherApps = app.getSystemService(LauncherApps::class.java)
-    private val prefs: SharedPreferences = app.getSharedPreferences("widgets", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = Stores.WIDGETS.open(app)
     private val density get() = app.resources.displayMetrics.density
 
     val host: AppWidgetHost = object : AppWidgetHost(app, HOST_ID) {

@@ -936,7 +936,7 @@ class HostApi(
         private const val STATUS_MAX = 80
         /** What `status(text, opts)` takes in opts. */
         private val STATUS_OPTIONS = listOf("progress", "refresh", "color")
-        const val STATUS_SCOPE = "status"
+        const val STATUS_SCOPE = com.mtwabpin.kolahal.data.Stores.STATUS
         const val ACTION_RUN_COMMAND = "com.mtwabpin.kolahal.RUN_COMMAND"
         const val EXTRA_COMMAND = "command"
         /** The context keys a script's line may carry. Anything else is dropped. */

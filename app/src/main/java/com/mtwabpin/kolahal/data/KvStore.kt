@@ -31,7 +31,7 @@ class KvStore(context: Context, private val scope: String) {
         require(bytes <= MAX_VALUE) { "value too large (over ${MAX_VALUE / 1024} KB)" }
         require(key.length <= MAX_KEY) { "key too long (over $MAX_KEY characters)" }
         // A script's whole store is limited too, keys included, so a loop of store.set can't fill the phone.
-        if (scope.startsWith("script:")) return synchronized(sizes) { setCounted(key, value, bytes) }
+        if (scope.startsWith(Stores.SCRIPT_PREFIX)) return synchronized(sizes) { setCounted(key, value, bytes) }
         write(key, value)
     }
 
@@ -113,7 +113,7 @@ class KvStore(context: Context, private val scope: String) {
             sizes.clear()
             val w = Db.get(context).writableDatabase
             w.execSQL("DELETE FROM kv WHERE length(CAST(v AS BLOB)) > ?", arrayOf<Any>(MAX_VALUE))
-            w.execSQL("DELETE FROM kv WHERE scope LIKE 'script:%' AND length(k) > ?", arrayOf<Any>(MAX_KEY))
+            w.execSQL("DELETE FROM kv WHERE scope LIKE ? AND length(k) > ?", arrayOf<Any>(Stores.SCRIPT_PREFIX + "%", MAX_KEY))
             w.execSQL(
                 "UPDATE scripts SET last_status = substr(last_status, 1, ?) WHERE length(last_status) > ?",
                 arrayOf<Any>(ScriptRepository.STATUS_MAX, ScriptRepository.STATUS_MAX),

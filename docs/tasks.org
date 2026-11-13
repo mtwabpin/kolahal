@@ -124,19 +124,11 @@ Steps:
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
    =BuildConfig.SELF_UPDATE= for R8 (=:138=).
 
-*** TODO [#C] Storage names and versions are implicit
-- 29 =getSharedPreferences("…")= sites; ="launcher"= is opened by three classes (=LauncherApp.kt:111=,
-  =data/StatusLines.kt:85=, =TerminalViewModel.kt:1766=).
-- What travels in a backup is decided in four hand-made lists with opposite defaults:
-  =FullBackup.PREFS= allows, kv scopes deny, the two XML files deny. A new prefs file is left out of
-  in-app backups and goes into cloud backups, silently.
-- Formats parsed twice: the pinned list (=apps/AppPrefs.kt:65=, =data/FullBackup.kt:272=), the
-  =pkg#serial= key (=PackageEvents= ×5, =FullBackup.kt:266=). Theme JSON is read by regex.
-- The log's view markers live in the =logs= prefs, beside the table; that is why
-  =FullBackup.logIdsWithin= has to clamp them.
-
-Fix: one =Stores= object naming every prefs file and kv scope with a "travels" flag, and a test that
-compares it with the XML files. Half a day. Moving the log markers into kv: another half day.
+*** TODO [#C] The log's view markers live in the =logs= prefs, beside the table
+=data/Stores.kt= now names every prefs file and kv scope with where it travels, and =StoresTest= checks
+it against the backup XML files (done in 0.5.7). Left: the log's view markers (cleared, hidden, seen)
+are in the =logs= prefs, so =FullBackup.logIdsWithin= has to clamp them. Moving them into kv is about
+half a day. Theme files are still read by a regex on purpose: it also reads a hand-edited file.
 
 *** TODO [#C] =TerminalViewModel= holds state for every screen
 1776 lines, 93 public functions, 23 =@Volatile= fields, four lanes (main, =serialIo=, =deleteIo=,

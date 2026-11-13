@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.apps
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Handler
@@ -28,7 +29,7 @@ import java.util.concurrent.Executors
 class PackageEvents private constructor(private val context: Context) {
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
     private val userManager = context.getSystemService(UserManager::class.java)
-    private val store = KvStore(context, "packages")
+    private val store = KvStore(context, Stores.PACKAGES)
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     /** While a burst of install or update callbacks is settling (the short delay), [recheck] must not cut it short. */
@@ -163,8 +164,8 @@ class PackageEvents private constructor(private val context: Context) {
 
     /** True when [key]'s app is installed but not in the launcher (disabled, or it hid its icon). */
     private fun installedWithoutIcon(key: String): Boolean {
-        val user = key.substringAfter('#').toLongOrNull()?.let(userManager::getUserForSerialNumber) ?: return false
-        return runCatching { launcherApps.getApplicationInfo(key.substringBefore('#'), 0, user) != null }.getOrDefault(false)
+        val user = serialOf(key)?.let(userManager::getUserForSerialNumber) ?: return false
+        return runCatching { launcherApps.getApplicationInfo(nameOf(key), 0, user) != null }.getOrDefault(false)
     }
 
     @Synchronized
@@ -208,9 +209,9 @@ class PackageEvents private constructor(private val context: Context) {
                 else -> ""
             }
             val glyph = when (kind) { "installed" -> "+"; "updated" -> "↑"; else -> "−" }
-            val pkg = key.substringBefore('#')
+            val pkg = nameOf(key)
             val ctx = if (kind == "uninstalled") LogContext.of(LogContext.COPY to pkg)
-            else LogContext.of(LogContext.PKG to pkg, LogContext.USER to key.substringAfter('#'), LogContext.COPY to pkg)
+            else LogContext.of(LogContext.PKG to pkg, LogContext.USER to serialOf(key)?.toString(), LogContext.COPY to pkg)
             // Detail lines (the log view dims them): the package, then the version.
             LogRepository.Pending(LogKind.INFO, "${kind.replaceFirstChar { it.uppercase() }} ${p.label}$tag $glyph\n$pkg$ver", "apps", ctx, System.currentTimeMillis())
         }
@@ -272,7 +273,7 @@ class PackageEvents private constructor(private val context: Context) {
         private const val MAX_HISTORY = 200
         private const val RECHECK_AFTER_MS = 3_600_000L
 
-        private fun serial(key: String) = key.substringAfter('#').toLongOrNull()
+        private fun serial(key: String) = serialOf(key)
         private fun serials(keys: Collection<String>) = keys.mapNotNull(::serial).toSet()
 
         /** Result of one comparison: lines to log (kind, key, app), what to keep, and when to check again. */

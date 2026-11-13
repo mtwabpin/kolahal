@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.core.content.edit
 import android.content.Context
 import android.net.Uri
@@ -294,7 +295,7 @@ class ScriptActions(
      */
     data class PageNotes(val selfUpdate: ScriptLibrary.SelfUpdate?, val bannerHiddenFor: String?)
 
-    private val pagePrefs by lazy { context.getSharedPreferences("scripts_page", Context.MODE_PRIVATE) }
+    private val pagePrefs by lazy { Stores.SCRIPTS_PAGE.open(context) }
 
     private val _pageNotes = MutableStateFlow<PageNotes?>(null)
     /** Null until [loadPageNotes] read them. */

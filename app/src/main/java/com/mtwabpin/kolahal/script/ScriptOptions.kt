@@ -27,7 +27,7 @@ class ScriptOptions(private val context: Context) {
     fun set(script: String, option: String, value: String?) = store(script).set(option, value)
 
     companion object {
-        const val SCOPE_PREFIX = "option:"
+        const val SCOPE_PREFIX = com.mtwabpin.kolahal.data.Stores.OPTION_PREFIX
         fun scope(script: String) = SCOPE_PREFIX + script
     }
 }

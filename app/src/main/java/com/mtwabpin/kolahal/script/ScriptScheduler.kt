@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import androidx.work.Constraints
@@ -62,7 +63,7 @@ object ScriptScheduler {
      * for a network and, at night, for Doze, so they are removed.
      */
     private fun syncDaily(context: Context, wm: WorkManager, script: Script) {
-        val prefs = context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE)
+        val prefs = Stores.DAILY_SCHEDULE.open(context)
         val key = "script:${script.id}"
         val wanted = if (script.enabled) script.atTimes.mapNotNull(::normalizeTime).distinct().sorted() else emptyList()
         val before = prefs.getString(key, null).orEmpty().split(',').filter { it.isNotEmpty() }
@@ -121,7 +122,7 @@ object ScriptScheduler {
      * again, in case any were lost while the launcher ran for days.
      */
     fun syncAllIfDue(context: Context) {
-        val last = context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE).getLong(KEY_SYNCED_AT, 0L)
+        val last = Stores.DAILY_SCHEDULE.open(context).getLong(KEY_SYNCED_AT, 0L)
         if (System.currentTimeMillis() - last !in 0 until RECHECK_MS) {
             syncAll(context)
             // Each event run is added to its script's chain, and WorkManager reads the whole chain to add
@@ -132,7 +133,7 @@ object ScriptScheduler {
 
     /** Syncs every script again. One bad script can't stop the rest. */
     fun syncAll(context: Context) {
-        context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE).edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
+        Stores.DAILY_SCHEDULE.open(context).edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
         val wm = WorkManager.getInstance(context)
         ScriptRepository.get(context).all().forEach { s ->
             runCatching {
@@ -145,7 +146,7 @@ object ScriptScheduler {
     fun cancel(context: Context, scriptId: Long) {
         WorkManager.getInstance(context).cancelUniqueWork(uniqueName(scriptId))
         WorkManager.getInstance(context).cancelAllWorkByTag(dailyTag(scriptId))
-        val prefs = context.getSharedPreferences("daily_schedule", Context.MODE_PRIVATE)
+        val prefs = Stores.DAILY_SCHEDULE.open(context)
         prefs.getString("script:$scriptId", null).orEmpty().split(',').filter { it.isNotEmpty() }
             .forEach { ScriptAlarms.cancel(context, scriptId, it) }
         prefs.edit { remove("script:$scriptId") }

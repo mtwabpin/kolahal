@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.calls
 
+import com.mtwabpin.kolahal.data.Stores
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors
  *   next start, and calls from before the permission was granted are never logged.
  */
 class CallEvents private constructor(private val context: Context) {
-    private val store = KvStore(context, "calls")
+    private val store = KvStore(context, Stores.CALLS)
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var observing = false

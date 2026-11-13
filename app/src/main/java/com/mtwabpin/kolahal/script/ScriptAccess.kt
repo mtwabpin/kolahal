@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.core.content.edit
 import android.content.Context
 import com.mtwabpin.kolahal.data.LogContext
@@ -91,7 +92,7 @@ object ScriptAccess {
      * its sites) asks for it again ([askForSecrets]). Such a value is no longer used until then.
      */
     fun askForSecretsWithoutSites(context: Context) {
-        val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+        val prefs = Stores.LAUNCHER.open(context)
         if (prefs.getBoolean(SECRET_SITES_ASKED, false)) return
         val store = SecretStore(context)
         com.mtwabpin.kolahal.data.ScriptRepository.get(context).all()

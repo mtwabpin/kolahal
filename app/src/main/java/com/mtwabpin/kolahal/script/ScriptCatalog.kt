@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.BuildConfig
@@ -50,7 +51,7 @@ class ScriptCatalog(private val context: Context) {
         NEEDS_NEWER,
     }
 
-    private val prefs by lazy { context.getSharedPreferences("script_catalog", Context.MODE_PRIVATE) }
+    private val prefs by lazy { Stores.SCRIPT_CATALOG.open(context) }
     private val cacheFile get() = File(context.filesDir, "script-catalog.json")
 
     /** The list from the last download, or null when there is none yet. */

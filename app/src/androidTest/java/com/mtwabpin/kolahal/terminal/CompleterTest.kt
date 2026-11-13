@@ -218,7 +218,7 @@ class CompleterTest {
         // Most-used apps, never more than `suggestions`.
         val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL }
         // The app's launches as they were, put back after: one more counts for good.
-        val usage = context.getSharedPreferences(com.mtwabpin.kolahal.apps.AppPrefs.USAGE_FILE, android.content.Context.MODE_PRIVATE)
+        val usage = com.mtwabpin.kolahal.data.Stores.APP_USAGE.open(context)
         val launchesBefore = usage.getString("launch:${app.key}", null)
         try {
             com.mtwabpin.kolahal.apps.AppPrefs.get(context).recordLaunch(app.key)

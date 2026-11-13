@@ -252,7 +252,7 @@ class AppCommandsTest {
      */
     @Test fun openLaunchesAnAppAndInfoOpensItsPage() {
         val s = settings()
-        val usage = context.getSharedPreferences(AppPrefs.USAGE_FILE, Context.MODE_PRIVATE)
+        val usage = com.mtwabpin.kolahal.data.Stores.APP_USAGE.open(context)
         val launchesBefore = usage.getString("launch:${s.key}", null)
         try {
             shell("am force-stop $SETTINGS")
@@ -284,7 +284,7 @@ class AppCommandsTest {
     /** `open app:shortcut` names the shortcut it couldn't find, but an app whose own name has a colon opens as itself. */
     @Test fun aNameWithAColonIsAnAppBeforeAShortcut() {
         val s = settings()
-        val usage = context.getSharedPreferences(AppPrefs.USAGE_FILE, Context.MODE_PRIVATE)
+        val usage = com.mtwabpin.kolahal.data.Stores.APP_USAGE.open(context)
         val launchesBefore = usage.getString("launch:${s.key}", null)
         try {
             assertEquals(listOf("Settings has no shortcut matching 'zzqq' — 'shortcuts Settings'"), run("open Settings:zzqq"))

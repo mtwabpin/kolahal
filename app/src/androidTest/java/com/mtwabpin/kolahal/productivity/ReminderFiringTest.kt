@@ -88,7 +88,7 @@ class ReminderFiringTest {
      * followed is set to another.
      */
     @Test fun aZoneChangedWhileKolahalWasntRunningMovesThemAtTheNextStart() {
-        val prefs = context.getSharedPreferences(ReminderScheduler.PREFS, android.content.Context.MODE_PRIVATE)
+        val prefs = com.mtwabpin.kolahal.data.Stores.REMINDERS.open(context)
         val was = prefs.getString(ReminderScheduler.KEY_ZONE, null)
         val other = if (ZoneId.systemDefault().id == "Asia/Kolkata") "Europe/London" else "Asia/Kolkata"
         try {

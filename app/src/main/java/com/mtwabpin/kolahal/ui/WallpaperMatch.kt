@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.WallpaperManager
 import android.content.Context
 import androidx.compose.ui.graphics.toArgb
@@ -15,14 +16,13 @@ import androidx.core.graphics.createBitmap
  *   because the same number on another phone may be that person's own wallpaper.
  */
 object WallpaperMatch {
-    private const val PREFS = "wallpaper_match"
     private const val KEY_ID = "id"
     private const val KEY_COLOUR = "colour"
 
     /** The last colour asked for. When themes change faster than the wallpaper can, this is the one to end on. */
     @Volatile private var wanted = 0
 
-    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = Stores.WALLPAPER_MATCH.open(context.applicationContext)
 
     /** The theme's colour in a form a wallpaper can show: fully opaque. */
     fun themeColour(): Int = Term.bg.copy(alpha = 1f).toArgb()

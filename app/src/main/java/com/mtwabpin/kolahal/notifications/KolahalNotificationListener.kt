@@ -227,7 +227,7 @@ class KolahalNotificationListener : NotificationListenerService() {
     companion object {
         /** LogContext key that holds the notification key of a feed line. */
         const val CTX_KEY = "notif"
-        const val MIRROR_SCOPE = "system"
+        const val MIRROR_SCOPE = com.mtwabpin.kolahal.data.Stores.NOTIFICATIONS_MIRROR
         const val MIRROR_KEY = "notifications"
         private const val RATE_LIMIT_MS = 30_000L
 

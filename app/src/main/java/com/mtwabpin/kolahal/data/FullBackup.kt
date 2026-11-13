@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.data
 
+import com.mtwabpin.kolahal.apps.AppPrefs
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
@@ -25,10 +26,8 @@ import com.mtwabpin.kolahal.script.SecretStore
  *   look like a new boot and run those scripts. If an older backup holds it, the restore skips it too.
  */
 object FullBackup {
-    /** SharedPreferences files that hold user data. */
-    private val PREFS = listOf(
-        "config", "aliases", "apps", "app_usage", "notif_prefs", "script_library", "script_catalog", "unlocks", "launcher", "logs",
-    )
+    /** The preferences files copied as they are ([Stores.Prefs.inBackup]), by name. */
+    private val PREFS = Stores.PREFS.filter { it.inBackup }.associateBy { it.name }
 
     private class Table(val db: (Context) -> SQLiteDatabase, val name: String)
 
@@ -43,21 +42,11 @@ object FullBackup {
     )
 
     /** Kv scopes are "script:<id>". Ids differ between devices, so backups key them by script name. */
-    private const val SCRIPT_SCOPE = "script:"
+    private const val SCRIPT_SCOPE = Stores.SCRIPT_PREFIX
     private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
 
-    /**
-     * Kv scopes about this phone:
-     * - the last call, and the apps it has seen (another phone's list would log every app as
-     *   installed or updated),
-     * - daily notes,
-     * - settings copied for the :script process,
-     * - the copy of recent notifications kept for scripts,
-     * - which install wrote the database ([ThisInstall]).
-     * They don't go into a backup, and a restore keeps this phone's. If a backup file holds them,
-     * they are skipped. A transfer to a new phone copies them, so [ThisInstall] clears them there.
-     */
-    internal val DEVICE_SCOPES = listOf("calls", "packages", "worker", SharedSettings.SCOPE, KolahalNotificationListener.MIRROR_SCOPE, ThisInstall.SCOPE)
+    /** Kv scopes about this phone ([Stores.THIS_PHONE]): never in a backup, and a restore keeps this phone's. */
+    internal val DEVICE_SCOPES = Stores.THIS_PHONE
 
     fun export(context: Context): Map<String, Any?> {
         // Rows too big for a cursor would make the whole export fail. They come from old versions; the
@@ -82,7 +71,7 @@ object FullBackup {
             }
         }
         return mapOf(
-            "prefs" to PREFS.associateWith { file -> exportPrefs(context, file).let { if (file in APP_PREFS) withoutPrivateApps(it, serials) else it } },
+            "prefs" to PREFS.mapValues { (file, prefs) -> exportPrefs(context, prefs).let { if (file in APP_PREFS) withoutPrivateApps(it, serials) else it } },
             "tables" to tables,
             "scriptStores" to scriptKv,
         )
@@ -142,7 +131,7 @@ object FullBackup {
                 "logs" -> logIdsWithin(entries, LogRepository.get(context).maxId())
                 else -> entries
             }
-            importPrefs(context, file, safe)
+            importPrefs(context, PREFS.getValue(file), safe)
         }
         // The same clean-up as after an update, in case an older file holds what a limit now refuses.
         runCatching { KvStore.repairOversized(context) }
@@ -194,8 +183,8 @@ object FullBackup {
     /** The tags of values that aren't text ([importPrefs]). */
     private val TYPED = setOf("b", "i", "l", "f", "set")
 
-    private fun exportPrefs(context: Context, file: String): Map<String, Any?> =
-        context.getSharedPreferences(file, Context.MODE_PRIVATE).all.mapValues { (_, v) ->
+    private fun exportPrefs(context: Context, prefs: Stores.Prefs): Map<String, Any?> =
+        prefs.open(context).all.mapValues { (_, v) ->
             when (v) {
                 is Boolean -> mapOf("b" to v)
                 is Int -> mapOf("i" to v)
@@ -206,9 +195,9 @@ object FullBackup {
             }
         }
 
-    private fun importPrefs(context: Context, file: String, entries: Map<*, *>) {
+    private fun importPrefs(context: Context, prefs: Stores.Prefs, entries: Map<*, *>) {
         // Use commit, not apply, because the app restarts right after a restore.
-        context.getSharedPreferences(file, Context.MODE_PRIVATE).edit(commit = true) {
+        prefs.open(context).edit(commit = true) {
             clear()
             entries.forEach { (k, tagged) ->
                 val key = k?.toString() ?: return@forEach
@@ -268,16 +257,16 @@ object FullBackup {
     private val PRIVATE_TAG = Regex(" \\[${com.mtwabpin.kolahal.apps.ProfileKind.PRIVATE.tag}](?= \\S*$|$)", RegexOption.MULTILINE)
 
     /** Preference files that name apps by key, `<component>#<serial>`. */
-    private val APP_PREFS = setOf("apps", "app_usage")
+    private val APP_PREFS = setOf(Stores.APPS.name, Stores.APP_USAGE.name)
 
     /** Whether [key], an app key, belongs to an app in a private space. */
-    internal fun isPrivateApp(key: String, serials: Set<Long>) = key.substringAfterLast('#', "").toLongOrNull() in serials
+    internal fun isPrivateApp(key: String, serials: Set<Long>) = com.mtwabpin.kolahal.apps.serialOf(key) in serials
 
     /** [entries] of an [APP_PREFS] file, tagged as [exportPrefs] tags them, without any app of a private space. */
     internal fun withoutPrivateApps(entries: Map<String, Any?>, serials: Set<Long>): Map<String, Any?> =
         entries.filterKeys { !isPrivateApp(it, serials) }.mapValues { (key, tagged) ->
             val pinned = (tagged as? Map<*, *>)?.get("s") as? String
-            if (key == "pinned" && pinned != null) mapOf("s" to pinned.split('\n').filterNot { isPrivateApp(it, serials) }.joinToString("\n")) else tagged
+            if (key == AppPrefs.PINNED && pinned != null) mapOf("s" to AppPrefs.formatPinned(AppPrefs.parsePinned(pinned).filterNot { isPrivateApp(it, serials) })) else tagged
         }
 
     /** The private space's serials, when this phone has one and Kolahal can see it. */

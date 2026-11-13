@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.core.net.toUri
 import android.app.Application
 import android.content.Context
@@ -810,7 +811,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     private fun tipOfTheDay() {
         if (!config[Keys.LOG_TIPS]) return
-        val prefs = context.getSharedPreferences("tips", Context.MODE_PRIVATE)
+        val prefs = Stores.TIPS.open(context)
         val today = java.time.LocalDate.now().toString()
         if (prefs.getString("day", null) == today) return
         val installed = installedAt ?: return
@@ -1795,7 +1796,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private fun checkFirstRun() {
         viewModelScope.launch(Dispatchers.IO) {
             // Use a persistent flag, so `clear all` doesn't look like a first run.
-            val prefs = context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+            val prefs = Stores.LAUNCHER.open(context)
             val firstRun = !prefs.getBoolean("intro_shown", false) && logs.recent(1).isEmpty()
             prefs.edit { putBoolean("intro_shown", true) }
             if (firstRun) {

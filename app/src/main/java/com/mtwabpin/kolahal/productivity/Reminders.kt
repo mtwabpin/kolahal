@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.productivity
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -87,11 +88,10 @@ object ReminderScheduler {
 
     /** The zone the reminders were last moved to. It is the phone's zone, unless that changed while Kolahal wasn't running. */
     internal const val KEY_ZONE = "zone"
-    internal const val PREFS = "reminders"
 
     /** True when the phone's zone differs from the reminders' zone. In both cases, it saves the phone's zone as theirs. */
     private fun zoneChanged(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = Stores.REMINDERS.open(context)
         val now = ZoneId.systemDefault().id
         val was = prefs.getString(KEY_ZONE, null)
         if (was == now) return false

@@ -217,7 +217,7 @@ class Backup(private val context: Context) {
         // A backup decides where searches go, what a gesture runs and what an alias runs. List those worth a look:
         // the settings that aren't the defaults, and the aliases that run code or change settings ([toReview]). An
         // alias can have an app's name, so typing that name would run it. (Read from the file: the raw data skips the cache.)
-        val sensitiveAliases = context.getSharedPreferences("aliases", Context.MODE_PRIVATE).all
+        val sensitiveAliases = Stores.ALIASES.open(context).all
             .mapNotNull { (name, body) -> (body as? String)?.takeIf(::toReview)?.let { name to it } }
             .sortedBy { it.first }
             .map { (name, body) -> "alias $name = ${if (body.length > 60) body.take(59) + "…" else body}" }

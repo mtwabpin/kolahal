@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class LogRepository private constructor(private val context: Context) {
     private val db get() = Db.get(context)
-    private val prefs by lazy { context.getSharedPreferences("logs", Context.MODE_PRIVATE) }
+    private val prefs by lazy { Stores.LOGS.open(context) }
 
     private val _version = MutableStateFlow(0L)
 

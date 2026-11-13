@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -466,7 +467,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     }
 
     private fun currency(amount: Double, from: String, to: String) {
-        val cache = KvStore(context, "fx")
+        val cache = KvStore(context, Stores.FX)
         val cached = cache.get(from)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }
         val fresh = (cached?.get("at") as? Number)?.toLong()?.let { System.currentTimeMillis() - it < 6 * 3_600_000L } == true
         val rates = if (fresh) {
@@ -649,13 +650,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         when (args.firstOrNull()) {
             null, "launcher" -> {
                 info("Restarting…")
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    context.startActivity(
-                        Intent(context, com.mtwabpin.kolahal.MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    )
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                }, 300)
+                com.mtwabpin.kolahal.LauncherApp.restart(context, afterMs = 300)
             }
             "scripts", "script" -> {
                 val am = context.getSystemService(android.app.ActivityManager::class.java)
