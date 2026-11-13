@@ -12,6 +12,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetStates
 
 enum class ScriptLang(val ext: String) {
@@ -72,12 +73,23 @@ class ScriptRepository private constructor(private val context: Context) {
             put("lang", lang.ext)
             put("code", code)
             put("enabled", if (enabled) 1 else 0)
-            if (enabled) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(code, emptyMap())))
+            val placed = if (widgetPlaced(name, code)) mapOf(ScriptAccess.WIDGET to true) else emptyMap()
+            if (enabled || placed.isNotEmpty()) put("access", ScriptAccess.encode((if (enabled) ScriptAccess.allowUndecided(code, emptyMap()) else emptyMap()) + placed))
             put("changed_at", System.currentTimeMillis())
         })
         version.incrementAndGet()
         return byName(name)!!
     }
+
+    /**
+     * Whether a widget is already placed under [name], for a new script whose [code] has a `@widget`
+     * line: one a backup restored before its script, or one a deleted script left on the page. It is
+     * the new script's widget now, so its `widget` access starts on: the placed list decides it. The
+     * list belongs to the main process.
+     */
+    private fun widgetPlaced(name: String, code: String): Boolean =
+        ScriptMeta.widget(code) != null && !Singleton.inScriptProcess &&
+            runCatching { WidgetHost.get(context).isPlaced(WidgetSource.script(name)) }.getOrDefault(false)
 
     /**
      * Saves new code for a script.
@@ -268,15 +280,15 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     fun delete(id: Long) {
-        // Its timers, secrets, options, status line and widget are deleted with it.
+        // Its timers, secrets, options, status line and widget content are deleted with it.
         ScriptScheduler.cancel(context, id)
         byId(id)?.let {
             SecretStore(context).clear(it.name)
             db.writableDatabase.delete("kv", "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(it.name)))
             StatusLines.clear(context, it.name)
+            // What its widget showed goes. The widget stays on the page and says the script was removed,
+            // until you remove it or a script takes the name again.
             WidgetStates.forget(context, it.name)
-            // Its widget leaves the page too, so a new script with this name doesn't start out placed.
-            if (!Singleton.inScriptProcess) runCatching { WidgetHost.get(context).removeScript(it.name) }
             forgetOrigin(it.name)
         }
         db.writableDatabase.delete("scripts", "id = ?", arrayOf(id.toString()))

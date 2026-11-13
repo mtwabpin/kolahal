@@ -253,7 +253,20 @@ class WidgetHost private constructor(context: Context) {
      *   `"widget"` run is queued ([ScriptScheduler.refreshWidget]): the run reads the access from the database.
      */
     fun placeScript(script: Script, size: WidgetSize): Boolean {
-        val source = WidgetSource.script(script.name)
+        val added = placeSource(WidgetSource.script(script.name), size)
+        if (added) follow(script.name, run = true)
+        return added
+    }
+
+    /**
+     * Places the Status card of [script]'s status line at the end of the page. Returns false when it
+     * is already placed. It needs no access item and no run: the line is stored whether or not a card
+     * shows it. A script can have this card and its own widget, as two entries.
+     */
+    fun placeStatus(script: Script, size: WidgetSize = WidgetSize.S2X1): Boolean = placeSource(WidgetSource.STATUS + script.name, size)
+
+    /** Adds an entry for [source] at the end of the page, at [size]. False, and no change, when it is placed already or can't be stored. */
+    private fun placeSource(source: String, size: WidgetSize): Boolean {
         if (!WidgetSource.isSource(source)) return false
         var added = false
         update { all ->
@@ -268,7 +281,6 @@ class WidgetHost private constructor(context: Context) {
                 span = size.span,
             )
         }
-        if (added) follow(script.name, run = true)
         return added
     }
 
@@ -309,13 +321,12 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /**
-     * Takes the script [name]'s widgets off the page (its own and its Status card), because the script
-     * was deleted. So a new script that takes the name doesn't start out placed.
+     * Waits until the access changes asked for so far are written ([placeScript], [remove],
+     * [syncAccess]). For tests: a caller on the main thread must not wait for the database.
      */
-    fun removeScript(name: String) {
-        if (WidgetSource.ofScript(name).none(::isPlaced)) return
-        update { WidgetSource.withoutScript(it, name) }
-        follow(name)
+    @androidx.annotation.VisibleForTesting
+    internal fun settle() {
+        runCatching { checks.submit {}.get(10, java.util.concurrent.TimeUnit.SECONDS) }
     }
 
     /** A script was renamed: its placed widgets keep their place, size and order under the new name ([WidgetSource.renamed]). */

@@ -46,12 +46,6 @@ object WidgetSource {
     /** The sources that belong to the script [name]: its own widget and its Status card. */
     fun ofScript(name: String): List<String> = listOf(SCRIPT + name, STATUS + name)
 
-    /** [all] without the widgets of the script [name], for a script that was deleted. */
-    fun withoutScript(all: List<PlacedWidget>, name: String): List<PlacedWidget> {
-        val gone = ofScript(name)
-        return all.filterNot { it.provider in gone }
-    }
-
     /**
      * [all] after the script [from] was renamed to [to]: its widgets keep their place, size and order
      * under the new name. An entry that an earlier script named [to] left behind gives way. Nothing
