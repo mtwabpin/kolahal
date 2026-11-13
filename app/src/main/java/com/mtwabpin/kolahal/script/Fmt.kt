@@ -60,8 +60,7 @@ internal class Fmt(private val text: (Any?) -> String) {
     fun stats(args: List<Any?>): String =
         StyledText.stats(rows("fmt.stats", args.getOrNull(0), "{ value, label }").map { r -> text(r.getOrNull(0)) to (r.getOrNull(1)?.let(text) ?: "") })
 
-    private fun role(call: String, value: Any?): StyledText.Colour = (value as? String)?.let(StyledText.Colour::named)
-        ?: throw IllegalArgumentException("$call: no colour '${text(value)}'; use ${StyledText.Colour.entries.joinToString { it.role }}")
+    private fun role(call: String, value: Any?): StyledText.Colour = colour(call, value as? String, shown = text(value))
 
     private fun number(call: String, value: Any?, what: String): Double = when (value) {
         is Number -> value.toDouble()
@@ -83,17 +82,16 @@ internal class Fmt(private val text: (Any?) -> String) {
     /** A list of rows, each a list. An empty table (Lua can't tell it from an empty map) is no rows. */
     private fun rows(call: String, value: Any?, row: String): List<List<Any?>> {
         val bad = "$call expects a list of rows, each $row"
-        val list = when (value) {
-            is List<*> -> value
-            is Map<*, *> -> if (value.isEmpty()) emptyList<Any?>() else throw IllegalArgumentException(bad)
-            else -> throw IllegalArgumentException(bad)
-        }
-        return list.map { r ->
-            when (r) {
-                is List<*> -> r
-                is Map<*, *> -> if (r.isEmpty()) emptyList() else throw IllegalArgumentException(bad)
-                else -> throw IllegalArgumentException(bad)
-            }
-        }
+        val list = Json.listOrNull(value) ?: throw IllegalArgumentException(bad)
+        return list.map { r -> Json.listOrNull(r) ?: throw IllegalArgumentException(bad) }
+    }
+
+    companion object {
+        /**
+         * The colour with the role [name], for [call] (`fmt.color`, `fmt.tag`, …). If there is no such
+         * role, the script gets an error that lists the roles. [shown] is the name as the error quotes it.
+         */
+        fun colour(call: String, name: String?, shown: String? = name): StyledText.Colour = name?.let(StyledText.Colour::named)
+            ?: throw IllegalArgumentException("$call: no colour '$shown'; use ${StyledText.Colour.entries.joinToString { it.role }}")
     }
 }

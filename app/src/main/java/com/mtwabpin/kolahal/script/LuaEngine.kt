@@ -127,12 +127,7 @@ class LuaEngine : ScriptEngine {
         lua.global("logs") { l ->
             // logs({ "a", "b" }) or logs("a", "b"): one title line for each.
             val titles = if (l.isTable(1)) {
-                // An empty table counts as an empty list, because it has no keys to tell.
-                when (val t = Json.normalizeLua(l.toMap(1))) {
-                    is List<*> -> t.map { it.toString() }
-                    is Map<*, *> -> if (t.isEmpty()) emptyList() else throw IllegalArgumentException("logs expects a list of titles")
-                    else -> throw IllegalArgumentException("logs expects a list of titles")
-                }
+                l.listArg(1)?.map { it.toString() } ?: throw IllegalArgumentException("logs expects a list of titles")
             } else (1..l.top).map { l.str(it) ?: "nil" }
             host.logs(titles)
             0
@@ -214,29 +209,16 @@ class LuaEngine : ScriptEngine {
             "underline" to { l: Lua -> l.styled(StyledText.Style.UNDERLINE); 1 },
             "strike" to { l: Lua -> l.styled(StyledText.Style.STRIKE); 1 },
             "code" to { l: Lua -> l.styled(StyledText.Style.CODE); 1 },
-            "color" to { l: Lua -> l.pushValue(StyledText.colour(colourNamed(l.toString(1)), l.str(2) ?: "nil")); 1 },
+            "color" to { l: Lua -> l.pushValue(StyledText.colour(Fmt.colour("fmt.color", l.toString(1)), l.str(2) ?: "nil")); 1 },
             "list" to { l: Lua ->
-                val items = (if (!l.isTable(1)) null else when (val v = Json.normalizeLua(l.toMap(1))) {
-                    is List<*> -> v.map { it.toString() }
-                    is Map<*, *> -> if (v.isEmpty()) emptyList() else null
-                    else -> null
-                }) ?: throw IllegalArgumentException("fmt.list expects a list of items")
+                val items = l.listArg(1)?.map { it.toString() } ?: throw IllegalArgumentException("fmt.list expects a list of items")
                 l.pushValue(StyledText.list(items, numbered = l.top >= 2 && l.toBoolean(2)))
                 1
             },
             "table" to { l: Lua ->
                 val bad = "fmt.table expects a list of rows, each a list of cells"
-                val rows = (if (!l.isTable(1)) null else when (val v = Json.normalizeLua(l.toMap(1))) {
-                    is List<*> -> v
-                    is Map<*, *> -> if (v.isEmpty()) emptyList<Any?>() else null
-                    else -> null
-                })?.map { r ->
-                    when (r) {
-                        is List<*> -> r.map(::cellText)
-                        is Map<*, *> -> if (r.isEmpty()) emptyList() else throw IllegalArgumentException(bad)
-                        else -> throw IllegalArgumentException(bad)
-                    }
-                } ?: throw IllegalArgumentException(bad)
+                val rows = l.listArg(1)?.map { r -> Json.listOrNull(r)?.map(::cellText) ?: throw IllegalArgumentException(bad) }
+                    ?: throw IllegalArgumentException(bad)
                 val opts = if (l.top >= 2 && l.isTable(2)) Json.normalizeLua(l.toMap(2)) as? Map<*, *> else null
                 l.pushValue(StyledText.table(rows, header = opts?.get("header") == true, align = opts?.get("align")?.toString().orEmpty()))
                 1
@@ -268,7 +250,7 @@ class LuaEngine : ScriptEngine {
     /** A table cell from Lua: text as it is, a whole number without ".0", nothing as an empty cell. */
     private fun cellText(v: Any?): String = when (v) {
         null -> ""
-        is Double -> if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong().toString() else v.toString()
+        is Double -> Json.numberText(v)
         else -> v.toString()
     }
 
@@ -281,10 +263,6 @@ class LuaEngine : ScriptEngine {
 
     private fun Lua.checkString(): String =
         toString(1) ?: throw IllegalArgumentException("argument #1 must be a string")
-
-    /** The role for `fmt.color(role, text)`, or an error that lists the existing roles. */
-    private fun colourNamed(role: String?): StyledText.Colour = role?.let(StyledText.Colour::named)
-        ?: throw IllegalArgumentException("fmt.color: no colour '$role'; use ${StyledText.Colour.entries.joinToString { it.role }}")
 
     /** `fmt.<style>(text)`: the text with [style] applied. */
     private fun Lua.styled(style: StyledText.Style) {
@@ -317,6 +295,10 @@ class LuaEngine : ScriptEngine {
 
     private fun Lua.mapArg(index: Int): Map<*, *>? =
         if (top >= index && isTable(index)) Json.normalizeLua(toMap(index)) as? Map<*, *> else null
+
+    /** Argument [index] as a list, or null when it isn't a list. An empty table counts as an empty list, because it has no keys to tell. */
+    private fun Lua.listArg(index: Int): List<*>? =
+        if (isTable(index)) Json.listOrNull(Json.normalizeLua(toMap(index))) else null
 
     private fun Lua.pushValue(value: Any?) {
         if (value == null) pushNil() else push(value, Lua.Conversion.FULL)

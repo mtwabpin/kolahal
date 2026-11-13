@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import org.json.JSONException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -72,5 +73,29 @@ class JsonTest {
         assertEquals(mapOf("n" to "7", "x" to "1.5", "nested" to """{"a":[1,2]}""", "s" to "text", "yes" to "true"), flat)
         assertEquals(emptyMap<String, String>(), Json.toStringMap(listOf("a")))
         assertEquals(emptyMap<String, String>(), Json.toStringMap(null))
+    }
+
+    /** A number as a script shows it: a whole one without its `.0`, as far as a double holds whole numbers exactly. */
+    @Test fun aWholeNumberIsShownWithoutItsFraction() {
+        assertEquals("3", Json.numberText(3.0))
+        assertEquals("-3", Json.numberText(-3.0))
+        assertEquals("0", Json.numberText(-0.0))
+        assertEquals("2.5", Json.numberText(2.5))
+        assertEquals("9000000000000000", Json.numberText(9.0e15))
+        assertEquals("-9000000000000000", Json.numberText(-9.0e15))
+        assertEquals("1.0E16", Json.numberText(1.0e16))
+        assertEquals("NaN", Json.numberText(Double.NaN))
+        assertEquals("Infinity", Json.numberText(Double.POSITIVE_INFINITY))
+    }
+
+    /** An empty Lua table has no keys to tell a list from a map, so it arrives as an empty map. It is an empty list too. */
+    @Test fun anEmptyTableIsAnEmptyList() {
+        assertEquals(listOf("a", 1), Json.listOrNull(listOf("a", 1)))
+        assertEquals(emptyList<Any?>(), Json.listOrNull(emptyList<Any?>()))
+        assertEquals(emptyList<Any?>(), Json.listOrNull(emptyMap<String, Any?>()))
+        assertEquals(emptyList<Any?>(), Json.listOrNull(Json.normalizeLua(emptyMap<Any, Any>())))
+        assertNull(Json.listOrNull(mapOf("a" to 1)))
+        assertNull(Json.listOrNull("text"))
+        assertNull(Json.listOrNull(null))
     }
 }

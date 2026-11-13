@@ -255,15 +255,11 @@ class HostApi(
     private fun actionsJson(raw: Any?): String? {
         if (raw == null || scriptId == null) return null
         val bad = "ctx.actions expects a list of buttons, each { label, args }"
-        val list = when (raw) {
-            is List<*> -> raw
-            is Map<*, *> -> if (raw.isEmpty()) emptyList<Any?>() else throw IllegalArgumentException(bad)
-            else -> throw IllegalArgumentException(bad)
-        }
+        val list = Json.listOrNull(raw) ?: throw IllegalArgumentException(bad)
         if (list.size > MAX_ACTIONS) throw IllegalArgumentException("ctx.actions: at most $MAX_ACTIONS buttons")
         fun text(v: Any?) = when (v) {
             null -> ""
-            is Double -> if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong().toString() else v.toString()
+            is Double -> Json.numberText(v)
             else -> v.toString()
         }.replace('\n', ' ').trim()
         val buttons = list.map { b ->

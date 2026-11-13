@@ -44,10 +44,29 @@ object Json {
         is Collection<*> -> JSONArray().also { a -> v.forEach { a.put(toOrg(it)) } }
         is Array<*> -> JSONArray().also { a -> v.forEach { a.put(toOrg(it)) } }
         // NaN and infinity are not valid JSON. They become null, as JSON.stringify writes them.
-        is Double -> if (v.isNaN() || v.isInfinite()) JSONObject.NULL else if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong() else v
+        is Double -> if (v.isNaN() || v.isInfinite()) JSONObject.NULL else whole(v) ?: v
         is Float -> toOrg(v.toDouble())
         is Number, is Boolean, is String -> v
         else -> v.toString()
+    }
+
+    /**
+     * [v] as a whole number, or null when it has a fraction or is too big to be exact. Lua's numbers
+     * are all doubles, so a script's `3` arrives as `3.0`.
+     */
+    private fun whole(v: Double): Long? = if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong() else null
+
+    /** A number as a script shows it: a whole one without its ".0". */
+    fun numberText(v: Double): String = whole(v)?.toString() ?: v.toString()
+
+    /**
+     * [v] as a list, or null when it isn't one. An empty Lua table counts as an empty list: it
+     * arrives as an empty map, because it has no keys to tell.
+     */
+    fun listOrNull(v: Any?): List<*>? = when (v) {
+        is List<*> -> v
+        is Map<*, *> -> if (v.isEmpty()) emptyList<Any?>() else null
+        else -> null
     }
 
     /**
@@ -70,7 +89,7 @@ object Json {
                 }
             }
         }
-        is Double -> if (v % 1.0 == 0.0 && v in -9.0e15..9.0e15) v.toLong() else v
+        is Double -> whole(v) ?: v
         else -> v
     }
 
