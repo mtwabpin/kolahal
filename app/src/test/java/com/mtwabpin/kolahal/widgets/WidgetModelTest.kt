@@ -251,4 +251,31 @@ class WidgetModelTest {
         assertEquals(1, merged.single { it.source == "script:weather" }.order)
         assertEquals(merged, WidgetCodec.mergePending(merged, WidgetCodec.fromExport(list)))
     }
+
+    /** A deleted script takes its widget and its Status card off the page. Nothing else moves. */
+    @Test fun aDeletedScriptsWidgetsLeaveThePage() {
+        val status = PlacedWidget(null, "status:weather", 0L, 72, 2, span = 12)
+        val all = listOf(w(1, 0), script("weather", order = 1), status, script("weather2", order = 3), w(null, 4))
+        assertEquals(listOf(all[0], all[3], all[4]), WidgetSource.withoutScript(all, "weather"))
+        assertEquals(all, WidgetSource.withoutScript(all, "news"))
+        assertEquals(listOf("script:weather", "status:weather"), WidgetSource.ofScript("weather"))
+    }
+
+    /** A renamed script's widgets keep their place, size and order. Only the name in the source changes. */
+    @Test fun aRenamedScriptsWidgetsFollowIt() {
+        val status = PlacedWidget(null, "status:weather", 0L, 72, 2, span = 12)
+        val all = listOf(w(1, 0), script("weather", order = 1, span = 3), status, script("news", order = 3))
+        val renamed = WidgetSource.renamed(all, "weather", "sky")
+        assertEquals(listOf("com.a/.W0", "script:sky", "status:sky", "script:news"), renamed.map { it.provider })
+        assertEquals(all.map { listOf(it.order, it.span, it.heightDp) }, renamed.map { listOf(it.order, it.span, it.heightDp) })
+        // An entry that an earlier script of the new name left behind gives way.
+        val over = WidgetSource.renamed(all, "weather", "news")
+        assertEquals(listOf("com.a/.W0", "script:news", "status:news"), over.map { it.provider })
+        assertEquals(listOf(0, 1, 2), over.map { it.order })
+        // Nothing to move, the same name, or a name that can't be stored: no change.
+        assertEquals(all, WidgetSource.renamed(all, "other", "sky"))
+        assertEquals(all, WidgetSource.renamed(all, "weather", "weather"))
+        assertEquals(all, WidgetSource.renamed(all, "weather", "a|b"))
+        assertEquals(all, WidgetSource.renamed(all, "weather", ""))
+    }
 }

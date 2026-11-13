@@ -66,6 +66,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.widgets.PlacedWidget
@@ -74,6 +76,8 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
+import com.mtwabpin.kolahal.widgets.WidgetSizes
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -98,8 +102,23 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
 }
 
 /**
+ * The name of a widget Kolahal draws itself, from its source ([WidgetSource]). Null for an app's widget.
+ * - `script:weather`: the script's `@title`, else its name.
+ * - `status:weather`: the same, then "status".
+ * - A script that is gone, and a built-in widget: the name in the source.
+ */
+internal fun sourceTitle(provider: String, scripts: List<Script>): String? {
+    if (!WidgetSource.isSource(provider)) return null
+    val name = provider.substringAfter(':')
+    if (provider.startsWith(WidgetSource.BUILTIN)) return name
+    val title = scripts.firstOrNull { it.name == name }?.let { ScriptMeta.title(it.code) } ?: name
+    return if (provider.startsWith(WidgetSource.STATUS)) "$title status" else title
+}
+
+/**
  * The widgets screen (Material 3 Expressive). It shows every placed widget, live, in the same
- * layout as the widgets page ([WidgetFlow]).
+ * layout as the widgets page ([WidgetFlow]). A widget Kolahal draws itself shows here as a box with
+ * its name, to be resized and moved: its content is on the widgets page.
  * To open a widget's toolbar at the bottom, long-press the widget, or tap Edit and then the widget.
  * The toolbar has:
  * - width, in twelfths of the page;
@@ -131,6 +150,13 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     val labels = remember(placed, providersVersion) {
         placed.associate { (key, id, provider) -> key to (id?.let { widgets.cachedInfo(it) }?.loadLabel(context.packageManager) ?: provider.substringAfterLast('.')) }
     }
+    // A widget Kolahal draws itself is named by its script's title. They are apart from the labels
+    // above, which cost a call to another app each: the scripts change at every run.
+    val scripts by vm.scriptList.collectAsStateWithLifecycle()
+    val titles = remember(placed, scripts) {
+        placed.mapNotNull { (key, _, provider) -> sourceTitle(provider, scripts)?.let { key to it } }.toMap()
+    }
+    fun labelOf(w: PlacedWidget): String? = titles[w.key] ?: labels[w.key]
     val chosen = panel.firstOrNull { it.key == selected }
 
     GuiTheme {
@@ -166,11 +192,12 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                 if (chosen != null) {
                     WidgetToolbar(
                         w = chosen,
-                        label = labels[chosen.key] ?: chosen.provider,
+                        label = labelOf(chosen) ?: chosen.provider,
                         index = panel.indexOf(chosen),
                         count = panel.size,
-                        minHeight = remember(chosen.id, providersVersion) {
-                            chosen.id?.let { widgets.cachedInfo(it) }?.let { widgets.minHeightDp(it) } ?: WidgetLayout.MIN_DP
+                        minHeight = remember(chosen.key, providersVersion) {
+                            if (chosen.source != null) WidgetSizes.MIN_HEIGHT_DP
+                            else chosen.id?.let { widgets.cachedInfo(it) }?.let { widgets.minHeightDp(it) } ?: WidgetLayout.MIN_DP
                         },
                         onMove = { widgets.move(chosen.key, it) },
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
@@ -242,7 +269,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         key(w.key) {
                             WidgetCard(
                                 w = w,
-                                label = labels[w.key] ?: w.provider,
+                                label = labelOf(w) ?: w.provider,
                                 selected = selected == w.key,
                                 editing = editing,
                                 pausedKind = profiles.pausedKind(w.profileSerial),
@@ -277,7 +304,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
 
         confirmRemove?.let { w ->
             ConfirmDialog(
-                "Remove ${labels[w.key] ?: "widget"}?",
+                "Remove ${labelOf(w) ?: "widget"}?",
                 "The widget is deleted; add it again from the picker any time.",
                 "Remove",
                 icon = R.drawable.ic_delete,
@@ -304,6 +331,24 @@ private fun WidgetCard(
         modifier = Modifier.fillMaxWidth().semantics { this.selected = selected },
     ) {
         Box {
+            // A widget Kolahal draws itself has no hosted view. Here it is a box of its size with its name: a tap selects it.
+            if (w.source != null) {
+                Box(
+                    Modifier.fillMaxWidth().height(w.heightDp.dp).clickable(onClickLabel = "change $label", onClick = onSelect),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            if (WidgetSource.scriptName(w.source) != null) "Script widget" else "Kolahal widget",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
             HostedWidget(w, w.heightDp.dp, pausedKind, onSelect) { why ->
                 Box(
                     Modifier.fillMaxWidth().height(w.heightDp.dp).alpha(0.6f),
@@ -352,7 +397,9 @@ private fun WidgetToolbar(
             }
             // Side by side if they fit. On a narrow screen or with large text, one below the other.
             FlowRow(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Stepper("Width", WidgetLayout.spanLabel(w.span), w.span > WidgetLayout.MIN_SPAN, w.span < WidgetLayout.COLUMNS, onWidth)
+                // A widget Kolahal draws itself is at least one cell wide.
+                val minSpan = if (w.source != null) WidgetSizes.MIN_SPAN else WidgetLayout.MIN_SPAN
+                Stepper("Width", WidgetLayout.spanLabel(w.span), w.span > minSpan, w.span < WidgetLayout.COLUMNS, onWidth)
                 Stepper("Height", "${w.heightDp}", w.heightDp > minHeight, w.heightDp < WidgetLayout.MAX_DP, onHeight)
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {

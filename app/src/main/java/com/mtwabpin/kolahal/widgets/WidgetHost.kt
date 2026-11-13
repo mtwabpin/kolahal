@@ -308,6 +308,24 @@ class WidgetHost private constructor(context: Context) {
         }
     }
 
+    /**
+     * Takes the script [name]'s widgets off the page (its own and its Status card), because the script
+     * was deleted. So a new script that takes the name doesn't start out placed.
+     */
+    fun removeScript(name: String) {
+        if (WidgetSource.ofScript(name).none(::isPlaced)) return
+        update { WidgetSource.withoutScript(it, name) }
+        follow(name)
+    }
+
+    /** A script was renamed: its placed widgets keep their place, size and order under the new name ([WidgetSource.renamed]). */
+    fun renameScript(from: String, to: String) {
+        if (WidgetSource.ofScript(from).none(::isPlaced)) return
+        update { WidgetSource.renamed(it, from, to) }
+        follow(from)
+        follow(to)
+    }
+
     fun move(key: String, direction: Int) = update { WidgetOrder.move(it, key, direction) }
 
 

@@ -42,6 +42,26 @@ object WidgetSource {
 
     /** The script's name when [source] is a script's own widget. Null for anything else, a Status card included. */
     fun scriptName(source: String?): String? = source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)
+
+    /** The sources that belong to the script [name]: its own widget and its Status card. */
+    fun ofScript(name: String): List<String> = listOf(SCRIPT + name, STATUS + name)
+
+    /** [all] without the widgets of the script [name], for a script that was deleted. */
+    fun withoutScript(all: List<PlacedWidget>, name: String): List<PlacedWidget> {
+        val gone = ofScript(name)
+        return all.filterNot { it.provider in gone }
+    }
+
+    /**
+     * [all] after the script [from] was renamed to [to]: its widgets keep their place, size and order
+     * under the new name. An entry that an earlier script named [to] left behind gives way. Nothing
+     * changes when the new name can't be stored.
+     */
+    fun renamed(all: List<PlacedWidget>, from: String, to: String): List<PlacedWidget> {
+        val moved = ofScript(from).zip(ofScript(to)).toMap()
+        if (from == to || moved.values.any { !isSource(it) } || all.none { it.provider in moved }) return all
+        return all.filterNot { it.provider in moved.values }.map { w -> moved[w.provider]?.let { w.copy(provider = it) } ?: w }
+    }
 }
 
 /**

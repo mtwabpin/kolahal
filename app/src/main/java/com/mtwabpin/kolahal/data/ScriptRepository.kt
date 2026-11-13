@@ -11,6 +11,8 @@ import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetStates
 
 enum class ScriptLang(val ext: String) {
     LUA("lua"),
@@ -61,8 +63,9 @@ class ScriptRepository private constructor(private val context: Context) {
      * - Code from a file, a folder or a backup comes with [enabled] false, and asks when switched on.
      */
     fun create(name: String, lang: ScriptLang, code: String, enabled: Boolean = true): Script {
-        // Nothing from an earlier script with this name carries over: no status line a run left behind, no values.
+        // Nothing from an earlier script with this name carries over: no status line a run left behind, no widget content, no values.
         StatusLines.clear(context, name)
+        WidgetStates.forget(context, name)
         db.writableDatabase.delete("kv", "scope = ?", arrayOf(SecretStore.scope(name)))
         db.writableDatabase.insertOrThrow("scripts", null, ContentValues().apply {
             put("name", name)
@@ -108,6 +111,8 @@ class ScriptRepository private constructor(private val context: Context) {
         }
         // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
         if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(context, s.name)
+        // The same for a widget: code without its `@widget` line leaves no content behind.
+        if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forget(context, s.name)
         forgetRemovedSecrets(s.name, code)
         if (!byUser && s.enabled) ScriptAccess.askToAllow(context, s.name, newUses.toList() + newEvents + newInternet, "now requests")
     }
@@ -148,6 +153,8 @@ class ScriptRepository private constructor(private val context: Context) {
         setAtTimes(id, ScriptMeta.timesAfter(s.code, code, s.atTimes))
         forgetRemovedSecrets(s.name, code)
         StatusLines.clear(context, s.name)
+        // What its widget showed came from the old code. The widget stays placed, and says the script is off.
+        WidgetStates.forget(context, s.name)
     }
 
     /**
@@ -189,7 +196,11 @@ class ScriptRepository private constructor(private val context: Context) {
         }
         // Clear its status line either way. If switched off, the line would come back stale. If switched on,
         // a line left by a run while it was off would show.
-        if (enabled != s.enabled) StatusLines.clear(context, s.name)
+        if (enabled != s.enabled) {
+            StatusLines.clear(context, s.name)
+            // Its widget's content goes for the same reasons. The widget stays placed.
+            WidgetStates.forget(context, s.name)
+        }
     }
 
     /** Applies the timers and notifications that [code] suggests (`@every`, `@at`, `@notify`), for a script just added. */
@@ -237,9 +248,17 @@ class ScriptRepository private constructor(private val context: Context) {
             update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(Stores.STATUS, s.name))
             delete("kv", "scope = ? AND k = ?", arrayOf(Stores.STATUS_EXTRAS, to))
             update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(Stores.STATUS_EXTRAS, s.name))
+            // What its widget shows, and when it was set.
+            for (scope in listOf(Stores.WIDGET, Stores.WIDGET_META)) {
+                delete("kv", "scope = ? AND k = ?", arrayOf(scope, to))
+                update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(scope, s.name))
+            }
         }
         forgetOrigin(s.name)
         version.incrementAndGet()
+        // Its placed widget follows the name. The list of placed widgets belongs to the main process.
+        if (!Singleton.inScriptProcess) runCatching { WidgetHost.get(context).renameScript(s.name, to) }
+        WidgetStates.bump()
     }
 
     /** Stops treating the script as the library's or Get more scripts' copy, so it gets no updates. */
@@ -249,12 +268,15 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     fun delete(id: Long) {
-        // Its timers, secrets, options and status line are deleted with it.
+        // Its timers, secrets, options, status line and widget are deleted with it.
         ScriptScheduler.cancel(context, id)
         byId(id)?.let {
             SecretStore(context).clear(it.name)
             db.writableDatabase.delete("kv", "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(it.name)))
             StatusLines.clear(context, it.name)
+            WidgetStates.forget(context, it.name)
+            // Its widget leaves the page too, so a new script with this name doesn't start out placed.
+            if (!Singleton.inScriptProcess) runCatching { WidgetHost.get(context).removeScript(it.name) }
             forgetOrigin(it.name)
         }
         db.writableDatabase.delete("scripts", "id = ?", arrayOf(id.toString()))
