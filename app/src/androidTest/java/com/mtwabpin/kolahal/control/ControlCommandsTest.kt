@@ -162,7 +162,7 @@ class ControlCommandsTest {
         assertTrue(run("brightness 50").single().endsWith(" 50%"))
         assertEquals(ControlArgs.toSteps(50, 255), Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS))
         assertTrue(run("brightness auto").single().endsWith(" · auto"))
-        assertTrue(run("brightness loud").single().startsWith("Usage: brightness"))
+        assertEquals(listOf("Usage: brightness [0-100|up|down|auto|access]"), run("brightness loud"))
         assertEquals(listOf("Auto-rotate on"), run("rotate on"))
         assertEquals(listOf("Auto-rotate on"), run("rotate status").map(com.mtwabpin.kolahal.data.StyledText::plain))
         assertEquals(listOf("Auto-rotate off"), run("rotate"))
@@ -170,7 +170,7 @@ class ControlCommandsTest {
         assertEquals(listOf("Screen timeout 2m"), run("screen-timeout 2m"))
         assertEquals(120_000L, Settings.System.getLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT))
         assertEquals(listOf("Screen timeout 2m"), run("screen-timeout"))
-        assertTrue(run("screen-timeout forever").single().startsWith("Usage: screen-timeout"))
+        assertEquals(listOf("Usage: screen-timeout [15s|30s|1m|2m|5m|10m|30m]"), run("screen-timeout forever"))
     }
 
     /** The emulator may have no flashlight: either way the command says what happened, never fails. */

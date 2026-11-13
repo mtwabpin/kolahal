@@ -149,7 +149,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
     // ---- notes ---------------------------------------------------------------------------------
 
     private fun addNote(text: String) {
-        if (text.isBlank()) return error("Usage: note <text>")
+        if (text.isBlank()) return usage("note")
         val id = notes.add(text.trim())
         info("Note saved", noteCtx(id, text.trim()))
     }
@@ -245,7 +245,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             reminderCtx(r),
         )
         if (!Notifier.canPost(context, Notifier.CHANNEL_REMINDERS)) {
-            error("Notifications are off — the reminder will only appear in the log (tap to allow)", LogContext.of(LogContext.RUN to "notifications"))
+            fix("Notifications are off — the reminder will only appear in the log (tap to allow)", "notifications")
         }
         if (!ReminderScheduler.canBeExact(context)) {
             info("Exact alarms are off, so it may be up to an hour late — tap to allow them", LogContext.of(LogContext.RUN to "remind exact"))
@@ -342,7 +342,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             return if (Agenda.hasPermission(context)) info("Calendar is allowed") else ui.requestCalendarPermission()
         }
         if (!Agenda.hasPermission(context)) {
-            return error("Agenda needs calendar access — tap to allow", LogContext.of(LogContext.RUN to "agenda --allow"))
+            return fix("Agenda needs calendar access — tap to allow", "agenda --allow")
         }
         val days = arg?.toIntOrNull()?.coerceIn(1, 31) ?: DEFAULT_AGENDA_DAYS
         val zone = ZoneId.systemDefault()

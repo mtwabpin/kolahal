@@ -32,7 +32,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             "--settings" -> return startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
         }
         if (!CallEvents.hasPermission(context)) {
-            logs.add(LogKind.ERROR, "Calls need call log access — tap to allow", ctx = LogContext.of(LogContext.RUN to "calls --allow"))
+            fix("Calls need call log access — tap to allow", "calls --allow")
             return
         }
         val n = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 200) ?: 20
@@ -50,7 +50,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         if (contacts.picker) {
             if (query.isBlank() || contacts.search(query).isEmpty()) return ui.pickContact(then)
         } else if (!contacts.hasPermission()) {
-            logs.add(LogKind.ERROR, "Contacts permission needed — tap to allow", ctx = LogContext.of(LogContext.RUN to "contacts --allow"))
+            fix("Contacts permission needed — tap to allow", "contacts --allow")
             ui.requestContactsPermission()
             return
         }
@@ -67,7 +67,7 @@ class PeopleCommands(context: Context, private val ui: TerminalUi) : CommandGrou
     private fun contactLine(c: Contact) = out(c.name + if (c.starred) " ★" else "", ctx(c))
 
     fun call(rest: String) {
-        if (rest.isBlank() && !contacts.picker) return error("Usage: call <name|number>")
+        if (rest.isBlank() && !contacts.picker) return usage("call")
         if (ContactsRepository.looksLikeNumber(rest)) dial(rest) else withContact(rest) { dial(it.number) }
     }
 

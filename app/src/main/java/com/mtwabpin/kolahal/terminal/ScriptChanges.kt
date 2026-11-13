@@ -86,3 +86,17 @@ internal class ScriptChanges(private val context: Context) {
         scripts.byId(s.id)?.let { ScriptScheduler.sync(context, it) }
     }
 }
+
+/** What tells the user that the script [name] was started for them: "Running name…". */
+internal fun runningText(name: String) = "Running $name…"
+
+/**
+ * Starts [script] now, with [args] and as [event] when given, and returns [runningText] for it.
+ * For a run the user asked for and is told about: `script run`, Run on the Scripts screen and in
+ * the editor, a tap on a pinned line. It runs on the caller's thread, and the caller logs the text
+ * or shows it.
+ */
+internal fun runNowWithText(context: Context, script: Script, args: List<String> = emptyList(), event: Map<String, Any?>? = null): String {
+    ScriptScheduler.runNow(context, script, args, event = event)
+    return runningText(script.name)
+}

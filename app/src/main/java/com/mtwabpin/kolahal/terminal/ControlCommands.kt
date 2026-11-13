@@ -14,7 +14,6 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.core.net.toUri
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.productivity.TimeSpec
@@ -33,8 +32,6 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     private val media = MediaRepository.get(context)
     private val audio by lazy { context.getSystemService(AudioManager::class.java) }
     private val notifications by lazy { context.getSystemService(NotificationManager::class.java) }
-
-    private fun fix(text: String, command: String) { logs.add(LogKind.ERROR, text, ctx = LogContext.of(LogContext.RUN to command)) }
 
     fun run(name: String, args: List<String>) {
         val a = args.firstOrNull()?.lowercase()
@@ -81,7 +78,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             "next", "skip" -> MediaRepository.Action.NEXT
             "prev", "previous", "back" -> MediaRepository.Action.PREV
             "stop" -> MediaRepository.Action.STOP
-            else -> return error("Usage: media [play|pause|toggle|next|prev|stop]")
+            else -> return usage("media")
         }
         mediaAction(action)
     }
@@ -128,7 +125,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun torch(arg: String?) {
         val want = ControlArgs.onOff(arg)
-        if (arg != null && want == null && arg != "toggle") return error("Usage: torch [on|off]")
+        if (arg != null && want == null && arg != "toggle") return usage("torch")
         val t = Torch.get(context)
         val id = t.cameraId ?: return error("No flashlight on this device")
         val on = want ?: !t.isOn()
@@ -188,7 +185,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun volume(arg: String?) {
         val level = ControlArgs.volume(arg)
-        if (arg != null && level == null) return error("Usage: volume [0-100|up|down|mute|unmute]")
+        if (arg != null && level == null) return usage("volume")
         val s = AudioManager.STREAM_MUSIC
         val flags = AudioManager.FLAG_SHOW_UI
         runCatching {
@@ -226,7 +223,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             "normal", "on", "sound" -> AudioManager.RINGER_MODE_NORMAL
             "vibrate", "vib" -> AudioManager.RINGER_MODE_VIBRATE
             "silent", "off", "mute" -> AudioManager.RINGER_MODE_SILENT
-            else -> return error("Usage: ring [normal|vibrate|silent]")
+            else -> return usage("ring")
         }
         // Entering or leaving silent changes Do Not Disturb, which needs policy access.
         if ((mode == AudioManager.RINGER_MODE_SILENT || audio.ringerMode == AudioManager.RINGER_MODE_SILENT) &&
@@ -255,7 +252,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             "alarms" -> NotificationManager.INTERRUPTION_FILTER_ALARMS
             "none", "total", "silence" -> NotificationManager.INTERRUPTION_FILTER_NONE
             "off" -> NotificationManager.INTERRUPTION_FILTER_ALL
-            else -> return error("Usage: dnd [on|off|alarms|none|status|access]")
+            else -> return usage("dnd")
         }
         if (needPolicyAccess("dnd")) return
         runCatching { notifications.setInterruptionFilter(filter) }
@@ -309,7 +306,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     private fun brightness(arg: String?) {
         if (arg == "access") return open(writeSettingsIntent(), "modify system settings")
         val level = ControlArgs.brightness(arg)
-        if (arg != null && level == null) return error("Usage: brightness [0-100|up|down|auto]")
+        if (arg != null && level == null) return usage("brightness")
         if (level != null) {
             if (needWrite("brightness")) return
             val mode = Settings.System.SCREEN_BRIGHTNESS_MODE
@@ -336,7 +333,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
     private fun rotate(arg: String?) {
         if (arg == "status") return out("Auto-rotate ${shown(if (rotationOn()) "on" else "off")}", LogContext.of(LogContext.RUN to "rotate"))
         val want = ControlArgs.onOff(arg)
-        if (arg != null && want == null && arg != "toggle") return error("Usage: rotate [on|off|status]")
+        if (arg != null && want == null && arg != "toggle") return usage("rotate")
         if (needWrite("rotate")) return
         val on = want ?: !rotationOn()
         Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, if (on) 1 else 0)
@@ -347,7 +344,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
 
     private fun screenTimeout(arg: String?) {
         if (arg == null) return out("Screen timeout ${TimeSpec.formatDuration(timeoutMs() / 1000)}", LogContext.of(LogContext.COMMAND to "screen-timeout "))
-        val ms = ControlArgs.duration(arg) ?: return error("Usage: screen-timeout <15s|30s|1m|2m|5m|10m|30m>")
+        val ms = ControlArgs.duration(arg) ?: return usage("screen-timeout")
         if (needWrite("screen-timeout")) return
         Settings.System.putLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT, ms.coerceAtMost(Int.MAX_VALUE.toLong()))
         info("Screen timeout ${TimeSpec.formatDuration(ms / 1000)}")

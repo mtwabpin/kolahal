@@ -948,8 +948,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 runCatching {
                     changed = saveCode(script, code)
                     scriptActions.refreshScriptCaches()
-                    scripts.byId(script.id)?.let { ScriptScheduler.runNow(context, it, args, event = event) }
-                    logs.add(LogKind.INFO, "Running ${script.name}…", ctx = LogContext.of(LogContext.SCRIPT to script.name))
+                    // The line names the script as the editor has it, and is logged even if the script is gone.
+                    scripts.byId(script.id)?.let { runNowWithText(context, it, args, event) }
+                    logs.add(LogKind.INFO, runningText(script.name), ctx = LogContext.of(LogContext.SCRIPT to script.name))
                 }.exceptionOrNull()
             }
             onDone(failure, changed)
@@ -1038,10 +1039,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun runScriptNamed(name: String) {
         io {
-            scripts.byName(name)?.let {
-                ScriptScheduler.runNow(context, it)
-                logs.add(LogKind.INFO, "Running $name…", ctx = LogContext.of(LogContext.SCRIPT to name))
-            }
+            scripts.byName(name)?.let { logs.add(LogKind.INFO, runNowWithText(context, it), ctx = LogContext.of(LogContext.SCRIPT to name)) }
         }
     }
 

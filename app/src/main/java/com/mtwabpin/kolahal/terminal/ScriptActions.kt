@@ -133,10 +133,7 @@ class ScriptActions(
         return true
     }
 
-    fun runScriptNow(s: Script) = io {
-        ScriptScheduler.runNow(context, s)
-        notice("Running ${s.name}…")
-    }
+    fun runScriptNow(s: Script) = io { notice(runNowWithText(context, s)) }
 
     /** Renames [s] ([ScriptRepository.rename]). The sheet checks the name while the user types it. */
     fun renameScript(s: Script, to: String) = io {

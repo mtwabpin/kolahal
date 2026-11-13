@@ -18,6 +18,9 @@ abstract class CommandGroup(protected val context: Context) {
     /** Prints "Usage: " and the usage lines of the commands [names] as an error. The lines come from [CommandCatalog], the same ones that help shows. */
     protected fun usage(vararg names: String) = error("Usage: " + names.joinToString(" · ") { CommandCatalog.COMMAND_USAGES.getValue(it) })
 
+    /** Prints [text] as an error that a tap fixes: the tap runs [command] ("… needs usage access — tap to allow it"). */
+    protected fun fix(text: String, command: String) = error(text, LogContext.of(LogContext.RUN to command))
+
     protected fun startActivity(intent: Intent) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }

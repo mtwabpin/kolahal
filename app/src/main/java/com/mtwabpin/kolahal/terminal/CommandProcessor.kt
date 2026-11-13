@@ -188,7 +188,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 } else if (name == "accessibility") {
                     startActivity(com.mtwabpin.kolahal.gesture.LockService.settingsIntent())
                 } else if (!com.mtwabpin.kolahal.gesture.LockService.lock()) {
-                    logs.add(LogKind.ERROR, "Locking needs the Kolahal screen lock accessibility service — tap to allow it", ctx = LogContext.of(LogContext.RUN to "accessibility"))
+                    fix("Locking needs the Kolahal screen lock accessibility service — tap to allow it", "accessibility")
                 }
                 "shade" -> com.mtwabpin.kolahal.gesture.Gestures.expandShade(context)
                 "date", "time" -> if (args.isEmpty()) now() else date(args)

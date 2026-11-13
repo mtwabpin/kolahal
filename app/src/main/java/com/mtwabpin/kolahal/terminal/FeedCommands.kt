@@ -152,7 +152,7 @@ class FeedCommands(
         val store = com.mtwabpin.kolahal.notifications.NotificationStore
         val prefs = com.mtwabpin.kolahal.notifications.NotifPrefs.get(context)
         if (!actions.isEnabled(context) && args.firstOrNull() != "enable") {
-            logs.add(LogKind.ERROR, "Notification access is off — tap to allow it", ctx = LogContext.of(LogContext.RUN to "notifs enable"))
+            fix("Notification access is off — tap to allow it", "notifs enable")
             return
         }
         when (args.firstOrNull()) {

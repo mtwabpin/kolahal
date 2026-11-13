@@ -44,7 +44,7 @@ class ScriptCommands(
         val script = scripts.byName(name)?.takeIf { ScriptMeta.isCommand(it.code) } ?: return null
         // A script that is off (for example, an import not reviewed yet) doesn't run by its name.
         if (!script.enabled) {
-            logs.add(LogKind.ERROR, "${script.name} is off — tap to turn it on", ctx = LogContext.of(LogContext.RUN to "script on ${script.name}"))
+            fix("${script.name} is off — tap to turn it on", "script on ${script.name}")
             return Unit
         }
         ScriptScheduler.runNow(context, script, args)
@@ -141,10 +141,7 @@ class ScriptCommands(
             }
             "edit" -> withScript(target) { ui.openEditor(it) }
             // The words after the script name are its args, as when it runs by its name.
-            "run" -> withScript(target) {
-                ScriptScheduler.runNow(context, it, args.drop(2))
-                info("Running ${it.name}…", scriptCtx(it))
-            }
+            "run" -> withScript(target) { info(runNowWithText(context, it, args.drop(2)), scriptCtx(it)) }
             "every" -> withScript(target) { s ->
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
                     ?: return error("Usage: script every <name> <15m|30m|2h|1d|off>")

@@ -5,7 +5,6 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.FontFiles
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
@@ -72,7 +71,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             "sans" -> args.getOrNull(1)?.let { setKey(Keys.FONT_SANS.key, it, "") }
                 ?: info("font.sans = ${conf.display(Keys.FONT_SANS)} · font sans off|prompt|all")
             FontFiles.CUSTOM if !hasCustom ->
-                logs.add(LogKind.ERROR, "No custom font yet — tap to import a .ttf/.otf", ctx = LogContext.of(LogContext.RUN to "font import"))
+                fix("No custom font yet — tap to import a .ttf/.otf", "font import")
             else -> setKey(Keys.FONT.key, sub, "")
         }
     }

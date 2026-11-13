@@ -164,7 +164,7 @@ internal class UpdateCommands(
 
     fun run(args: List<String>) {
         if (args.size > 1 || (args.isNotEmpty() && args[0] != "install")) {
-            error("Usage: update [install]")
+            usage("update")
             return
         }
         if (!running.compareAndSet(false, true)) {
