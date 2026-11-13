@@ -22,6 +22,12 @@ A check that the code still builds and its unit tests pass, on a clean machine. 
 its APK is signed with the runner's own debug key and its bundle is unsigned, so they are for
 looking at (the run's *Artifacts*), not for installing over a release.
 
+It builds each commit once. Its first job, =once=, looks at the other runs of the same commit and
+skips the build when there is a Release run, or another Build that is running or passed: a
+version branch and then master often get the same commit, and a release builds it anyway. A
+failed or cancelled run doesn't count. Pull requests and manual runs (=workflow_dispatch=) always
+build.
+
 * What a release run does
 
 =release.yml=, step by step:
@@ -89,8 +95,9 @@ after changing a key. Secrets can be replaced but never read back.
 * Cutting a release
 
 #+begin_src sh
-git push origin master                 # the version commit, with docs/release/notes/X.Y.Z.md
-git tag vX.Y.Z && git push origin vX.Y.Z
+git tag -s vX.Y.Z -m "Version X.Y.Z"   # on the version commit, with docs/release/notes/X.Y.Z.md
+# One push for the branch, master and the tag, so Build sees the Release run and skips.
+git push --atomic origin X.Y.Z X.Y.Z:master vX.Y.Z
 gh run watch                           # pick the Release run
 gh run download <run id> -n kolahal-X.Y.Z-play    # the Play bundle and its mapping.txt
 #+end_src

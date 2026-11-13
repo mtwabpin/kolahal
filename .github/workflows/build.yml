@@ -22,7 +22,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A commit is often pushed more than once: a version branch, then master and its tag at a
+  # release. Build it once. A push is skipped when a Release run of the same commit exists (it
+  # runs the same tests and builds, and more), or another Build of it runs or passed. A failed or
+  # cancelled run doesn't count. Pull requests and manual runs always build.
+  once:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      built: ${{ steps.look.outputs.built }}
+    steps:
+      # When the lookup fails, it builds anyway.
+      - id: look
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A tag pushed with the branch starts its Release run in the same few seconds.
+          sleep 10
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" > runs.json
+          jq -r --argjson me "$GITHUB_RUN_ID" '.workflow_runs[]
+            | select(.id != $me and (.status != "completed" or .conclusion == "success"))
+            | select((.path | endswith("/release.yml"))
+                or ((.path | endswith("/build.yml")) and .event == "push" and .id < $me))
+            | .html_url' runs.json > others.txt
+          if [ -s others.txt ]; then
+            echo "Already built by: $(head -1 others.txt)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: once
+    # Runs when [once] was skipped (not a push) or found no other run.
+    if: ${{ !cancelled() && needs.once.outputs.built != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

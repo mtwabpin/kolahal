@@ -58,7 +58,7 @@ it ever asks for a restricted permission again.
 * How a release travels
 
 #+begin_example
-version bump + notes/X.Y.Z.md ── commit, push master ── push tag vX.Y.Z
+version bump + notes/X.Y.Z.md ── commit, tag vX.Y.Z ── push branch, master and tag
                                                             │
                                      Release workflow on GitHub Actions
                          (tests, builds, signs, checks, publishes)
@@ -82,10 +82,11 @@ version bump + notes/X.Y.Z.md ── commit, push master ── push tag vX.Y.Z
 3. Test on the computer: the unit tests, the on-device tests on the emulator (never on a phone
    you use: they install a debug build and change its settings), the coverage figure in
    README.org → Tests, and =tools/check-play-build.sh= after =./gradlew :app:assemblePlay=.
-4. Commit =Version X.Y.Z (versionCode N)= with the notes and the coverage figure, and push
-   =master=.
-5. =git tag vX.Y.Z && git push origin vX.Y.Z=, then watch the run: =gh run watch=. It publishes
-   the GitHub release by itself.
+4. Commit =Version X.Y.Z (versionCode N)= with the notes and the coverage figure.
+5. Tag it and push the branch, master and the tag together:
+   =git tag -s vX.Y.Z -m "Version X.Y.Z"= and =git push --atomic origin X.Y.Z X.Y.Z:master vX.Y.Z=.
+   One push lets the Build workflow see the Release run and skip the same build. Watch the run:
+   =gh run watch=. It publishes the GitHub release by itself.
 6. Google Play: the run puts the bundle on the testing track, with =notes/X.Y.Z-play.txt= as its
    notes, sent for review (=PLAY_SEND_FOR_REVIEW=) or as a draft to roll out in Play Console.
    By hand, when the upload isn't set up or failed: download the bundle (=gh run download <run
