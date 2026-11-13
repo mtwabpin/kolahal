@@ -120,13 +120,14 @@ class ScriptCatalog(private val context: Context) {
 
     /**
      * Installs [e] with [code] from [download].
-     * - A new script is switched on. [allow] gives the answers for what it declares; anything not in
-     *   [allow] is allowed, as `script on` does. It also gets the timers it suggests.
+     * - A new script gets the timers it suggests. With [switchOn], it is switched on: [allow] gives
+     *   the answers for what it declares, and anything not in [allow] is allowed, as `script on`
+     *   does. Without it, the script stays off and nothing it declares is decided yet.
      * - Over the copy installed from here, it updates the code. Anything newly declared starts off,
      *   with a line to allow it.
      * [replace] lets it overwrite a copy you edited.
      */
-    fun install(e: Entry, code: String, allow: Map<String, Boolean> = emptyMap(), replace: Boolean = false): Script {
+    fun install(e: Entry, code: String, allow: Map<String, Boolean> = emptyMap(), replace: Boolean = false, switchOn: Boolean = true): Script {
         val repo = ScriptRepository.get(context)
         // What installing grants comes from the file, so the file must declare what the list (and the sheet) says.
         val uses = ScriptMeta.uses(code)
@@ -137,8 +138,10 @@ class ScriptCatalog(private val context: Context) {
             ScriptNames.clash(context, e.name)?.let { throw IllegalStateException(it) }
             repo.create(e.name, e.lang, code, enabled = false).also { s ->
                 repo.applySuggested(s.id, code)
-                allow.filterKeys { it in uses }.forEach { (item, on) -> repo.setAccess(s.id, item, on) }
-                repo.setEnabled(s.id, true, grant = true)
+                if (switchOn) {
+                    allow.filterKeys { it in uses }.forEach { (item, on) -> repo.setAccess(s.id, item, on) }
+                    repo.setEnabled(s.id, true, grant = true)
+                }
             }
         } else {
             val origin = origin(e.name) ?: throw IllegalStateException("you have your own script named ${e.name}")
@@ -150,7 +153,8 @@ class ScriptCatalog(private val context: Context) {
         prefs.edit { putString("installed:${e.name}", Json.stringify(mapOf("sha256" to e.sha256, "version" to e.version, "code" to code))) }
         return repo.byId(script.id)!!.also {
             ScriptScheduler.sync(context, it)
-            ScriptAccess.askForSecrets(context, it)
+            // A script left off asks for its secrets when it is switched on.
+            if (it.enabled) ScriptAccess.askForSecrets(context, it)
         }
     }
 

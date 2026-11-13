@@ -76,17 +76,6 @@ lint. Nothing was run on a device, so all times are estimates. Line numbers are 
 
 ** Fix first
 ** Security
-*** TODO [#C] =script get= switches a script on with everything it asks for, then tells you
-=script/ScriptCatalog.kt:203-204= calls =setEnabled(…, grant = true)=. =terminal/ScriptCommands.kt:289-292=
-prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:102-106=) compares with
-=index.json= from the same GitHub Pages site as the script.
-
-- Who: someone who can change the kolahal-scripts repository or its Pages output.
-- Copies already installed don't update on their own, so only new installs and manual updates are
-  exposed.
-
-Fix: show the grants and ask before switching it on. Or sign the index with a key pinned in the app.
-
 ** Architecture
 *** TODO [#B] Command facts live in about 16 lists in 9 files
 =terminal/CommandCatalog.kt= (=COMMANDS=, =HELP_SECTIONS=, =FEATURE_COMMANDS=, =PRODUCTIVITY=),

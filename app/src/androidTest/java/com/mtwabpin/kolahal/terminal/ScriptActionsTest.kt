@@ -54,7 +54,7 @@ class ScriptActionsTest {
     private val actions = ScriptActions(context, state, scope, list, host)
     private val files = File(context.cacheDir, "script-actions-test")
 
-    private val names = listOf("sa-one", "sa-two", "sa-three", "sa-new", "sa-cmd", "sa-imp", "sa-upd", "sa-shared")
+    private val names = listOf("sa-one", "sa-two", "sa-three", "sa-new", "sa-cmd", "sa-imp", "sa-upd", "sa-shared", "sa-asks")
     /** Library scripts a test installs; one that was there before the test is left alone. */
     private val library = listOf("countdown", "charge-reminder").filter { repo.byName(it) == null }
 
@@ -547,6 +547,24 @@ class ScriptActionsTest {
         assertEquals(true, catalog.copy(now(installed), newer)?.newer)
     }
 
+    /**
+     * `script get` installs a script that asks for access switched off: nothing it declares is
+     * allowed, and no timer runs, until `script on` (the line's tap) switches it on.
+     */
+    @Test fun aSharedScriptCanArriveOff() {
+        catalogFile.writeText(catalog("sa-asks", sha = "c".repeat(64), uses = """"clipboard""""))
+        catalogPrefs.edit(commit = true) { putLong("fetched", System.currentTimeMillis()) }
+        val catalog = ScriptCatalog(context)
+        val entry = catalog.cached()!!.single()
+        val s = catalog.install(entry, "-- @uses clipboard\n-- @every 30m\nlog('hi')", switchOn = false)
+        assertEquals(false, s.enabled)
+        assertEquals(30, s.intervalMin)
+        assertTrue(s.grants.toString(), "clipboard" in s.grants.undecided && !s.grants.allows("clipboard"))
+        assertEquals(ScriptCatalog.State.INSTALLED, catalog.state(entry, repo.all()))
+        repo.setEnabled(s.id, true, grant = true)
+        assertTrue(now(s).grants.allows("clipboard"))
+    }
+
     /** The scripts list is read again on request: one added elsewhere (`script new`) shows. */
     @Test fun theListIsReadAgain() {
         create("sa-one")
@@ -555,7 +573,7 @@ class ScriptActionsTest {
         assertTrue(list.value.any { it.name == "sa-one" })
     }
 
-    private fun catalog(name: String, sha: String) =
+    private fun catalog(name: String, sha: String, uses: String = "") =
         """{"format":1,"scripts":[{"name":"$name","lang":"lua","path":"scripts/$name/$name.lua","title":"Shared test",""" +
-            """"desc":"A test","author":"kolahal","version":"1.0","tags":[],"uses":[],"on":[],"command":true,"sha256":"$sha"}]}"""
+            """"desc":"A test","author":"kolahal","version":"1.0","tags":[],"uses":[$uses],"on":[],"command":true,"sha256":"$sha"}]}"""
 }

@@ -495,7 +495,9 @@ Updates:
 In the terminal:
 
 - `script get` lists the scripts.
-- `script get <name>` installs or updates one.
+- `script get <name>` installs or updates one. A script that asks for access arrives switched
+  off, with a line naming what it asks for. Tap the line (or type `script on <name>`) to switch it
+  on and allow that.
 - The list is kept for an hour. `--refresh` reads it again.
 - `--replace` replaces a copy you edited.
 

@@ -235,8 +235,10 @@ class ScriptCommands(
     /**
      * `script get [<name>] [--refresh] [--replace]`:
      * - without a name, lists the scripts shared in kolahal-scripts;
-     * - with a name, installs or updates that script. A new install is switched on and allowed what
-     *   it declares, as `script on` does.
+     * - with a name, installs or updates that script. A new script that declares nothing is
+     *   switched on. One that declares access is installed off, with a line naming what it asks
+     *   for: a tap switches it on and allows that, as `script on` does. You see the access before
+     *   anything is allowed.
      */
     private fun getShared(args: List<String>) {
         val catalog = ScriptCatalog(context)
@@ -277,7 +279,7 @@ class ScriptCommands(
             else -> Unit
         }
         val update = scripts.byName(entry.name) != null
-        val s = catalog.install(entry, catalog.download(entry), replace = replace)
+        val s = catalog.install(entry, catalog.download(entry), replace = replace, switchOn = entry.uses.isEmpty())
         if (update) {
             info("Updated ${s.name}.${s.lang.ext} to ${entry.version}", scriptCtx(s))
             return
@@ -286,10 +288,16 @@ class ScriptCommands(
             s.intervalMin.takeIf { it > 0 }?.let { "every ${CommandParsing.formatInterval(it)}" },
             s.atTimes.takeIf { it.isNotEmpty() }?.let { "daily at ${it.joinToString(", ")}" },
         )
-        info("Installed ${s.name}.${s.lang.ext} from ${ScriptCatalog.SOURCE}" + timer.joinToString("") { " · $it" }, scriptCtx(s))
-        val grants = s.grants
-        val uses = grants.declared.filter(grants::allows)
-        if (uses.isNotEmpty()) info("${s.name} can use: ${uses.joinToString()} — 'script deny ${s.name} <what>' turns one off", scriptCtx(s))
+        val installed = "Installed ${s.name}.${s.lang.ext} from ${ScriptCatalog.SOURCE}" + timer.joinToString("") { " · $it" }
+        if (s.enabled) {
+            info(installed, scriptCtx(s))
+            return
+        }
+        info("$installed · off", scriptCtx(s))
+        info(
+            "${s.name} asks to use: ${entry.uses.joinToString()} — tap to switch it on and allow that, or 'script on ${s.name}'",
+            LogContext.of(LogContext.SCRIPT to s.name, LogContext.RUN to "script on ${s.name}"),
+        )
     }
 
     /**
