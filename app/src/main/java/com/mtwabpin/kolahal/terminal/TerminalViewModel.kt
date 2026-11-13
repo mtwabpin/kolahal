@@ -50,7 +50,6 @@ import com.mtwabpin.kolahal.unlock.UnlockCounter
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -71,14 +70,8 @@ import kotlinx.coroutines.flow.withIndex
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val PAGE = 400
-private const val MAX_PAGE = 5000
-
 /** Commands that change the todo, note, reminder and feed caches. */
 private val PRODUCTIVITY_COMMANDS = CommandCatalog.PRODUCTIVITY + setOf("feed", "feeds")
-
-/** The whole page is read again at least this often, to catch trims by other processes. */
-private const val FULL_RELOAD_MS = 60_000L
 
 /**
  * Returns the ↑ history after [fresh] lines (oldest first) were added to it:
@@ -237,16 +230,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         io { due.forEach { name -> scripts.byName(name)?.let { ScriptScheduler.refreshPinned(context, it) } } }
     }
 
-    private val _entries = MutableStateFlow<List<LogEntry>>(emptyList())
-    val entries: StateFlow<List<LogEntry>> = _entries.asStateFlow()
+    /** The lines the log shows, oldest first ([LogPager]). */
+    val entries: StateFlow<List<LogEntry>> get() = pager.entries
 
     private val _filter = MutableStateFlow(logs.filter?.let(LogFilter::parse))
     /** `log only …`: the log shows only these lines until ✕, Back, `log all` or another command. */
     val filter: StateFlow<LogFilter?> = _filter.asStateFlow()
 
-    private val _filterCount = MutableStateFlow(0)
     /** How many lines [filter] lets through, shown on its bar. */
-    val filterCount: StateFlow<Int> = _filterCount.asStateFlow()
+    val filterCount: StateFlow<Int> get() = pager.filterCount
 
     /** The sources of the log's lines, newest first. `/@` and `log only` suggest them. */
     @Volatile private var logSources: List<String> = emptyList()
@@ -271,13 +263,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** The page that is open ([Navigation]). */
     val screen: StateFlow<Screen> get() = navigation.screen
 
-    private val _rows = MutableStateFlow<List<LogRow>>(emptyList())
     /** What the log list shows: entries (with dimming and gutter) and day separators. */
-    val rows: StateFlow<List<LogRow>> = _rows.asStateFlow()
+    val rows: StateFlow<List<LogRow>> get() = pager.rows
 
-    private val _rowsLoaded = MutableStateFlow(false)
     /** False until the first reload has set [rows], so an empty list then means an empty log, not "not read yet". */
-    val rowsLoaded: StateFlow<Boolean> = _rowsLoaded.asStateFlow()
+    val rowsLoaded: StateFlow<Boolean> get() = pager.rowsLoaded
 
     val apps: StateFlow<List<AppEntry>> = appsRepo.apps
     val profiles: StateFlow<List<Profile>> = appsRepo.profiles
@@ -387,95 +377,37 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    /** How many log lines are loaded. It grows as the user scrolls up (older lines load on demand). */
-    @Volatile private var pageLimit = PAGE
+    /** The log's page: the lines home shows, and older ones as the user scrolls back ([LogPager]). */
+    private val pager = LogPager(
+        logs, _filter, locks = { lockedPrivate(appsRepo.profiles.value) },
+        seenUpTo = { seenUpTo }, unreadUntil = { unreadUntil }, requestReload = ::requestReload,
+    )
 
-    fun loadOlder() {
-        // With `log only …`, the screen shows the filter's page, not the log's.
-        val shown = if (_filter.value == null) loaded.size else _entries.value.size
-        if (shown < pageLimit || pageLimit >= MAX_PAGE) return
-        pageLimit += PAGE
-        requestReload()
-    }
+    /** Called when the user scrolled back to the page's first lines. Older lines are read, if there are any. */
+    fun loadOlder() = pager.loadOlder()
 
-    /** Every visible line loaded, before the private-space filter. The next reload builds on this. */
-    @Volatile private var loaded: List<LogEntry> = emptyList()
-    /** The newest line loaded so far. It is kept even if the page becomes empty ([onPause] records it as seen). */
-    @Volatile private var newestLoaded: Long? = null
-    private var loadedStructure = -1L
-    private var loadedTrimmed = -1L
-    /** The last removal ([LogRepository.removedSeq]) already dropped from the page. */
-    private var removedSeen = 0L
-    /** The last change in place ([LogRepository.updatedSeq]) already read again. */
-    private var updatedSeen = 0L
-    /** True when no visible line is older than the page's first line, so scrolling back has nothing more to read. */
-    private var logStart = false
-    private var fullAt = 0L
+    /** The scripts as [refreshCaches] last read them ([ScriptRepository.fingerprint]). */
     private var scriptsPrint: String? = null
-    /** The lines of `log only …` as last shown, with the filter and the page size they were found for. */
-    private var filtered: List<LogEntry> = emptyList()
-    private var filteredFor: LogFilter? = null
-    private var filteredLimit = 0
 
     /**
-     * Brings the log up to date.
-     * - Usually only the lines after the newest shown line are read.
-     * - An older page is read as the user scrolls back.
-     * - Removed lines (a swipe, a launch line moved down) are dropped from the page.
-     * - The whole page is read again: after a change in its middle (a restore, a hide, a clear),
-     *   when a trim reached into it, and once a minute (another process may have changed something
-     *   this one didn't see).
-     * - Scripts, history and the todo and feed caches are read only when something they show could
-     *   have changed.
+     * Brings the log up to date: its page ([LogPager.reload]), and what else follows the log
+     * ([refreshCaches]).
      *
      * Everything runs on one background thread. A trip back to the main thread between the reads
      * would wait for its current work (a frame while typing or scrolling), so new lines would show
      * later. Only this collector writes the fields it keeps. The main thread reads the page from [rows].
      */
-    private suspend fun reload() = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        // Home keeps the log at its size limit as it grows: one trim every few hundred lines written.
-        logs.trimIfOverdue()
-        val structure = logs.structure
-        val trimmed = logs.trimmedUpTo
-        // Removals up to this number are applied below. A later one may be seen twice, which is harmless.
-        val removedSeq = logs.removedSeq
-        val removed = logs.removedSince(removedSeen)
-        val gone = removed ?: emptySet()
-        // The same for lines changed in place.
-        val updatedSeq = logs.updatedSeq
-        val updated = logs.updatedSince(updatedSeen)
-        val changed = updated ?: emptySet()
-        // Use one limit for this reload. loadOlder may raise pageLimit while this reload is suspended.
-        // The reload it requests must then read the longer page, not find this one already at that size.
-        val limit = pageLimit
-        val newest = loaded.lastOrNull()?.id
-        // Trims keep starred lines. So the oldest non-starred line tells whether a trim reached into the page.
-        val oldest = loaded.firstOrNull { !it.starred }?.id ?: Long.MAX_VALUE
-        val incremental = newest != null && structure == loadedStructure && trimmed < oldest &&
-            removed != null && updated != null && now - fullAt < FULL_RELOAD_MS
-        val fresh = if (incremental) logs.recent(limit, afterId = newest) else logs.recent(limit)
-        // Lines changed in place since the last reload, read again once for the page and for `log only …`.
-        val again: Map<Long, LogEntry> = if (incremental && changed.isNotEmpty()) logs.byIds(changed).associateBy { it.id } else emptyMap()
-        var start = logStart
-        val all = if (!incremental) {
-            start = fresh.size < limit
-            fresh
-        } else {
-            val left = if (gone.isEmpty()) loaded else loaded.filterNot { it.id in gone }
-            // Lines a script changed in place (line.set), read again where they are. Ids not on the page are ignored.
-            val kept = if (again.isEmpty()) left else left.map { again[it.id] ?: it }
-            val have = kept.size + fresh.size
-            // After scrolling back (or showing a search result): read the lines before the page, up to the new limit.
-            val before = (kept.firstOrNull() ?: fresh.firstOrNull())?.id
-            val older = if (have >= limit || start || before == null) emptyList() else {
-                logs.recent(limit - have, beforeId = before).also { if (it.size < limit - have) start = true }
-            }
-            val page = older + kept + fresh
-            // The page shrank ([atNewest]) or grew past its limit. The lines cut off are older than the page now.
-            if (page.size > limit) start = false
-            page.takeLast(limit)
-        }
+    private suspend fun reload() = pager.reload(::refreshCaches)
+
+    /**
+     * Reads what else follows the log. A reload calls it once the page is read, before the page shows.
+     * Scripts, the hidden count, history, the todo and feed caches and the log's sources are read
+     * only when something they show could have changed.
+     *
+     * If the reload is cancelled before the page shows (a newer change came in), the next reload
+     * reads the same lines again, and refreshes history, todos and the hidden count for them.
+     */
+    private suspend fun refreshCaches(read: LogPager.Read) {
         val print = scripts.fingerprint()
         if (print != scriptsPrint) {
             val latest = scripts.all()
@@ -484,69 +416,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             scriptsPrint = print
         }
         _lines.value = StatusLines.all(context)
-        if (!incremental || trimmed != loadedTrimmed) _hiddenLines.value = logs.hiddenCount()
+        if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()
         // A typed command's own line puts it first in the history. Read the history again only when a
         // command may be gone: after a trim, or when a removed line was a command or is not on this page.
-        val commandGone = trimmed != loadedTrimmed ||
-            (gone.isNotEmpty() && loaded.filter { it.id in gone }.let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } })
-        history = if (!incremental || commandGone) logs.commandHistory() else withNewCommands(history, fresh)
-        if (!incremental || fresh.any(::touchesProductivity)) refreshProductivity()
-        if (!incremental || fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
-        // A locked private space hides its apps. Its lines (launches, notifications) are hidden too.
-        val locked = lockedPrivate(appsRepo.profiles.value)
-        val list = if (locked.isEmpty()) all else all.filterNot { it.ctx.userSerial in locked }
-        // `log only …` takes its lines from the whole log, not just this page (which may have none of them).
-        // - New lines are checked as they arrive.
-        // - The whole log is searched when the whole page is read, when the filter or the page size
-        //   changed, and after a line was removed.
-        val filter = _filter.value
-        var count = _filterCount.value
-        val shown = when {
-            filter == null -> list
-            // Lines changed in place: patched where they are, or dropped once they no longer match. Only
-            // a changed line that now matches but wasn't shown needs the whole log searched again.
-            incremental && filter == filteredFor && limit <= filteredLimit && gone.isEmpty() &&
-                (again.isEmpty() || filtered.map { it.id }.toHashSet().let { shownIds -> again.values.none { it.id !in shownIds && it.ctx.userSerial !in locked && filter.matches(it) } }) -> {
-                val patched = if (again.isEmpty()) filtered else filtered.mapNotNull { e ->
-                    val now = again[e.id] ?: return@mapNotNull e
-                    if (filter.matches(now)) now else null.also { count-- }
-                }
-                val more = (if (locked.isEmpty()) fresh else fresh.filterNot { it.ctx.userSerial in locked }).filter(filter::matches)
-                count += more.size
-                (patched + more).takeLast(limit)
-            }
-            else -> {
-                val job = currentCoroutineContext()[kotlinx.coroutines.Job]
-                val found = logs.search(
-                    emptyList(), limit = limit, skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
-                    match = filter::matches, narrowBy = filter.sql, keepGoing = { job?.isActive != false },
-                )
-                count = found.total
-                found.entries.asReversed()
-            }
-        }
-        // Update the state only now, after the last read. If the reload is cancelled earlier (a newer
-        // change came in), the next reload reads these lines again and refreshes history, todos and
-        // the hidden count for them.
-        if (!incremental) {
-            loadedStructure = structure
-            fullAt = now
-        }
-        loadedTrimmed = trimmed
-        removedSeen = removedSeq
-        updatedSeen = updatedSeq
-        logStart = start
-        loaded = all
-        // The newest line, with or without a filter. A pause records it as seen. It is kept when the
-        // page is empty (`fresh`, `clear`), because those lines were seen before they were hidden.
-        all.lastOrNull()?.let { newestLoaded = it.id }
-        filtered = if (filter == null) emptyList() else shown
-        filteredFor = filter
-        filteredLimit = limit
-        _filterCount.value = count
-        _entries.value = shown
-        _rows.value = withContext(Dispatchers.Default) { buildRows(shown, seenUpTo, unreadUntil) }
-        _rowsLoaded.value = true
+        history = if (read.whole || read.commandGone) logs.commandHistory() else withNewCommands(history, read.fresh)
+        if (read.whole || read.fresh.any(::touchesProductivity)) refreshProductivity()
+        if (read.whole || read.fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
     }
 
     /** True for a line after which the todo, note, reminder or feed caches may be out of date. */
@@ -560,11 +435,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /** Called when the user is back at the newest lines after scrolling up. The page shrinks again, so each reload stays small. */
-    fun atNewest() {
-        if (pageLimit <= PAGE) return
-        pageLimit = PAGE
-        requestReload()
-    }
+    fun atNewest() = pager.atNewest()
 
     private var rowsZone = java.time.ZoneId.systemDefault()
 
@@ -625,7 +496,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         filterLog(filter)
         io {
             if (logs.isHidden(entry.id)) logs.unhide()
-            pageLimit = maxOf(pageLimit, (logs.countFrom(entry.id) + 20).coerceAtMost(MAX_PAGE))
+            pager.reach(entry.id)
             _jumpTo.value = entry.id
             requestReload()
             // If the line never shows up (deleted meanwhile, or past the page limit), cancel the pending jump.
@@ -645,7 +516,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _peek.value = null
         // Use the newest line, not the last shown line. After `fresh` nothing shows, and under `log only`
         // the last shown line can be old. The lines before the newest were seen anyway.
-        newestLoaded?.let { logs.seenUpTo = it }
+        pager.newest?.let { logs.seenUpTo = it }
         pausedAt = System.currentTimeMillis()
     }
 
@@ -933,7 +804,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     // ---- log line interaction -------------------------------------------------------------
 
     private val lineActions = LogLineActions(context, processor, object : LogLineActions.Host {
-        override val entries get() = _entries.value
+        override val entries get() = pager.entries.value
         override val scripts get() = scriptList.value
         override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
         override fun setText(text: String) = this@TerminalViewModel.setText(text)
