@@ -1,0 +1,7 @@
+Faster and safer:
+• Lighter typing, faster start-up and a lighter return home.
+• App icons are there at once when you come back.
+• Log searches and log only are faster on a big log.
+• A very long log line no longer slows home down.
+• Scripts see today's unlock count, and a stuck JavaScript run stops at its time limit.
+• A script can't run a sensitive command through an alias, and its permissions follow its code.
