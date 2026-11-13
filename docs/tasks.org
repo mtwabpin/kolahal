@@ -4,27 +4,6 @@
 Work we plan to do, not yet started. Internal: nothing here is published. Move an item out when it
 ships (the release notes then say what changed).
 
-* TODO Quick launch for app screens (activities)
-=activity <app>= and =activity <app> <name>= shipped in 0.5.2. Next: open a chosen screen straight
-from the prompt, like an app.
-
-- Keep a small list of chosen screens (pinned ones, or ones opened before), e.g. in =AppPrefs= like
-  aliases. Don't index every app's screens up front: Settings alone has hundreds.
-- Search that list in =Completer.suggestions= for the first word, beside the apps.
-- Show each as a completion row with the owning app's icon; it runs =activity <app> <name>=
-  (=ActivityCommands.commandFor=). A one-tap launch without the command line would need its own
-  suggestion type.
-- Long-press on an app (app list, suggestions) could offer "Screens…".
-
-* TODO Fold a burst of notifications into one line
-When the work profile turns on, its apps post many notifications at once. Since 0.5.4 each one is a
-group of its own, with the =log.spacing= gap above it (=LogRows.buildRows=), so they stand apart.
-But a burst still fills the screen.
-
-- A burst (many in a few seconds, or right after =work on=) folds into one line,
-  "Work profile: 14 notifications", that opens to show them.
-- Check the same with the private space, and after the phone restarts.
-
 * TODO App Functions, so assistants can add and update scripts
 Android's App Functions (=androidx.appfunctions=, Android 16 and newer) let an assistant on the
 phone call functions an app declares. Kolahal could offer:
