@@ -1,7 +1,7 @@
 // @title Air quality
 // @desc Air quality: aqi [city], without one its city option (US, Indian or European index; the nearest station's with a WAQI token)
 // @author Kolahal
-// @version 1.5
+// @version 1.6
 // @command
 // @usage [<city>]
 // @widget progress 2x1

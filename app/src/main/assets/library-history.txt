@@ -1,6 +1,7 @@
 # Every version of each library script: <file> <first 16 hex digits of its SHA-256>.
 # Made by tools/library-history.sh; a copy matching one of these is a copy you never edited.
 aqi.js 048f67b61b57ddd5
+aqi.js 1e0709383c060562
 aqi.js 547262a89d7c8351
 aqi.js 7af2168a5db0d726
 aqi.js 8215182dc7638982
