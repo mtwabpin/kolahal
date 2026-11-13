@@ -81,6 +81,8 @@ class AwayTrimTest {
             other?.let { assertNotNull(icons.load(context, it, 48)) }
             trim(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
             assertTrue("the time away passed", eventually(5_000) { LogImages.cached(url, width) == null })
+            // The same task on the main thread trims the icons just after the log pictures: let it end.
+            instrumentation.runOnMainSync { }
             assertNotNull(icons.cached(used, 48))
             other?.let { assertNull(icons.cached(it, 48)) }
             @Suppress("DEPRECATION") trim(ComponentCallbacks2.TRIM_MEMORY_BACKGROUND)
