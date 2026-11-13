@@ -1,0 +1,1492 @@
+#+TITLE: Programmable widgets: a design proposal
+#+SUBTITLE: Widgets that scripts fill and Kolahal draws
+#+STARTUP: content
+#+OPTIONS: toc:2 ^:{}
+#+LINK: src file:../app/src/main/java/com/mtwabpin/kolahal/
+#+LINK: repo file:../
+
+* How to read this
+
+This is a proposal. Nothing here is built. It was written on 14 November 2026 against the =0.5.8=
+branch (commit =5dbb9dd9=). Where it and the code disagree, the code wins.
+
+- [[*Summary][Summary]] is the whole idea on one page.
+- [[*Decisions][Decisions]] answers the eight design questions, each with its reasons.
+- [[*The catalog][The catalog]] lists what to choose from: 12 widget kinds and 25 ready-made widgets.
+- [[*What changes in the code][What changes in the code]] names the files.
+- [[*Phased plan][Phased plan]] says what to build first.
+- [[*Open questions][Open questions]] are for the owner. Each has a recommended answer.
+
+* Summary
+
+- *What it is.* A script calls =widget.show{…}= with a small description: "a big number 24°C, the
+  label Sunny, two smaller numbers". Kolahal checks the description and draws it as a card, in
+  Material 3 Expressive, on the widgets page.
+- *No UI code from scripts.* A script picks one of a fixed set of /kinds/ (stat, list, chart, …)
+  and fills in its fields. Kolahal owns every pixel, every colour and every tap.
+- *Where.* On Kolahal's own widgets page, in the same list as other apps' widgets. Not on other
+  launchers' home screens in the first build.
+- *How data moves.* The script runs in =:script= as today. Kolahal stores the checked description
+  in =kolahal.db=. The main process reads it and draws. The main process never waits for a script.
+- *Refresh.* The script's own timers and events (=@every=, =@at=, =@on=), a tap, and "the page is
+  showing and the content is old". Clocks and countdowns tick in Kolahal, with no script run.
+- *Taps.* A tap runs /the same script/ again with arguments, or opens a web link. A script can
+  never put a terminal command behind a tap. Commands you pick yourself live in a built-in
+  Shortcuts widget.
+- *Permission.* Placing a widget is the permission, like pinning a status line. No script places
+  itself. Everything else uses the access a script already has (=@uses=, internet, secrets).
+- *Two feeders, one renderer.* The same cards can also be filled by Kolahal itself, for data that
+  must be live or that scripts may not touch (now playing, battery, todos, your own commands).
+- *First build.* 6 kinds and 12 ready-made widgets. 7 of the 12 are library scripts that exist
+  today and gain one =widget.show= call.
+
+* Words used here
+
+| Word            | Meaning                                                                                  |
+|-----------------+------------------------------------------------------------------------------------------|
+| app widget      | Another app's Android widget, hosted on the widgets page. This exists today.              |
+| script widget   | New: a card that Kolahal draws from a script's description.                              |
+| built-in widget | New: a card that Kolahal draws from its own data (battery, todos). No script is needed.  |
+| kind            | One of the card types Kolahal can draw: =stat=, =list=, =chart= and so on.               |
+| description     | The table (Lua) or object (JavaScript) a script hands to =widget.show=.                  |
+| state           | The last checked description of a widget, plus when it was set and the last error.       |
+| placed          | The user added the widget to the widgets page.                                           |
+| role            | A colour by meaning, not by value: =accent=, =good=, =warn=, =bad=, =info=, =link=, =muted=, =text=. |
+
+* What exists today, and what it means for the design
+
+These facts come from the code. Each one limits or helps the design.
+
+- *The widgets page* is a Compose page beside the log ([[src:ui/HostedWidgets.kt::fun WidgetPanel][WidgetPanel]]).
+  - It lays widgets out in 12 columns, with a height in dp for each ([[src:widgets/WidgetModel.kt::object WidgetLayout][WidgetLayout]],
+    [[src:ui/HostedWidgets.kt::internal fun WidgetFlow][WidgetFlow]]). It has no cells.
+  - A placed widget is a [[src:widgets/WidgetModel.kt::data class PlacedWidget][PlacedWidget]]: an AppWidget id and a provider. The stored form
+    ([[src:widgets/WidgetModel.kt::object WidgetCodec][WidgetCodec]]) drops a line whose provider has no =/=.
+  - The pager keeps the widgets page composed while the log shows (~beyondViewportPageCount = 1~
+    in =HomePager=). So "the page is composed" does not mean "the user sees it".
+- *Status lines* are the nearest thing to a widget today ([[src:data/StatusLines.kt::object StatusLines][StatusLines]]).
+  - =status(text, opts)= stores a line by script name in the =kv= table.
+  - It shows at the top of home only after the user pins the script. No script pins itself.
+  - =opts.refresh= runs the script again while the line shows, as unique work that is never
+    queued twice ([[src:script/ScriptScheduler.kt::fun refreshPinned][refreshPinned]]). A failing refresh reports its error once.
+  - The design below copies this pattern for widgets.
+- *Taps from scripts are narrow on purpose.*
+  - A script's log line keeps only =url=, =image=, =copy=, =mono= and =gap= ([[src:script/HostApi.kt::private fun safeCtx][safeCtx]]). The
+    =run= key is dropped, so a script can't plant a one-tap command.
+  - Buttons under a line (=ctx.actions=) run only the same script again, with arguments and
+    =event.name= ="action"= ([[src:terminal/TerminalViewModel.kt::fun runLineAction][runLineAction]]).
+  - =launcher.run= works only in a run the user started, needs =@uses commands=, and refuses
+    sensitive commands. =torch=, =volume=, =dnd=, =media=, =todo=, =note=, =remind= and =widget=
+    are all sensitive ([[src:commands/InstantRun.kt::fun isSensitive][InstantRun.isSensitive]], [[src:commands/ControlSpecs.kt::val SENSITIVE][ControlSpecs.SENSITIVE]]).
+- *Scripts can't see the main process.* =MediaRepository.nowPlaying=, =DeviceStatus.status= and
+  =UnlockCounter.today= are flows in the main process. A script reads the battery and the network
+  itself (=device.battery()=, =device.network()=). It can't read what is playing.
+- *Scripts have no call for Kolahal's own lists.* There is no script function for todos, notes,
+  reminders, the calendar, or the built-in feed reader.
+- *Timers have a floor.* =@every= can't run more often than every 15 minutes (WorkManager). A
+  script can't tick a clock.
+- *Access is checked in code.* =internet= is on when the code mentions =http=, =rss=, =url= or
+  =image=. The words =status= and =notify= switch on other items
+  ([[src:script/ScriptMeta.kt::fun usesInternet][ScriptMeta]]). So a description must not use fields named =status= or =notify=.
+- *The GUI kit is there.* =GuiTheme= builds a Material scheme from the terminal palette, in its dark
+  and light version ([[src:ui/GuiTheme.kt::fun schemeFrom][schemeFrom]]). Material 3 =1.5.0-rc01= has the Expressive
+  parts this design names. They were checked in the library's sources: =LoadingIndicator=,
+  =LinearWavyProgressIndicator=, =CircularWavyProgressIndicator=, =ButtonGroup=, =ToggleButton=,
+  =MaterialShapes= with =toShape()=.
+
+* Decisions
+
+** 1. Where widgets show
+
+*Recommended for the first build: Kolahal's own widgets page only.*
+
+| Place                                   | For                                                                                           | Against                                                                                                             |
+|-----------------------------------------+-----------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------|
+| Kolahal's widgets page (Compose)        | The page, its layout, its edit screen and its backup exist. Full Expressive shapes and motion. Kolahal can tick clocks itself. Taps are instant. | Shows only while Kolahal is the launcher. That is the product.                                                      |
+| Home-screen widgets for other launchers | Reaches people who use another launcher.                                                      | See the list below.                                                                                                 |
+| The pinned header                       | Exists. Always in view.                                                                       | One line of text and a bar. It stays as it is.                                                                      |
+
+Why not home-screen widgets (Glance or RemoteViews) now:
+
+- They can't use Compose Material 3 Expressive. Glance has its own small set of parts: no shaped
+  badges, no press morph, no springs. Charts would be pictures made in advance.
+- They can't share the card code. It would be a second renderer for every kind.
+- Kolahal's users have Kolahal as home. A widget for /another/ launcher helps few of them.
+- =@on= events are received in the UI process ([[src:script/TriggerDispatcher.kt::class TriggerDispatcher][TriggerDispatcher]]). When Kolahal is not
+  the launcher, that process may not run, so event widgets would be late.
+- It needs a new dependency (=androidx.glance=) and a new receiver.
+
+The description is data, not code. So a second renderer can be added later without changing any
+script: it would read the same stored state. This is phase 4, and only if someone asks.
+
+One small bridge to the pinned header comes free: a *Status card*. Any script that calls
+=status()= today can be placed as a card that shows its line, its bar and its colour. No script
+changes. See [[*Ready-made widgets][the catalog]].
+
+** 2. How a script defines a widget
+
+Three parts: a directive, a call and a description.
+
+*** The directive
+
+#+begin_example
+-- @widget <kind> [<size>]        Lua
+// @widget <kind> [<size>]        JavaScript
+#+end_example
+
+- It says "this script has a widget". The widget picker lists the script.
+- =<kind>= is the default kind. The picker draws a sample of it before the script has ever run.
+- =<size>= is the size it gets when placed: =1x1=, =2x1=, =2x2=, =4x1=, =4x2= or =4x4=. Without
+  one, the kind's default is used.
+- Without this line, =widget.show= is an error that says to add it. This is the rule =@uses= has.
+- One script has one widget in the first build. See [[*Open questions][Open questions]].
+
+*** The calls
+
+| Call                | What it does                                                                                              |
+|---------------------+-----------------------------------------------------------------------------------------------------------|
+| =widget.show(desc)= | Checks =desc= and stores it as this script's widget. Returns true when the widget is placed, else false.  |
+| =widget.clear()=    | Removes the content. The card then shows "Nothing to show".                                               |
+| =allowed("widget")= | True when the user placed this script's widget. A script can skip work when it is false.                  |
+
+- =event.name= is ="widget"= in a run the widgets page asked for (just placed, old content, a
+  =refresh=).
+- =event.name= is ="action"= in a run a tap started. The tap's arguments are in =args=, and
+  =event.label= is the tapped item's label. This is what a button under a log line does today, so
+  one handler serves both. =event.widget= is true for a tap on a widget.
+- =widget.show= works only in saved scripts, as =status= does. Code typed at the prompt gets a
+  line that says so.
+- A run may call =widget.show= at most 20 times. The same description again changes nothing.
+- A wrong description is an error in the script, with the line number, like any script error.
+  Tapping the error opens the editor there.
+
+*** The description
+
+Every kind takes these fields. All are optional.
+
+| Field        | Value                | Meaning                                                                                       |
+|--------------+----------------------+-----------------------------------------------------------------------------------------------|
+| =kind=       | a kind's name        | Which card to draw. Default: the =@widget= line's kind.                                       |
+| =title=      | text, up to 40       | The small heading. Default: the script's =@title=.                                            |
+| =icon=       | text, up to 4        | An emoji or a letter. Kolahal draws it in a shaped badge.                                     |
+| =color=      | a role               | The colour of the badge, bar or chart. Default: =accent=.                                     |
+| =tap=        | an action            | What a tap on the card does. Default: refresh. See [[*4. Interaction][Interaction]].         |
+| =staleAfter= | seconds, 60 to 604800 | How long the content counts as current. Default: see [[*3. Data flow and refresh][Refresh]]. |
+| =refresh=    | seconds, 10 to 3600  | Run again this often while the widget is on screen. The same limits as =status=.              |
+
+Each kind adds its own fields. They are in [[*Widget kinds][the catalog]].
+
+Rules for every description:
+
+- *Typed.* Each field has one type: text, number, true or false, a role, a list, an action. A
+  number where text is expected becomes text. Anything else is an error that names the field and
+  says what to pass.
+- *Closed.* An unknown field is an error that lists the known ones. A typo such as =colour= does
+  not pass unseen. =fmt.bar= and =status= already work this way.
+- *Bounded.* Text is cut with "…" at its limit. A list keeps its first items, up to the kind's
+  limit. More buttons than a kind allows is an error. The whole description is at most 32 KB.
+- *Plain text.* Styles from =fmt= are removed. The first build draws plain text only.
+- *Colours by role only.* A script never gives a colour value. The theme picks the colour, in its
+  dark and its light version, so every widget reads on every theme.
+- *Safe names.* No field is a Lua keyword (so not =end=, =until= or =in=), and none is =status= or
+  =notify=. Links are in fields named =url= and =image=, so the internet switch covers them. A unit
+  test checks this list.
+
+*** Example in Lua: a number
+
+#+begin_src lua
+-- @title Weather
+-- @widget stat 2x1
+-- @every 1h
+-- @option city "" City; empty: your IP address's location
+
+local r = http.get("https://wttr.in/" .. options.city .. "?format=%l|%c|%t|%C|%h")
+if not r.ok then error("wttr.in answered HTTP " .. r.status) end
+local place, icon, temp, sky, humidity = r.body:match("^(.-)|(.-)|(.-)|(.-)|(.-)$")
+
+widget.show{
+  title = place,
+  icon = icon,
+  value = (temp:gsub("^%+", "")),
+  label = sky,
+  more = { { value = humidity, label = "humidity" } },
+  staleAfter = 2 * 3600,
+}
+#+end_src
+
+When the request fails, the script stops with an error. The card keeps the last good content and
+says "Failed 10:42" under it.
+
+*** Example in JavaScript: a list
+
+#+begin_src js
+// @title Headlines
+// @widget list 4x2
+// @every 1h
+// @option url https://hnrss.org/frontpage The feed to show
+
+const feed = await rss.fetch(options.url);
+widget.show({
+  title: feed.title,
+  items: feed.items.slice(0, 8).map((it) => ({
+    title: it.title,
+    tap: { url: it.link },
+  })),
+});
+#+end_src
+
+*** Example with a tap: count glasses of water
+
+#+begin_src lua
+-- @title Water
+-- @widget progress 2x1
+-- @option goal 8 Glasses a day
+
+local today = os.date("%Y-%m-%d")
+local n = tonumber(store.get(today) or "0")
+if event and event.name == "action" and args[1] == "add" then
+  n = n + 1
+  store.set(today, tostring(n))
+end
+local goal = tonumber(options.goal) or 8
+widget.show{
+  value = n, max = goal,
+  text = n .. " / " .. goal,
+  color = n >= goal and "good" or "accent",
+  tap = { args = "add", label = "Add a glass" },
+}
+#+end_src
+
+This widget has no timer. It runs when it is placed, when it is tapped, and when the page shows it
+with old content.
+
+*** Example where Kolahal does the ticking
+
+#+begin_src lua
+-- @widget countdown 2x1
+widget.show{ title = "Goa trip", to = os.time{ year = 2026, month = 12, day = 20, hour = 0 } }
+#+end_src
+
+The script runs once. Kolahal counts the days, hours and seconds itself.
+
+*** The same file on an older Kolahal
+
+A library script that gains a widget keeps working on a version without widgets:
+
+- An older Kolahal ignores the unknown =@widget= line.
+- The script guards the call: ~if widget then widget.show{…} end~ in Lua,
+  ~if (typeof widget !== "undefined") …~ in JavaScript. The library scripts already do this for
+  =fmt.bar= and =fmt.stats=.
+- So no =@requires= line has to change.
+
+** 3. Data flow and refresh
+
+*** The flow
+
+#+begin_example
+ :script process                          kolahal.db (kv table)            main process
+ ───────────────                          ─────────────────────            ────────────
+ a run: timer, event, tap, refresh
+   └ widget.show(desc)
+       └ HostApi.widgetShow
+           ├ WidgetSpec.parse   types, limits, secrets masked, links checked
+           └ WidgetStates.put ─────────▶  scope "widget"       ── message ─▶  WidgetStates.version
+ the run ends (ScriptRun)                                                       └ the cards re-read
+   └ ok, or the error ────────────────▶  scope "widget.meta"                      their own state
+
+                    ◀──── a tap or a refresh request, queued with WorkManager ────
+#+end_example
+
+1. The script calls =widget.show(desc)=.
+2. =HostApi= checks it in the =:script= process. So a mistake is a script error with a line number.
+3. The checked description is stored as JSON, by script name, in a new =kv= scope.
+4. A package-private message tells the main process, as the log's message does today.
+5. The main process reads the state on an IO thread and decodes it again. It never trusts stored
+   JSON: anything it can't read shows as "widget unavailable".
+6. The card redraws.
+
+*** The stored state
+
+Two scopes, keyed by script name:
+
+- =widget=: the description, as checked JSON with a format number.
+- =widget.meta=: written by Kolahal, never by the script: when the content was last set, when a
+  run was last tried, and the last error (masked).
+
+Rules:
+
+- Kolahal writes the state only for a placed widget. For a widget that isn't placed,
+  =widget.show= checks the description and returns false. So nothing private waits in the database
+  for a widget nobody sees.
+- A description equal to the stored one is not written again. Only its time moves.
+- The content's time moves only when =widget.show= is called. A run that works but never calls it
+  (=weather Paris= typed at the prompt) changes nothing on the card.
+- A card says "Failed" after a failed timer, daily, event, ="widget"= or tap run. A failed command
+  you typed shows its error in the log, as today, and leaves the card alone. The next
+  =widget.show= clears the error.
+- The state is a cache. It may hold private text, and a run makes it again. So it does not go
+  into backups (see [[*Backups][Backups]]).
+- The state is removed when the script is deleted, switched off, or changed from outside, as its
+  status line is. A new script that takes an old name starts empty.
+
+*** The message between the processes
+
+Do /not/ reuse =LogRepository.onStatusChanged()=. It raises the log's version, and that makes the
+view model read the log again. Widgets get their own message and their own counter:
+
+- =:script= sends =WIDGETS_CHANGED= (package-private, like =LOGS_CHANGED=).
+- =LauncherApp= receives it and raises =WidgetStates.version=.
+- Only the widget cards collect that counter, and only while home is visible.
+
+*** What starts a run
+
+| Trigger                    | How                                                                                             | =event.name=            |
+|----------------------------+-------------------------------------------------------------------------------------------------+-------------------------|
+| The script's timer         | =@every=, as today. 15 minutes at the fastest.                                                  | none                    |
+| A daily time               | =@at=, as today.                                                                                | ="at"=                  |
+| A device event             | =@on=, as today. At most once in 30 seconds for each event.                                     | the event               |
+| The widget was just placed | One run at once.                                                                                | ="widget"=              |
+| The page shows old content | When the widgets page becomes the page in view, each widget older than its =staleAfter= runs once. | ="widget"=           |
+| =refresh= in the description | While the widget is in view, run again that often.                                            | ="widget"=              |
+| A tap with arguments       | See [[*4. Interaction][Interaction]].                                                           | ="action"=              |
+| An option changed          | The script's sheet or =script set= changed an =@option= of a placed widget.                     | ="widget"=              |
+| "Refresh" in the card's menu | Long-press the card.                                                                          | ="widget"=              |
+
+- "In view" means: the pager has settled on the widgets page, and home is on screen. Being
+  composed is not enough, because the pager keeps the page composed beside the log.
+- A ="widget"= run is queued like a pinned line's refresh: unique work per script, and a new
+  request is dropped while one waits or runs. A script that goes online waits for a network.
+- A ="widget"= run is quiet, like a pinned line's refresh. What it returns isn't logged. A failure
+  is logged once, until a run works again.
+- The script's own =log()= lines /are/ still logged in these runs. A library script skips them
+  when =event.name= is ="widget"=. This is the rule pinned lines have, so there is one rule.
+- Default =staleAfter=: twice the script's interval. 26 hours for a script with only daily times.
+  One hour for a script with no timer.
+
+A script with no timer at all is a good widget: it runs only when you look at it, so it uses no
+battery in the background.
+
+*** How each state looks
+
+| State                          | What the card shows                                                                                     |
+|--------------------------------+---------------------------------------------------------------------------------------------------------|
+| No content yet                 | The title and a =LoadingIndicator= (the Expressive shape that changes form).                            |
+| Current                        | The content. No footer.                                                                                 |
+| Refreshing, with content       | The content stays. A small indicator in the corner, shown only after 400 ms, so a fast run doesn't flash. |
+| Old (past =staleAfter=)        | The content stays readable. A footer says its age: "2 h ago". Nothing is dimmed.                        |
+| Failed, with content           | The content stays. The footer says "Failed 10:42" in the error colour. A tap on the footer tries again. |
+| Failed, no content             | A short message (the error's first line, with secrets masked) and two buttons: Retry, Open script.      |
+| Offline                        | For a script that goes online: "Offline · 2 h ago". The run waits for a network. No endless spinner.    |
+| The script is off              | "weather is off" and a Turn on button. Turning it on shows its access, as the Scripts screen does.      |
+| A key is missing               | "Needs WAQI_TOKEN" and an Add key button, as its card in Scripts has.                                   |
+| Access is off                  | "Internet is off for this script" and an Allow button.                                                  |
+| The script was deleted         | "Script removed" and a Remove button.                                                                   |
+| Nothing to show (=widget.clear=) | The title and "Nothing to show".                                                                      |
+
+The words come from Kolahal, never from the script, except the content and the error's first line.
+
+** 4. Interaction
+
+*** What a tap can do
+
+An /action/ is a small table with exactly one of these:
+
+| Action                    | What happens                                                                                  | Build       |
+|---------------------------+-----------------------------------------------------------------------------------------------+-------------|
+| ~{ args = "add 1" }~      | This script runs again with these arguments. =event.name= is ="action"=.                      | First build |
+| ~{ url = "https://…" }~   | The web link opens.                                                                           | First build |
+| ~{ app = "com.example" }~ | The app opens. Needs =@uses apps=. Never an app in the private space.                         | Phase 2     |
+
+An action can also have:
+
+- =label=: what a screen reader says for it. Up to 24 characters.
+- ~page = "log"~, with =args=: home turns to the log after the tap. Use it for a run that prints,
+  such as the full weather report.
+
+Where actions go:
+
+- =tap= on the card: the whole card.
+- =tap= on an item of a =list=, =buttons= or =toggles= widget.
+- No =tap= on the card means "refresh": a quiet ="widget"= run.
+
+*** Three paths for a tap, and who may use each
+
+1. *Run the same script again* (~{ args }~). Any script widget.
+   - It is the path buttons under a log line use, with the same limits: arguments up to 200
+     characters, at most one run in 2 seconds for each item.
+   - The run counts as started by the user. So =launcher.run= works in it, under its rules today:
+     =@uses commands= allowed, no sensitive command, no secret in the command, and a command that
+     sends words to a website needs the internet switch.
+2. *Open a link or an app* (~{ url }~, ~{ app }~). Any script widget.
+   - A link passes the check a log line's link passes: web links only, the internet switch must be
+     on, and no secret goes to a site its =@secret= line doesn't name.
+   - An app is looked up when you tap, among the apps the script may see (=apps.list=).
+3. *Run a command you picked yourself.* Only the built-in Shortcuts widget.
+   - You type or pick each command in the Widgets screen, as you set a gesture's command today.
+   - A tap runs it the way a gesture runs its command: as if you had typed it and pressed Enter
+     (=onGesture= hands it to =processor.run=). It may be =torch= or =dnd=, because you chose it.
+   - This is /not/ the path of a tapped history line. That path needs =launch.instant all= and
+     refuses sensitive commands, so half the buttons would do nothing.
+   - A script can't write to this list.
+
+What is refused, and why:
+
+- *A command in a description* (~{ command = "…" }~). It would break the rule that a script can't
+  plant a one-tap command. A timer run could store it, and a later tap would run it unseen. Path 1
+  gives a script the same reach, with the checks that exist.
+- *Toggling the torch, the volume or media from a script.* Those commands are sensitive, and
+  scripts have no function for them. They belong in Shortcuts (path 3) or in the Now playing
+  widget.
+
+*** Toggles
+
+A =toggles= widget shows switches. Each has =on= (true or false) and a =tap= with =args=.
+
+1. You tap. The switch shows "working".
+2. The script runs with the arguments. It changes the thing (=device.setDnd(…)=) and calls
+   =widget.show= with the new state.
+3. The switch takes the new state. If no new state comes in 10 seconds, it goes back and the card
+   says the run failed.
+
+Kolahal never guesses the new state. The script reports it.
+
+*** The card's own menu
+
+A long-press on a script widget opens a menu that Kolahal owns. A script can't change it:
+
+- Refresh
+- Run in the log (for a command script)
+- Options (opens the script's sheet)
+- Edit script
+- Resize and move (opens the Widgets screen with this widget selected)
+- Remove
+
+On the Widgets screen in edit mode, a tap selects a widget and does not reach it. This is how app
+widgets behave there today.
+
+** 5. Layout and look
+
+*** Sizes
+
+The page has 12 columns. Script widgets name their size in /cells/ of a 4-column grid, as people
+know from home screens. One cell is 3 columns.
+
+| Size | Columns | Height                 | Good for                         |
+|------+---------+------------------------+----------------------------------|
+| 1×1  |       3 | 1 row                  | one number, one ring, one button |
+| 2×1  |       6 | 1 row                  | a number with its label          |
+| 2×2  |       6 | 2 rows                 | a small list, a ring, a chart    |
+| 4×1  |      12 | 1 row                  | a row of numbers or buttons      |
+| 4×2  |      12 | 2 rows                 | a list, a chart, an agenda       |
+| 4×4  |      12 | 4 rows                 | a long list, a picture           |
+
+- One row is as tall as one cell is wide on this phone, and at least 88 dp. So 1×1 is about square.
+  On a page 360 dp wide a cell is 80 dp; =WidgetLayout.widthDp(page, 3)= gives it.
+- =h= rows are =h= × row + (=h= − 1) × 8 dp, to match the 8 dp gap between widgets.
+- The size is only where a widget /starts/. After that it is a placed widget like any other: the
+  toolbar changes its width in twelfths and its height in 8 dp steps, and Square still works. For
+  script widgets the toolbar adds the six sizes as one-tap buttons.
+- A script widget is at least 3 columns wide and 72 dp tall.
+- The card draws for the box it gets, not for the size it asked for. Each kind has three layouts:
+  small, wide and large, chosen from the measured width and height. Each kind says what it leaves
+  out when it is small (the catalog lists it). What is left out is still read by a screen reader.
+
+*** One page, one list
+
+- Script widgets, built-in widgets and app widgets share one ordered list and one =WidgetFlow=.
+  You can put the weather card beside another app's clock.
+- =PlacedWidget= gets a =source= field for the new widgets. Such an entry has no AppWidget id, and
+  it is not "pending". In the stored line, the provider field holds the source:
+
+  | Source          | What it is                                   |
+  |-----------------+----------------------------------------------|
+  | =script:<name>= | the widget a script fills with =widget.show= |
+  | =status:<name>= | the Status card of a script's status line    |
+  | =builtin:<id>=  | a built-in widget, such as =builtin:battery= |
+
+- Script names are =a-z=, =0-9=, =-= and =_= only ([[src:script/ScriptNames.kt::val NAME][ScriptNames.NAME]]), so the line's
+  separators can't appear. The codec still refuses a source with =|= or a line break, as it
+  refuses such a provider from a backup today.
+- An older Kolahal skips a line whose provider has no =/=. So going back to an older version
+  drops these widgets and breaks nothing.
+- One script can have both cards placed: its own widget and its Status card. They are two entries.
+  Weather, for example, will have a =@widget= line and still call =status()=.
+- A widget is placed once. The picker shows a placed one as "Added".
+
+*** Placed, and the =widget= access item
+
+- The placed list is the source of truth. It is in the main process's preferences, which the
+  =:script= process can't follow.
+- So the main process copies "placed" into the script's access, as the item =widget=. Both
+  processes read that from the database, and =widget.show= uses it to decide whether to store.
+- When the two disagree, *the placed list wins*. At start and after a backup is imported, the main
+  process sets =widget= on for each placed =script:<name>= entry and off for every other script.
+  This matters after a restore: a backup carries only the access you switched /off/, so without
+  this step a restored widget would stay empty for ever.
+- The item covers only =widget.show=. A Status card needs no item: a status line is stored whether
+  or not anything shows it, as today. Being placed is all a Status card needs.
+- A rename moves everything with the script, as it moves the status line today
+  ([[src:data/ScriptRepository.kt::fun rename][ScriptRepository.rename]]): the state, and the placed =script:= and =status:= entries.
+
+*** The picker
+
+The widget picker gets a first section, *Kolahal*, above the apps:
+
+1. Built-in widgets.
+2. Your scripts that have a =@widget= line, and scripts with a status line (as a Status card).
+3. Library scripts with a widget that you haven't added. Each entry says what the script uses
+   (the internet, a key). Picking one adds the script, as =script install= does, and places the
+   widget.
+
+Each entry shows a drawn sample of its kind and its sizes. =widget add <script>= and
+=widget rm <script>= do the same from the prompt. =widget= is a sensitive command, so a script
+can't run it.
+
+*** Theme
+
+- The cards are drawn inside =GuiTheme=, so they use the Material scheme that =schemeFrom= builds
+  from the terminal palette. They change with =theme=, in the dark and the light version.
+- The page behind is the terminal's colour, or the wallpaper (=widgets.wallpaper=). So each card
+  has its own opaque surface: =surfaceContainerHigh=. Text keeps its contrast over any wallpaper.
+- A =color= role maps to the palette with [[src:ui/LogLineText.kt::internal fun colourOf][colourOf]], which the log uses for =fmt.color=.
+- Text uses the GUI's typeface, as Settings and Scripts do. See [[*Open questions][Open questions]].
+
+*** Expressive shapes and motion
+
+| Where                    | What                                                                                                   |
+|--------------------------+--------------------------------------------------------------------------------------------------------|
+| The card                 | A =Surface= with large round corners (28 dp; 24 dp for 1×1).                                           |
+| The icon badge           | Clipped to a =MaterialShapes= shape with =toShape()=: a cookie for a number, a pill for a list. One shape for each kind. |
+| List rows                | =SegmentedListItem= with =segShapes=, as Settings has.                                                 |
+| Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
+| Toggles                  | =ToggleButton=: round when off, squarer when on.                                                       |
+| Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match, a countdown.          |
+| A level that stands      | A plain track or ring: a battery, an air quality figure. A wave would say "working".                   |
+| Loading                  | =LoadingIndicator=.                                                                                    |
+| A value that changes     | The new value slides up over the old one (=AnimatedContent=), as the pinned header's lines do.         |
+| A bar or ring that changes | It moves to the new value on a spring from =MaterialTheme.motionScheme=.                             |
+| Charts                   | Drawn on a Compose =Canvas=. No chart library.                                                         |
+
+=ExpressiveOnlyTest= checks the new files like any other, so an older component can't slip in.
+
+When the phone's animations are off, values change without motion. To verify on a device.
+
+*** Accessibility
+
+- Each card is one item for a screen reader: "Weather, Pune: 24 degrees, Sunny. Updated 5 minutes
+  ago." Items with their own tap are separate items inside it.
+- Every tap target is at least 48 dp. A kind shows fewer buttons in a small box and never smaller
+  ones.
+- A chart has words. The script can give =summary=. Without one, Kolahal says "7 values, from 3 to
+  12, the latest 9".
+- A picture needs =alt= text.
+- Colour is never the only sign. An error has words and an icon. A toggle has a shape and a state.
+- Text follows the system font size. Long text is cut with "…".
+- Rows run right to left in a right-to-left language. =WidgetFlow= does this already.
+- Custom actions for a screen reader: Refresh, Resize and move, Remove.
+- Content that changes by itself is not announced each time. That would be noise.
+
+** 6. Safety and privacy
+
+*** What a script can and can't do with a widget
+
+- It can fill a card of a fixed kind. It can't draw, place views, or run code in the main process.
+- It can't place, move, resize or remove a widget. The =widget= access item is on only while you
+  have placed it, as =header= is on only while you pinned the script.
+- It can't put a command behind a tap ([[*4. Interaction][Interaction]]).
+- It can't make the card say "Kolahal" things. The footer and the state messages are Kolahal's.
+
+*** Every text and link is checked
+
+- Every text is passed through =redact= first. A secret's value, and its stand-in mark, never reach
+  the screen or the database.
+- A link (=url=) and a picture (=image=) pass =safeWebUrl=: =http= and =https= only, the internet
+  switch on, and no secret sent to a site its =@secret= line doesn't name. A link that fails stops
+  the run with an error that says why, as a refused request does. A card with a dead tap would be
+  worse.
+- Home fetches a picture when the card shows. This is what a log line's =image= does today, and it
+  uses that cache.
+
+*** What a widget may show on home
+
+| Data                  | Rule                                                                                                          |
+|-----------------------+---------------------------------------------------------------------------------------------------------------|
+| Secrets               | Never. They are masked before anything is stored.                                                             |
+| Notifications         | Only from a script with =@uses notifications= allowed. The log shows notifications today, so this is no new exposure. No ready-made widget does it. |
+| The clipboard         | Not useful: Android lets only the app in front read it, so a timer run gets nothing. No widget for it.        |
+| The private space     | Never. Scripts can't see its apps or its notifications today, and an =app= tap never opens one.                |
+| Your app list         | Only with =@uses apps= allowed.                                                                               |
+| Todos, notes, calendar | Built-in widgets only, in phase 2. Scripts get read functions in phase 3, each behind a new =@uses= item.    |
+
+*** When the private space is locked
+
+- An app widget from the private space shows "private space locked", as today.
+- A script widget holds nothing from the private space, so locking changes nothing for it.
+- Built-in widgets never read the private space.
+
+*** Who sees the widgets page
+
+- Kolahal draws nothing on the lock screen. The page shows only after unlock.
+- The page can appear in the Recents picture of home, as the log can today.
+
+*** Limits that stop a runaway script
+
+- At most 20 =widget.show= calls in a run. The same description again is skipped.
+- At most 32 KB for a description.
+- =refresh= no faster than every 10 seconds, and only while the widget is in view.
+- A tap on one item starts at most one run in 2 seconds.
+- All run limits stay: 60 seconds, 64 MB, the watchdog.
+
+*** What a backup holds
+
+- A backup holds where each widget is, not what it shows.
+- The state scopes join =Stores.THIS_PHONE=. So they don't go into a backup file, a restore keeps
+  this phone's, and a new phone starts them empty.
+- An imported script arrives switched off, as today. Its card says so and offers Turn on.
+
+** 7. Performance and battery
+
+- *No main-thread work.* Scripts run in =:script=. The main process reads state on an IO thread,
+  only when the counter moves, and decodes only a description whose JSON text changed.
+- *The page draws at once.* On a cold start the cards come from stored state. No script has to run
+  first.
+- *Cheap redraws.* The checked description is an =@Immutable= class. Cards have stable keys. A card
+  redraws only when its own state changes.
+- *Tickers.* One shared ticker, by the minute, like the header's =rememberNow=. A ticker by the
+  second runs only for a clock or countdown that shows seconds. Both stop when the widgets page is
+  not the page in view.
+- *Bounded runs.*
+  - =@every=: 15 minutes at the fastest. This is WorkManager's floor.
+  - =refresh=: 10 seconds at the fastest, only in view, never two at once for one script.
+  - Showing the page runs only widgets older than their =staleAfter=.
+  - Two runs of one script never overlap. =ScriptRun= holds a lock for each script.
+- *Caching.* Scripts use =http.cached=, as today. Pictures use the log's picture cache (50 MB at
+  most), sized to the card.
+- *Nothing new in the background.* When home is not on screen, only a script's own timers and
+  events run, as today.
+- *Memory.* The main process holds state for placed widgets only, each at most 32 KB.
+- *Tap speed.* A tap with =args= takes as long as a button under a log line: WorkManager starts the
+  run in =:script=. The tapped item shows "working" at once. Shortcuts and built-in widgets react
+  in the main process, with no run.
+
+** 8. Testing
+
+Robolectric stays out (decided 13 November). So:
+
+*JVM tests* (=app/src/test=), for the pure parts:
+
+- =WidgetSpecTest=: for each kind, what it accepts and what it refuses. Missing fields, unknown
+  fields, wrong types, limits, roles. An empty Lua table as an empty list. Writing a description
+  and reading it back. Reading rubbish gives null, not a crash.
+- =WidgetSpecTest=, field names: none is a Lua keyword, =status= or =notify=.
+- =WidgetSizesTest=: size to columns and height, and which layout a box gets.
+- =WidgetModelTest=, more cases: script and built-in lines, old lines, the backup form, what an
+  older version does with a new line.
+- =WidgetTurnsTest=: which widgets are due, and which are old. This is like =PinnedTurns.due=.
+- =ScriptMetaTest=: the =@widget= line.
+- A =ScriptAccess= test: =widget= is off until placed, and it is not caught by the "anything else
+  is on" branch of =Grants.allows=.
+- =ApiDocsTest=, =StoresTest=, =ExpressiveOnlyTest= and =LayersTest= check the new code with no
+  changes to them.
+
+*Device tests* (=app/src/androidTest=):
+
+- =WidgetKindsTest=: one Compose test for each kind. Given a description, the texts are there, the
+  item has its description for a screen reader, and a tap reports the right action. Each in a
+  small and a large box.
+- =ScriptWidgetCardTest=: each state of [[*How each state looks][the table above]].
+- =ScriptWidgetsTest=: =widget.show= from Lua and from JavaScript. The stored JSON, the error and
+  its line number, masked secrets, a refused link, the 20-call limit, the unchanged write.
+- =WidgetFlowTest= and =WidgetsScreenTest=: app widgets and script widgets in one list.
+- A backup test: place, export, import, and the widget is back without "Add again".
+- =LibraryScriptsTest=: a case for each library script that gains a widget.
+
+* The catalog
+
+Two lists. The *kinds* are what Kolahal can draw. The *ready-made widgets* are what users get: a
+library script, or a built-in widget, on top of a kind.
+
+** Widget kinds
+
+Twelve kinds. Six are in the first build.
+
+| #  | Kind        | Shows                                          | Sizes                   | Build   |
+|----+-------------+------------------------------------------------+-------------------------+---------|
+| 1  | =stat=      | one big value, its label, up to 3 smaller ones | 1×1, 2×1, 2×2, 4×1      | First   |
+| 2  | =text=      | a few lines of text and a caption              | 2×1, 2×2, 4×1, 4×2      | First   |
+| 3  | =list=      | rows, each with a title and more               | 2×2, 4×2, 4×4           | First   |
+| 4  | =progress=  | a ring or bars                                 | 1×1, 2×1, 2×2           | First   |
+| 5  | =chart=     | a line or bars over time                       | 2×1, 2×2, 4×2           | First   |
+| 6  | =countdown= | time to or since a moment; Kolahal ticks       | 1×1, 2×1, 2×2           | First   |
+| 7  | =buttons=   | a grid of buttons                              | 2×1, 2×2, 4×1, 4×2      | Phase 2 |
+| 8  | =toggles=   | switches with a state                          | 2×1, 2×2, 4×1           | Phase 2 |
+| 9  | =clock=     | the time in several places; Kolahal ticks      | 2×1, 2×2, 4×1           | Phase 2 |
+| 10 | =agenda=    | events by day                                  | 2×2, 4×2, 4×4           | Phase 2 |
+| 11 | =media=     | what is playing, with its controls             | 2×1, 4×1, 4×2           | Phase 2 |
+| 12 | =image=     | one picture with a caption                     | 2×2, 4×2, 4×4           | Phase 3 |
+
+"Data" below says where a kind's content can come from. The refresh rules are the same for every
+kind ([[*What starts a run][What starts a run]]), so each entry names only what is special.
+
+*** 1. =stat=: a big number                                      :first:
+
+- Shows :: One value, large. A label under it. Optionally a change with an arrow, up to three
+  smaller values, and a bar.
+- Fields :: =value= (text or number, needed). =label=. =unit=. =delta= (text such as "+2.4%") with
+  =trend= (=up=, =down= or =flat=). =more=: up to 3 of ~{ value, label }~. =progress= (0 to 1),
+  with =moving= (true) to draw it as a wave, for something in progress.
+- When small :: 1×1 shows the value and the label. The smaller values and the title are left out.
+- Data :: Any script. Built-in: the Status card.
+- Refresh :: The usual. =refresh= suits a live score.
+- Taps :: The card.
+
+*** 2. =text=: a few lines                                       :first:
+
+- Shows :: Text of up to 500 characters, with its line breaks, and a caption under it (an
+  author, a source).
+- Fields :: =text= (needed). =caption= (up to 60).
+- When small :: Fewer lines, cut with "…".
+- Data :: Any script. Built-in: Notes (phase 2).
+- Taps :: The card.
+
+*** 3. =list=: rows                                              :first:
+
+- Shows :: Rows, as many as fit, then "+3 more". Each row has a title and can have a second line,
+  a text at its end, an icon and a colour.
+- Fields :: =items= (needed; the first 12 are kept): each ~{ title, detail, trailing, icon, color,
+  tap }~, with only =title= needed. =empty=: what to say with no rows ("Nothing new").
+- Phase 2 adds :: =done= (true or false) on an item draws a checkbox, for todos and habits.
+- When small :: 2×2 shows 3 rows without their second line.
+- Data :: Any script. Built-in: Todos, Reminders (phase 2).
+- Taps :: Each row, and the card.
+
+*** 4. =progress=: a ring or bars                                :first:
+
+- Shows :: How far along something is. A ring with a text in its middle, or up to four bars on
+  one scale.
+- Fields :: =value= (number, needed) and =max= (1 by default). =text= (what the middle says: "68%").
+  =label=. =style=: =ring= or =bar=; without it the box decides. Or =items=: up to 4 of ~{ label,
+  value, max, text, color }~ for bars. =moving= (true) draws the wave, for something in progress.
+- When small :: 1×1 is the ring with its text.
+- Data :: Any script. Built-in: Battery and network.
+- Taps :: The card.
+
+*** 5. =chart=: a line or bars                                   :first:
+
+- Shows :: Numbers over time as a line or as bars, with a headline value over them.
+- Fields :: =points= (numbers, needed; the last 60 are kept). =style=: =line= or =bars=. =min=,
+  =max= (the scale; without them, from the data). =value= and =label= (the headline). =labels=:
+  two texts for the first and the last point ("Mon", "Sun"). =summary=: words for a screen reader.
+- When small :: 2×1 is the headline with a small line beside it.
+- Data :: Any script. The script keeps its own history in =store=.
+- Taps :: The card. Single points can't be tapped.
+
+*** 6. =countdown=: time to a moment                             :first:
+
+- Shows :: "12 days", or "03:25:10" when it is near. After the moment: "today", then the time
+  since. With =from=, a bar from the start to the moment.
+- Fields :: =to= (a time in seconds, as =os.time()= and =Date.now() / 1000= give it; needed).
+  =from= (a time, for the bar). =label=. =style=: =days= or =clock=; without it, =days= when more
+  than 48 hours away. =reached=: what to say on the day.
+- Kolahal ticks :: The script gives the moment once. No run is needed as time passes.
+- Data :: Any script. Built-in: Reminders uses it for the next reminder (phase 2).
+- Taps :: The card.
+
+*** 7. =buttons=: a grid of buttons                              :phase2:
+
+- Shows :: Up to 8 buttons, each with a label and an icon.
+- Fields :: =items= (needed; more than 8 is an error): each ~{ label, icon, color, tap }~, with
+  =label= and =tap= needed.
+- When small :: Fewer buttons, never smaller ones: 2 at 2×1, 4 at 2×2 and 4×1, 8 at 4×2.
+- Data :: A script: every button runs the script again, or opens a link or an app. Built-in:
+  Shortcuts, where you pick the commands.
+- Taps :: Each button.
+
+*** 8. =toggles=: switches                                       :phase2:
+
+- Shows :: Up to 6 switches, each with a label, an icon and a state.
+- Fields :: =items= (needed): each ~{ label, icon, on, tap }~, with =label=, =on= and =tap= needed.
+  The =tap= must be ~{ args }~.
+- Data :: A script that can read and change the thing: Do Not Disturb (=@uses dnd=), the work
+  profile (=@uses work=), or its own values in =store=.
+- Refresh :: A short =staleAfter= (60 seconds), because the thing can change elsewhere.
+- Taps :: Each switch ([[*Toggles][how]]).
+
+*** 9. =clock=: the time in several places                       :phase2:
+
+- Shows :: Up to 4 places, each with its time, and "tomorrow" or "yesterday" when the day differs.
+- Fields :: =zones= (needed): each ~{ zone, label }~. =zone= is a time zone name such as
+  =Asia/Kolkata=; an unknown one is an error. =seconds= (true) shows seconds.
+- Kolahal ticks :: The script gives the places once. The time format follows the phone (12 or 24
+  hours).
+- Data :: A script with an option. No access needed.
+- Taps :: The card.
+
+*** 10. =agenda=: events by day                                  :phase2:
+
+- Shows :: Events under "Today", "Tomorrow" and dates. Each has its time and title.
+- Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
+  color, tap }~, with =title= and =starts= (a time in seconds) needed. =days=: how many days to
+  show (3 by default). =empty=: what to say with no events.
+- Kolahal does :: It writes the times in the phone's format and drops events that have ended,
+  with no run.
+- Data :: Built-in: the phone's calendar (phase 2). A script: any source of dated items, such as
+  matches or launches from the web. Phase 3 adds =calendar.events= for scripts.
+- Taps :: Each event, and the card.
+
+*** 11. =media=: now playing                                     :phase2:
+
+- Shows :: The title, the artist, the app, a bar for the position, and previous, play or pause,
+  and next.
+- Fields :: None. A script can't fill this kind.
+- Data :: Built-in only: =MediaRepository.nowPlaying=, which the pinned header uses. It needs
+  notification access, as that line does.
+- Why not a script :: A script can't see what is playing, can't tick the position, and may not
+  send media commands (they are sensitive).
+- Taps :: The three buttons. The card opens the player.
+
+*** 12. =image=: a picture                                       :phase3:
+
+- Shows :: One picture from the web, with a caption.
+- Fields :: =image= (an =https= link, needed). =alt= (words for a screen reader, needed).
+  =caption=. =fit=: =crop= or =fit=.
+- Data :: Any script with the internet switch on. Home fetches the picture, as it does for a log
+  line's =image=.
+- Taps :: The card.
+
+** Ready-made widgets
+
+Twenty-five. Twelve are in the first build.
+
+- *Script* means a library script in =app/src/main/assets/library/=. "Changed" ones exist today
+  and gain a =widget.show= call. "New" ones are written for this.
+- *Built-in* means Kolahal fills the card from its own data. No script, no run.
+- Every script widget also refreshes when it is placed, when the page shows old content, and from
+  "Refresh" in its menu. "Refresh" below names what is special.
+- The sketches show the idea. They are not finished scripts.
+
+| #  | Widget                 | Kind              | From            | Access                 | Build   |
+|----+------------------------+-------------------+-----------------+------------------------+---------|
+| 1  | Status card            | =stat=            | built-in        | none                   | First   |
+| 2  | Weather                | =stat=            | script, changed | internet               | First   |
+| 3  | Air quality            | =progress=        | script, changed | internet               | First   |
+| 4  | 3-day forecast         | =list=            | script, changed | internet               | First   |
+| 5  | Countdown to a date    | =countdown=       | script, changed | none                   | First   |
+| 6  | Hacker News            | =list=            | script, changed | internet               | First   |
+| 7  | Feed headlines         | =list=            | script, new     | internet               | First   |
+| 8  | Quote of the day       | =text=            | script, changed | internet               | First   |
+| 9  | Battery and network    | =progress=        | built-in        | none                   | First   |
+| 10 | Unlocks                | =chart=           | script, new     | none                   | First   |
+| 11 | Web number             | =stat=            | script, new     | internet               | First   |
+| 12 | Crypto prices          | =list=            | script, changed | internet               | First   |
+| 13 | Shortcuts              | =buttons=         | built-in        | none                   | Phase 2 |
+| 14 | Now playing            | =media=           | built-in        | notification access    | Phase 2 |
+| 15 | Todos                  | =list=            | built-in        | none                   | Phase 2 |
+| 16 | Agenda                 | =agenda=          | built-in        | the calendar permission | Phase 2 |
+| 17 | Reminders              | =list=            | built-in        | none                   | Phase 2 |
+| 18 | Notes                  | =text=            | built-in        | none                   | Phase 2 |
+| 19 | World clocks           | =clock=           | script, new     | none                   | Phase 2 |
+| 20 | Habit streak           | =chart=           | script, new     | none                   | Phase 2 |
+| 21 | Quick toggles          | =toggles=         | script, new     | =@uses dnd, work=      | Phase 2 |
+| 22 | Currency rates         | =list=            | script, changed | internet               | Phase 2 |
+| 23 | GitHub releases        | =list=            | script, changed | internet               | Phase 2 |
+| 24 | Live score             | =stat=            | script, changed | internet               | Phase 3 |
+| 25 | Comic of the day       | =image=           | script, changed | internet               | Phase 3 |
+
+*** 1. Status card                                               :first:
+
+- Shows :: A script's status line as a card: its text, its bar and its colour. This is the
+  "script output" widget. Every script that calls =status()= today gets a widget with no change:
+  cricket, football, crypto, your own.
+- Sizes :: 2×1, 4×1.
+- Kind :: It draws with the =stat= card. The line is the value, in a smaller size when it is long.
+- Data :: Built-in. It reads the stored line ([[src:data/StatusLines.kt::object StatusLines][StatusLines]]). It is stored as =status:<name>=, and
+  it needs no access item: being placed is enough. A script with its own widget can have this
+  card too.
+- Refresh :: When the line changes. =status='s own =refresh= option counts while the card is in
+  view, as it does for a pinned line.
+- Taps :: Runs the script, as a tap on a pinned line does.
+- Sketch :: None needed. An existing script already does: ~status("NZ 136/8", { progress = 0.6 })~
+
+*** 2. Weather                                                   :first:
+
+- Shows :: The temperature, large. The sky under it. Humidity and wind, smaller.
+- Sizes :: 1×1, 2×1, 4×1.
+- Data :: =weather.lua=, changed. =http.get= to wttr.in. Internet.
+- Refresh :: =@every 1h=, as it has today.
+- Taps :: Runs =weather= and turns to the log, for the full report.
+- Sketch ::
+  #+begin_src lua
+  local quiet = event and event.name == "widget"
+  if widget and line == "" then
+    widget.show{ title = place, icon = icon, value = temp, label = sky,
+      more = { { value = humidity, label = "humidity" }, { value = wind, label = "wind" } },
+      tap = { args = "", page = "log" } }
+  end
+  if not quiet then log(place, fmt.stats({ … })) end
+  #+end_src
+
+*** 3. Air quality                                               :first:
+
+- Shows :: The index in a ring, in its band's colour (good, warn, bad), with the band's name.
+- Sizes :: 1×1, 2×1, 2×2.
+- Data :: =aqi.js=, changed. Open-Meteo, or the nearest station with the optional =WAQI_TOKEN=
+  secret. Internet.
+- Refresh :: =@at 08:00= today. For the widget, suggest =@every 1h= too.
+- Taps :: Runs =aqi= and turns to the log.
+- Sketch ::
+  #+begin_src js
+  if (typeof widget !== "undefined" && !line) widget.show({
+    title: `${name} · ${place.name}`, value: aqi, max: worst, text: String(aqi),
+    label: band(aqi)[0], color: band(aqi)[1], tap: { args: "", page: "log" },
+  });
+  #+end_src
+
+*** 4. 3-day forecast                                            :first:
+
+- Shows :: Three rows: the day, the sky, the low and the high.
+- Sizes :: 2×2, 4×2.
+- Data :: =forecast.js=, changed. Internet.
+- Refresh :: =@at 07:00=, as today.
+- Taps :: Runs =forecast= and turns to the log.
+- Sketch ::
+  #+begin_src js
+  widget.show({ title: city, items: days.map((d) => ({
+    title: d.name, icon: d.icon, trailing: `${d.low}–${d.high}°` })) });
+  #+end_src
+
+*** 5. Countdown to a date                                       :first:
+
+- Shows :: The days to the nearest date you saved, with its name. Kolahal ticks.
+- Sizes :: 1×1, 2×1, 2×2.
+- Data :: =countdown.lua=, changed. Its saved dates are in =store=. No access.
+- Refresh :: =@at 00:05=, as today, to move on to the next date.
+- Taps :: Runs =countdown= and turns to the log, for the whole list.
+- Sketch ::
+  #+begin_src lua
+  -- in the branch with no arguments, for the nearest date that is still to come
+  if widget and nearestTime then
+    widget.show{ title = nearestLabel, to = nearestTime, tap = { args = "", page = "log" } }
+  end
+  #+end_src
+
+*** 6. Hacker News                                               :first:
+
+- Shows :: The top stories, each with its points. Lobsters gets the same widget.
+- Sizes :: 2×2, 4×2, 4×4.
+- Data :: =hn.lua= (and =lobsters.lua=), changed. Internet.
+- Refresh :: =@every 1h=, as today.
+- Taps :: A row opens its story.
+- Sketch ::
+  #+begin_src lua
+  local rows = {}
+  for i = 1, math.min(8, #stories) do
+    rows[i] = { title = stories[i].title, trailing = stories[i].points, tap = { url = stories[i].link } }
+  end
+  if widget then widget.show{ title = "Hacker News", items = rows } end
+  #+end_src
+
+*** 7. Feed headlines                                            :first:
+
+- Shows :: The newest items of one feed you choose.
+- Sizes :: 2×2, 4×2, 4×4.
+- Data :: A new script. =rss.fetch= of its =url= option. Internet. (The built-in feed reader's
+  unread items come in phase 3, with =feeds.unread=.)
+- Refresh :: =@every 1h=.
+- Taps :: A row opens its item.
+- Sketch :: The JavaScript example in [[*Example in JavaScript: a list][section 2]] is this script.
+
+*** 8. Quote of the day                                          :first:
+
+- Shows :: A quote and who said it.
+- Sizes :: 2×1, 2×2, 4×1.
+- Data :: =quote.js=, changed. Internet.
+- Refresh :: =@at 08:00=, as today.
+- Taps :: A new quote.
+- Sketch ::
+  #+begin_src js
+  widget.show({ kind: "text", text: quote.text, caption: quote.author });
+  #+end_src
+
+*** 9. Battery and network                                       :first:
+
+- Shows :: The battery in a ring, "charging" when it is, and the network: Wi-Fi, mobile, offline.
+- Sizes :: 1×1, 2×1.
+- Data :: Built-in. =DeviceStatus.status=, the flow the header reads. No access.
+- Refresh :: Live. No runs.
+- Taps :: Opens Android's battery screen, as the header's battery does.
+- Why built-in :: The level must be right when you look. A script would need a run each time the
+  page shows. A script version is still possible for someone who wants their own
+  (=device.battery()= with =@on charger, unplug=).
+
+*** 10. Unlocks                                                  :first:
+
+- Shows :: Today's unlocks, large, over bars for the last 7 days.
+- Sizes :: 1×1, 2×1, 2×2.
+- Data :: A new script. =device.unlocks()= today, and one small new call for the days before.
+  No access.
+- Refresh :: =@on unlock= (at most once in 30 seconds), so it is right when you arrive.
+- Taps :: The card runs the script with =week=. It then logs the seven days as bars, and home
+  turns to the log.
+- Sketch ::
+  #+begin_src lua
+  -- @title Unlocks
+  -- @widget chart 2x2
+  -- @on unlock
+  local days = device.unlocks(7)            -- new: the last 7 days, oldest first
+  widget.show{ value = days[#days], label = "unlocks today", points = days, style = "bars",
+    labels = { "6 days ago", "today" }, tap = { args = "week", page = "log" } }
+  if args[1] == "week" then log("Unlocks this week", fmt.bars(rowsOf(days))) end
+  #+end_src
+
+*** 11. Web number                                               :first:
+
+- Shows :: One number from any JSON address: a price, a count, a sensor at home.
+- Sizes :: 1×1, 2×1.
+- Data :: A new script. =http.cached= of its =url= option, then the value at its =path= option.
+  Internet.
+- Refresh :: =@every 1h=.
+- Taps :: Opens the address.
+- Sketch ::
+  #+begin_src js
+  // @title Web number
+  // @widget stat 2x1
+  // @every 1h
+  // @option url "" The address of a JSON document
+  // @option path "" Where the number is, such as data.price
+  // @option label "" What to call it
+  const r = await http.cached(options.url, 600);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const at = options.path.split(".").filter(Boolean);
+  const value = at.reduce((o, k) => (o == null ? o : o[k]), JSON.parse(r.body));
+  widget.show({ value: String(value), label: options.label, tap: { url: options.url } });
+  #+end_src
+
+*** 12. Crypto prices                                            :first:
+
+- Shows :: Each coin with its price and its change today, green or red.
+- Sizes :: 2×2, 4×2.
+- Data :: =crypto.js=, changed. CoinGecko. Internet.
+- Refresh :: =@every 30m=, as today.
+- Taps :: Runs =crypto= and turns to the log.
+- Sketch ::
+  #+begin_src js
+  widget.show({ kind: "list", title: "Crypto", items: coins.map((c) => ({
+    title: c.name, trailing: c.price, detail: c.change, color: c.up ? "good" : "bad" })) });
+  #+end_src
+
+*** 13. Shortcuts                                                :phase2:
+
+- Shows :: A grid of buttons for commands you pick: =torch=, =dnd=, =todo=, =weather=, =open maps=.
+  This is the quick-command grid.
+- Sizes :: 2×1, 2×2, 4×1, 4×2.
+- Data :: Built-in. You type or pick each command, a label and an emoji in the Widgets screen. The
+  list is saved with the placed widget.
+- Refresh :: None. It has no data.
+- Taps :: Each button runs its command, as a gesture runs the command you set for it.
+- Notes ::
+  - It runs commands, which includes opening an app by name. It has no deep links into apps'
+    screens.
+  - A script can't change the list.
+  - After a backup is imported, its commands are listed under "worth a look", as gestures and
+    aliases are.
+
+*** 14. Now playing                                              :phase2:
+
+- Shows :: The track, the artist, the position, and three buttons.
+- Sizes :: 2×1, 4×1, 4×2.
+- Data :: Built-in. =MediaRepository.nowPlaying=. Needs notification access; without it the card
+  offers to allow it.
+- Refresh :: Live.
+- Taps :: Previous, play or pause, next. The card opens the player.
+
+*** 15. Todos                                                    :phase2:
+
+- Shows :: Your open todos, each with a checkbox, and "+2 more".
+- Sizes :: 2×2, 4×2, 4×4.
+- Data :: Built-in. =TodoStore=. It needs a small change counter in that store.
+- Refresh :: Live.
+- Taps :: A checkbox marks the todo done, with Undo. The card runs =todo= and turns to the log.
+
+*** 16. Agenda                                                   :phase2:
+
+- Shows :: Today's and the next days' calendar events.
+- Sizes :: 2×2, 4×2, 4×4.
+- Data :: Built-in. =Agenda.query=, which the =agenda= command uses. Needs the calendar
+  permission; without it the card offers to allow it.
+- Refresh :: When the page shows, and every 15 minutes while it does. Ended events drop out by
+  themselves.
+- Taps :: An event opens in the calendar app. The card runs =agenda= and turns to the log.
+
+*** 17. Reminders                                                :phase2:
+
+- Shows :: The next reminder with the time to it, and the two after it.
+- Sizes :: 2×1, 2×2, 4×2.
+- Data :: Built-in. =ReminderStore=.
+- Refresh :: Live. Kolahal ticks the time.
+- Taps :: The card runs =reminders= and turns to the log.
+
+*** 18. Notes                                                    :phase2:
+
+- Shows :: Your newest note, or the newest three in a larger box.
+- Sizes :: 2×1, 2×2, 4×2.
+- Data :: Built-in. =NoteStore=.
+- Refresh :: Live.
+- Taps :: The card runs =notes= and turns to the log.
+
+*** 19. World clocks                                             :phase2:
+
+- Shows :: The time in the places you list.
+- Sizes :: 2×1, 2×2, 4×1.
+- Data :: A new script. Its =zones= option. No access.
+- Refresh :: It runs when it is placed and when the option changes. Kolahal ticks.
+- Taps :: None.
+- Sketch ::
+  #+begin_src lua
+  -- @title World clocks
+  -- @widget clock 2x2
+  -- @option zones "Asia/Kolkata Europe/London America/New_York" Time zones, by name
+  local zones = {}
+  for z in options.zones:gmatch("%S+") do zones[#zones + 1] = { zone = z } end
+  widget.show{ zones = zones }
+  #+end_src
+
+*** 20. Habit streak                                             :phase2:
+
+- Shows :: Your streak in days, bars for the last 7 days, and a "Done today" button.
+- Sizes :: 2×1, 2×2.
+- Data :: A new script. Its own days in =store=. No access.
+- Refresh :: =@at 00:01=, to start the new day.
+- Taps :: The card marks today done.
+- Note :: It needs only first-build parts (=chart=, a tap with =args=, =store=). So it can move to
+  the first build if you want one widget there that you tap to change.
+- Sketch ::
+  #+begin_src lua
+  -- @title Habit
+  -- @widget chart 2x2
+  -- @at 00:01
+  -- @option name Exercise What you count
+  local function day(back) return os.date("%Y-%m-%d", os.time() - back * 86400) end
+  if event and event.name == "action" then store.set(day(0), "1") end
+  local points = {}
+  for back = 6, 0, -1 do points[#points + 1] = store.get(day(back)) and 1 or 0 end
+  local first = store.get(day(0)) and 0 or 1        -- today may still be open
+  local streak = 0
+  while store.get(day(first + streak)) do streak = streak + 1 end
+  widget.show{ title = options.name, value = streak, label = "days in a row", points = points,
+    style = "bars", tap = { args = "done", label = "Done today" } }
+  #+end_src
+
+*** 21. Quick toggles                                            :phase2:
+
+- Shows :: Switches for Do Not Disturb and the work profile.
+- Sizes :: 2×1, 4×1.
+- Data :: A new script. =device.dnd()=, =device.setDnd()=, =device.work()=, =device.setWork()=.
+  =@uses dnd, work=, each allowed by you.
+- Refresh :: =staleAfter= of 60 seconds, because both can change elsewhere.
+- Taps :: A switch runs the script, which changes the thing and reports the new state.
+- Notes :: Wi-Fi and Bluetooth are not here. Android lets an app only open their panels.
+  Resuming the work profile from a tap should work as it does from the prompt: to verify on a
+  device.
+- Sketch ::
+  #+begin_src lua
+  -- @title Quick toggles
+  -- @widget toggles 2x1
+  -- @uses dnd, work
+  if event and event.name == "action" then
+    if args[1] == "dnd" then device.setDnd((device.dnd() or "off") == "off" and "on" or "off") end
+    if args[1] == "work" then device.setWork(device.work() == "paused") end
+  end
+  local items = { { label = "Do Not Disturb", on = (device.dnd() or "off") ~= "off", tap = { args = "dnd" } } }
+  local work = device.work()
+  if work then items[#items + 1] = { label = "Work profile", on = work == "on", tap = { args = "work" } } end
+  widget.show{ items = items, staleAfter = 60 }
+  #+end_src
+
+*** 22. Currency rates                                           :phase2:
+
+- Shows :: One unit of your currency in the others you chose.
+- Sizes :: 2×2, 4×2.
+- Data :: =exchange.js=, changed. Its =from= and =to= options. Internet.
+- Refresh :: Add =@every 6h=; it has no timer today.
+- Taps :: Runs =exchange= and turns to the log.
+- Sketch ::
+  #+begin_src js
+  widget.show({ kind: "list", title: `1 ${from}`,
+    items: to.map((c) => ({ title: c, trailing: rate(c) })) });
+  #+end_src
+
+*** 23. GitHub releases                                          :phase2:
+
+- Shows :: The newest release of each repository you watch, and how old it is.
+- Sizes :: 2×2, 4×2.
+- Data :: =releases.lua=, changed. Its watched list is in =store=. Internet.
+- Refresh :: =@every 3h=, as today.
+- Taps :: A row opens the release.
+- Sketch ::
+  #+begin_src lua
+  if widget then widget.show{ title = "Releases", items = rows, empty = "releases add owner/repo" } end
+  -- each row: { title = repo, trailing = tag, detail = age, tap = { url = link } }
+  #+end_src
+
+*** 24. Live score                                               :phase3:
+
+- Shows :: The live match of your team: the score, the teams, a bar for how far along it is.
+- Sizes :: 2×1, 4×1.
+- Data :: =cricket.js= and =football.js=, changed. Internet.
+- Refresh :: =@every 15m=, and =refresh= from its option (30 seconds) while the match is live and
+  the widget is in view.
+- Taps :: Runs =cricket live= and turns to the log.
+- Note :: The Status card already shows these scripts' lines in the first build. This entry adds
+  the larger layout.
+- Sketch ::
+  #+begin_src js
+  widget.show({ value: score, label: teams, progress: overs / 50, moving: true,
+    refresh: Number(options.refresh) });
+  #+end_src
+
+*** 25. Comic of the day                                         :phase3:
+
+- Shows :: Today's xkcd, with its title.
+- Sizes :: 2×2, 4×2, 4×4.
+- Data :: =xkcd.js=, changed. Internet.
+- Refresh :: =@every 6h=, as today.
+- Taps :: Opens the comic's page.
+- Sketch ::
+  #+begin_src js
+  widget.show({ kind: "image", image: comic.img, alt: comic.alt, caption: comic.title,
+    tap: { url: `https://xkcd.com/${comic.num}/` } });
+  #+end_src
+
+** Not in the catalog, on purpose
+
+- *A clipboard widget.* Android gives the clipboard only to the app in front.
+- *Wi-Fi and Bluetooth switches.* Android lets a launcher only open their panels.
+- *A notifications widget.* Possible for a script with =@uses notifications=, but no ready-made
+  one is proposed.
+- *Quick launch for app screens* and *folding notification bursts*: dropped by the owner.
+
+* What changes in the code
+
+** What the scripting API adds
+
+| Name                   | Arguments                 | Build   | Notes                                                                                   |
+|------------------------+---------------------------+---------+-----------------------------------------------------------------------------------------|
+| =@widget=              | =<kind> [<size>]=         | First   | A directive. One for each script.                                                       |
+| =widget.show=          | =(desc)= → true or false  | First   | In Lua also =widget.show{…}=.                                                           |
+| =widget.clear=         | =()=                      | First   |                                                                                         |
+| =allowed("widget")=    |                           | First   | The existing function, with one new item.                                               |
+| =event.name "widget"=  |                           | First   | A run the widgets page asked for.                                                       |
+| =event.widget=         | true                      | First   | Set in an ="action"= run that a widget's tap started.                                   |
+| =device.unlocks=       | =(days?)= → number or list | First  | With =days=, a list for that many days, oldest first. =UnlockCounter.history= has it.   |
+| =todos.list=           | =()= → list               | Phase 3 | New =@uses todos=. =todos.setDone(id, done)= with it.                                   |
+| =notes.list=           | =(n?)= → list             | Phase 3 | New =@uses notes=.                                                                      |
+| =reminders.list=       | =()= → list               | Phase 3 | New =@uses reminders=.                                                                  |
+| =calendar.events=      | =(days?)= → list          | Phase 3 | New =@uses calendar=. Empty without the calendar permission.                            |
+| =feeds.unread=         | =(n?)= → list             | Phase 3 | New =@uses feeds=. The built-in reader's unread items.                                  |
+
+Each new function costs the same set of changes, so count them: =HostApi=, the binding in
+=LuaEngine= and in =JsEngine=, the namespace in =guard.js='s =spaces= list, =ApiDocs= (which
+=ApiDocsTest= checks), =api.mdx=, and for a new =@uses= item also =ScriptMeta.USES= and
+=ScriptAccess.label= and =help=.
+
+** By file
+
+New files:
+
+| File                           | What it holds                                                                                          |
+|--------------------------------+--------------------------------------------------------------------------------------------------------|
+| =widgets/WidgetSpec.kt=        | The checked description: one class for each kind. Reading a script's table, the limits, and the JSON form. Pure. |
+| =widgets/WidgetSizes.kt=       | Sizes to columns and height. Which layout a box gets. Pure.                                            |
+| =widgets/WidgetStates.kt=      | The store: the two scopes, the write that skips what is unchanged, the counter, the message between the processes. |
+| =widgets/BuiltInWidgets.kt=    | The built-in sources: each turns one of Kolahal's flows into a description.                            |
+| =terminal/WidgetActions.kt=    | Taps and refresh requests, behind a small =Host= interface, as =ScriptActions= has.                    |
+| =terminal/WidgetTurns.kt=      | Which widgets are due and which are old. Pure, like =PinnedTurns=.                                     |
+| =ui/ScriptWidgets.kt=          | The card: its frame, its states, its footer, its menu.                                                 |
+| =ui/WidgetKinds.kt=            | One composable for each kind.                                                                          |
+
+The layers hold: descriptions and stores are in =widgets/= (the Model), composables in =ui/=,
+taps in =terminal/=. =LayersTest= checks it.
+
+Changed files:
+
+- =script/HostApi.kt= ::
+  - =widgetShow(desc)= and =widgetClear()=. They call =live()= first, check that the script has a
+    =@widget= line, pass texts through =redact= and links through =safeWebUrl=, and count the run's
+    writes.
+  - =unlocks(days)=.
+  - The constructor gets the script's =@widget= line.
+  - The long part (reading the table) lives in =WidgetSpec=, not here.
+- =script/LuaEngine.kt=, =script/JsEngine.kt= :: Bind the =widget= namespace. Add ="widget"= to
+  =guard.js='s =spaces=.
+- =script/ApiDocs.kt= :: The new entries, and a =Directive("widget", …)=.
+- =script/ScriptMeta.kt= :: =widget(code)= reads the =@widget= line into a kind and a size.
+  =KINDS=. A sample event for ="widget"=.
+- =script/ScriptAccess.kt= ::
+  - A new item, =WIDGET=, beside =INTERNET= and =HEADER=.
+  - =base(code)= includes it when the code has a =@widget= line.
+  - =Grants.allows= needs its own case for it: on only when the stored value is true. Without that
+    case it would fall into the last branch, which is "on unless switched off".
+  - Its label: "On the widgets page". It is not in =asksFor=: it is off until you place it.
+- =script/ScriptWorker.kt= (=ScriptRun=) :: After a run of a script with a widget, write the meta:
+  the time, and the error if it failed. Treat a ="widget"= run as it treats a ="refresh"= run:
+  quiet, and an error reported once.
+- =script/ScriptScheduler.kt= :: =refreshWidget(script)=: unique work that keeps the one already
+  queued, with the event ="widget"=. Taps use =runNow=, as line buttons do.
+- =data/Stores.kt= :: The two scopes, in =THIS_PHONE=. =StoresTest= then passes.
+- =data/ScriptRepository.kt=, =terminal/ScriptChanges.kt= :: Clear a widget's state where a status
+  line is cleared: deleted, switched off, changed from outside, a name taken again. Move it, and
+  the placed entries, on a rename.
+- =LauncherApp.kt= :: Receive =WIDGETS_CHANGED=.
+- =widgets/WidgetModel.kt= :: =PlacedWidget.source=. The stored line and the backup form for it.
+- =widgets/WidgetHost.kt= :: Add and remove the new widgets. Set the =widget= access item with
+  them. At start and after an import, make the access items follow the placed list.
+- =ui/HostedWidgets.kt= :: In the flow, draw a script card, a built-in card or a hosted widget.
+  Take "in view" from the pager.
+- =MainActivity.kt= (=HomePager=) :: Tell the widgets page when it is the settled page.
+- =ui/WidgetsScreen.kt= :: Titles from scripts. Size buttons. "Edit script" and "Options" in the
+  toolbar.
+- =ui/WidgetPickerScreen.kt= :: The Kolahal section.
+- =commands/CommandCatalog.kt=, =terminal/= :: =widget add <script>=, =widget rm <script>=, and
+  script widgets in =widgets ls=.
+- =ui/ScriptCard.kt=, =ui/ScriptFilters.kt= :: A "Widget" pill and filter chip.
+- =data/Backup.kt= :: See below.
+- =assets/library/= :: The changed and new scripts. For each: =tools/library-history.sh=, the
+  counts in =LibraryFilesTest=, a case in =LibraryScriptsTest=, and =library.md=.
+- =site/= :: A Widgets section in =scripting/api.mdx=, the =@widget= line in =overview.md=, the
+  library page, a guide page for the widgets page, and a line each in =privacy.md= and
+  =security.md=.
+- =docs/= :: The data table in =developing.org= and the stores in =codebase-guide.org=.
+
+** Backups
+
+- *Placement travels.* The backup's ="widgets"= list gets an entry for each new widget: its
+  source (=script:weather=, =status:cricket=, =builtin:battery=), a built-in's settings, the
+  height, the order and the width.
+- *They come back by themselves.* App widgets need "Add again", because their ids belong to one
+  phone. A script widget needs only its script. =Backup.import= reads scripts before widgets, so
+  the script is there. An entry whose script is missing is skipped and named.
+- *The script arrives off*, as every imported script does. Its card says so.
+- *The placed list wins.* A backup carries only the access you switched off. So after the import,
+  the =widget= item is set on for each restored script widget.
+- *State does not travel.* It is a cache and may hold private text. Options and script stores
+  travel as today. Secrets never do.
+- *Older versions are safe.* They read only entries with a provider that has a =/=. They skip the
+  new ones. The backup's format number does not change.
+- *Shortcuts' commands* are listed for review after an import.
+
+* Phased plan
+
+Sizes are rough: *S* is about a day, *M* about three days, *L* about six. They include tests.
+Nothing was measured; treat the totals as a guide to what is big and what is small.
+
+** Phase 1: the first build
+
+The smallest set that is useful on its own: 6 kinds, 12 widgets.
+
+| Part                                                                                             | Size |
+|--------------------------------------------------------------------------------------------------+------|
+| The description: classes, reading, limits, JSON, JVM tests                                       | M    |
+| The script API: =HostApi=, both engines, =guard.js=, =ApiDocs=, =@widget=, the access item       | M    |
+| The state store, the message between processes, the run's result, =refreshWidget=                | M    |
+| Placement: the model, the stored line, the host, the picker's section, the Widgets screen, commands | M  |
+| The card: frame, states, footer, menu, taps, refresh while in view                               | M    |
+| Six kinds with their Compose tests: =stat=, =text=, =list=, =progress=, =chart=, =countdown=     | L    |
+| Built-in: Status card, Battery and network                                                       | S    |
+| Library: 7 changed scripts, 3 new ones (Feed headlines, Unlocks, Web number)                     | M    |
+| Backups                                                                                          | S    |
+| The guide and the maintainer's docs                                                              | M    |
+
+Added up: about 25 to 30 working days.
+
+- About two thirds of that is the foundation: the first five rows, backups and the guide. It
+  costs the same for 3 widgets or for 12.
+- After it, one more kind is about a day, and one more library widget about half a day.
+- So a smaller first build saves little, and a larger one costs little.
+
+To see something on a phone early, build in this order: the description and the API, the state
+store, placement, the card, then =stat= and =list= with the Status card, Weather and Feed
+headlines. That is a working slice after about half the time. The other kinds and widgets then
+each add a little.
+
+** Phase 2: taps that change things, and live data
+
+5 kinds, 11 widgets. About 15 to 20 working days.
+
+| Part                                                                                             | Size |
+|--------------------------------------------------------------------------------------------------+------|
+| Kinds: =buttons=, =toggles=, =clock=, =agenda=, =media=; checkboxes in =list=; the =app= action  | L    |
+| Built-in: Shortcuts, with its editor and the import review                                       | M    |
+| Built-in: Now playing, Todos, Agenda, Reminders, Notes                                           | M    |
+| Library: World clocks, Habit streak, Quick toggles (new); Currency rates, GitHub releases (changed) | M |
+| A widget preview in the script editor                                                            | S    |
+
+** Phase 3: more data for scripts
+
+About 15 working days.
+
+- The =image= kind, Comic of the day, Live score.
+- Read functions for scripts, each behind a new =@uses= item: =todos=, =notes=, =reminders=,
+  =calendar=, =feeds=. They also help scripts that only log, such as a morning summary.
+- Several widgets from one script, each with its own options.
+- Styled text in widgets (=fmt.bold=, =fmt.color=).
+
+** Phase 4: only if asked
+
+- Home-screen widgets for other launchers, with Glance: a second renderer for =stat=, =list= and
+  =text= that reads the same stored state. About 10 to 15 working days.
+
+* Open questions
+
+Each has a recommended answer. The plan above assumes those answers.
+
+1. *Where do widgets show in the first build?*
+   Recommended: only on Kolahal's widgets page. Other launchers' home screens wait for phase 4.
+
+2. *May a script put a terminal command behind a tap?*
+   Recommended: no. A tap runs the same script again, and that run may use =launcher.run= under
+   today's rules. Commands you pick yourself go in the built-in Shortcuts widget.
+
+3. *Kolahal's own data (todos, agenda, now playing, battery): built-in widgets, or new script
+   functions?*
+   Recommended: built-in widgets first. They are live, need no new access items, and can do what
+   scripts may not (mark a todo done, control media). Script functions come in phase 3.
+
+4. *One widget for each script, or several?*
+   Recommended: one in the first build. It is keyed by script name, as a status line is. Two
+   cities then need two scripts. Several widgets from one script, each with its own options, is
+   phase 3. The stored key leaves room for it.
+
+5. *Should Shortcuts be in the first build?*
+   Recommended: phase 2. It needs its own small editor. It does not depend on scripts, so it can
+   move to the first build if it is the widget you want most.
+
+6. *Which typeface do the cards use?*
+   Recommended: the GUI's, as Settings and Scripts use. A setting for the terminal font can come
+   later. The log stays the terminal; the cards are GUI.
+
+7. *How does old content look?*
+   Recommended: the same, with its age in a footer ("2 h ago"). Dimming would lower contrast.
+
+8. *Do a refresh run's own =log()= lines reach the log?*
+   Recommended: yes, the rule a pinned line's refresh has. Library scripts skip them when
+   =event.name= is ="widget"=. One rule is easier to explain than two.
+
+9. *How fast may =refresh= be?*
+   Recommended: 10 seconds, as for a status line, and only while the widget is in view.
+
+10. *Does a widget's content go into backups?*
+    Recommended: no. Where it is placed does. The content is a cache and may hold private text.
+
+11. *May a widget show notification text?*
+    Recommended: yes, for a script with =@uses notifications= allowed, since the log already
+    shows notifications. No ready-made widget does it.
+
+12. *Does picking a library widget add and switch on its script in one step?*
+    Recommended: yes. =script install= already adds a library script switched on, with what it
+    declares allowed. The picker's entry says what the script uses before you pick it.
+
+13. *What do users call them?*
+    Recommended: just "widgets". The picker's sections say where each comes from: Kolahal, your
+    scripts, the library, an app. "Script widget" and "built-in widget" are words for this
+    document and the code.
