@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,8 +37,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -157,24 +166,22 @@ internal object WidgetWords {
     fun countdownFraction(from: Long?, to: Long, now: Long): Float? =
         if (from == null || to <= from) null else ((now - from).toFloat() / (to - from)).coerceIn(0f, 1f)
 
-    /** The main text of [spec]: what its card must say even at its smallest. The plain card draws only this. */
-    fun main(spec: WidgetSpec, now: Long, zone: ZoneId): String = when (spec) {
-        is WidgetSpec.Stat -> joined(spec.value, spec.unit)
-        is WidgetSpec.Text -> spec.text
-        is WidgetSpec.Rows -> spec.items.firstOrNull()?.title ?: spec.empty ?: NOTHING
-        is WidgetSpec.Progress -> spec.items.firstOrNull()?.let { it.text ?: percent(it.value, it.max) } ?: spec.text ?: percent(spec.value, spec.max)
-        is WidgetSpec.Chart -> spec.value ?: spec.points.lastOrNull()?.let(::num) ?: NOTHING
-        is WidgetSpec.Countdown -> countdown(spec.to, now, spec.style, spec.reached, zone).text
-    }
-
-    /** The smaller text that goes with [main], if the description has one. */
-    fun label(spec: WidgetSpec): String? = when (spec) {
-        is WidgetSpec.Stat -> spec.label
-        is WidgetSpec.Text -> spec.caption
-        is WidgetSpec.Rows -> null
-        is WidgetSpec.Progress -> spec.label
-        is WidgetSpec.Chart -> spec.label
-        is WidgetSpec.Countdown -> spec.label
+    /**
+     * The scale of a chart: its lowest and its highest value. [min] and [max] win. Without them the
+     * data decides.
+     * - Bars stand on zero when no value is below it, so their heights can be compared.
+     * - A line of one height (one point, or all the same) gets room around it and sits in the middle.
+     * - The scale always has some height.
+     */
+    fun scale(points: List<Float>, min: Float?, max: Float?, bars: Boolean): Pair<Float, Float> {
+        val real = points.filter { it.isFinite() }
+        val low = min ?: (real.minOrNull() ?: 0f).let { if (bars) minOf(0f, it) else it }
+        val high = max ?: real.maxOrNull() ?: 0f
+        return when {
+            high > low -> low to high
+            !bars && min == null && max == null -> low - 0.5f to high + 0.5f
+            else -> low to low + 1f
+        }
     }
 
     /**
@@ -260,8 +267,8 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Text -> TextBody(spec, box)
         is WidgetSpec.Rows -> RowsBody(spec, onTap)
         is WidgetSpec.Progress -> ProgressBody(spec, box)
+        is WidgetSpec.Chart -> ChartBody(spec, box)
         is WidgetSpec.Countdown -> CountdownBody(spec, box)
-        else -> PlainBody(spec, box)
     }
 }
 
@@ -637,21 +644,116 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     }
 }
 
-/** A kind with no drawing of its own yet: its main text, and its label under it. */
+/**
+ * `chart`: numbers over time as a line or as bars, with a headline.
+ * - Small: the headline over a small plot.
+ * - Wide: the headline with a small plot beside it.
+ * - Large: the headline, the plot, and under it the labels of the first and the last point.
+ * The plot has no words of its own. The card's description says the chart for a screen reader.
+ */
 @Composable
-private fun PlainBody(spec: WidgetSpec, box: WidgetSizes.Box) {
-    // The minute's tick, for a countdown.
-    val (now, _) = rememberNow()
-    val main = WidgetWords.main(spec, now.time / 1000, ZoneId.systemDefault())
-    val small = box == WidgetSizes.Box.SMALL
-    Column(
-        Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start,
-    ) {
-        Text(main, style = valueStyle(box), color = MaterialTheme.colorScheme.onSurface, maxLines = if (box == WidgetSizes.Box.LARGE) 3 else 1, overflow = TextOverflow.Ellipsis)
-        WidgetWords.label(spec)?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
+    val type = MaterialTheme.typography
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val colour = roleColour(spec.base)
+    val bars = spec.style == "bars"
+    val value = spec.value
+    val label = spec.label
+    when (box) {
+        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
+            if (value != null || label != null) Row {
+                if (value != null) BigText(value, type.headlineSmall, Modifier.weight(1f, fill = false).alignByBaseline())
+                if (label != null) {
+                    Text(
+                        label,
+                        style = type.bodySmall,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = if (value != null) 8.dp else 0.dp).widthIn(max = 120.dp).alignByBaseline(),
+                    )
+                }
+            }
+            Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp))
+            if (spec.labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Text(spec.labels.first(), style = type.labelSmall, color = muted, maxLines = 1)
+                Spacer(Modifier.weight(1f))
+                if (spec.labels.size > 1) Text(spec.labels.last(), style = type.labelSmall, color = muted, maxLines = 1)
+            }
+        }
+        WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            if (value != null || label != null) Column(Modifier.padding(end = 12.dp).widthIn(max = 120.dp)) {
+                if (value != null) BigText(value, type.titleLarge)
+                if (label != null) Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxHeight())
+        }
+        WidgetSizes.Box.SMALL -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (value != null) BigText(value, type.titleMedium)
+            Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth())
+        }
+    }
+}
+
+/**
+ * The plot of a chart, on a Canvas, in [colour]. There is no chart library.
+ * - A line is 2 dp, with a light wash under it. A dot marks the latest point. The dot has a ring in
+ *   the card's colour, so it stays clear of the line.
+ * - A bar is at most 24 dp thick, with 2 dp between bars. It is round at its top and square at the
+ *   baseline, which is a hairline.
+ * - The scale is [min] to [max], or what the data gives ([WidgetWords.scale]). A value outside the
+ *   scale is drawn at its edge.
+ */
+@Composable
+private fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, colour: Color, modifier: Modifier = Modifier) {
+    val surface = MaterialTheme.colorScheme.surfaceContainerHigh
+    val hairline = MaterialTheme.colorScheme.outlineVariant
+    val scale = remember(points, bars, min, max) { WidgetWords.scale(points, min, max, bars) }
+    Canvas(modifier) {
+        if (points.isEmpty() || size.width <= 0f || size.height <= 0f) return@Canvas
+        val (low, high) = scale
+        val line = 2.dp.toPx()
+        // How high a value sits, from 0 at the bottom of the scale to 1 at its top.
+        fun level(v: Float) = WidgetWords.fraction(v - low, high - low)
+        if (bars) {
+            val gap = 2.dp.toPx()
+            val slot = size.width / points.size
+            val thick = (slot - gap).coerceIn(1f, 24.dp.toPx())
+            val round = CornerRadius(minOf(4.dp.toPx(), thick / 2))
+            val path = Path()
+            points.forEachIndexed { i, v ->
+                val x = i * slot + (slot - thick) / 2
+                // A value at the bottom of the scale still shows as a sliver.
+                val top = (size.height * (1f - level(v))).coerceAtMost(size.height - line)
+                path.addRoundRect(RoundRect(Rect(x, top, x + thick, size.height), topLeft = round, topRight = round))
+            }
+            drawPath(path, colour)
+            drawLine(hairline, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+        } else {
+            val dot = 4.dp.toPx()
+            // Room for the dot and its ring at the end, the top and the bottom.
+            val pad = dot + line
+            val left = line / 2
+            val right = (size.width - pad).coerceAtLeast(left)
+            val tall = (size.height - 2 * pad).coerceAtLeast(0f)
+            fun x(i: Int) = if (points.size == 1) right else left + (right - left) * i / (points.size - 1)
+            fun y(v: Float) = pad + tall * (1f - level(v))
+            if (points.size > 1) {
+                val path = Path()
+                val wash = Path()
+                wash.moveTo(left, size.height)
+                points.forEachIndexed { i, v ->
+                    if (i == 0) path.moveTo(x(i), y(v)) else path.lineTo(x(i), y(v))
+                    wash.lineTo(x(i), y(v))
+                }
+                wash.lineTo(right, size.height)
+                wash.close()
+                drawPath(wash, colour.copy(alpha = 0.1f))
+                drawPath(path, colour, style = Stroke(width = line, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            val end = Offset(x(points.lastIndex), y(points.last()))
+            drawCircle(surface, radius = dot + line, center = end)
+            drawCircle(colour, radius = dot, center = end)
         }
     }
 }

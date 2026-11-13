@@ -123,18 +123,22 @@ class WidgetWordsTest {
         assertEquals(1f, WidgetWords.countdownFraction(0, 100, 250)!!, 0f)
     }
 
-    @Test fun theMainTextOfEachKind() {
-        val now = at(day = 20, hour = 0)
-        assertEquals("24°C", WidgetWords.main(WidgetSpec.Stat(base, value = "24", unit = "°C"), now, utc))
-        assertEquals("A quote", WidgetWords.main(WidgetSpec.Text(base, text = "A quote"), now, utc))
-        assertEquals("First", WidgetWords.main(WidgetSpec.Rows(base, items = listOf(WidgetSpec.Row("First"), WidgetSpec.Row("Second"))), now, utc))
-        assertEquals("Nothing new", WidgetWords.main(WidgetSpec.Rows(base, items = emptyList(), empty = "Nothing new"), now, utc))
-        assertEquals("Nothing to show", WidgetWords.main(WidgetSpec.Rows(base, items = emptyList()), now, utc))
-        assertEquals("68%", WidgetWords.main(WidgetSpec.Progress(base, value = 0.68f), now, utc))
-        assertEquals("5 / 8", WidgetWords.main(WidgetSpec.Progress(base, value = 5f, max = 8f, text = "5 / 8"), now, utc))
-        assertEquals("the latest point", "9", WidgetWords.main(WidgetSpec.Chart(base, points = listOf(3f, 12f, 9f)), now, utc))
-        assertEquals("72 kg", WidgetWords.main(WidgetSpec.Chart(base, points = listOf(3f), value = "72 kg"), now, utc))
-        assertEquals("3 days", WidgetWords.main(WidgetSpec.Countdown(base, to = now + 3 * 86_400L), now, utc))
+    @Test fun aChartsScaleComesFromTheDataUnlessTheScriptGivesIt() {
+        val points = listOf(3f, 12f, 9f)
+        assertEquals("a line: from its lowest to its highest", 3f to 12f, WidgetWords.scale(points, null, null, bars = false))
+        assertEquals("bars stand on zero", 0f to 12f, WidgetWords.scale(points, null, null, bars = true))
+        assertEquals("unless a value is below it", -2f to 5f, WidgetWords.scale(listOf(-2f, 5f), null, null, bars = true))
+        assertEquals("the script's scale wins", 0f to 20f, WidgetWords.scale(points, 0f, 20f, bars = false))
+        assertEquals(5f to 12f, WidgetWords.scale(points, 5f, null, bars = true))
+    }
+
+    @Test fun aChartsScaleAlwaysHasSomeHeight() {
+        assertEquals("a flat line sits in the middle", 4.5f to 5.5f, WidgetWords.scale(listOf(5f, 5f, 5f), null, null, bars = false))
+        assertEquals(8.5f to 9.5f, WidgetWords.scale(listOf(9f), null, null, bars = false))
+        assertEquals("bars of nothing", 0f to 1f, WidgetWords.scale(listOf(0f, 0f), null, null, bars = true))
+        assertEquals("a maximum under the data", 5f to 6f, WidgetWords.scale(listOf(5f, 9f), null, 3f, bars = false))
+        assertEquals("no points", -0.5f to 0.5f, WidgetWords.scale(emptyList(), null, null, bars = false))
+        assertEquals("a value that is no number is left out", 1f to 2f, WidgetWords.scale(listOf(1f, Float.NaN, 2f), null, null, bars = false))
     }
 
     @Test fun aCardIsOneSentenceForAScreenReader() {
