@@ -2,8 +2,8 @@
 <!--
     Android 12+ backup rules. To the cloud, settings (shared prefs) are backed up; the databases are
     not: kolahal.db holds the terminal log (which can contain other apps' notification text), script
-    key-value data and the notification mirror; feeds.db is just a re-fetchable cache. "logs" prefs
-    belong to the terminal log too. A transfer from your old phone to your new one, over a cable or
+    key-value data, the notification mirror and the log's marks; feeds.db is just a re-fetchable cache.
+    The "logs" prefs held those marks before 0.5.8, and a backup from before still brings them. A transfer from your old phone to your new one, over a cable or
     Wi-Fi, carries those too: your scripts, todos, notes, reminders and feeds are in them.
 -->
 <data-extraction-rules>

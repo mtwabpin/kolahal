@@ -25,7 +25,8 @@ open class Singleton<T : Any>(private val create: (Context) -> T, private val ma
         }
     }
 
-    private companion object {
+    companion object {
+        /** True in the :script process, where scripts run; false in the main one. */
         val inScriptProcess: Boolean by lazy {
             runCatching { android.app.Application.getProcessName()?.endsWith(":script") == true }.getOrDefault(false)
         }

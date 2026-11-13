@@ -119,7 +119,6 @@ object FullBackup {
                 }
             }
         }
-        // Do this after the tables, because the ids the log saved are compared with the lines now in it.
         (data["prefs"] as? Map<*, *>)?.forEach { (file, entries) ->
             if (file !is String || file !in PREFS || entries !is Map<*, *>) return@forEach
             val safe = when (file) {
@@ -128,11 +127,13 @@ object FullBackup {
                 // Settings are text. A number or a switch there (only an edited file has one) would
                 // break home at every start.
                 "config" -> entries.filterValues { tagged -> (tagged as? Map<*, *>)?.keys?.none { it in TYPED } == true }
-                "logs" -> logIdsWithin(entries, LogRepository.get(context).maxId())
                 else -> entries
             }
             importPrefs(context, PREFS.getValue(file), safe)
         }
+        // The log's marks came as kv rows, or in the old "logs" prefs (a backup from before 0.5.8).
+        // Now that the lines are in, no mark may point past the newest one ([LogMarks.restored]).
+        LogRepository.get(context).let { it.marks.restored(it.maxId()) }
         // The same clean-up as after an update, in case an older file holds what a limit now refuses.
         runCatching { KvStore.repairOversized(context) }
         return rows
@@ -150,21 +151,6 @@ object FullBackup {
             else -> false
         }
     }
-
-    /**
-     * A backup's "logs" preferences, with no line id past [newest], the newest line now in the log.
-     * An id can be past it when the lines up to it stayed behind (notification and call lines) or
-     * are gone (cleared, trimmed, swiped). New lines, numbered on from [newest], would then stay out
-     * of view until their ids reached it. Restored lines stay hidden or shown exactly as they were.
-     * The log reads these values as numbers, and anything else breaks it. So a value that an edited
-     * file gives as text (`{"s": "5"}`) comes back as that number, and a value that isn't a number is dropped.
-     */
-    internal fun logIdsWithin(entries: Map<*, *>, newest: Long): Map<*, *> = entries.mapNotNull { (key, tagged) ->
-        if (key !in LogRepository.ID_KEYS) return@mapNotNull key to tagged
-        val value = (tagged as? Map<*, *>)?.values?.singleOrNull()
-        val id = (value as? Number)?.toLong() ?: (value as? String)?.trim()?.toLongOrNull() ?: return@mapNotNull null
-        key to mapOf("l" to minOf(id, newest))
-    }.toMap()
 
     /** After the scripts exist (by name), puts each script's store back under its new id. */
     fun importScriptStores(context: Context, data: Map<*, *>) {

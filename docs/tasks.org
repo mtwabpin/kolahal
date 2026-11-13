@@ -56,12 +56,6 @@ lint. Nothing was run on a device, so all times are estimates. Line numbers are 
 ** Fix first
 ** Security
 ** Architecture
-*** TODO [#C] The log's view markers live in the =logs= prefs, beside the table
-=data/Stores.kt= now names every prefs file and kv scope with where it travels, and =StoresTest= checks
-it against the backup XML files (done in 0.5.7). Left: the log's view markers (cleared, hidden, seen)
-are in the =logs= prefs, so =FullBackup.logIdsWithin= has to clamp them. Moving them into kv is about
-half a day. Theme files are still read by a regex on purpose: it also reads a hand-edited file.
-
 ** In good shape: keep as it is
 - Self-update: checks the package, the version, a higher version code, and that the signers match
   the installed ones and the pinned certificate. The FileProvider covers only =cache/updates/=.
@@ -74,6 +68,7 @@ half a day. Theme files are still read by a regex on purpose: it also reads a ha
 - The log: SQLite in WAL mode, incremental reload, stable keys; caches are bounded.
 - The two-process design overall: shared state goes through =kolahal.db=.
 - =Keys= / =Config=: one typed list drives Settings, =config=, completion and backups.
+- Theme files are read by a regex on purpose: it also reads a hand-edited file.
 - =tools/check-play-build.sh= runs in CI on every push and checks what Play cares about.
 - No =GlobalScope=, no =runBlocking=; singletons hold the application context.
 - Commands (decided 13 November 2026): the =when= in =CommandProcessor= stays. Each =CommandSpec=

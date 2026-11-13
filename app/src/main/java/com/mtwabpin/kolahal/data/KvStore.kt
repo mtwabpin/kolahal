@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.data
 
 import android.content.ContentValues
 import android.content.Context
+import androidx.core.database.sqlite.transaction
 
 /** A small string key/value store. Each script gets its own scope (used by `store` and `rss.fresh`). */
 class KvStore(context: Context, private val scope: String) {
@@ -76,6 +77,20 @@ class KvStore(context: Context, private val scope: String) {
                 put("v", value)
             }, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
         }
+    }
+
+    /**
+     * Sets several keys together: all of them, or none. A null value removes its key. Not for a
+     * script's store, whose size [set] counts write by write.
+     */
+    fun setAll(values: Map<String, String?>) {
+        require(!scope.startsWith(Stores.SCRIPT_PREFIX)) { "a script's store is set one key at a time" }
+        if (values.isEmpty()) return
+        for ((key, value) in values) {
+            require((value?.toByteArray()?.size ?: 0) <= MAX_VALUE) { "value too large (over ${MAX_VALUE / 1024} KB)" }
+            require(key.length <= MAX_KEY) { "key too long (over $MAX_KEY characters)" }
+        }
+        db.writableDatabase.transaction { values.forEach { (key, value) -> write(key, value) } }
     }
 
     /** Deletes every key that starts with [prefix], except [except]. */

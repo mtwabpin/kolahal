@@ -38,8 +38,11 @@ object Stores {
     val OLD_UNLOCKS = Prefs("unlocks", inBackup = true, toCloud = false)
     /** Home's own state: the first run's tour, one-time moves, the pinned status lines. */
     val LAUNCHER = Prefs("launcher", inBackup = true)
-    /** The log's view markers (cleared, hidden, seen): they belong to the log, which isn't in the cloud either. */
-    val LOGS = Prefs("logs", inBackup = true, toCloud = false)
+    /**
+     * The log's marks (cleared, hidden, seen), from before 0.5.8: now in the [LOG_MARKS] scope. A backup
+     * from before still brings them here, and [LogMarks] moves them on. Not for the cloud, like the log.
+     */
+    val OLD_LOGS = Prefs("logs", inBackup = true, toCloud = false)
     /** The Play build's picked contacts: names and numbers stay on the phone. */
     val PICKED_CONTACTS = Prefs("picked_contacts", inBackup = false, toCloud = false)
     /** `wallpaper match`'s wallpaper id: another phone's same number is someone's own wallpaper. */
@@ -60,7 +63,7 @@ object Stores {
     val REMINDERS = Prefs("reminders", inBackup = false)
 
     val PREFS = listOf(
-        CONFIG, ALIASES, APPS, APP_USAGE, NOTIF_PREFS, SCRIPT_LIBRARY, SCRIPT_CATALOG, OLD_UNLOCKS, LAUNCHER, LOGS,
+        CONFIG, ALIASES, APPS, APP_USAGE, NOTIF_PREFS, SCRIPT_LIBRARY, SCRIPT_CATALOG, OLD_UNLOCKS, LAUNCHER, OLD_LOGS,
         PICKED_CONTACTS, WALLPAPER_MATCH, CRASH, TRIGGERS, DAILY_SCHEDULE, SCRIPT_FOLDER, LIBRARY_UPDATES, WIDGETS,
         TIPS, SCRIPTS_PAGE, AUTO_BACKUP, REMINDERS,
     )
@@ -88,6 +91,8 @@ object Stores {
     const val FX = "fx"
     /** Unlocks counted without Usage Access, by day ([com.mtwabpin.kolahal.unlock.UnlockCounter]). */
     const val UNLOCKS = "unlocks"
+    /** The log's marks ([LogMarks]): line ids that go with the lines, in a backup and to a new phone. */
+    const val LOG_MARKS = "log-marks"
     /** Pinned status lines, from before they moved to [LAUNCHER]: emptied at start. */
     const val OLD_PINS = "pin"
 
@@ -105,5 +110,5 @@ object Stores {
      */
     val THIS_PHONE = listOf(CALLS, PACKAGES, WORKER, SHARED_SETTINGS, NOTIFICATIONS_MIRROR, INSTALL)
 
-    val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, OLD_PINS)
+    val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, LOG_MARKS, OLD_PINS)
 }

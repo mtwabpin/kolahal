@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import androidx.core.content.edit
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.data.LogMarks
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.Keys
@@ -39,10 +40,9 @@ class ConfigReset : ExternalResource() {
  */
 class LogLinesSince : ExternalResource() {
     private val logs = LogRepository.get(target)
-    // Where LogRepository keeps what the screen and ↑ recall leave out.
-    private val view = target.getSharedPreferences("logs", Context.MODE_PRIVATE)
-    private val pointers = listOf("cleared_up_to", "hidden_up_to", "purge_up_to", "history_from")
-    private var saved = emptyMap<String, Long>()
+    // The marks that say what the screen and ↑ recall leave out.
+    private val pointers = listOf(LogMarks.CLEARED_UP_TO, LogMarks.HIDDEN_UP_TO, LogMarks.PURGE_UP_TO, LogMarks.HISTORY_FROM)
+    private var saved = emptyMap<String, String?>()
 
     /** The newest line before the test: every line after it is the test's. */
     var start = 0L
@@ -50,11 +50,11 @@ class LogLinesSince : ExternalResource() {
 
     override fun before() {
         start = logs.maxId()
-        saved = pointers.filter(view::contains).associateWith { view.getLong(it, 0L) }
+        saved = pointers.associateWith { logs.marks.string(it) }
     }
 
     override fun after() {
-        view.edit(commit = true) { pointers.forEach { k -> saved[k]?.let { putLong(k, it) } ?: remove(k) } }
+        logs.marks.set(*saved.toList().toTypedArray())
         logs.recent(100_000, afterId = start).forEach { logs.delete(it.id) }
     }
 }
@@ -164,14 +164,14 @@ class NotificationAccess : ExternalResource() {
  */
 class LogKept(private val eachTest: Boolean = true) : ExternalResource() {
     private val db get() = Db.get(target).writableDatabase
-    private val marks = target.getSharedPreferences("logs", Context.MODE_PRIVATE)
+    private val marks get() = LogRepository.get(target).marks
     private var lines: TableRows? = null
-    private var savedMarks = emptyMap<String, Any?>()
+    private var savedMarks = emptyMap<String, String>()
 
     /** Takes the copy [after] puts back. */
     fun keep() {
         lines = TableRows.take(db, "logs")
-        savedMarks = marks.copy()
+        savedMarks = marks.all()
     }
 
     override fun before() {
@@ -194,7 +194,7 @@ class LogKept(private val eachTest: Boolean = true) : ExternalResource() {
         } finally {
             db.endTransaction()
         }
-        marks.restore(savedMarks)
+        marks.replaceAll(savedMarks)
         LogRepository.get(target).onExternalRestructure()
     }
 

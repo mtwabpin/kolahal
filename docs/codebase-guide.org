@@ -327,14 +327,14 @@ is Kolahal's replacement for a dependency-injection framework.
 
 *** Where data lives
 
-| Store                        | What's in it                                                       | Code                                           |
-|------------------------------+--------------------------------------------------------------------+------------------------------------------------|
-| =kolahal.db= (SQLite, WAL)   | tables =logs=, =scripts=, =kv=, =todos=, =notes=, =reminders=      | [[src:data/Db.kt::class Db][data/Db.kt]]                                     |
-| =feeds.db= (SQLite, WAL)     | feed subscriptions and items                                       | [[src:feeds/FeedDb.kt::class FeedDb][feeds/FeedDb.kt]]                                |
-| =SharedPreferences= "config" | every user setting                                                 | [[src:data/Config.kt::class Config private constructor][data/Config.kt]]                                 |
-| other =SharedPreferences=    | aliases, hidden/renamed apps, launch history, widgets, log markers | =AppPrefs=, =WidgetHost=, =LogRepository=, ... |
-| =kv= table                   | per-script key/value store, scripts' status lines                  | [[src:data/KvStore.kt::class KvStore][data/KvStore.kt]]                                |
-| memory only                  | recent notifications (with a copy in =kv= for scripts)             | [[src:notifications/NotificationStore.kt::object NotificationStore][notifications/NotificationStore.kt]]             |
+| Store                        | What's in it                                                       | Code                                                                                                                |
+|------------------------------+--------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------|
+| =kolahal.db= (SQLite, WAL)   | tables =logs=, =scripts=, =kv=, =todos=, =notes=, =reminders=      | [[src:data/Db.kt::class Db][data/Db.kt]]                                                                            |
+| =feeds.db= (SQLite, WAL)     | feed subscriptions and items                                       | [[src:feeds/FeedDb.kt::class FeedDb][feeds/FeedDb.kt]]                                                              |
+| =SharedPreferences= "config" | every user setting                                                 | [[src:data/Config.kt::class Config private constructor][data/Config.kt]]                                            |
+| other =SharedPreferences=    | aliases, hidden/renamed apps, launch history, widgets              | =AppPrefs=, =WidgetHost=, ...                                                                                       |
+| =kv= table                   | per-script key/value store, scripts' status lines, the log's marks | [[src:data/KvStore.kt::class KvStore][data/KvStore.kt]], [[src:data/LogMarks.kt::class LogMarks][data/LogMarks.kt]] |
+| memory only                  | recent notifications (with a copy in =kv= for scripts)             | [[src:notifications/NotificationStore.kt::object NotificationStore][notifications/NotificationStore.kt]]            |
 
 *** Settings, a small complete example
 

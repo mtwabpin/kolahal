@@ -4,7 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.database.Cursor
-import androidx.core.content.edit
 import androidx.core.database.sqlite.transaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class LogRepository private constructor(private val context: Context) {
     private val db get() = Db.get(context)
-    private val prefs by lazy { Stores.LOGS.open(context) }
+    /** The log's marks: what `clear` and `fresh` hid, what you've seen, and the rest ([LogMarks]). */
+    internal val marks = LogMarks(context, inMemory = !Singleton.inScriptProcess)
 
     private val _version = MutableStateFlow(0L)
 
@@ -353,7 +353,7 @@ class LogRepository private constructor(private val context: Context) {
         var total = 0
         var searched = 0
         var skipped = 0
-        val from = prefs.getLong(KEY_CLEARED_UP_TO, 0L).toString()
+        val from = marks.long(KEY_CLEARED_UP_TO).toString()
         // The database looks for plain words first, so only lines that may hold them are read. This
         // works only for plain words because LIKE ignores case for ASCII only, and a quote or a
         // backslash looks different in the stored JSON. With [match], every line is read, because
@@ -424,13 +424,13 @@ class LogRepository private constructor(private val context: Context) {
     /** Where lines came from (scripts, feeds, apps), most recent first. `/@` and `log only` suggest these. */
     fun sources(): List<String> = db.readableDatabase.rawQuery(
         "SELECT source FROM logs WHERE source IS NOT NULL AND $KEPT GROUP BY source ORDER BY MAX(id) DESC",
-        arrayOf(prefs.getLong(KEY_CLEARED_UP_TO, 0L).toString()),
+        arrayOf(marks.long(KEY_CLEARED_UP_TO).toString()),
     ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
 
     /** `log only …`, as typed ([com.mtwabpin.kolahal.terminal.LogFilter.parse]). It stays until cleared. */
     var filter: String?
-        get() = prefs.getString(KEY_FILTER, null)
-        set(value) = prefs.edit { if (value == null) remove(KEY_FILTER) else putString(KEY_FILTER, value) }
+        get() = marks.string(KEY_FILTER)
+        set(value) = marks.set(KEY_FILTER to value)
 
     /** Whether line [e] has every one of [words] where a search looks ([searchable]), ignoring case. A search checks each line it finds with this. */
     fun matchesWords(e: LogEntry, words: List<String>): Boolean = words.all { w -> searchable(e).any { it.contains(w, ignoreCase = true) } }
@@ -440,7 +440,7 @@ class LogRepository private constructor(private val context: Context) {
         listOfNotNull(e.shownText, e.source, e.ctx.url, e.ctx.script, e.ctx.values[LogContext.DESC])
 
     /** Whether a fresh screen ([hideScreen]) keeps line [id] out of view. */
-    fun isHidden(id: Long): Boolean = id <= prefs.getLong(KEY_HIDDEN_UP_TO, 0L) && id > prefs.getLong(KEY_CLEARED_UP_TO, 0L)
+    fun isHidden(id: Long): Boolean = id <= marks.long(KEY_HIDDEN_UP_TO) && id > marks.long(KEY_CLEARED_UP_TO)
 
     /** How many visible lines there are from [id] to the newest. This is the page that reaches back to it. */
     fun countFrom(id: Long): Int =
@@ -451,7 +451,7 @@ class LogRepository private constructor(private val context: Context) {
         val out = ArrayList<String>()
         db.readableDatabase.rawQuery(
             "SELECT text FROM logs WHERE kind = ? AND id > ? GROUP BY text ORDER BY MAX(id) DESC LIMIT ?",
-            arrayOf(LogKind.COMMAND.key, prefs.getLong(KEY_HISTORY_FROM, 0L).toString(), limit.toString()),
+            arrayOf(LogKind.COMMAND.key, marks.long(KEY_HISTORY_FROM).toString(), limit.toString()),
         ).use { c -> while (c.moveToNext()) out += c.getString(0) }
         return out
     }
@@ -484,12 +484,12 @@ class LogRepository private constructor(private val context: Context) {
     }
 
     /** Whether a clear took line [id] off the screen. Only a starred line is then still in the log. */
-    fun isCleared(id: Long): Boolean = id <= prefs.getLong(KEY_CLEARED_UP_TO, 0L)
+    fun isCleared(id: Long): Boolean = id <= marks.long(KEY_CLEARED_UP_TO)
 
     /** Empties ↑ recall. The log itself (commands and their output) stays as it is. */
     fun clearHistory() {
         val maxId = maxId()
-        prefs.edit { putLong(KEY_HISTORY_FROM, maxId) }
+        marks.set(KEY_HISTORY_FROM to maxId)
         restructured()
     }
 
@@ -497,12 +497,12 @@ class LogRepository private constructor(private val context: Context) {
     @Synchronized
     fun clearAll() {
         db.writableDatabase.delete("logs", null, null)
-        prefs.edit { putLong(KEY_CLEARED_UP_TO, 0L).putLong(KEY_HISTORY_FROM, 0L).putLong(KEY_HIDDEN_UP_TO, 0L).remove(KEY_PURGE_UP_TO) }
+        marks.set(KEY_CLEARED_UP_TO to 0L, KEY_HISTORY_FROM to 0L, KEY_HIDDEN_UP_TO to 0L, KEY_PURGE_UP_TO to null)
         restructured()
     }
 
     /** Lines at or below this id are not shown. It is the larger of a real clear and a fresh-screen hide. */
-    private fun visibleAfter(): Long = maxOf(prefs.getLong(KEY_CLEARED_UP_TO, 0L), prefs.getLong(KEY_HIDDEN_UP_TO, 0L))
+    private fun visibleAfter(): Long = maxOf(marks.long(KEY_CLEARED_UP_TO), marks.long(KEY_HIDDEN_UP_TO))
 
     /**
      * Fresh screen (`log.fresh`): hides what is on screen without deleting anything. [hiddenCount]
@@ -510,19 +510,19 @@ class LogRepository private constructor(private val context: Context) {
      */
     fun hideScreen(upTo: Long = maxId()) {
         // Never lower it: `fresh` may already hide more than what was seen when home was left.
-        prefs.edit { putLong(KEY_HIDDEN_UP_TO, maxOf(upTo, prefs.getLong(KEY_HIDDEN_UP_TO, 0L))) }
+        marks.set(KEY_HIDDEN_UP_TO to maxOf(upTo, marks.long(KEY_HIDDEN_UP_TO)))
         restructured()
     }
 
     fun unhide() {
-        prefs.edit { putLong(KEY_HIDDEN_UP_TO, 0L) }
+        marks.set(KEY_HIDDEN_UP_TO to 0L)
         restructured()
     }
 
     /** The lines a fresh-screen hide keeps out of view (0 when nothing can be restored). */
     fun hiddenCount(): Int {
-        val cleared = prefs.getLong(KEY_CLEARED_UP_TO, 0L)
-        val hidden = prefs.getLong(KEY_HIDDEN_UP_TO, 0L)
+        val cleared = marks.long(KEY_CLEARED_UP_TO)
+        val hidden = marks.long(KEY_HIDDEN_UP_TO)
         if (hidden <= cleared) return 0
         return db.readableDatabase.number("SELECT COUNT(*) FROM logs WHERE id > ? AND id <= ?", cleared.toString(), hidden.toString()).toInt()
     }
@@ -542,9 +542,9 @@ class LogRepository private constructor(private val context: Context) {
     @Synchronized
     fun clearScreen(): Cleared {
         purgeCleared()
-        val before = prefs.getLong(KEY_CLEARED_UP_TO, 0L)
+        val before = marks.long(KEY_CLEARED_UP_TO)
         val maxId = maxId()
-        prefs.edit { putLong(KEY_CLEARED_UP_TO, maxId).putLong(KEY_PURGE_UP_TO, maxId) }
+        marks.set(KEY_CLEARED_UP_TO to maxId, KEY_PURGE_UP_TO to maxId)
         restructured()
         return Cleared(before, maxId)
     }
@@ -552,8 +552,8 @@ class LogRepository private constructor(private val context: Context) {
     /** Brings back what [cleared] took out of view, unless it is already deleted. */
     @Synchronized
     fun undoClear(cleared: Cleared): Boolean {
-        if (prefs.getLong(KEY_PURGE_UP_TO, 0L) != cleared.upTo) return false
-        prefs.edit { putLong(KEY_CLEARED_UP_TO, cleared.before).remove(KEY_PURGE_UP_TO) }
+        if (marks.long(KEY_PURGE_UP_TO) != cleared.upTo) return false
+        marks.set(KEY_CLEARED_UP_TO to cleared.before, KEY_PURGE_UP_TO to null)
         restructured()
         return true
     }
@@ -564,11 +564,11 @@ class LogRepository private constructor(private val context: Context) {
      * that a closed launcher left behind.
      */
     @Synchronized
-    fun purgeCleared(upTo: Long = prefs.getLong(KEY_PURGE_UP_TO, 0L)) {
+    fun purgeCleared(upTo: Long = marks.long(KEY_PURGE_UP_TO)) {
         // The lines were brought back since then, so they are on screen again.
-        if (upTo <= 0L || prefs.getLong(KEY_CLEARED_UP_TO, 0L) < upTo) return
+        if (upTo <= 0L || marks.long(KEY_CLEARED_UP_TO) < upTo) return
         db.writableDatabase.delete("logs", "id <= ? AND kind != ? AND starred = 0", arrayOf(upTo.toString(), LogKind.COMMAND.key))
-        if (prefs.getLong(KEY_PURGE_UP_TO, 0L) <= upTo) prefs.edit { remove(KEY_PURGE_UP_TO) }
+        if (marks.long(KEY_PURGE_UP_TO) <= upTo) marks.set(KEY_PURGE_UP_TO to null)
     }
 
     /**
@@ -577,8 +577,8 @@ class LogRepository private constructor(private val context: Context) {
      */
     fun trimIfDue(maxAgeDays: Int) {
         val now = System.currentTimeMillis()
-        if (now - prefs.getLong(KEY_TRIMMED_AT, 0L) < 12 * 3_600_000L) return
-        prefs.edit { putLong(KEY_TRIMMED_AT, now) }
+        if (now - marks.long(KEY_TRIMMED_AT) < 12 * 3_600_000L) return
+        marks.set(KEY_TRIMMED_AT to now)
         trim(maxAgeDays = maxAgeDays)
     }
 
@@ -655,8 +655,8 @@ class LogRepository private constructor(private val context: Context) {
 
     /** The newest log id the user has seen (set when home is left), for unread markers. */
     var seenUpTo: Long
-        get() = prefs.getLong(KEY_SEEN_UP_TO, Long.MAX_VALUE)
-        set(value) = prefs.edit { putLong(KEY_SEEN_UP_TO, value) }
+        get() = marks.long(KEY_SEEN_UP_TO, Long.MAX_VALUE)
+        set(value) = marks.set(KEY_SEEN_UP_TO to value)
 
     /** Script status lines live in the kv table. This reuses the log change signal to refresh the header. */
     fun onStatusChanged() = changed()
@@ -747,19 +747,16 @@ class LogRepository private constructor(private val context: Context) {
             return 2 + values.entries.sumOf { (k, v) -> quoted(k) + 1 + quoted(v) } + maxOf(values.size - 1, 0)
         }
 
-        private const val KEY_CLEARED_UP_TO = "cleared_up_to"
-        private const val KEY_HIDDEN_UP_TO = "hidden_up_to"
-        private const val KEY_PURGE_UP_TO = "purge_up_to"
-        private const val KEY_TRIMMED_AT = "trimmed_at"
-        private const val KEY_SEEN_UP_TO = "seen_up_to"
-        private const val KEY_HISTORY_FROM = "history_from"
-        private const val KEY_FILTER = "filter"
+        private const val KEY_CLEARED_UP_TO = LogMarks.CLEARED_UP_TO
+        private const val KEY_HIDDEN_UP_TO = LogMarks.HIDDEN_UP_TO
+        private const val KEY_PURGE_UP_TO = LogMarks.PURGE_UP_TO
+        private const val KEY_TRIMMED_AT = LogMarks.TRIMMED_AT
+        private const val KEY_SEEN_UP_TO = LogMarks.SEEN_UP_TO
+        private const val KEY_HISTORY_FROM = LogMarks.HISTORY_FROM
+        private const val KEY_FILTER = LogMarks.FILTER
 
         /** The lines a search reads, with the clear's id as the argument: lines after it, and starred lines before it. */
         private const val KEPT = "(id > ? OR starred = 1)"
-
-        /** The preferences that hold a line id. A backup carries them along with the lines ([FullBackup]). */
-        internal val ID_KEYS = setOf(KEY_CLEARED_UP_TO, KEY_HIDDEN_UP_TO, KEY_PURGE_UP_TO, KEY_SEEN_UP_TO, KEY_HISTORY_FROM)
 
         const val ACTION_LOGS_CHANGED = "com.mtwabpin.kolahal.LOGS_CHANGED"
         const val EXTRA_RESTRUCTURE = "restructure"
