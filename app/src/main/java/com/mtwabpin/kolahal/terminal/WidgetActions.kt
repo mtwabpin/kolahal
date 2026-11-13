@@ -9,7 +9,7 @@ import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.widgets.WidgetTap
 
 /**
- * What a script widget's card can ask for. The card calls these, and the view model answers with
+ * What a card on the widgets page can ask for. The card calls these, and the view model answers with
  * [WidgetActions]. A card with no actions (the Widgets screen, while arranging) takes no taps.
  */
 interface WidgetCardActions {
@@ -18,6 +18,12 @@ interface WidgetCardActions {
 
     /** A tap on the card of [script], or on one of its rows. A [tap] with no arguments and no link means "refresh". */
     fun tap(script: String, tap: WidgetTap)
+
+    /** A tap on the Status card of [script]: runs the script, as a tap on its pinned line does. */
+    fun runStatus(script: String)
+
+    /** Runs [script] again, quietly, for its status line's `refresh`. A Status card in view asks for this, as home does for a pinned line. */
+    fun refreshStatus(script: String)
 
     /** A long-press on a card: opens the screen to arrange widgets. */
     fun longPress()
@@ -53,12 +59,13 @@ internal object WidgetAge {
 }
 
 /**
- * Taps and refresh requests from the script widgets on the widgets page. The view model holds one
- * as `widgetActions`.
+ * Taps and refresh requests from the cards Kolahal draws on the widgets page. The view model holds
+ * one as `widgetActions`.
  * - A refresh is a quiet run with the event "widget". It is never two at once for one script.
  * - A tap with arguments runs the same script again, as a button under a log line does. It counts
  *   as a run the user started.
  * - A tap with a link opens it, as a link in a log line does.
+ * - A tap on a Status card runs its script and says so in the log, as a tap on a pinned line does.
  *
  * [taps]: one item starts at most one run in 2 seconds. The header and the log's buttons share this gate.
  */
@@ -100,6 +107,23 @@ class WidgetActions(private val context: Context, private val taps: TapGate, pri
             // No action on the card: a tap refreshes it.
             else -> if (taps.allow("widget:$script")) refresh(script)
         }
+    }
+
+    override fun runStatus(script: String) {
+        // The key of a pinned line's tap. So the line and its card start one run in 2 seconds, not two.
+        if (!taps.allow("pin:$script")) return
+        host.io {
+            val s = scripts.byName(script)
+            when {
+                s == null -> logs.add(LogKind.ERROR, "No script named '$script' — 'script ls'")
+                !s.enabled -> logs.add(LogKind.INFO, "$script is off: script on $script", ctx = LogContext.of(LogContext.COMMAND to "script on $script"))
+                else -> logs.add(LogKind.INFO, runNowWithText(context, s), ctx = LogContext.of(LogContext.SCRIPT to script))
+            }
+        }
+    }
+
+    override fun refreshStatus(script: String) = host.io {
+        scripts.byName(script)?.takeIf { it.enabled }?.let { ScriptScheduler.refreshPinned(context, it) }
     }
 
     override fun longPress() = host.openScreen(Screen.WIDGETS)

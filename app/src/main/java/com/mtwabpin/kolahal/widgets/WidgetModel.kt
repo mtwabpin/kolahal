@@ -43,6 +43,12 @@ object WidgetSource {
     /** The script's name when [source] is a script's own widget. Null for anything else, a Status card included. */
     fun scriptName(source: String?): String? = source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)
 
+    /** The source of the Status card of the script [name]. */
+    fun status(name: String): String = STATUS + name
+
+    /** The script's name when [source] is a Status card. Null for anything else, the script's own widget included. */
+    fun statusName(source: String?): String? = source?.takeIf { it.startsWith(STATUS) && isSource(it) }?.removePrefix(STATUS)
+
     /** The sources that belong to the script [name]: its own widget and its Status card. */
     fun ofScript(name: String): List<String> = listOf(SCRIPT + name, STATUS + name)
 

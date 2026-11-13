@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -48,9 +49,15 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.data.StatusLines
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.WidgetAge
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
 import com.mtwabpin.kolahal.widgets.PlacedWidget
+import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -93,6 +100,9 @@ internal enum class CardNote {
 
     /** The stored content can't be read, or nothing can fill this widget. */
     UNAVAILABLE,
+
+    /** A Status card whose script has set no status line. */
+    NO_STATUS,
 }
 
 /**
@@ -227,6 +237,7 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
         note == CardNote.FAILED -> QuietLine(failure ?: WidgetWords.NOTHING, small)
         note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)
         note == CardNote.UNAVAILABLE -> QuietLine(WidgetWords.UNAVAILABLE, small)
+        note == CardNote.NO_STATUS -> QuietLine(StatusCards.NO_LINE, small)
         note == null && spec != null -> KindBody(spec, box, onTap)
     }
 }
@@ -274,7 +285,8 @@ private const val MIN_REFRESH_S = 10
  * Draws placed widget [w], which Kolahal draws itself ([PlacedWidget.source]), [height] tall.
  * - A script's widget draws what the script stored with `widget.show` ([WidgetStates]). The main
  *   process never waits for a script: the card comes from stored state, and a run fills it later.
- * - Any other source (a Status card, a built-in widget) says "widget unavailable" for now.
+ * - A Status card draws its script's status line ([StatusLines]).
+ * - Any other source (a built-in widget) says "widget unavailable" for now.
  * - [actions] takes taps, the long-press and refresh requests. With null the card takes no touches
  *   and asks for no runs: this is the Widgets screen.
  * It brings its own [GuiTheme], because the widgets page is drawn in the terminal's styles.
@@ -282,9 +294,12 @@ private const val MIN_REFRESH_S = 10
 @Composable
 internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?) {
     val name = WidgetSource.scriptName(w.source)
+    val status = WidgetSource.statusName(w.source)
     GuiTheme {
         if (name != null) {
             ScriptWidget(name, height, actions)
+        } else if (status != null) {
+            StatusWidget(status, height, actions)
         } else {
             val what = w.source.orEmpty().substringAfter(':')
             // Nothing to tap here, so a tap opens the screen where the widget can be removed.
@@ -410,5 +425,134 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         onClickLabel = if (tap == null) "refresh" else tap.label,
         onLongClick = onLongClick,
         onTap = onTap,
+    )
+}
+
+/** The Status card's pure parts: what it draws for a status line, and when the line's `refresh` is due. */
+internal object StatusCards {
+    /** What the card says while its script has set no status line. */
+    const val NO_LINE = "No status line yet"
+
+    /**
+     * The stat card of [line], under [title]: the line's text is the value, with its bar and its colour.
+     * Null with no line, or with a line that has no text. The card then says [NO_LINE].
+     */
+    fun spec(title: String, line: StatusLine?): WidgetSpec.Stat? {
+        // The value is one line on the card, so a line break becomes a space.
+        val text = line?.text?.lineSequence()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(" ")
+        if (line == null || text.isNullOrEmpty()) return null
+        return WidgetSpec.Stat(
+            base = WidgetBase(title = title, color = line.colour),
+            value = text,
+            progress = line.progress?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
+        )
+    }
+
+    /**
+     * How long to wait, in milliseconds, before the script of a line with `refresh = every` (seconds)
+     * runs again. 0 means now: it has not run for this yet, or its last such run ([lastRun], on the
+     * clock of [now]) is that old. A pinned line is due by the same rule.
+     */
+    fun waitMs(every: Int, lastRun: Long?, now: Long): Long {
+        if (lastRun == null) return 0L
+        val gap = every.coerceIn(StatusLines.MIN_REFRESH, StatusLines.MAX_REFRESH) * 1000L
+        return (gap - (now - lastRun)).coerceIn(0L, gap)
+    }
+}
+
+/** What a Status card has read: its script's title, and the line. A null line means the script has set none. */
+private data class StatusRead(val title: String, val line: StatusLine?)
+
+/**
+ * When each Status card's script last ran again for its line's `refresh`, by script name, in
+ * [SystemClock.elapsedRealtime] time. It outlives the card, so turning the page away and back
+ * starts no extra run. Only the main thread uses it.
+ */
+private val statusRuns = HashMap<String, Long>()
+
+/**
+ * The Status card of the script [name]: its status line (`status(text, opts)`) as a stat card.
+ * - The text is the value. The line's progress is the bar, in the line's colour.
+ * - It needs no run and no access item. The line is stored whether or not a card shows it.
+ * - A tap runs the script, as a tap on its pinned line does.
+ * - The line's own `refresh` counts while the card is in view, as it does for a pinned line.
+ */
+@Composable
+private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?) {
+    val context = LocalContext.current.applicationContext
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    // Null until the first read. The card stays empty for that moment, and does not say "no status line".
+    var read by remember(name) { mutableStateOf<StatusRead?>(null) }
+    LaunchedEffect(name, lifecycle) {
+        val logs = LogRepository.get(context)
+        val scripts = ScriptRepository.get(context)
+        var print: String? = null
+        var title = name
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // A changed status line moves the log's counter (LogRepository.onStatusChanged), which the
+            // pinned header follows too. Every new log line moves it as well. A read that takes long
+            // gets only the newest count after it.
+            logs.version.collect {
+                val next = withContext(Dispatchers.IO) {
+                    runCatching {
+                        // The title is read again only after a script changed.
+                        val now = scripts.fingerprint()
+                        if (now != print) {
+                            title = scripts.byName(name)?.let { ScriptMeta.title(it.code) } ?: name
+                            print = now
+                        }
+                        StatusRead(title, StatusLines.all(context).firstOrNull { it.name == name })
+                    }.getOrNull()
+                }
+                // An equal read keeps the one in use, so the card is not drawn again.
+                if (next != null && next != read) read = next
+            }
+        }
+    }
+
+    val r = read
+    // `refresh` in the line's options: run again that often, only while in view.
+    val every = r?.line?.refresh
+    if (actions != null && every != null && LocalWidgetsShown.current) LaunchedEffect(name, actions, lifecycle, every) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val wait = StatusCards.waitMs(every, statusRuns[name], SystemClock.elapsedRealtime())
+                if (wait > 0) {
+                    delay(wait)
+                } else {
+                    statusRuns[name] = SystemClock.elapsedRealtime()
+                    actions.refreshStatus(name)
+                }
+            }
+        }
+    }
+
+    val title = r?.title ?: name
+    val spec = remember(r) { r?.let { StatusCards.spec(it.title, it.line) } }
+    val note = when {
+        r == null -> CardNote.WAITING
+        spec == null -> CardNote.NO_STATUS
+        else -> null
+    }
+    val description = remember(title, spec, note) {
+        when {
+            // A stat's words have no time in them, so the moment and the zone don't matter.
+            spec != null -> WidgetWords.description(title, spec, 0L, ZoneId.systemDefault())
+            note == CardNote.NO_STATUS -> "$title: ${StatusCards.NO_LINE}"
+            else -> title
+        }
+    }
+    val onClick: (() -> Unit)? = remember(actions, name) { actions?.let { a -> { a.runStatus(name) } } }
+    val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
+    WidgetCard(
+        title = title,
+        height = height,
+        spec = spec,
+        note = note,
+        description = description,
+        modifier = Modifier.testTag("widget:status:$name"),
+        onClick = onClick,
+        onClickLabel = "run",
+        onLongClick = onLongClick,
     )
 }

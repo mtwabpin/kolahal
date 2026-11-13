@@ -175,6 +175,20 @@ class WidgetModelTest {
         assertNull(WidgetSource.scriptName(null))
     }
 
+    /** A Status card names its script, and only a Status card does. */
+    @Test fun aStatusCardNamesItsScript() {
+        assertEquals("status:cricket", WidgetSource.status("cricket"))
+        assertEquals("cricket", WidgetSource.statusName("status:cricket"))
+        assertEquals(WidgetSource.ofScript("cricket")[1], WidgetSource.status("cricket"))
+        // The script's own widget is another widget.
+        assertNull(WidgetSource.statusName("script:cricket"))
+        assertNull(WidgetSource.statusName("builtin:battery"))
+        assertNull(WidgetSource.statusName("status:"))
+        assertNull(WidgetSource.statusName("status:a|b"))
+        assertNull(WidgetSource.statusName("com.a/.W"))
+        assertNull(WidgetSource.statusName(null))
+    }
+
     /** A widget with a source has no id and is still placed. Only an app's widget without an id waits to be added again. */
     @Test fun aSourceIsPlacedNotPending() {
         val s = script("weather")
