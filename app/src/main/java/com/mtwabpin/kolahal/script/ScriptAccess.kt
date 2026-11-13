@@ -32,6 +32,14 @@ object ScriptAccess {
     internal fun base(code: String): List<String> =
         listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }, HEADER.takeIf { ScriptMeta.setsStatus(code) })
 
+    /**
+     * What a shared script asks for, named before `script get` switches it on: the internet when
+     * its [code] uses it, then what it declares with `@uses`. Empty when it asks for none of that:
+     * then it may arrive switched on. (Pinning is off until you pin, and events only start runs.)
+     */
+    fun asksFor(code: String): List<String> =
+        listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }) + ScriptMeta.USES.filter { it in ScriptMeta.uses(code) }
+
     /** Everything a script with [code] can be switched for, in display order. Only what it uses is included. */
     fun items(code: String): List<String> = base(code) + ScriptMeta.uses(code) + ScriptMeta.events(code)
 

@@ -165,6 +165,17 @@ class ScriptMetaTest {
         assertFalse(ScriptMeta.postsNotifications("if s.notify then log(1) end"))
     }
 
+    /** `script get` names the internet and each `@uses` before a shared script is switched on; events and pinning don't count. */
+    @Test fun aSharedScriptNamesWhatItAsksFor() {
+        assertEquals(emptyList<String>(), ScriptAccess.asksFor("-- @on unlock\nlog('hi')\nstatus('ok')"))
+        assertEquals(listOf("clipboard"), ScriptAccess.asksFor("-- @uses clipboard\nlog(clipboard.get())"))
+        assertEquals(listOf(ScriptAccess.INTERNET), ScriptAccess.asksFor("local r = http.get(u)\nlog(r.body)"))
+        assertEquals(
+            listOf(ScriptAccess.INTERNET, "notifications", "apps"),
+            ScriptAccess.asksFor("-- @uses apps, notifications\nlocal r = http.get(u)"),
+        )
+    }
+
     /** Only what the code uses has a switch, and only that is allowed: no internet or pinning for one that uses neither. */
     @Test fun aScriptMayOnlyDoWhatItUses() {
         val offline = "-- @uses dnd\n-- @on unlock\ndevice.setDnd('on')"
