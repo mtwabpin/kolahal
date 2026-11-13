@@ -41,10 +41,13 @@ looking at (the run's *Artifacts*), not for installing over a release.
    reading crash traces with =retrace=) and the notes, with a last line naming the commit both
    APKs and the bundle are built from.
 7. *Publishes the GitHub release* with both APKs and the mapping zip, marked as the latest.
-8. *Keeps the Play bundle* and its =mapping.txt= with the run, for 90 days.
-9. *Uploads to Google Play*, when =PLAY_WIF_PROVIDER= and =PLAY_SERVICE_ACCOUNT= are set: the
-   bundle on the testing track: a draft to roll out in Play Console, or sent for review with
-   =PLAY_SEND_FOR_REVIEW= =true= ([[file:google-play.org][google-play.org]] → Uploads from the workflow). With them set, step 1 also wants =docs/release/notes/X.Y.Z-play.txt=.
+8. *Posts to Discord*, when the =DISCORD_RELEASES_WEBHOOK= secret is set: a message in the
+   server's =#releases= channel with the version, the Play notes (=X.Y.Z-play.txt=, when there is
+   one), and links to the APK and the release. A failed post doesn't stop the run.
+9. *Keeps the Play bundle* and its =mapping.txt= with the run, for 90 days.
+10. *Uploads to Google Play*, when =PLAY_WIF_PROVIDER= and =PLAY_SERVICE_ACCOUNT= are set: the
+    bundle on the testing track: a draft to roll out in Play Console, or sent for review with
+    =PLAY_SEND_FOR_REVIEW= =true= ([[file:google-play.org][google-play.org]] → Uploads from the workflow). With them set, step 1 also wants =docs/release/notes/X.Y.Z-play.txt=.
 
 * Who can release
 
@@ -63,21 +66,22 @@ Only the repository's owner.
 The secrets are in Settings → Environments → =release=. The variables are the repository's: Settings
 → Secrets and variables → Actions.
 
-| Name                      | Kind     | Holds                                                |
-|---------------------------+----------+------------------------------------------------------|
-| =RELEASE_KEYSTORE_BASE64= | secret   | =kolahal-release.jks=, as base64                     |
-| =RELEASE_STORE_PASSWORD=  | secret   | its password                                         |
-| =RELEASE_KEY_ALIAS=       | secret   | =kolahal=                                            |
-| =RELEASE_KEY_PASSWORD=    | secret   | the key's password (the same one)                    |
-| =UPLOAD_KEYSTORE_BASE64=  | secret   | =kolahal-upload.jks=, as base64                      |
-| =UPLOAD_STORE_PASSWORD=   | secret   | its password                                         |
-| =UPLOAD_KEY_ALIAS=        | secret   | =upload=                                             |
-| =UPLOAD_KEY_PASSWORD=     | secret   | the key's password                                   |
-| =RELEASE_CERT_SHA256=     | variable | the release key's fingerprint; optional, recommended |
-| =PLAY_WIF_PROVIDER=       | variable | the Google workload identity provider, for Play      |
-| =PLAY_SERVICE_ACCOUNT=    | variable | the service account Play Console lets release        |
-| =PLAY_TRACK=              | variable | the Play track, when it isn't =alpha=; optional      |
-| =PLAY_SEND_FOR_REVIEW=    | variable | =true=: sent for review, not a draft; optional       |
+| Name                       | Kind     | Holds                                                |
+|----------------------------+----------+------------------------------------------------------|
+| =RELEASE_KEYSTORE_BASE64=  | secret   | =kolahal-release.jks=, as base64                     |
+| =RELEASE_STORE_PASSWORD=   | secret   | its password                                         |
+| =RELEASE_KEY_ALIAS=        | secret   | =kolahal=                                            |
+| =RELEASE_KEY_PASSWORD=     | secret   | the key's password (the same one)                    |
+| =UPLOAD_KEYSTORE_BASE64=   | secret   | =kolahal-upload.jks=, as base64                      |
+| =UPLOAD_STORE_PASSWORD=    | secret   | its password                                         |
+| =UPLOAD_KEY_ALIAS=         | secret   | =upload=                                             |
+| =UPLOAD_KEY_PASSWORD=      | secret   | the key's password                                   |
+| =DISCORD_RELEASES_WEBHOOK= | secret   | the =#releases= webhook's URL; optional              |
+| =RELEASE_CERT_SHA256=      | variable | the release key's fingerprint; optional, recommended |
+| =PLAY_WIF_PROVIDER=        | variable | the Google workload identity provider, for Play      |
+| =PLAY_SERVICE_ACCOUNT=     | variable | the service account Play Console lets release        |
+| =PLAY_TRACK=               | variable | the Play track, when it isn't =alpha=; optional      |
+| =PLAY_SEND_FOR_REVIEW=     | variable | =true=: sent for review, not a draft; optional       |
 
 =tools/make-keys.sh --secrets= sets the eight secrets from =keystore.properties=; run it again
 after changing a key. Secrets can be replaced but never read back.

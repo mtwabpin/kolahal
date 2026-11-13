@@ -156,6 +156,31 @@ jobs:
             --title "Kolahal $VERSION" --notes-file out/notes.md \
             "out/kolahal-$VERSION.apk" "out/kolahal-$VERSION-play.apk" "out/kolahal-$VERSION-mapping.zip"
 
+      # Tells the Discord server's #releases channel, through its webhook. Skipped while the
+      # DISCORD_RELEASES_WEBHOOK secret isn't set. A failed post never stops the release.
+      - name: Post to Discord
+        continue-on-error: true
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_RELEASES_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "DISCORD_RELEASES_WEBHOOK isn't set; not posted."; exit 0; fi
+          page="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME"
+          apk="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/kolahal-$VERSION.apk"
+          {
+            echo "**Kolahal $VERSION is out**"
+            # The short notes written for Google Play, when there are some.
+            notes="docs/release/notes/$VERSION-play.txt"
+            if [ -s "$notes" ]; then echo; cat "$notes"; fi
+            echo
+            # <…> keeps Discord from adding a preview card under each link.
+            echo "Download the APK: <$apk>"
+            echo "All changes: <$page>"
+          } > out/discord.txt
+          # Discord's limit is 2000 characters. No mentions, whatever the notes say.
+          jq -n --rawfile text out/discord.txt \
+            '{content: ($text | rtrimstr("\n") | .[0:2000]), allowed_mentions: {parse: []}}' > out/discord.json
+          curl -fsS -X POST -H 'Content-Type: application/json' --data @out/discord.json "$WEBHOOK" > /dev/null
+
       # For Play Console (Test and release → a track → Create new release → upload).
       - name: Keep the Play bundle
         uses: actions/upload-artifact@v7
