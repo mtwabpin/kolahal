@@ -118,6 +118,8 @@ class LauncherApp : Application(), Configuration.Provider {
             // Once: secret values from before 0.4.0 have no sites, and must be set again. Each script with one says so.
             quietly.run(this, "Checking script secrets") { com.mtwabpin.kolahal.script.ScriptAccess.askForSecretsWithoutSites(this) }
             runCatching { com.mtwabpin.kolahal.data.StatusLines.pinShownOnce(this) }
+            // The placed widgets decide which scripts may store a widget: a restore or an older version may have left the two apart.
+            runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(this).syncAccess() }
             quietly.run(this, "Scheduling feeds") { com.mtwabpin.kolahal.feeds.FeedScheduler.sync(this) }
             quietly.run(this, "Setting reminders again") { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(this) }
             quietly.run(this, "Trimming the old log") { LogRepository.get(this).trimIfDue(Config.get(this)[Keys.LOG_KEEP_DAYS]) }
@@ -138,6 +140,10 @@ class LauncherApp : Application(), Configuration.Provider {
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) = logs.onExternal(intent)
         }, IntentFilter(LogRepository.ACTION_LOGS_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        // A script's widget has its own message, so new content redraws the cards and the log is not read again.
+        ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) = com.mtwabpin.kolahal.widgets.WidgetStates.bump()
+        }, IntentFilter(com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
 
         // The :script process doesn't see settings changes. So home copies `log.keep-lines` to a place
         // where :script can read it, and trims the log now and whenever the value changes.
