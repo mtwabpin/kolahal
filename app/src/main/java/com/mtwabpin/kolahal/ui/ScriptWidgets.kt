@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -210,7 +211,8 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
     when {
         note == CardNote.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             // The shape changes form for as long as it is drawn. So it is drawn only while the page is in view.
-            if (LocalWidgetsShown.current) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp))
+            // The card's description says "loading", so the shape itself is no item for a screen reader.
+            if (LocalWidgetsShown.current) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp).clearAndSetSemantics {})
         }
         note == CardNote.FAILED -> QuietLine(failure ?: WidgetWords.NOTHING, small)
         note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)

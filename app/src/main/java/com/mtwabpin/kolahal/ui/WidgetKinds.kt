@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -331,18 +332,24 @@ internal fun QuietLine(text: String, small: Boolean = false) {
 /**
  * A bar from 0 to 1 in [colour]. It moves to a new value on the theme's spring. With [moving], and
  * while the widgets page is in view, it is a wave: something is in progress.
+ * - A bar that stands still has a wave speed of 0. With any other speed the indicator asks for
+ *   every frame, also while its wave has no height.
+ * - It is not an item for a screen reader: the card's description says the value.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier) {
     val target = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
     val shown by animateFloatAsState(target, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "level")
+    val wave = moving && LocalWidgetsShown.current
     LinearWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
         color = colour,
         trackColor = colour.copy(alpha = 0.24f),
-        amplitude = if (moving && LocalWidgetsShown.current) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
+        amplitude = if (wave) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
+        wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength,
+        waveSpeed = if (wave) WavyProgressIndicatorDefaults.LinearDeterminateWavelength else 0.dp,
     )
 }
 
@@ -529,21 +536,27 @@ private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     }
 }
 
-/** A ring from 0 to 1 in [colour], [side] across. It moves to a new value on the theme's spring. */
+/**
+ * A ring from 0 to 1 in [colour], [side] across. It moves to a new value on the theme's spring.
+ * Like [LevelBar], it is a wave only with [moving] and in view, and it is no item for a screen reader.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
     val shown by animateFloatAsState(fraction, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "ring")
     // A bigger ring gets a thicker line.
     val stroke = with(LocalDensity.current) { Stroke(width = (side / 12).coerceIn(4.dp, 10.dp).toPx(), cap = StrokeCap.Round) }
+    val wave = moving && LocalWidgetsShown.current
     CircularWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
-        modifier = Modifier.size(side),
+        modifier = Modifier.size(side).clearAndSetSemantics {},
         color = colour,
         trackColor = colour.copy(alpha = 0.24f),
         stroke = stroke,
         trackStroke = stroke,
-        amplitude = if (moving && LocalWidgetsShown.current) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
+        amplitude = if (wave) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
+        wavelength = WavyProgressIndicatorDefaults.CircularWavelength,
+        waveSpeed = if (wave) WavyProgressIndicatorDefaults.CircularWavelength else 0.dp,
     )
 }
 
