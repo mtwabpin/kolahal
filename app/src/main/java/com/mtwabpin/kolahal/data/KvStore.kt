@@ -94,11 +94,13 @@ class KvStore(context: Context, private val scope: String) {
     }
 
     /** Deletes every key that starts with [prefix], except [except]. */
-    fun deleteStartingWith(prefix: String, except: String? = null) {
+    fun deleteStartingWith(prefix: String, except: String? = null) = synchronized(sizes) {
+        // Under the lock [setCounted] holds, so a write that read the size before can't put it back after.
         sizes.remove(scope)
         db.writableDatabase.delete(
             "kv", "scope = ? AND substr(k, 1, ${prefix.length}) = ? AND k != ?", arrayOf(scope, prefix, except.orEmpty()),
         )
+        Unit
     }
 
     /** A script store's number of keys and bytes, as counted at [at] and kept up to date since. */

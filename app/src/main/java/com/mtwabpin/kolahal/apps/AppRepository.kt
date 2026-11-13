@@ -100,7 +100,14 @@ class AppRepository private constructor(private val context: Context) {
     fun awaitLoaded(ms: Long): Boolean = firstLoad.await(ms, java.util.concurrent.TimeUnit.MILLISECONDS)
 
     init {
-        scope.launch { for (request in refreshRequests) runCatching { reload() } }
+        scope.launch {
+            for (request in refreshRequests) {
+                runCatching { reload() }
+                // Even when the first try failed: a command waiting for the list ([awaitLoaded]) then
+                // goes on with what there is, instead of waiting its full time on each launch.
+                firstLoad.countDown()
+            }
+        }
     }
 
     fun start() {

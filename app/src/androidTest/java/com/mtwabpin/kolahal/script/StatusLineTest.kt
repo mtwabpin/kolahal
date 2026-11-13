@@ -167,6 +167,15 @@ class StatusLineTest {
     }
 
     /** Code that no longer sets a status line leaves none behind: its card and the pinned header have nothing old to show. */
+    /** A pin is your choice: code that stops calling status() for a while, then calls it again, is still pinned. */
+    @Test fun aPinOutlastsCodeWithoutAStatusLine() {
+        val s = script()
+        scripts.setAccess(s.id, ScriptAccess.HEADER, true)
+        scripts.saveCode(s.id, "log('no line for now')", byUser = true)
+        scripts.saveCode(s.id, "status('x')", byUser = true)
+        assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.HEADER))
+    }
+
     @Test fun codeWithoutAStatusLineClearsTheOldOne() {
         val s = script("status('HN: 3 new')")
         host(s).status("HN: 3 new")

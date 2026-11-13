@@ -58,7 +58,7 @@ class SecretStore(private val context: Context) {
     fun isSet(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.covers(secret) == true
 
     /** True when it has a value set before sites were stored (before 0.4.0), so it must be set again. */
-    fun withoutSites(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.hosts == null && get(script, secret.name) != null
+    fun withoutSites(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.let { it.hosts == null } == true
 
     /** True when it has a value, but its line names sites the value wasn't set for. */
     fun hostsChanged(script: String, secret: ScriptMeta.Secret): Boolean = get(script, secret.name)?.let { !it.covers(secret) } == true
