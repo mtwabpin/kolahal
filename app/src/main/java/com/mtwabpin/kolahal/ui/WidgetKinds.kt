@@ -3,7 +3,7 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -486,19 +486,31 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
     }
 }
 
-/** One row of a list. Its colour is on its icon and on the text at its end, or on a dot when it has neither. */
+/**
+ * One row of a list. Its colour is on its icon and on the text at its end, or on a dot when it has
+ * neither. A row with a tap takes the press before the card does, so it hands a long-press on to
+ * the card ([LocalCardLongPress]).
+ */
 @Composable
 private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val tap = row.tap
     val colour = row.color?.let { colourOf(it) }
-    Row(
+    val longPress = LocalCardLongPress.current
+    val press = if (tap != null && onTap != null) {
+        Modifier.combinedClickable(
+            onClickLabel = tap.label,
+            role = Role.Button,
+            onLongClickLabel = if (longPress != null) "arrange widgets" else null,
+            onLongClick = longPress,
+            onClick = { onTap(tap) },
+        )
+    } else {
         Modifier
-            .fillMaxWidth()
-            .height(height)
-            .clip(RoundedCornerShape(12.dp))
-            .then(if (tap != null && onTap != null) Modifier.clickable(onClickLabel = tap.label, role = Role.Button) { onTap(tap) } else Modifier),
+    }
+    Row(
+        Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(12.dp)).then(press),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val icon = row.icon

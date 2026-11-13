@@ -23,6 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -68,6 +69,13 @@ import java.time.ZoneId
  * shape, a wave, a countdown's seconds) and refresh requests run only while this is true.
  */
 val LocalWidgetsShown = compositionLocalOf { false }
+
+/**
+ * The long-press of the card around a kind's content, or null when the card takes none. A part of
+ * the content with a tap of its own (a list's row) takes the press before the card does, so it
+ * hands a long-press on to this.
+ */
+internal val LocalCardLongPress = compositionLocalOf<(() -> Unit)?> { null }
 
 /** What a card shows when it has no content to draw. */
 internal enum class CardNote {
@@ -136,7 +144,9 @@ internal fun WidgetCard(
             modifier = Modifier.fillMaxSize().testTag("widget-card"),
         ) {
             Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
-                CardLayout(title, spec, note, failure, footer, box, onTap)
+                CompositionLocalProvider(LocalCardLongPress provides onLongClick) {
+                    CardLayout(title, spec, note, failure, footer, box, onTap)
+                }
             }
         }
     }
