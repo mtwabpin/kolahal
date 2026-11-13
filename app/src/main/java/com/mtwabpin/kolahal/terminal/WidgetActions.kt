@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
+import android.content.Intent
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -24,6 +25,9 @@ interface WidgetCardActions {
 
     /** Runs [script] again, quietly, for its status line's `refresh`. A Status card in view asks for this, as home does for a pinned line. */
     fun refreshStatus(script: String)
+
+    /** A tap on the Battery and network card: opens Android's battery screen, as the header's battery does. */
+    fun openBattery()
 
     /** A long-press on a card: opens the screen to arrange widgets. */
     fun longPress()
@@ -66,6 +70,7 @@ internal object WidgetAge {
  *   as a run the user started.
  * - A tap with a link opens it, as a link in a log line does.
  * - A tap on a Status card runs its script and says so in the log, as a tap on a pinned line does.
+ * - A tap on the Battery and network card opens Android's battery screen.
  *
  * [taps]: one item starts at most one run in 2 seconds. The header and the log's buttons share this gate.
  */
@@ -124,6 +129,12 @@ class WidgetActions(private val context: Context, private val taps: TapGate, pri
 
     override fun refreshStatus(script: String) = host.io {
         scripts.byName(script)?.takeIf { it.enabled }?.let { ScriptScheduler.refreshPinned(context, it) }
+    }
+
+    override fun openBattery() {
+        // Some phones have no such screen. Then the log says so, as for any screen that can't open.
+        runCatching { context.startActivity(Intent(Intent.ACTION_POWER_USAGE_SUMMARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { host.io { logs.add(LogKind.ERROR, "Can't open: ${it.message}") } }
     }
 
     override fun longPress() = host.openScreen(Screen.WIDGETS)

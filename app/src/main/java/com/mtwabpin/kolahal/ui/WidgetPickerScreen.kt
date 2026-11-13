@@ -144,14 +144,30 @@ internal fun pickerScriptRows(scripts: List<Script>): List<PickerScriptRow> = sc
     )
 }.sortedBy { it.title.lowercase() }
 
-/** The header of the picker's first section: Kolahal's own widgets, which your scripts fill. */
+/**
+ * A built-in widget, for the picker's Kolahal section. Kolahal fills it from its own data, so it has no script.
+ * - [id] is its id in its source: `battery` in `builtin:battery`.
+ * - [what] is the row's second line.
+ * - [search] is its title and what it shows, in lowercase.
+ */
+internal class PickerBuiltinRow(val id: String, val title: String, val what: String, val size: WidgetSize, val search: String) {
+    val source: String get() = WidgetSource.builtin(id)
+}
+
+/** The built-in widgets, in the order the picker lists them. They come before your scripts' widgets. */
+internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
+    PickerBuiltinRow(WidgetSource.BATTERY, "Battery and network", "Built-in", WidgetSize.S2X1, "battery and network built-in charging wi-fi"),
+)
+
+/** The header of the picker's first section: Kolahal's own widgets. Some are built in, and your scripts fill the others. */
 private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, emptyList(), emptyList(), emptyList())
 
 /**
  * The widget picker.
- * - First come Kolahal's own widgets: each saved script with a `@widget` line, and a Status card for
- *   each script that sets a status line. Picking one places it at once ([WidgetHost.placeScript],
- *   [WidgetHost.placeStatus]) and goes to the Widgets screen, as an app's widget does once it is bound.
+ * - First come Kolahal's own widgets: the built-in ones, then each saved script with a `@widget`
+ *   line, and a Status card for each script that sets a status line. Picking one places it at once
+ *   ([WidgetHost.placeBuiltin], [WidgetHost.placeScript], [WidgetHost.placeStatus]) and goes to the
+ *   Widgets screen, as an app's widget does once it is bound.
  * - Then the installed providers from every profile, grouped by app. Work and private apps get a
  *   badge. Each provider shows its preview and default size. Picking one starts the bind flow in MainActivity.
  */
@@ -206,9 +222,23 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                 }
             }
         }
-        val ownShown = remember(own, query) {
+        val (builtinsShown, ownShown) = remember(own, query) {
             val q = query.trim().lowercase()
-            if (q.isEmpty() || kolahalGroup.label.lowercase().contains(q)) own else own.filter { it.search.contains(q) }
+            // A search for "Kolahal" itself keeps the whole section, as an app's name keeps all its widgets.
+            if (q.isEmpty() || kolahalGroup.label.lowercase().contains(q)) pickerBuiltinRows to own
+            else pickerBuiltinRows.filter { it.search.contains(q) } to own.filter { it.search.contains(q) }
+        }
+        val anyOwn = builtinsShown.isNotEmpty() || ownShown.isNotEmpty()
+        // One of Kolahal's own widgets is placed at once. [placedNow] is false when it was on the page already.
+        val picked: (Boolean, String) -> Unit = { placedNow, name ->
+            if (placedNow) {
+                widgets.message("Added $name")
+                // As after an app's widget is bound: the picker closes and the Widgets screen shows it.
+                if (vm.screen.value == Screen.WIDGET_PICKER) vm.closeScreen()
+                if (vm.screen.value != Screen.WIDGETS) vm.openScreen(Screen.WIDGETS)
+            } else {
+                widgets.message("$name is already on the widgets page")
+            }
         }
         GuiListPage(
             title = { Text("Add widget") },
@@ -220,26 +250,23 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             item(key = "search") {
                 SearchField(query, { query = it }, "Search widgets", Modifier.fillMaxWidth())
             }
-            if (ownShown.isNotEmpty()) {
+            if (anyOwn) {
                 item(key = "g:kolahal") { AppHeader(kolahalGroup) }
+                items(builtinsShown, key = { "s:${it.source}" }) { b ->
+                    KolahalWidgetCard(b.title, b.what, b.size, added = b.source in added) {
+                        picked(widgets.placeBuiltin(b.id, b.size), b.title)
+                    }
+                }
                 items(ownShown, key = { "s:${it.source}" }) { w ->
-                    ScriptWidgetCard(w, added = w.source in added) {
-                        val placedNow = if (w.isStatus) widgets.placeStatus(w.script, w.size) else widgets.placeScript(w.script, w.size)
-                        if (placedNow) {
-                            widgets.message("Added ${w.name}")
-                            // As after an app's widget is bound: the picker closes and the Widgets screen shows it.
-                            if (vm.screen.value == Screen.WIDGET_PICKER) vm.closeScreen()
-                            if (vm.screen.value != Screen.WIDGETS) vm.openScreen(Screen.WIDGETS)
-                        } else {
-                            widgets.message("${w.name} is already on the widgets page")
-                        }
+                    KolahalWidgetCard(w.title, w.what, w.size, added = w.source in added) {
+                        picked(if (w.isStatus) widgets.placeStatus(w.script, w.size) else widgets.placeScript(w.script, w.size), w.name)
                     }
                 }
             }
             when {
                 shown == null -> Unit
                 // With a search that found one of Kolahal's own, the apps have nothing to add.
-                shown.isEmpty() -> if (query.isBlank() || ownShown.isEmpty()) item(key = "empty") {
+                shown.isEmpty() -> if (query.isBlank() || !anyOwn) item(key = "empty") {
                     EmptyNote(if (query.isBlank()) "No apps offer widgets." else "Nothing matches “$query”.")
                 }
                 else -> shown.forEach { g ->
@@ -267,11 +294,12 @@ private fun AppHeader(g: ProviderGroup) {
 }
 
 /**
- * One of your scripts' widgets: its title, its kind (or "Status card"), and the size it starts with.
- * A placed one says "Added": such a widget is placed once. A plain row for now, with no drawn sample of the kind.
+ * One of Kolahal's own widgets: its [title], [what] it is (its kind, "Status card" or "Built-in"),
+ * and the [size] it starts with. A placed one says "Added": such a widget is placed once. A plain
+ * row for now, with no drawn sample of the kind.
  */
 @Composable
-private fun ScriptWidgetCard(w: PickerScriptRow, added: Boolean, onClick: () -> Unit) {
+private fun KolahalWidgetCard(title: String, what: String, size: WidgetSize, added: Boolean, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -280,9 +308,9 @@ private fun ScriptWidgetCard(w: PickerScriptRow, added: Boolean, onClick: () -> 
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Column(Modifier.weight(1f)) {
-                Text(w.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
-                    w.what,
+                    what,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -294,7 +322,7 @@ private fun ScriptWidgetCard(w: PickerScriptRow, added: Boolean, onClick: () -> 
                 Text("Added", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.width(8.dp))
-            Text("${w.size.cells}×${w.size.rows}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
+            Text("${size.cells}×${size.rows}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
         }
     }
 }

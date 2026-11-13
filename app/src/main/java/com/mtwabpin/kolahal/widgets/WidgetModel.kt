@@ -49,6 +49,19 @@ object WidgetSource {
     /** The script's name when [source] is a Status card. Null for anything else, the script's own widget included. */
     fun statusName(source: String?): String? = source?.takeIf { it.startsWith(STATUS) && isSource(it) }?.removePrefix(STATUS)
 
+    /** The id of the built-in Battery and network widget. Its source is `builtin:battery`. */
+    const val BATTERY = "battery"
+
+    /** The source of the built-in widget [id]. */
+    fun builtin(id: String): String = BUILTIN + id
+
+    /**
+     * The id when [source] is a built-in widget: `battery`. Null for anything else. An id this
+     * version does not know (from a newer Kolahal's backup) still comes back: the card then says
+     * that it has nothing to draw.
+     */
+    fun builtinId(source: String?): String? = source?.takeIf { it.startsWith(BUILTIN) && isSource(it) }?.removePrefix(BUILTIN)
+
     /** The sources that belong to the script [name]: its own widget and its Status card. */
     fun ofScript(name: String): List<String> = listOf(SCRIPT + name, STATUS + name)
 

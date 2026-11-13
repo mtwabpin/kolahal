@@ -265,6 +265,13 @@ class WidgetHost private constructor(context: Context) {
      */
     fun placeStatus(script: Script, size: WidgetSize = WidgetSize.S2X1): Boolean = placeSource(WidgetSource.STATUS + script.name, size)
 
+    /**
+     * Places the built-in widget [id] ([WidgetSource.BATTERY]) at the end of the page, at [size].
+     * Returns false when it is already placed. Kolahal fills it from its own data, so it has no
+     * script, no access item and no run.
+     */
+    fun placeBuiltin(id: String, size: WidgetSize): Boolean = placeSource(WidgetSource.builtin(id), size)
+
     /** Adds an entry for [source] at the end of the page, at [size]. False, and no change, when it is placed already or can't be stored. */
     private fun placeSource(source: String, size: WidgetSize): Boolean {
         if (!WidgetSource.isSource(source)) return false

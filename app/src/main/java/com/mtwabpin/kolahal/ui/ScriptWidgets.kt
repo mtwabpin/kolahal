@@ -53,7 +53,10 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StatusLines
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.status.DeviceStatus
+import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.WidgetAge
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
 import com.mtwabpin.kolahal.widgets.PlacedWidget
@@ -286,7 +289,9 @@ private const val MIN_REFRESH_S = 10
  * - A script's widget draws what the script stored with `widget.show` ([WidgetStates]). The main
  *   process never waits for a script: the card comes from stored state, and a run fills it later.
  * - A Status card draws its script's status line ([StatusLines]).
- * - Any other source (a built-in widget) says "widget unavailable" for now.
+ * - The built-in Battery and network widget draws the device's status, live ([DeviceStatus]).
+ * - Any other source says "widget unavailable": a built-in widget that this version does not have,
+ *   from a newer Kolahal's backup.
  * - [actions] takes taps, the long-press and refresh requests. With null the card takes no touches
  *   and asks for no runs: this is the Widgets screen.
  * It brings its own [GuiTheme], because the widgets page is drawn in the terminal's styles.
@@ -300,6 +305,8 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
             ScriptWidget(name, height, actions)
         } else if (status != null) {
             StatusWidget(status, height, actions)
+        } else if (WidgetSource.builtinId(w.source) == WidgetSource.BATTERY) {
+            BatteryWidget(height, actions)
         } else {
             val what = w.source.orEmpty().substringAfter(':')
             // Nothing to tap here, so a tap opens the screen where the widget can be removed.
@@ -553,6 +560,111 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         modifier = Modifier.testTag("widget:status:$name"),
         onClick = onClick,
         onClickLabel = "run",
+        onLongClick = onLongClick,
+    )
+}
+
+/** The Battery and network card's pure parts: what it draws and says for the device's [Status]. */
+internal object BatteryCards {
+    /** At this level and under it, the ring is in the "bad" colour, as the header's battery is. */
+    const val LOW = 15
+
+    /**
+     * The network in words. [network] is [Status.network]: a kind (`wifi`, `cell`, `eth`, `vpn`,
+     * `net`), with `?` after it while Android has not found the internet through it, or `offline`.
+     * With [short], such a network is "No internet" alone, to fit beside the ring.
+     */
+    fun network(network: String, short: Boolean = false): String {
+        val kind = network.trim().lowercase()
+        val word = when (kind.removeSuffix("?")) {
+            "wifi" -> "Wi-Fi"
+            "cell" -> "Mobile data"
+            "eth" -> "Ethernet"
+            "vpn" -> "VPN"
+            "offline", "" -> "Offline"
+            else -> "Online"
+        }
+        return when {
+            !kind.endsWith("?") || word == "Offline" -> word
+            short -> "No internet"
+            else -> "$word, no internet"
+        }
+    }
+
+    /** The level, 0 to 100. Null when the phone does not say. */
+    private fun level(status: Status): Int? = status.batteryPct?.coerceIn(0, 100)
+
+    /**
+     * The card's title says whether the phone is on power, because a line beside the ring has no room
+     * for that and the network: "Charging", "Charged" at 100%, or "Battery".
+     */
+    fun title(status: Status): String = when {
+        !status.charging -> "Battery"
+        (level(status) ?: 0) >= 100 -> "Charged"
+        else -> "Charging"
+    }
+
+    /**
+     * The card: the level as a ring with the percent, and the network as its label.
+     * - The ring stands still, also while charging. A wave would say "working".
+     * - The colour says what a 1×1 card has no words for: good while on power, bad when low.
+     */
+    fun spec(status: Status): WidgetSpec.Progress {
+        val level = level(status)
+        val colour = when {
+            level == null -> StyledText.Colour.MUTED
+            status.charging -> StyledText.Colour.GOOD
+            level <= LOW -> StyledText.Colour.BAD
+            else -> null
+        }
+        return WidgetSpec.Progress(
+            base = WidgetBase(title = title(status), color = colour),
+            value = (level ?: 0).toFloat(),
+            max = 100f,
+            text = level?.let { "$it%" } ?: "–",
+            label = network(status.network, short = true),
+            // A ring in every box. Without this a wide box draws a bar.
+            style = "ring",
+        )
+    }
+
+    /** The whole card for a screen reader: "Battery: 82%, charging, Wi-Fi". */
+    fun said(status: Status): String {
+        val level = level(status)
+        val power = when {
+            !status.charging -> null
+            (level ?: 0) >= 100 -> "charged"
+            else -> "charging"
+        }
+        return "Battery: " + listOfNotNull(level?.let { "$it%" } ?: "level unknown", power, network(status.network)).joinToString(", ")
+    }
+}
+
+/**
+ * The built-in Battery and network card. Kolahal fills it from [DeviceStatus], the flow the header
+ * reads, so it is right when you look and needs no script and no run. A tap opens Android's battery
+ * screen, as the header's battery does.
+ */
+@Composable
+private fun BatteryWidget(height: Dp, actions: WidgetCardActions?) {
+    val context = LocalContext.current.applicationContext
+    val device = remember(context) { DeviceStatus.get(context) }
+    val status by device.status.collectAsStateWithLifecycle()
+    // The next alarm is in the status too. The card does not show it, so it is no reason to draw again.
+    val shown = remember(status.batteryPct, status.charging, status.network) { status.copy(nextAlarm = null) }
+    val spec = remember(shown) { BatteryCards.spec(shown) }
+    val description = remember(shown) { BatteryCards.said(shown) }
+    val onClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.openBattery() } } }
+    val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
+    WidgetCard(
+        title = BatteryCards.title(shown),
+        height = height,
+        spec = spec,
+        note = null,
+        description = description,
+        modifier = Modifier.testTag("widget:${WidgetSource.builtin(WidgetSource.BATTERY)}"),
+        onClick = onClick,
+        onClickLabel = "battery settings",
         onLongClick = onLongClick,
     )
 }

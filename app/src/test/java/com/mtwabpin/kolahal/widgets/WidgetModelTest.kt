@@ -284,4 +284,68 @@ class WidgetModelTest {
         assertEquals(all, WidgetSource.renamed(all, "weather", "a|b"))
         assertEquals(all, WidgetSource.renamed(all, "weather", ""))
     }
+
+    // ---- built-in widgets: no script fills them ----
+
+    private val battery = PlacedWidget(null, WidgetSource.builtin(WidgetSource.BATTERY), 0L, 88, 1, span = 6)
+
+    @Test fun aBuiltInWidgetHasAnId() {
+        assertEquals("builtin:battery", WidgetSource.builtin(WidgetSource.BATTERY))
+        assertEquals("battery", WidgetSource.builtinId("builtin:battery"))
+        // An id from a newer version still reads. Its card says that it has nothing to draw.
+        assertEquals("todos", WidgetSource.builtinId("builtin:todos"))
+        assertNull(WidgetSource.builtinId("script:battery"))
+        assertNull(WidgetSource.builtinId("status:battery"))
+        assertNull(WidgetSource.builtinId("builtin:"))
+        assertNull(WidgetSource.builtinId("builtin:a|b"))
+        assertNull(WidgetSource.builtinId("com.a/.W"))
+        assertNull(WidgetSource.builtinId(null))
+        // It belongs to no script.
+        assertNull(WidgetSource.scriptName("builtin:battery"))
+        assertNull(WidgetSource.statusName("builtin:battery"))
+    }
+
+    /** It is placed like a script's widget: no id, not pending, one key wherever it moves. */
+    @Test fun aBuiltInWidgetIsPlacedAndStored() {
+        assertEquals("builtin:battery", battery.source)
+        assertFalse(battery.pending)
+        assertEquals("s:builtin:battery", battery.key)
+        val all = listOf(w(5, 0), battery, script("weather", order = 2))
+        val text = WidgetCodec.encode(all)
+        assertTrue(text.lines().contains("-|builtin:battery|0|88|1|panel|6"))
+        assertEquals(all, WidgetCodec.decode(text))
+        assertEquals(listOf("w5", "s:builtin:battery", "s:script:weather"), WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
+        val moved = WidgetOrder.move(all, battery.key, -1)
+        assertEquals(listOf("s:builtin:battery", "w5", "s:script:weather"), WidgetOrder.inLocation(moved, WidgetLocation.PANEL).map { it.key })
+    }
+
+    /** A backup carries it, and a restore places it as it comes: once, with its size, and with no "Add again". */
+    @Test fun backupsCarryABuiltInWidget() {
+        val all = listOf(w(9, 0), battery, PlacedWidget(null, "status:cricket", 0L, 88, 2, span = 6))
+        val exported = WidgetCodec.export(all)
+        assertEquals(listOf("com.a/.W0", "builtin:battery", "status:cricket"), exported.map { it["provider"] })
+        val imported = WidgetCodec.fromExport(exported)
+        assertEquals(listOf(true, false, false), imported.map { it.pending })
+        assertEquals(battery, imported[1])
+        // Onto an empty page, and onto a page that has it already.
+        val restored = WidgetCodec.mergePending(emptyList(), WidgetOrder.onePage(imported))
+        assertEquals(listOf("builtin:battery", "status:cricket"), restored.mapNotNull { it.source })
+        assertEquals(restored, WidgetCodec.mergePending(restored, WidgetOrder.onePage(imported)))
+        val kept = battery.copy(order = 0, span = 3)
+        assertEquals(kept, WidgetCodec.mergePending(listOf(kept), imported).single { it.source == "builtin:battery" })
+        // Numbers as a JSON reader gives them.
+        val fromJson = WidgetCodec.fromExport(listOf(mapOf("provider" to "builtin:battery", "height" to 88.0, "order" to 1.0, "span" to 3.0)))
+        assertEquals(listOf(battery.copy(span = 3)), fromJson)
+    }
+
+    /** A script named like a built-in widget is another thing: renaming it leaves the built-in widget alone. */
+    @Test fun aScriptNamedLikeABuiltInWidgetDoesNotMoveIt() {
+        val all = listOf(battery, script("battery", order = 2), PlacedWidget(null, "status:battery", 0L, 88, 3, span = 6))
+        val renamed = WidgetSource.renamed(all, "battery", "power")
+        assertEquals(listOf("builtin:battery", "script:power", "status:power"), renamed.map { it.provider })
+        // And a script renamed to its name does not take its place.
+        val back = WidgetSource.renamed(renamed, "power", "battery")
+        assertEquals(listOf("builtin:battery", "script:battery", "status:battery"), back.map { it.provider })
+        assertEquals(all, WidgetSource.renamed(all, "weather", "battery"))
+    }
 }
