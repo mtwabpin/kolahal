@@ -93,10 +93,13 @@ done
 [ ${#started[@]} -gt 0 ] && sleep 30
 
 echo "Installing on ${serials[*]}…"
+# Wait for these installs only: a plain `wait` would also wait for the emulators started above.
+installs=()
 for s in "${serials[@]}"; do
   ( "$ADB" -s "$s" install -r -t "$app_apk" > /dev/null && "$ADB" -s "$s" install -r -t "$test_apk" > /dev/null ) &
+  installs+=($!)
 done
-wait
+for p in "${installs[@]}"; do wait "$p" || { echo "Installing failed; see the output above." >&2; exit 1; }; done
 
 echo "Running the tests on $emulators emulator(s)…"
 pids=()
