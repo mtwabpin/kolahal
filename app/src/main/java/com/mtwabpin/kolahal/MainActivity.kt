@@ -376,6 +376,10 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     BackHandler(enabled = pager.currentPage != homePage) {
         scope.launch { pager.animateScrollToPage(homePage) }
     }
+    // A widget's tap whose run prints in the log turns home to the log.
+    androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
+        vm.logTurns.collect { pager.animateScrollToPage(terminalPage) }
+    }
     if (widgetsFirst) {
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { page -> vm.onHomePageShown(log = page == terminalPage) }
@@ -422,7 +426,11 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
         if (page == terminalPage) {
             androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
         } else {
-            com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+            // The pager keeps this page composed beside the log. Its cards move and ask for runs only
+            // while the pager has settled on it.
+            androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalWidgetsShown provides (pager.settledPage == page)) {
+                com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+            }
         }
     }
 }

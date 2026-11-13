@@ -1012,6 +1012,21 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** A tap on a pinned script's line: runs the script, at most once in 2 seconds ([itemTaps]). */
     fun onPinTap(name: String) = header.onPinTap(name)
 
+    private val _logTurns = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** Asks home to turn to the log page: a widget's tap whose run prints there. Home's pager collects it. */
+    val logTurns: SharedFlow<Unit> = _logTurns
+
+    /**
+     * Taps and refresh requests of the script widgets on the widgets page ([WidgetActions]). A tap
+     * shares the 2-second gate of the header and the log's buttons ([itemTaps]).
+     */
+    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, object : WidgetActions.Host {
+        override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
+        override fun openUrl(url: String) = this@TerminalViewModel.openUrl(url)
+        override fun openScreen(screen: Screen) = this@TerminalViewModel.openScreen(screen)
+        override fun showLog() { _logTurns.tryEmit(Unit) }
+    })
+
     /**
      * Quick actions (tap `$` on the prompt, or the `quick` gesture): everything the header offers,
      * within thumb reach at the bottom of the screen.

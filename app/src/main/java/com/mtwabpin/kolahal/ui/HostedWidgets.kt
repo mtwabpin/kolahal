@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +27,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -62,6 +64,10 @@ internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? = firstOrNull 
 /**
  * Renders placed widget [w] at [height] via the shared AppWidgetHost. A long-press anywhere on it
  * calls [onLongPress]. When its profile is paused, [placeholder] is shown instead.
+ *
+ * A widget Kolahal draws itself ([PlacedWidget.source]) is drawn as its card. Here the card takes
+ * no taps and asks for no runs: the Widgets screen arranges widgets. The widgets page draws such a
+ * card itself, with its actions ([SourceWidget]).
  */
 @Composable
 internal fun HostedWidget(
@@ -71,6 +77,13 @@ internal fun HostedWidget(
     onLongPress: (() -> Unit)?,
     placeholder: @Composable (String) -> Unit,
 ) {
+    if (w.source != null) {
+        val press by rememberUpdatedState(onLongPress)
+        Box(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { press?.invoke() }) }) {
+            SourceWidget(w, height, actions = null)
+        }
+        return
+    }
     val id = w.id ?: return
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
@@ -252,7 +265,9 @@ private fun WidgetPanelContent(
                 key(w.key) {
                     // Give the flow exactly one child per widget, whatever HostedWidget shows.
                     Box {
-                        HostedWidget(
+                        // A script's widget is a card that Kolahal draws. Its taps go to the view model.
+                        if (w.source != null) SourceWidget(w, w.heightDp.dp, vm.widgetActions)
+                        else HostedWidget(
                             w = w,
                             height = w.heightDp.dp,
                             pausedKind = profiles.pausedKind(w.profileSerial),
