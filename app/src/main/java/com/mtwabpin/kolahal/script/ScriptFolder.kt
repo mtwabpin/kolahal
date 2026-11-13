@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.edit
 import androidx.documentfile.provider.DocumentFile
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 
@@ -100,74 +99,36 @@ class ScriptFolder(private val context: Context) {
         // Counts only scripts the import changed. The same code and settings again are not an update.
         var updated = 0
         val skipped = ArrayList<String>()
-        // Scripts this import created or changed, by name.
-        val changedHere = mutableSetOf<String>()
+        // One for this import: two files can give one name (`Foo.lua`, `foo.lua`), and the second must
+        // stay switched off, as the first does.
+        val importer = ScriptImport(context)
         for (file in files) {
             val fileName = file.name ?: continue
             val lang = ScriptLang.of(fileName.substringAfterLast('.', "")) ?: continue
             if (file.isDirectory) continue
             val name = fileName.substringBeforeLast('.').lowercase()
             // The same rules as a backup: no names of built-in commands.
-            if (!ScriptNames.NAME.matches(name) || name in com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES) {
+            if (!ScriptImport.named(name)) {
                 skipped += fileName
                 continue
             }
             val code = readText(file.uri) ?: continue
-            if (ScriptMeta.needsNewer(code, com.mtwabpin.kolahal.BuildConfig.VERSION_NAME)) {
-                skipped += "$fileName (needs Kolahal ${ScriptMeta.requires(code)})"
-                continue
-            }
-            val existing = scripts.byName(name)
-            var isNew = false
-            val script = if (existing == null) {
-                created++
-                isNew = true
-                scripts.create(name, lang, code, enabled = false)
-            } else {
-                if (existing.lang != lang) {
-                    skipped += fileName
-                    continue
+            // The script's entry in kolahal.json holds its timers and switch. A new script without one gets
+            // the timers its code suggests. New scripts from a folder arrive switched off, as from a backup.
+            when (val outcome = importer.add(name, lang, code, settings = settings[name])) {
+                is ScriptImport.Outcome.Skipped -> skipped += when (val why = outcome.why) {
+                    is ScriptImport.Why.NeedsNewer -> "$fileName (needs Kolahal ${why.version})"
+                    is ScriptImport.Why.OtherLanguage -> fileName
                 }
-                // Code from the folder replaces a script's code: the script is switched off, to be reviewed like a new one.
-                if (existing.code != code) {
-                    scripts.replaceCode(existing.id, code)
-                    isNew = true
-                }
-                existing
-            }
-            // Two files can give one name (`Foo.lua`, `foo.lua`). The second finds the first one's code
-            // already in place: it must stay switched off, as the first does.
-            if (isNew) changedHere += name else if (name in changedHere) isNew = true
-            settings[name]?.let { m ->
-                (m["every"] as? Number)?.toLong()?.let { every ->
-                    val minutes = every.coerceIn(0, 7L * 24 * 60).toInt()
-                    scripts.setInterval(script.id, if (minutes in 1 until ScriptScheduler.MIN_INTERVAL_MIN) ScriptScheduler.MIN_INTERVAL_MIN else minutes)
-                }
-                (m["at"] as? List<*>)?.let { at ->
-                    scripts.setAtTimes(script.id, at.mapNotNull { ScriptScheduler.normalizeTime(it.toString()) }.distinct().sorted())
-                }
-                (m["notify"] as? Boolean)?.let { scripts.setNotify(script.id, it) }
-                if (!isNew) (m["enabled"] as? Boolean)?.let { on ->
-                    scripts.setEnabled(script.id, on)
-                    if (on) scripts.byId(script.id)?.let { ScriptAccess.askForNew(context, it) }
+                is ScriptImport.Outcome.Imported -> when (outcome.change) {
+                    ScriptImport.Change.CREATED -> created++
+                    ScriptImport.Change.UPDATED -> updated++
+                    ScriptImport.Change.UNCHANGED -> Unit
                 }
             }
-            // A new script without settings in kolahal.json gets the timers its code suggests. A changed
-            // script keeps its own timers, unless its `@every` or `@at` lines changed (replaceCode handles that).
-            if (existing == null && settings[name] == null) scripts.applySuggested(script.id, code)
-            // New scripts from a folder arrive switched off, as from a backup. Review them before
-            // they run on a timer.
-            if (isNew) scripts.setEnabled(script.id, false)
-            if (existing != null && scripts.byId(script.id)?.let { changed(existing, it) } == true) updated++
-            runCatching { scripts.byId(script.id)?.let { ScriptScheduler.sync(context, it) } }
         }
         return ImportResult(created, updated, skipped)
     }
-
-    /** What an import can change in a script: its code, timers, notifications and switch. */
-    private fun changed(before: Script, after: Script) =
-        before.code != after.code || before.intervalMin != after.intervalMin || before.atTimes != after.atTimes ||
-            before.notify != after.notify || before.enabled != after.enabled
 
     /** Manifest entries keyed by script name. */
     private fun readManifest(uri: Uri): Map<String?, Map<*, *>> =

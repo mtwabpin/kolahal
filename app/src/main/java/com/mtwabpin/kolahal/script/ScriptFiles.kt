@@ -17,6 +17,7 @@ class ScriptFiles(private val context: Context) {
         val created = ArrayList<String>()
         val updated = ArrayList<String>()
         val skipped = ArrayList<String>()
+        val importer = ScriptImport(context)
         for (uri in uris) {
             val fileName = Files.displayName(context, uri) ?: uri.lastPathSegment ?: "?"
             val lang = ScriptLang.of(fileName.substringAfterLast('.', ""))
@@ -34,26 +35,20 @@ class ScriptFiles(private val context: Context) {
                 skipped += "$fileName (${it.message})"
                 continue
             }
-            // Written for a newer Kolahal, so it may call things this version doesn't have.
-            if (ScriptMeta.needsNewer(code, com.mtwabpin.kolahal.BuildConfig.VERSION_NAME)) {
-                skipped += "$fileName (needs Kolahal ${ScriptMeta.requires(code)})"
-                continue
-            }
-            val existing = scripts.byName(name)
             // A script from a file arrives switched off. So does a script whose code a file replaces.
             // Switching it on is the user's approval of its timers, triggers and `@uses`.
-            when {
-                existing == null -> {
-                    val s = scripts.create(name, lang, code, enabled = false)
-                    scripts.applySuggested(s.id, code)
-                    created += "$name.${lang.ext}"
+            // A file brings no settings: a new script gets the timers its code suggests, and only
+            // replaced code sets a script's timers again.
+            when (val outcome = importer.add(name, lang, code, resync = false)) {
+                is ScriptImport.Outcome.Skipped -> skipped += when (val why = outcome.why) {
+                    // Written for a newer Kolahal, so it may call things this version doesn't have.
+                    is ScriptImport.Why.NeedsNewer -> "$fileName (needs Kolahal ${why.version})"
+                    is ScriptImport.Why.OtherLanguage -> "$fileName (a ${why.has.ext} script '$name' exists)"
                 }
-                existing.lang != lang -> skipped += "$fileName (a ${existing.lang.ext} script '$name' exists)"
-                existing.code == code -> Unit
-                else -> {
-                    scripts.replaceCode(existing.id, code)
-                    scripts.byId(existing.id)?.let { runCatching { ScriptScheduler.sync(context, it) } }
-                    updated += "$name.${lang.ext}"
+                is ScriptImport.Outcome.Imported -> when (outcome.change) {
+                    ScriptImport.Change.CREATED -> created += "$name.${lang.ext}"
+                    ScriptImport.Change.UPDATED -> updated += "$name.${lang.ext}"
+                    ScriptImport.Change.UNCHANGED -> Unit
                 }
             }
         }

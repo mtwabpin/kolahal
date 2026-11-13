@@ -5,6 +5,7 @@ import android.net.Uri
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
+import com.mtwabpin.kolahal.script.ScriptImport
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.commands.InstantRun
 
@@ -143,53 +144,31 @@ class Backup(private val context: Context) {
 
         var count = 0
         var disabled = 0
-        // Scripts this import created or changed. A later entry with the same name finds the code already
-        // in place, so it must not count as unchanged and switch the script on.
-        val changedHere = mutableSetOf<String>()
+        // One for this import: it keeps a later entry with the same name from switching the script on.
+        val importer = ScriptImport(context)
         (root["scripts"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { m ->
             val name = m["name"]?.toString()?.lowercase()
             val lang = m["lang"]?.toString()?.let(ScriptLang::of)
             val code = m["code"]?.toString()
             // Your own scripts: a name that an app also has is kept (the script arrives switched off, as all do).
-            if (name == null || lang == null || code == null || !com.mtwabpin.kolahal.script.ScriptNames.NAME.matches(name) || name in BUILT_INS) {
+            if (name == null || lang == null || code == null || !ScriptImport.named(name)) {
                 skipped += "script ${m["name"]}"
                 return@forEach
             }
-            if (com.mtwabpin.kolahal.script.ScriptMeta.needsNewer(code, com.mtwabpin.kolahal.BuildConfig.VERSION_NAME)) {
-                skipped += "script $name (needs Kolahal ${com.mtwabpin.kolahal.script.ScriptMeta.requires(code)})"
-                return@forEach
-            }
-            val existing = scripts.byName(name)
-            // New code arrives switched off, both for a new script and for a replaced one.
-            var isNew = false
-            val script = when {
-                existing == null -> scripts.create(name, lang, code, enabled = false).also { isNew = true }
-                existing.lang != lang -> { skipped += "script $name (language differs)"; return@forEach }
-                else -> existing.also { if (it.code != code) { scripts.replaceCode(it.id, code); isNew = true } }
-            }
-            if (isNew) changedHere += name else if (name in changedHere) isNew = true
-            (m["every"] as? Number)?.toLong()?.let { every ->
-                val minutes = every.coerceIn(0, 7L * 24 * 60).toInt()
-                scripts.setInterval(script.id, if (minutes in 1 until ScriptScheduler.MIN_INTERVAL_MIN) ScriptScheduler.MIN_INTERVAL_MIN else minutes)
-            }
-            (m["at"] as? List<*>)?.let { at ->
-                scripts.setAtTimes(script.id, at.mapNotNull { ScriptScheduler.normalizeTime(it.toString()) }.distinct().sorted())
-            }
-            (m["notify"] as? Boolean)?.let { scripts.setNotify(script.id, it) }
-            // Access that was switched off travels with a backup. What a script may use is only allowed on this phone.
-            (m["access"] as? Map<*, *>)?.forEach { (item, on) -> if (on == false) scripts.setAccess(script.id, item.toString(), false) }
-            // New or changed scripts from a backup arrive switched off. Review them before they run.
-            if (isNew) {
-                scripts.setEnabled(script.id, false)
-                disabled++
-            } else {
-                (m["enabled"] as? Boolean)?.let { on ->
-                    scripts.setEnabled(script.id, on)
-                    if (on) scripts.byId(script.id)?.let { com.mtwabpin.kolahal.script.ScriptAccess.askForNew(context, it) }
+            // The entry holds the script's timers and switch. Access that was switched off travels with a
+            // backup too; what a script may use is only allowed on this phone.
+            when (val outcome = importer.add(name, lang, code, settings = m, accessOff = true)) {
+                is ScriptImport.Outcome.Skipped -> skipped += when (val why = outcome.why) {
+                    is ScriptImport.Why.NeedsNewer -> "script $name (needs Kolahal ${why.version})"
+                    is ScriptImport.Why.OtherLanguage -> "script $name (language differs)"
+                }
+                is ScriptImport.Outcome.Imported -> {
+                    // New or changed scripts from a backup arrive switched off. Review them before they run.
+                    if (outcome.off) disabled++
+                    if (outcome.timersFailed) skipped += "timers of script $name"
+                    count++
                 }
             }
-            runCatching { scripts.byId(script.id)?.let { ScriptScheduler.sync(context, it) } }.onFailure { skipped += "timers of script $name" }
-            count++
         }
         (root["font"] as? Map<*, *>)?.let { font ->
             val name = font["name"]?.toString()?.takeIf { it == "custom.ttf" || it == "custom.otf" }
