@@ -48,11 +48,10 @@ object TermFonts {
         )
     }
 
-    fun dir(context: Context) = File(context.filesDir, "fonts")
+    fun dir(context: Context) = com.mtwabpin.kolahal.data.FontFiles.dir(context)
 
-    /** The imported font file, if there is one. */
-    fun customFile(context: Context): File? =
-        listOf("custom.ttf", "custom.otf").map { File(dir(context), it) }.firstOrNull { it.isFile }
+    /** The imported font file, if there is one ([com.mtwabpin.kolahal.data.FontFiles]). */
+    fun customFile(context: Context): File? = com.mtwabpin.kolahal.data.FontFiles.customFile(context)
 
     /** Loads [file] now. Returns null if it is not a usable font, so nothing fails later during layout. */
     fun loadTypeface(file: File): android.graphics.Typeface? = runCatching {

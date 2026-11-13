@@ -130,19 +130,6 @@ it against the backup XML files (done in 0.5.7). Left: the log's view markers (c
 are in the =logs= prefs, so =FullBackup.logIdsWithin= has to clamp them. Moving them into kv is about
 half a day. Theme files are still read by a regex on purpose: it also reads a hand-edited file.
 
-*** TODO [#C] =TerminalViewModel= holds state for every screen
-1776 lines, 93 public functions, 23 =@Volatile= fields, four lanes (main, =serialIo=, =deleteIo=,
-=Dispatchers.IO=). 22 UI files use 97 of its members. =onResume= (=:739-778=) does nine unrelated
-jobs.
-
-Low-risk moves, in the existing Host-interface style (about half a day each):
-- log search (=:594-700=);
-- navigation (=:1346-1422=, =:1666-1758=);
-- permission and appearance results (=:1449-1664=);
-- header and quick actions (=:1200-1281=).
-Keep =reload()= where it is. Also: the restart block is in both =terminal/CommandProcessor.kt:641-650=
-and =terminal/BackupActions.kt:45-52=.
-
 *** TODO [#C] Pure logic needs a phone to test
 957 device tests and 582 JVM tests; =terminal= alone has 284 on device. =CommandGroup(context)= takes
 =LogRepository.get(context)=; =Completer= takes a Context and four singletons. So help, alias, calc,
@@ -153,14 +140,12 @@ reflection (=GetScriptsScreenTest:134=, =:218=, =ScriptActionsTest:438=, =:535=)
 Fix: a small =LogSink= interface (add, addAll, capture, batched, withCause, last) with an in-memory
 fake, passed to =CommandGroup=. About a day; tests can move over time.
 
-*** TODO [#C] Package cycles: data ↔ script ↔ terminal ↔ ui
-- =data= imports =script= (6 files; =ScriptRepository= holds the access rules and writes log lines),
-  =terminal= (=Keys= → =CommandsOff::parse=; backups → =CommandCatalog=, =InstantRun=) and =ui=
-  (=Backup= → =TermFonts=).
-- =terminal= imports =ui= in 5 files.
-- =HostApi= imports =InstantRun=, which pulls =ControlCommands= into =:script=.
-- So =docs/codebase-guide.org='s "Model knows nothing above it" and "InstantRun needs nothing" are
-  no longer true. Step 2 of the command-facts task above fixes the =InstantRun= part.
+*** TODO [#C] =terminal/= imports names that =ui/= defines
+Done in 0.5.7: the Model no longer reaches the screen (the font file moved to =data/FontFiles.kt=), and
+=LayersTest= keeps it so; the codebase guide says the command facts in =terminal/= are plain objects the
+Model may read. Left: 5 files in =terminal/= use names defined in =ui/= (=TermFonts=, =TITLES=, =GUIDE=,
+=HeaderTarget=, =KeyBarKey=, =PinnedTurns=, =WallpaperMatch=, =crashReportShare=). Moving those names
+beside the code that uses them is about half a day.
 
 *** TODO [#C] Per-command context rides on thread-locals
 =data/LogRepository.kt:103=, =:135=, =:157=, =script/ScriptScheduler.kt:256-272=,
@@ -168,7 +153,8 @@ fake, passed to =CommandGroup=. About a day; tests can move over time.
 =background()= copies only =cause=. A handler that becomes =suspend=, or starts a script inside
 =background {}=, loses the "sent by a script" mark with no error. No handler does today.
 
-Fix: pass an explicit invocation object, once step 3 of the command-facts task exists.
+Fix: pass an explicit invocation object, once step 3 of the command-facts task exists. Waits for that
+decision.
 
 ** In good shape: keep as it is
 - Self-update: checks the package, the version, a higher version code, and that the signers match

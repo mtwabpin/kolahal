@@ -6,8 +6,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.AlarmClock
-import android.provider.Settings
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,7 +16,6 @@ import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.apps.AppRepository
@@ -25,7 +23,6 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
-import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
@@ -36,10 +33,8 @@ import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
-import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptAccess
-import com.mtwabpin.kolahal.script.ScriptFolder
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
@@ -94,10 +89,6 @@ internal fun withNewCommands(history: List<String>, fresh: List<LogEntry>, limit
     val added = fresh.asReversed().filter { it.kind == LogKind.COMMAND }.map { it.text }
     return if (added.isEmpty()) history else (added + history).distinct().take(limit)
 }
-
-/** `/battery low` at the prompt searches the log for those words. Returns null when the line isn't a search. */
-internal fun searchWords(text: String): List<String>? =
-    if (!text.startsWith("/")) null else text.substring(1).split(Regex("\\s+")).filter { it.isNotEmpty() }
 
 @OptIn(kotlinx.coroutines.FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class TerminalViewModel(app: Application, private val state: SavedStateHandle) : AndroidViewModel(app), TerminalUi {
@@ -275,8 +266,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         requestReload()
     }
 
-    private val _screen = MutableStateFlow(Screen.TERMINAL)
-    val screen: StateFlow<Screen> = _screen.asStateFlow()
+    /** The page that is open ([Navigation]). */
+    val screen: StateFlow<Screen> get() = navigation.screen
 
     private val _rows = MutableStateFlow<List<LogRow>>(emptyList())
     /** What the log list shows: entries (with dimming and gutter) and day separators. */
@@ -319,7 +310,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * The look to use now, when it differs from the settings. Only on home: other screens show
      * what is in use.
      */
-    val previewed: LivePreview? get() = entered ?: livePreview?.takeIf { _screen.value == Screen.TERMINAL }
+    val previewed: LivePreview? get() = entered ?: livePreview?.takeIf { screen.value == Screen.TERMINAL }
 
     private val _editing = MutableStateFlow<Script?>(null)
     val editing: StateFlow<Script?> = _editing.asStateFlow()
@@ -606,113 +597,21 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     // ---- log search: `/words` at the prompt -------------------------------------------------
 
-    /** What `/words` found. [rows] are oldest first, as in the log. With no [words] yet, a hint shows. */
+    /** What `/words` found ([LogSearcher]). [rows] are oldest first, as in the log. With no [words] yet, a hint shows. */
     data class LogSearch(val words: List<String>, val rows: List<LogRow>, val total: Int, val searched: Int, val sources: List<LogFilter> = emptyList()) {
         /** True when nothing is typed yet (or only `@`). Then a hint shows instead of results. */
         val isEmpty: Boolean get() = words.isEmpty() && sources.isEmpty()
     }
 
-    private val _search = MutableStateFlow<LogSearch?>(null)
+    /** The search that follows the prompt and the log. Started by the init at the end. */
+    private val searcher = LogSearcher(viewModelScope, logs, reading, appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged()) { input.text }
+
     /** The log search while the prompt starts with `/`. Null otherwise. */
-    val search: StateFlow<LogSearch?> = _search.asStateFlow()
+    val search: StateFlow<LogSearch?> get() = searcher.search
 
     private val _jumpTo = MutableStateFlow<Long?>(null)
     /** A line to scroll the log to once it is loaded (after a search result is tapped). */
     val jumpTo: StateFlow<Long?> = _jumpTo.asStateFlow()
-
-    /** The log search that follows the prompt. Started by the init at the end. */
-    private fun startSearch() {
-        viewModelScope.launch {
-            // - Wait for typing to settle before a search. Leaving search happens at once.
-            // - A log change runs the search again, while home is shown. A search left in the prompt
-            //   runs again once on return.
-            // - Locking the private space hides its lines from the results too, as from the log.
-            // - Lines a script changes in place (line.set) are patched into the results, without
-            //   searching the whole log again ([patchSearch]).
-            val locks = appsRepo.profiles.map(::lockedPrivate).distinctUntilChanged()
-            // What the last whole search was for (its words, the log, the locks), and the last change
-            // in place it covers.
-            var searchedFor: Triple<List<String>?, Long, Set<Long>>? = null
-            var updatesSeen = 0L
-            reading.flatMapLatest { on ->
-                if (!on) emptyFlow()
-                else combine(androidx.compose.runtime.snapshotFlow { searchWords(input.text) }.distinctUntilChanged(), logs.linesVersion, locks, logs.version) { words, lines, locked, _ ->
-                    Triple(words, lines, locked)
-                }
-            }
-                .debounce { (words, _, _) -> if (words.isNullOrEmpty()) 0L else 120L }
-                .collectLatest { key ->
-                    val (words, _, locked) = key
-                    // A failed search keeps the previous results instead of crashing home.
-                    try {
-                        val current = _search.value
-                        if (words != null && current != null && key == searchedFor) {
-                            // Nothing changed but lines in place: patch them in, unless that needs a whole search.
-                            val patched = withContext(Dispatchers.IO) { patchSearch(current, locked, updatesSeen) }
-                            if (patched != null) {
-                                _search.value = patched.first
-                                updatesSeen = patched.second
-                                return@collectLatest
-                            }
-                        }
-                        // Changes in place from here on come after this search: the next patch reads them.
-                        val seq = logs.updatedSeq
-                        _search.value = when {
-                            words == null -> null
-                            else -> {
-                                // `@xkcd`, `@feeds`: only lines from these sources (any of them).
-                                val (at, plain) = words.partition { it.startsWith("@") }
-                                val sources = at.mapNotNull(LogFilter::parse)
-                                if (plain.isEmpty() && sources.isEmpty()) LogSearch(emptyList(), emptyList(), 0, 0)
-                                else withContext(Dispatchers.IO) {
-                                    val job = currentCoroutineContext()[kotlinx.coroutines.Job]
-                                    val found = logs.search(
-                                        plain,
-                                        skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
-                                        match = if (sources.isEmpty()) null else { e -> sources.any { it.matches(e) } },
-                                        narrowBy = LogFilter.sqlOfAny(sources),
-                                        keepGoing = { job?.isActive != false },
-                                    )
-                                    LogSearch(plain, buildRows(found.entries.asReversed(), trim = false), found.total, found.searched, sources)
-                                }
-                            }
-                        }
-                        searchedFor = key
-                        updatesSeen = seq
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        android.util.Log.w("Kolahal", "log search failed", e)
-                    }
-                }
-        }
-    }
-
-    /**
-     * [current] with the lines changed in place since change [since] read again (a script's
-     * `line.set`), and the latest change number. A line that still matches is replaced where it is,
-     * and one that no longer does goes. Null when the whole log must be searched instead: the
-     * changes are too old to know, or a changed line now matches but isn't among the results.
-     */
-    private fun patchSearch(current: LogSearch, locked: Set<Long>, since: Long): Pair<LogSearch, Long>? {
-        val seq = logs.updatedSeq
-        val ids = logs.updatedSince(since) ?: return null
-        if (ids.isEmpty()) return current to seq
-        val changed = logs.byIds(ids).associateBy { it.id }
-        // The results, oldest first, as buildRows takes them.
-        val shown = current.rows.mapNotNull { (it as? LogRow.Entry)?.entry }
-        val shownIds = shown.mapTo(HashSet()) { it.id }
-        fun matches(e: LogEntry) = e.ctx.userSerial !in locked &&
-            (current.sources.isEmpty() || current.sources.any { it.matches(e) }) && logs.matchesWords(e, current.words)
-        if (changed.values.any { it.id !in shownIds && matches(it) }) return null
-        if (changed.keys.none { it in shownIds }) return current to seq
-        var total = current.total
-        val entries = shown.mapNotNull { e ->
-            val now = changed[e.id] ?: return@mapNotNull e
-            if (matches(now)) now else null.also { total-- }
-        }
-        return current.copy(rows = buildRows(entries, trim = false), total = total) to seq
-    }
 
     /** A search result was tapped. The search ends, and the log shows that line, loading older lines as far back as needed. */
     fun showInLog(entry: LogEntry) {
@@ -787,7 +686,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 activityStarted -> { back = true; reading.value = true }
             }
         }
-        if (_screen.value == Screen.SETUP || _screen.value == Screen.ONBOARDING) refreshSetup()
+        if (screen.value == Screen.SETUP || screen.value == Screen.ONBOARDING) refreshSetup()
         refreshIsHome()
         unlockCounter.refresh()
         // Don't reload the app list here. It is kept, and installs, updates, removals, profiles and a
@@ -828,7 +727,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun onWindowFocused() {
         if (!focusOnWindowFocus) return
         focusOnWindowFocus = false
-        if (config[Keys.FOCUS_ON_HOME] && (logShown || !widgetsFirst()) && _screen.value == Screen.TERMINAL && _editing.value == null) _events.tryEmit(UiEvent.FocusPrompt)
+        if (config[Keys.FOCUS_ON_HOME] && (logShown || !widgetsFirst()) && screen.value == Screen.TERMINAL && _editing.value == null) _events.tryEmit(UiEvent.FocusPrompt)
     }
 
     // ---- prompt ---------------------------------------------------------------------------
@@ -1217,27 +1116,27 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Header and pinned items that run a command or a script, or log a line: each runs at most once
-     * in 2 seconds, so quick repeated taps log once. Items that only open a screen, and the music
-     * controls, are not held back.
+     * Header and pinned items, profile taps and the log's line buttons that run a command or a script,
+     * or log a line: each runs at most once in 2 seconds, so quick repeated taps log once.
      */
     private val itemTaps = TapGate(2_000) { android.os.SystemClock.elapsedRealtime() }
 
-    fun onHeaderTap(target: HeaderTarget) {
-        when (target) {
-            HeaderTarget.CLOCK, HeaderTarget.ALARM -> startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS))
-            HeaderTarget.UNLOCKS -> if (itemTaps.allow("header:unlocks")) runCommand("unlocks 7")
-            HeaderTarget.BATTERY -> startActivity(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
-            HeaderTarget.NETWORK -> startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
-            HeaderTarget.SETTINGS -> openScreen(Screen.SETTINGS)
-            HeaderTarget.TODO -> if (itemTaps.allow("header:todo")) runCommand("todo")
-        }
-    }
+    /** Header taps and the quick actions ([HeaderActions]). */
+    private val header = HeaderActions(itemTaps, object : HeaderActions.Host {
+        override fun startActivity(intent: Intent) = this@TerminalViewModel.startActivity(intent)
+        override fun openScreen(screen: Screen) = this@TerminalViewModel.openScreen(screen)
+        override fun runCommand(cmd: String) = this@TerminalViewModel.runCommand(cmd)
+        override fun runScriptNamed(name: String) = this@TerminalViewModel.runScriptNamed(name)
+        override fun expandNotifications() { this@TerminalViewModel.expandNotifications() }
+        override fun logInfo(text: String, ctx: LogContext) { io { logs.add(LogKind.INFO, text, ctx = ctx) } }
+        override val status get() = this@TerminalViewModel.status.value
+        override val profiles get() = this@TerminalViewModel.profiles.value
+    })
+
+    fun onHeaderTap(target: HeaderTarget) = header.onHeaderTap(target)
 
     /** A tap on a pinned script's line: runs the script, at most once in 2 seconds ([itemTaps]). */
-    fun onPinTap(name: String) {
-        if (itemTaps.allow("pin:$name")) runScriptNamed(name)
-    }
+    fun onPinTap(name: String) = header.onPinTap(name)
 
     /**
      * Quick actions (tap `$` on the prompt, or the `quick` gesture): everything the header offers,
@@ -1245,59 +1144,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     fun openQuick() { _events.tryEmit(UiEvent.ShowQuick) }
 
-    fun quickActions(): List<LogAction> = buildList {
-        // Use the header's icons where it has them (battery and network as the header shows them now).
-        fun icon(id: Int) = ActionIcon.Drawable(id)
-        val s = status.value
-        add(LogAction("Settings", icon = icon(R.drawable.ic_settings)) { openScreen(Screen.SETTINGS) })
-        add(LogAction("Notifications", icon = icon(R.drawable.ic_notifications)) { expandNotifications() })
-        add(LogAction("Alarms & clock", icon = icon(R.drawable.ic_alarm)) { onHeaderTap(HeaderTarget.ALARM) })
-        add(LogAction("Battery", icon = s.batteryPct?.let { ActionIcon.Battery(it, s.charging) }) { onHeaderTap(HeaderTarget.BATTERY) })
-        val net = when (s.network) {
-            "wifi" -> icon(R.drawable.ic_wifi)
-            "offline" -> ActionIcon.Drawable(R.drawable.ic_cloud_off, alert = true)
-            else -> icon(R.drawable.ic_signal)
-        }
-        add(LogAction("Network", icon = net) { onHeaderTap(HeaderTarget.NETWORK) })
-        add(LogAction("Unlocks this week", icon = icon(R.drawable.ic_lock_open)) { onHeaderTap(HeaderTarget.UNLOCKS) })
-        profiles.value.filter { it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE }.forEach { p ->
-            val cmd = if (p.kind == ProfileKind.PRIVATE) "private" else "work"
-            // As in the header: the profile's colour while it runs, dim while it is paused.
-            val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
-            add(
-                LogAction(
-                    if (p.quiet) "Resume ${p.kind.label} profile" else "Pause ${p.kind.label} profile",
-                    icon = ActionIcon.Drawable(res, profile = p.kind.takeUnless { p.quiet }),
-                ) {
-                    runCommand("$cmd ${if (p.quiet) "on" else "off"}")
-                },
-            )
-        }
-        add(LogAction("Apps", icon = icon(R.drawable.ic_apps)) { runCommand("apps") })
-        add(LogAction("Widgets", icon = icon(R.drawable.ic_widgets)) { openScreen(Screen.WIDGETS) })
-        add(LogAction("Feeds", icon = icon(R.drawable.ic_rss)) { openScreen(Screen.FEEDS) })
-        add(LogAction("Scripts", icon = icon(R.drawable.ic_code)) { openScreen(Screen.SCRIPTS) })
-        if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {
-            add(LogAction("Lock screen", icon = icon(R.drawable.ic_lock)) { if (!com.mtwabpin.kolahal.gesture.LockService.lock()) runCommand("lock") })
-        }
-    }
+    fun quickActions(): List<LogAction> = header.quickActions()
 
     /** Resuming is harmless, so it runs at once. Pausing needs a second tap, on the logged line. */
-    fun onProfileTap(profile: Profile) {
-        if (!itemTaps.allow("profile:${profile.kind}")) return
-        val cmd = if (profile.kind == ProfileKind.PRIVATE) "private" else "work"
-        if (profile.quiet) {
-            runCommand("$cmd on")
-        } else {
-            io {
-                logs.add(
-                    LogKind.INFO,
-                    "Tap to pause the ${profile.kind.label} profile",
-                    ctx = LogContext.of(LogContext.RUN to "$cmd off"),
-                )
-            }
-        }
-    }
+    fun onProfileTap(profile: Profile) = header.onProfileTap(profile)
 
     /**
      * Runs [cmd] as if typed, but without alias expansion. [byScript] is true when a script sent it;
@@ -1380,32 +1230,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _notice.value = Notice(text, ++noticeSeq, undo)
     }
 
-    /** Pages opened from other pages (Settings → Script manager). Back returns through them in order. */
-    private val backStack = ArrayDeque<Screen>()
+    /** Which page is open, and the way back from it. */
+    private val navigation = Navigation(scriptActions, object : Navigation.Host {
+        override fun clearNotice() { _notice.value = null }
+        override fun clearPeek() { _peek.value = null }
+        override fun refreshSetup() = this@TerminalViewModel.refreshSetup()
+    })
 
-    override fun openScreen(screen: Screen) {
-        _notice.value = null
-        _peek.value = null
-        synchronized(backStack) {
-            val current = _screen.value
-            if (screen == Screen.TERMINAL) backStack.clear()
-            else if (current != Screen.TERMINAL && current != screen) backStack.addLast(current)
-            _screen.value = screen
-        }
-        if (screen == Screen.SCRIPTS || screen == Screen.SCRIPT_LIBRARY || screen == Screen.GET_SCRIPTS) scriptActions.refreshScripts()
-        if (screen == Screen.GET_SCRIPTS) scriptActions.loadSharedScripts()
-        if (screen == Screen.SETUP || screen == Screen.ONBOARDING) refreshSetup()
-    }
+    override fun openScreen(screen: Screen) = navigation.openScreen(screen)
 
     /** Settings, Feeds and Scripts are tabs of one place. Switching replaces the screen, so Back leaves all of them. */
-    fun switchTab(screen: Screen) {
-        _notice.value = null
-        _peek.value = null
-        // Next time, Settings opens on its main page, not on the category that was open when the tab changed.
-        settingsCategory.value = null
-        _screen.value = screen
-        if (screen == Screen.SCRIPTS) scriptActions.refreshScripts()
-    }
+    fun switchTab(screen: Screen) = navigation.switchTab(screen)
+
+    /** Back from a page: returns to the page it was opened from, or to the terminal. */
+    fun closeScreen() = navigation.closeScreen()
 
     private val _setup = MutableStateFlow<List<SetupCheck>>(emptyList())
     val setupChecks: StateFlow<List<SetupCheck>> = _setup.asStateFlow()
@@ -1423,17 +1261,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Opens the system page for a check. The list refreshes when the user comes back. */
     fun fixSetup(check: SetupCheck) {
         check.fix?.let { cmd -> io { processor.run(cmd, expand = false, fromApp = true) } }
-    }
-
-    /** Back from a page: returns to the page it was opened from, or to the terminal. */
-    fun closeScreen() {
-        _notice.value = null
-        val previous = synchronized(backStack) { backStack.removeLastOrNull() } ?: Screen.TERMINAL
-        // A category stays open only while a manager screen opened from it is on top, not after going home.
-        if (_screen.value == Screen.SETTINGS && previous == Screen.TERMINAL) settingsCategory.value = null
-        _screen.value = previous
-        if (previous == Screen.SCRIPTS) scriptActions.refreshScripts()
-        if (previous == Screen.SETUP || previous == Screen.ONBOARDING) refreshSetup()
     }
 
     private fun notice(text: String, error: Boolean = false, undo: (() -> Unit)? = null) {
@@ -1466,130 +1293,37 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     override fun openEditor(script: Script) = openEditorAt(script, null)
 
-    override fun requestContactsPermission() {
-        _events.tryEmit(UiEvent.RequestContactsPermission)
-    }
+    /** Permissions and pickers: what Kolahal asks for, and what it does with the answer. */
+    private val requests = RequestActions(context, object : RequestActions.Host {
+        override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
+        override fun fileOp(label: String, block: suspend () -> Unit) = this@TerminalViewModel.fileOp(label, block)
+        override fun notice(text: String) = this@TerminalViewModel.notice(text)
+        override fun emit(event: UiEvent) { _events.tryEmit(event) }
+        override fun refreshSetup() = this@TerminalViewModel.refreshSetup()
+        override fun startActivity(intent: Intent) = this@TerminalViewModel.startActivity(intent)
+    })
 
-    /** What to do with the contact being picked. Null once the picker returns (or after the process restarted). */
-    @Volatile private var contactPicked: ((com.mtwabpin.kolahal.contacts.Contact) -> Unit)? = null
-
-    override fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit) {
-        contactPicked = then
-        _events.tryEmit(UiEvent.PickContact)
-    }
-
-    /**
-     * Android's contact picker returned [uri], or null when nothing was picked. The contact's numbers
-     * are read now, while the picker allows it, and remembered for the next time the name is typed.
-     */
-    fun onContactPicked(uri: Uri?) {
-        val then = contactPicked
-        contactPicked = null
-        if (uri == null) return
-        io {
-            val picked = com.mtwabpin.kolahal.contacts.ContactPicker.read(context, uri)
-            val c = picked.firstOrNull() ?: run {
-                logs.add(LogKind.ERROR, "That contact has no phone number")
-                return@io
-            }
-            com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).remember(picked)
-            if (then != null) then(c) else logs.add(LogKind.OUTPUT, c.name, ctx = PeopleCommands.ctx(c))
-        }
-    }
-
-    fun onContactPickerMissing() {
-        contactPicked = null
-        io { logs.add(LogKind.ERROR, "This phone has no contact picker") }
-    }
-
-    fun onContactsPermission(granted: Boolean) {
-        refreshSetup()
-        if (granted) com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).refresh()
-        io { logs.add(if (granted) LogKind.INFO else LogKind.ERROR, if (granted) "Contacts allowed" else "Contacts permission denied") }
-    }
-
-    override fun pickScriptFolder() {
-        _events.tryEmit(UiEvent.PickScriptFolder)
-    }
-
-    override fun requestFontImport() {
-        _events.tryEmit(UiEvent.PickFont)
-    }
-
-    /**
-     * Copies a picked .ttf/.otf to filesDir/fonts/custom.<ext> (replacing any earlier import),
-     * checks that Android can load it, and switches `font` to custom.
-     */
-    fun importFont(uri: Uri?) {
-        if (uri == null) return
-        fileOp("font import") {
-            val name = TermFonts.importFrom(context, uri)
-            fontErrorShown = false
-            withContext(Dispatchers.Main) {
-                TermFonts.revision++
-                config.set(Keys.FONT, TermFonts.CUSTOM)
-            }
-            notice("Font = custom (${name ?: "imported font"})")
-        }
-    }
-
-    /** Settings → Your themes → Import a theme: imports a theme someone shared, saves it with yours, and uses it. */
-    fun importTheme(uri: Uri?) {
-        if (uri == null) return
-        fileOp("theme import") {
-            val (name, added) = CustomThemes.import(context, Files.readText(context, uri), Files.displayName(context, uri))
-            withContext(Dispatchers.Main) { config.set(Keys.THEME, name) }
-            notice(if (added) "Theme $name imported and in use" else "You already have theme $name: it's in use")
-        }
-    }
-
-    /** The theme builder's Export: writes one of your themes, as last saved, to a file to share. */
-    fun exportTheme(name: String, uri: Uri?) {
-        if (uri == null) return
-        fileOp("theme export") {
-            val colors = CustomThemes.colors(name) ?: throw IllegalStateException("$name was deleted")
-            Files.writeText(context, uri, CustomThemes.encode(colors, name))
-            notice("Exported theme $name")
-        }
-    }
-
-    @Volatile private var fontErrorShown = false
-
-    /** The configured font could not be loaded (e.g. custom is set but the file is gone). Reported once per run. */
-    fun onFontUnavailable(font: String) {
-        if (fontErrorShown) return
-        fontErrorShown = true
-        io {
-            logs.add(
-                LogKind.ERROR,
-                "Font '$font' could not be loaded — using the system monospace · tap to import one",
-                ctx = LogContext.of(LogContext.RUN to "font import"),
-            )
-        }
-    }
-
-    fun onScriptFolderPicked(uri: Uri?) {
-        if (uri == null) return
-        io {
-            ScriptFolder(context).setFolder(uri)
-            logs.add(LogKind.INFO, "Script folder set — 'script export' / 'script import' to sync")
-        }
-    }
-
-    fun onNotificationPermission(granted: Boolean) {
-        refreshSetup()
-        io {
-            logs.add(
-                if (granted) LogKind.INFO else LogKind.ERROR,
-                if (granted) "Notifications allowed" else "Notifications denied — tap to open notification settings",
-                ctx = if (granted) LogContext.EMPTY else LogContext.of(LogContext.RUN to "notifications settings"),
-            )
-        }
-    }
-
-    override fun requestNotificationPermission() {
-        _events.tryEmit(UiEvent.RequestNotificationPermission)
-    }
+    override fun requestContactsPermission() = requests.requestContactsPermission()
+    override fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit) = requests.pickContact(then)
+    fun onContactPicked(uri: Uri?) = requests.onContactPicked(uri)
+    fun onContactPickerMissing() = requests.onContactPickerMissing()
+    fun onContactsPermission(granted: Boolean) = requests.onContactsPermission(granted)
+    override fun pickScriptFolder() = requests.pickScriptFolder()
+    fun onScriptFolderPicked(uri: Uri?) = requests.onScriptFolderPicked(uri)
+    override fun requestFontImport() = requests.requestFontImport()
+    fun importFont(uri: Uri?) = requests.importFont(uri)
+    fun importTheme(uri: Uri?) = requests.importTheme(uri)
+    fun exportTheme(name: String, uri: Uri?) = requests.exportTheme(name, uri)
+    fun onFontUnavailable(font: String) = requests.onFontUnavailable(font)
+    override fun requestNotificationPermission() = requests.requestNotificationPermission()
+    fun onNotificationPermission(granted: Boolean) = requests.onNotificationPermission(granted)
+    val notificationAccessAsk: StateFlow<Boolean> get() = requests.notificationAccessAsk
+    override fun askNotificationAccess() = requests.askNotificationAccess()
+    fun answerNotificationAccess(allow: Boolean) = requests.answerNotificationAccess(allow)
+    override fun requestCalendarPermission() = requests.requestCalendarPermission()
+    fun onCalendarPermission(granted: Boolean) = requests.onCalendarPermission(granted)
+    override fun requestCallLogPermission() = requests.requestCallLogPermission()
+    fun onCallLogPermission(granted: Boolean) = requests.onCallLogPermission(granted)
 
     override fun clearScreen() {
         io {
@@ -1634,55 +1368,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
     }
 
-    override fun requestCalendarPermission() {
-        _events.tryEmit(UiEvent.RequestCalendarPermission)
-    }
-
-    override fun requestCallLogPermission() {
-        _events.tryEmit(UiEvent.RequestCallLogPermission)
-    }
-
-    private val _notificationAccessAsk = MutableStateFlow(false)
-    /** True while Kolahal asks before Android's Notification access screen opens ([askNotificationAccess]). */
-    val notificationAccessAsk: StateFlow<Boolean> = _notificationAccessAsk.asStateFlow()
-
-    override fun askNotificationAccess() {
-        _notificationAccessAsk.value = true
-    }
-
-    /** The user's answer. Allow opens Android's screen. Not now opens nothing and leaves a line to ask again. */
-    fun answerNotificationAccess(allow: Boolean) {
-        _notificationAccessAsk.value = false
-        if (allow) {
-            startActivity(com.mtwabpin.kolahal.notifications.NotificationActions.settingsIntent(context))
-        } else {
-            io { logs.add(LogKind.INFO, "Notification access is off · tap to turn it on", ctx = LogContext.of(LogContext.RUN to "notifs enable")) }
-        }
-    }
-
-    fun onCallLogPermission(granted: Boolean) {
-        refreshSetup()
-        if (granted) com.mtwabpin.kolahal.calls.CallEvents.get(context).start()
-        io {
-            if (granted) {
-                logs.add(LogKind.INFO, "Call log allowed — new calls appear here; tap to list recent ones", ctx = LogContext.of(LogContext.RUN to "calls"))
-            } else {
-                logs.add(LogKind.ERROR, "Call log permission denied — tap to open app settings", ctx = LogContext.of(LogContext.RUN to "calls --settings"))
-            }
-        }
-    }
-
-    fun onCalendarPermission(granted: Boolean) {
-        refreshSetup()
-        io {
-            if (granted) {
-                logs.add(LogKind.INFO, "Calendar allowed — tap to see your agenda", ctx = LogContext.of(LogContext.RUN to "agenda"))
-            } else {
-                logs.add(LogKind.ERROR, "Calendar permission denied — tap to open app settings", ctx = LogContext.of(LogContext.RUN to "agenda --settings"))
-            }
-        }
-    }
-
     private val _homePresses = MutableStateFlow(0)
     /** Goes up by one on every Home press while already home. Then the widgets pager returns to the terminal. */
     val homePresses: StateFlow<Int> = _homePresses.asStateFlow()
@@ -1703,15 +1388,12 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /** The open Settings category page. It is kept while a manager screen opened from it is on top. */
-    val settingsCategory = mutableStateOf<String?>(null)
+    val settingsCategory: MutableState<String?> get() = navigation.settingsCategory
 
     /** The custom theme that the theme builder edits. Null while it creates a new one. */
-    val themeBuilderName = mutableStateOf<String?>(null)
+    val themeBuilderName: MutableState<String?> get() = navigation.themeBuilderName
 
-    fun openThemeBuilder(name: String?) {
-        themeBuilderName.value = name
-        openScreen(Screen.THEME_BUILDER)
-    }
+    fun openThemeBuilder(name: String?) = navigation.openThemeBuilder(name)
 
     /**
      * The position of the log's app selector in the window: the log's area between the header and
@@ -1745,7 +1427,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     fun onHomePageShown(log: Boolean, opened: Boolean = true) {
         logShown = log
-        if (!opened || _screen.value != Screen.TERMINAL || _editing.value != null) return
+        if (!opened || screen.value != Screen.TERMINAL || _editing.value != null) return
         if (!log) _events.tryEmit(UiEvent.HideKeyboard)
         else if (config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
     }
@@ -1755,7 +1437,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         settingsCategory.value = null
         _homePresses.value++
         _editing.value?.let { return }
-        val fromOtherScreen = _screen.value != Screen.TERMINAL
+        val fromOtherScreen = screen.value != Screen.TERMINAL
         openScreen(Screen.TERMINAL) // Home always lands on the terminal and forgets the page stack
         escape()
         // With the widgets page first, Home goes there. It has no prompt, so don't open the keyboard.
@@ -1786,7 +1468,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     init {
         startWatching()
-        startSearch()
+        searcher.start()
         // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
         viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }
         checkFirstRun()

@@ -62,7 +62,7 @@ class Backup(private val context: Context) {
             "data" to FullBackup.export(context),
             // Widget ids can't move between devices. The list lets the Widgets page offer "Add again".
             // An imported terminal font travels with the backup (base64; imports are capped at 10 MB).
-            "font" to com.mtwabpin.kolahal.ui.TermFonts.customFile(context)?.let { f ->
+            "font" to FontFiles.customFile(context)?.let { f ->
                 mapOf("name" to f.name, "base64" to android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP))
             },
             "widgets" to runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets() }.getOrDefault(emptyList()),
@@ -196,7 +196,7 @@ class Backup(private val context: Context) {
             val data = (font["base64"] as? String)?.let { runCatching { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }.getOrNull() }
             if (name != null && data != null && data.size <= 10 * 1024 * 1024) {
                 runCatching {
-                    val dir = java.io.File(context.filesDir, "fonts").apply { mkdirs() }
+                    val dir = FontFiles.dir(context).apply { mkdirs() }
                     dir.listFiles()?.filter { it.name.startsWith("custom.") }?.forEach { it.delete() }
                     java.io.File(dir, name).writeBytes(data)
                 }.onFailure { skipped += "font" }

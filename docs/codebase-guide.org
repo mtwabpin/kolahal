@@ -81,7 +81,11 @@ MVVM (Model, View, ViewModel) separates the three.
 | View      | Draws the current state. Forwards user actions to the ViewModel.                                                                        | The ViewModel    | Compose functions in =ui/= and the =MainActivity= that hosts them        |
 
 The dependency arrows only point *down*: the View knows the ViewModel, the ViewModel knows the
-Model, and nothing points back up. The Model never calls the View. So how does the screen find
+Model, and nothing points back up. One thing to know: =terminal/= holds both the ViewModel and the
+command facts (=CommandCatalog=, =InstantRun=, =LogFilter=, =CommandsOff=). Those are plain objects,
+so the Model may read them; it never reads =ui/= or =TerminalViewModel=. =LayersTest= checks that.
+
+The Model never calls the View. So how does the screen find
 out that something changed? It /observes/.
 
 ** State flows down, events flow up
@@ -397,7 +401,7 @@ declares exactly what it needs from the ViewModel as a small interface:
 | [[src:terminal/BackupActions.kt::class BackupActions][BackupActions]]    | backup files and the folder automatic ones go to         | the same =Host=, and =ScriptActions= for after an import |
 | [[src:terminal/LogLineActions.kt::class LogLineActions][LogLineActions]]   | what a tap or long-press on a line does                  | =LogLineActions.Host=: set prompt text, run, emit |
 | [[src:terminal/Completer.kt::class Completer][Completer]]        | suggestions for what's typed                             | =Completer.Data=: history, scripts, todos, ...    |
-| [[src:terminal/InstantRun.kt::object InstantRun][InstantRun]]       | "is this input unambiguous enough to run without Enter?" | nothing: a pure =object=, unit-tested             |
+| [[src:terminal/InstantRun.kt::object InstantRun][InstantRun]]       | "is this input unambiguous enough to run without Enter?" | other pure objects only (=CommandCatalog=, =Pipes=) |
 
 [[src:terminal/TerminalUi.kt::interface TerminalUi][TerminalUi]] is the important one. =CommandProcessor= is a plain class with no access to the
 screen, yet commands like =settings= or =contacts= need to open a page or ask for a permission.
