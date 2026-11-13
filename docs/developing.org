@@ -259,6 +259,7 @@ Most conflicts come from a few shared lists, not from the code a feature adds. T
   and =site/package.json=, =docs/release/notes/=, and the coverage figure in =README.org=.
 - Do one thing per pull request, and don't reformat or move code you aren't otherwise changing.
 - A file is worth splitting when it holds separate concerns that change for different reasons, not
-  because it's long. =ui/AppSelector.kt= is one long gesture, and =script/HostApi.kt= is one API:
-  they stay whole.
+  because it's long. =ui/AppSelector.kt= is one long gesture: it stays whole. =script/HostApi.kt=
+  is one API, but the run's log buffer (=RunLog=) and its secrets (=RunSecrets=) change for their
+  own reasons, so they have files of their own and =HostApi= calls them.
 

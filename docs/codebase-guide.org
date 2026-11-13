@@ -409,14 +409,16 @@ cancelling any reload still in progress.
 An 1800-line class stays manageable because the heavy logic lives in helpers, and each helper
 declares exactly what it needs from the ViewModel as a small interface:
 
-| Helper           | Job                                                      | What it asks of the ViewModel                     |
-|------------------+----------------------------------------------------------+---------------------------------------------------|
-| [[src:terminal/CommandProcessor.kt::class CommandProcessor][CommandProcessor]] | parse and run a command line                             | =TerminalUi=: open a screen, ask for a permission |
-| [[src:terminal/ScriptActions.kt::class ScriptActions][ScriptActions]]    | what the script screens do to scripts                    | =ScriptActions.Host=: background work, notices, opening the editor |
-| [[src:terminal/BackupActions.kt::class BackupActions][BackupActions]]    | backup files and the folder automatic ones go to         | the same =Host=, and =ScriptActions= for after an import |
-| [[src:terminal/LogLineActions.kt::class LogLineActions][LogLineActions]]   | what a tap or long-press on a line does                  | =LogLineActions.Host=: set prompt text, run, emit |
-| [[src:terminal/Completer.kt::class Completer][Completer]]        | suggestions for what's typed                             | =Completer.Data=: history, scripts, todos, ...    |
-| [[src:commands/InstantRun.kt::object InstantRun][InstantRun]]       | "is this input unambiguous enough to run without Enter?" | other pure objects only (=CommandCatalog=, =Pipes=) |
+| Helper                                                                         | Job                                                      | What it asks of the ViewModel                                      |
+|--------------------------------------------------------------------------------+----------------------------------------------------------+--------------------------------------------------------------------|
+| [[src:terminal/CommandProcessor.kt::class CommandProcessor][CommandProcessor]] | parse and run a command line                             | =TerminalUi=: open a screen, ask for a permission                  |
+| [[src:terminal/ScriptActions.kt::class ScriptActions][ScriptActions]]          | what the script screens do to scripts                    | =ScriptActions.Host=: background work, notices, opening the editor |
+| [[src:terminal/BackupActions.kt::class BackupActions][BackupActions]]          | backup files and the folder automatic ones go to         | the same =Host=, and =ScriptActions= for after an import           |
+| [[src:terminal/LogLineActions.kt::class LogLineActions][LogLineActions]]       | what a tap or long-press on a line does                  | =LogLineActions.Host=: set prompt text, run, emit                  |
+| [[src:terminal/LogPager.kt::class LogPager][LogPager]]                         | the log's page: what loads, older pages, =log only=      | its arguments: the log, the filter, the locks, a reload            |
+| [[src:terminal/LogSearcher.kt::class LogSearcher][LogSearcher]]                | the =/words= search that follows the prompt and the log  | its arguments: the log, the prompt, the locks                      |
+| [[src:terminal/Completer.kt::class Completer][Completer]]                      | suggestions for what's typed                             | =Completer.Data=: history, scripts, todos, ...                     |
+| [[src:commands/InstantRun.kt::object InstantRun][InstantRun]]                  | "is this input unambiguous enough to run without Enter?" | other pure objects only (=CommandCatalog=, =Pipes=)                |
 
 [[src:terminal/TerminalUi.kt::interface TerminalUi][TerminalUi]] is the important one. =CommandProcessor= is a plain class with no access to the
 screen, yet commands like =settings= or =contacts= need to open a page or ask for a permission.
@@ -607,7 +609,7 @@ what it's about, long after the command that wrote it has finished.
 5. This =LogRepository= instance lives in =:script=, so =changed()= broadcasts
    =ACTION_LOGS_CHANGED=.
 6. In the main process, the receiver registered in =LauncherApp.onCreate= calls
-   =logs.onExternalChange()=, which bumps =version=, and from here on it's steps 6 and 7 of
+   =logs.onExternal(intent)=, which reads the message and bumps =version=, and from here on it's steps 6 and 7 of
    Trace 1.
 7. If the script throws, the worker writes an =ERROR= line whose context includes =script= and
    =line=, so tapping it opens the editor at the failing line (Trace 2, first branch).
