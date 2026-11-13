@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import androidx.core.net.toUri
 import android.app.Application
 import android.content.Context
 import android.content.Intent
@@ -280,6 +281,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** What the log list shows: entries (with dimming and gutter) and day separators. */
     val rows: StateFlow<List<LogRow>> = _rows.asStateFlow()
 
+    private val _rowsLoaded = MutableStateFlow(false)
+    /** False until the first reload has set [rows], so an empty list then means an empty log, not "not read yet". */
+    val rowsLoaded: StateFlow<Boolean> = _rowsLoaded.asStateFlow()
+
     val apps: StateFlow<List<AppEntry>> = appsRepo.apps
     val profiles: StateFlow<List<Profile>> = appsRepo.profiles
     val unlocksToday: StateFlow<Int> = unlockCounter.today
@@ -340,8 +345,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Receives launcher.run(cmd) from scripts that the user started (see HostApi.runCommand). */
     private val runCommandReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: Context, intent: Intent) {
-            // Check again here, where the command runs: a sensitive command never runs from a script.
-            intent.getStringExtra(HostApi.EXTRA_COMMAND)?.takeIf { !InstantRun.isSensitive(it) }?.let { runCommand(it, byScript = true) }
+            // Checked here, where the command runs, with the aliases as they are now: a sensitive command
+            // never runs from a script. (The :script process checks first, but only without aliases.)
+            val command = intent.getStringExtra(HostApi.EXTRA_COMMAND) ?: return
+            if (InstantRun.isSensitive(command, appPrefs.aliases())) {
+                io { logs.add(LogKind.ERROR, "launcher.run refused '${command.trim().substringBefore(' ')}': sensitive commands must be typed") }
+                return
+            }
+            runCommand(command, byScript = true)
         }
     }
 
@@ -514,7 +525,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 val job = currentCoroutineContext()[kotlinx.coroutines.Job]
                 val found = logs.search(
                     emptyList(), limit = limit, skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
-                    match = filter::matches, keepGoing = { job?.isActive != false },
+                    match = filter::matches, narrowBy = filter.sql, keepGoing = { job?.isActive != false },
                 )
                 count = found.total
                 found.entries.asReversed()
@@ -541,6 +552,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _filterCount.value = count
         _entries.value = shown
         _rows.value = withContext(Dispatchers.Default) { buildRows(shown, seenUpTo, unreadUntil) }
+        _rowsLoaded.value = true
     }
 
     /** True for a line after which the todo, note, reminder or feed caches may be out of date. */
@@ -657,6 +669,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                                         plain,
                                         skip = if (locked.isEmpty()) null else { e -> e.ctx.userSerial in locked },
                                         match = if (sources.isEmpty()) null else { e -> sources.any { it.matches(e) } },
+                                        narrowBy = LogFilter.sqlOfAny(sources),
                                         keepGoing = { job?.isActive != false },
                                     )
                                     LogSearch(plain, buildRows(found.entries.asReversed(), trim = false), found.total, found.searched, sources)
@@ -738,14 +751,17 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     @Volatile private var exactAlarms: Boolean? = null
 
     fun onResume() {
-        // Allowing exact alarms (`remind exact`) doesn't restart the app. So schedule the pending
-        // reminders again, so they no longer fire late in Doze.
-        val exact = com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
-        if (exact && exactAlarms == false) io { com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context) }
-        exactAlarms = exact
         // Housekeeping runs beside the command queue, not in it: an app opened right after returning
-        // mustn't wait behind a trim or the scripts' schedule.
+        // mustn't wait behind a trim or the scripts' schedule. Nor does the main thread wait for Android's answers.
         viewModelScope.launch(Dispatchers.IO) {
+            // Allowing exact alarms (`remind exact`) doesn't restart the app. So schedule the pending
+            // reminders again, so they no longer fire late in Doze.
+            val exact = com.mtwabpin.kolahal.productivity.ReminderScheduler.canBeExact(context)
+            if (exact && exactAlarms == false) com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling reminders") {
+                com.mtwabpin.kolahal.productivity.ReminderScheduler.rescheduleAll(context)
+            }
+            exactAlarms = exact
+            mediaRepo.start() // picks up notification access granted while we were away
             com.mtwabpin.kolahal.data.Quietly.run(context, "Trimming the old log") { logs.trimIfDue(config[Keys.LOG_KEEP_DAYS]) }
             // Daily times drift (late runs, a daylight-saving change), so they are set again every few hours.
             com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling scripts") { ScriptScheduler.syncAllIfDue(context) }
@@ -775,7 +791,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         unlockCounter.refresh()
         // Don't reload the app list here. It is kept, and installs, updates, removals, profiles and a
         // new language reload it when they happen ([AppRepository.start]). `restart` reads it again.
-        mediaRepo.start() // picks up notification access granted while we were away
         io { tipOfTheDay() }
         // keyboard.on-home: returning from an app or the lock screen also counts as showing home.
         // The keyboard opens only for a focused window, which comes just after this ([onWindowFocused]).
@@ -1114,7 +1129,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** A tap on a link in a line's text (`fmt.link`). Only web links open: scripts can link to nothing else. */
     fun openUrl(url: String) {
         val web = com.mtwabpin.kolahal.script.Net.webUrl(url) ?: return
-        startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(web)))
+        startActivity(Intent(Intent.ACTION_VIEW, web.toUri()))
     }
 
     /** Swipe right on a log line. */

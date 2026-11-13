@@ -47,12 +47,16 @@ private val LABEL_TAG = Regex(" \\[([PWSC])]$")
 /** Returns [label] with its trailing profile tag drawn small, bold and in the profile's colour, like app rows draw it. */
 @Composable
 private fun taggedLabel(label: String): androidx.compose.ui.text.AnnotatedString {
-    val tag = LABEL_TAG.find(label) ?: return androidx.compose.ui.text.AnnotatedString(label)
+    val tag = androidx.compose.runtime.remember(label) { LABEL_TAG.find(label) } ?: return androidx.compose.ui.text.AnnotatedString(label)
     val kind = ProfileKind.entries.first { it.tag == tag.groupValues[1] }
-    return androidx.compose.ui.text.buildAnnotatedString {
-        append(label.substring(0, tag.range.first))
-        withStyle(androidx.compose.ui.text.SpanStyle(color = Term.profileColor(kind), fontWeight = FontWeight.Bold, fontSize = (Term.fontSize - 2).sp)) {
-            append(tag.value)
+    val color = Term.profileColor(kind)
+    val fontSize = Term.fontSize
+    return androidx.compose.runtime.remember(label, color, fontSize) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            append(label.substring(0, tag.range.first))
+            withStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = FontWeight.Bold, fontSize = (fontSize - 2).sp)) {
+                append(tag.value)
+            }
         }
     }
 }
@@ -89,104 +93,116 @@ fun SuggestionList(items: List<Suggestion>, onPick: (Suggestion) -> Unit, onAppL
             .testTag("suggestions"),
     ) {
         itemsIndexed(items, key = { _, s -> s.key }) { index, s ->
-            // A row is the chip height (chips.height) tall, or taller for large text. The icon is 8 dp smaller.
-            val iconSize = minOf(Term.fontSize + 10, Term.chipHeight - 8).dp
             // Highlight the first row only when Enter would act on it.
-            val first = index == 0 && s.enter
-            val color = when (s) {
-                is Suggestion.App -> Term.profileColor(s.app.profile.kind)
-                is Suggestion.Completion -> Term.prompt
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = Term.chipHeight.dp)
-                    .alpha(if (s is Suggestion.App && s.app.profile.quiet) 0.45f else 1f)
-                    .background(if (first) color.copy(alpha = 0.16f) else Color.Transparent)
-                    .combinedClickable(
-                        onClick = { onPick(s) },
-                        onLongClick = (s as? Suggestion.App)?.let { app -> { onAppLongPress(app.app) } },
-                    ),
-            ) {
-                // A bar marks the row that Enter / TAB act on.
-                Box(Modifier.width(3.dp).heightIn(min = Term.chipHeight.dp).background(if (first) color else Color.Transparent))
-                Spacer(Modifier.width(9.dp))
-                when (s) {
-                    is Suggestion.App -> {
-                        // suggestions.icons: the app's icon comes first. Its badge marks work / private apps.
-                        if (icons) {
-                            AppIcon(s.app, iconSize)
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        val kind = s.app.profile.kind
-                        // The profile tag goes after the name, so all names start in the same column.
-                        Text(
-                            androidx.compose.ui.text.buildAnnotatedString {
-                                append(s.label)
-                                if (kind != ProfileKind.PERSONAL) {
-                                    withStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = FontWeight.Bold, fontSize = (Term.fontSize - 2).sp)) {
-                                        append(" [${kind.tag}]")
-                                    }
+            SuggestionRow(s, first = index == 0 && s.enter, onPick, onAppLongPress, icons, wrapHelp)
+        }
+    }
+}
+
+/**
+ * One row of [SuggestionList]. A composable of its own, so a row whose suggestion didn't change
+ * is skipped as you type, instead of being built again with every other row on each key.
+ * [first]: Enter acts on it, so it is highlighted and marked with ⏎.
+ */
+@Composable
+private fun SuggestionRow(s: Suggestion, first: Boolean, onPick: (Suggestion) -> Unit, onAppLongPress: (AppEntry) -> Unit, icons: Boolean, wrapHelp: Boolean) {
+    // A row is the chip height (chips.height) tall, or taller for large text. The icon is 8 dp smaller.
+    val iconSize = minOf(Term.fontSize + 10, Term.chipHeight - 8).dp
+    val color = when (s) {
+        is Suggestion.App -> Term.profileColor(s.app.profile.kind)
+        is Suggestion.Completion -> Term.prompt
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = Term.chipHeight.dp)
+            .alpha(if (s is Suggestion.App && s.app.profile.quiet) 0.45f else 1f)
+            .background(if (first) color.copy(alpha = 0.16f) else Color.Transparent)
+            .combinedClickable(
+                onClick = { onPick(s) },
+                onLongClick = (s as? Suggestion.App)?.let { app -> { onAppLongPress(app.app) } },
+            ),
+    ) {
+        // A bar marks the row that Enter / TAB act on.
+        Box(Modifier.width(3.dp).heightIn(min = Term.chipHeight.dp).background(if (first) color else Color.Transparent))
+        Spacer(Modifier.width(9.dp))
+        when (s) {
+            is Suggestion.App -> {
+                // suggestions.icons: the app's icon comes first. Its badge marks work / private apps.
+                if (icons) {
+                    AppIcon(s.app, iconSize)
+                    Spacer(Modifier.width(8.dp))
+                }
+                val kind = s.app.profile.kind
+                // The profile tag goes after the name, so all names start in the same column.
+                val fontSize = Term.fontSize
+                Text(
+                    androidx.compose.runtime.remember(s.label, kind, color, fontSize) {
+                        androidx.compose.ui.text.buildAnnotatedString {
+                            append(s.label)
+                            if (kind != ProfileKind.PERSONAL) {
+                                withStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = FontWeight.Bold, fontSize = (fontSize - 2).sp)) {
+                                    append(" [${kind.tag}]")
                                 }
-                            },
-                            style = Term.text.copy(color = Term.fg, fontWeight = if (first) FontWeight.Bold else FontWeight.Normal),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    is Suggestion.Completion -> {
-                        // With suggestions.wrap, the full description goes in its own column, on as many
-                        // lines as it needs, and the name aligns with its first line. Without it, the
-                        // description is one line, cut short.
-                        val firstLine = if (wrapHelp) Modifier.alignBy(FirstBaseline) else Modifier
-                        // With icons on, a terminal icon replaces the `$`, so labels line up with app labels.
-                        if (icons) {
-                            when {
-                                s.app != null -> AppIcon(s.app, iconSize)
-                                s.icon != null -> KindIcon(s.icon, iconSize)
-                                else -> CommandIcon(iconSize)
                             }
-                            Spacer(Modifier.width(8.dp))
-                        } else {
-                            Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = firstLine)
                         }
-                        // The calculator's answer: large, with what it answers under it, as Enter will log it.
-                        if (s.big != null) {
-                            val stats = androidx.compose.runtime.remember(s.big) {
-                                com.mtwabpin.kolahal.data.StyledText.lines(com.mtwabpin.kolahal.data.StyledText.stats(listOf(s.big))).first().stats.orEmpty()
-                            }
-                            StatsRow(stats, Term.text, Modifier.weight(1f).padding(vertical = 4.dp))
-                        } else {
-                        Text(
-                            taggedLabel(s.label),
-                            style = Term.text.copy(color = Term.fg, fontWeight = if (first) FontWeight.Bold else FontWeight.Normal),
-                            maxLines = 1,
-                            modifier = firstLine,
-                        )
-                        val help = s.help ?: completionHelp(s.label, s.replacement)
-                        Text(
-                            if (help == null) "" else if (wrapHelp) help else "  $help",
-                            style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp),
-                            maxLines = if (wrapHelp) Int.MAX_VALUE else 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f).then(firstLine).then(if (wrapHelp) Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp) else Modifier),
-                        )
-                        }
+                    },
+                    style = Term.text.copy(color = Term.fg, fontWeight = if (first) FontWeight.Bold else FontWeight.Normal),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            is Suggestion.Completion -> {
+                // With suggestions.wrap, the full description goes in its own column, on as many
+                // lines as it needs, and the name aligns with its first line. Without it, the
+                // description is one line, cut short.
+                val firstLine = if (wrapHelp) Modifier.alignBy(FirstBaseline) else Modifier
+                // With icons on, a terminal icon replaces the `$`, so labels line up with app labels.
+                if (icons) {
+                    when {
+                        s.app != null -> AppIcon(s.app, iconSize)
+                        s.icon != null -> KindIcon(s.icon, iconSize)
+                        else -> CommandIcon(iconSize)
                     }
-                }
-                if (first) {
-                    androidx.compose.foundation.Image(
-                        androidx.compose.ui.res.painterResource(com.mtwabpin.kolahal.R.drawable.ic_keyboard_return),
-                        contentDescription = "Enter",
-                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Term.dim),
-                        modifier = Modifier.padding(horizontal = 12.dp).size((Term.fontSize + 3).dp),
-                    )
+                    Spacer(Modifier.width(8.dp))
                 } else {
-                    Spacer(Modifier.width(12.dp))
+                    Text("$ ", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = firstLine)
+                }
+                // The calculator's answer: large, with what it answers under it, as Enter will log it.
+                if (s.big != null) {
+                    val stats = androidx.compose.runtime.remember(s.big) {
+                        com.mtwabpin.kolahal.data.StyledText.lines(com.mtwabpin.kolahal.data.StyledText.stats(listOf(s.big))).first().stats.orEmpty()
+                    }
+                    StatsRow(stats, Term.text, Modifier.weight(1f).padding(vertical = 4.dp))
+                } else {
+                Text(
+                    taggedLabel(s.label),
+                    style = Term.text.copy(color = Term.fg, fontWeight = if (first) FontWeight.Bold else FontWeight.Normal),
+                    maxLines = 1,
+                    modifier = firstLine,
+                )
+                val help = s.help ?: completionHelp(s.label, s.replacement)
+                Text(
+                    if (help == null) "" else if (wrapHelp) help else "  $help",
+                    style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp),
+                    maxLines = if (wrapHelp) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).then(firstLine).then(if (wrapHelp) Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp) else Modifier),
+                )
                 }
             }
+        }
+        if (first) {
+            androidx.compose.foundation.Image(
+                androidx.compose.ui.res.painterResource(com.mtwabpin.kolahal.R.drawable.ic_keyboard_return),
+                contentDescription = "Enter",
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Term.dim),
+                modifier = Modifier.padding(horizontal = 12.dp).size((Term.fontSize + 3).dp),
+            )
+        } else {
+            Spacer(Modifier.width(12.dp))
         }
     }
 }

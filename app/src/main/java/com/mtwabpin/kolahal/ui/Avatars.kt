@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.core.net.toUri
+import androidx.core.graphics.scale
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.LruCache
@@ -101,10 +103,10 @@ private object Photos {
     fun load(context: Context, uri: String, px: Int): ImageBitmap? {
         if (uri in failed) return null
         val image = runCatching {
-            context.contentResolver.openInputStream(android.net.Uri.parse(uri))?.use { BitmapFactory.decodeStream(it) }
+            context.contentResolver.openInputStream(uri.toUri())?.use { BitmapFactory.decodeStream(it) }
         }.getOrNull()?.let { b ->
             val side = maxOf(1, px)
-            (if (b.width > side * 2 || b.height > side * 2) android.graphics.Bitmap.createScaledBitmap(b, side * 2, side * 2 * b.height / maxOf(1, b.width), true) else b).asImageBitmap()
+            (if (b.width > side * 2 || b.height > side * 2) b.scale(side * 2, side * 2 * b.height / maxOf(1, b.width)) else b).asImageBitmap()
         }
         if (image == null) failed += uri else cache.put(uri, image)
         return image

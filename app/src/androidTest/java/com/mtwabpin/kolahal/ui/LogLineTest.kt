@@ -408,6 +408,30 @@ class LogLineTest {
     }
 
     /**
+     * A very long line, folded, lays out only its start: all of 64 K characters would take one long
+     * frame, for the few lines that show. The number of lines it hides is then an estimate. Opened, it is all there.
+     */
+    @Test fun aVeryLongFoldedLineLaysOutOnlyItsStart() {
+        val text = (1..6000).joinToString(" ") { "word$it" } + " the-end"
+        val long = entry(text)
+        compose.runOnIdle { Term.foldLines = 8 }
+        try {
+            show { Line(row(long)) }
+            fun theEnd() = compose.onAllNodes(hasText("the-end", substring = true) and hasAnyAncestor(hasTestTag("line-${long.id}")), useUnmergedTree = true)
+            theEnd().assertCountEquals(0)
+            val link = compose.onNode(hasTestTag("fold-link") and hasAnyAncestor(hasTestTag("line-${long.id}")), useUnmergedTree = true)
+            val said = link.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString { it.text }
+            val more = Regex("▾ (\\d+) more lines").find(said)?.groupValues?.get(1)?.toInt()
+            assertTrue(said, more != null && more > 500)
+            link.performClick()
+            compose.waitForIdle()
+            theEnd().assertCountEquals(1)
+        } finally {
+            compose.runOnIdle { Term.foldLines = Keys.LOG_FOLD.default }
+        }
+    }
+
+    /**
      * A body taller than log.fold lines folds under "▾ N more lines"; a tap shows it all, and
      * "▴ Show less" folds it again. A line just over the limit doesn't fold, nor does a search result.
      */

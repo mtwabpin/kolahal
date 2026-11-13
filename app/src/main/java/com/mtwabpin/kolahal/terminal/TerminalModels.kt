@@ -19,7 +19,8 @@ sealed interface UiEvent {
     data object ShowQuick : UiEvent
 }
 
-/** Something the user can tap in the suggestion strip. */
+/** Something the user can tap in the suggestion strip. Immutable, as each kind of it is. */
+@androidx.compose.runtime.Immutable
 sealed interface Suggestion {
     val label: String
 
@@ -29,6 +30,8 @@ sealed interface Suggestion {
     /** True when Enter does what this row does. Only the first row can have it. That row is marked with a ⏎. */
     val enter: Boolean
 
+    // Immutable: a row whose suggestion is equal to the last one is skipped as you type.
+    @androidx.compose.runtime.Immutable
     data class App(val app: AppEntry, override val enter: Boolean = false) : Suggestion {
         override val label get() = app.label
         override val key get() = "a:" + app.key
@@ -42,6 +45,7 @@ sealed interface Suggestion {
      *
      * [help] is shown beside the row when the command and config descriptions don't apply.
      */
+    @androidx.compose.runtime.Immutable
     data class Completion(
         override val label: String,
         val replacement: String,

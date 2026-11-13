@@ -51,9 +51,19 @@ class PackageEvents private constructor(private val context: Context) {
             override fun onPackagesAvailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = told()
             override fun onPackagesUnavailable(names: Array<out String>, user: UserHandle, replacing: Boolean) = Unit
         }, main)
-        // Catch up on anything that changed while the launcher was not running.
-        schedule(delayMs = 2_000)
+        // Catch up on anything that changed while the launcher was not running. It lists every app again,
+        // so it waits until start-up is over: the first frame, the app list and the log's first read.
+        Looper.getMainLooper().queue.addIdleHandler {
+            schedule(delayMs = STARTUP_DIFF_MS)
+            false
+        }
     }
+
+    /**
+     * True until the catch-up diff that [start] sets runs. [recheck] leaves it to that diff: home's
+     * first return comes before [start], which waits for the first frame.
+     */
+    @Volatile private var startupDiffDue = true
 
     /** True when a callback came since the last diff. The app list already reloaded for it ([AppRepository.start]). */
     @Volatile private var called = false
@@ -84,6 +94,7 @@ class PackageEvents private constructor(private val context: Context) {
      *   after an hour (in case a callback was missed while frozen).
      */
     fun recheck() {
+        if (startupDiffDue) return
         val now = System.currentTimeMillis()
         if (!removalPending && now - diffedAt < RECHECK_AFTER_MS) return
         if (now >= settlingUntil) schedule(delayMs = 500, keepSooner = true)
@@ -158,6 +169,7 @@ class PackageEvents private constructor(private val context: Context) {
 
     @Synchronized
     private fun diff() {
+        startupDiffDue = false
         val afterCallbacks = called
         called = false
         val (now, paused, present) = current()
@@ -246,6 +258,9 @@ class PackageEvents private constructor(private val context: Context) {
     companion object : Singleton<PackageEvents>(::PackageEvents) {
         /** Wait before a diff. An uninstall + reinstall (or the remove/add pair of an update) within it is one update. */
         private const val SETTLE_MS = 4_000L
+
+        /** How long after start-up goes idle the catch-up diff runs. */
+        private const val STARTUP_DIFF_MS = 3_000L
         /** A missing app that comes back within this time was reinstalled. It is logged as an update. */
         private const val GRACE_MS = 20_000L
         /** [Pkg.removedAt] value for an app that is still installed but not in the launcher (disabled). */

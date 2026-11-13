@@ -35,7 +35,7 @@ class NotifPrefs private constructor(context: Context) {
         prefs.edit { putStringSet(KEY_MUTED, set) }
     }
 
-    companion object : Singleton<NotifPrefs>(::NotifPrefs) {
+    companion object : Singleton<NotifPrefs>(::NotifPrefs, mainOnly = true) {
         private const val KEY_LOG = "log_to_terminal"
         private const val KEY_MUTED = "muted"
     }

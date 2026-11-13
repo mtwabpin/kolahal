@@ -36,6 +36,19 @@ class AppPrefs private constructor(context: Context) {
     private val _version = MutableStateFlow(0)
     val version: StateFlow<Int> = _version.asStateFlow()
 
+    /**
+     * Every app's launch stats, read from [usage] once and again after it changes. Ranking the apps
+     * reads them for each match on each key, and each read of the file takes its lock.
+     */
+    @Volatile private var launches: Map<String, Pair<Double, Long>>? = null
+
+    /** A restored backup writes [usage] too. Held here, as Android holds the listener only weakly. */
+    private val usageChanged = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> launches = null }
+
+    init {
+        usage.registerOnSharedPreferenceChangeListener(usageChanged)
+    }
+
     // ---- hidden / labels ------------------------------------------------------------------
 
     fun isHidden(key: String) = apps.getBoolean("hidden:$key", false)
@@ -84,16 +97,21 @@ class AppPrefs private constructor(context: Context) {
         synchronized(this) {
             val now = System.currentTimeMillis()
             usage.edit { putString("launch:$key", "${frecency(key, now) + 1}:$now") }
+            // The listener runs later, on the main thread: a second launch at once must read this one.
+            launches = null
         }
         _version.update { it + 1 } // refreshes the "most used" suggestions
     }
 
-    private fun launchStats(key: String): Pair<Double, Long> {
-        val raw = usage.getString("launch:$key", null) ?: return 0.0 to 0L
-        val score = raw.substringBefore(':').toDoubleOrNull() ?: 0.0
-        val ts = raw.substringAfter(':', "").toLongOrNull() ?: 0L
-        return score to ts
-    }
+    private fun launchStats(key: String): Pair<Double, Long> =
+        (launches ?: readLaunches().also { launches = it })[key] ?: (0.0 to 0L)
+
+    private fun readLaunches(): Map<String, Pair<Double, Long>> = usage.all.mapNotNull { (k, v) ->
+        if (!k.startsWith("launch:") || v !is String) return@mapNotNull null
+        val score = v.substringBefore(':').toDoubleOrNull() ?: 0.0
+        val ts = v.substringAfter(':', "").toLongOrNull() ?: 0L
+        k.removePrefix("launch:") to (score to ts)
+    }.toMap()
 
     /**
      * Higher is better. Every launch adds one, and the sum halves every week ([HALF_LIFE_DAYS]). So an
@@ -126,7 +144,7 @@ class AppPrefs private constructor(context: Context) {
         _version.update { it + 1 }
     }
 
-    companion object : Singleton<AppPrefs>(::AppPrefs) {
+    companion object : Singleton<AppPrefs>(::AppPrefs, mainOnly = true) {
         const val USAGE_FILE = "app_usage"
         private const val LN2 = 0.6931471805599453
         private const val HALF_LIFE_DAYS = 7.0

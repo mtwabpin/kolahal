@@ -48,6 +48,32 @@ class LogOnlyTest {
         androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
     }
 
+    /**
+     * Each filter leaves out most lines in the database ([LogFilter.sql]) before they are read. That must
+     * never leave out a line the filter takes: with it or without it, the same lines are found.
+     */
+    @Test fun theDatabaseNarrowsWithoutLosingALine() {
+        logs.add(LogKind.SCRIPT, "lo a feed item", "Lo Feed", LogContext.of(com.mtwabpin.kolahal.feeds.FeedWorker.CTX_FEED to "1"))
+        logs.add(LogKind.INFO, "lo a notification", "Lo Chat", LogContext.of(com.mtwabpin.kolahal.notifications.KolahalNotificationListener.CTX_KEY to "k"))
+        logs.add(LogKind.INFO, "lo an app", "apps")
+        logs.add(LogKind.INFO, "lo a call", com.mtwabpin.kolahal.calls.CallEvents.SOURCE)
+        logs.add(LogKind.INFO, "lo a reminder", "remind")
+        logs.add(LogKind.COMMAND, "lo a command")
+        logs.add(LogKind.OUTPUT, "lo its output", ctx = LogContext.of(LogContext.FROM to "x"))
+        logs.add(LogKind.OUTPUT, "lo a script's output", ctx = LogContext.of(LogContext.SCRIPT to "Lo/Xkcd é"))
+        val starred = logs.add(LogKind.OUTPUT, "lo starred")
+        logs.setStarred(starred, true)
+        val filters = LogFilter.Kind.entries.map { LogFilter.OfKind(it) } +
+            listOf("loxkcd", "Lo XKCD", "lo-feed", "Lo Chat", "loreleases", "nothing here").map { LogFilter.Named(it) }
+        for (f in filters) {
+            val narrowed = logs.search(emptyList(), limit = 2_000, match = f::matches, narrowBy = f.sql)
+            val whole = logs.search(emptyList(), limit = 2_000, match = f::matches)
+            assertEquals("$f", whole.entries.map { it.id }, narrowed.entries.map { it.id })
+            assertEquals("$f", whole.total, narrowed.total)
+        }
+        logs.setStarred(starred, false)
+    }
+
     @Test fun logOnlyShowsOneSourceUntilACommandRuns() {
         val vm = viewModel()
         vm.runCommand("log only loxkcd")

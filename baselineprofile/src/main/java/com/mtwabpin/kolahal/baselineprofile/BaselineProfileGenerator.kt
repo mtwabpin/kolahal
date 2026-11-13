@@ -10,7 +10,8 @@ import org.junit.runner.RunWith
 
 /**
  * Records the hot paths of a normal session: cold start, typing into the prompt (suggestions),
- * running commands, scrolling the log and opening the settings screen.
+ * running commands, scrolling the log, the settings screen, the script editor, the app selector
+ * on the edge and the widgets page.
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -67,6 +68,34 @@ class BaselineProfileGenerator {
         device.waitForIdle()
         device.swipe(w, h * 2 / 3, w, h / 4, 20)
         device.pressBack()
+        device.waitForIdle()
+
+        // The script editor. The first round makes the script and opens it; each round opens it with edit.
+        // (%s is a space for `input text`.)
+        type("script%snew%sbp"); enter()
+        device.pressBack()
+        device.waitForIdle()
+        type("script%sedit%sbp"); enter()
+        device.waitForIdle()
+        device.swipe(w, h * 2 / 3, w, h / 3, 20)
+        device.pressBack()
+        device.waitForIdle()
+
+        // The app selector on the screen's edge (selector.rail), with the keyboard down: slide along the
+        // edge, which launches nothing and leaves the list open when the finger lifts there. Back closes it.
+        type("config%sset%sselector.rail%son"); enter()
+        device.pressBack()
+        device.waitForIdle()
+        val edge = device.displayWidth - 6
+        device.swipe(edge, h * 4 / 5, edge, h / 2, 60)
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+
+        // The widgets page, left of the log (widgets.page), and back to the log.
+        device.swipe(w / 3, h / 2, w * 5 / 3, h / 2, 20)
+        device.waitForIdle()
+        device.swipe(w * 5 / 3, h / 2, w / 3, h / 2, 20)
         device.waitForIdle()
     }
 }

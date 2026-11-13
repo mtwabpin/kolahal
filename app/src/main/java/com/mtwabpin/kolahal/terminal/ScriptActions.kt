@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import androidx.core.content.edit
 import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -310,7 +311,7 @@ class ScriptActions(
     /** The user closed the banner about copies that differ. [signature] names them and their states. */
     fun hideBanner(signature: String) {
         _pageNotes.update { it?.copy(bannerHiddenFor = signature) }
-        io { pagePrefs.edit().putString(KEY_BANNER_HIDDEN, signature).apply() }
+        io { pagePrefs.edit { putString(KEY_BANNER_HIDDEN, signature) } }
     }
 
     // ---- script secrets ------------------------------------------------------------------

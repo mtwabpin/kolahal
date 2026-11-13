@@ -100,6 +100,37 @@ class Completer(private val context: Context, private val data: Data) {
         return namesCounted
     }
 
+    /** What the first word can complete to, as [firstWords] made it last, and what it was made from. */
+    private class FirstWords(val off: String, val commandNames: List<String>, val aliases: Map<String, String>, val names: List<String>) {
+        val set: Set<String> = names.toHashSet()
+    }
+    @Volatile private var firstWords: FirstWords? = null
+
+    /**
+     * The names a first word completes to: built-in commands not turned off, command scripts and
+     * aliases, each once. Made again only when one of those changes, not on each key.
+     */
+    private fun firstWords(): FirstWords {
+        val off = config[Keys.COMMANDS_OFF]
+        val commandNames = data.commandNames
+        val aliases = appPrefs.aliases()
+        firstWords?.let { if (it.off == off && it.commandNames === commandNames && it.aliases === aliases) return it }
+        val names = (CommandCatalog.OFFERED_NAMES - CommandsOff.names(off) + commandNames + aliases.keys).distinct()
+        return FirstWords(off, commandNames, aliases, names).also { firstWords = it }
+    }
+
+    /** Each command's place in [history] (newest first), as [recentRanks] made it last. */
+    @Volatile private var recent: Pair<List<String>, Map<String, Int>>? = null
+
+    /** Where each command was last used: 0 for the newest. Made again only when the history changes. */
+    private fun recentRanks(history: List<String>): Map<String, Int> {
+        recent?.let { (from, ranks) -> if (from === history) return ranks }
+        val ranks = history.asSequence().map { InstantRun.canonical(it.substringBefore(' ')) }.distinct()
+            .withIndex().associate { (i, name) -> name to i }
+        recent = history to ranks
+        return ranks
+    }
+
     fun suggestions(text: String): List<Suggestion> {
         if (text.isBlank()) {
             return if (config[Keys.SUGGEST_IDLE]) appsRepo.top(config[Keys.SUGGESTIONS]).map { Suggestion.App(it) } else emptyList()
@@ -113,13 +144,11 @@ class Completer(private val context: Context, private val data: Data) {
         // Commands turned off (commands.off) aren't offered: their names are plain words, for apps.
         val off = CommandsOff.names(config[Keys.COMMANDS_OFF])
         if (parts.size == 1) {
-            val names = CommandCatalog.OFFERED_NAMES - off +
-                data.commandNames +
-                appPrefs.aliases().keys
+            val first = firstWords()
+            val names = first.set
             // Commands used lately come first, then the rest in their usual order.
-            val recent = data.history.asSequence().map { InstantRun.canonical(it.substringBefore(' ')) }.distinct()
-                .withIndex().associate { (i, name) -> name to i }
-            val cmds = names.distinct()
+            val recent = recentRanks(data.history)
+            val cmds = first.names
                 .filter { it.startsWith(head) && it != head }
                 .sortedBy { recent[InstantRun.canonical(it)] ?: Int.MAX_VALUE }
                 .map { Suggestion.Completion(it, "$it ", icon = if (it in data.commandNames) R.drawable.ic_code else null, help = helpFor(it)) }
@@ -128,7 +157,7 @@ class Completer(private val context: Context, private val data: Data) {
             // match, or with launch.top on a prefix match. Then that app is the first, highlighted row,
             // so Enter, TAB and the highlight agree.
             val top = ranked.firstOrNull()
-            val enterLaunches = top != null && names.none { it == head } && (head !in InstantRun.SYNONYMS || cmd in off) &&
+            val enterLaunches = top != null && head !in names && (head !in InstantRun.SYNONYMS || cmd in off) &&
                 (top.first.label.equals(head, ignoreCase = true) || (ranked.size == 1 && config[Keys.AUTO_LAUNCH]) ||
                     (config[Keys.LAUNCH_TOP] && top.second <= 2))
             val apps = ranked.map { Suggestion.App(it.first) }

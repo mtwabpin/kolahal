@@ -149,6 +149,8 @@ fun BackButton(onClick: () -> Unit) {
  * - [state] and [listModifier] go to the list. A page uses them to follow its rows, for example
  *   while the user drags one.
  */
+// [listModifier] goes to the list, not the page, so it isn't named `modifier`.
+@Suppress("ModifierParameter")
 @Composable
 internal fun GuiListPage(
     title: @Composable () -> Unit,

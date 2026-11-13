@@ -88,85 +88,6 @@ prints "can use: …" only after the grant. The hash check (=ScriptCatalog.kt:10
 Fix: show the grants and ask before switching it on. Or sign the index with a key pinned in the app.
 
 ** Performance
-*** TODO [#C] Avoidable work on each key press /(unchecked)/
-Each is small; together estimated 0.2–1 ms per key on a mid-range phone.
-
-- =terminal/Completer.kt:84-86=, =:90=: =OFFERED_NAMES - off + commandNames + aliases=, then
-  =distinct()=: about 5 copies of a set of about 100 names. =terminal/InstantRun.kt:186-187= builds
-  the same union again.
-- =Completer.kt:88-89=: the =recent= map is rebuilt from up to 200 history lines, though it depends
-  only on the history.
-- =Completer.kt:111=, =:174-187= (=described()=): from the third letter of a word that isn't a
-  command, it scans about 99 commands and 83 settings (2–3 k =startsWith= calls).
-- =apps/AppRepository.kt:233-243= with =apps/AppPrefs.kt:91-106=: each new query scans all apps.
-  Each match then costs a locked prefs read, two substrings, two number parses and =exp=. One letter
-  matches most apps.
-- =ui/SuggestionList.kt:91-190=: rows are inline in the item lambda, so every visible row re-runs
-  on each key. =:125= builds an =AnnotatedString= and =:50= runs a regex per row, not remembered.
-
-Fix: cache =names= and =recent= on their inputs. Keep a frecency snapshot keyed on
-=AppPrefs.version=. Make the row its own skippable composable.
-
-*** TODO [#C] Return to home: binder calls on the main thread
-Main thread, =MainActivity.kt:104-111=, =:252-257=: =WidgetHost.startListening()= (also with no
-widgets), =watchBattery(true)=, =HomeClock.acquire=, =ReminderScheduler.canBeExact=,
-=mediaRepo.start()=. Estimated 1–3 ms.
-
-Fix: skip =startListening= with no widget placed. Check the two permissions off the main thread.
-(The housekeeping on return left the command lane in 0.5.6.)
-
-*** TODO [#C] Start-up: binder calls and prefs loads on the main thread /(unchecked)/
-=LauncherApp.kt:76-93= (channels, =AppRepository.start=, =UnlockCounter.start=,
-=TriggerDispatcher.start=, =DeviceStatus.start=, contacts, =PackageEvents=, =CallEvents=),
-=apps/AppPrefs.kt:28-29=, =data/Config.kt:16-22=: about 15 binder calls and 4–5 blocking prefs
-loads, estimated 10–30 ms before the first frame.
-
-- =apps/PackageEvents.kt:55= runs a diff 2 s after start: it asks for the activity list again and
-  calls =getPackageInfo= for each app, because =asked= lives only in memory. It overlaps the app
-  list load and the first log reload.
-
-Fix: move registrations that the first frame doesn't need to after it. Run the package diff when
-idle.
-
-*** TODO [#C] A cold start can flash the "empty log" hint /(unchecked)/
-=ui/TerminalScreen.kt:432-434= shows the hint when there are no rows. Rows start as =emptyList()=
-(=terminal/TerminalViewModel.kt:279=), and the first reload waits 40 ms and runs about 6 queries.
-Nothing tells "not loaded yet" from "empty". Whether the first frame wins the race wasn't measured.
-
-Fix: start with "not loaded" (nullable rows or a flag), and draw nothing until the first reload.
-
-*** TODO [#C] =vm.selectorArea= changes on every frame of the keyboard animation /(unchecked)/
-=ui/TerminalScreen.kt:388= writes it in =onGloballyPositioned=; the box shrinks under =imePadding()=.
-=ui/HostedWidgets.kt:170-175= reads it in composition, and the widgets page is composed beside the
-terminal. With =selector.rail= on, =AppSelector='s =pointerInput= (=ui/AppSelector.kt:642=) restarts
-each frame as the keyboard goes down.
-
-Fix: don't update it while the keyboard is up (the strip shows only with it down), or read it in
-layout through a lambda.
-
-*** TODO [#C] With =log only …= on, a full reload parses the whole log /(unchecked)/
-=terminal/TerminalViewModel.kt:513-521=, =data/LogRepository.kt:359=, =:398=: with =match= set, every
-row goes through =c.entry()= and =LogContext.fromJson=. Estimated 50–100 ms at the default 5,000
-lines, up to about 1 s at 50,000, on the IO thread: new lines show late. It happens on a full
-reload (at most once a minute, after 60 s away, after a delete). The filter also survives restarts.
-
-Fix: narrow in SQL for the common filters (=source=, =starred=, =kind=).
-
-*** TODO [#C] Script process: =store.set= scans the whole store; the Lua watchdog wakes 100 times a second /(unchecked)/
-- =data/KvStore.kt:33-43=: before each write, =SUM(length(…))= over the script's store, which can
-  hold 16 MB. A loop of =store.set= is O(store size) per call.
-- =script/RunWatchdog.kt:27=, =:48=: =WATCH_EVERY_MS = 10= for every Lua run, also while it waits on
-  the network, for up to 60 s.
-
-Fix: keep a running size per scope. Poll less often (50–100 ms) while the heap doesn't grow.
-
-*** TODO [#C] A very long line is laid out in full even when folded /(unchecked)/
-=ui/RichText.kt:331-345= measures the whole body. Lines are capped at 64 K characters
-(=data/LogRepository.kt:720=), not at a number of rows. A 64 K line folded to 8 rows still lays out
-all of it: tens of ms, one long frame, when it scrolls into view.
-
-Fix: while folded, give the text only its first few thousand characters.
-
 *** TODO [#C] The baseline profile doesn't cover the selector rail, the widgets page or the editor
 =baselineprofile/= covers start, typing, commands, log scroll and Settings.
 
@@ -202,19 +123,6 @@ Steps:
    handlers take different arguments; three branches depend on which synonym was typed or fall
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind
    =BuildConfig.SELF_UPDATE= for R8 (=:138=).
-
-*** TODO [#C] =:script= reads prefs it never sees updated
-- =script/HostApi.kt:733=: =device.unlocks()= → =UnlockCounter.countFor= (=unlock/UnlockCounter.kt:92=).
-  Without Usage Access it reads =unlocks.xml= from =:script='s own cached copy; the main process
-  writes it with =apply()=. A script at 18:00 can get the 09:00 count.
-- =script/HostApi.kt:852=: =launcher.run= reads =AppPrefs.aliases()=, cached for the process's
-  life. Only a wrong refusal; the main process checks again (=TerminalViewModel.kt:344=).
-- Trap: nothing stops the next host function from calling =Config.get=, whose =migrate()= can write
-  from the second process.
-
-Fix: keep the fallback unlock count in =KvStore= (as =SharedSettings= does for =log.keep-lines=).
-Drop the alias read in =HostApi.runCommand=. Make =Singleton.get= complain for main-only singletons
-in =:script=. Half a day.
 
 *** TODO [#C] Storage names and versions are implicit
 - 29 =getSharedPreferences("…")= sites; ="launcher"= is opened by three classes (=LauncherApp.kt:111=,
@@ -269,24 +177,6 @@ fake, passed to =CommandGroup=. About a day; tests can move over time.
 =background {}=, loses the "sent by a script" mark with no error. No handler does today.
 
 Fix: pass an explicit invocation object, once step 3 of the command-facts task exists.
-
-*** TODO [#C] =HostApi= repeats one security rule three times
-=script/HostApi.kt:354-355=, =:414-419=, =:469-470=: the same "web link only, internet allowed,
-=checkSecrets=" chain for inline links, context links and notification links. "Is this a private
-space" is decided two ways (=:791=, =:803=).
-
-Fix: one =safeWebUrl()=. 30 minutes.
-
-*** TODO [#C] =TerminalUi= fakes ignore new calls
-8 of its 16 calls have empty default bodies, so a test fake silently ignores a new one.
-
-** Lint warnings (0 errors, 11 warnings)
-*** TODO [#C] Code hints
-- =ui/LogView.kt:350=: =Configuration.screenWidthDp= instead of =LocalWindowInfo.current.containerSize=.
-- =ui/GuiComponents.kt:168=: the modifier parameter should be named =modifier= and be the first
-  optional parameter.
-- KTX: =String.toUri= at =ui/Avatars.kt:104= and =terminal/TerminalViewModel.kt:1114=;
-  =Bitmap.scale= at =ui/Avatars.kt:107=; =SharedPreferences.edit= at =terminal/ScriptActions.kt:313=.
 
 ** In good shape: keep as it is
 - Self-update: checks the package, the version, a higher version code, and that the signers match

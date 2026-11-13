@@ -319,24 +319,29 @@ private const val FOLD_SLACK = 2
  * first lines show, then "▾ N more lines". A tap on it shows the whole line, with "▴ Show less"
  * under it. A line stays open while it is in the log's memory (scrolled away and back).
  * [enabled]: false for a search result, where the matching words must show.
+ *
+ * [content] gets whether the line is open. While it is folded, a very long line may leave out its
+ * end ([cutLines] lines, estimated), so it isn't all laid out for the few lines that show.
  */
 @Composable
-internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, content: @Composable () -> Unit) {
+internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, cutLines: Int = 0, content: @Composable (open: Boolean) -> Unit) {
     val lines = Term.foldLines
-    if (!enabled || lines <= 0) return content()
+    if (!enabled || lines <= 0) return content(true)
     var open by rememberSaveable(id) { mutableStateOf(false) }
     val toggle = remember(id) { { open = !open } }
     val density = LocalDensity.current
     val line = with(density) { (style.lineHeight.takeIf { it.isSp } ?: (Term.fontSize * TEXT_LINE).sp).toPx() }
+    // Remembered, so a measure without a new content or a toggle recomposes nothing.
+    val shownContent: @Composable () -> Unit = remember(content, open) { { content(open) } }
     SubcomposeLayout(Modifier.testTag("fold-$id")) { constraints ->
         val loose = constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
-        // content is given as it is, so a measure without a new content recomposes nothing. It is one
-        // layout (LogLine passes a Column).
-        val body = subcompose(FoldSlot.BODY, content).first().measure(loose)
+        // It is one layout (LogLine passes a Column).
+        val body = subcompose(FoldSlot.BODY, shownContent).first().measure(loose)
         val limit = (line * lines).roundToInt()
-        val folds = body.height > limit + line * FOLD_SLACK
-        val shown = if (folds && !open) limit else body.height
-        val hidden = ceil((body.height - limit) / line).toInt()
+        val cut = if (open) 0 else cutLines
+        val folds = cutLines > 0 || body.height > limit + line * FOLD_SLACK
+        val shown = if (folds && !open) minOf(limit, body.height) else body.height
+        val hidden = ceil((body.height - limit) / line).toInt().coerceAtLeast(0) + cut
         val link = if (!folds) null else subcompose(FoldSlot.LINK) { FoldLink(open, hidden, toggle) }.first().measure(constraints.copy(minHeight = 0))
         layout(maxOf(body.width, link?.width ?: 0), shown + (link?.height ?: 0)) {
             if (shown < body.height) body.placeWithLayer(0, 0) { clip = true; shape = TopPart(shown.toFloat()) } else body.place(0, 0)

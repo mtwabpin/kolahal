@@ -124,7 +124,7 @@ class WidgetHost private constructor(context: Context) {
 
     /** Ids allocated by a bind/configure flow that is still running. [prune] leaves them alone. */
     private val inFlight = HashSet<Int>()
-    private var listening = false
+    @Volatile private var listening = false
 
     fun message(text: String) = _messages.update { (it + text).takeLast(4) }
 
@@ -141,13 +141,28 @@ class WidgetHost private constructor(context: Context) {
      */
     private val checks = java.util.concurrent.Executors.newSingleThreadExecutor()
 
+    /** Whether home is showing: from [startListening] to [stopListening]. */
+    @Volatile private var shown = false
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** Home shows. The host listens only while a widget is placed: with none, there's nothing to update. */
     fun startListening() {
-        if (listening) return
-        listening = runCatching { host.startListening() }.isSuccess
+        shown = true
+        listenIfNeeded()
         checks.execute { runCatching { prune() } }
     }
 
+    /** Whether the host listens now. For tests. */
+    internal val isListening: Boolean get() = listening
+
+    /** Main thread. Listens if home shows and a widget is placed; the first widget added starts it. */
+    private fun listenIfNeeded() {
+        if (listening || !shown || _widgets.value.isEmpty()) return
+        listening = runCatching { host.startListening() }.isSuccess
+    }
+
     fun stopListening() {
+        shown = false
         if (!listening) return
         runCatching { host.stopListening() }
         listening = false
@@ -156,6 +171,7 @@ class WidgetHost private constructor(context: Context) {
     private fun save(list: List<PlacedWidget>) {
         _widgets.value = list
         prefs.edit { putString(KEY, WidgetCodec.encode(list)) }
+        if (list.isNotEmpty() && !listening && shown) main.post { listenIfNeeded() }
     }
 
     private fun update(change: (List<PlacedWidget>) -> List<PlacedWidget>) = synchronized(this) { save(change(_widgets.value)) }

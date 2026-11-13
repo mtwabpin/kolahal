@@ -223,9 +223,15 @@ class ScriptSheetTest {
         val box = compose.onNode(hasSetTextAction() and hasText("Daily at"))
         box.performScrollTo().assert(hasText("18:30"))
         box.performTextReplacement("18:30, 21:00")
-        compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()
-        // The picker is a window of its own: in a full run it can take a while to show.
-        compose.waitForNode(hasText("Add") and hasAnyAncestor(isDialog()), 15_000)
+        // The picker is a window of its own: in a full run it can take a while to show. And a tap while the
+        // keyboard still moves the sheet can be lost (seen in a full run), so it taps again if none shows.
+        val picker = hasText("Add") and hasAnyAncestor(isDialog())
+        repeat(3) {
+            if (compose.onAllNodes(picker).fetchSemanticsNodes().isNotEmpty()) return@repeat
+            compose.onNodeWithContentDescription("Add a time").performScrollTo().performClick()
+            runCatching { compose.waitForNode(picker, 8_000) }
+        }
+        compose.waitForNode(picker)
         inDialog("Add").performClick()
         compose.waitFor("three daily times") { script().atTimes == listOf("08:00", "18:30", "21:00") }
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText("08:00, 18:30, 21:00")).fetchSemanticsNodes().isNotEmpty() }

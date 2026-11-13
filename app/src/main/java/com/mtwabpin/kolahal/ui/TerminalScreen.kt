@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -382,13 +383,19 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
             )
         }
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
+        val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
         // The log and the suggestions share the space the header, key bar and prompt leave. Those
         // are measured first, so a long suggestion list can't push the prompt off the screen.
         Column(Modifier.weight(1f).fillMaxWidth()) {
+        val ime = WindowInsets.ime
         Box(
             Modifier.weight(1f).fillMaxWidth().then(
-                // Save the selector's area, so the selector on the widgets page can match it.
-                if (preview == null) Modifier.onGloballyPositioned { vm.selectorArea = androidx.compose.ui.geometry.Rect(0f, it.positionInWindow().y, it.size.width.toFloat(), it.positionInWindow().y + it.size.height) }
+                // Save the selector's area, so the selector on the widgets page can match it. Only with the
+                // keyboard down, as the strip shows only then: the box shrinks on each frame of the keyboard's
+                // animation, and each new area would build the widgets page's selector again.
+                if (preview == null) Modifier.onGloballyPositioned {
+                    if (ime.getBottom(density) == 0) vm.selectorArea = androidx.compose.ui.geometry.Rect(0f, it.positionInWindow().y, it.size.width.toFloat(), it.positionInWindow().y + it.size.height)
+                }
                 else Modifier
             )
         ) {
@@ -432,7 +439,8 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 },
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
         ) {
-            if (reversedRows.isEmpty() && hiddenLines == 0) {
+            // Not before the first read: a cold start would flash it over a log that isn't empty.
+            if (reversedRows.isEmpty() && hiddenLines == 0 && rowsLoaded) {
                 // An empty log: what to do, in the text colour, then the other tips dim, one per line.
                 item(key = "empty-hint") {
                     Column(Modifier.padding(vertical = 12.dp).testTag("empty-hint")) {

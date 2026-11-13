@@ -66,12 +66,14 @@ fun ScriptLibraryScreen(vm: TerminalViewModel, onExportScript: (Script) -> Unit 
             onBack = vm::closeScreen,
             snackbar = snackbar,
         ) {
-            // Show nothing until the rows are loaded. If "Get more scripts" shows alone first, it
-            // keeps its place while the rows appear above it, so the list opens scrolled to the end.
-            val rows = library ?: return@GuiListPage
             // A first item that never moves. The list keeps its first visible item in place, so
             // without it, "Your copy differs" coming above once the scripts are read would be scrolled away.
+            // It is there while the rows load too: a list that went from no items to some could measure
+            // an item that was gone ("Index 0, size 0", seen in full test runs).
             item(key = "top") { Spacer(Modifier.height(1.dp)) }
+            // Show nothing else until the rows are loaded. If "Get more scripts" shows alone first, it
+            // keeps its place while the rows appear above it, so the list opens scrolled to the end.
+            val rows = library ?: return@GuiListPage
             val differ = rows.filter { it.state.differs() && mine(it) != null }
             val rest = rows.filter { it !in differ }
             if (differ.isNotEmpty()) {

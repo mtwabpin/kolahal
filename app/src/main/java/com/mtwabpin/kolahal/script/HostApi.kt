@@ -360,9 +360,21 @@ class HostApi(
      * carries a secret anywhere but the sites its `@secret` line names. A link that fails keeps its
      * text, as plain text.
      */
-    private fun safeLinks(text: String): String = StyledText.mapLinks(text) { link ->
-        Net.webUrl(link)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) }
-            ?.also { web -> web.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(web), it.isHttps) } }
+    private fun safeLinks(text: String): String = StyledText.mapLinks(text) { safeWebUrl(it) }
+
+    /**
+     * [link], if a link from this script may leave the phone: a tap opens it in another app, and home
+     * fetches a picture as soon as its line shows. So:
+     * - only web links (http and https), not upi:, tel:, intent: …;
+     * - none with internet switched off for this script;
+     * - like a request, none that carries a secret to a site other than those its `@secret` line
+     *   names, or over plain http. That stops the run ([checkSecrets]).
+     * Null when the link may not be used. Used for links in text, a line's `url` and `image`, and a notification's link.
+     */
+    private fun safeWebUrl(link: String): String? {
+        val web = Net.webUrl(link)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) } ?: return null
+        web.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(web), it.isHttps) }
+        return web
     }
 
     /** `logs(titles)`: one title line for each, with no bodies. */
@@ -414,20 +426,10 @@ class HostApi(
         m[LogContext.GAP]?.let { if (it == "true" || it == "1") m[LogContext.GAP] = "1" else m.remove(LogContext.GAP) }
         // Buttons: only on a saved script's line, since a tap runs that script again.
         actionsJson(ctx?.get("actions"))?.let { m[LogContext.ACTIONS] = it }
-        // A tap opens the link in another app at once, so allow web links only, not upi:, tel:, intent: …
-        // Home fetches a picture as soon as the line shows, and opens a link on a tap. So:
-        // - with internet switched off for this script, neither leaves the phone;
-        // - like a request, neither may carry a secret to any site except the ones its @secret line
-        //   names, and never over plain http.
+        // Home opens the link on a tap, and fetches the picture as soon as the line shows.
         for (key in listOf(LogContext.URL, LogContext.IMAGE)) {
             val link = m[key] ?: continue
-            val web = Net.webUrl(link)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) }
-            if (web == null) {
-                m.remove(key)
-                continue
-            }
-            web.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(web), it.isHttps) }
-            m[key] = web
+            safeWebUrl(link)?.let { m[key] = it } ?: m.remove(key)
         }
         m[LogContext.COPY]?.let { if (!honestCopy(it, text, m[LogContext.URL])) m.remove(LogContext.COPY) }
         return m
@@ -475,9 +477,8 @@ class HostApi(
             if (notifications == MAX_NOTIFY_PER_RUN + 1) logError("notify: more than $MAX_NOTIFY_PER_RUN notifications in one run; the rest aren't posted")
             return false
         }
-        // Opening the link sends what it holds to its site. So the same rules as a request apply, and there is no link with internet off.
-        val url = values[LogContext.URL]?.let(Net::webUrl)?.takeIf { grants == null || grants.allows(ScriptAccess.INTERNET) }
-            ?.also { u -> u.toHttpUrlOrNull()?.let { checkSecrets(it.host, listOf(u), it.isHttps) } }
+        // Opening the link sends what it holds to its site.
+        val url = values[LogContext.URL]?.let(::safeWebUrl)
         val posted = Notifier.post(context, scriptName, StyledText.plain(redact(title)), StyledText.plain(redact(body)), url)
         if (!posted) notifyBlocked = true
         return posted
@@ -809,8 +810,7 @@ class HostApi(
         val um = context.getSystemService(android.os.UserManager::class.java)
         // Private space (and any paused profile) stays invisible to scripts.
         return la.profiles.filter { user ->
-            !runCatching { um.isQuietModeEnabled(user) }.getOrDefault(false) &&
-                (android.os.Build.VERSION.SDK_INT < 35 || runCatching { la.getLauncherUserInfo(user)?.userType }.getOrNull() != android.os.UserManager.USER_TYPE_PROFILE_PRIVATE)
+            !runCatching { um.isQuietModeEnabled(user) }.getOrDefault(false) && AppRepository.kindOf(context, la, user, me) != ProfileKind.PRIVATE
         }.flatMap { user ->
             runCatching { la.getActivityList(null, user) }.getOrDefault(emptyList()).map {
                 mapOf("label" to it.label.toString(), "pkg" to it.componentName.packageName, "profile" to if (user == me) "personal" else "other")
@@ -858,9 +858,9 @@ class HostApi(
             logError("launcher.run refused: the command contains one of this script's secrets")
             return false
         }
-        // State-changing commands (clear, uninstall, notifs clear, config, …) stay with the user.
-        val aliases = runCatching { com.mtwabpin.kolahal.apps.AppPrefs.get(context).aliases() }.getOrDefault(emptyMap())
-        if (com.mtwabpin.kolahal.terminal.InstantRun.isSensitive(command, aliases)) {
+        // State-changing commands (clear, uninstall, notifs clear, config, …) stay with the user. Home checks
+        // again with your aliases: this process can't see them change (an alias such as `c = clear`).
+        if (com.mtwabpin.kolahal.terminal.InstantRun.isSensitive(command)) {
             logError("launcher.run refused '${command.substringBefore(' ')}': sensitive commands must be typed")
             return false
         }

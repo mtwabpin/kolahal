@@ -339,25 +339,33 @@ fun LogLine(
                 else -> {
                     val text = lineText!!
                     val style = entry.style().dense(dense)
-                    val words: @Composable () -> Unit = {
-                        if (bar != null) WithBar(bar) { RichText(text, style = style, inlineContent = inline) }
-                        else RichText(text, style = style, inlineContent = inline)
+                    val words: @Composable (androidx.compose.ui.text.AnnotatedString) -> Unit = { t ->
+                        if (bar != null) WithBar(bar) { RichText(t, style = style, inlineContent = inline) }
+                        else RichText(t, style = style, inlineContent = inline)
                     }
                     // A long line folds (log.fold). Only a line long enough to need it is measured
                     // for it, and never a typed command or a search result (its words must show).
                     // A character of the terminal font is 0.6 of its size wide; the log loses about
                     // 60 dp to its padding, the gutter and the time.
-                    val screen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+                    val screen = with(density) { androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width.toDp().value }
                     val charDp = with(density) { (Term.fontSize * 0.6f).sp.toDp().value }
                     val lineChars = ((screen - 60) / charDp).toInt().coerceAtLeast(16)
                     val mayFold = remember(entry, lineChars, Term.foldLines) { entry.kind != LogKind.COMMAND && mayFold(entry, lineChars) } && marks.isEmpty()
-                    if (image == null && richRest == null && !mayFold && actions.isEmpty()) words()
+                    // While folded, a very long line lays out only its start (and not its body): all of a
+                    // 64 K line takes tens of ms, in one frame, for the few lines that show.
+                    val keep = maxOf(FOLDED_MIN_CHARS, Term.foldLines * lineChars * 4)
+                    val head = remember(text, keep, mayFold) { if (mayFold && text.length > keep * 2) text.subSequence(0, keepWhole(text.text, keep)) else null }
+                    val cutLines = remember(head, richRest, lineChars) {
+                        if (head == null) 0 else estimatedLines(text.text.substring(head.length), lineChars) + (richRest?.let { estimatedLines(StyledText.plain(it), lineChars) } ?: 0)
+                    }
+                    if (image == null && richRest == null && !mayFold && actions.isEmpty()) words(text)
                     else Column {
-                        Foldable(entry.id, style, enabled = mayFold) {
+                        Foldable(entry.id, style, enabled = mayFold, cutLines = cutLines) { open ->
+                            val cut = head != null && !open
                             Column {
                                 // A command's line can be its big numbers alone, with no words above them.
-                                if (if (entry.kind == LogKind.SCRIPT) entry.text.isNotEmpty() else text.text.isNotEmpty()) words()
-                                richRest?.let { rest ->
+                                if (if (entry.kind == LogKind.SCRIPT) entry.text.isNotEmpty() else text.text.isNotEmpty()) words(if (cut) head!! else text)
+                                if (!cut) richRest?.let { rest ->
                                     val start = with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
                                     RichBody(rest, style.copy(color = Term.dim), start, indents.bullet)
                                 }
@@ -440,9 +448,18 @@ private fun mayFold(entry: LogEntry, lineChars: Int): Boolean {
     if (lines <= 0) return false
     val shown = listOfNotNull(entry.text, entry.ctx.body).joinToString("\n").let(StyledText::plain)
     // A rough upper bound, cheap enough for every line: 1.15 for the words that wrap early.
-    val estimate = shown.splitToSequence('\n').sumOf { maxOf(1, (it.length + lineChars - 1) / lineChars) } * 1.15
-    return estimate > lines + FOLD_SLACK_LINES
+    return estimatedLines(shown, lineChars) * 1.15 > lines + FOLD_SLACK_LINES
 }
+
+/** About how many lines [text] takes, [lineChars] to a line. */
+private fun estimatedLines(text: String, lineChars: Int): Int =
+    text.splitToSequence('\n').sumOf { maxOf(1, (it.length + lineChars - 1) / lineChars) }
+
+/** [keep], or one less, so the cut doesn't split a character made of two chars (an emoji). */
+private fun keepWhole(text: String, keep: Int): Int = if (Character.isHighSurrogate(text[keep - 1])) keep - 1 else keep
+
+/** A folded line keeps at least this many characters before it leaves out the rest. */
+private const val FOLDED_MIN_CHARS = 2_000
 
 /** As [Foldable] has it: a fold hides at least this many lines more than log.fold. */
 private const val FOLD_SLACK_LINES = 2

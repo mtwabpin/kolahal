@@ -338,13 +338,15 @@ class LogRepository private constructor(private val context: Context) {
      * - At most [limit] lines are returned. [Found.total] counts them all.
      * - [skip] leaves lines out (those of a locked private space).
      * - With [match], only the lines it accepts are searched (`/@xkcd`, `log only xkcd`). With no
-     *   words, all of those lines are found.
+     *   words, all of those lines are found. [narrowBy] is a condition that every line [match] accepts
+     *   passes, so the database leaves out the rest ([com.mtwabpin.kolahal.terminal.LogFilter.sql]).
      */
     fun search(
         words: List<String>,
         limit: Int = 500,
         skip: ((LogEntry) -> Boolean)? = null,
         match: ((LogEntry) -> Boolean)? = null,
+        narrowBy: com.mtwabpin.kolahal.terminal.LogFilter.Sql? = null,
         keepGoing: () -> Boolean = { true },
     ): Found {
         val found = ArrayList<LogEntry>()
@@ -359,6 +361,10 @@ class LogRepository private constructor(private val context: Context) {
         val narrow = match == null && words.isNotEmpty() && words.all { w -> w.all { it in ' '..'~' && it != '"' && it != '\\' } }
         val where = StringBuilder(KEPT)
         val args = arrayListOf(from)
+        if (match != null && narrowBy != null) {
+            where.append(" AND ").append(narrowBy.where)
+            args += narrowBy.args
+        }
         if (narrow) {
             // A styled line may hold a word across a style's edge, so it is read and checked whole.
             // JSON escapes the slashes in a link.

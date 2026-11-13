@@ -89,14 +89,19 @@ class LauncherApp : Application(), Configuration.Provider {
         // Load custom themes before the theme is applied, because `theme.name` may name one of them.
         com.mtwabpin.kolahal.data.CustomThemes.load(this)
         AppRepository.get(this).start()
-        UnlockCounter.get(this).start()
-        // Runtime receivers and a network callback for `@on` scripts. Charger and headset events need
-        // these on Android 8+.
-        com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).start()
         DeviceStatus.get(this).start()
-        com.mtwabpin.kolahal.contacts.ContactsRepository.get(this).refresh()
-        com.mtwabpin.kolahal.apps.PackageEvents.get(this).start()
-        com.mtwabpin.kolahal.calls.CallEvents.get(this).start()
+        // What the first frame doesn't need starts once the main thread is idle, after that frame:
+        // each is a few calls to Android. Nothing is missed meanwhile: each catches up as it starts.
+        android.os.Looper.getMainLooper().queue.addIdleHandler {
+            UnlockCounter.get(this).start()
+            // Runtime receivers and a network callback for `@on` scripts. Charger and headset events need
+            // these on Android 8+.
+            com.mtwabpin.kolahal.script.TriggerDispatcher.get(this).start()
+            com.mtwabpin.kolahal.contacts.ContactsRepository.get(this).refresh()
+            com.mtwabpin.kolahal.apps.PackageEvents.get(this).start()
+            com.mtwabpin.kolahal.calls.CallEvents.get(this).start()
+            false
+        }
 
         // Set daily script times again, restore schedules after updates, and trim the old log.
         Thread {

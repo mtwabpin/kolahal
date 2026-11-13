@@ -30,9 +30,11 @@ import java.time.ZoneId
  * - Main source: UsageStats KEYGUARD_HIDDEN events. They are accurate and include unlocks while the
  *   launcher process was not running. The user must grant Usage Access.
  * - Fallback: an ACTION_USER_PRESENT receiver, registered while the launcher process is alive.
+ *   Its counts are kept in the database (kv scope [SCOPE]), so the :script process reads today's
+ *   count too. A prefs file would stay at what that process read when it started.
  */
 class UnlockCounter private constructor(private val context: Context) {
-    private val prefs = context.getSharedPreferences("unlocks", Context.MODE_PRIVATE)
+    private val counts = com.mtwabpin.kolahal.data.KvStore(context, SCOPE)
     private val _today = MutableStateFlow(0)
     val today: StateFlow<Int> = _today.asStateFlow()
 
@@ -42,10 +44,11 @@ class UnlockCounter private constructor(private val context: Context) {
     fun start() {
         if (registered) return
         registered = true
+        scope.launch { moveFromPrefs() }
         ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
-                val key = dayKey(LocalDate.now())
-                prefs.edit { putInt(key, prefs.getInt(key, 0) + 1) }
+                val day = LocalDate.now()
+                scope.launch { counts.set(dayKey(day), (fallbackCount(day) + 1).toString()) }
                 com.mtwabpin.kolahal.script.TriggerDispatcher.get(context).fire("unlock")
                 refresh()
             }
@@ -89,7 +92,7 @@ class UnlockCounter private constructor(private val context: Context) {
      */
     @Synchronized
     fun countFor(day: LocalDate): Int {
-        if (!hasUsageAccess()) return prefs.getInt(dayKey(day), 0)
+        if (!hasUsageAccess()) return fallbackCount(day)
         val zone = ZoneId.systemDefault()
         val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
         val today = LocalDate.now(zone)
@@ -137,5 +140,20 @@ class UnlockCounter private constructor(private val context: Context) {
 
     private fun dayKey(day: LocalDate) = "d:$day"
 
-    companion object : Singleton<UnlockCounter>(::UnlockCounter)
+    private fun fallbackCount(day: LocalDate): Int = counts.get(dayKey(day))?.toIntOrNull() ?: 0
+
+    /** Counts from before 0.5.7 were in the "unlocks" prefs file: moved here once. A count already here is kept. */
+    @androidx.annotation.VisibleForTesting
+    internal fun moveFromPrefs() {
+        val prefs = context.getSharedPreferences(OLD_PREFS, Context.MODE_PRIVATE)
+        val old = prefs.all.takeIf { it.isNotEmpty() } ?: return
+        for ((k, v) in old) if (v is Int && counts.get(k) == null) counts.set(k, v.toString())
+        prefs.edit(commit = true) { clear() }
+    }
+
+    companion object : Singleton<UnlockCounter>(::UnlockCounter) {
+        /** The kv scope of the fallback counts. Keys are "d:<date>". */
+        const val SCOPE = "unlocks"
+        private const val OLD_PREFS = "unlocks"
+    }
 }

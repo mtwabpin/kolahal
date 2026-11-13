@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import androidx.core.content.edit
 import android.content.Context
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -86,11 +87,6 @@ object ScriptAccess {
     fun encode(values: Map<String, Boolean>): String? = values.takeIf { it.isNotEmpty() }?.let(Json::stringify)
 
     /**
-     * For a switched-on script, logs a line for each `@secret` that has no usable value. The line asks
-     * the user to set it. A value that was set for other sites than the ones the line names now must
-     * be set again.
-     */
-    /**
      * Once per install: each switched-on script with a secret value from before 0.4.0 (stored without
      * its sites) asks for it again ([askForSecrets]). Such a value is no longer used until then.
      */
@@ -101,11 +97,16 @@ object ScriptAccess {
         com.mtwabpin.kolahal.data.ScriptRepository.get(context).all()
             .filter { s -> s.enabled && ScriptMeta.secrets(s.code).any { store.withoutSites(s.name, it) } }
             .forEach { askForSecrets(context, it) }
-        prefs.edit().putBoolean(SECRET_SITES_ASKED, true).apply()
+        prefs.edit { putBoolean(SECRET_SITES_ASKED, true) }
     }
 
     private const val SECRET_SITES_ASKED = "secret_sites_asked"
 
+    /**
+     * For a switched-on script, logs a line for each `@secret` that has no usable value. The line asks
+     * the user to set it. A value that was set for other sites than the ones the line names now must
+     * be set again.
+     */
     fun askForSecrets(context: Context, s: Script) {
         if (!s.enabled) return
         val store = SecretStore(context)

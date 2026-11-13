@@ -92,6 +92,35 @@ class CompleterTest {
         }
     }
 
+    /**
+     * The first word's names are worked out once, not on each key. A new alias, an alias removed,
+     * a command turned off or on, and a command used lately each show at the next key.
+     */
+    @Test fun firstWordNamesFollowEachChange() {
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
+        val alias = "zqcomp${System.nanoTime() % 10_000}"
+        assertFalse(alias in lines("zqcomp"))
+        prefs.setAlias(alias, "echo hi")
+        try {
+            assertTrue(alias in lines("zqcomp"))
+        } finally {
+            prefs.setAlias(alias, null)
+        }
+        assertFalse(alias in lines("zqcomp"))
+
+        assertTrue("torch" in lines("torc"))
+        config.set(Keys.COMMANDS_OFF, "torch")
+        assertFalse("torch" in lines("torc"))
+        config.set(Keys.COMMANDS_OFF, "")
+        assertTrue("torch" in lines("torc"))
+
+        // Used lately: first among the commands that start alike.
+        history = listOf("note buy milk")
+        assertEquals("note", lines("no").first())
+        history = listOf("notifications")
+        assertEquals("notifications", lines("no").first())
+    }
+
     @Test fun firstWordOffersCommands() {
         assertTrue(labels("hel").toString(), "help" in labels("hel"))
         assertTrue(labels("cras").toString(), "crashes" in labels("cras"))

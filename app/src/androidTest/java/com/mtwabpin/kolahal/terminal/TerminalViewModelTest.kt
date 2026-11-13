@@ -231,6 +231,33 @@ class TerminalViewModelTest {
         waitUntil("a script's todo is refused") { added().any { it.text.startsWith("Command not found: todo") } }
     }
 
+    /**
+     * A command a script sends (launcher.run) is checked again where it runs, with the aliases as they
+     * are now: an alias for a sensitive command is refused there, with a line that says so. The script's
+     * process checks only without aliases, as it can't see them change.
+     */
+    @Test fun aScriptsCommandHiddenInAnAliasIsRefusedAtHome() {
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(app)
+        prefs.setAlias("${token}wipe", "clear")
+        try {
+            home()
+            app.sendBroadcast(
+                android.content.Intent(com.mtwabpin.kolahal.script.HostApi.ACTION_RUN_COMMAND).setPackage(app.packageName)
+                    .putExtra(com.mtwabpin.kolahal.script.HostApi.EXTRA_COMMAND, "${token}wipe"),
+            )
+            waitUntil("refused") { added().any { it.text == "launcher.run refused '${token}wipe': sensitive commands must be typed" } }
+            staysTrue("it didn't run") { added().none { it.kind == LogKind.COMMAND && it.text == "${token}wipe" } }
+        } finally {
+            prefs.setAlias("${token}wipe", null)
+        }
+    }
+
+    /** The log says when its first read is done, so an empty list then means an empty log (the hint shows only then). */
+    @Test fun theFirstReadIsMarkedDone() {
+        val vm = home()
+        waitUntil("read") { vm.rowsLoaded.value }
+    }
+
     /** Tapping a running work profile asks for a second tap, on a line that pauses it. */
     @Test fun pausingAProfileAsksForASecondTap() {
         val vm = home()

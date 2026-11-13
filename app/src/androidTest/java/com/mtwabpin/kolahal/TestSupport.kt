@@ -92,6 +92,14 @@ open class TerminalUiStub : TerminalUi {
     override fun askSecret(script: Script, name: String) = Unit
     override fun requestNotificationPermission() = Unit
     override fun clearScreen() = Unit
+    override fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit) = Unit
+    override fun freshScreen() = Unit
+    override fun requestCalendarPermission() = Unit
+    override fun requestCallLogPermission() = Unit
+    override fun askNotificationAccess() = Unit
+    override fun filterLog(filter: com.mtwabpin.kolahal.terminal.LogFilter?) = Unit
+    override fun logWidthPx(): Int? = null
+    override fun askBackupFolder(thenBackUp: Boolean) = Unit
 }
 
 /** Runs command lines as typed at the prompt, through a [CommandProcessor] on [ui], and reads back what each printed. */

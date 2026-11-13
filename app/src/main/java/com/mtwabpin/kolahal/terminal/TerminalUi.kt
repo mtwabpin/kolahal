@@ -5,11 +5,15 @@ import com.mtwabpin.kolahal.data.Script
 /** Full-screen GUI pages other than the terminal. The script editor is separate. */
 enum class Screen { TERMINAL, SETTINGS, SCRIPTS, SCRIPT_LIBRARY, GET_SCRIPTS, SETUP, ONBOARDING, FEEDS, WIDGETS, WIDGET_PICKER, THEME_BUILDER, HEADER_PARTS }
 
-/** Operations that only the UI can do. The processor cannot do them from an application context. */
+/**
+ * Operations that only the UI can do. The processor cannot do them from an application context.
+ * No call has a default body: a new one must be written in every implementation, test fakes
+ * included, rather than silently do nothing there.
+ */
 interface TerminalUi {
     fun requestContactsPermission()
     /** Opens Android's contact picker (used by the Play build, which has no READ_CONTACTS). [then] gets the picked contact, if any. */
-    fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit) {}
+    fun pickContact(then: (com.mtwabpin.kolahal.contacts.Contact) -> Unit)
     fun openScreen(screen: Screen)
     fun pickScriptFolder()
     /** Opens the file picker for `font import` (a .ttf/.otf file). */
@@ -20,25 +24,25 @@ interface TerminalUi {
     fun requestNotificationPermission()
     fun clearScreen()
     /** For `fresh`: hides what is on screen now. `log.fresh` does the same after you are away for a while. */
-    fun freshScreen() {}
+    fun freshScreen()
     /** Asks for READ_CALENDAR, for `agenda`. */
-    fun requestCalendarPermission() {}
+    fun requestCalendarPermission()
     /** Asks for READ_CALL_LOG, for calls in the log and for `calls`. */
-    fun requestCallLogPermission() {}
+    fun requestCallLogPermission()
     /**
      * For `notifs enable` when access is off. Explains what notification access reads and why,
      * and lets the user choose, before Android's Notification access screen opens.
      */
-    fun askNotificationAccess() {}
+    fun askNotificationAccess()
     /** Sets the lines the log shows: `log only …` ([filter]) or `log all` (null). */
-    fun filterLog(filter: LogFilter?) {}
+    fun filterLog(filter: LogFilter?)
     /** The log's width on screen in px, so output can be laid out to fit. Null until home has been shown. */
-    fun logWidthPx(): Int? = null
+    fun logWidthPx(): Int?
     /**
      * For `backup dir`: asks for a backup folder.
      * If [thenBackUp] is true, writes a backup once the folder is picked (used by `backup` when no folder is set yet).
      */
-    fun askBackupFolder(thenBackUp: Boolean) {}
+    fun askBackupFolder(thenBackUp: Boolean)
 }
 
 /**

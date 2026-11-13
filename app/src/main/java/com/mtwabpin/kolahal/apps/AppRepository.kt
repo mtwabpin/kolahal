@@ -36,6 +36,8 @@ enum class ProfileKind(val tag: String, val label: String) {
 
 private const val USER_TYPE_PROFILE_CLONE = "android.os.usertype.profile.CLONE"
 
+/** Immutable, so a row that shows it (a suggestion) is skipped when it's the same. */
+@androidx.compose.runtime.Immutable
 data class Profile(
     val user: UserHandle,
     val serial: Long,
@@ -44,6 +46,7 @@ data class Profile(
     val quiet: Boolean,
 )
 
+@androidx.compose.runtime.Immutable
 data class AppEntry(
     val label: String,
     val component: ComponentName,

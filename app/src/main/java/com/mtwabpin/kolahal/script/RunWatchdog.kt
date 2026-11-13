@@ -27,13 +27,20 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
     private val baseline = Debug.getNativeHeapAllocatedSize()
     private val thread = thread(isDaemon = true, name = "script-watchdog") {
         val killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
+        // While memory stays put (a run waiting on the network), the checks slow down to every
+        // [IDLE_EVERY_MS]. As soon as it grows, they are every [WATCH_EVERY_MS] again.
+        var every = WATCH_EVERY_MS
+        var last = baseline
         try {
             while (true) {
                 // With no memory to watch (JavaScript has its own limit), only the clock matters. Its end time
                 // is known, so one sleep is enough instead of a hundred wake-ups a second.
-                Thread.sleep(if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else WATCH_EVERY_MS)
+                Thread.sleep(if (nativeLimitMb == null) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else every)
+                val heap = Debug.getNativeHeapAllocatedSize()
+                every = if (heap - last > GROWING_BYTES) WATCH_EVERY_MS else minOf(IDLE_EVERY_MS, every * 2)
+                last = heap
                 val reason = when {
-                    nativeLimitMb != null && Debug.getNativeHeapAllocatedSize() - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
+                    nativeLimitMb != null && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
                     System.currentTimeMillis() > killAt -> "still running after timeout"
                     else -> null
                 } ?: continue
@@ -77,5 +84,11 @@ internal class RunWatchdog(private val host: HostApi, timeoutMs: Long, nativeLim
 
         /** Often enough that, if memory doubles every few instructions, it overshoots by about one doubling only. */
         private const val WATCH_EVERY_MS = 10L
+
+        /** How often while memory doesn't grow: 20 checks a second instead of 100. */
+        private const val IDLE_EVERY_MS = 50L
+
+        /** Growth between two checks that counts as growing (native memory moves a little on its own). */
+        private const val GROWING_BYTES = 256L * 1024
     }
 }
