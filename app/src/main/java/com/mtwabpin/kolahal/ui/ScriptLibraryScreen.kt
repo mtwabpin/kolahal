@@ -45,17 +45,15 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     BackHandler { vm.closeScreen() }
     val library by rememberLibraryRows(vm, scripts)
-    // The library script whose copy's Update or Reset asks first, and the one Compare shows.
-    var restoring by remember { mutableStateOf<String?>(null) }
-    var comparing by remember { mutableStateOf<String?>(null) }
+    // The library script whose copy shows a dialog, and which one: the question before Update or Reset, or Compare.
+    var copyDialog by remember { mutableStateOf<Pair<String, CopyDialog>?>(null) }
     // Your copy of a library script: the same name and language.
     fun mine(r: LibRow): Script? = scripts.firstOrNull { it.name == r.entry.name && it.lang == r.entry.lang }
 
     // As on a card: an edited copy asks first; an unedited one updates at once, and the notice offers Undo.
     fun restore(r: LibRow) {
         val s = mine(r) ?: return
-        val copy = ScriptCopy.of(r)
-        if (copy.edited) restoring = r.entry.name else vm.scriptActions.restore(listOf(copy.restore(s)))
+        restoreCopy(vm, s, ScriptCopy.of(r)) { copyDialog = r.entry.name to CopyDialog.CONFIRM }
     }
 
     GuiTheme {
@@ -79,7 +77,7 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
             if (differ.isNotEmpty()) {
                 item(key = "differs") { GroupHeader("Your copy differs · ${differ.size}") }
                 itemsIndexed(differ, key = { _, r -> "differs:" + r.entry.name }) { i, r ->
-                    DiffersRow(r, i, differ.size, onCompare = { comparing = r.entry.name }) { restore(r) }
+                    DiffersRow(r, i, differ.size, onCompare = { copyDialog = r.entry.name to CopyDialog.COMPARE }) { restore(r) }
                 }
                 item(key = "all") { GroupHeader("All scripts") }
             }
@@ -101,20 +99,12 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
             }
         }
 
-        val row = { name: String? -> library.orEmpty().firstOrNull { it.entry.name == name } }
-        row(restoring)?.let { r ->
-            val s = mine(r)
-            val copy = ScriptCopy.of(r)
-            if (s != null && copy.canRestore) {
-                RestoreDialog(vm, s, copy, onExport = { vm.requestScriptExport(s) }, onDismiss = { restoring = null }) {
-                    restoring = null
-                    vm.scriptActions.restore(listOf(copy.restore(s)))
-                }
+        copyDialog?.let { (name, dialog) ->
+            val r = library.orEmpty().firstOrNull { it.entry.name == name }
+            val s = r?.let { mine(it) }
+            if (r != null && s != null) {
+                CopyDialogs(vm, s, ScriptCopy.of(r), dialog, onShow = { copyDialog = it?.let { d -> name to d } }, onExport = { vm.requestScriptExport(s) })
             }
-        }
-        row(comparing)?.let { r ->
-            val s = mine(r)
-            if (s != null && r.state.differs()) CompareDialog(vm, s, r, onDismiss = { comparing = null }) { comparing = null; restore(r) }
         }
     }
 }

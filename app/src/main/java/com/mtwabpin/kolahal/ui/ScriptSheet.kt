@@ -76,13 +76,8 @@ internal fun ScriptSheet(
 ) {
     val s = info.script
     var confirmDelete by remember(s.id) { mutableStateOf(false) }
-    var confirmReplace by remember(s.id) { mutableStateOf(false) }
-    var comparing by remember(s.id) { mutableStateOf(false) }
-    // Update or Reset to the source's version. For an edited copy, this loses the edits, so ask first.
-    // An unedited copy has no edits to lose: it updates at once, and the notice offers Undo.
-    fun restore(c: ScriptCopy) {
-        if (c.edited) confirmReplace = true else vm.scriptActions.restore(listOf(c.restore(s)))
-    }
+    // The dialog of its copy that shows: the question before Update or Reset, or Compare.
+    var copyDialog by remember(s.id) { mutableStateOf<CopyDialog?>(null) }
     var times by remember(s.id, s.atTimes) { mutableStateOf(s.atTimes.joinToString(", ")) }
     var pickingTime by remember(s.id) { mutableStateOf(false) }
     var timesError by remember(s.id) { mutableStateOf(false) }
@@ -262,8 +257,9 @@ internal fun ScriptSheet(
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (copy != null && copy.canRestore) {
-                if (copy.lib != null) CompareButton(ButtonDefaults.MinHeight) { comparing = true }
-                CopyButton(copy, ButtonDefaults.MinHeight) { restore(copy) }
+                if (copy.lib != null) CompareButton(ButtonDefaults.MinHeight) { copyDialog = CopyDialog.COMPARE }
+                // Update or Reset to the source's version. An edited copy asks first; an unedited one changes at once.
+                CopyButton(copy, ButtonDefaults.MinHeight) { restoreCopy(vm, s, copy) { copyDialog = CopyDialog.CONFIRM } }
             }
             ErrorTextButton(onClick = { confirmDelete = true }) {
                 IconLabel(R.drawable.ic_delete, "Delete")
@@ -293,16 +289,7 @@ internal fun ScriptSheet(
         }
     }
 
-    if (confirmReplace && copy != null && copy.canRestore) {
-        RestoreDialog(vm, s, copy, onExport = onExport, onDismiss = { confirmReplace = false }) {
-            confirmReplace = false
-            vm.scriptActions.restore(listOf(copy.restore(s)))
-        }
-    }
-
-    if (comparing && copy?.lib != null && copy.canRestore) {
-        CompareDialog(vm, s, copy.lib, onDismiss = { comparing = false }) { comparing = false; restore(copy) }
-    }
+    CopyDialogs(vm, s, copy, copyDialog, onShow = { copyDialog = it }, onExport = onExport)
 
     if (confirmDelete) {
         ConfirmDialog(

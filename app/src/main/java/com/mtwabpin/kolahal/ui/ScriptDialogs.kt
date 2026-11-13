@@ -60,6 +60,53 @@ import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
+/** A dialog about a library or shared copy: the question before Update or Reset, or Compare. */
+internal enum class CopyDialog { CONFIRM, COMPARE }
+
+/**
+ * Update or Reset: [s] gets the version of where it came from ([copy]).
+ * - An edited copy would lose its edits, so nothing changes yet and [ask] runs. The caller then
+ *   shows the question ([CopyDialog.CONFIRM] in [CopyDialogs]).
+ * - An unedited copy has nothing to lose. It changes at once, and the notice offers Undo.
+ */
+internal fun restoreCopy(vm: TerminalViewModel, s: Script, copy: ScriptCopy, ask: () -> Unit) {
+    if (copy.edited) ask() else vm.scriptActions.restore(listOf(copy.restore(s)))
+}
+
+/**
+ * The dialogs of [s]'s [copy], for every page that offers Update, Reset or Compare: a script's
+ * card, its sheet and the library page.
+ * - The page keeps which one shows ([showing]) and for which script. [onShow] changes it; null closes.
+ * - [CopyDialog.CONFIRM] asks before the edits are lost ([RestoreDialog]). Its Update or Reset does it.
+ * - [CopyDialog.COMPARE] shows a library copy next to the library version ([CompareDialog]). Its
+ *   Update or Reset closes it, then asks first if the copy is edited ([restoreCopy]).
+ * - Nothing shows for a copy that can't be restored: it is up to date, or its source isn't known.
+ */
+@Composable
+internal fun CopyDialogs(
+    vm: TerminalViewModel,
+    s: Script,
+    copy: ScriptCopy?,
+    showing: CopyDialog?,
+    onShow: (CopyDialog?) -> Unit,
+    onExport: () -> Unit,
+) {
+    if (copy == null || !copy.canRestore) return
+    when (showing) {
+        CopyDialog.CONFIRM -> RestoreDialog(vm, s, copy, onExport = onExport, onDismiss = { onShow(null) }) {
+            onShow(null)
+            vm.scriptActions.restore(listOf(copy.restore(s)))
+        }
+        CopyDialog.COMPARE -> if (copy.lib != null) {
+            CompareDialog(vm, s, copy.lib, onDismiss = { onShow(null) }) {
+                onShow(null)
+                restoreCopy(vm, s, copy) { onShow(CopyDialog.CONFIRM) }
+            }
+        }
+        null -> Unit
+    }
+}
+
 /**
  * Asks before an edited copy gets its source's version, because the edits are lost. Only the code
  * changes: Reset (nothing newer) or Update (a new version).
@@ -67,7 +114,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
  * - Cancel, Back and a tap outside keep the copy.
  */
 @Composable
-internal fun RestoreDialog(vm: TerminalViewModel, s: Script, copy: ScriptCopy, onExport: () -> Unit, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+private fun RestoreDialog(vm: TerminalViewModel, s: Script, copy: ScriptCopy, onExport: () -> Unit, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     val update = copy.state == CopyState.NEW_VERSION
     val source = if (copy.lib != null) "library" else "shared"
     var comparing by remember { mutableStateOf(false) }

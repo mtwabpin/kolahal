@@ -203,10 +203,9 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     var adding by remember { mutableStateOf(false) }
     var sheetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var consentFor by remember { mutableStateOf<Script?>(null) }
-    // The script whose Update or Reset asks first, because its edits would be lost.
-    var restoring by remember { mutableStateOf<Long?>(null) }
-    // The script that Compare shows next to its library version.
-    var comparing by remember { mutableStateOf<Long?>(null) }
+    // The script whose copy shows a dialog, and which one: the question before Update or Reset
+    // (its edits would be lost), or Compare (next to its library version).
+    var copyDialog by remember { mutableStateOf<Pair<Long, CopyDialog>?>(null) }
     var updatingAll by remember { mutableStateOf(false) }
     // The script and the secret that Add key sets.
     var addingKey by remember { mutableStateOf<Pair<Long, String>?>(null) }
@@ -233,9 +232,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     }
 
     // Update or Reset. An edited copy loses its edits, so it asks first. An unedited one has nothing to lose: Undo is enough.
-    fun restore(s: Script, copy: ScriptCopy) {
-        if (copy.edited) restoring = s.id else vm.scriptActions.restore(listOf(copy.restore(s)))
-    }
+    fun restore(s: Script, copy: ScriptCopy) = restoreCopy(vm, s, copy) { copyDialog = s.id to CopyDialog.CONFIRM }
 
     val library by rememberLibraryRows(vm, scripts)
     val libByName = remember(library) { library.orEmpty().associateBy { it.entry.name } }
@@ -407,7 +404,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
                         onRun = { vm.scriptActions.runScriptNow(s) },
                         onAccess = { item, on -> vm.scriptActions.setScriptAccess(s, item, on) },
                         onNotify = { vm.scriptActions.setScriptNotify(s, it) },
-                        onCompare = { comparing = s.id },
+                        onCompare = { copyDialog = s.id to CopyDialog.COMPARE },
                         onRestore = { copy?.let { restore(s, it) } },
                         onAddKey = { name -> addingKey = s.id to name },
                     )
@@ -453,21 +450,10 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             }
         }
 
-        restoring?.let { id ->
-            val s = scripts.firstOrNull { it.id == id }
-            val copy = s?.let { copies[it.id] }?.takeIf { it.canRestore }
-            if (s != null && copy != null) {
-                RestoreDialog(vm, s, copy, onExport = { vm.requestScriptExport(s) }, onDismiss = { restoring = null }) {
-                    restoring = null
-                    vm.scriptActions.restore(listOf(copy.restore(s)))
-                }
+        copyDialog?.let { (id, dialog) ->
+            scripts.firstOrNull { it.id == id }?.let { s ->
+                CopyDialogs(vm, s, copies[s.id], dialog, onShow = { copyDialog = it?.let { d -> id to d } }, onExport = { vm.requestScriptExport(s) })
             }
-        }
-
-        val compared = comparing?.let { id -> scripts.firstOrNull { it.id == id } }
-        val comparedCopy = compared?.let { copies[it.id] }?.takeIf { it.lib != null && it.canRestore }
-        if (compared != null && comparedCopy?.lib != null) {
-            CompareDialog(vm, compared, comparedCopy.lib, onDismiss = { comparing = null }) { comparing = null; restore(compared, comparedCopy) }
         }
 
         if (updatingAll) {
