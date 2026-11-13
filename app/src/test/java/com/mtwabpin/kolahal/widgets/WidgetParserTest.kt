@@ -98,11 +98,151 @@ class WidgetParserTest {
         assertEquals("widget: no kind 3; use stat, text, list, progress, chart, countdown", refused(mapOf("kind" to 3)))
     }
 
-    /** Until they are built, the other kinds are an error that says so. */
-    @Test fun aKindThatIsNotBuiltYet() {
-        for (kind in listOf(WidgetKind.PROGRESS, WidgetKind.CHART, WidgetKind.COUNTDOWN)) {
-            assertEquals("widget: the ${kind.id} kind can't be shown yet", refused(emptyMap(), kind))
-        }
+    // ---- progress --------------------------------------------------------------------------
+
+    private fun progress(vararg fields: Pair<String, Any?>) = parse(mapOf(*fields), WidgetKind.PROGRESS) as WidgetSpec.Progress
+
+    @Test fun aProgressRingOrBar() {
+        assertEquals(
+            WidgetSpec.Progress(WidgetBase(color = StyledText.Colour.WARN), value = 68f, max = 100f, text = "68%", label = "Moderate", style = "ring", moving = true),
+            progress("value" to 68, "max" to 100, "text" to "68%", "label" to "Moderate", "style" to "ring", "moving" to true, "color" to "warn"),
+        )
+        // Without a max, the value is out of 1.
+        assertEquals(WidgetSpec.Progress(WidgetBase(), value = 0.4f), progress("value" to 0.4))
+        // The text in the middle can be a number.
+        assertEquals("68", progress("value" to 68, "max" to 100, "text" to 68).text)
+    }
+
+    @Test fun aProgressValueStaysFromZeroToItsMax() {
+        assertEquals(100f, progress("value" to 250, "max" to 100).value)
+        assertEquals(0f, progress("value" to -3, "max" to 100).value)
+        assertEquals(1f, progress("value" to 8).value)
+    }
+
+    @Test fun whatAProgressRefuses() {
+        fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.PROGRESS)
+        assertEquals("widget: value is needed: how far along it is, from 0 to max. Or give items, for bars", no("label" to "x"))
+        assertEquals("widget: value is needed: how far along it is, from 0 to max. Or give items, for bars", no("items" to emptyMap<String, Any?>()))
+        assertEquals("widget: value must be a number, not '68%'", no("value" to "68%"))
+        assertEquals("widget: max must be a number above 0, not 0", no("value" to 1, "max" to 0))
+        assertEquals("widget: max must be a number above 0, not 'ten'", no("value" to 1, "max" to "ten"))
+        assertEquals("widget: style must be ring or bar, not 'wave'", no("value" to 1, "style" to "wave"))
+        assertEquals("widget: item 2 of items: value is needed: how far along this bar is", no("items" to listOf(mapOf("value" to 1), mapOf("label" to "b"))))
+        assertEquals("widget: item 1 of items: max must be a number above 0, not -1", no("items" to listOf(mapOf("value" to 1, "max" to -1))))
+        assertEquals("widget: item 1 of items: no field 'title'; use label, value, max, text, color", no("items" to listOf(mapOf("title" to "a", "value" to 1))))
+    }
+
+    /** Bars are on one scale: the widget's max, or else the largest value among them. A bar's own max wins for that bar. */
+    @Test fun progressBarsShareOneScale() {
+        val spec = progress(
+            "items" to listOf(
+                mapOf("label" to "Steps", "value" to 6000, "text" to "6k", "color" to "good"),
+                mapOf("label" to "Water", "value" to 3),
+                mapOf("value" to 2, "max" to 4),
+            ),
+        )
+        assertEquals(
+            listOf(
+                WidgetSpec.Bar("Steps", 6000f, 6000f, "6k", StyledText.Colour.GOOD),
+                WidgetSpec.Bar("Water", 3f, 6000f, null, null),
+                WidgetSpec.Bar(null, 2f, 4f, null, null),
+            ),
+            spec.items,
+        )
+        // With bars, the widget needs no value of its own.
+        assertEquals(0f, spec.value)
+        val scaled = progress("max" to 10, "items" to listOf(mapOf("value" to 3), mapOf("value" to 30)))
+        assertEquals(listOf(10f, 10f), scaled.items.map { it.max })
+        assertEquals(listOf(3f, 10f), scaled.items.map { it.value })
+        // Bars that are all at zero still have a scale.
+        assertEquals(listOf(1f), progress("items" to listOf(mapOf("value" to 0))).items.map { it.max })
+    }
+
+    @Test fun aProgressKeepsItsFirstFourBars() {
+        assertEquals(listOf(1f, 2f, 3f, 4f), progress("items" to (1..6).map { mapOf("value" to it) }).items.map { it.value })
+    }
+
+    // ---- chart -----------------------------------------------------------------------------
+
+    private fun chart(vararg fields: Pair<String, Any?>) = parse(mapOf(*fields), WidgetKind.CHART) as WidgetSpec.Chart
+
+    @Test fun aChartWithAllItsFields() {
+        assertEquals(
+            WidgetSpec.Chart(
+                WidgetBase(), points = listOf(3f, 12f, 9.5f), style = "bars", min = 0f, max = 20f,
+                value = "9", label = "unlocks today", labels = listOf("6 days ago", "today"), summary = "Fewer than yesterday",
+            ),
+            chart(
+                "points" to listOf(3, 12L, 9.5), "style" to "bars", "min" to 0, "max" to 20,
+                "value" to 9, "label" to "unlocks today", "labels" to listOf("6 days ago", "today"), "summary" to "Fewer than yesterday",
+            ),
+        )
+        // A line, unless it says bars.
+        assertEquals(WidgetSpec.Chart(WidgetBase(), points = listOf(1f)), chart("points" to listOf(1)))
+        // No points yet: an empty Lua table is an empty list.
+        assertEquals(emptyList<Float>(), chart("points" to emptyMap<String, Any?>()).points)
+    }
+
+    /** A script keeps its history in its store, and that grows. The newest points are the ones to show. */
+    @Test fun aChartKeepsItsLastPoints() {
+        val points = chart("points" to (1..100).toList()).points
+        assertEquals(60, points.size)
+        assertEquals(41f, points.first())
+        assertEquals(100f, points.last())
+        // What isn't kept isn't checked.
+        assertEquals(60, chart("points" to (listOf<Any?>("old") + (1..60).toList())).points.size)
+    }
+
+    /** Two labels: under the first point and under the last. An empty first one keeps the second in its place. */
+    @Test fun aChartHasTwoLabels() {
+        assertEquals(listOf("Mon", "Tue"), chart("points" to listOf(1), "labels" to listOf("Mon", "Tue", "Wed")).labels)
+        assertEquals(listOf("", "today"), chart("points" to listOf(1), "labels" to listOf("", "today")).labels)
+        assertEquals(listOf("1", "7"), chart("points" to listOf(1), "labels" to listOf(1, 7.0)).labels)
+        assertEquals(listOf("x".repeat(15) + "…"), chart("points" to listOf(1), "labels" to listOf("x".repeat(40))).labels)
+    }
+
+    @Test fun whatAChartRefuses() {
+        fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.CHART)
+        assertEquals("widget: points is needed: a list of numbers, the oldest first", no("value" to 1))
+        assertEquals("widget: points must be a list of numbers, not 7", no("points" to 7))
+        assertEquals("widget: points must be a list of numbers; one of them is 'x'", no("points" to listOf(1, "x")))
+        assertEquals("widget: points must be a list of numbers; one of them is nothing", no("points" to listOf(1, null)))
+        assertEquals("widget: min must be below max", no("points" to listOf(1), "min" to 5, "max" to 5))
+        assertEquals("widget: min must be a number, not 'low'", no("points" to listOf(1), "min" to "low"))
+        assertEquals("widget: style must be line or bars, not 'pie'", no("points" to listOf(1), "style" to "pie"))
+        assertEquals("widget: labels must be a list of texts, not 'Mon'", no("points" to listOf(1), "labels" to "Mon"))
+        assertEquals("widget: labels must be text, not true", no("points" to listOf(1), "labels" to listOf(true)))
+    }
+
+    // ---- countdown -------------------------------------------------------------------------
+
+    private fun countdown(vararg fields: Pair<String, Any?>) = parse(mapOf(*fields), WidgetKind.COUNTDOWN) as WidgetSpec.Countdown
+
+    @Test fun aCountdownWithAllItsFields() {
+        assertEquals(
+            WidgetSpec.Countdown(WidgetBase(title = "Goa trip"), to = 1_797_705_000, from = 1_790_000_000, label = "to go", style = "days", reached = "Today"),
+            countdown("title" to "Goa trip", "to" to 1_797_705_000, "from" to 1_790_000_000, "label" to "to go", "style" to "days", "reached" to "Today"),
+        )
+        assertEquals(WidgetSpec.Countdown(WidgetBase(), to = 0), countdown("to" to 0))
+        assertEquals("clock", countdown("to" to 60, "style" to "clock").style)
+    }
+
+    /** `os.time()` is whole seconds. `Date.now() / 1000` has a fraction, which is dropped. */
+    @Test fun aCountdownTakesSecondsWithAFraction() {
+        assertEquals(1_797_705_000L, countdown("to" to 1_797_705_000.75).to)
+        assertEquals(1_797_705_000L, countdown("to" to 1_797_705_000L).to)
+        assertEquals(-2L, countdown("to" to -1.5).to)
+    }
+
+    @Test fun whatACountdownRefuses() {
+        fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.COUNTDOWN)
+        assertEquals("widget: to is needed: the moment, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)", no("label" to "x"))
+        // Date.now() without the division.
+        assertEquals("widget: to must be a time in seconds, not in milliseconds: divide it by 1000", no("to" to 1_797_705_000_000))
+        assertEquals("widget: from must be a time in seconds, not in milliseconds: divide it by 1000", no("to" to 100, "from" to 1_797_705_000_000))
+        assertEquals("widget: to must be a time in seconds, not '2026-12-20'", no("to" to "2026-12-20"))
+        assertEquals("widget: from must be before to", no("to" to 100, "from" to 100))
+        assertEquals("widget: style must be days or clock, not 'hours'", no("to" to 100, "style" to "hours"))
     }
 
     // ---- typed ----------------------------------------------------------------------------
@@ -293,6 +433,22 @@ class WidgetParserTest {
         assertEquals(WidgetSpec.Text(WidgetBase(), text = "X", caption = "C"), text)
     }
 
+    @Test fun theTextsOfAProgressAChartAndACountdownGoThroughTheHostToo() {
+        fun up(kind: WidgetKind, vararg fields: Pair<String, Any?>) = WidgetParser.parse(mapOf(*fields), kind, text = { it.uppercase() }, link = { it })
+        assertEquals(
+            WidgetSpec.Progress(WidgetBase(), value = 1f, text = "T", label = "L", items = listOf(WidgetSpec.Bar("BL", 1f, 1f, "BT", null))),
+            up(WidgetKind.PROGRESS, "value" to 1, "text" to "t", "label" to "l", "items" to listOf(mapOf("label" to "bl", "value" to 1, "text" to "bt"))),
+        )
+        assertEquals(
+            WidgetSpec.Chart(WidgetBase(), points = listOf(1f), value = "V", label = "L", labels = listOf("A", "B"), summary = "S"),
+            up(WidgetKind.CHART, "points" to listOf(1), "value" to "v", "label" to "l", "labels" to listOf("a", "b"), "summary" to "s"),
+        )
+        assertEquals(
+            WidgetSpec.Countdown(WidgetBase(), to = 5, label = "L", reached = "R"),
+            up(WidgetKind.COUNTDOWN, "to" to 5, "label" to "l", "reached" to "r"),
+        )
+    }
+
     /** A secret is masked before the cut. A cut first could leave half a secret, which nothing masks. */
     @Test fun aTextIsMaskedBeforeItIsCut() {
         val title = "x".repeat(36) + "SECRET"
@@ -317,6 +473,7 @@ class WidgetParserTest {
     @Test fun noFieldIsALuaKeywordOrAnAccessWord() {
         assertEquals(emptySet<String>(), WidgetParser.FIELDS intersect (ApiDocs.luaKeywords + listOf("status", "notify")).toSet())
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "args", "url", "label", "page", "value", "more", "text", "caption", "items", "empty", "detail", "trailing")))
+        assertTrue(WidgetParser.FIELDS.containsAll(listOf("max", "style", "moving", "points", "min", "labels", "summary", "to", "from", "reached")))
         assertTrue(WidgetParser.FIELDS.all { Regex("[a-z][A-Za-z]*").matches(it) })
     }
 
@@ -327,6 +484,8 @@ class WidgetParserTest {
             refused(mapOf("nope" to 1), WidgetKind.STAT), refused(mapOf("nope" to 1), WidgetKind.TEXT), refused(mapOf("nope" to 1), WidgetKind.LIST),
             refused(mapOf("value" to 1, "tap" to mapOf("nope" to 1))), refused(mapOf("value" to 1, "more" to listOf(mapOf("nope" to 1)))),
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.LIST),
+            refused(mapOf("nope" to 1), WidgetKind.PROGRESS), refused(mapOf("nope" to 1), WidgetKind.CHART), refused(mapOf("nope" to 1), WidgetKind.COUNTDOWN),
+            refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.PROGRESS),
         )
         val known = errors.flatMap { listed.find(it!!)!!.groupValues[1].split(", ") }.toSet()
         assertEquals(WidgetParser.FIELDS, known)

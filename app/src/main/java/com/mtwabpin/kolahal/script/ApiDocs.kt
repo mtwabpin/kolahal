@@ -37,7 +37,9 @@ object ApiDocs {
 
     /** What `widget.show` does, the same words for Lua and JavaScript. */
     private const val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line). The fields depend on its kind: stat takes value, label, unit, delta, trend, more, progress; " +
-        "text takes text, caption; list takes items, each { title, detail, trailing, icon, color, tap }, and empty. " +
+        "text takes text, caption; list takes items, each { title, detail, trailing, icon, color, tap }, and empty; " +
+        "progress takes value, max, text, label, style, moving, or items for bars, each { label, value, max, text, color }; " +
+        "chart takes points, style, min, max, value, label, labels, summary; countdown takes to and from (times in seconds), label, style, reached. " +
         "Every kind takes title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter and refresh (seconds). " +
         "An unknown field is an error. True when you placed the widget; false when you didn't: then it is checked, not stored"
 
