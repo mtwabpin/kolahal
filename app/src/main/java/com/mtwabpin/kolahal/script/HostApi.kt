@@ -540,7 +540,7 @@ class HostApi(
         val line = widgetLine("widget.show") ?: return false
         val placed = grants?.allows(ScriptAccess.WIDGET) == true
         if (!widgetCall("widget.show")) return placed
-        val raw = desc ?: throw IllegalArgumentException("widget.show expects a description: widget.show{ value = …, label = … }")
+        val raw = desc ?: throw IllegalArgumentException("widget.show expects a description: a table or object such as { value, label }")
         val spec = WidgetParser.parse(raw, line.kind, text = { StyledText.plain(redact(it)) }, link = ::widgetLink)
         // The texts have limits of their own. A link has none, so this is what stops a huge one.
         require(WidgetJson.encode(spec).toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }

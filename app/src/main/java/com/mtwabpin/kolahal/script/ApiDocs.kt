@@ -35,13 +35,17 @@ object ApiDocs {
     private val NS = ApiDoc.Kind.NAMESPACE
     private val VALUE = ApiDoc.Kind.VALUE
 
-    /** What `widget.show` does, the same words for Lua and JavaScript. */
-    private const val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line). The fields depend on its kind: stat takes value, label, unit, delta, trend, more, progress; " +
-        "text takes text, caption; list takes items, each { title, detail, trailing, icon, color, tap }, and empty; " +
-        "progress takes value, max, text, label, style, moving, or items for bars, each { label, value, max, text, color }; " +
-        "chart takes points, style, min, max, value, label, labels, summary; countdown takes to and from (times in seconds), label, style, reached. " +
-        "Every kind takes title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter and refresh (seconds). " +
-        "An unknown field is an error. True when you placed the widget; false when you didn't: then it is checked, not stored"
+    /**
+     * What `widget.show` does, the same words for Lua and JavaScript. The editor shows the start
+     * on one line, so what the call does and returns comes first, and the fields of each kind after.
+     */
+    private const val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
+        "stat: value, label, unit, delta, trend, more, progress, moving. text: text, caption. " +
+        "list: items (each { title, detail, trailing, icon, color, tap }), empty. " +
+        "progress: value, max, text, label, style, moving, or items for bars (each { label, value, max, text, color }). " +
+        "chart: points, style, min, max, value, label, labels, summary. countdown: to, from (times in seconds), label, style, reached. " +
+        "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter, refresh (seconds). " +
+        "An unknown field is an error"
 
     val all: List<ApiDoc> = listOf(
         ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again, ctx.gap = true puts a small space above it to start a new item of a list. line.set(title, body?, ctx?) changes it in place while the script runs"),
