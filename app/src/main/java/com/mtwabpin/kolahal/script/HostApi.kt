@@ -12,6 +12,9 @@ import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.notify.Notifier
+import com.mtwabpin.kolahal.widgets.WidgetJson
+import com.mtwabpin.kolahal.widgets.WidgetParser
+import com.mtwabpin.kolahal.widgets.WidgetStates
 import okhttp3.Headers.Companion.toHeaders
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -33,6 +36,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *   rss.fresh(url)              -> like fetch, but only items that no earlier call returned
  *   store.get(key) / store.set(key, value) -> persistent strings, per script
  *   device.dnd() / device.setDnd(mode), device.work() / device.setWork(on) -> Do Not Disturb, the work profile
+ *   widget.show(desc) / widget.clear() -> this script's widget on the widgets page
  *   json.encode(v) / json.decode(s)
  */
 class HostApi(
@@ -52,6 +56,8 @@ class HostApi(
     from: Long? = null,
     /** Its `@option`s with your values or their defaults ([ScriptOptions]). This is the `options` table. */
     val options: Map<String, String> = emptyMap(),
+    /** Its `@widget` line ([ScriptMeta.widget]). Null when it has none: then `widget.show` is an error. */
+    private val widget: ScriptMeta.Widget? = null,
 ) {
     class Secrets(val declared: List<ScriptMeta.Secret>, val values: Map<String, String>)
 
@@ -514,6 +520,79 @@ class HostApi(
     /** Status line writes in this run. */
     private var statusWrites = 0
 
+    // ---- its widget ----------------------------------------------------------------------
+
+    /**
+     * `widget.show(desc)`: checks [desc] ([WidgetParser]) and stores it as this script's widget.
+     * - Every text has its secrets masked and its styles removed. The first build draws plain text.
+     * - Every link is checked ([widgetLink]). A link that is refused is an error.
+     * - It is stored only for a widget you placed. Returns true when it is placed. A widget that
+     *   isn't placed still has its description checked, so a mistake shows either way.
+     * - A run may call it [MAX_WIDGET_PER_RUN] times. Later calls change nothing.
+     *
+     * This runs in the `:script` process, which can't see the widgets page. So "placed" comes only
+     * from the script's access ([ScriptAccess.WIDGET]): the main process sets it when you place the widget.
+     */
+    fun widgetShow(desc: Map<*, *>?): Boolean {
+        live()
+        effects++
+        flush()
+        val line = widgetLine("widget.show") ?: return false
+        val placed = grants?.allows(ScriptAccess.WIDGET) == true
+        if (!widgetCall("widget.show")) return placed
+        val raw = desc ?: throw IllegalArgumentException("widget.show expects a description: widget.show{ value = …, label = … }")
+        val spec = WidgetParser.parse(raw, line.kind, text = { StyledText.plain(redact(it)) }, link = ::widgetLink)
+        // The texts have limits of their own. A link has none, so this is what stops a huge one.
+        require(WidgetJson.encode(spec).toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
+        if (placed) WidgetStates.put(context, scriptName, spec)
+        return placed
+    }
+
+    /** `widget.clear()`: removes the widget's content. Its card then says that there is nothing to show. */
+    fun widgetClear() {
+        live()
+        effects++
+        flush()
+        widgetLine("widget.clear") ?: return
+        if (grants?.allows(ScriptAccess.WIDGET) == true && widgetCall("widget.clear")) WidgetStates.clear(context, scriptName)
+    }
+
+    /**
+     * The script's `@widget` line, for [call].
+     * - Code typed at the prompt has no script to key a widget by: it gets a line that says so, and null.
+     * - A saved script without the line gets an error that says to add it, as a call without its `@uses` line does.
+     */
+    private fun widgetLine(call: String): ScriptMeta.Widget? {
+        if (scriptId == null) {
+            log("$call() only works in saved scripts (it is keyed by script name)")
+            return null
+        }
+        return widget ?: throw IllegalStateException("$call needs `@widget <kind>` at the top of the script")
+    }
+
+    /** Counts a widget call. False past the run's limit; the first call past it says so. */
+    private fun widgetCall(call: String): Boolean {
+        if (++widgetCalls <= MAX_WIDGET_PER_RUN) return true
+        if (widgetCalls == MAX_WIDGET_PER_RUN + 1) logError("$call: more than $MAX_WIDGET_PER_RUN widget calls in one run; the rest change nothing")
+        return false
+    }
+
+    /** `widget.show` and `widget.clear` calls in this run. */
+    private var widgetCalls = 0
+
+    /**
+     * A widget's link as it may be stored: checked as a line's `url` is ([safeWebUrl]), then with
+     * secrets masked. A link that fails stops the run with an error that says why, as a refused
+     * request does. A card with a dead tap would be worse.
+     */
+    private fun widgetLink(link: String): String {
+        if (Net.webUrl(link) == null) throw IllegalArgumentException("widget: a link must be a web address (http or https), not '${redact(link).take(80)}'")
+        if (grants != null && !grants.allows(ScriptAccess.INTERNET)) deny(ScriptAccess.INTERNET, "internet is off for this script")
+        // This throws for a link that carries a secret to a site its @secret line doesn't name.
+        val web = safeWebUrl(link) ?: throw IllegalArgumentException("widget: this link can't be used")
+        return redact(web)
+    }
+
     // ---- device, apps, launcher ----------------------------------------------------------
 
     fun clipboardSet(text: String) {
@@ -775,6 +854,10 @@ class HostApi(
         const val MAX_NOTIFY_PER_RUN = 10
         /** The most status line writes one run may make. */
         const val MAX_STATUS_PER_RUN = 20
+        /** The most `widget.show` and `widget.clear` calls that count in one run. */
+        const val MAX_WIDGET_PER_RUN = 20
+        /** The largest description `widget.show` stores, as JSON (bytes). */
+        const val MAX_WIDGET_BYTES = 32 * 1024
 
         /** How many times a run can change its lines with `line.set`. Later changes are ignored. */
         const val MAX_SETS_PER_RUN = 300

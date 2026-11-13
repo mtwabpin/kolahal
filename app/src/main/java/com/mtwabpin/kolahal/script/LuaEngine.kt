@@ -177,6 +177,12 @@ class LuaEngine : ScriptEngine {
                 1
             },
         )
+        // widget.show{ … }: the description is its one argument. Anything but a table is no description, which is an error.
+        lua.table(
+            "widget",
+            "show" to { l: Lua -> l.push(host.widgetShow(l.mapArg(1))); 1 },
+            "clear" to { l: Lua -> host.widgetClear(); 0 },
+        )
         lua.table("apps", "list" to { l: Lua -> l.pushValue(host.appsList()); 1 })
         lua.table("notifications", "recent" to { l: Lua -> l.pushValue(host.notificationsRecent(if (l.isNumber(1)) l.toInteger(1).toInt() else 20)); 1 })
         lua.table("launcher", "run" to { l: Lua -> l.push(host.runCommand(l.checkString())); 1 })

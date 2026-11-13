@@ -53,4 +53,18 @@ class ScriptCheckTest {
         assertTrue(lua("local store = {}\nstore.thing = 1").isEmpty())
         assertTrue(lua("-- @every 1h\n-- @at 07:00, 18:30\n-- @on unlock\nlog(http.get('x').status)").isEmpty())
     }
+
+    /** `@widget <kind> [<size>]`: a kind or a size that doesn't exist is pointed out. */
+    @Test fun aWidgetLineItCantRead() {
+        assertTrue(lua("-- @widget stat\n-- @widget list 4x2").isEmpty())
+        assertEquals(listOf(ScriptCheck.Issue(1, "@widget graph isn't a kind: stat, text, list, progress, chart, countdown")), lua("-- @widget graph"))
+        assertEquals(listOf(ScriptCheck.Issue(1, "@widget stat 3x3 isn't a size: 1x1, 2x1, 2x2, 4x1, 4x2, 4x4")), lua("-- @widget stat 3x3"))
+        assertEquals("@widget needs a kind: stat, text, list, progress, chart, countdown", ScriptCheck.check("// @widget", ScriptLang.JS).single().text)
+    }
+
+    @Test fun theWidgetCallsAreInTheApi() {
+        assertTrue(lua("-- @widget stat\nif widget then widget.show{ value = 1 } end\nwidget.clear()").isEmpty())
+        assertTrue(ScriptCheck.check("// @widget text\nif (typeof widget !== \"undefined\") widget.show({ text: \"x\" });", ScriptLang.JS).isEmpty())
+        assertEquals("widget.shwo isn't in the API: widget.show?", lua("widget.shwo{}").single().text)
+    }
 }

@@ -126,6 +126,10 @@ class JsEngine : ScriptEngine {
             function("work") { host.work() }
             function("setWork") { args -> host.setWork(host.onOff(args.getOrNull(0), "device.setWork")) }
         }
+        js.define("widget") {
+            function("show") { args -> host.widgetShow(args.getOrNull(0) as? Map<*, *>) }
+            function("clear") { host.widgetClear() }
+        }
         js.define("apps") { function("list") { toJs(host.appsList()) } }
         js.define("notifications") { function("recent") { args -> toJs(host.notificationsRecent((args.getOrNull(0) as? Number)?.toInt() ?: 20)) } }
         js.define("launcher") { function("run") { args -> host.runCommand(args.req()) } }
@@ -277,7 +281,7 @@ class JsEngine : ScriptEngine {
               const g = globalThis;
               for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set"]) install(g, name, false);
               install(g, "sleep", true);
-              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets"];
+              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget"];
               for (const ns of spaces) {
                 const o = g[ns];
                 const ks = names(o);

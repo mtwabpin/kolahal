@@ -1,6 +1,8 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetSize
 
 /**
  * The script API as data. The editor uses it for completion, inline docs and the reference sheet.
@@ -33,6 +35,12 @@ object ApiDocs {
     private val NS = ApiDoc.Kind.NAMESPACE
     private val VALUE = ApiDoc.Kind.VALUE
 
+    /** What `widget.show` does, the same words for Lua and JavaScript. */
+    private const val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line). The fields depend on its kind: stat takes value, label, unit, delta, trend, more, progress; " +
+        "text takes text, caption; list takes items, each { title, detail, trailing, icon, color, tap }, and empty. " +
+        "Every kind takes title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter and refresh (seconds). " +
+        "An unknown field is an error. True when you placed the widget; false when you didn't: then it is checked, not stored"
+
     val all: List<ApiDoc> = listOf(
         ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again, ctx.gap = true puts a small space above it to start a new item of a list. line.set(title, body?, ctx?) changes it in place while the script runs"),
         ApiDoc("logs", "logs(titles)", "Append one title line per item: logs({ \"a\", \"b\" }) or logs(\"a\", \"b\")"),
@@ -57,13 +65,17 @@ object ApiDocs {
         ApiDoc("fmt.plain", "fmt.plain(text) -> string", "The text without its styles, for anything other than the log"),
         ApiDoc("notify", "notify(title, body, ctx?) -> bool", "Post a notification if enabled for the script; ctx.url opens on tap"),
         ApiDoc("status", "status(text, opts?)", "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) clears it"),
-        ApiDoc("allowed", "allowed(what) -> bool", "Whether this script may use `what`: internet, header, notifications, apps, clipboard, commands, dnd, work or an @on event"),
+        ApiDoc("allowed", "allowed(what) -> bool", "Whether this script may use `what`: internet, header, widget (true once you placed its widget), notifications, apps, clipboard, commands, dnd, work or an @on event"),
+        ApiDoc("widget", "widget", "This script's widget on the widgets page: show, clear", kind = NS),
+        ApiDoc("widget.show", "widget.show{ value, label, … } -> bool", WIDGET_SHOW, LUA),
+        ApiDoc("widget.show", "widget.show({ value, label, … }) -> bool", WIDGET_SHOW, JS),
+        ApiDoc("widget.clear", "widget.clear()", "Remove the widget's content; its card then has nothing to show"),
         ApiDoc("sleep", "sleep(ms)", "Pause up to 5000 ms", LUA),
         ApiDoc("sleep", "await sleep(ms)", "Pause up to 5000 ms (async)", JS),
         ApiDoc("print", "print(...)", "Log the values joined by tabs", LUA),
         ApiDoc("args", "args", "Arguments when run as a command (list of strings)", kind = VALUE),
         ApiDoc("argline", "argline", "Arguments joined by spaces", kind = VALUE),
-        ApiDoc("event", "event", "What started this run, an @on event, an @at time, a button under its line (action) or a pinned status line's refresh (event.name, time, label, app, title, text, level…); nil/null otherwise", kind = VALUE),
+        ApiDoc("event", "event", "What started this run, an @on event, an @at time, a button under its line or a tap on its widget (action), a pinned status line's refresh or the widgets page asking for new content (widget) (event.name, time, label, app, title, text, level…); nil/null otherwise", kind = VALUE),
         ApiDoc("options", "options", "Its @option values by name, as text: your value if set, otherwise the default (options.city)", kind = VALUE),
 
         ApiDoc("http", "http", "HTTP client: get, cached, request", kind = NS),
@@ -155,6 +167,11 @@ object ApiDocs {
         Directive("command", "", "Run it by its name from the prompt"),
         Directive("desc", "<text>", "One-line description, in help, suggestions and Scripts"),
         Directive("usage", "[<args>]", "Its arguments, like a usage line in help: [<city>]"),
+        Directive(
+            "widget", "<kind> [<size>]",
+            "It has a widget for the widgets page, filled with widget.show. Kinds: " + WidgetKind.entries.joinToString(" ") { it.id } +
+                ". Sizes: " + WidgetSize.entries.joinToString(" ") { it.id },
+        ),
         Directive("on", "<event>, …", "Run on these events: " + ScriptMeta.EVENTS.joinToString(" ")),
         Directive("uses", "<what>, …", "What it may use, if you allow it: " + ScriptMeta.USES.joinToString(" ")),
         Directive("option", "<name> <default> <description>", "A setting you change without editing the code, read as options.<name>; a default of a|b|c offers a choice"),

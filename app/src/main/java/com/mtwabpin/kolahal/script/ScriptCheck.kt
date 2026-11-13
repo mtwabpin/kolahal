@@ -2,12 +2,14 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.commands.CommandParsing
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetSize
 
 /**
  * What the editor points out when you save a script. It reads only the script's text and finds:
  * - a name the API doesn't have (`http.gte`),
  * - a call that needs a `@uses` line the script lacks,
- * - `@` lines Kolahal doesn't know or can't read (`@evrey 1h`, `@at 25:00`, `@on unlok`).
+ * - `@` lines Kolahal doesn't know or can't read (`@evrey 1h`, `@at 25:00`, `@on unlok`, `@widget graph`).
  * These are hints, not errors. The script is saved either way.
  */
 object ScriptCheck {
@@ -17,8 +19,21 @@ object ScriptCheck {
     /** Every `@` line the header may have ([ScriptMeta]). */
     internal val DIRECTIVES = setOf(
         "command", "desc", "usage", "on", "uses", "secret", "option",
-        "title", "author", "version", "tags", "every", "at", "notify", "requires",
+        "title", "author", "version", "tags", "every", "at", "notify", "requires", "widget",
     )
+
+    /** What is wrong with a `@widget <kind> [<size>]` line, whose text after `@widget` is [rest]. Null when it reads well. */
+    private fun widgetIssue(rest: String): String? {
+        val words = rest.trim().split(Regex("\\s+"))
+        val kind = words[0]
+        val size = words.getOrNull(1)
+        return when {
+            kind.isEmpty() -> "@widget needs a kind: ${WidgetKind.entries.joinToString(", ") { it.id }}"
+            WidgetKind.named(kind) == null -> "@widget $kind isn't a kind: ${WidgetKind.entries.joinToString(", ") { it.id }}"
+            size != null && WidgetSize.named(size) == null -> "@widget $kind $size isn't a size: ${WidgetSize.entries.joinToString(", ") { it.id }}"
+            else -> null
+        }
+    }
 
     /** What each `@uses` name allows a script to call. */
     private val NEEDS = linkedMapOf(
@@ -51,6 +66,7 @@ object ScriptCheck {
                 // Read the names the same way a run does: a name in capitals, or after a tab, counts.
                 "uses" -> ScriptMeta.usesNames(rest).firstOrNull { it !in ScriptMeta.USES }
                     ?.let { out += Issue(i + 1, "@uses $it isn't valid: ${ScriptMeta.USES.joinToString(", ")}") }
+                "widget" -> widgetIssue(rest)?.let { out += Issue(i + 1, it) }
             }
         }
 
