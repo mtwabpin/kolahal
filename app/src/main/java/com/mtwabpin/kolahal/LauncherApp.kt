@@ -133,18 +133,10 @@ class LauncherApp : Application(), Configuration.Provider {
             }
         }.start()
 
+        // The :script process writes to the log too, and says so in a message. The log reads its own message.
         val logs = LogRepository.get(this)
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val trimmed = intent.getLongExtra(LogRepository.EXTRA_TRIMMED_UP_TO, 0L)
-                val updated = intent.getLongArrayExtra(LogRepository.EXTRA_UPDATED)
-                when {
-                    intent.getBooleanExtra(LogRepository.EXTRA_RESTRUCTURE, false) -> logs.onExternalRestructure()
-                    trimmed > 0 -> logs.onExternalTrim(trimmed)
-                    updated != null && updated.isNotEmpty() -> logs.onExternalUpdate(updated)
-                    else -> logs.onExternalChange()
-                }
-            }
+            override fun onReceive(context: Context, intent: Intent) = logs.onExternal(intent)
         }, IntentFilter(LogRepository.ACTION_LOGS_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
 
         // The :script process doesn't see settings changes. So home copies `log.keep-lines` to a place

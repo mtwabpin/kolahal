@@ -225,33 +225,21 @@ class LogRepository private constructor(private val context: Context) {
      * Lines changed in place ([update]), as removals are tracked: home reads them again instead of
      * the whole page. The last [REMOVALS_KEPT] are remembered.
      */
-    private val updates = ArrayDeque<Pair<Long, Long>>()
+    private val updates = Journal(REMOVALS_KEPT)
 
     /** The number of the latest change in place, or 0 before any. */
-    @Volatile var updatedSeq = 0L
-        private set
+    val updatedSeq: Long get() = updates.seq
 
     /** Ids changed in place after change number [since], or null when that is too long ago to know. Then the page must be read again. */
-    @Synchronized fun updatedSince(since: Long): Set<Long>? {
-        if (since < updatedSeq - updates.size) return null
-        return updates.filter { (seq, _) -> seq > since }.mapTo(HashSet()) { (_, id) -> id }
-    }
+    fun updatedSince(since: Long): Set<Long>? = updates.since(since)
 
     private fun noteUpdated(ids: Collection<Long>) {
         if (ids.isEmpty()) return
         // Another process (a script) tells home which lines changed.
         if (Singleton.inScriptProcess) return changed(updated = ids, inPlace = true)
-        synchronized(this) {
-            for (id in ids) {
-                updates.addLast(++updatedSeq to id)
-                if (updates.size > REMOVALS_KEPT) updates.removeFirst()
-            }
-        }
+        updates.add(ids)
         changed(inPlace = true)
     }
-
-    /** Another process changed these lines in place. */
-    fun onExternalUpdate(ids: LongArray) = noteUpdated(ids.toList())
 
     /**
      * Incremented by a change in the middle of the log that home can't apply to its page by itself
@@ -272,30 +260,21 @@ class LogRepository private constructor(private val context: Context) {
      * bottom). Home drops them from its page instead of reading it again, starting from the number
      * it last applied ([removedSince]). The last [REMOVALS_KEPT] are remembered.
      */
-    private val removals = ArrayDeque<Pair<Long, Long>>()
+    private val removals = Journal(REMOVALS_KEPT)
 
     /** The number of the latest removal, or 0 before any. */
-    @Volatile var removedSeq = 0L
-        private set
+    val removedSeq: Long get() = removals.seq
 
     /**
      * Ids removed after removal number [since], or null when that is too long ago to know. Then the
      * page must be read again.
      */
-    @Synchronized fun removedSince(since: Long): Set<Long>? {
-        if (since < removedSeq - removals.size) return null
-        return removals.filter { (seq, _) -> seq > since }.mapTo(HashSet()) { (_, id) -> id }
-    }
+    fun removedSince(since: Long): Set<Long>? = removals.since(since)
 
     private fun noteRemoved(ids: Collection<Long>) {
         if (ids.isEmpty()) return
         if (Singleton.inScriptProcess) return restructured()
-        synchronized(this) {
-            for (id in ids) {
-                removals.addLast(++removedSeq to id)
-                if (removals.size > REMOVALS_KEPT) removals.removeFirst()
-            }
-        }
+        removals.add(ids)
         // Inside a batch, the flush announces the change together with the lines it writes.
         if (batch.get() == null) changed()
     }
@@ -661,29 +640,14 @@ class LogRepository private constructor(private val context: Context) {
     /** Script status lines live in the kv table. This reuses the log change signal to refresh the header. */
     fun onStatusChanged() = changed()
 
-    /** Called when another process tells us the log changed. */
-    fun onExternalChange() {
-        _version.value++
-        _linesVersion.value++
-    }
-
-    /** Another process changed the middle of the log, so reload the page. */
-    fun onExternalRestructure() = restructured()
-
-    /** Another process trimmed the log up to [upTo]. The page is read again only if the trim reached into it. */
-    fun onExternalTrim(upTo: Long) {
-        trimmedUpTo = maxOf(trimmedUpTo, upTo)
-        _version.value++
-        _linesVersion.value++
-    }
-
     /** Makes home look again without a new line, because a script run's result was recorded after its last line. */
     fun touch() = changed()
 
     private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList(), inPlace: Boolean = false) {
         _version.value++
         if (!inPlace) _linesVersion.value++
-        // The other process (scripts) tells home. Home's own writes already incremented the version above.
+        // The other process (scripts) tells home, which reads the message with [onExternal]. Home's own
+        // writes already incremented the version above.
         if (Singleton.inScriptProcess) {
             context.sendBroadcast(
                 Intent(ACTION_LOGS_CHANGED).setPackage(context.packageName)
@@ -693,6 +657,45 @@ class LogRepository private constructor(private val context: Context) {
             )
         }
     }
+
+    /**
+     * The other process says the log changed. [intent] is the message its [changed] sent
+     * ([ACTION_LOGS_CHANGED]); home's receiver hands it over as it came. A message says one thing,
+     * the first of these it holds: the middle of the log changed, a trim, lines changed in place, or
+     * only "look again".
+     */
+    fun onExternal(intent: Intent) {
+        val trimmed = intent.getLongExtra(EXTRA_TRIMMED_UP_TO, 0L)
+        val updated = intent.getLongArrayExtra(EXTRA_UPDATED)
+        when {
+            intent.getBooleanExtra(EXTRA_RESTRUCTURE, false) -> onExternalRestructure()
+            trimmed > 0 -> onExternalTrim(trimmed)
+            updated != null && updated.isNotEmpty() -> onExternalUpdate(updated)
+            else -> onExternalChange()
+        }
+    }
+
+    /** Another process added lines, or asks home to look again. */
+    private fun onExternalChange() {
+        _version.value++
+        _linesVersion.value++
+    }
+
+    /**
+     * Another process changed the middle of the log, so reload the page. The device tests call it
+     * too, after they put the whole log back behind this object.
+     */
+    internal fun onExternalRestructure() = restructured()
+
+    /** Another process trimmed the log up to [upTo]. The page is read again only if the trim reached into it. */
+    private fun onExternalTrim(upTo: Long) {
+        trimmedUpTo = maxOf(trimmedUpTo, upTo)
+        _version.value++
+        _linesVersion.value++
+    }
+
+    /** Another process changed these lines in place. */
+    private fun onExternalUpdate(ids: LongArray) = noteUpdated(ids.toList())
 
     /** Caps a line's text, so one huge value (an HTTP body, a script's log(bigString)) stays readable. */
     private fun clip(s: String) = if (s.length <= MAX_FIELD) s else s.takeWhole(MAX_FIELD - 1) + "…"
@@ -756,11 +759,12 @@ class LogRepository private constructor(private val context: Context) {
         /** The lines a search reads, with the clear's id as the argument: lines after it, and starred lines before it. */
         private const val KEPT = "(id > ? OR starred = 1)"
 
+        /** The message that tells home the other process changed the log. [changed] writes it, [onExternal] reads it. */
         const val ACTION_LOGS_CHANGED = "com.mtwabpin.kolahal.LOGS_CHANGED"
-        const val EXTRA_RESTRUCTURE = "restructure"
-        const val EXTRA_TRIMMED_UP_TO = "trimmed_up_to"
+        private const val EXTRA_RESTRUCTURE = "restructure"
+        private const val EXTRA_TRIMMED_UP_TO = "trimmed_up_to"
         /** Lines another process changed in place ([update]). */
-        const val EXTRA_UPDATED = "updated"
+        private const val EXTRA_UPDATED = "updated"
 
         /** A batched command's output reaches the log at least this often while it runs. */
         private const val BATCH_MS = 250L
