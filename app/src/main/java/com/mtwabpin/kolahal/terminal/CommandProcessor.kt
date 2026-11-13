@@ -784,7 +784,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                     )
                 }
             }
-            val also = InstantRun.SYNONYMS.filterValues { it == spec.name }.keys
+            val also = spec.aka
             if (also.isNotEmpty()) info("Also known as ${also.joinToString(", ")}", LogContext(LogContext.ITEM))
             info("More in the guide's command list", LogContext.of(LogContext.URL to com.mtwabpin.kolahal.ui.GUIDE_URL + "reference/commands/") + if (also.isEmpty()) LogContext.ITEM else emptyMap())
             return

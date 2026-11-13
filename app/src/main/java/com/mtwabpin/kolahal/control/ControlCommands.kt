@@ -451,6 +451,7 @@ class ControlCommands(context: Context) : CommandGroup(context) {
                     "volume mute" to "mute it",
                     "volume unmute" to "unmute it",
                 ),
+                aka = listOf("vol"),
             ),
             CommandSpec("ring", "ring [normal|vibrate|silent]", "Ringer mode (silent needs DND access)", short = "Ringer mode", args = "normal · vibrate · silent"),
             CommandSpec(
@@ -480,10 +481,10 @@ class ControlCommands(context: Context) : CommandGroup(context) {
             ),
             CommandSpec("rotate", "rotate [on|off|status]", "Auto-rotate (no args toggles)", short = "Auto-rotate", args = "on · off · status"),
             CommandSpec("screen-timeout", "screen-timeout [15s|30s|1m|2m|5m|10m|30m]", "Screen timeout", short = "Screen timeout", args = "15s · 30s · 1m · 2m · 5m · 10m · 30m"),
-            CommandSpec("wifi", "wifi", "Wi-Fi panel", short = "Wi-Fi panel"),
-            CommandSpec("bt", "bt", "Bluetooth settings", short = "Bluetooth settings"),
-            CommandSpec("nfc", "nfc", "NFC panel", short = "NFC panel"),
-            CommandSpec("data", "data", "Internet / mobile data panel", short = "Mobile data panel"),
+            CommandSpec("wifi", "wifi", "Wi-Fi panel", short = "Wi-Fi panel", sensitive = true),
+            CommandSpec("bt", "bt", "Bluetooth settings", short = "Bluetooth settings", aka = listOf("bluetooth"), sensitive = true),
+            CommandSpec("nfc", "nfc", "NFC panel", short = "NFC panel", sensitive = true),
+            CommandSpec("data", "data", "Internet / mobile data panel", short = "Mobile data panel", sensitive = true),
             CommandSpec("toggles", "toggles", "Status of every toggle (tap one to change it)", short = "Every toggle at a glance"),
         )
 

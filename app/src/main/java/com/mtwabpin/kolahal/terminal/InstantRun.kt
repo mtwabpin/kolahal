@@ -15,106 +15,12 @@ object InstantRun {
 
     /**
      * Commands that never run without Enter, except those in [WHOLE_LINE_OK]. They cost money,
-     * change state, or are hard to undo.
+     * change state, or are hard to undo. Each command's entry says whether it is ([CommandSpec.sensitive]).
      */
-    val SENSITIVE = setOf(
-        "call",
-        "sms",
-        "uninstall",
-        "work",
-        "private",
-        "clear",
-        "restart",
-        "update",
-        "lock",
-        "script",
-        "alias",
-        "unalias",
-        "config",
-        "hide",
-        "unhide",
-        "rename",
-        "feed",
-        "feeds",
-        "notifs",
-        "lua",
-        "js",
-        "=",
-        "url",
-        "echo",
-        "todo",
-        "note",
-        "notes",
-        "remind",
-        "timer",
-        "alarm",
-        "widget",
-        "backup",
-        // `rss <url>` fetches without any script's internet switch. `crashes clear` deletes the reports.
-        "rss",
-        "crashes",
-        // These leave the launcher or change the phone. Typing `sy` on the way to another word
-        // must not open Android's settings.
-        "battery",
-        "home",
-        "system",
-        "alarms",
-        "stopwatch",
-        "accessibility",
-        "usage-access",
-        "shade",
-        "notifications",
-        "source",
-        // Replaces the wallpaper, and the old one can't be restored.
-        "wallpaper",
-        // `scripts rm|off|import …` goes to the same handler as `script`. `status clear` deletes lines.
-        "scripts",
-        "status",
-        // These change how the launcher looks or what it shows first.
-        "theme",
-        "font",
-        "pin",
-        "unpin",
-        // These open Android's panels and pages. Typing `wi` on the way to another word must not
-        // open Wi-Fi, and a script must not open it either.
-        "wifi",
-        "bt",
-        "nfc",
-        "data",
-        "info",
-        // Opens another app's screen. Typing `activity settings w` must not open the first match.
-        "activity",
-    ) + com.mtwabpin.kolahal.control.ControlCommands.SENSITIVE
+    val SENSITIVE: Set<String> get() = CommandCatalog.SENSITIVE
 
-    /** Other names that the dispatcher accepts for a command. Checks always use the canonical name. */
-    val SYNONYMS = mapOf(
-        "fav" to "pin",
-        "unfav" to "unpin",
-        "favs" to "pins",
-        "?" to "help",
-        "ls" to "apps",
-        "launch" to "open",
-        "cls" to "clear",
-        "reboot" to "restart",
-        "notifications-feed" to "notifs",
-        "web" to "url",
-        "g" to "search",
-        "youtube" to "yt",
-        "map" to "maps",
-        "store" to "play",
-        "screentime" to "usage",
-        "updates" to "installs",
-        "dial" to "call",
-        "text" to "sms",
-        "contact" to "contacts",
-        "prefs" to "settings",
-        "time" to "date",
-        "set" to "config",
-        "vol" to "volume",
-        "bluetooth" to "bt",
-        "neofetch" to "fetch",
-        "fastfetch" to "fetch",
-    )
+    /** Other names that the dispatcher accepts for a command ([CommandSpec.aka]). Checks always use the canonical name. */
+    val SYNONYMS: Map<String, String> get() = CommandCatalog.SYNONYMS
 
     fun canonical(head: String): String = head.lowercase().let { SYNONYMS[it] ?: it }
 

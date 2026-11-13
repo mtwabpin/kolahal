@@ -195,8 +195,9 @@ Fix: while folded, give the text only its first few thousand characters.
 Steps:
 1. Done in 0.5.6: =DispatchNamesTest= reads the =when= labels from the source and checks them
    against the catalog and =SYNONYMS=, so the guards can no longer fail open unseen.
-2. Add =synonyms=, =sensitive=, =section= and =feature= to =CommandSpec=, and derive the existing
-   sets from it, keeping their names. 2–4 hours.
+2. Done in 0.5.7: each =CommandSpec= has its other names (=aka=) and =sensitive=; =SYNONYMS= and
+   =SENSITIVE= are derived from them. (=section= and =feature= stayed as they are: =help= keeps its
+   order, and only four commands are left out of the Play build.)
 3. Replace the =when= with a map of handlers checked against the specs. About a day. Blockers:
    handlers take different arguments; three branches depend on which synonym was typed or fall
    through to app launch (=:155-156=, =:171-177=, =:182=); =UpdateCommands= must stay behind

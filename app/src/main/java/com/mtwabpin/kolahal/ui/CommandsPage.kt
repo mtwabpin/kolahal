@@ -19,7 +19,6 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.CommandCatalog
 import com.mtwabpin.kolahal.terminal.CommandSpec
 import com.mtwabpin.kolahal.terminal.CommandsOff
-import com.mtwabpin.kolahal.terminal.InstantRun
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
 /** The Commands page in Settings. Its switches set `commands.off`. */
@@ -64,7 +63,7 @@ internal fun LazyListScope.commandsPage(vm: TerminalViewModel, version: State<In
 @Composable
 private fun CommandSwitch(vm: TerminalViewModel, spec: CommandSpec, version: State<Int>, index: Int, count: Int) {
     val on by remember(spec.name) { derivedStateOf { version.value; spec.name !in CommandsOff.names(vm.config[Keys.COMMANDS_OFF]) } }
-    val also = remember(spec.name) { InstantRun.SYNONYMS.filterValues { it == spec.name }.keys }
+    val also = spec.aka
     Box(Modifier.padding(bottom = ListItemDefaults.SegmentedGap)) {
         SegmentedListItem(
             colors = segColors(),
