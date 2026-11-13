@@ -21,11 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.data.FontFiles
 
 private const val SAMPLE_PROMPT = "$ ls ~"
 private const val SAMPLE_GLYPHS = "0Oo1lI {}=>"
@@ -40,13 +43,14 @@ fun FontChoices(selected: String, onPick: (String) -> Unit, onImport: () -> Unit
     val context = LocalContext.current
     val p = Term.palette
     // Read again when the selection changes. An import changes the selection.
-    val custom = remember(selected, TermFonts.revision) { TermFonts.customFamily(context) }
-    val names = TermFonts.names.filter { it != TermFonts.CUSTOM || custom != null || selected == TermFonts.CUSTOM }
+    val imports by FontFiles.imports.collectAsState()
+    val custom = remember(selected, imports) { TermFonts.customFamily(context) }
+    val names = FontFiles.names.filter { it != FontFiles.CUSTOM || custom != null || selected == FontFiles.CUSTOM }
     // A plain scrolling row, not a lazy one. A lazy row inside a Settings row crashed Compose when
     // Settings measured that row early while scrolling ("LayoutNode … not found in RectList").
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         names.forEach { name ->
-            val family = if (name == TermFonts.CUSTOM) custom ?: FontFamily.Monospace else TermFonts.family(context, name) ?: FontFamily.Monospace
+            val family = if (name == FontFiles.CUSTOM) custom ?: FontFamily.Monospace else TermFonts.family(context, name) ?: FontFamily.Monospace
             val on = name == selected
             Card(
                 onClick = { onPick(name) },
@@ -61,8 +65,8 @@ fun FontChoices(selected: String, onPick: (String) -> Unit, onImport: () -> Unit
                     Text(SAMPLE_GLYPHS, color = p.fg, style = sample, maxLines = 1, overflow = TextOverflow.Clip)
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        if (name == TermFonts.CUSTOM && custom == null) "Custom (missing)" else TermFonts.label(name),
-                        color = if (name == TermFonts.CUSTOM && custom == null) p.error else p.dim,
+                        if (name == FontFiles.CUSTOM && custom == null) "Custom (missing)" else FontFiles.label(name),
+                        color = if (name == FontFiles.CUSTOM && custom == null) p.error else p.dim,
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

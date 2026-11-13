@@ -8,7 +8,9 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.ui.HeaderTarget
+
+/** What a tap on a header item does. The header (ui/TerminalHeader) names the item tapped. */
+enum class HeaderTarget { CLOCK, UNLOCKS, BATTERY, NETWORK, ALARM, SETTINGS, TODO }
 
 /**
  * What a tap on the header does (the clock, battery, a profile, a pinned script's line), and the

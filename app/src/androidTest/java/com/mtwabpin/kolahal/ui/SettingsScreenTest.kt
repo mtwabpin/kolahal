@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.Links
+import com.mtwabpin.kolahal.data.FontFiles
 import android.app.Application
 import android.app.Instrumentation
 import android.content.Intent
@@ -383,7 +385,7 @@ class SettingsScreenTest {
         show(ABOUT_PAGE)
         compose.onNodeWithText("Source code").performClick()
         compose.waitUntil(5_000) { browser.intents.isNotEmpty() }
-        assertEquals(SOURCE_URL, browser.intents.single().dataString)
+        assertEquals(Links.SOURCE, browser.intents.single().dataString)
     }
 
     /** A report's sheet: Share comes after Email and hands over the whole report, which stays kept. */
@@ -475,6 +477,6 @@ class SettingsScreenTest {
         show("look")
         compose.onNodeWithText(ChoiceLabels.theme(Keys.THEME.choices.last())).assertExists()
         scrollTo(Keys.FONT)
-        compose.onNodeWithText(TermFonts.label(TermFonts.names.last { it != TermFonts.CUSTOM })).assertExists()
+        compose.onNodeWithText(FontFiles.label(FontFiles.names.last { it != FontFiles.CUSTOM })).assertExists()
     }
 }

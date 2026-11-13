@@ -2,7 +2,7 @@ package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.ui.TermFonts
+import com.mtwabpin.kolahal.data.FontFiles
 
 /**
  * Shows on home what the line in the prompt would change, before you press Enter.
@@ -28,7 +28,7 @@ data class LivePreview(val theme: String? = null, val font: String? = null, val 
             } ?: return null
             return when (key) {
                 Keys.THEME -> Keys.THEME.parse(value)?.takeIf { it != config[Keys.THEME] }?.let { LivePreview(theme = it) }
-                Keys.FONT -> Keys.FONT.parse(value)?.takeIf { it != config[Keys.FONT] && (it != TermFonts.CUSTOM || hasCustomFont()) }?.let { LivePreview(font = it) }
+                Keys.FONT -> Keys.FONT.parse(value)?.takeIf { it != config[Keys.FONT] && (it != FontFiles.CUSTOM || hasCustomFont()) }?.let { LivePreview(font = it) }
                 Keys.FONT_SIZE -> Keys.FONT_SIZE.parse(value)?.takeIf { it != config[Keys.FONT_SIZE] }?.let { LivePreview(fontSize = it) }
                 else -> null
             }

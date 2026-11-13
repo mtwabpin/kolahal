@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.FontFiles
 import android.app.Application
 import android.content.Context
 import androidx.compose.ui.text.TextRange
@@ -19,8 +20,6 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.ui.HeaderTarget
-import com.mtwabpin.kolahal.ui.KeyBarKey
 import com.mtwabpin.kolahal.waitUntil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -452,7 +451,7 @@ class TerminalViewModelTest {
         main { vm.importFont(android.net.Uri.fromFile(java.io.File(app.cacheDir, "$token-missing.ttf"))) }
         waitUntil("the notice") { vm.notice.value?.text?.startsWith("font import failed: ") == true }
         assertEquals(LogKind.ERROR, line(vm.notice.value!!.text).kind)
-        assertNotEquals(com.mtwabpin.kolahal.ui.TermFonts.CUSTOM, config[Keys.FONT])
+        assertNotEquals(FontFiles.CUSTOM, config[Keys.FONT])
     }
 
     /** Enter in a `/` search hides the keyboard and keeps the search: nothing runs. */

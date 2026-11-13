@@ -210,7 +210,7 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   If a build leaves it out, add it to =FEATURE_COMMANDS=. Argument completion: options in the usage line complete
   automatically; anything smarter goes in =Completer.argSuggestions=.
 - New setting :: define it in =Keys= (=data/Keys.kt=) and add it to =Keys.ALL=. Put it in a page in
-  =ui/SettingsCatalog.kt= (=CATEGORIES=) with a title in =TITLES=; unplaced keys appear under "More".
+  =ui/SettingsCatalog.kt= (=CATEGORIES=) with a title in =data/SettingTitles.kt=; unplaced keys appear under "More".
   Document it in =site/src/content/docs/reference/config.md=.
 - New script API :: add it to =HostApi=, bind it in both =LuaEngine= and =JsEngine=, and describe it in
   =ApiDocs= (=ApiDocsTest= checks that the names match). A new JavaScript namespace goes into

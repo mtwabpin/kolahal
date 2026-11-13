@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.ui
+package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.data.StatusLine
 import org.junit.Assert.assertEquals

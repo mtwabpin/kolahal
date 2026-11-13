@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.data.FontFiles
 import android.net.Uri
 import androidx.compose.ui.text.font.FontFamily
 import androidx.core.content.FileProvider
@@ -26,7 +27,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FontImportTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val fonts = TermFonts.dir(context)
+    private val fonts = FontFiles.dir(context)
     private val names = listOf("custom.ttf", "custom.otf")
     /** The custom font there was before the test, put back after it. */
     private val before = names.mapNotNull { n -> File(fonts, n).takeIf { it.isFile }?.let { n to it.readBytes() } }
@@ -71,7 +72,7 @@ class FontImportTest {
     /** The message [uri]'s import is refused with; it fails the test if it is taken in. */
     private fun refusal(uri: Uri): String {
         try {
-            TermFonts.importFrom(context, uri)
+            FontFiles.importFrom(context, uri)
         } catch (e: IllegalArgumentException) {
             return e.message.orEmpty()
         }
@@ -80,35 +81,35 @@ class FontImportTest {
     }
 
     private fun assertNothingSaved() {
-        assertNull(TermFonts.customFile(context))
+        assertNull(FontFiles.customFile(context))
         assertFalse("the copy was left", saved("import.tmp").exists())
     }
 
     /** A font picked is copied in whole as the custom font, which then loads; its name is what the log says. */
     @Test fun aFontPickedBecomesTheCustomFont() {
         assertNull(TermFonts.customFamily(context))
-        assertNull(TermFonts.family(context, TermFonts.CUSTOM))
+        assertNull(TermFonts.family(context, FontFiles.CUSTOM))
 
-        assertEquals("Mono.TTF", TermFonts.importFrom(context, picked("Mono.TTF", jetbrains)))
-        assertEquals(saved("custom.ttf"), TermFonts.customFile(context))
+        assertEquals("Mono.TTF", FontFiles.importFrom(context, picked("Mono.TTF", jetbrains)))
+        assertEquals(saved("custom.ttf"), FontFiles.customFile(context))
         assertArrayEquals(jetbrains, saved("custom.ttf").readBytes())
         assertFalse(saved("import.tmp").exists())
         assertNotNull(TermFonts.customFamily(context))
-        assertNotNull(TermFonts.family(context, TermFonts.CUSTOM))
+        assertNotNull(TermFonts.family(context, FontFiles.CUSTOM))
     }
 
     /** The file's header, not its name, says which kind it is saved as; it takes the place of the font before. */
     @Test fun theHeaderSaysTheKindAndTheNewFontReplacesTheOld() {
         fonts.mkdirs()
         saved("custom.otf").writeBytes(byteArrayOf(0x4F, 0x54, 0x54, 0x4F))
-        TermFonts.importFrom(context, picked("Mono.otf", jetbrains))
+        FontFiles.importFrom(context, picked("Mono.otf", jetbrains))
         assertFalse(saved("custom.otf").exists())
         assertArrayEquals(jetbrains, saved("custom.ttf").readBytes())
     }
 
     /** With no name from the provider, a font is still taken in by its header. */
     @Test fun aFontWithNoNameIsTakenByItsHeader() {
-        assertNull(TermFonts.importFrom(context, unnamed(jetbrains)))
+        assertNull(FontFiles.importFrom(context, unnamed(jetbrains)))
         assertArrayEquals(jetbrains, saved("custom.ttf").readBytes())
     }
 
@@ -122,23 +123,23 @@ class FontImportTest {
     @Test fun aNameWithNoExtensionIsTakenByItsHeader() {
         assertEquals("Mono is not a TrueType/OpenType font", refusal(picked("Mono", "hello, world".toByteArray())))
         assertNothingSaved()
-        assertEquals("Mono", TermFonts.importFrom(context, picked("Mono", jetbrains)))
+        assertEquals("Mono", FontFiles.importFrom(context, picked("Mono", jetbrains)))
         assertArrayEquals(jetbrains, saved("custom.ttf").readBytes())
         // A dot in a version is no extension either.
-        assertEquals("Iosevka 27.3", TermFonts.importFrom(context, picked("Iosevka 27.3", jetbrains)))
+        assertEquals("Iosevka 27.3", FontFiles.importFrom(context, picked("Iosevka 27.3", jetbrains)))
     }
 
     /** Over 10 MB is refused by the size the provider gives, or else part way through the copy. */
     @Test fun aFontOverTenMegabytesIsRefused() {
-        assertEquals("font is larger than 10 MB", refusal(picked("Big.ttf", size = TermFonts.MAX_BYTES + 1)))
+        assertEquals("font is larger than 10 MB", refusal(picked("Big.ttf", size = FontFiles.MAX_BYTES + 1)))
         assertNothingSaved()
-        assertEquals("font is larger than 10 MB", refusal(unnamed(jetbrains, size = TermFonts.MAX_BYTES + 1)))
+        assertEquals("font is larger than 10 MB", refusal(unnamed(jetbrains, size = FontFiles.MAX_BYTES + 1)))
         assertNothingSaved()
     }
 
     /** Exactly 10 MB is let through to be read: what decides then is the header. */
     @Test fun tenMegabytesIsNotTooBig() {
-        assertEquals("Big.ttf is not a TrueType/OpenType font", refusal(picked("Big.ttf", size = TermFonts.MAX_BYTES)))
+        assertEquals("Big.ttf is not a TrueType/OpenType font", refusal(picked("Big.ttf", size = FontFiles.MAX_BYTES)))
         assertNothingSaved()
     }
 
@@ -161,45 +162,45 @@ class FontImportTest {
 
     /** A file refused leaves the font imported before it as it was. */
     @Test fun aRefusedFileKeepsTheFontThereWas() {
-        TermFonts.importFrom(context, picked("Mono.ttf", jetbrains))
+        FontFiles.importFrom(context, picked("Mono.ttf", jetbrains))
         refusal(picked("Mono.ttf", "hello, world".toByteArray()))
-        refusal(picked("Big.ttf", size = TermFonts.MAX_BYTES + 1))
+        refusal(picked("Big.ttf", size = FontFiles.MAX_BYTES + 1))
         assertArrayEquals(jetbrains, saved("custom.ttf").readBytes())
         assertNotNull(TermFonts.customFamily(context))
     }
 
     /** The custom font is read once per version of its file: again after a new import, and not at all once broken. */
     @Test fun theCustomFontIsReadOncePerVersion() {
-        TermFonts.importFrom(context, picked("Mono.ttf", jetbrains))
+        FontFiles.importFrom(context, picked("Mono.ttf", jetbrains))
         val first = TermFonts.customFamily(context)
         assertNotNull(first)
         assertSame(first, TermFonts.customFamily(context))
 
-        TermFonts.importFrom(context, picked("Fira.ttf", fira))
+        FontFiles.importFrom(context, picked("Fira.ttf", fira))
         val second = TermFonts.customFamily(context)
         assertNotNull(second)
         assertNotSame(first, second)
 
         saved("custom.ttf").writeBytes(byteArrayOf(0, 1, 0, 0) + ByteArray(64))
         assertNull(TermFonts.customFamily(context))
-        assertNull(TermFonts.family(context, TermFonts.CUSTOM))
+        assertNull(TermFonts.family(context, FontFiles.CUSTOM))
     }
 
     /** A file Android can't read as a font loads as nothing, not as the default font. */
     @Test fun onlyARealFontLoads() {
-        assertNotNull(TermFonts.loadTypeface(file("a.ttf", jetbrains, null, context.cacheDir)))
-        assertNull(TermFonts.loadTypeface(file("b.ttf", ByteArray(0), null, context.cacheDir)))
-        assertNull(TermFonts.loadTypeface(file("c.ttf", "hello, world".toByteArray(), null, context.cacheDir)))
-        assertNull(TermFonts.loadTypeface(File(context.cacheDir, "font-import-missing.ttf")))
+        assertNotNull(FontFiles.loadTypeface(file("a.ttf", jetbrains, null, context.cacheDir)))
+        assertNull(FontFiles.loadTypeface(file("b.ttf", ByteArray(0), null, context.cacheDir)))
+        assertNull(FontFiles.loadTypeface(file("c.ttf", "hello, world".toByteArray(), null, context.cacheDir)))
+        assertNull(FontFiles.loadTypeface(File(context.cacheDir, "font-import-missing.ttf")))
     }
 
     /** Each bundled font is a family of its own; the system's, or a name not known, is the system monospace. */
     @Test fun eachBundledFontIsItsOwnFamily() {
-        val bundled = TermFonts.names - TermFonts.SYSTEM - TermFonts.CUSTOM
+        val bundled = FontFiles.names - FontFiles.SYSTEM - FontFiles.CUSTOM
         val families = bundled.map { TermFonts.family(context, it) }
         assertTrue(families.none { it == null || it == FontFamily.Monospace })
         assertEquals(families.size, families.toSet().size)
-        assertEquals(FontFamily.Monospace, TermFonts.family(context, TermFonts.SYSTEM))
+        assertEquals(FontFamily.Monospace, TermFonts.family(context, FontFiles.SYSTEM))
         assertEquals(FontFamily.Monospace, TermFonts.family(context, "comic-mono"))
     }
 }

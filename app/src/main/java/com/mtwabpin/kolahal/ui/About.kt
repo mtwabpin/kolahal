@@ -30,17 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.CrashReports
+import com.mtwabpin.kolahal.Links
 import com.mtwabpin.kolahal.R
 
 // Settings → About: the guide, crash reports and a way to contact the developer.
-
-/** The website. The guide is there. */
-internal const val GUIDE_URL = "https://mtwabpin.github.io/kolahal/"
-/** The community Discord server, for questions, ideas and help from other Kolahal users. */
-internal const val DISCORD_URL = "https://discord.gg/3D25w6gXR5"
-/** Kolahal's source code on GitHub. Users report bugs and ideas there too. */
-internal const val SOURCE_URL = "https://github.com/mtwabpin/kolahal"
-internal const val DEVELOPER_EMAIL = "mtwabpin@gmail.com"
 
 /** The page id (in [com.mtwabpin.kolahal.terminal.TerminalViewModel.settingsCategory]) of the crash list. */
 internal const val CRASHES_PAGE = "crashes"
@@ -60,19 +53,19 @@ internal fun crashRows(context: Context): List<CrashRow> = CrashReports.list(con
 }
 
 /** Opens the guide on the website. Returns false if no app can open it. */
-internal fun openGuide(context: Context): Boolean = openLink(context, GUIDE_URL)
+internal fun openGuide(context: Context): Boolean = openLink(context, Links.GUIDE)
 
 /** Opens [url] in the browser (or in the app that handles it). Returns false if no app can open it. */
 internal fun openLink(context: Context, url: String): Boolean =
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }.isSuccess
 
 /**
- * Opens a draft to [DEVELOPER_EMAIL] in the user's mail app. The user reads and sends it themselves.
+ * Opens a draft to [Links.DEVELOPER_EMAIL] in the user's mail app. The user reads and sends it themselves.
  * Without a mail app, it offers any app that can send text. Returns false if there is none.
  */
 internal fun emailDeveloper(context: Context, subject: String, body: String): Boolean {
     val mail = Intent(Intent.ACTION_SENDTO, "mailto:".toUri())
-        .putExtra(Intent.EXTRA_EMAIL, arrayOf(DEVELOPER_EMAIL))
+        .putExtra(Intent.EXTRA_EMAIL, arrayOf(Links.DEVELOPER_EMAIL))
         .putExtra(Intent.EXTRA_SUBJECT, subject)
         .putExtra(Intent.EXTRA_TEXT, body)
     return try {
@@ -80,21 +73,12 @@ internal fun emailDeveloper(context: Context, subject: String, body: String): Bo
         true
     } catch (_: ActivityNotFoundException) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-            .putExtra(Intent.EXTRA_EMAIL, arrayOf(DEVELOPER_EMAIL))
+            .putExtra(Intent.EXTRA_EMAIL, arrayOf(Links.DEVELOPER_EMAIL))
             .putExtra(Intent.EXTRA_SUBJECT, subject)
             .putExtra(Intent.EXTRA_TEXT, body)
-        runCatching { context.startActivity(Intent.createChooser(send, "Send to $DEVELOPER_EMAIL")) }.isSuccess
+        runCatching { context.startActivity(Intent.createChooser(send, "Send to ${Links.DEVELOPER_EMAIL}")) }.isSuccess
     }
 }
-
-/** The share sheet with a crash report: email, a chat, or any app that accepts text. */
-internal fun crashReportShare(report: String): Intent =
-    Intent.createChooser(
-        Intent(Intent.ACTION_SEND).setType("text/plain")
-            .putExtra(Intent.EXTRA_SUBJECT, "Kolahal crash report")
-            .putExtra(Intent.EXTRA_TEXT, report),
-        "Share the crash report",
-    )
 
 /** Phone details the developer needs. They go below the message the user writes. */
 internal fun aboutThisPhone(): String =

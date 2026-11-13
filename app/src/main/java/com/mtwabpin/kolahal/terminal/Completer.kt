@@ -13,7 +13,8 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.notifications.NotifPrefs
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
-import com.mtwabpin.kolahal.ui.TermFonts
+import com.mtwabpin.kolahal.data.FontFiles
+import com.mtwabpin.kolahal.data.SettingTitles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -242,8 +243,8 @@ class Completer(private val context: Context, private val data: Data) {
             .map { Suggestion.Completion(it.name, "${it.name} ", help = it.help) }
         val scripted = data.scriptDescriptions.asSequence().filter { (name, desc) -> name !in shown && says(desc) }
             .map { (name, desc) -> Suggestion.Completion(name, "$name ", icon = R.drawable.ic_code, help = desc) }
-        val settings = Keys.ALL.asSequence().filter { says(com.mtwabpin.kolahal.ui.TITLES[it.key].orEmpty()) || says(it.help) }
-            .map { Suggestion.Completion(it.key, "config set ${it.key} ", icon = R.drawable.ic_tune, help = com.mtwabpin.kolahal.ui.TITLES[it.key] ?: it.help) }
+        val settings = Keys.ALL.asSequence().filter { says(SettingTitles[it.key].orEmpty()) || says(it.help) }
+            .map { Suggestion.Completion(it.key, "config set ${it.key} ", icon = R.drawable.ic_tune, help = SettingTitles[it.key] ?: it.help) }
         return (builtIn + scripted).take(3).toList() + settings.take(3).toList()
     }
 
@@ -435,7 +436,7 @@ class Completer(private val context: Context, private val data: Data) {
             "font" -> if (parts.size == 3 && parts[1] == "sans") {
                 Keys.FONT_SANS.choices.filter { it.starts(last) }.map { Suggestion.Completion(it, "$head sans $it") }
             } else {
-                (TermFonts.names + "import" + "sans").filter { it.starts(arg) }
+                (FontFiles.names + "import" + "sans").filter { it.starts(arg) }
                     .map { Suggestion.Completion(it, if (it == "sans") "$head sans " else "$head $it") }
             }
             "call", "sms", "contacts" -> contactSuggestions(cmd, head, parts)

@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
@@ -77,7 +78,7 @@ internal fun SettingItem(
     val value by remember(key) { derivedStateOf { version.value; config.display(key) } }
     val changed by remember(key) { derivedStateOf { version.value; !config.isDefault(key) } }
     val shapes = segShapes(index, count)
-    val title = TITLES[key.key] ?: key.key
+    val title = SettingTitles[key.key] ?: key.key
     // The setting's name, then a reset icon right after it once the value is changed.
     // - A switch has no reset icon: the user resets it by switching it.
     // - The icon is in the same place on every row, whatever is on the right of the title.

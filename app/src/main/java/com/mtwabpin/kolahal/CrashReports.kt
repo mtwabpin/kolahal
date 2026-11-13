@@ -23,6 +23,15 @@ import java.util.Locale
  * - Each new report gets one log line. A tap shares it. `crashes` lists all reports.
  */
 object CrashReports {
+    /** The share sheet with a crash report: email, a chat, or any app that accepts text. */
+    fun shareIntent(report: String): android.content.Intent =
+        android.content.Intent.createChooser(
+            android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(android.content.Intent.EXTRA_SUBJECT, "Kolahal crash report")
+                .putExtra(android.content.Intent.EXTRA_TEXT, report),
+            "Share the crash report",
+        )
+
     private const val DIR = "crash"
     private const val KEEP = 10
     private const val MAX_BODY = 64 * 1024

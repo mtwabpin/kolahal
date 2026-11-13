@@ -41,16 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
-
-/** Named keys that the touch key bar understands. Any other text in the spec is inserted as it is. */
-enum class KeyBarKey(val label: String) {
-    ESC("ESC"), TAB("TAB"), UP("↑"), DOWN("↓"), LEFT("←"), RIGHT("→"),
-    HOME("⇤"), END("⇥"), ENTER("⏎"), KBD("⌨"), SPACE("␣"), BKSP("⌫");
-
-    companion object {
-        fun of(token: String) = entries.firstOrNull { it.name.equals(token, ignoreCase = true) }
-    }
-}
+import com.mtwabpin.kolahal.terminal.KeyBarKey
 
 /**
  * Drawn icons for the symbol keys. ESC and TAB stay as words.

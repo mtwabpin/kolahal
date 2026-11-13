@@ -81,9 +81,18 @@ MVVM (Model, View, ViewModel) separates the three.
 | View      | Draws the current state. Forwards user actions to the ViewModel.                                                                        | The ViewModel    | Compose functions in =ui/= and the =MainActivity= that hosts them        |
 
 The dependency arrows only point *down*: the View knows the ViewModel, the ViewModel knows the
-Model, and nothing points back up. One thing to know: =terminal/= holds both the ViewModel and the
-command facts (=CommandCatalog=, =InstantRun=, =LogFilter=, =CommandsOff=). Those are plain objects,
-so the Model may read them; it never reads =ui/= or =TerminalViewModel=. =LayersTest= checks that.
+Model, and nothing points back up. Two things to know:
+- =terminal/= holds both the ViewModel and the command facts (=CommandCatalog=, =InstantRun=,
+  =LogFilter=, =CommandsOff=). Those are plain objects, so the Model may read them; it never reads
+  =ui/= or =TerminalViewModel=.
+- =terminal/= never reads =ui/= either. What the screen and the ViewModel both need lives below the
+  screen, and =ui/= reads it from there: the key bar's keys (=KeyBarKey=), what a header tap names
+  (=HeaderTarget=) and the pinned header's turns (=PinnedTurns=) in =terminal/=; the font names and
+  the imported font (=FontFiles=) and the settings' titles (=SettingTitles=) in =data/=; the
+  wallpaper that follows the theme (=WallpaperMatch=) in =control/=; Kolahal's addresses (=Links=)
+  and the crash report share (=CrashReports=) at the root. =ui/= keeps what only drawing needs:
+  =TermFonts= turns a font name into a Compose font, and each key gets its icon in =KeyBar=.
+=LayersTest= checks both rules.
 
 The Model never calls the View. So how does the screen find
 out that something changed? It /observes/.
@@ -782,7 +791,7 @@ Then find a command that /opens a page/ (=settings=) and one that /asks a permis
 2. Read it where you need it: =config[Keys.YOUR_KEY]=.
 3. Open the Settings screen: a key that isn't listed in a category in
    [[src:ui/SettingsCatalog.kt::private val CATEGORIES][ui/SettingsCatalog.kt]] appears under "More" automatically. Add it to a category and a
-   human title in =TITLES=.
+   human title in [[src:data/SettingTitles.kt::object SettingTitles][data/SettingTitles.kt]].
 4. =config set your.key on= at the prompt works too, with no extra code. Why? Follow
    =ConfigCommands=.
 

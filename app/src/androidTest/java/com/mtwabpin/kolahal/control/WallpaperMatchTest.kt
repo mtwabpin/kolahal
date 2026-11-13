@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.ui
+package com.mtwabpin.kolahal.control
 
 import android.app.Activity
 import android.app.Application
@@ -17,6 +17,9 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.ui.Palette
+import com.mtwabpin.kolahal.ui.Palettes
+import com.mtwabpin.kolahal.ui.Term
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -199,7 +202,7 @@ class WallpaperMatchTest {
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
                 waitFor("the palette") { Term.palette == Palettes.gruvbox }
-                assertTrue(WallpaperMatch.set(context, WallpaperMatch.themeColour()))
+                assertTrue(WallpaperMatch.set(context, WallpaperMatch.themeColour!!))
                 val first = wallpapers.getWallpaperId(system)
                 waitFor("gruvbox") { shows(system, wallpaperOf(Palettes.gruvbox)) }
 

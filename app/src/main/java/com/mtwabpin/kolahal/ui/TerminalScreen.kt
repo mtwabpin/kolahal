@@ -56,6 +56,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment

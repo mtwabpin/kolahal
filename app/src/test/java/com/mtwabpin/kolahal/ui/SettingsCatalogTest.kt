@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
@@ -32,7 +33,7 @@ class SettingsCatalogTest {
     @Test fun theHeaderHasAFewSettings() {
         val header = Keys.ALL.filter { it.key.startsWith("header.") }
         assertEquals(listOf("header.show", "header.below-bar", "header.padding", "header.left", "header.right", "header.pinned-seconds", "header.pinned-dots", "header.pinned-bar-above", "header.pinned-bar-below"), header.map { it.key })
-        assertTrue(header.all { it.key in TITLES })
+        assertTrue(header.all { it.key in SettingTitles })
         assertTrue(Keys.REMOVED.keys.filter { it.startsWith("header.compact.") }.size == 12)
     }
 

@@ -23,7 +23,7 @@ import java.io.File
 import com.mtwabpin.kolahal.CrashReportsAside
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TableRows
-import com.mtwabpin.kolahal.ui.WallpaperMatch
+import com.mtwabpin.kolahal.control.WallpaperMatch
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -320,6 +320,12 @@ class CommandFamiliesTest {
             assertEquals("wallpaper match --yes", logs.recent(1).last().ctx.values[LogContext.RUN])
             assertEquals("only asked so far", before, wallpapers.getWallpaperId(system))
 
+            // Before home has shown a theme, the colour isn't known: it refuses and paints nothing.
+            WallpaperMatch.themeColour = null
+            assertTrue(run("wallpaper match --yes").single().startsWith("Kolahal doesn't know the theme's colour yet"))
+            assertEquals("nothing painted", before, wallpapers.getWallpaperId(system))
+            // Home applying a theme tells it the colour, as MainActivity does.
+            WallpaperMatch.follow(context, android.graphics.Color.rgb(0x29, 0x28, 0x28))
             assertTrue(run("wallpaper match --yes").single().startsWith("Home screen wallpaper set"))
             assertNotEquals(before, wallpapers.getWallpaperId(system))
             assertTrue(run("wallpaper").single().contains("follows the theme"))

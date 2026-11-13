@@ -12,7 +12,7 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.ScriptFolder
-import com.mtwabpin.kolahal.ui.TermFonts
+import com.mtwabpin.kolahal.data.FontFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,11 +121,10 @@ class RequestActions(private val context: Context, private val host: Host) {
     fun importFont(uri: Uri?) {
         if (uri == null) return
         fileOp("font import") {
-            val name = TermFonts.importFrom(context, uri)
+            val name = FontFiles.importFrom(context, uri)
             fontErrorShown = false
             withContext(Dispatchers.Main) {
-                TermFonts.revision++
-                config.set(Keys.FONT, TermFonts.CUSTOM)
+                config.set(Keys.FONT, FontFiles.CUSTOM)
             }
             notice("Font = custom (${name ?: "imported font"})")
         }

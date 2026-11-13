@@ -6,7 +6,7 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
-import com.mtwabpin.kolahal.ui.TermFonts
+import com.mtwabpin.kolahal.data.FontFiles
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
 class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
@@ -56,14 +56,14 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
      */
     fun font(args: List<String>) {
         val sub = args.firstOrNull()?.lowercase()
-        val hasCustom = TermFonts.customFile(context) != null
+        val hasCustom = FontFiles.customFile(context) != null
         when (sub) {
             null, "ls", "list" -> {
                 val current = conf[Keys.FONT]
-                TermFonts.names.forEach { name ->
-                    if (name == TermFonts.CUSTOM && !hasCustom) return@forEach
+                FontFiles.names.forEach { name ->
+                    if (name == FontFiles.CUSTOM && !hasCustom) return@forEach
                     val mark = if (name == current) "*" else " "
-                    out("$mark ${name.padEnd(16)} ${TermFonts.label(name)}", LogContext.of(LogContext.RUN to "font $name") + LogContext.ALIGNED)
+                    out("$mark ${name.padEnd(16)} ${FontFiles.label(name)}", LogContext.of(LogContext.RUN to "font $name") + LogContext.ALIGNED)
                 }
                 info("Tap a font to use it · 'font import' adds your own .ttf/.otf · size: config font.size")
                 info("System font: ${conf[Keys.FONT_SANS]} · font sans prompt uses it for the prompt, font sans all for everything")
@@ -71,7 +71,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
             "import" -> ui.requestFontImport()
             "sans" -> args.getOrNull(1)?.let { setKey(Keys.FONT_SANS.key, it, "") }
                 ?: info("font.sans = ${conf.display(Keys.FONT_SANS)} · font sans off|prompt|all")
-            TermFonts.CUSTOM if !hasCustom ->
+            FontFiles.CUSTOM if !hasCustom ->
                 logs.add(LogKind.ERROR, "No custom font yet — tap to import a .ttf/.otf", ctx = LogContext.of(LogContext.RUN to "font import"))
             else -> setKey(Keys.FONT.key, sub, "")
         }

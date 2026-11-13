@@ -40,10 +40,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.ui.HeaderTarget
-import com.mtwabpin.kolahal.ui.KeyBarKey
-import com.mtwabpin.kolahal.ui.PinnedTurns
-import com.mtwabpin.kolahal.ui.TermFonts
+import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -298,7 +295,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** What the line in the prompt would change ([LivePreview]). */
     val livePreview: LivePreview?
-        get() = LivePreview.of(input.text, config) { TermFonts.customFile(getApplication()) != null }
+        get() = LivePreview.of(input.text, config) { FontFiles.customFile(getApplication()) != null }
 
     /**
      * The preview of a line that was just entered. It stays until the command has run; otherwise

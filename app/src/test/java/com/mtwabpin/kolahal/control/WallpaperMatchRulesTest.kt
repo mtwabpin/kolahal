@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.ui
+package com.mtwabpin.kolahal.control
 
 import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals

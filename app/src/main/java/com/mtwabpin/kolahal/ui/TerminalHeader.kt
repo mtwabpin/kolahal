@@ -50,12 +50,10 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.headerSide
 import com.mtwabpin.kolahal.status.Status
+import com.mtwabpin.kolahal.terminal.HeaderTarget
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-/** What a tap on a header item does. */
-enum class HeaderTarget { CLOCK, UNLOCKS, BATTERY, NETWORK, ALARM, SETTINGS, TODO }
 
 /**
  * The clock that home shows, kept once for the whole app. It holds:

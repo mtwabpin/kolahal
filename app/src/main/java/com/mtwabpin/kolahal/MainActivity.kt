@@ -310,7 +310,8 @@ class MainActivity : ComponentActivity() {
         val live = vm.previewed
         Term.palette = Palettes.named(live?.theme ?: vm.config[Keys.THEME], darkTheme())
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
-        if (live == null) com.mtwabpin.kolahal.ui.WallpaperMatch.follow(this, com.mtwabpin.kolahal.ui.WallpaperMatch.themeColour())
+        // The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
+        if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(this, Term.bg.copy(alpha = 1f).toArgb())
         Term.fontSize = live?.fontSize ?: vm.config[Keys.FONT_SIZE]
         val font = live?.font ?: vm.config[Keys.FONT]
         val family = TermFonts.family(this, font)

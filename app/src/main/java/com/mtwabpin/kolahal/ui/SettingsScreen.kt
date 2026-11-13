@@ -41,6 +41,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtwabpin.kolahal.CrashReports
+import com.mtwabpin.kolahal.Links
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
@@ -255,17 +257,17 @@ fun SettingsScreen(
                     ActionGroup(
                         listOf(
                             Action(R.drawable.ic_book, "Guide", "How everything works, on the Kolahal website") {
-                                if (!openGuide(context)) tapScope.launch { snackbar.showSnackbar("No browser to open $GUIDE_URL") }
+                                if (!openGuide(context)) tapScope.launch { snackbar.showSnackbar("No browser to open ${Links.GUIDE}") }
                             },
                             Action(R.drawable.ic_info, "Tour", "How Kolahal works, and a few initial settings", chevron = true) { vm.openScreen(Screen.ONBOARDING) },
                             Action(R.drawable.ic_forum, "Discord", "Questions, ideas and help from other people using Kolahal") {
-                                if (!openLink(context, DISCORD_URL)) tapScope.launch { snackbar.showSnackbar("No app to open $DISCORD_URL") }
+                                if (!openLink(context, Links.DISCORD)) tapScope.launch { snackbar.showSnackbar("No app to open ${Links.DISCORD}") }
                             },
                             Action(R.drawable.ic_code, "Source code", "Kolahal on GitHub") {
-                                if (!openLink(context, SOURCE_URL)) tapScope.launch { snackbar.showSnackbar("No browser to open $SOURCE_URL") }
+                                if (!openLink(context, Links.SOURCE)) tapScope.launch { snackbar.showSnackbar("No browser to open ${Links.SOURCE}") }
                             },
                             Action(R.drawable.ic_bug, "Crash reports", kept, chevron = true) { openId = CRASHES_PAGE },
-                            Action(R.drawable.ic_mail, "Email us", DEVELOPER_EMAIL) {
+                            Action(R.drawable.ic_mail, "Email us", Links.DEVELOPER_EMAIL) {
                                 if (!emailDeveloper(context, VERSION_TEXT, aboutThisPhone())) {
                                     tapScope.launch { snackbar.showSnackbar("No app on this phone can send email") }
                                 }
@@ -364,7 +366,7 @@ fun SettingsScreen(
                     }
                 },
                 onShare = {
-                    if (runCatching { context.startActivity(crashReportShare(c.report.text())) }.isFailure) {
+                    if (runCatching { context.startActivity(CrashReports.shareIntent(c.report.text())) }.isFailure) {
                         tapScope.launch { snackbar.showSnackbar("No app on this phone can share it") }
                     }
                 },

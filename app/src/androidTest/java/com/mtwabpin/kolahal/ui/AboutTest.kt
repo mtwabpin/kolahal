@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.CrashReports
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
@@ -66,7 +67,7 @@ class AboutTest {
 
     /** The share sheet with all of the report, to no one in particular. */
     @Test fun aCrashReportGoesToTheShareSheet() {
-        val chooser = crashReportShare("the report")
+        val chooser = CrashReports.shareIntent("the report")
         assertEquals(Intent.ACTION_CHOOSER, chooser.action)
         @Suppress("DEPRECATION") val send = chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
         assertEquals(Intent.ACTION_SEND, send.action)

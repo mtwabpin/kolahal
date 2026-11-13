@@ -155,7 +155,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "widget" -> widgets(args)
                 "notifs", "notifications-feed" -> feedCommands.notifs(args)
                 "url", "web" -> openUrl(rest)
-                "source" -> openUrl(com.mtwabpin.kolahal.ui.SOURCE_URL)
+                "source" -> openUrl(com.mtwabpin.kolahal.Links.SOURCE)
                 "wallpaper" -> wallpaper(args)
                 "search", "g" -> search(rest)
                 "yt", "youtube" -> search(rest, "youtube")
@@ -503,25 +503,30 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
 
     /**
      * - `wallpaper` says whether the home screen wallpaper is Kolahal's.
-     * - `wallpaper match` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.ui.WallpaperMatch]).
+     * - `wallpaper match` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.control.WallpaperMatch]), in
+     *   the theme's colour as home last showed it.
      *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
      *   old one can't be restored.
      */
     private fun wallpaper(args: List<String>) {
-        val match = com.mtwabpin.kolahal.ui.WallpaperMatch
+        val match = com.mtwabpin.kolahal.control.WallpaperMatch
         when (args.firstOrNull()?.lowercase()) {
             null -> info(
                 if (match.isMatched(context)) "Your home screen wallpaper is in the theme's colour, and follows the theme"
                 else "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's colour)",
             )
-            "match" -> when {
-                match.isMatched(context) -> info("Your home screen wallpaper already follows the theme")
-                args.getOrNull(1) != "--yes" -> {
-                    info("This replaces your home screen wallpaper with this theme's colour, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this colour.")
-                    info("Tap to replace it", LogContext.of(LogContext.RUN to "wallpaper match --yes"))
+            "match" -> {
+                val colour = match.themeColour
+                when {
+                    match.isMatched(context) -> info("Your home screen wallpaper already follows the theme")
+                    args.getOrNull(1) != "--yes" -> {
+                        info("This replaces your home screen wallpaper with this theme's colour, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this colour.")
+                        info("Tap to replace it", LogContext.of(LogContext.RUN to "wallpaper match --yes"))
+                    }
+                    colour == null -> error("Kolahal doesn't know the theme's colour yet: go home, then try again")
+                    match.set(context, colour) -> info("Home screen wallpaper set to this theme's colour. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
+                    else -> error("Couldn't change the wallpaper on this phone")
                 }
-                match.set(context, match.themeColour()) -> info("Home screen wallpaper set to this theme's colour. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
-                else -> error("Couldn't change the wallpaper on this phone")
             }
             else -> usage("wallpaper")
         }
@@ -548,7 +553,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                     which.toIntOrNull() != null -> reports.getOrNull(which.toInt() - 1)
                     else -> reports.firstOrNull { it.id == which }
                 } ?: return error(if (reports.isEmpty()) "No crash reports" else "No crash report $which (crashes lists them)")
-                startActivity(com.mtwabpin.kolahal.ui.crashReportShare(r.text()))
+                startActivity(com.mtwabpin.kolahal.CrashReports.shareIntent(r.text()))
             }
             "clear" -> com.mtwabpin.kolahal.CrashReports.clear(context).let { n ->
                 info(if (n == 1) "Deleted 1 crash report" else "Deleted $n crash reports")
@@ -761,7 +766,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             }
             val also = spec.aka
             if (also.isNotEmpty()) info("Also known as ${also.joinToString(", ")}", LogContext(LogContext.ITEM))
-            info("More in the guide's command list", LogContext.of(LogContext.URL to com.mtwabpin.kolahal.ui.GUIDE_URL + "reference/commands/") + if (also.isEmpty()) LogContext.ITEM else emptyMap())
+            info("More in the guide's command list", LogContext.of(LogContext.URL to com.mtwabpin.kolahal.Links.GUIDE + "reference/commands/") + if (also.isEmpty()) LogContext.ITEM else emptyMap())
             return
         }
         prefs.alias(typed)?.let { return info("$typed is your alias for: $it", LogContext.of(LogContext.COMMAND to "$typed ")) }

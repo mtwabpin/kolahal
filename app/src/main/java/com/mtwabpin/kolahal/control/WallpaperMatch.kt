@@ -1,9 +1,8 @@
-package com.mtwabpin.kolahal.ui
+package com.mtwabpin.kolahal.control
 
 import com.mtwabpin.kolahal.data.Stores
 import android.app.WallpaperManager
 import android.content.Context
-import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 
@@ -24,8 +23,13 @@ object WallpaperMatch {
 
     private fun prefs(context: Context) = Stores.WALLPAPER_MATCH.open(context.applicationContext)
 
-    /** The theme's colour in a form a wallpaper can show: fully opaque. */
-    fun themeColour(): Int = Term.bg.copy(alpha = 1f).toArgb()
+    /**
+     * The colour of the theme on screen, fully opaque, as the screen last reported it ([follow]).
+     * Null until home has applied a theme in this process: then `wallpaper match` refuses, rather
+     * than paint over your wallpaper with a colour it doesn't know.
+     */
+    @Volatile var themeColour: Int? = null
+        @androidx.annotation.VisibleForTesting internal set
 
     /** True while the home screen's wallpaper is still the one [set] put there. */
     fun isMatched(context: Context): Boolean {
@@ -51,6 +55,8 @@ object WallpaperMatch {
      * The real work runs off the main thread.
      */
     fun follow(context: Context, colour: Int) {
+        // Kept first: the usual case below returns at once, as the wallpaper isn't Kolahal's.
+        themeColour = colour
         val prefs = prefs(context)
         if (!prefs.contains(KEY_ID) || prefs.getInt(KEY_COLOUR, colour) == colour) return
         wanted = colour

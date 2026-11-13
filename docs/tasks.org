@@ -62,13 +62,6 @@ it against the backup XML files (done in 0.5.7). Left: the log's view markers (c
 are in the =logs= prefs, so =FullBackup.logIdsWithin= has to clamp them. Moving them into kv is about
 half a day. Theme files are still read by a regex on purpose: it also reads a hand-edited file.
 
-*** TODO [#C] =terminal/= imports names that =ui/= defines
-Done in 0.5.7: the Model no longer reaches the screen (the font file moved to =data/FontFiles.kt=), and
-=LayersTest= keeps it so; the codebase guide says the command facts in =terminal/= are plain objects the
-Model may read. Left: 5 files in =terminal/= use names defined in =ui/= (=TermFonts=, =TITLES=, =GUIDE=,
-=HeaderTarget=, =KeyBarKey=, =PinnedTurns=, =WallpaperMatch=, =crashReportShare=). Moving those names
-beside the code that uses them is about half a day.
-
 ** In good shape: keep as it is
 - Self-update: checks the package, the version, a higher version code, and that the signers match
   the installed ones and the pinned certificate. The FileProvider covers only =cache/updates/=.
