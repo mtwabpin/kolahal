@@ -3,6 +3,7 @@
 -- @desc Days until a date, or the next birthday or anniversary: countdown YYYY-MM-DD | add [yearly] YYYY-MM-DD label | rm N
 -- @usage [<YYYY-MM-DD>|add [yearly] <YYYY-MM-DD> <label>|rm <n>]
 -- @title Countdowns
+-- @widget countdown 2x1
 -- @at 00:05
 --
 -- Usage:
@@ -15,7 +16,8 @@
 --   countdown                                     list saved countdowns (nearest first)
 --   countdown rm 2                                delete saved countdown #2
 --
--- On a timer (e.g. daily) it sets the nearest upcoming countdown as its status line.
+-- On a timer (e.g. daily) it sets the nearest upcoming countdown as its status line. Its widget,
+-- once you placed it on the widgets page, counts the days to that one.
 
 local DAY = 86400
 
@@ -158,6 +160,32 @@ local function dateText(item, date)
   return "every " .. date.day .. " " .. os.date("%b", noon(2000, date.month, date.day))
 end
 
+-- Its widget counts to the nearest saved date that is still to come. Kolahal counts the days
+-- itself, to the start of that day, so this script only runs again to move on to the next date.
+-- With no date to come, the widget is emptied. A tap runs countdown and turns home to the log,
+-- for the whole list.
+local function fillWidget(list)
+  if not widget then return end
+  local nearestTime, nearestName
+  for _, item in ipairs(list) do
+    local date = parseDate(item.date)
+    if date then
+      local yearly = item.yearly or not date.year
+      local t = nextTime(date, yearly)
+      if daysUntil(t) >= 0 and (nearestTime == nil or t < nearestTime) then
+        nearestTime, nearestName = t, title(item.label, date, yearly, t)
+      end
+    end
+  end
+  if not nearestTime then return widget.clear() end
+  local day = os.date("*t", nearestTime)
+  widget.show{
+    title = nearestName, label = dayMonth(nearestTime), style = "days", reached = "Today",
+    to = os.time({ year = day.year, month = day.month, day = day.day, hour = 0 }),
+    tap = { args = "", page = "log" },
+  }
+end
+
 local cmd, rest = (argline or ""):match("^%s*(%S*)%s*(.-)%s*$")
 
 if cmd == "add" then
@@ -173,6 +201,7 @@ if cmd == "add" then
   local list = load()
   list[#list + 1] = { date = date, label = label, yearly = yearly or nil }
   save(sorted(list))
+  fillWidget(list)
   local t = nextTime(parsed, yearly)
   local note = yearly and "Saved · every year · countdown lists them" or "Saved · countdown lists them"
   -- A date over a year ago is most likely a birthday or an anniversary: say how to have it every year.
@@ -186,6 +215,7 @@ if cmd == "rm" then
   if not n or not list[n] then return log(fmt.color("muted", "No countdown #" .. (rest ~= "" and rest or "?") .. ": countdown lists them")) end
   local removed = table.remove(list, n)
   save(list)
+  fillWidget(list)
   return log("Removed " .. removed.label, removed.date .. (removed.yearly and " · every year" or ""))
 end
 
@@ -197,9 +227,13 @@ if cmd ~= "" then
 end
 
 -- No arguments: list saved countdowns and set the nearest upcoming one as the status line.
+-- A run the widgets page asked for fills the widget and logs nothing.
+local forWidget = event and event.name == "widget"
 local list = sorted(load())
+fillWidget(list)
 if #list == 0 then
   status(nil)
+  if forWidget then return end
   return log(fmt.color("muted", "No countdowns yet: countdown add 2026-12-25 Christmas"))
 end
 
@@ -223,5 +257,7 @@ for i, item in ipairs(list) do
   end
 end
 -- The next one first, in big numbers, then the table.
-log("Countdowns", (nearestBig and (nearestBig .. "\n") or "") .. fmt.table(rows, { header = true, align = "rllr" }))
+if not forWidget then
+  log("Countdowns", (nearestBig and (nearestBig .. "\n") or "") .. fmt.table(rows, { header = true, align = "rllr" }))
+end
 status(nearest)
