@@ -16,9 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.terminal.CommandCatalog
-import com.mtwabpin.kolahal.terminal.CommandSpec
-import com.mtwabpin.kolahal.terminal.CommandsOff
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.CommandSpec
+import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
 /** The Commands page in Settings. Its switches set `commands.off`. */

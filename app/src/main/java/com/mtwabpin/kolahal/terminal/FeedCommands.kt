@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.CommandParsing
 import android.content.Context
 import android.content.Intent
 import android.net.Uri

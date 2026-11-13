@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
@@ -31,7 +32,7 @@ class ScriptCommandsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val logs = LogRepository.get(context)
     private val scripts = ScriptRepository.get(context)
-    private val statuses = KvStore(context, HostApi.STATUS_SCOPE)
+    private val statuses = KvStore(context, Stores.STATUS)
     private val asked = mutableListOf<Pair<String, String>>()
     private val opened = mutableListOf<String>()
 

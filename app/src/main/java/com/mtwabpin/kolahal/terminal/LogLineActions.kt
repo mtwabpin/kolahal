@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.LogFilter
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context

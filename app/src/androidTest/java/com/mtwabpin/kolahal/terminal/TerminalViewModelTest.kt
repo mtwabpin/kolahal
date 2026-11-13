@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.data.FontFiles
 import android.app.Application
 import android.content.Context

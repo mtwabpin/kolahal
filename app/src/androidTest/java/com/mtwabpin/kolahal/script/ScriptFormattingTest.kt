@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.KvStore
@@ -30,7 +31,7 @@ class ScriptFormattingTest {
 
     @After fun tearDown() {
         lines().forEach { logs.delete(it.id) }
-        KvStore(context, HostApi.STATUS_SCOPE).set(name, null)
+        KvStore(context, Stores.STATUS).set(name, null)
     }
 
 
@@ -112,7 +113,7 @@ class ScriptFormattingTest {
 
     @Test fun aStatusLineIsPlain() {
         lua("""status(fmt.bold("12") .. " new")""", host(scriptId = 1L))
-        assertEquals("12 new", KvStore(context, HostApi.STATUS_SCOPE).get(name))
+        assertEquals("12 new", KvStore(context, Stores.STATUS).get(name))
     }
 
     @Test fun searchFindsAPhraseAcrossAStyle() {

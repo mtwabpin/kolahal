@@ -35,6 +35,11 @@ object AppIcons {
         override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
     }
 
+    init {
+        // Let go with the rest of what the screen keeps, except the most-used apps' icons after a while away.
+        com.mtwabpin.kolahal.LauncherApp.keepsInMemory { keep -> trim(keep) }
+    }
+
     /** The [com.mtwabpin.kolahal.apps.AppRepository.packageChanges] count when the cache was filled. */
     private var filledAt = -1
 

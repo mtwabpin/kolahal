@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.notifications
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.Notification
 import android.app.NotificationManager
 import android.os.UserManager
@@ -79,7 +80,7 @@ class KolahalNotificationListener : NotificationListenerService() {
             }
             mirrorCleared = false
             runCatching {
-                com.mtwabpin.kolahal.data.KvStore(this@KolahalNotificationListener, MIRROR_SCOPE)
+                com.mtwabpin.kolahal.data.KvStore(this@KolahalNotificationListener, Stores.NOTIFICATIONS_MIRROR)
                     .set(MIRROR_KEY, com.mtwabpin.kolahal.script.Json.stringify(NotificationStore.recent(50, skipProfile = ::isPrivateSerial)))
             }
         }
@@ -227,13 +228,12 @@ class KolahalNotificationListener : NotificationListenerService() {
     companion object {
         /** LogContext key that holds the notification key of a feed line. */
         const val CTX_KEY = "notif"
-        const val MIRROR_SCOPE = com.mtwabpin.kolahal.data.Stores.NOTIFICATIONS_MIRROR
         const val MIRROR_KEY = "notifications"
         private const val RATE_LIMIT_MS = 30_000L
 
         /** Removes the copy of notifications kept for scripts. Returns false if that failed. Never throws. */
         fun clearMirror(context: android.content.Context): Boolean = runCatching {
-            com.mtwabpin.kolahal.data.KvStore(context.applicationContext, MIRROR_SCOPE).set(MIRROR_KEY, null)
+            com.mtwabpin.kolahal.data.KvStore(context.applicationContext, Stores.NOTIFICATIONS_MIRROR).set(MIRROR_KEY, null)
         }.isSuccess
 
         /**

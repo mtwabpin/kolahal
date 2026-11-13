@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.data.Stores
 import android.app.Application
 import android.os.Build
 import android.os.SystemClock
@@ -141,7 +142,7 @@ class HomeScreenTest {
         val s = scripts.create(name, com.mtwabpin.kolahal.data.ScriptLang.LUA, "status('x')")
         try {
             if (pinned) scripts.setAccess(s.id, com.mtwabpin.kolahal.script.ScriptAccess.HEADER, true)
-            com.mtwabpin.kolahal.data.KvStore(app, com.mtwabpin.kolahal.script.HostApi.STATUS_SCOPE).set(name, text)
+            com.mtwabpin.kolahal.data.KvStore(app, Stores.STATUS).set(name, text)
             block()
         } finally {
             scripts.delete(s.id)

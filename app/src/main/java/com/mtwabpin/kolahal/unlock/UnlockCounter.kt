@@ -31,11 +31,11 @@ import java.time.ZoneId
  * - Main source: UsageStats KEYGUARD_HIDDEN events. They are accurate and include unlocks while the
  *   launcher process was not running. The user must grant Usage Access.
  * - Fallback: an ACTION_USER_PRESENT receiver, registered while the launcher process is alive.
- *   Its counts are kept in the database (kv scope [SCOPE]), so the :script process reads today's
+ *   Its counts are kept in the database (kv scope [Stores.UNLOCKS]), so the :script process reads today's
  *   count too. A prefs file would stay at what that process read when it started.
  */
 class UnlockCounter private constructor(private val context: Context) {
-    private val counts = com.mtwabpin.kolahal.data.KvStore(context, SCOPE)
+    private val counts = com.mtwabpin.kolahal.data.KvStore(context, Stores.UNLOCKS)
     private val _today = MutableStateFlow(0)
     val today: StateFlow<Int> = _today.asStateFlow()
 
@@ -153,7 +153,5 @@ class UnlockCounter private constructor(private val context: Context) {
     }
 
     companion object : Singleton<UnlockCounter>(::UnlockCounter) {
-        /** The kv scope of the fallback counts. Keys are "d:<date>". */
-        const val SCOPE = Stores.UNLOCKS
     }
 }

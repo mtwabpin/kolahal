@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.Stores
 import androidx.core.content.edit
 import android.content.Context

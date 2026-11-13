@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.unlock
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import androidx.core.content.edit
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -21,7 +22,7 @@ import java.time.LocalDate
 class UnlockCounterTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val counter = UnlockCounter.get(context)
-    private val kv = KvStore(context, UnlockCounter.SCOPE)
+    private val kv = KvStore(context, Stores.UNLOCKS)
     private val days = listOf("d:2001-02-03", "d:2001-02-04")
 
     @After fun tearDown() {

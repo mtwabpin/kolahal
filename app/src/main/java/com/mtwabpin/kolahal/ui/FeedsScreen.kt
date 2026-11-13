@@ -83,7 +83,7 @@ import com.mtwabpin.kolahal.feeds.FeedUrl
 import com.mtwabpin.kolahal.feeds.exportOpml
 import com.mtwabpin.kolahal.feeds.importOpml
 import com.mtwabpin.kolahal.script.Files
-import com.mtwabpin.kolahal.terminal.CommandParsing
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.CoroutineScope

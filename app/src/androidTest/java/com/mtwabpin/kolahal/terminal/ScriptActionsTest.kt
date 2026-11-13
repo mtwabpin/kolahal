@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.edit
@@ -45,7 +46,7 @@ class ScriptActionsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val repo = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
-    private val status = KvStore(context, HostApi.STATUS_SCOPE)
+    private val status = KvStore(context, Stores.STATUS)
     @get:Rule val logLines = LogLinesSince()
     private val host = RecordingHost()
     private val state = SavedStateHandle()

@@ -57,7 +57,7 @@ import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.SecretStore
-import com.mtwabpin.kolahal.terminal.CommandCatalog
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
 /**

@@ -12,7 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.terminal.LogFilter
+import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import org.junit.After
 import org.junit.Assert.assertNull

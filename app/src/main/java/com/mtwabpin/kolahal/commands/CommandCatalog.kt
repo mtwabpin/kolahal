@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 /**
  * Every built-in command, with:
@@ -12,7 +12,7 @@ package com.mtwabpin.kolahal.terminal
 object CommandCatalog {
     val COMMANDS = listOf(
         CommandSpec("help", "help [<command>]", "Show this list, or just one command", short = "This list", args = "<command>", aka = listOf("?")),
-        *com.mtwabpin.kolahal.control.ControlCommands.SPECS.toTypedArray(),
+        *com.mtwabpin.kolahal.commands.ControlSpecs.SPECS.toTypedArray(),
         CommandSpec(
             "apps", "apps [work|personal|private|hidden] [-l|-a]", "App grid (-l: one per line, -a: hidden apps too)",
             short = "Your apps as a grid", args = "work · personal · private · hidden · -l · -a",
@@ -309,7 +309,7 @@ object CommandCatalog {
     val SYNONYMS: Map<String, String> = COMMANDS.flatMap { spec -> spec.aka.map { it to spec.name } }.toMap()
 
     /** The commands that never run without Enter, and that scripts can't send ([CommandSpec.sensitive]), and the device controls. */
-    val SENSITIVE: Set<String> = COMMANDS.filter { it.sensitive }.mapTo(HashSet()) { it.name } + com.mtwabpin.kolahal.control.ControlCommands.SENSITIVE
+    val SENSITIVE: Set<String> = COMMANDS.filter { it.sensitive }.mapTo(HashSet()) { it.name } + com.mtwabpin.kolahal.commands.ControlSpecs.SENSITIVE
 
     /** Names that a script or an alias can't use: the command names and their synonyms. */
     val RESERVED_NAMES: Set<String> = COMMAND_NAMES + SYNONYMS.keys
@@ -389,7 +389,7 @@ object CommandCatalog {
             "rss",
             "notifs",
         ),
-        "control" to com.mtwabpin.kolahal.control.ControlCommands.SPECS.map { it.name },
+        "control" to com.mtwabpin.kolahal.commands.ControlSpecs.SPECS.map { it.name },
         "profiles" to listOf(
             "work",
             "private",

@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
@@ -144,9 +145,7 @@ class SecretStore(private val context: Context) {
             it is android.security.KeyStoreException && (it.isTransientFailure || it.isSystemError)
         }
 
-        /** Kv scopes that hold secrets start with this. Backups skip them. */
-        const val SCOPE_PREFIX = com.mtwabpin.kolahal.data.Stores.SECRET_PREFIX
-        fun scope(script: String) = SCOPE_PREFIX + script
+        fun scope(script: String) = Stores.SECRET_PREFIX + script
 
         /** Shorter values can't be told apart from ordinary text, so they couldn't be kept out of the log. */
         const val MIN_LENGTH = 4

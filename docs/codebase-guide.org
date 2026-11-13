@@ -81,10 +81,13 @@ MVVM (Model, View, ViewModel) separates the three.
 | View      | Draws the current state. Forwards user actions to the ViewModel.                                                                        | The ViewModel    | Compose functions in =ui/= and the =MainActivity= that hosts them        |
 
 The dependency arrows only point *down*: the View knows the ViewModel, the ViewModel knows the
-Model, and nothing points back up. Two things to know:
-- =terminal/= holds both the ViewModel and the command facts (=CommandCatalog=, =InstantRun=,
-  =LogFilter=, =CommandsOff=). Those are plain objects, so the Model may read them; it never reads
-  =ui/= or =TerminalViewModel=.
+Model, and nothing points back up. Three things to know:
+- The command facts live in =commands/=, which is part of the Model: the catalog (=CommandCatalog=,
+  =CommandSpec=, the device controls' =ControlSpecs=), =InstantRun=, =CommandsOff=, =LogFilter=,
+  =CommandParsing=, =Pipes= and =UsageLine=. They are plain objects, so the Model may read them
+  (backups check names against the catalog, scripts check sensitive commands). The handlers that
+  run commands (=CommandProcessor=, =ControlCommands=, …) are in =terminal/=. The Model never reads
+  =terminal/= or =ui/=.
 - =terminal/= never reads =ui/= either. What the screen and the ViewModel both need lives below the
   screen, and =ui/= reads it from there: the key bar's keys (=KeyBarKey=), what a header tap names
   (=HeaderTarget=) and the pinned header's turns (=PinnedTurns=) in =terminal/=; the font names and
@@ -92,7 +95,10 @@ Model, and nothing points back up. Two things to know:
   wallpaper that follows the theme (=WallpaperMatch=) in =control/=; Kolahal's addresses (=Links=)
   and the crash report share (=CrashReports=) at the root. =ui/= keeps what only drawing needs:
   =TermFonts= turns a font name into a Compose font, and each key gets its icon in =KeyBar=.
-=LayersTest= checks both rules.
+- The root files other than =MainActivity= (=LauncherApp=, =CrashReports=, =Links=) sit with the
+  Model. The screen's caches (log pictures, app icons) add themselves to =LauncherApp=
+  (=keepsInMemory=), which lets them go when home is away a while or memory is short.
+=LayersTest= checks these rules, and that every package says which layer it is in.
 
 The Model never calls the View. So how does the screen find
 out that something changed? It /observes/.
@@ -410,7 +416,7 @@ declares exactly what it needs from the ViewModel as a small interface:
 | [[src:terminal/BackupActions.kt::class BackupActions][BackupActions]]    | backup files and the folder automatic ones go to         | the same =Host=, and =ScriptActions= for after an import |
 | [[src:terminal/LogLineActions.kt::class LogLineActions][LogLineActions]]   | what a tap or long-press on a line does                  | =LogLineActions.Host=: set prompt text, run, emit |
 | [[src:terminal/Completer.kt::class Completer][Completer]]        | suggestions for what's typed                             | =Completer.Data=: history, scripts, todos, ...    |
-| [[src:terminal/InstantRun.kt::object InstantRun][InstantRun]]       | "is this input unambiguous enough to run without Enter?" | other pure objects only (=CommandCatalog=, =Pipes=) |
+| [[src:commands/InstantRun.kt::object InstantRun][InstantRun]]       | "is this input unambiguous enough to run without Enter?" | other pure objects only (=CommandCatalog=, =Pipes=) |
 
 [[src:terminal/TerminalUi.kt::interface TerminalUi][TerminalUi]] is the important one. =CommandProcessor= is a plain class with no access to the
 screen, yet commands like =settings= or =contacts= need to open a page or ask for a permission.
@@ -653,7 +659,8 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =feeds/=              | RSS/Atom: database, fetcher, worker, scheduler, OPML                               | [[src:feeds/FeedRepository.kt::class FeedRepository][FeedRepository.kt]]              |
 | =widgets/=            | hosting other apps' home-screen widgets                                            | [[src:widgets/WidgetModel.kt::object WidgetLocation][WidgetModel.kt]] (pure, tested)  |
 | =notifications/=      | the notification listener and its in-memory store                                  | [[src:notifications/KolahalNotificationListener.kt::class KolahalNotificationListener][KolahalNotificationListener.kt]] |
-| =control/=            | media and device toggles (torch, volume, dnd, ...)                                 | [[src:control/ControlCommands.kt::class ControlCommands][ControlCommands.kt]]             |
+| =commands/=           | the command facts: the catalog, sensitivity, =log only=, pipes, usage lines         | [[src:commands/CommandCatalog.kt::object CommandCatalog][CommandCatalog.kt]]              |
+| =control/=            | media playback and the wallpaper; the device commands' handler is in =terminal/=   | [[src:control/MediaRepository.kt::class MediaRepository][MediaRepository.kt]]             |
 | =productivity/=       | todo, notes, reminders, agenda, time parsing                                       | [[src:productivity/TimeSpec.kt][TimeSpec.kt]] (pure, tested)     |
 | =status/=             | battery, network and alarm state for the header                                    | [[src:status/DeviceStatus.kt::class DeviceStatus][DeviceStatus.kt]]                |
 | =unlock/=             | the unlock counter                                                                 | [[src:unlock/UnlockCounter.kt::class UnlockCounter][UnlockCounter.kt]]               |
@@ -773,7 +780,7 @@ into =buildRows= to see the rows being built.
 Add =hello [name]=, which prints =Hello, name!=.
 
 1. In =CommandCatalog=, add a =CommandSpec("hello", "hello [name]", "Say hello")=
-   to the [[src:terminal/CommandCatalog.kt::val COMMANDS = listOf(][COMMANDS]] list. That alone puts it in =help=, in suggestions (=Completer= reads
+   to the [[src:commands/CommandCatalog.kt::val COMMANDS = listOf(][COMMANDS]] list. That alone puts it in =help=, in suggestions (=Completer= reads
    =COMMAND_NAMES= and =COMMAND_USAGES=), and protects the name from being used as an alias.
 2. In =execute()=, add a branch: ="hello" -> out("Hello, ${args.firstOrNull() ?: "world"}!")=.
 3. Build, install, type =hello=. Then ask: =hello= isn't in =InstantRun.SENSITIVE=, so with

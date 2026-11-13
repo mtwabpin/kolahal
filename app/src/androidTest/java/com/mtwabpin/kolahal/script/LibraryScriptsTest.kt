@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.KvStore
@@ -28,7 +29,7 @@ class LibraryScriptsTest {
     // A script id of its own, so the script's store starts empty.
     private val id = 900_000_000L + System.nanoTime() % 1_000_000
     private val store = KvStore(context, ScriptRepository.scopeOf(id))
-    private val status = KvStore(context, HostApi.STATUS_SCOPE)
+    private val status = KvStore(context, Stores.STATUS)
 
     /** [options]: the ones you set; the rest are the script's defaults. [before]: code to run first, such as a stand-in for the network. */
     private fun run(file: String, argline: String = "", event: Map<String, Any?>? = null, options: Map<String, String> = emptyMap(), before: String = "") {

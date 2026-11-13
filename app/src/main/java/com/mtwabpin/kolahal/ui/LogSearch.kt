@@ -37,7 +37,7 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.shownText
-import com.mtwabpin.kolahal.terminal.LogFilter
+import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import java.text.SimpleDateFormat

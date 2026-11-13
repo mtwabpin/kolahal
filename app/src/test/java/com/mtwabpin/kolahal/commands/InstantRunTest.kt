@@ -1,6 +1,6 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
-import com.mtwabpin.kolahal.terminal.InstantRun.Target
+import com.mtwabpin.kolahal.commands.InstantRun.Target
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

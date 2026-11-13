@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import android.content.Context
 import android.content.Intent
 import com.mtwabpin.kolahal.data.LogContext

@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.KvStore
@@ -24,7 +25,7 @@ class ScriptReviewTest {
     private val name = "rv${System.nanoTime()}"
     private val id = 900_000_000L + System.nanoTime() % 1_000_000
     private val store = KvStore(context, ScriptRepository.scopeOf(id))
-    private val status = KvStore(context, HostApi.STATUS_SCOPE)
+    private val status = KvStore(context, Stores.STATUS)
 
     private fun host() = HostApi(context, name, scriptId = id, notifyEnabled = false)
     private fun lua(code: String) = host().let { h -> runBlocking { LuaEngine().run(code, name, h, 5_000, true) }.also { h.flush() } }

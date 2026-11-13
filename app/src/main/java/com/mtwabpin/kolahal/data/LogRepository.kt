@@ -339,14 +339,14 @@ class LogRepository private constructor(private val context: Context) {
      * - [skip] leaves lines out (those of a locked private space).
      * - With [match], only the lines it accepts are searched (`/@xkcd`, `log only xkcd`). With no
      *   words, all of those lines are found. [narrowBy] is a condition that every line [match] accepts
-     *   passes, so the database leaves out the rest ([com.mtwabpin.kolahal.terminal.LogFilter.sql]).
+     *   passes, so the database leaves out the rest ([com.mtwabpin.kolahal.commands.LogFilter.sql]).
      */
     fun search(
         words: List<String>,
         limit: Int = 500,
         skip: ((LogEntry) -> Boolean)? = null,
         match: ((LogEntry) -> Boolean)? = null,
-        narrowBy: com.mtwabpin.kolahal.terminal.LogFilter.Sql? = null,
+        narrowBy: com.mtwabpin.kolahal.commands.LogFilter.Sql? = null,
         keepGoing: () -> Boolean = { true },
     ): Found {
         val found = ArrayList<LogEntry>()
@@ -427,7 +427,7 @@ class LogRepository private constructor(private val context: Context) {
         arrayOf(marks.long(KEY_CLEARED_UP_TO).toString()),
     ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
 
-    /** `log only …`, as typed ([com.mtwabpin.kolahal.terminal.LogFilter.parse]). It stays until cleared. */
+    /** `log only …`, as typed ([com.mtwabpin.kolahal.commands.LogFilter.parse]). It stays until cleared. */
     var filter: String?
         get() = marks.string(KEY_FILTER)
         set(value) = marks.set(KEY_FILTER to value)

@@ -1,9 +1,9 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.logEntry
-import com.mtwabpin.kolahal.terminal.LogFilter.Kind
+import com.mtwabpin.kolahal.commands.LogFilter.Kind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

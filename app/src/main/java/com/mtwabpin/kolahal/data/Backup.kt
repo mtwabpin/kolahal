@@ -6,7 +6,7 @@ import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.terminal.InstantRun
+import com.mtwabpin.kolahal.commands.InstantRun
 
 /**
  * One JSON file with everything a user customises: settings, aliases, hidden/renamed apps and
@@ -245,7 +245,7 @@ class Backup(private val context: Context) {
 
         const val VERSION = 3
         const val FILE_NAME = "kolahal-backup.json"
-        private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
+        private val BUILT_INS get() = com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
     }
 }
 

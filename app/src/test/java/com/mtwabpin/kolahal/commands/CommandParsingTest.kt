@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

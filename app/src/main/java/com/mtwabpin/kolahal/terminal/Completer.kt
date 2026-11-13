@@ -1,5 +1,10 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.UsageLine
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.commands.CommandsOff
+import com.mtwabpin.kolahal.commands.LogFilter
 import android.content.Context
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.AppEntry
@@ -446,7 +451,7 @@ class Completer(private val context: Context, private val data: Data) {
                 LogFilter.suggestions(parts[2], data.logSources).take(cap)
                     .map { Suggestion.Completion(it.label, "$head only ${it.word}", icon = R.drawable.ic_visibility) }
             } else emptyList()
-            else -> com.mtwabpin.kolahal.control.ControlCommands.suggest(cmd, arg)
+            else -> com.mtwabpin.kolahal.commands.ControlSpecs.suggest(cmd, arg)
                 .map { (label, _) -> Suggestion.Completion(label, "$head $label") }
         }
     }

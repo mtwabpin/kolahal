@@ -47,7 +47,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptMeta
-import com.mtwabpin.kolahal.terminal.CommandParsing
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

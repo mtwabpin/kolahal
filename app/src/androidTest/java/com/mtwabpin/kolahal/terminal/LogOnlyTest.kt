@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.LogFilter
 import android.app.Application
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue

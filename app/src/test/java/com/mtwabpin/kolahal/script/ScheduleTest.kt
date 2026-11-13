@@ -1,6 +1,6 @@
 package com.mtwabpin.kolahal.script
 
-import com.mtwabpin.kolahal.terminal.CommandParsing
+import com.mtwabpin.kolahal.commands.CommandParsing
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

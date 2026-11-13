@@ -2,7 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppRepository
-import com.mtwabpin.kolahal.terminal.CommandCatalog
+import com.mtwabpin.kolahal.commands.CommandCatalog
 
 /** Names that a script from a file or from the shared catalog may not take. */
 object ScriptNames {

@@ -99,7 +99,7 @@ class ScriptLibrary(private val context: Context) {
      */
     fun install(entry: Entry, followTimers: Boolean = false): Script {
         // A command script with a built-in's name could never run by that name.
-        require(entry.name !in com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES) { "'${entry.name}' is a built-in command" }
+        require(entry.name !in com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES) { "'${entry.name}' is a built-in command" }
         val repo = ScriptRepository.get(context)
         val code = code(entry)
         val existing = repo.byName(entry.name)

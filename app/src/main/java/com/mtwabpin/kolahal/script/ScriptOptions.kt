@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import com.mtwabpin.kolahal.data.KvStore
 
@@ -27,7 +28,6 @@ class ScriptOptions(private val context: Context) {
     fun set(script: String, option: String, value: String?) = store(script).set(option, value)
 
     companion object {
-        const val SCOPE_PREFIX = com.mtwabpin.kolahal.data.Stores.OPTION_PREFIX
-        fun scope(script: String) = SCOPE_PREFIX + script
+        fun scope(script: String) = Stores.OPTION_PREFIX + script
     }
 }

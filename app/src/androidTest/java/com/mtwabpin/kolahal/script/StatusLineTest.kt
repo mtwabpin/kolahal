@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.workDataOf
@@ -63,7 +64,7 @@ class StatusLineTest {
         assertEquals(0.66f, l.progress!!, 0.001f)
         assertEquals(30, l.refresh)
         // The text is kept as it always was, for backups and older versions.
-        assertEquals("NZ 136/8 (33.2 ov) v IND", KvStore(context, HostApi.STATUS_SCOPE).get("liner"))
+        assertEquals("NZ 136/8 (33.2 ov) v IND", KvStore(context, Stores.STATUS).get("liner"))
     }
 
     /** A new text without options drops what the last one added; nil takes it all away. */
@@ -74,7 +75,7 @@ class StatusLineTest {
         assertEquals(StatusLine("liner", "second"), stored())
         h.status(null)
         assertNull(stored())
-        assertNull(KvStore(context, StatusLines.EXTRAS_SCOPE).get("liner"))
+        assertNull(KvStore(context, Stores.STATUS_EXTRAS).get("liner"))
     }
 
     @Test fun progressAndRefreshStayInBounds() {
@@ -152,7 +153,7 @@ class StatusLineTest {
         assertEquals(StatusLine("liner2", "x", 0.5f), stored("liner2"))
         scripts.setEnabled(s.id, false)
         assertNull(stored("liner2"))
-        assertNull(KvStore(context, StatusLines.EXTRAS_SCOPE).get("liner2"))
+        assertNull(KvStore(context, Stores.STATUS_EXTRAS).get("liner2"))
     }
 
     /** The bar's colour is a role, as fmt.color takes it; a name that isn't one is an error. */

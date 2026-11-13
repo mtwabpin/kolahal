@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 /**
  * Reads a command's usage line, the one that `help` shows (`feed [add <url>|rm] [id]`).

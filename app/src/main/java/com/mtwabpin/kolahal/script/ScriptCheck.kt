@@ -1,7 +1,7 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
-import com.mtwabpin.kolahal.terminal.CommandParsing
+import com.mtwabpin.kolahal.commands.CommandParsing
 
 /**
  * What the editor points out when you save a script. It reads only the script's text and finds:

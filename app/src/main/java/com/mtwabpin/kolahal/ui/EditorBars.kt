@@ -114,7 +114,7 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
         },
         confirmButton = {
             TextButton(shapes = ButtonDefaults.shapes(), onClick = {
-                val args = com.mtwabpin.kolahal.terminal.CommandParsing.tokenize(words.text)
+                val args = com.mtwabpin.kolahal.commands.CommandParsing.tokenize(words.text)
                 onRun(args, chosen?.let { com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(it.first, it.second) })
             }) { Text("run", style = Term.code.copy(color = Term.prompt)) }
         },

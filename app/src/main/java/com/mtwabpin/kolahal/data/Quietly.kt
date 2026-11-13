@@ -11,8 +11,6 @@ import android.content.Context
  * a day for each [what], so a step that fails at every start doesn't fill the log.
  */
 object Quietly {
-    /** Where the day of the last report is kept: a scope about this phone, never in a backup. */
-    private const val SCOPE = Stores.WORKER
 
     fun run(context: Context, what: String, block: () -> Unit) {
         try {
@@ -26,7 +24,7 @@ object Quietly {
     /** Logs that [what] failed with [e], once a day for each [what]. Reporting never throws. */
     fun report(context: Context, what: String, e: Throwable) {
         runCatching {
-            val store = KvStore(context, SCOPE)
+            val store = KvStore(context, Stores.WORKER)
             val key = "failed:$what"
             val today = java.time.LocalDate.now().toString()
             if (store.get(key) == today) return

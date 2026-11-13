@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import android.app.WallpaperManager
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4

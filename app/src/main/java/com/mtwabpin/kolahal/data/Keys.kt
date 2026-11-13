@@ -144,7 +144,7 @@ object Keys {
     val COMMANDS_OFF = ConfigKey.Text(
         "commands.off", "",
         "Built-in commands turned off, separated by commas (none: all on). A command that is off isn't suggested or listed in help, and its name opens the app it matches (maps opens Maps). help, config and settings stay on",
-        com.mtwabpin.kolahal.terminal.CommandsOff::parse,
+        com.mtwabpin.kolahal.commands.CommandsOff::parse,
     )
     val FOCUS_ON_HOME = ConfigKey.Bool("keyboard.on-home", false, "Open the on-screen keyboard whenever the home screen is shown")
     val BACKUP_AUTO = ConfigKey.Choice("backup.auto", "off", listOf("off", "daily", "weekly"), "Write a backup file to a folder you pick, every day or every week")

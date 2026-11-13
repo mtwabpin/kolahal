@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.LogFilter
 import android.app.Instrumentation
 import android.app.PendingIntent
 import android.content.BroadcastReceiver

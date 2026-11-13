@@ -8,7 +8,7 @@ import java.util.UUID
  * Whether kolahal.db was written by this install of Kolahal.
  *
  * Android's transfer to a new phone (over a cable or Wi-Fi) copies the database whole, with what
- * belongs to the old phone ([FullBackup.DEVICE_SCOPES]):
+ * belongs to the old phone ([Stores.THIS_PHONE]):
  * - the id of the last call it logged: on the new phone, call ids start low again, so new calls
  *   wouldn't be logged until they passed it;
  * - the apps it had: the first check on the new phone would log every difference as installed,
@@ -21,8 +21,6 @@ import java.util.UUID
  * came along too, and home writes it again at once.
  */
 object ThisInstall {
-    /** The kv scope of the database's copy of the id. It never goes into a backup. */
-    const val SCOPE = Stores.INSTALL
     private const val KEY = "id"
     private const val FILE = "install-id"
 
@@ -40,7 +38,7 @@ object ThisInstall {
             if (checked) return
             val file = File(context.noBackupFilesDir, FILE)
             val mine = runCatching { file.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() }
-            val store = KvStore(context, SCOPE)
+            val store = KvStore(context, Stores.INSTALL)
             val stored = store.get(KEY)
             val id = mine ?: UUID.randomUUID().toString().also { file.writeText(it) }
             // Neither one: a new install, or the first start of a version with this check. Nothing came from elsewhere.
@@ -52,6 +50,6 @@ object ThisInstall {
 
     private fun clearOldPhone(context: Context) {
         val db = Db.get(context).writableDatabase
-        for (scope in FullBackup.DEVICE_SCOPES - SharedSettings.SCOPE) db.delete("kv", "scope = ?", arrayOf(scope))
+        for (scope in Stores.THIS_PHONE - Stores.SHARED_SETTINGS) db.delete("kv", "scope = ?", arrayOf(scope))
     }
 }

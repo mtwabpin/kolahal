@@ -19,11 +19,10 @@ data class StatusLine(val name: String, val text: String, val progress: Float? =
 
 /**
  * Scripts' status lines, stored by script name. The text is stored as it always was
- * ([HostApi.STATUS_SCOPE], which backups and older versions read). What `opts` adds is stored
- * next to it ([EXTRAS_SCOPE]).
+ * ([Stores.STATUS], which backups and older versions read). What `opts` adds is stored
+ * next to it ([Stores.STATUS_EXTRAS]).
  */
 object StatusLines {
-    const val EXTRAS_SCOPE = Stores.STATUS_EXTRAS
 
     /** The fastest a status line can run again, and the slowest refresh worth asking for. */
     const val MIN_REFRESH = 10
@@ -56,8 +55,8 @@ object StatusLines {
 
     /** Every stored line with what it adds, by name. */
     fun all(context: Context): List<StatusLine> {
-        val extras = KvStore(context, EXTRAS_SCOPE).all()
-        return KvStore(context, HostApi.STATUS_SCOPE).all().map { (name, text) ->
+        val extras = KvStore(context, Stores.STATUS_EXTRAS).all()
+        return KvStore(context, Stores.STATUS).all().map { (name, text) ->
             val (progress, refresh, colour) = decodeExtras(extras[name])
             StatusLine(name, text, progress, refresh, colour)
         }.sortedBy { it.name }
@@ -68,8 +67,8 @@ object StatusLines {
      * on, or changed from outside.
      */
     fun clear(context: Context, name: String) {
-        KvStore(context, HostApi.STATUS_SCOPE).set(name, null)
-        KvStore(context, EXTRAS_SCOPE).set(name, null)
+        KvStore(context, Stores.STATUS).set(name, null)
+        KvStore(context, Stores.STATUS_EXTRAS).set(name, null)
     }
 
     /** Saved after [pinShownOnce] has run on this phone. */
@@ -85,7 +84,7 @@ object StatusLines {
         val prefs = Stores.LAUNCHER.open(context)
         if (prefs.getBoolean(PINS_CARRIED, false)) return
         val scripts = ScriptRepository.get(context)
-        val lines = KvStore(context, HostApi.STATUS_SCOPE).all().keys
+        val lines = KvStore(context, Stores.STATUS).all().keys
         for (s in scripts.all()) {
             if (s.name in lines && ScriptAccess.HEADER !in s.access && ScriptMeta.setsStatus(s.code)) scripts.setAccess(s.id, ScriptAccess.HEADER, true)
         }

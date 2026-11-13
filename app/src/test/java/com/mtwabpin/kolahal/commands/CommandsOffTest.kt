@@ -1,5 +1,6 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
+import com.mtwabpin.kolahal.terminal.Tips
 import com.mtwabpin.kolahal.data.Keys
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

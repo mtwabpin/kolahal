@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 /**
  * `commands.off`: built-in commands turned off. Some people don't use a command, or want its name

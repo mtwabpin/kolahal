@@ -64,8 +64,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.terminal.CommandCatalog
-import com.mtwabpin.kolahal.terminal.InstantRun
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.terminal.Suggestion
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import java.text.SimpleDateFormat

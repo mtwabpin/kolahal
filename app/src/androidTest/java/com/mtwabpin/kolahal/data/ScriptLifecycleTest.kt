@@ -23,7 +23,7 @@ class ScriptLifecycleTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val repo = ScriptRepository.get(context)
     private val secrets = SecretStore(context)
-    private val status = KvStore(context, HostApi.STATUS_SCOPE)
+    private val status = KvStore(context, Stores.STATUS)
     private val names = listOf("lc-a", "lc-b", "lc-c", "lc-d")
 
     @After fun tearDown() {

@@ -41,12 +41,8 @@ object FullBackup {
         Table({ FeedDb.get(it).writableDatabase }, "items"),
     )
 
-    /** Kv scopes are "script:<id>". Ids differ between devices, so backups key them by script name. */
-    private const val SCRIPT_SCOPE = Stores.SCRIPT_PREFIX
-    private val BUILT_INS get() = com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
+    private val BUILT_INS get() = com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
 
-    /** Kv scopes about this phone ([Stores.THIS_PHONE]): never in a backup, and a restore keeps this phone's. */
-    internal val DEVICE_SCOPES = Stores.THIS_PHONE
 
     fun export(context: Context): Map<String, Any?> {
         // Rows too big for a cursor would make the whole export fail. They come from old versions; the
@@ -59,10 +55,10 @@ object FullBackup {
             val rows = query(t.db(context), t.name)
             tables[t.name] = if (t.name == "logs") rows.filterNot { private(it, serials) } else if (t.name != "kv") rows else rows.filter { row ->
                 val scope = row["scope"] as? String ?: return@filter false
-                if (scope in DEVICE_SCOPES) return@filter false
+                if (scope in Stores.THIS_PHONE) return@filter false
                 // Script secrets never leave the phone (and only its Keystore key can read them anyway).
-                if (scope.startsWith(SecretStore.SCOPE_PREFIX)) return@filter false
-                if (!scope.startsWith(SCRIPT_SCOPE)) return@filter true
+                if (scope.startsWith(Stores.SECRET_PREFIX)) return@filter false
+                if (!scope.startsWith(Stores.SCRIPT_PREFIX)) return@filter true
                 // Stores of deleted scripts are dropped. The rest move under the script's name, except what
                 // http.cached keeps: it is only a cache, and a cache from before 0.4.9 can hold a key.
                 val k = row["k"].toString()
@@ -87,14 +83,14 @@ object FullBackup {
             // - this phone's own scopes,
             // - script stores by id (another phone's ids name other scripts here; stores come by name, in scriptStores).
             val list = (tables?.get(t.name) as? List<*>)?.filterIsInstance<Map<*, *>>()
-                ?.filterNot { t.name == "kv" && it["scope"]?.toString().orEmpty().let { s -> s.startsWith(SecretStore.SCOPE_PREFIX) || s.startsWith(SCRIPT_SCOPE) || s in DEVICE_SCOPES } } ?: continue
+                ?.filterNot { t.name == "kv" && it["scope"]?.toString().orEmpty().let { s -> s.startsWith(Stores.SECRET_PREFIX) || s.startsWith(Stores.SCRIPT_PREFIX) || s in Stores.THIS_PHONE } } ?: continue
             val db = t.db(context)
             db.transaction {
                 if (t.name == "kv") {
                     // Keep this device's script stores (attached again by name afterwards) and script secrets.
                     db.delete(
-                        "kv", "scope NOT LIKE ? AND scope NOT LIKE ? AND scope NOT IN (${DEVICE_SCOPES.joinToString { "?" }})",
-                        arrayOf("$SCRIPT_SCOPE%", "${SecretStore.SCOPE_PREFIX}%") + DEVICE_SCOPES,
+                        "kv", "scope NOT LIKE ? AND scope NOT LIKE ? AND scope NOT IN (${Stores.THIS_PHONE.joinToString { "?" }})",
+                        arrayOf("$Stores.SCRIPT_PREFIX%", "${Stores.SECRET_PREFIX}%") + Stores.THIS_PHONE,
                     )
                 } else {
                     db.delete(t.name, null, null)
@@ -230,7 +226,7 @@ object FullBackup {
     internal fun private(row: Map<String, Any?>, privateSerials: Set<Long>): Boolean {
         if (row["source"] == com.mtwabpin.kolahal.calls.CallEvents.SOURCE) return true
         val text = row["text"] as? String ?: ""
-        if (row["kind"] == LogKind.COMMAND.key && com.mtwabpin.kolahal.terminal.InstantRun.canonical(text.trim().substringBefore(' ')) in TYPED_TO_SOMEONE) return true
+        if (row["kind"] == LogKind.COMMAND.key && com.mtwabpin.kolahal.commands.InstantRun.canonical(text.trim().substringBefore(' ')) in TYPED_TO_SOMEONE) return true
         val ctx = LogContext.fromJson(row["ctx"] as? String)
         if (ctx.values.containsKey(KolahalNotificationListener.CTX_KEY) || ctx.values.containsKey(LogContext.PHONE)) return true
         if (ctx.userSerial?.let { it in privateSerials } == true) return true

@@ -8,7 +8,6 @@ import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.LogKept
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.calls.CallEvents
-import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.eventually
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import kotlinx.coroutines.Dispatchers
@@ -276,7 +275,7 @@ class BackupAndLibraryTest {
         apps.refresh()
         eventually(5_000) { apps.apps.value.isNotEmpty() }
         val name = apps.apps.value.map { it.label.lowercase().replace(Regex("[^a-z0-9]"), "") }
-            .first { it.length in 3..40 && it !in com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES && scripts.byName(it) == null }
+            .first { it.length in 3..40 && it !in com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES && scripts.byName(it) == null }
         assertNotNull(com.mtwabpin.kolahal.script.ScriptNames.clash(context, name))
         val file = File(context.cacheDir, "kolahal-backup-app-name.json")
         try {
@@ -625,7 +624,7 @@ class BackupAndLibraryTest {
     /** What an export leaves out stays out of a restore, whatever the file holds: the notification copy, a store by id. */
     @Test fun aBackupCantBringInTheNotificationCopyOrAStoreById() {
         val script = scripts.create("bktest", ScriptLang.LUA, "log('x')")
-        val scope = com.mtwabpin.kolahal.notifications.KolahalNotificationListener.MIRROR_SCOPE
+        val scope = Stores.NOTIFICATIONS_MIRROR
         val key = com.mtwabpin.kolahal.notifications.KolahalNotificationListener.MIRROR_KEY
         val mirror = KvStore(context, scope)
         val was = mirror.get(key)

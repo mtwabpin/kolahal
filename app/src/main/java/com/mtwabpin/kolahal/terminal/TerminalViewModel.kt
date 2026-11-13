@@ -1,5 +1,10 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.commands.CommandsOff
+import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.Stores
 import androidx.core.net.toUri
 import android.app.Application

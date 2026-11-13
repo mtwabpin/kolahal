@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.terminal.CommandCatalog
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.terminal.Suggestion
 
 /** Matches a profile tag at the end of a completion's label (`Maps [W]`), the same tag app rows show. */

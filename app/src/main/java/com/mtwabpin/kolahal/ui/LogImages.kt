@@ -40,6 +40,11 @@ import kotlin.math.sqrt
  * Android may clear the cache directory. The image is then downloaded again when its line shows.
  */
 object LogImages {
+    init {
+        // Let go with the rest of what the screen keeps: when home is away a while, or memory is short.
+        com.mtwabpin.kolahal.LauncherApp.keepsInMemory { trim() }
+    }
+
     private const val MAX_BYTES = 10L * 1024 * 1024
     /** The disk cache is trimmed to this size. The least recently shown images are deleted first. */
     private const val DISK_BYTES = 50L * 1024 * 1024

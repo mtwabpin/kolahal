@@ -69,14 +69,14 @@ class LauncherApp : Application(), Configuration.Provider {
     fun homeShown() = main.removeCallbacks(awayTrim)
 
     /**
-     * Drops the log pictures and the app icons. After time [away], the icons of the most-used apps
-     * stay (about 1 MB at most): they are the first you type, and would pop in late otherwise.
-     * When Android is short of memory, everything goes.
+     * Drops what the screen keeps in memory ([keepsInMemory]): the log pictures and the app icons.
+     * After time [away], the icons of the most-used apps stay (about 1 MB at most): they are the first
+     * you type, and would pop in late otherwise. When Android is short of memory, everything goes.
      */
     private fun trimKept(away: Boolean = false) {
-        com.mtwabpin.kolahal.ui.LogImages.trim()
+        if (caches.isEmpty()) return
         val keep = if (away) runCatching { AppRepository.get(this).top(KEEP_ICONS).map { it.key }.toSet() }.getOrDefault(emptySet()) else emptySet()
-        com.mtwabpin.kolahal.ui.AppIcons.trim(keep)
+        caches.forEach { it(keep) }
     }
 
     override fun onCreate() {
@@ -187,6 +187,18 @@ class LauncherApp : Application(), Configuration.Provider {
     }
 
     companion object {
+        /** What the screen keeps in memory, in the order each began to keep something ([keepsInMemory]). */
+        private val caches = java.util.concurrent.CopyOnWriteArrayList<(Set<String>) -> Unit>()
+
+        /**
+         * A cache of the screen's (pictures, icons) adds itself here the first time it is used, and
+         * [trim] lets it go: when home is away a while, or memory is short. [trim] gets the keys of
+         * the apps whose icons stay. So the app knows when to let go, but not what the screen keeps.
+         */
+        fun keepsInMemory(trim: (keepApps: Set<String>) -> Unit) {
+            caches += trim
+        }
+
         /**
          * Starts home again in a new process after [afterMs], so every cache is read again: `restart`, and
          * after a full restore replaced the files and tables under it. The wait lets the line saying so show.

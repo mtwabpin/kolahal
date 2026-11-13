@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.notifications
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.LogLinesSince
@@ -38,7 +39,7 @@ class KolahalNotificationListenerTest {
     private val logs = LogRepository.get(app)
     private val repo = ScriptRepository.get(app)
     private val prefs = NotifPrefs.get(app)
-    private val mirror = KvStore(app, KolahalNotificationListener.MIRROR_SCOPE)
+    private val mirror = KvStore(app, Stores.NOTIFICATIONS_MIRROR)
     // Lines last, after tearDown: whatever went wrong in it.
     @get:Rule val logLines = LogLinesSince()
     @get:Rule val access = NotificationAccess()

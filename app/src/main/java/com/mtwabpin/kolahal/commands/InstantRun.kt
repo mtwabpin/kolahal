@@ -1,4 +1,4 @@
-package com.mtwabpin.kolahal.terminal
+package com.mtwabpin.kolahal.commands
 
 /**
  * `launch.instant`: runs what the user is typing, without Enter, as soon as it can mean only one thing.
@@ -118,7 +118,7 @@ object InstantRun {
      * from a prefix or from a script. But a line with nothing left to choose (`torch on`) does run,
      * whether it is typed, picked, or tapped in the log.
      */
-    private val WHOLE_LINE_OK = com.mtwabpin.kolahal.control.ControlCommands.SENSITIVE
+    private val WHOLE_LINE_OK = com.mtwabpin.kolahal.commands.ControlSpecs.SENSITIVE
 
     /**
      * Commands that are sensitive when typed or sent by a script, but run when tapped in the log.

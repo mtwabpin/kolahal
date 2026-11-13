@@ -36,7 +36,7 @@ import com.mtwabpin.kolahal.feeds.Feed
 import com.mtwabpin.kolahal.feeds.FeedRepository
 import com.mtwabpin.kolahal.feeds.FeedScheduler
 import com.mtwabpin.kolahal.feeds.FeedWorker
-import com.mtwabpin.kolahal.terminal.CommandParsing
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForText

@@ -1,5 +1,12 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.Pipes
+import com.mtwabpin.kolahal.commands.CommandCatalog
+import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.commands.CommandsOff
+import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.commands.CommandParsing
+import com.mtwabpin.kolahal.commands.CommandSpec
 import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import android.content.Intent
@@ -26,9 +33,9 @@ import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.Net
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
-import com.mtwabpin.kolahal.terminal.CommandCatalog.HELP_SECTIONS
-import com.mtwabpin.kolahal.terminal.CommandCatalog.PRODUCTIVITY
-import com.mtwabpin.kolahal.terminal.CommandCatalog.RESERVED_NAMES
+import com.mtwabpin.kolahal.commands.CommandCatalog.HELP_SECTIONS
+import com.mtwabpin.kolahal.commands.CommandCatalog.PRODUCTIVITY
+import com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.widgets.listing
 import java.text.DateFormat
@@ -49,7 +56,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val conf = Config.get(context)
     private val prefs = AppPrefs.get(context)
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val controls by lazy { com.mtwabpin.kolahal.control.ControlCommands(context) }
+    private val controls by lazy { com.mtwabpin.kolahal.terminal.ControlCommands(context) }
     private val productivity = ProductivityCommands(context, ui)
     private val scriptCommands = ScriptCommands(context, ui, ::background)
     private val configCommands = ConfigCommands(context, ui)
@@ -190,7 +197,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "config", "set" -> if (name == "config" && args.isEmpty()) ui.openScreen(Screen.SETTINGS) else configCommands.config(args, rest)
                 "theme" -> configCommands.config(listOf("set", Keys.THEME.key) + args)
                 "font" -> configCommands.font(args)
-                in com.mtwabpin.kolahal.control.ControlCommands.NAMES -> controls.run(name, args)
+                in com.mtwabpin.kolahal.commands.ControlSpecs.NAMES -> controls.run(name, args)
                 in PRODUCTIVITY -> productivity.run(name, rest)
                 else -> scriptCommands.runCommand(name, args) ?: fallbackLaunch(trimmed)
             }

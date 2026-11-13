@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.Pipes
+
 /**
  * Aliases (`alias m = open maps`): how a line expands, and what an `alias …` line asks for.
  * [CommandProcessor] keeps them in [com.mtwabpin.kolahal.apps.AppPrefs]. These functions take

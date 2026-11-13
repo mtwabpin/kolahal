@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
@@ -684,8 +685,8 @@ class HostApi(
         // A status line is plain text. Styles only show in the log.
         val value = text?.let(::redact)?.let(StyledText::plain)?.lines()?.firstOrNull()?.take(STATUS_MAX)?.takeIf { it.isNotBlank() }
         val extras = value?.let { StatusLines.encodeExtras(progress, refresh, colour) }
-        val lines = KvStore(context, STATUS_SCOPE)
-        val added = KvStore(context, StatusLines.EXTRAS_SCOPE)
+        val lines = KvStore(context, Stores.STATUS)
+        val added = KvStore(context, Stores.STATUS_EXTRAS)
         // Each write tells home to redraw. So unchanged writes are skipped, and a loop stops after a few.
         if ((lines.get(scriptName) == value && added.get(scriptName) == extras) || ++statusWrites > MAX_STATUS_PER_RUN) return
         lines.set(scriptName, value)
@@ -827,7 +828,7 @@ class HostApi(
             runCatching { listener.clearMirror(context) }
             return emptyList()
         }
-        val raw = KvStore(context, listener.MIRROR_SCOPE).get(listener.MIRROR_KEY) ?: return emptyList()
+        val raw = KvStore(context, Stores.NOTIFICATIONS_MIRROR).get(listener.MIRROR_KEY) ?: return emptyList()
         return (runCatching { Json.parse(raw) as? List<*> }.getOrNull() ?: emptyList<Any?>()).take(limit.coerceIn(0, 50))
     }
 
@@ -837,7 +838,7 @@ class HostApi(
     /** Runs a terminal command in the launcher. Only for scripts started from the prompt. */
     fun runCommand(sent: String): Boolean {
         // Split and checked the same way home will run it ([com.mtwabpin.kolahal.terminal.CommandProcessor.run]).
-        val command = com.mtwabpin.kolahal.terminal.CommandParsing.spaces(sent)
+        val command = com.mtwabpin.kolahal.commands.CommandParsing.spaces(sent)
         live()
         // Commands (and through them, other scripts) are only for scripts that declare them and are allowed them.
         if (!may("commands", "launcher.run")) return false
@@ -860,12 +861,12 @@ class HostApi(
         }
         // State-changing commands (clear, uninstall, notifs clear, config, …) stay with the user. Home checks
         // again with your aliases: this process can't see them change (an alias such as `c = clear`).
-        if (com.mtwabpin.kolahal.terminal.InstantRun.isSensitive(command)) {
+        if (com.mtwabpin.kolahal.commands.InstantRun.isSensitive(command)) {
             logError("launcher.run refused '${command.substringBefore(' ')}': sensitive commands must be typed")
             return false
         }
         if (command.contains(' ') && grants != null && !grants.allows(ScriptAccess.INTERNET)) {
-            val verb = com.mtwabpin.kolahal.terminal.InstantRun.canonical(command.substringBefore(' '))
+            val verb = com.mtwabpin.kolahal.commands.InstantRun.canonical(command.substringBefore(' '))
             // A search or a place sends its words to a site through another app, so it needs the internet.
             if (verb in WEB_COMMANDS) {
                 logError("launcher.run refused '$verb': it sends text to a website, and this script has no internet access")
@@ -936,7 +937,6 @@ class HostApi(
         private const val STATUS_MAX = 80
         /** What `status(text, opts)` takes in opts. */
         private val STATUS_OPTIONS = listOf("progress", "refresh", "color")
-        const val STATUS_SCOPE = com.mtwabpin.kolahal.data.Stores.STATUS
         const val ACTION_RUN_COMMAND = "com.mtwabpin.kolahal.RUN_COMMAND"
         const val EXTRA_COMMAND = "command"
         /** The context keys a script's line may carry. Anything else is dropped. */

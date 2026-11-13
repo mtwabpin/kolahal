@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.workDataOf
@@ -22,7 +23,7 @@ import org.junit.runner.RunWith
 class ScriptBoundsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val scripts = ScriptRepository.get(context)
-    private val status = KvStore(context, HostApi.STATUS_SCOPE)
+    private val status = KvStore(context, Stores.STATUS)
 
     private val logs = LogRepository.get(context)
     @get:Rule val logLines = LogLinesSince()

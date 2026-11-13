@@ -3,7 +3,7 @@ package com.mtwabpin.kolahal.data
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.LogKept
-import com.mtwabpin.kolahal.terminal.LogFilter
+import com.mtwabpin.kolahal.commands.LogFilter
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

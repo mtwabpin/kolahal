@@ -1,5 +1,8 @@
 package com.mtwabpin.kolahal.terminal
 
+import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.commands.CommandsOff
+
 /**
  * Shows one tip per day in the log for the first two weeks after install (`log.tips`).
  * Each tip is about a feature that you haven't used yet. We check this against the commands you typed.

@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.control
 
+import com.mtwabpin.kolahal.commands.ControlSpecs
 import com.mtwabpin.kolahal.control.ControlArgs.Level
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -63,8 +64,8 @@ class ControlArgsTest {
     }
 
     @Test fun suggestions() {
-        assertEquals(listOf("play" to "media play", "pause" to "media pause", "prev" to "media prev"), ControlCommands.suggest("media", "p"))
-        assertEquals(emptyList<Pair<String, String>>(), ControlCommands.suggest("torch", "on"))
+        assertEquals(listOf("play" to "media play", "pause" to "media pause", "prev" to "media prev"), ControlSpecs.suggest("media", "p"))
+        assertEquals(emptyList<Pair<String, String>>(), ControlSpecs.suggest("torch", "on"))
     }
 
     /** A number too big to multiply is refused, not wrapped round to a few minutes. */

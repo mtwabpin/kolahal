@@ -158,7 +158,7 @@ object ScriptMeta {
 
     /** `@every 1h`: the interval it suggests, in minutes. Null if there is none (or it is `off`). */
     fun every(code: String): Int? =
-        value(code, "every")?.let { com.mtwabpin.kolahal.terminal.CommandParsing.parseInterval(it) }?.takeIf { it > 0 }
+        value(code, "every")?.let { com.mtwabpin.kolahal.commands.CommandParsing.parseInterval(it) }?.takeIf { it > 0 }
 
     /** `@at 07:00, 18:30`: the daily times it suggests, as "HH:mm". */
     fun at(code: String): List<String> =
