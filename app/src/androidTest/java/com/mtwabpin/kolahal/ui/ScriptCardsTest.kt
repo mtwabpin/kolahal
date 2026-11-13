@@ -24,11 +24,11 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
@@ -65,13 +65,16 @@ class ScriptCardsTest {
     /** The pill on [name]'s card. */
     private fun pill(name: String) = hasTestTag("script-pill") and hasAnyAncestor(hasTestTag("script-card") and hasText(name))
 
-    /** The script the page handed to its export, if any. */
-    private var exported: Script? = null
+    /** What the page asked the activity for: Export sends the script to save. */
+    private val sent = SentEvents()
 
     /** The Scripts tab; with [details], every card's details are open. */
     private fun show(details: Boolean = true): TerminalViewModel {
         val vm = vms.terminal(app)
-        compose.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = { exported = it }) }
+        compose.setContent {
+            sent.Collect(vm)
+            ScriptsScreen(vm)
+        }
         compose.waitUntil(5_000) { vm.scriptList.value.isNotEmpty() }
         if (details) compose.onAllNodesWithContentDescription("Show details")[0].performClick()
         return vm
@@ -118,7 +121,7 @@ class ScriptCardsTest {
         val s = scripts.create("scpills", ScriptLang.LUA, "-- @on unlock\nreturn 1")
         val vm = vms.terminal(app)
         var shown by androidx.compose.runtime.mutableStateOf(true)
-        compose.setContent { if (shown) ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
+        compose.setContent { if (shown) ScriptsScreen(vm) }
         fun details(event: String) {
             compose.waitUntil(5_000) { vm.scriptList.value.any { it.name == "scpills" && event.lowercase() in it.code } }
             compose.onAllNodesWithContentDescription("Show details")[0].performClick()
@@ -212,7 +215,7 @@ class ScriptCardsTest {
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
         // Export hands the copy on, and the question stays.
         inDialog("Export your copy first").performClick()
-        compose.runOnIdle { assertEquals(s.id, exported?.id) }
+        compose.waitFor("the copy handed to the export") { sent.all.any { it is UiEvent.ExportScript && it.script.id == s.id } }
         compose.onNodeWithText("Reset countdown.lua?").assertExists()
         assertEquals(mine, scripts.byId(s.id)!!.code)
 

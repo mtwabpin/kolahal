@@ -53,7 +53,7 @@ class KeyBarTest {
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
-                    TerminalScreen(vm, onPickFolder = {})
+                    TerminalScreen(vm)
                 }
             }
         }

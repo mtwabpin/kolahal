@@ -114,7 +114,7 @@ private fun FeedInfo.displayTitle(): String = title?.takeIf { it.isNotBlank() } 
  * [FeedRepository.version] changes. The fetch worker runs in this process, so new items show up live.
  */
 @Composable
-fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
+fun FeedsScreen(vm: TerminalViewModel) {
     val context = LocalContext.current
     val repo = remember { FeedRepository.get(context) }
     val repoVersion by repo.version.collectAsStateWithLifecycle()
@@ -197,7 +197,7 @@ fun FeedsScreen(vm: TerminalViewModel, onRequestNotifications: () -> Unit) {
                 onDismiss = { sheetFeedId = null },
                 onRefresh = { io("refresh") { FeedScheduler.fetchNow(context, sheetFeed.id); "Fetching ${sheetFeed.displayTitle()}…" } },
                 onNotify = { on ->
-                    if (on) onRequestNotifications()
+                    if (on) vm.requestNotificationPermission()
                     io("notifications") { repo.setNotify(sheetFeed.id, on); null }
                 },
                 onEnabled = { on ->

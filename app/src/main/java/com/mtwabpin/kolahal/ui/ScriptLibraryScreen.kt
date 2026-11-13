@@ -41,7 +41,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
  * - Then every other library script, with Install or its state.
  */
 @Composable
-fun ScriptLibraryScreen(vm: TerminalViewModel, onExportScript: (Script) -> Unit = {}) {
+fun ScriptLibraryScreen(vm: TerminalViewModel) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     BackHandler { vm.closeScreen() }
     val library by rememberLibraryRows(vm, scripts)
@@ -106,7 +106,7 @@ fun ScriptLibraryScreen(vm: TerminalViewModel, onExportScript: (Script) -> Unit 
             val s = mine(r)
             val copy = ScriptCopy.of(r)
             if (s != null && copy.canRestore) {
-                RestoreDialog(vm, s, copy, onExport = { onExportScript(s) }, onDismiss = { restoring = null }) {
+                RestoreDialog(vm, s, copy, onExport = { vm.requestScriptExport(s) }, onDismiss = { restoring = null }) {
                     restoring = null
                     vm.scriptActions.restore(listOf(copy.restore(s)))
                 }

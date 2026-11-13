@@ -100,8 +100,8 @@ class ScriptsTopTest {
     /** The Scripts tab, its search set to [query] when given. With [restoration], it can be torn down and restored as after a rotation. */
     private fun show(query: String? = null, restoration: StateRestorationTester? = null) {
         val vm = vms.terminal(app)
-        if (restoration != null) restoration.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
-        else compose.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = {}) }
+        if (restoration != null) restoration.setContent { ScriptsScreen(vm) }
+        else compose.setContent { ScriptsScreen(vm) }
         compose.waitUntil(5_000) { vm.scriptList.value.isNotEmpty() }
         query?.let { compose.onNodeWithTag("script-search").performTextInput(it) }
     }

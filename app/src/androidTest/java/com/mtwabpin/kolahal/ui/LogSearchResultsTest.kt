@@ -237,7 +237,7 @@ class LogSearchResultsTest {
         val vm = vms.terminal(app)
         compose.setContent {
             KolahalTheme {
-                Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) { TerminalScreen(vm, onPickFolder = {}) }
+                Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) { TerminalScreen(vm) }
             }
         }
         fun type(text: String) = compose.runOnIdle { vm.onInputChange(TextFieldValue(text, TextRange(text.length))) }

@@ -38,6 +38,7 @@ import com.mtwabpin.kolahal.feeds.FeedScheduler
 import com.mtwabpin.kolahal.feeds.FeedWorker
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForText
 import org.junit.After
@@ -65,7 +66,7 @@ class FeedsScreenTest {
     private val logs = LogRepository.get(app)
     private val config = Config.get(app)
     private var logStart = 0L
-    private var notificationsAsked = 0
+    private val sent = SentEvents()
     private lateinit var vm: TerminalViewModel
 
     @Before fun setUp() {
@@ -100,8 +101,14 @@ class FeedsScreenTest {
 
     private fun show() {
         vm = vms.terminal(app)
-        compose.setContent { FeedsScreen(vm, onRequestNotifications = { notificationsAsked++ }) }
+        compose.setContent {
+            sent.Collect(vm)
+            FeedsScreen(vm)
+        }
     }
+
+    /** How often the screen asked the activity for the permission to post notifications. */
+    private fun notificationsAsked() = sent.all.count { it == UiEvent.RequestNotificationPermission }
 
     /** [check] holds for a second: what a wrong change, still on its way, would undo. */
     private fun stays(what: String, check: () -> Boolean) {
@@ -182,13 +189,13 @@ class FeedsScreenTest {
         openSheet("KT Alpha")
         compose.onNodeWithText("Notifications").performClick()
         compose.waitFor("notify on") { repo.byId(f.id)!!.notify }
-        assertEquals(1, notificationsAsked)
+        compose.waitFor("the permission asked for once") { notificationsAsked() == 1 }
         // The second tap switches from what the sheet shows: wait for it to show on, as the row
         // under it does (the sheet's switch has no state to read).
         compose.waitForText("${every(f)} · notify", substring = true)
         compose.onNodeWithText("Notifications").performClick()
         compose.waitFor("notify off") { !repo.byId(f.id)!!.notify }
-        assertEquals(1, notificationsAsked)
+        compose.runOnIdle { assertEquals(1, notificationsAsked()) }
     }
 
     /** A feed switched off says so in its row, and its unread items leave the count. */

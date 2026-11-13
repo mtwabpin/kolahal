@@ -162,7 +162,13 @@ class MainActivity : ComponentActivity() {
                     UiEvent.RequestCallLogPermission -> callLogPermission.launch(Manifest.permission.READ_CALL_LOG)
                     UiEvent.PickFont -> launchFontPicker()
                     UiEvent.PickBackupFolder -> pickBackupFolder.launch(null)
-                    else -> Unit
+                    UiEvent.PickScriptFolder -> pickFolder.launch(null)
+                    UiEvent.ExportBackup -> exportBackup.launch(Backup.FILE_NAME)
+                    UiEvent.ImportBackup -> importBackup.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
+                    UiEvent.ImportScripts -> importScripts.launch(arrayOf("*/*"))
+                    is UiEvent.ExportScript -> exportScriptFile(it.script)
+                    // The terminal screen handles these: they are about its log, prompt and menu.
+                    UiEvent.ScrollToBottom, UiEvent.FocusPrompt, UiEvent.HideKeyboard, UiEvent.ShowQuick -> Unit
                 }
             }
         }
@@ -200,10 +206,7 @@ class MainActivity : ComponentActivity() {
                         if (screen == Screen.TERMINAL) Screen.entries.forEach { saved.removeState(it.name) }
                     }
                     if (screen == Screen.TERMINAL) HomePager(vm) {
-                        TerminalScreen(
-                            vm,
-                            onPickFolder = { pickFolder.launch(null) },
-                        )
+                        TerminalScreen(vm)
                     } else saved.SaveableStateProvider(screen.name) { androidx.compose.foundation.layout.Box(
                         // Solid over the wallpaper too. Settings is the exception: it shows home through
                         // it while you hold the eye button.
@@ -211,20 +214,13 @@ class MainActivity : ComponentActivity() {
                             if (screen == Screen.SETTINGS) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.background(Term.bg),
                         ),
                     ) { when (screen) {
-                        Screen.SETTINGS -> SettingsOverHome(
-                            vm,
-                            onExportBackup = { exportBackup.launch(Backup.FILE_NAME) },
-                            onImportBackup = { importBackup.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
-                            onImportFont = ::launchFontPicker,
-                        )
-                        Screen.SCRIPTS -> ScriptsScreen(
-                            vm,
-                            onImportFiles = { importScripts.launch(arrayOf("*/*")) },
-                            onExportScript = ::exportScriptFile,
-                        )
+                        // A screen asks for a picker or a permission through vm.events (above). Only the
+                        // widget screens get a callback, because adding a widget needs this activity.
+                        Screen.SETTINGS -> SettingsOverHome(vm)
+                        Screen.SCRIPTS -> ScriptsScreen(vm)
                         Screen.GET_SCRIPTS -> com.mtwabpin.kolahal.ui.GetScriptsScreen(vm)
-                        Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(vm, onExportScript = ::exportScriptFile)
-                        Screen.FEEDS -> FeedsScreen(vm, onRequestNotifications = ::requestNotifications)
+                        Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(vm)
+                        Screen.FEEDS -> FeedsScreen(vm)
                         Screen.SETUP -> SetupScreen(vm)
                         Screen.ONBOARDING -> com.mtwabpin.kolahal.ui.OnboardingScreen(vm)
                         Screen.WIDGETS -> WidgetsScreen(vm, onReAdd = { entry, w -> widgetBinder.add(entry, w.key) })

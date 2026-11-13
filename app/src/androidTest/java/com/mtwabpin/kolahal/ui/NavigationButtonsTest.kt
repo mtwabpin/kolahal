@@ -123,7 +123,7 @@ class NavigationButtonsTest {
 
     /** Settings' rows run on under the buttons, and only the page's colour shows between them. */
     @Test fun aListShowsNothingBetweenTheButtons() {
-        show(Screen.SETTINGS) { SettingsOverHome(vm, onExportBackup = {}, onImportBackup = {}) }
+        show(Screen.SETTINGS) { SettingsOverHome(vm) }
         val density = compose.activity.resources.displayMetrics.density
         val top = (buttonsTop().value * density).toInt() + 1
         val under = compose.onAllNodes(hasClickAction()).fetchSemanticsNodes().count { it.boundsInRoot.bottom > top }

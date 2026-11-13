@@ -155,7 +155,7 @@ val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: TerminalViewModel.Peek? = null) {
+fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = null) {
     // An install or update may change icons, so suggestions.icons loads the icons of those apps again.
     val appsRepo = com.mtwabpin.kolahal.apps.AppRepository.get(androidx.compose.ui.platform.LocalContext.current)
     val packageChanges by appsRepo.packageChanges.collectAsStateWithLifecycle()
@@ -197,14 +197,14 @@ fun TerminalScreen(vm: TerminalViewModel, onPickFolder: () -> Unit, preview: Ter
                 UiEvent.ScrollToBottom -> { followNewest = true; listState.requestScrollToItem(0) }
                 // MainActivity handles these, so they work from every page (setup, script manager).
                 UiEvent.RequestNotificationPermission, UiEvent.RequestContactsPermission, UiEvent.PickContact, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
-                UiEvent.PickFont, UiEvent.PickBackupFolder -> Unit
+                UiEvent.PickFont, UiEvent.PickBackupFolder, UiEvent.PickScriptFolder,
+                UiEvent.ExportBackup, UiEvent.ImportBackup, UiEvent.ImportScripts, is UiEvent.ExportScript -> Unit
                 UiEvent.ShowQuick -> Unit // opened by the collector below, where the menu lives
                 UiEvent.FocusPrompt -> {
                     runCatching { focus.requestFocus() }
                     if (!currentHasHardwareKeyboard) currentKeyboard?.show()
                 }
                 UiEvent.HideKeyboard -> currentKeyboard?.hide()
-                UiEvent.PickScriptFolder -> onPickFolder()
             }
         }
     }

@@ -192,11 +192,7 @@ private fun factsOf(info: ScriptInfo, copy: ScriptCopy?, needsKey: Boolean, tags
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScriptsScreen(
-    vm: TerminalViewModel,
-    onImportFiles: () -> Unit,
-    onExportScript: (Script) -> Unit,
-) {
+fun ScriptsScreen(vm: TerminalViewModel) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     val statuses by vm.statuses.collectAsStateWithLifecycle()
     val notes by vm.scriptActions.pageNotes.collectAsStateWithLifecycle()
@@ -382,7 +378,7 @@ fun ScriptsScreen(
                 scripts.isEmpty() -> item(key = "empty") {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         EmptyNote("No scripts yet. Write one, add one from the library, get a shared one, or import a file.", top = 24.dp, bottom = 0.dp)
-                        ActionGroup(addActions(vm, onNew = { creating = true }, onImportFiles = onImportFiles))
+                        ActionGroup(addActions(vm, onNew = { creating = true }, onImportFiles = vm::requestScriptImport))
                     }
                 }
                 shown.isEmpty() -> item(key = "nomatch") {
@@ -428,7 +424,7 @@ fun ScriptsScreen(
                 onEnabled = { setEnabled(sheetScript, it) },
                 onDismiss = { sheetId = null },
                 onEdit = { sheetId = null; vm.openEditor(sheetScript) },
-                onExport = { onExportScript(sheetScript) },
+                onExport = { vm.requestScriptExport(sheetScript) },
             )
         }
 
@@ -447,7 +443,7 @@ fun ScriptsScreen(
         if (adding) {
             ModalBottomSheet(onDismissRequest = { adding = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    ActionGroup(addActions(vm, onNew = { adding = false; creating = true }, onImportFiles = { adding = false; onImportFiles() }, close = { adding = false }))
+                    ActionGroup(addActions(vm, onNew = { adding = false; creating = true }, onImportFiles = { adding = false; vm.requestScriptImport() }, close = { adding = false }))
                 }
             }
         }
@@ -456,7 +452,7 @@ fun ScriptsScreen(
             val s = scripts.firstOrNull { it.id == id }
             val copy = s?.let { copies[it.id] }?.takeIf { it.canRestore }
             if (s != null && copy != null) {
-                RestoreDialog(vm, s, copy, onExport = { onExportScript(s) }, onDismiss = { restoring = null }) {
+                RestoreDialog(vm, s, copy, onExport = { vm.requestScriptExport(s) }, onDismiss = { restoring = null }) {
                     restoring = null
                     vm.scriptActions.restore(listOf(copy.restore(s)))
                 }

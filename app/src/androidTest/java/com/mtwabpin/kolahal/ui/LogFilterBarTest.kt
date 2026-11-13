@@ -35,7 +35,7 @@ class LogFilterBarTest {
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp)) {
-                    TerminalScreen(vm, onPickFolder = {})
+                    TerminalScreen(vm)
                 }
             }
         }

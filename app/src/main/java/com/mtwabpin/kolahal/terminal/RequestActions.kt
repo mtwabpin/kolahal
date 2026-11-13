@@ -10,6 +10,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.ScriptFolder
 import com.mtwabpin.kolahal.data.FontFiles
@@ -23,7 +24,9 @@ import kotlinx.coroutines.withContext
  * What Kolahal asks Android or the user for, and what it does with the answer:
  * - permissions: contacts, notifications, calendar and call log;
  * - notification access, which Kolahal explains first;
- * - pickers: a contact, the script folder, a font, and a theme file to import or export.
+ * - pickers: a contact, the script folder, a font, and a theme file to import or export;
+ * - the file pickers of the GUI pages: a backup to export or import, script files to import, and
+ *   where to save a script. The activity opens them and gives the answer to [BackupActions] or [ScriptActions].
  *
  * The view model holds one as `requests`. Its [TerminalUi] calls and result handlers hand over to it.
  */
@@ -106,6 +109,24 @@ class RequestActions(private val context: Context, private val host: Host) {
             ScriptFolder(context).setFolder(uri)
             logs.add(LogKind.INFO, "Script folder set — 'script export' / 'script import' to sync")
         }
+    }
+
+    // ---- backup and script files ----------------------------------------------------------
+
+    fun requestBackupExport() {
+        host.emit(UiEvent.ExportBackup)
+    }
+
+    fun requestBackupImport() {
+        host.emit(UiEvent.ImportBackup)
+    }
+
+    fun requestScriptImport() {
+        host.emit(UiEvent.ImportScripts)
+    }
+
+    fun requestScriptExport(script: Script) {
+        host.emit(UiEvent.ExportScript(script))
     }
 
     // ---- fonts and themes -----------------------------------------------------------------

@@ -29,7 +29,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -38,6 +37,7 @@ import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
@@ -67,7 +67,7 @@ class ScriptSheetTest {
     private val logs = LogRepository.get(app)
     private var logStart = 0L
     private var started = false
-    private var exported: Script? = null
+    private val sent = SentEvents()
     private lateinit var vm: TerminalViewModel
 
     @Before fun setUp() {
@@ -89,7 +89,10 @@ class ScriptSheetTest {
     /** The Scripts tab, as it opens. */
     private fun showScripts() {
         vm = vms.terminal(app)
-        compose.setContent { ScriptsScreen(vm, onImportFiles = {}, onExportScript = { exported = it }) }
+        compose.setContent {
+            sent.Collect(vm)
+            ScriptsScreen(vm)
+        }
     }
 
     /** The Scripts tab with [name]'s sheet open. */
@@ -352,7 +355,7 @@ class ScriptSheetTest {
         val s = create("local x = 1")
         openSheet()
         compose.onNodeWithText("Export").performClick()
-        compose.runOnIdle { assertEquals(s.id, exported?.id) }
+        compose.waitFor("the script handed to the export") { sent.all.any { it is UiEvent.ExportScript && it.script.id == s.id } }
         compose.onNodeWithText("Edit").performClick()
         compose.runOnIdle { assertEquals(s.id, vm.editing.value?.id) }
         compose.onNodeWithText("Runs every").assertDoesNotExist()

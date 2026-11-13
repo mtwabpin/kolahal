@@ -72,7 +72,6 @@ internal fun SettingItem(
     version: State<Int>,
     index: Int,
     count: Int,
-    onImportFont: () -> Unit = {},
 ) {
     // Only this row recomposes when its own value changes.
     val value by remember(key) { derivedStateOf { version.value; config.display(key) } }
@@ -132,7 +131,7 @@ internal fun SettingItem(
                             val dark = androidx.compose.foundation.isSystemInDarkTheme() || run { version.value; config[Keys.THEME_ALWAYS_DARK] }
                             ThemeSwatches(value, dark) { vm.setConfig(key, it) }
                         } else if (key == Keys.FONT) {
-                            FontChoices(value, { vm.setConfig(key, it) }, onImportFont)
+                            FontChoices(value, { vm.setConfig(key, it) }, vm::requestFontImport)
                         } else if (key.choices.size > 4) {
                             ChipChoices(key.choices, value, label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
                         } else {

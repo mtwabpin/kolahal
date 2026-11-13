@@ -59,12 +59,7 @@ import kotlinx.coroutines.withContext
  * Home here is only for viewing: it takes no touches.
  */
 @Composable
-fun SettingsOverHome(
-    vm: TerminalViewModel,
-    onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit,
-    onImportFont: () -> Unit = {},
-) {
+fun SettingsOverHome(vm: TerminalViewModel) {
     Box(Modifier.fillMaxSize()) {
         val peek by vm.peek.collectAsStateWithLifecycle()
         // Keep the last peek after it ends, so home fades out instead of disappearing at once.
@@ -79,7 +74,7 @@ fun SettingsOverHome(
                 Box(Modifier.fillMaxSize()) {
                     // widgets.wallpaper affects the widgets page, so show that page instead of the terminal.
                     if (p.key == Keys.WIDGETS_WALLPAPER.key) WidgetPanel(vm)
-                    else TerminalScreen(vm, onPickFolder = {}, preview = p)
+                    else TerminalScreen(vm, preview = p)
                     Box(
                         Modifier.fillMaxSize().pointerInput(Unit) {
                             awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
@@ -88,7 +83,7 @@ fun SettingsOverHome(
                 }
             }
         }
-        SettingsScreen(vm, onExportBackup, onImportBackup, onImportFont)
+        SettingsScreen(vm)
     }
 }
 
@@ -99,12 +94,7 @@ fun SettingsOverHome(
  * - Each row observes only its own value, so a change redraws only that row.
  */
 @Composable
-fun SettingsScreen(
-    vm: TerminalViewModel,
-    onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit,
-    onImportFont: () -> Unit = {},
-) {
+fun SettingsScreen(vm: TerminalViewModel) {
     val config = vm.config
     val version = vm.config.version.collectAsStateWithLifecycle()
     // The view model holds the open page, so returning from a manager screen (Feeds, Widgets) reopens it.
@@ -203,7 +193,7 @@ fun SettingsScreen(
                     keys.forEachIndexed { index, key ->
                         item(key = key.key) {
                             PeekFade(peek, keep = peek?.key == key.key, modifier = Modifier.animateItem()) {
-                                SettingItem(vm, config, key, version, index, keys.size, onImportFont)
+                                SettingItem(vm, config, key, version, index, keys.size)
                             }
                         }
                     }
@@ -217,8 +207,8 @@ fun SettingsScreen(
                             listOf(
                                 Action(R.drawable.ic_folder, "Backup folder", folder ?: "Not chosen yet: automatic backups and Back up now write there") { vm.askBackupFolder(false) },
                                 Action(R.drawable.ic_download, "Back up now", "Today's backup file, in the backup folder", onClick = { vm.backupActions.backUpNow() }),
-                                Action(R.drawable.ic_download, "Export everything", "Settings, apps, scripts, todos, notes, reminders, feeds and the log in one file (notification and call lines stay on the phone)", onClick = onExportBackup),
-                                Action(R.drawable.ic_upload, "Import a backup", "Restores everything (replaces todos, notes, feeds and the log)", onClick = onImportBackup),
+                                Action(R.drawable.ic_download, "Export everything", "Settings, apps, scripts, todos, notes, reminders, feeds and the log in one file (notification and call lines stay on the phone)", onClick = vm::requestBackupExport),
+                                Action(R.drawable.ic_upload, "Import a backup", "Restores everything (replaces todos, notes, feeds and the log)", onClick = vm::requestBackupImport),
                             )
                         )
                     }
@@ -331,7 +321,7 @@ fun SettingsScreen(
                 hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
                     item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
                     keys.forEachIndexed { index, key ->
-                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, config, key, version, index, keys.size, onImportFont) } }
+                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, config, key, version, index, keys.size) } }
                     }
                 }
                 return@GuiListPage
@@ -398,7 +388,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.categorySettings(
         if (keys.isEmpty()) continue
         item(key = "h:$id:$title") { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
         keys.forEachIndexed { index, key ->
-            item(key = key.key) { SettingItem(vm, vm.config, key, version, index, keys.size, onImportFont = {}) }
+            item(key = key.key) { SettingItem(vm, vm.config, key, version, index, keys.size) }
         }
     }
 }

@@ -80,7 +80,7 @@ class HomeScreenTest {
             // focused prompt) and the system bars are taken out of the window, not of the frame.
             KolahalTheme {
                 Box(Modifier.size(width, height).testTag("frame").consumeWindowInsets(WindowInsets.safeDrawing)) {
-                    TerminalScreen(vm, onPickFolder = {})
+                    TerminalScreen(vm)
                 }
             }
         }
@@ -159,7 +159,7 @@ class HomeScreenTest {
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp)) {
-                    TerminalScreen(vm, onPickFolder = {}, preview = TerminalViewModel.Peek(null, typing = false))
+                    TerminalScreen(vm, preview = TerminalViewModel.Peek(null, typing = false))
                 }
             }
         }
@@ -295,7 +295,7 @@ class HomeScreenTest {
             assumeTrue("this device can't set its time zone from a test", setZone("Pacific/Kiritimati"))
             val vm = vms.terminal(app)
             val onHome = androidx.compose.runtime.mutableStateOf(true)
-            compose.setContent { KolahalTheme { if (onHome.value) TerminalScreen(vm, onPickFolder = {}) } }
+            compose.setContent { KolahalTheme { if (onHome.value) TerminalScreen(vm) } }
             fun shows(zone: String) {
                 val day = Instant.ofEpochMilli(at).atZone(ZoneId.of(zone)).toLocalDate()
                 compose.waitUntil(5_000) { vm.rows.value.any { it is LogRow.Day && it.day == day } }

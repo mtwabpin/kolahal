@@ -2,8 +2,12 @@ package com.mtwabpin.kolahal.terminal
 
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Script
 
-/** One-off requests from the view model to the activity or the screen. */
+/**
+ * One-off requests from the view model to the activity or the screen. The GUI pages ask the
+ * activity for its file pickers this way too, so no page needs a callback from the activity.
+ */
 sealed interface UiEvent {
     data object RequestNotificationPermission : UiEvent
     data object ScrollToBottom : UiEvent
@@ -17,6 +21,14 @@ sealed interface UiEvent {
     data object PickFont : UiEvent
     data object PickBackupFolder : UiEvent
     data object ShowQuick : UiEvent
+    /** Settings → Backup → Export everything: asks where to save the backup file. */
+    data object ExportBackup : UiEvent
+    /** Settings → Backup → Import a backup: asks for the file. */
+    data object ImportBackup : UiEvent
+    /** Scripts → Add script → Import a file: asks for the script files. */
+    data object ImportScripts : UiEvent
+    /** Export, for one script: asks where to save [script]. */
+    data class ExportScript(val script: Script) : UiEvent
 }
 
 /** Something the user can tap in the suggestion strip. Immutable, as each kind of it is. */

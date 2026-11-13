@@ -87,7 +87,7 @@ class SettingsScreenTest {
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
-                    SettingsOverHome(vm, onExportBackup = {}, onImportBackup = {})
+                    SettingsOverHome(vm)
                 }
             }
         }
