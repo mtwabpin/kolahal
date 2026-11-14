@@ -16,6 +16,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.time.LocalTime
@@ -181,18 +182,43 @@ object ScriptScheduler {
     const val WIDGET = "widget"
 
     /**
-     * Runs a placed widget's script again, so it calls `widget.show`. Like [refreshPinned], there are
-     * never two at once: while one waits (for a network, say) or runs, the next one is dropped. The
-     * run is not interactive, and its `event.name` is [WIDGET]. It shares one queue with the pinned
-     * line's refreshes ([refresh]).
+     * The field of a widget run's `event` that says which further widget of the script the run
+     * fills: `event.instance = "2"`. It is absent for the script's first widget. Only Kolahal sets
+     * it: [refreshEvent] here, and a tap on a card.
      */
-    fun refreshWidget(context: Context, script: Script) = refresh(context, script, WIDGET)
+    const val INSTANCE = "instance"
+
+    /**
+     * Runs a placed widget's script again, so it calls `widget.show`. [widget] is the id of the
+     * widget the run fills ([com.mtwabpin.kolahal.widgets.WidgetRef.id]): "" for the script's first
+     * widget. Like [refreshPinned], there are never two at once for one widget: while one waits
+     * (for a network, say) or runs, the next one is dropped. The run is not interactive, and its
+     * `event.name` is [WIDGET]. It shares one queue with the script's other widgets' runs and the
+     * pinned line's refreshes ([refresh]).
+     */
+    fun refreshWidget(context: Context, script: Script, widget: String = "") = refresh(context, script, widgetKind(widget))
 
     /**
      * The name of the one queue of a script's refresh runs (WorkManager's unique work): its pinned
-     * line's ([REFRESH]) and its widget's ([WIDGET]).
+     * line's ([REFRESH]) and each of its widgets' ([widgetKind]).
      */
     internal fun refreshQueue(scriptId: Long) = "script-$scriptId-refresh"
+
+    /**
+     * The kind of the quiet run that fills the widget [id] of a script: "widget" for its first
+     * widget, "widget#2" for a further one. Each widget is a kind of its own, so a run for one
+     * never stands for a run of another ([queued]).
+     */
+    internal fun widgetKind(id: String = ""): String = if (id.isEmpty()) WIDGET else WIDGET + WidgetRef.SEPARATOR + id
+
+    /**
+     * The `event` of a quiet run of [kind]: its name, [REFRESH] or [WIDGET]. A further widget's run
+     * also says which widget it fills ([INSTANCE]).
+     */
+    internal fun refreshEvent(kind: String): Map<String, Any?> {
+        val id = kind.substringAfter(WidgetRef.SEPARATOR, "")
+        return mapOf("name" to kind.substringBefore(WidgetRef.SEPARATOR)) + if (id.isEmpty()) emptyMap() else mapOf(INSTANCE to id)
+    }
 
     /** Where a request for a refresh run goes ([queued]). */
     internal enum class Queued { DROPPED, AFTER, ALONE }
@@ -202,8 +228,8 @@ object ScriptScheduler {
      * script's queue that wait or run now.
      * - One of its kind is there: the request is dropped. Home and the widgets page ask again and
      *   again while they show, and one run of a kind answers them all.
-     * - Only the other kind is there: the run goes after it, not beside it. It is not dropped,
-     *   because each kind has its own `event.name` and a script may do other things for each. Also a
+     * - Only other kinds are there: the run goes after them, not beside them. It is not dropped,
+     *   because each kind has its own event and a script may do other things for each. Also a
      *   widget's card asks once for each state, so a dropped request would leave it waiting.
      * - Nothing is there: the run starts the queue.
      */
@@ -213,11 +239,18 @@ object ScriptScheduler {
         else -> Queued.AFTER
     }
 
-    /** The tag that tells a queued refresh run's kind. */
-    private fun kindTag(kind: String) = "refresh:$kind"
+    /** What the tag of a queued refresh run starts with. Its kind follows. */
+    private const val KIND_TAG = "refresh:"
 
-    /** The kind of a queued refresh run, from its tags. One queued before runs had this tag is a pinned line's. */
-    private fun kindOf(tags: Set<String>) = if (kindTag(WIDGET) in tags) WIDGET else REFRESH
+    /** The tag that tells a queued refresh run's kind: `refresh:widget`, `refresh:widget#2`. */
+    internal fun kindTag(kind: String) = KIND_TAG + kind
+
+    /**
+     * The kind of a queued refresh run, from its tags. A widget's run has its widget's id in the
+     * tag. One queued before runs had this tag is a pinned line's.
+     */
+    internal fun kindOf(tags: Set<String>): String =
+        tags.firstOrNull { it == kindTag(WIDGET) || it.startsWith(kindTag(WIDGET) + WidgetRef.SEPARATOR) }?.removePrefix(KIND_TAG) ?: REFRESH
 
     /** One request at a time reads a refresh queue and adds to it ([refresh]). */
     private val refreshLock = Any()
@@ -226,13 +259,13 @@ object ScriptScheduler {
     private const val QUEUE_READ_S = 5L
 
     /**
-     * Queues a quiet run of [script] with the event [kind]: [REFRESH] or [WIDGET].
+     * Queues a quiet run of [script] of the kind [kind]: [REFRESH], or a widget's ([widgetKind]).
      *
-     * A script can have a pinned line and a widget, and both can ask for runs while home shows them.
-     * The two kinds were separate unique work, so both started at once: one ran and the other
+     * A script can have a pinned line and widgets, and all can ask for runs while home shows them.
+     * The kinds were separate unique work, so they started at once: one ran and the others
      * waited inside the `:script` process for it ([ScriptRun]'s lock). Now they share one queue
-     * ([refreshQueue]), and the second starts when the first has ended ([queued]). Each run keeps
-     * what it is for: its own `event.name`, and a widget's run notes its end for the card.
+     * ([refreshQueue]), and the next starts when the one before has ended ([queued]). Each run keeps
+     * what it is for: its own event ([refreshEvent]), and a widget's run notes its end for its card.
      *
      * Call it off the main thread: it waits for WorkManager to read the queue.
      */
@@ -244,7 +277,7 @@ object ScriptScheduler {
             .setInputData(remoteData(context) {
                 putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
                 putBoolean(ScriptWorker.KEY_SCHEDULED, true)
-                putString(ScriptWorker.KEY_EVENT, Json.stringify(mapOf("name" to kind)))
+                putString(ScriptWorker.KEY_EVENT, Json.stringify(refreshEvent(kind)))
             })
             .addTag("script")
             .addTag(kindTag(kind))
