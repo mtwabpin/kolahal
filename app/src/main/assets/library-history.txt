@@ -72,6 +72,7 @@ forecast.js e2877222519432a7
 forecast.js e3628f4961e6fceb
 forecast.js e8c59a32d5867cd9
 forecast.js f3abc8b522ad3687
+headlines.js a632e4f4ab80e6c6
 hn.lua 022db4083bfb71fd
 hn.lua 07f1fc775735591e
 hn.lua 23d2bbbed84c5e9c
@@ -164,6 +165,7 @@ template-timer-js.js e955a0fec12fc984
 template-timer.lua 0c68e84c129225a4
 template-timer.lua 5145a5c61ecd8c73
 template-timer.lua d9b29f717c37ae2c
+unlock-chart.lua bebea0e4b919078c
 weather.lua 0676f7f2b339aa96
 weather.lua 4bc1e1f9d961ff89
 weather.lua 4d5cb544f9f16cf1
@@ -174,6 +176,7 @@ weather.lua 6cfe91e4243fcbe7
 weather.lua 9455c13ffb57463b
 weather.lua e10119b75310166b
 weather.lua ef720bfa0c80c47f
+webnumber.js bb6347eaf82d9c00
 wikipedia.js 00340392abaa297f
 wikipedia.js 969b424777558a7c
 wikipedia.js 97cb29c24ee29bdf

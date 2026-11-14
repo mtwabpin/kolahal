@@ -1,8 +1,10 @@
 package com.mtwabpin.kolahal.script
 
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.sourceFile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /** The scripts bundled in assets/library, read as the editor reads them. */
@@ -11,7 +13,39 @@ class LibraryFilesTest {
         .mapNotNull { f -> ScriptLang.of(f.extension)?.let { f to it } }.sortedBy { it.first.name }
 
     @Test fun theyAreAllThere() {
-        assertEquals(33, files.size)
+        assertEquals(36, files.size)
+    }
+
+    /**
+     * No script has the name of a built-in command or of one of its synonyms. Such a script can't
+     * be installed ([ScriptLibrary.install]). So the Unlocks widget's script is `unlock-chart`,
+     * not `unlocks`.
+     */
+    @Test fun noneHasABuiltInCommandsName() {
+        val taken = files.map { it.first.nameWithoutExtension }.filter { it in CommandCatalog.RESERVED_NAMES }
+        assertEquals(emptyList<String>(), taken)
+    }
+
+    /**
+     * unlock-chart asks for nothing: the unlock counts need no access. A word such as `url` or
+     * `status` anywhere in its text, even in a comment, would give it a switch
+     * ([ScriptMeta.usesInternet], [ScriptMeta.setsStatus]).
+     */
+    @Test fun unlockChartAsksForNoAccess() {
+        val code = files.single { it.first.name == "unlock-chart.lua" }.first.readText()
+        assertEquals(emptyList<String>(), ScriptAccess.asksFor(code))
+        assertEquals(listOf(ScriptAccess.WIDGET, "unlock"), ScriptAccess.items(code))
+        assertFalse(ScriptMeta.postsNotifications(code))
+    }
+
+    /** headlines and webnumber go online, and ask for nothing else. */
+    @Test fun headlinesAndWebnumberAskOnlyForTheInternet() {
+        for (name in listOf("headlines.js", "webnumber.js")) {
+            val code = files.single { it.first.name == name }.first.readText()
+            assertEquals(name, listOf(ScriptAccess.INTERNET), ScriptAccess.asksFor(code))
+            assertEquals(name, listOf(ScriptAccess.INTERNET, ScriptAccess.WIDGET), ScriptAccess.items(code))
+            assertFalse(name, ScriptMeta.postsNotifications(code))
+        }
     }
 
     /** Nothing the editor would point out on saving one. */
@@ -29,7 +63,7 @@ class LibraryFilesTest {
             assertEquals(f.name, declared, read.findAll(body).map { it.groupValues[1] }.toSet())
         }
         val withOptions = files.filter { (f, _) -> ScriptMeta.options(f.readText()).isNotEmpty() }.map { it.first.nameWithoutExtension }
-        assertEquals(listOf("aqi", "charge-reminder", "cricket", "crypto", "exchange", "football", "forecast", "hn", "lobsters", "night-dnd", "reddit", "template-timer-js", "template-timer", "weather", "wikipedia", "wiktionary"), withOptions)
+        assertEquals(listOf("aqi", "charge-reminder", "cricket", "crypto", "exchange", "football", "forecast", "headlines", "hn", "lobsters", "night-dnd", "reddit", "template-timer-js", "template-timer", "weather", "webnumber", "wikipedia", "wiktionary"), withOptions)
     }
 
     @Test fun choicesAndQuotedDefaults() {
@@ -38,5 +72,8 @@ class LibraryFilesTest {
         assertEquals("bitcoin ethereum", options("crypto.js").getValue("coins").default)
         assertEquals("EUR GBP INR JPY", options("exchange.js").getValue("to").default)
         assertEquals("", options("weather.lua").getValue("city").default)
+        // A default with a colon and slashes is read whole. webnumber starts with nothing set.
+        assertEquals("https://hnrss.org/frontpage", options("headlines.js").getValue("url").default)
+        assertEquals(listOf("", "", ""), listOf("url", "path", "label").map { options("webnumber.js").getValue(it).default })
     }
 }

@@ -45,7 +45,88 @@ class LibraryWidgetsTest {
     @Test fun everyScriptWithAWidgetIsHere() {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
-        assertEquals(listOf("aqi.js", "countdown.lua", "crypto.js", "forecast.js", "hn.lua", "quote.js", "weather.lua"), withWidget)
+        assertEquals(
+            listOf("aqi.js", "countdown.lua", "crypto.js", "forecast.js", "headlines.js", "hn.lua", "quote.js", "unlock-chart.lua", "weather.lua", "webnumber.js"),
+            withWidget,
+        )
+    }
+
+    /** `device.unlocks(7)` gives whole numbers. Like every Lua number, they arrive as doubles. */
+    @Test fun unlockChart() {
+        fun week(vararg days: Double, max: Double, label: String, summary: String) = fromLua(
+            "unlock-chart.lua",
+            luaTable(
+                "title" to "Unlocks", "value" to days.last(), "label" to label, "points" to luaList(*days.toTypedArray()), "style" to "bars",
+                "min" to 0.0, "max" to max, "labels" to luaList("Sun", "Today"), "summary" to summary,
+                "tap" to luaTable("args" to "week", "page" to "log", "label" to "Show the week"),
+            ),
+        )
+        val tap = WidgetTap(args = "week", label = "Show the week", toLog = true)
+        assertEquals(
+            WidgetSpec.Chart(
+                WidgetBase(title = "Unlocks", tap = tap),
+                points = listOf(12f, 30f, 0f, 45f, 7f, 1f, 8f), style = "bars", min = 0f, max = 45f,
+                value = "8", label = "unlocks today", labels = listOf("Sun", "Today"),
+                summary = "Sun 12, Mon 30, Tue 0, Wed 45, Thu 7, Fri 1, Today 8",
+            ),
+            week(12.0, 30.0, 0.0, 45.0, 7.0, 1.0, 8.0, max = 45.0, label = "unlocks today", summary = "Sun 12, Mon 30, Tue 0, Wed 45, Thu 7, Fri 1, Today 8"),
+        )
+        // A week with no unlocks: the script gives 1 as the top of the scale, so it stays above the bottom (0).
+        val none = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, max = 1.0, label = "unlocks today", summary = "Sun 0, Mon 0, Tue 0, Wed 0, Thu 0, Fri 0, Today 0") as WidgetSpec.Chart
+        assertEquals("0", none.value)
+        assertEquals(listOf(0f, 1f), listOf(none.min, none.max))
+    }
+
+    @Test fun headlines() {
+        val spec = parse(
+            "headlines.js",
+            mapOf(
+                "title" to "Hacker News: Front Page",
+                "items" to listOf(
+                    mapOf("title" to "A story", "tap" to mapOf("url" to "https://a.example/x")),
+                    // An item whose link isn't a web link has no tap, and one with no title says so.
+                    mapOf("title" to "(untitled)"),
+                ),
+                "empty" to "No items", "staleAfter" to 7200L,
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Rows(
+                WidgetBase(title = "Hacker News: Front Page", staleAfter = 7200),
+                items = listOf(WidgetSpec.Row("A story", tap = WidgetTap(url = "https://a.example/x")), WidgetSpec.Row("(untitled)")),
+                empty = "No items",
+            ),
+            spec,
+        )
+        // It passes the feed's first 12 items: as many as a list keeps.
+        val full = parse("headlines.js", mapOf("title" to "Headlines", "items" to List(12) { mapOf("title" to "Item $it") }, "empty" to "No items")) as WidgetSpec.Rows
+        assertEquals(12, full.items.size)
+        // A feed with no items: an empty array.
+        val none = parse("headlines.js", mapOf("title" to "Headlines", "items" to emptyList<Any?>(), "empty" to "No items"))
+        assertEquals(WidgetSpec.Rows(WidgetBase(title = "Headlines"), items = emptyList(), empty = "No items"), none)
+    }
+
+    /** The script writes the number as text itself ("67,123.46"), so the card shows it as it is. */
+    @Test fun webnumber() {
+        val spec = parse(
+            "webnumber.js",
+            mapOf("title" to "Web number", "value" to "67,123.46", "label" to "BTC", "tap" to mapOf("url" to "https://api.example/price.json", "label" to "Open the address"), "staleAfter" to 7200L),
+        )
+        assertEquals(
+            WidgetSpec.Stat(
+                WidgetBase(title = "Web number", tap = WidgetTap(url = "https://api.example/price.json", label = "Open the address"), staleAfter = 7200),
+                value = "67,123.46", label = "BTC",
+            ),
+            spec,
+        )
+        // The whole document is the number, and no label is set: an empty label is left out.
+        val bare = parse("webnumber.js", mapOf("title" to "Web number", "value" to "2026", "label" to "", "tap" to mapOf("url" to "https://api.example/year", "label" to "Open the address"))) as WidgetSpec.Stat
+        assertEquals(null, bare.label)
+        // Before its options are set, the card says which one to set. It has no tap of its own, so a tap runs the script again.
+        for (option in listOf("url", "path")) {
+            val label = "Set its $option option, then tap here"
+            assertEquals(WidgetSpec.Stat(WidgetBase(title = "Web number"), value = "–", label = label), parse("webnumber.js", mapOf("title" to "Web number", "value" to "–", "label" to label)))
+        }
     }
 
     @Test fun weather() {
