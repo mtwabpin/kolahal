@@ -251,7 +251,10 @@ class HostDataTest {
     /**
      * The times and the title of a calendar row are what an `agenda` widget takes: the widget's
      * check reads each row, with the same title, times and all-day flag as the Agenda card has.
-     * (The row's `id` is left out here. The agenda's check must know it too: see the lead's note.)
+     *
+     * The row's `id` is taken out here. An agenda's event must take an `id` too, so that the list
+     * goes in as it is (`widget.show{ events = calendar.events() }`). That is the widget check's
+     * part, and it has a test of its own.
      */
     @Test fun aCalendarRowHasWhatAnAgendaWidgetTakes() {
         val now = local(17, 12)

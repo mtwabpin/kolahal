@@ -24,6 +24,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,11 +61,23 @@ class ScriptListsTest {
     private val madeFeeds = mutableListOf<Long>()
     private val madeScripts = mutableListOf<Long>()
 
+    /**
+     * What a run that died half way left behind: this class's scripts and feeds. Their names are
+     * only ever a test's (`sltest…`, `https://example.com/sl<digits>.xml`), so they are safe to
+     * take away. A left todo, note or reminder stays: its text could be yours.
+     */
+    @Before fun clearLeftovers() {
+        scripts.all().filter { it.name.startsWith(SCRIPTS) }.forEach { removeScript(it.id) }
+        feeds.feeds().filter { TEST_FEED.matches(it.url) }.forEach { feeds.remove(it.id) }
+    }
+
+    private fun removeScript(id: Long) {
+        ScriptScheduler.cancel(context, id)
+        scripts.delete(id)
+    }
+
     @After fun tearDown() {
-        madeScripts.forEach { id ->
-            ScriptScheduler.cancel(context, id)
-            scripts.delete(id)
-        }
+        madeScripts.forEach(::removeScript)
         madeTodos.forEach { todos.remove(it) }
         madeNotes.forEach { notes.remove(it) }
         madeReminders.forEach { reminders.remove(it) }
@@ -120,7 +133,7 @@ class ScriptListsTest {
 
     /** A saved script, switched on with everything it declares allowed, as the script manager leaves it. */
     private fun script(suffix: String, code: String, lang: ScriptLang = ScriptLang.LUA): Script =
-        scripts.create("sltest$suffix", lang, code).also { madeScripts += it.id }
+        scripts.create(SCRIPTS + suffix, lang, code).also { madeScripts += it.id }
 
     /** The run's own line that starts with [start], once it is in the log. A real run writes it from the `:script` process. */
     private fun lineOf(s: Script, start: String): String = waitForValue("${s.name} logged no line that starts with $start", 30_000) {
@@ -195,6 +208,14 @@ class ScriptListsTest {
         """.trimIndent()
         assertEquals(expected, lua(luaCode))
         assertEquals(expected, js("todos.list().filter(t => t.text.includes('$mark')).map(t => t.id + '|' + t.text + '|' + t.done).join(';')"))
+        // In JavaScript an id is a plain number, so it can go into a widget and into JSON. (A BigInt can't: JSON.stringify throws.)
+        assertEquals(
+            "number true boolean;number true boolean",
+            js("todos.list().filter(t => t.text.includes('$mark')).map(t => typeof t.id + ' ' + Number.isInteger(t.id) + ' ' + typeof t.done).join(';')"),
+        )
+        val json = js("JSON.stringify(todos.list())").orEmpty()
+        assertTrue(json, Regex("\"id\":$open[,}]").containsMatchIn(json) && Regex("\"id\":$done[,}]").containsMatchIn(json))
+        assertEquals("true", lua("math.type(todos.list()[1].id) == 'integer'"))
         // Code typed at the prompt may use everything.
         assertEquals(expected, lua(luaCode, HostApi(context, "repl", scriptId = null, notifyEnabled = false)))
     }
@@ -223,6 +244,13 @@ class ScriptListsTest {
             "$mark sooner|undefined;$mark later|every day",
             js("reminders.list().filter(r => r.text.includes('$mark')).map(r => r.text + '|' + r.repeats).join(';')"),
         )
+        // In JavaScript a time is a plain whole number of seconds, as a widget's `to` and `starts` take it.
+        assertEquals("number true", js("typeof notes.list(1)[0].created + ' ' + Number.isInteger(notes.list(1)[0].created)"))
+        assertEquals(
+            "${soon / 1000}",
+            js("String(reminders.list().find(r => r.text.includes('$mark sooner')).at)"),
+        )
+        assertTrue(js("JSON.stringify([notes.list(50), reminders.list()])").orEmpty().contains("$mark sooner"))
     }
 
     /** A count that is no number is an error that says what to pass. */
@@ -372,5 +400,15 @@ class ScriptListsTest {
         """.trimIndent()
         assertEquals("true", lua(ok))
         assertNotNull(js("calendar.events().length"))
+        // As JSON: a number that JavaScript can't write (a BigInt) would throw here.
+        assertTrue(js("JSON.stringify(calendar.events(30))").orEmpty().startsWith("["))
+    }
+
+    private companion object {
+        /** Every script of this class has a name that starts so. */
+        const val SCRIPTS = "sltest"
+
+        /** The address of a feed that [feed] made, in this run or an earlier one. */
+        val TEST_FEED = Regex("""https://example\.com/sl\d+\.xml""")
     }
 }
