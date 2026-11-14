@@ -438,6 +438,9 @@ object WidgetParser {
             }
             val cleaned = (if (styled) styledClean(given) else clean(StyledText.plain(given)))
                 .let { if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim() }
+            // The trim does not reach blanks inside a styled piece. A text that shows nothing but
+            // blanks is an empty text all the same, as a plain one is: a field that can be left out is left out.
+            if (styled && StyledText.has(cleaned) && StyledText.plain(cleaned).isBlank()) return ""
             // For a plain text this is the cut it always was. For a styled one it also closes every style.
             return StyledText.take(cleaned, max)
         }

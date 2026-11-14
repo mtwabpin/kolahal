@@ -934,6 +934,11 @@ class WidgetParserTest {
         assertEquals(32, StyledText.lines(text).flatMap { it.spans }.count { it.styles.isNotEmpty() })
         // A text of marks alone is an empty text: a field that can be left out is left out.
         assertNull(stat("label" to bold("")).label)
+        // So is a text that shows only blanks: a row gets no blank second line.
+        assertNull(stat("label" to bold(" ")).label)
+        assertNull(stat("label" to " " + good(" \n ") + italic("  ")).label)
+        val blank = list(mapOf("title" to bold(" "), "detail" to good("  "), "trailing" to italic(" "))).items.single()
+        assertEquals(WidgetSpec.Row(""), blank)
         assertEquals("", (parse(mapOf("text" to bold("") + good("")), WidgetKind.TEXT) as WidgetSpec.Text).text)
         // A number is text, as before.
         assertEquals("5", stat("label" to 5).label)
