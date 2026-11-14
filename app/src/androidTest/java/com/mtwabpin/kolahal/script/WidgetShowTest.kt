@@ -244,4 +244,46 @@ class WidgetShowTest {
         h.widgetClear()
         assertTrue(stored(s).hasContent)
     }
+
+    /**
+     * A run tells the cards once, when it ends, whatever it changed: not once for each call and once
+     * more for its end. A run that changes nothing of the widget tells nobody.
+     */
+    @Test fun aRunTellsTheCardsOnce() {
+        val calls = "widget.show{ value = 1 }\nwidget.clear()\nwidget.show{ value = 2 }"
+        val s = script("-- @widget stat\n$calls", "-once")
+        // Its access goes on without placing the widget. Placing queues a run in the other process,
+        // and that run would tell the cards too, at a moment of its own.
+        scripts.setAccess(s.id, ScriptAccess.WIDGET, true)
+        fun told() = WidgetStates.versions.value[s.name] ?: 0
+
+        // A widget's run: three calls and the note of its end.
+        var before = told()
+        t.run(s, widget = true)
+        assertEquals(before + 1, told())
+        assertEquals("2", stat(s).value)
+        assertTrue(stored(s).triedAt > 0)
+
+        // A run on its timer: the calls only.
+        before = told()
+        t.run(s)
+        assertEquals(before + 1, told())
+
+        // Nothing stored, nothing told.
+        scripts.saveCode(s.id, "-- @widget stat\nreturn 1", byUser = true)
+        before = told()
+        t.run(s)
+        assertEquals(before, told())
+        // A widget's run that stores nothing still notes that it ended.
+        t.run(s, widget = true)
+        assertEquals(before + 1, told())
+
+        // A run that fails after it showed something: once, with its error.
+        scripts.saveCode(s.id, "-- @widget stat\nwidget.show{ value = 3 }\nerror('no network')", byUser = true)
+        before = told()
+        t.run(s, widget = true)
+        assertEquals(before + 1, told())
+        assertEquals("3", stat(s).value)
+        assertTrue(stored(s).error.orEmpty(), stored(s).error.orEmpty().contains("no network"))
+    }
 }

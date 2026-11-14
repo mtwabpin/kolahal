@@ -544,9 +544,20 @@ class HostApi(
         val spec = WidgetParser.parse(raw, line.kind, text = { StyledText.plain(redact(it)) }, link = ::widgetLink)
         // The texts have limits of their own. A link has none, so this is what stops a huge one.
         require(WidgetJson.encode(spec).toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
-        if (placed) WidgetStates.put(context, scriptName, spec)
+        if (placed) {
+            WidgetStates.put(context, scriptName, spec, quietly = true)
+            widgetChanged = true
+        }
         return placed
     }
+
+    /**
+     * Whether this run changed what the script's widget keeps, with `widget.show` or `widget.clear`.
+     * The calls store at once and tell nobody. The cards are told once, when the run ends
+     * ([ScriptRun]): a script may call `widget.show` many times, and a widget's run notes its end too.
+     */
+    @Volatile var widgetChanged = false
+        private set
 
     /**
      * Whether the script's widget is on the widgets page now. Read from the database at each call, not
@@ -562,7 +573,10 @@ class HostApi(
         effects++
         flush()
         widgetLine("widget.clear") ?: return
-        if (widgetPlacedNow() && widgetCall("widget.clear")) WidgetStates.clear(context, scriptName)
+        if (widgetPlacedNow() && widgetCall("widget.clear")) {
+            WidgetStates.clear(context, scriptName, quietly = true)
+            widgetChanged = true
+        }
     }
 
     /**

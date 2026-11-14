@@ -32,6 +32,9 @@ data class WidgetState(val spec: WidgetSpec?, val hasContent: Boolean, val setAt
  * with a message ([ACTION_CHANGED]) of its own, not the log's: the log's would make home read the
  * log again. The main process raises [version], and the cards read their state again.
  *
+ * A run sends one message, when it ends, for everything it changed: it writes `quietly`, then calls
+ * [announce] once. Every other write (a test's, the main process's) tells the cards itself.
+ *
  * It is a cache: it stays on this phone and out of backups. Nothing here throws.
  */
 object WidgetStates {
@@ -77,29 +80,33 @@ object WidgetStates {
      * Stores [spec] as [name]'s widget, for `widget.show`.
      * - A description equal to the stored one is not written again.
      * - The content's time moves either way, and the last error is cleared.
+     * - [quietly]: the cards are not told. A run stores this way, and tells them once when it ends ([announce]).
      */
-    fun put(context: Context, name: String, spec: WidgetSpec) {
+    fun put(context: Context, name: String, spec: WidgetSpec, quietly: Boolean = false) {
         runCatching {
             val json = WidgetJson.encode(spec)
             val content = KvStore(context, Stores.WIDGET)
             if (content.get(name) != json) content.set(name, json)
             writeMeta(context, name, meta(context, name).copy(set = System.currentTimeMillis(), error = null))
         }
-        announce(context, name)
+        if (!quietly) announce(context, name)
     }
 
-    /** Removes [name]'s content, for `widget.clear`. Its times and its error stay. */
-    fun clear(context: Context, name: String) {
+    /** Removes [name]'s content, for `widget.clear`. Its times and its error stay. [quietly]: as for [put]. */
+    fun clear(context: Context, name: String, quietly: Boolean = false) {
         runCatching { KvStore(context, Stores.WIDGET).set(name, null) }
-        announce(context, name)
+        if (!quietly) announce(context, name)
     }
 
-    /** Notes that a run of [name] just ended: with [error] when it failed, with null when it worked. */
-    fun ran(context: Context, name: String, error: String?) {
+    /**
+     * Notes that a run of [name] just ended: with [error] when it failed, with null when it worked.
+     * [quietly]: as for [put].
+     */
+    fun ran(context: Context, name: String, error: String?, quietly: Boolean = false) {
         runCatching {
             writeMeta(context, name, meta(context, name).copy(tried = System.currentTimeMillis(), error = error?.take(MAX_ERROR)?.ifBlank { null }))
         }
-        announce(context, name)
+        if (!quietly) announce(context, name)
     }
 
     /**
@@ -142,10 +149,14 @@ object WidgetStates {
     }
 
     /**
-     * Tells the cards. From the :script process a message goes to the main one, as the log's does
-     * ([com.mtwabpin.kolahal.data.LogRepository.ACTION_LOGS_CHANGED]). This process's own counter rises too.
+     * Tells the cards that [name]'s state changed. From the :script process a message goes to the main
+     * one, as the log's does ([com.mtwabpin.kolahal.data.LogRepository.ACTION_LOGS_CHANGED]). This
+     * process's own counter rises too.
+     *
+     * The writes above call it, unless they are asked to write quietly. Then the caller calls it,
+     * once for all of them: a run does, when it ends.
      */
-    private fun announce(context: Context, name: String) {
+    fun announce(context: Context, name: String) {
         if (Singleton.inScriptProcess) {
             runCatching { context.sendBroadcast(Intent(ACTION_CHANGED).setPackage(context.packageName).putExtra(EXTRA_NAME, name)) }
         }

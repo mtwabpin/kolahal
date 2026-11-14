@@ -9,6 +9,7 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import kotlinx.coroutines.CancellationException
@@ -118,6 +119,8 @@ internal object ScriptRun {
             (if (script != null) mapOf(LogContext.SCRIPT to script.name) else emptyMap()) +
                 (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
         )
+        // Android stopped the run (the worker was cancelled). It did not end by itself, so the card notes no end.
+        var stopped = false
         // However the run ends, anything still in flight (a request, a timer) changes nothing after it.
         // This is also true when Android stops the run and this returns at once.
         val status = try {
@@ -140,7 +143,10 @@ internal object ScriptRun {
         } catch (e: CancellationException) {
             host.flush()
             // Only our own timeout is a script failure. WorkManager stopping the worker must propagate.
-            if (e !is TimeoutCancellationException) throw e
+            if (e !is TimeoutCancellationException) {
+                stopped = true
+                throw e
+            }
             fail("$name: timed out after ${ScriptWorker.TIMEOUT_MS / 1000}s", errorCtx)
             "timeout"
         } catch (e: Throwable) {
@@ -171,19 +177,14 @@ internal object ScriptRun {
             }
         } finally {
             host.finish()
+            // Here, so it happens however the run ends: with a result, an error, a timeout, or stopped by Android.
+            if (script != null) widgetEnd(ctx, script, host, noteEnd = widgetRun && !stopped, failed)
         }
         // A run you started asked for things nobody has allowed yet, and got empty answers. Offer to allow them.
         if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
             ScriptAccess.askToAllow(ctx, name, host.undecided.toList(), "needs permission for")
         }
         if (refresh && failed != lastError) refreshes.set(refreshKey, failed)
-        // The card says when its last run failed ("Failed 10:42"), and forgets it after one that works.
-        // Only while the widget is still placed: one removed during the run keeps nothing.
-        if (widgetRun && script != null) runCatching {
-            if (ScriptRepository.get(ctx).byId(script.id)?.grants?.allows(ScriptAccess.WIDGET) == true) {
-                com.mtwabpin.kolahal.widgets.WidgetStates.ran(ctx, name, failed)
-            }
-        }
         script?.let {
             // If a refresh ended the same way as the last one, leave the script's row as it is. Writing it
             // every few seconds would make home read every script again.
@@ -195,6 +196,27 @@ internal object ScriptRun {
         if (host.notifyBlocked) reportBlocked(ctx, logs, name, "notify-blocked", "notifications are blocked", "notifications")
         logs.trimIfWritten()
         return true
+    }
+
+    /**
+     * The end of a run of [script], for its widget. The cards hear of a run once, here, whatever it changed.
+     * - [noteEnd], after a widget's run that ended by itself: the card says when its last run failed
+     *   ("Failed 10:42"), and forgets it after one that works. So the time and [failed] are noted, but
+     *   only while the widget is still placed: one removed during the run keeps nothing.
+     * - Then one message goes to the cards, if the run stored something: this note, or what
+     *   `widget.show` and `widget.clear` stored ([HostApi.widgetChanged]). Those calls send none
+     *   themselves, so a run that calls them twenty times and notes its end still sends one.
+     * - A run on its timer or for an event that calls `widget.show` is announced in the same way.
+     * Nothing here throws: it runs while the run's own result or error is on its way out.
+     */
+    private fun widgetEnd(ctx: Context, script: Script, host: HostApi, noteEnd: Boolean, failed: String?) {
+        val states = com.mtwabpin.kolahal.widgets.WidgetStates
+        val noted = noteEnd && runCatching {
+            val placed = ScriptRepository.get(ctx).byId(script.id)?.grants?.allows(ScriptAccess.WIDGET) == true
+            if (placed) states.ran(ctx, script.name, failed, quietly = true)
+            placed
+        }.getOrDefault(false)
+        if (noted || host.widgetChanged) states.announce(ctx, script.name)
     }
 
     /** The source line of a script error. Lua messages carry `name:LINE:`; QuickJS exceptions carry a line number. */
