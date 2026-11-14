@@ -562,11 +562,12 @@ class ScriptWidgetCardTest {
             listOf(
                 WidgetSpec.Toggle("Do Not Disturb", on = dnd, tap = WidgetTap(args = "dnd")),
                 WidgetSpec.Toggle("Work", on = work, tap = WidgetTap(args = "work", label = "pause work")),
+                WidgetSpec.Toggle("Torch", on = false, tap = WidgetTap(args = "torch")),
             ),
         )
         val quick = kept("toggles", switches(dnd = false, work = true))
         show(quick, actions = asked)
-        draws(quick, "Quick", "Do Not Disturb", "Work")
+        draws(quick, "Quick", "Do Not Disturb", "Work", "Torch")
         fun switch(label: String) = inCard(quick) and hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
         fun isOn(on: Boolean) = SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, if (on) ToggleableState.On else ToggleableState.Off)
         val working = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "working")
@@ -578,7 +579,7 @@ class ScriptWidgetCardTest {
         compose.onNode(dnd).assert(isOn(false) and !working)
         compose.onNode(work).assert(isOn(true) and !working and hasClickLabel("pause work"))
         // Each switch is an item of its own, and the card names them with their state.
-        assertEquals("Quick: Do Not Disturb off, Work on", said(quick))
+        assertEquals("Quick: Do Not Disturb off, Work on, Torch off", said(quick))
 
         compose.onNode(dnd).performClick()
         compose.runOnIdle { assertEquals(listOf("tap $quick dnd"), asked.all.toList()) }
@@ -599,8 +600,17 @@ class ScriptWidgetCardTest {
         compose.onNode(work).assert(working and isOn(true))
         WidgetStates.put(context, quick, switches(dnd = false, work = false))
         waitsNoMore("Work", on = false)
-        compose.runOnIdle { assertEquals(listOf("tap $quick dnd", "tap $quick work"), asked.all.toList()) }
-        assertEquals("Quick: Do Not Disturb off, Work off", said(quick))
+        assertEquals("Quick: Do Not Disturb off, Work off, Torch off", said(quick))
+
+        // A run that fails shows nothing new, and ends the wait too: the stamp is the time of the
+        // last run, whatever came of it. The card says that it failed.
+        val torch = switch("Torch")
+        compose.onNode(torch).performClick()
+        compose.onNode(torch).assert(working and isOn(false))
+        WidgetStates.ran(context, quick, "wcard-toggles: no torch")
+        waitsNoMore("Torch", on = false)
+        draws(quick, "Failed ${hhmm(WidgetStates.read(context, quick).triedAt)}")
+        compose.runOnIdle { assertEquals(listOf("tap $quick dnd", "tap $quick work", "tap $quick torch"), asked.all.toList()) }
     }
 
     /** What the card's own node says to a screen reader, once it says anything. */
