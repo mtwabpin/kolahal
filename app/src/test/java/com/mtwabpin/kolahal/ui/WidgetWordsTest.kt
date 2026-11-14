@@ -190,6 +190,16 @@ class WidgetWordsTest {
 
     private val go = WidgetTap(args = "go")
 
+    /** A row with a checkbox says its state. A row without one says nothing about it. */
+    @Test fun aRowWithACheckboxSaysWhetherItIsDone() {
+        val now = at(day = 20, hour = 0)
+        val todos = WidgetSpec.Rows(base, items = listOf(WidgetSpec.Row("Buy milk", done = false), WidgetSpec.Row("Call home", detail = "after 6", done = true), WidgetSpec.Row("Plain")))
+        assertEquals("Todos: Buy milk, not done, Call home, after 6, done, Plain", WidgetWords.description("Todos", todos, now, utc))
+        assertEquals("done", WidgetWords.doneWord(true))
+        assertEquals("not done", WidgetWords.doneWord(false))
+        assertNull(WidgetWords.doneWord(null))
+    }
+
     /** The card names its buttons and its switches. Each of them is an item of its own for a screen reader too. */
     @Test fun buttonsTogglesAndMediaHaveWords() {
         val now = at(day = 20, hour = 0)

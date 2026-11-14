@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -49,6 +51,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -124,6 +129,13 @@ internal object WidgetWords {
         "down" -> "down"
         "flat" -> "no change"
         else -> null
+    }
+
+    /** A row's checkbox for a screen reader: "done", "not done", or nothing for a row without one. */
+    fun doneWord(done: Boolean?): String? = when (done) {
+        true -> "done"
+        false -> "not done"
+        null -> null
     }
 
     /** A chart in words, for a screen reader: "7 values, from 3 to 12, the latest 9". */
@@ -224,7 +236,7 @@ internal object WidgetWords {
                 }
                 is WidgetSpec.Rows -> {
                     if (spec.items.isEmpty()) add(spec.empty ?: NOTHING)
-                    spec.items.forEach { r -> add(listOfNotNull(r.title, r.detail, r.trailing).joinToString(", ")) }
+                    spec.items.forEach { r -> add(listOfNotNull(r.title, r.detail, r.trailing, doneWord(r.done)).joinToString(", ")) }
                 }
                 is WidgetSpec.Progress -> {
                     if (spec.items.isEmpty()) add(spec.text ?: percent(spec.value, spec.max))
@@ -573,22 +585,29 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
  * One row of a list. Its colour is on its icon and on the text at its end, or on a dot when it has
  * neither. A row with a tap takes the press before the card does, so it hands a long-press on to
  * the card ([LocalCardLongPress]).
+ *
+ * A row with `done` has a checkbox at its start, in the row's colour.
+ * - The box takes no tap of its own. A tap anywhere on the row is the row's tap, and the row is
+ *   the checkbox for a screen reader.
+ * - The box shows what the description says. Kolahal does not tick it on a tap: the script (or the
+ *   built-in widget) shows the new state.
  */
 @Composable
 private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val tap = row.tap
+    val done = row.done
     val colour = row.color?.let { colourOf(it) }
     val longPress = LocalCardLongPress.current
     val press = if (tap != null && onTap != null) {
         Modifier.combinedClickable(
             onClickLabel = tap.label,
-            role = Role.Button,
+            role = if (done != null) Role.Checkbox else Role.Button,
             onLongClickLabel = if (longPress != null) "arrange widgets" else null,
             onLongClick = longPress,
             onClick = { onTap(tap) },
-        )
+        ).then(if (done != null) Modifier.semantics { toggleableState = ToggleableState(done) } else Modifier)
     } else {
         Modifier
     }
@@ -597,9 +616,17 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val icon = row.icon
+        if (done != null) {
+            Checkbox(
+                checked = done,
+                onCheckedChange = null,
+                colors = if (colour != null) CheckboxDefaults.colors(checkedColor = colour) else CheckboxDefaults.colors(),
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
         if (icon != null) {
             Text(icon, style = type.titleMedium, color = colour ?: scheme.onSurface, maxLines = 1, modifier = Modifier.padding(end = 8.dp))
-        } else if (colour != null && row.trailing == null) {
+        } else if (done == null && colour != null && row.trailing == null) {
             Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(colour))
         }
         Column(Modifier.weight(1f)) {
