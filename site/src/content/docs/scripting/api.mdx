@@ -209,8 +209,9 @@ Colours:
 
 Where styles work:
 
-- Styles appear only in the log. Notifications, status lines, Copy text and search use the plain
-  text.
+- Styles appear in the log, and in a few texts of a widget
+  ([styles in a widget](#styles-in-a-widget)). Notifications, status lines, Copy text and search
+  use the plain text.
 - A styled string is normal text with invisible marks around the styled parts. So shorten text
   before you style it. If text is cut in the middle of a mark, the style continues to the end of the
   line.
@@ -686,8 +687,9 @@ Rules for every description:
 - Text over its limit is cut, with "…" at its end. A list over its limit keeps its first items.
 - Buttons and switches are never cut. More than the kind takes is an error: a button that was
   left out without a word would be a tap you can't make. [Limits](#limits) has every number.
-- Text is plain. Styles from [`fmt`](#styles-fmt) are removed. A secret's value is masked, as in
-  the log.
+- Text is plain, except in a few fields that keep some styles from [`fmt`](#styles-fmt)
+  ([styles in a widget](#styles-in-a-widget)). Everywhere else, styles are removed. A secret's
+  value is masked, as in the log.
 - A colour is a role, never a colour value. The theme picks the colour, so the card reads on every
   theme.
 
@@ -1106,6 +1108,56 @@ What a description keeps, and what it refuses.
 | A tap's `label` | 24 characters | cut |
 | Taps on one card, row, button, switch or event | one run in 2 seconds | the tap is ignored |
 | A switch that waits for its run | 10 seconds | it shows the state it had |
+
+### Styles in a widget
+
+Some texts of a card keep styles from [`fmt`](#styles-fmt): bold, italic, underline, strike and a
+colour.
+
+| Kind | Texts that keep styles |
+| --- | --- |
+| `text` | `text` and `caption` |
+| `list` | a row's `title`, `detail` and `trailing` |
+| `stat` | `label` |
+| `image` | `caption` |
+
+- These work there: `fmt.bold`, `fmt.italic`, `fmt.underline`, `fmt.strike` and
+  `fmt.color(role, text)`. You join them with other text, as in the log.
+- Every other text is plain. A style there is removed, and its text stays.
+- A widget draws no link, tag, code chip, table or bar inside a text. `fmt.link`, `fmt.tag`,
+  `fmt.code`, `fmt.table` and `fmt.bar` lose their marks there and keep their text. For a link,
+  give the card or the row a [`tap`](#taps).
+- A colour is a role, as everywhere in a widget. The theme picks the colour.
+- A text's limit counts the characters that show, not the styles. A text over its limit is cut,
+  with "…" at its end, and its styles end there too.
+- A screen reader says the plain text.
+- A secret's value is masked in a styled text too.
+- Markdown is not read in a widget. `**bold**` shows as it is written: use `fmt.bold`.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+widget.show{ kind = "list", items = {
+  {
+    title = fmt.bold("Rent") .. " to Asha",
+    detail = "due in " .. fmt.color("warn", "2 days"),
+    trailing = fmt.strike("520") .. " 480",
+  },
+} }
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+widget.show({ kind: "list", items: [
+  {
+    title: fmt.bold("Rent") + " to Asha",
+    detail: "due in " + fmt.color("warn", "2 days"),
+    trailing: fmt.strike("520") + " 480",
+  },
+] });
+```
+</TabItem>
+</Tabs>
 
 ### Taps
 
