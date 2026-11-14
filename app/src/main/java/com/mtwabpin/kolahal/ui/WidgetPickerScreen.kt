@@ -60,10 +60,9 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.Script
-import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetSize
@@ -120,11 +119,12 @@ private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Pro
 
 /**
  * One of a saved script's widgets, for the picker's Kolahal section.
+ * - [script] is the script's name.
  * - [source] says which: the script's own widget (`script:<name>`), or the Status card of its status line (`status:<name>`).
  * - [what] is the row's second line: the kind, or "Status card".
  * - [search] is its title, name and kind in lowercase.
  */
-internal class PickerScriptRow(val script: Script, val title: String, val source: String, val what: String, val size: WidgetSize, val search: String) {
+internal class PickerScriptRow(val script: String, val title: String, val source: String, val what: String, val size: WidgetSize, val search: String) {
     val isStatus: Boolean get() = source.startsWith(WidgetSource.STATUS)
     /** What a message calls it: "Weather", "Weather status". */
     val name: String get() = if (isStatus) "$title status" else title
@@ -133,14 +133,17 @@ internal class PickerScriptRow(val script: Script, val title: String, val source
 /**
  * The widgets your scripts have, by title: one for a script with a `@widget` line, and a Status card
  * for a script that sets a status line. A script with both has two rows, its own widget first.
+ *
+ * [scripts] are the scripts as the view model has read them ([WidgetScript]). No code is read here,
+ * so this is cheap enough for the main thread.
  */
-internal fun pickerScriptRows(scripts: List<Script>): List<PickerScriptRow> = scripts.flatMap { s ->
-    val title = ScriptMeta.title(s.code) ?: s.name
+internal fun pickerScriptRows(scripts: Collection<WidgetScript>): List<PickerScriptRow> = scripts.flatMap { s ->
+    val title = s.title ?: s.name
     listOfNotNull(
-        ScriptMeta.widget(s.code)?.let { w ->
-            PickerScriptRow(s, title, WidgetSource.script(s.name), w.kind.id.replaceFirstChar { it.uppercase() }, w.size, "$title ${s.name} ${w.kind.id}".lowercase())
+        s.widget?.let { w ->
+            PickerScriptRow(s.name, title, WidgetSource.script(s.name), w.kind.id.replaceFirstChar { it.uppercase() }, w.size, "$title ${s.name} ${w.kind.id}".lowercase())
         },
-        if (ScriptMeta.setsStatus(s.code)) PickerScriptRow(s, title, WidgetSource.STATUS + s.name, "Status card", WidgetSize.S2X1, "$title ${s.name} status card".lowercase()) else null,
+        if (s.setsStatus) PickerScriptRow(s.name, title, WidgetSource.STATUS + s.name, "Status card", WidgetSize.S2X1, "$title ${s.name} status card".lowercase()) else null,
     )
 }.sortedBy { it.title.lowercase() }
 
@@ -175,9 +178,12 @@ private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, empty
 fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
-    val scripts by vm.scriptList.collectAsStateWithLifecycle()
+    // The view model reads each script's title, `@widget` line and status call from its code, off the
+    // main thread, and again only when the code changes. Its answer changes only when one of these
+    // does. The script list itself changes at every run, and no row is made again for that.
+    val scripts by vm.widgetScripts.collectAsStateWithLifecycle()
     val placed by widgets.widgets.collectAsStateWithLifecycle()
-    val own = remember(scripts) { pickerScriptRows(scripts) }
+    val own = remember(scripts) { pickerScriptRows(scripts?.values.orEmpty()) }
     val added = remember(placed) { placed.mapNotNull { it.source }.toSet() }
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by vm.profiles.collectAsStateWithLifecycle()
@@ -259,7 +265,9 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                 }
                 items(ownShown, key = { "s:${it.source}" }) { w ->
                     KolahalWidgetCard(w.title, w.what, w.size, added = w.source in added) {
-                        picked(if (w.isStatus) widgets.placeStatus(w.script, w.size) else widgets.placeScript(w.script, w.size), w.name)
+                        // The script as it is now. One that was deleted a moment ago places nothing.
+                        val script = vm.scriptList.value.firstOrNull { it.name == w.script } ?: return@KolahalWidgetCard
+                        picked(if (w.isStatus) widgets.placeStatus(script, w.size) else widgets.placeScript(script, w.size), w.name)
                     }
                 }
             }

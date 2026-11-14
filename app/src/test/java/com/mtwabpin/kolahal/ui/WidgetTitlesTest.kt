@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.terminal.WidgetScriptReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -29,17 +30,24 @@ class WidgetTitlesTest {
         assertEquals("hn", sourceTitle("builtin:hn", scripts))
     }
 
-    /** The picker's Kolahal section: a row for each script with a `@widget` line, and a Status card for each that sets a status line. */
+    /**
+     * The picker's Kolahal section: a row for each script with a `@widget` line, and a Status card for each that sets a status line.
+     * The rows are made from the scripts as the view model reads them ([WidgetScriptReader]), off the main thread.
+     */
     @Test fun thePickerListsTheScriptsThatHaveAWidget() {
         val rows = pickerScriptRows(
-            listOf(
-                script("zeta", "-- @title Air\n-- @widget progress 1x1\nwidget.show{}"),
-                script("plain", "log('hi')"),
-                script("weather", "-- @title Weather\n-- @widget stat\nstatus('23°')\nwidget.show{}"),
-                script("cricket", "status('NZ 136/8')"),
-                script("odd", "-- @widget hologram"),
-            )
+            WidgetScriptReader().read(
+                listOf(
+                    script("zeta", "-- @title Air\n-- @widget progress 1x1\nwidget.show{}"),
+                    script("plain", "log('hi')"),
+                    script("weather", "-- @title Weather\n-- @widget stat\nstatus('23°')\nwidget.show{}"),
+                    script("cricket", "status('NZ 136/8')"),
+                    script("odd", "-- @widget hologram"),
+                )
+            ).values
         )
+        // A row knows its script by name. The picker looks the script up when the row is tapped.
+        assertEquals(listOf("zeta", "cricket", "weather", "weather"), rows.map { it.script })
         // By title. A script with both has two rows, its own widget first.
         assertEquals(listOf("script:zeta", "status:cricket", "script:weather", "status:weather"), rows.map { it.source })
         assertEquals(listOf("Air", "cricket", "Weather", "Weather"), rows.map { it.title })
