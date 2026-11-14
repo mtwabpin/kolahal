@@ -7,15 +7,105 @@
 
 * How to read this
 
-This is a proposal. Nothing here is built. It was written on 14 November 2026 against the =0.5.8=
-branch (commit =5dbb9dd9=). Where it and the code disagree, the code wins.
+This is the proposal that the widgets were built from. It was written on 14 November 2026 against
+the =0.5.8= branch (commit =5dbb9dd9=). Phases 1 and 2 are built since, on the same branch.
+Where this document and the code disagree, the code wins.
 
+- [[*What is built][What is built]] marks what is in the code now, and where the code went another way.
 - [[*Summary][Summary]] is the whole idea on one page.
 - [[*Decisions][Decisions]] answers the eight design questions, each with its reasons.
 - [[*The catalog][The catalog]] lists what to choose from: 12 widget kinds and 25 ready-made widgets.
 - [[*What changes in the code][What changes in the code]] names the files.
 - [[*Phased plan][Phased plan]] says what to build first.
 - [[*Open questions][Open questions]] are for the owner. Each has a recommended answer.
+
+* What is built
+
+This is the state on 14 November 2026, on the =0.5.8= branch.
+
+- The rest of this document is the proposal as it was written. It still says "new" and "phase 2"
+  for parts that exist now.
+- This section says what exists. So do the =Built= columns of the two tables in
+  [[*The catalog][the catalog]], and the =built= tag on the catalog's headings.
+
+** Built
+
+- *Phase 1*: the description and its checks, =@widget=, =widget.show= and =widget.clear=, the
+  stored state, placement, the card with its states, taps, backups, and the first 6 kinds.
+- *Phase 2*: the 5 kinds, checkboxes in =list=, the 6 built-in widgets, and the 5 library widgets.
+- *Kinds*: 11 of 12. Only =image= waits, for phase 3.
+- *Ready-made widgets*: 23 of 25. Live score and Comic of the day wait, for phase 3.
+
+Where each ready-made widget is in the code:
+
+| Widget              | In the code                  |
+|---------------------+------------------------------|
+| Status card         | the source =status:<name>=   |
+| Battery and network | the source =builtin:battery= |
+| Shortcuts           | =builtin:shortcuts=          |
+| Now playing         | =builtin:media=              |
+| Todos               | =builtin:todos=              |
+| Agenda              | =builtin:agenda=             |
+| Reminders           | =builtin:reminders=          |
+| Notes               | =builtin:notes=              |
+| Weather             | =weather.lua=                |
+| Air quality         | =aqi.js=                     |
+| 3-day forecast      | =forecast.js=                |
+| Countdown to a date | =countdown.lua=              |
+| Hacker News         | =hn.lua=                     |
+| Feed headlines      | =headlines.js=               |
+| Quote of the day    | =quote.js=                   |
+| Unlocks             | =unlock-chart.lua=           |
+| Web number          | =webnumber.js=               |
+| Crypto prices       | =crypto.js=                  |
+| World clocks        | =world-clocks.lua=           |
+| Habit streak        | =habit.lua=                  |
+| Quick toggles       | =quick-toggles.lua=          |
+| Currency rates      | =exchange.js=                |
+| GitHub releases     | =releases.lua=               |
+
+The scripts are in =app/src/main/assets/library/=. The user's guide is
+=site/src/content/docs/guides/widgets.md=, and the reference for scripts is the Widgets section of
+=site/src/content/docs/scripting/api.mdx=.
+
+** Built another way
+
+- *Script names.* A script can't have a built-in command's name. So Unlocks is =unlock-chart=
+  (not =unlocks=) and Quick toggles is =quick-toggles= (not =toggles=).
+- *A long-press on a card* opens the Widgets screen, where the card is arranged, resized and
+  removed. The card has no menu of its own.
+- *Times.* A clock and an agenda write a time of day as Kolahal's own setting says (=clock.24h=),
+  as the header and the log do. They don't follow the phone's setting.
+- *Todos.* A tap on a row marks the todo done. The row stays, ticked, until the page is turned
+  away, and a second tap opens the todo again. There is no Undo message.
+- *Shortcuts.* The list is one key of home's own preferences, not a part of the placed widget. Its
+  editor is a sheet on the Widgets screen. A backup carries the list with that file.
+- *Habit streak* is a command too (=habit done=, =habit undo=), because a tap can be a mistake.
+  It keeps its days as one text in its store: a store holds 1000 keys at most, so a key for each
+  day would fill it in under three years.
+- *GitHub releases* reads each feed once more for its widget, with =rss.fetch=. A release that the
+  card shows must still be new to the check.
+- *Lobsters* has no widget. Only Hacker News got the list.
+- *Files.* The reader of a description is =widgets/WidgetParser.kt=. "Which widgets are old" is
+  =WidgetAge= in =terminal/WidgetActions.kt=. The built-in widgets are in =terminal/OwnWidgets.kt=
+  (their data and taps) and =ui/OwnWidgets.kt= (their cards), and the bodies of the phase 2 kinds
+  in =ui/WidgetBodies.kt=.
+
+** Not built yet
+
+From phases 1 and 2:
+
+- The =app= action of a tap (~{ app = "com.example" }~).
+- A run when an option of a placed widget changes. Until then, a widget follows a changed option
+  at its next run. World clocks says so: tap the card.
+- =widget add <script>= and =widget rm <script>=. =widget add= opens the picker.
+- Library scripts that you haven't added, in the picker. It lists the scripts you have.
+- The six sizes as one-tap buttons in the Widgets screen's toolbar.
+- The "Widget" pill and filter chip in Scripts.
+- A widget preview in the script editor.
+- Shortcuts' commands in the "worth a look" list after a backup is imported.
+
+Phases 3 and 4 are not started.
 
 * Summary
 
@@ -714,25 +804,25 @@ library script, or a built-in widget, on top of a kind.
 
 Twelve kinds. Six are in the first build.
 
-| #  | Kind        | Shows                                          | Sizes                   | Build   |
-|----+-------------+------------------------------------------------+-------------------------+---------|
-| 1  | =stat=      | one big value, its label, up to 3 smaller ones | 1×1, 2×1, 2×2, 4×1      | First   |
-| 2  | =text=      | a few lines of text and a caption              | 2×1, 2×2, 4×1, 4×2      | First   |
-| 3  | =list=      | rows, each with a title and more               | 2×2, 4×2, 4×4           | First   |
-| 4  | =progress=  | a ring or bars                                 | 1×1, 2×1, 2×2           | First   |
-| 5  | =chart=     | a line or bars over time                       | 2×1, 2×2, 4×2           | First   |
-| 6  | =countdown= | time to or since a moment; Kolahal ticks       | 1×1, 2×1, 2×2           | First   |
-| 7  | =buttons=   | a grid of buttons                              | 2×1, 2×2, 4×1, 4×2      | Phase 2 |
-| 8  | =toggles=   | switches with a state                          | 2×1, 2×2, 4×1           | Phase 2 |
-| 9  | =clock=     | the time in several places; Kolahal ticks      | 2×1, 2×2, 4×1           | Phase 2 |
-| 10 | =agenda=    | events by day                                  | 2×2, 4×2, 4×4           | Phase 2 |
-| 11 | =media=     | what is playing, with its controls             | 2×1, 4×1, 4×2           | Phase 2 |
-| 12 | =image=     | one picture with a caption                     | 2×2, 4×2, 4×4           | Phase 3 |
+| #  | Kind        | Shows                                          | Sizes                   | Build   | Built |
+|----+-------------+------------------------------------------------+-------------------------+---------+-------|
+| 1  | =stat=      | one big value, its label, up to 3 smaller ones | 1×1, 2×1, 2×2, 4×1      | First   | yes   |
+| 2  | =text=      | a few lines of text and a caption              | 2×1, 2×2, 4×1, 4×2      | First   | yes   |
+| 3  | =list=      | rows, each with a title and more               | 2×2, 4×2, 4×4           | First   | yes   |
+| 4  | =progress=  | a ring or bars                                 | 1×1, 2×1, 2×2           | First   | yes   |
+| 5  | =chart=     | a line or bars over time                       | 2×1, 2×2, 4×2           | First   | yes   |
+| 6  | =countdown= | time to or since a moment; Kolahal ticks       | 1×1, 2×1, 2×2           | First   | yes   |
+| 7  | =buttons=   | a grid of buttons                              | 2×1, 2×2, 4×1, 4×2      | Phase 2 | yes   |
+| 8  | =toggles=   | switches with a state                          | 2×1, 2×2, 4×1           | Phase 2 | yes   |
+| 9  | =clock=     | the time in several places; Kolahal ticks      | 2×1, 2×2, 4×1           | Phase 2 | yes   |
+| 10 | =agenda=    | events by day                                  | 2×2, 4×2, 4×4           | Phase 2 | yes   |
+| 11 | =media=     | what is playing, with its controls             | 2×1, 4×1, 4×2           | Phase 2 | yes   |
+| 12 | =image=     | one picture with a caption                     | 2×2, 4×2, 4×4           | Phase 3 | no    |
 
 "Data" below says where a kind's content can come from. The refresh rules are the same for every
 kind ([[*What starts a run][What starts a run]]), so each entry names only what is special.
 
-*** 1. =stat=: a big number                                      :first:
+*** 1. =stat=: a big number                                      :first:built:
 
 - Shows :: One value, large. A label under it. Optionally a change with an arrow, up to three
   smaller values, and a bar.
@@ -744,7 +834,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Refresh :: The usual. =refresh= suits a live score.
 - Taps :: The card.
 
-*** 2. =text=: a few lines                                       :first:
+*** 2. =text=: a few lines                                       :first:built:
 
 - Shows :: Text of up to 500 characters, with its line breaks, and a caption under it (an
   author, a source).
@@ -753,7 +843,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: Any script. Built-in: Notes (phase 2).
 - Taps :: The card.
 
-*** 3. =list=: rows                                              :first:
+*** 3. =list=: rows                                              :first:built:
 
 - Shows :: Rows, as many as fit, then "+3 more". Each row has a title and can have a second line,
   a text at its end, an icon and a colour.
@@ -764,7 +854,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: Any script. Built-in: Todos, Reminders (phase 2).
 - Taps :: Each row, and the card.
 
-*** 4. =progress=: a ring or bars                                :first:
+*** 4. =progress=: a ring or bars                                :first:built:
 
 - Shows :: How far along something is. A ring with a text in its middle, or up to four bars on
   one scale.
@@ -775,7 +865,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: Any script. Built-in: Battery and network.
 - Taps :: The card.
 
-*** 5. =chart=: a line or bars                                   :first:
+*** 5. =chart=: a line or bars                                   :first:built:
 
 - Shows :: Numbers over time as a line or as bars, with a headline value over them.
 - Fields :: =points= (numbers, needed; the last 60 are kept). =style=: =line= or =bars=. =min=,
@@ -785,7 +875,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: Any script. The script keeps its own history in =store=.
 - Taps :: The card. Single points can't be tapped.
 
-*** 6. =countdown=: time to a moment                             :first:
+*** 6. =countdown=: time to a moment                             :first:built:
 
 - Shows :: "12 days", or "03:25:10" when it is near. After the moment: "today", then the time
   since. With =from=, a bar from the start to the moment.
@@ -796,7 +886,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: Any script. Built-in: Reminders uses it for the next reminder (phase 2).
 - Taps :: The card.
 
-*** 7. =buttons=: a grid of buttons                              :phase2:
+*** 7. =buttons=: a grid of buttons                              :phase2:built:
 
 - Shows :: Up to 8 buttons, each with a label and an icon.
 - Fields :: =items= (needed; more than 8 is an error): each ~{ label, icon, color, tap }~, with
@@ -806,7 +896,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   Shortcuts, where you pick the commands.
 - Taps :: Each button.
 
-*** 8. =toggles=: switches                                       :phase2:
+*** 8. =toggles=: switches                                       :phase2:built:
 
 - Shows :: Up to 6 switches, each with a label, an icon and a state.
 - Fields :: =items= (needed): each ~{ label, icon, on, tap }~, with =label=, =on= and =tap= needed.
@@ -816,7 +906,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Refresh :: A short =staleAfter= (60 seconds), because the thing can change elsewhere.
 - Taps :: Each switch ([[*Toggles][how]]).
 
-*** 9. =clock=: the time in several places                       :phase2:
+*** 9. =clock=: the time in several places                       :phase2:built:
 
 - Shows :: Up to 4 places, each with its time, and "tomorrow" or "yesterday" when the day differs.
 - Fields :: =zones= (needed): each ~{ zone, label }~. =zone= is a time zone name such as
@@ -826,7 +916,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Data :: A script with an option. No access needed.
 - Taps :: The card.
 
-*** 10. =agenda=: events by day                                  :phase2:
+*** 10. =agenda=: events by day                                  :phase2:built:
 
 - Shows :: Events under "Today", "Tomorrow" and dates. Each has its time and title.
 - Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
@@ -838,7 +928,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   matches or launches from the web. Phase 3 adds =calendar.events= for scripts.
 - Taps :: Each event, and the card.
 
-*** 11. =media=: now playing                                     :phase2:
+*** 11. =media=: now playing                                     :phase2:built:
 
 - Shows :: The title, the artist, the app, a bar for the position, and previous, play or pause,
   and next.
@@ -869,35 +959,35 @@ Twenty-five. Twelve are in the first build.
   "Refresh" in its menu. "Refresh" below names what is special.
 - The sketches show the idea. They are not finished scripts.
 
-| #  | Widget                 | Kind              | From            | Access                 | Build   |
-|----+------------------------+-------------------+-----------------+------------------------+---------|
-| 1  | Status card            | =stat=            | built-in        | none                   | First   |
-| 2  | Weather                | =stat=            | script, changed | internet               | First   |
-| 3  | Air quality            | =progress=        | script, changed | internet               | First   |
-| 4  | 3-day forecast         | =list=            | script, changed | internet               | First   |
-| 5  | Countdown to a date    | =countdown=       | script, changed | none                   | First   |
-| 6  | Hacker News            | =list=            | script, changed | internet               | First   |
-| 7  | Feed headlines         | =list=            | script, new     | internet               | First   |
-| 8  | Quote of the day       | =text=            | script, changed | internet               | First   |
-| 9  | Battery and network    | =progress=        | built-in        | none                   | First   |
-| 10 | Unlocks                | =chart=           | script, new     | none                   | First   |
-| 11 | Web number             | =stat=            | script, new     | internet               | First   |
-| 12 | Crypto prices          | =list=            | script, changed | internet               | First   |
-| 13 | Shortcuts              | =buttons=         | built-in        | none                   | Phase 2 |
-| 14 | Now playing            | =media=           | built-in        | notification access    | Phase 2 |
-| 15 | Todos                  | =list=            | built-in        | none                   | Phase 2 |
-| 16 | Agenda                 | =agenda=          | built-in        | the calendar permission | Phase 2 |
-| 17 | Reminders              | =list=            | built-in        | none                   | Phase 2 |
-| 18 | Notes                  | =text=            | built-in        | none                   | Phase 2 |
-| 19 | World clocks           | =clock=           | script, new     | none                   | Phase 2 |
-| 20 | Habit streak           | =chart=           | script, new     | none                   | Phase 2 |
-| 21 | Quick toggles          | =toggles=         | script, new     | =@uses dnd, work=      | Phase 2 |
-| 22 | Currency rates         | =list=            | script, changed | internet               | Phase 2 |
-| 23 | GitHub releases        | =list=            | script, changed | internet               | Phase 2 |
-| 24 | Live score             | =stat=            | script, changed | internet               | Phase 3 |
-| 25 | Comic of the day       | =image=           | script, changed | internet               | Phase 3 |
+| #  | Widget                 | Kind              | From            | Access                 | Build   | Built |
+|----+------------------------+-------------------+-----------------+------------------------+---------+-------|
+| 1  | Status card            | =stat=            | built-in        | none                   | First   | yes   |
+| 2  | Weather                | =stat=            | script, changed | internet               | First   | yes   |
+| 3  | Air quality            | =progress=        | script, changed | internet               | First   | yes   |
+| 4  | 3-day forecast         | =list=            | script, changed | internet               | First   | yes   |
+| 5  | Countdown to a date    | =countdown=       | script, changed | none                   | First   | yes   |
+| 6  | Hacker News            | =list=            | script, changed | internet               | First   | yes   |
+| 7  | Feed headlines         | =list=            | script, new     | internet               | First   | yes   |
+| 8  | Quote of the day       | =text=            | script, changed | internet               | First   | yes   |
+| 9  | Battery and network    | =progress=        | built-in        | none                   | First   | yes   |
+| 10 | Unlocks                | =chart=           | script, new     | none                   | First   | yes   |
+| 11 | Web number             | =stat=            | script, new     | internet               | First   | yes   |
+| 12 | Crypto prices          | =list=            | script, changed | internet               | First   | yes   |
+| 13 | Shortcuts              | =buttons=         | built-in        | none                   | Phase 2 | yes   |
+| 14 | Now playing            | =media=           | built-in        | notification access    | Phase 2 | yes   |
+| 15 | Todos                  | =list=            | built-in        | none                   | Phase 2 | yes   |
+| 16 | Agenda                 | =agenda=          | built-in        | the calendar permission | Phase 2 | yes   |
+| 17 | Reminders              | =list=            | built-in        | none                   | Phase 2 | yes   |
+| 18 | Notes                  | =text=            | built-in        | none                   | Phase 2 | yes   |
+| 19 | World clocks           | =clock=           | script, new     | none                   | Phase 2 | yes   |
+| 20 | Habit streak           | =chart=           | script, new     | none                   | Phase 2 | yes   |
+| 21 | Quick toggles          | =toggles=         | script, new     | =@uses dnd, work=      | Phase 2 | yes   |
+| 22 | Currency rates         | =list=            | script, changed | internet               | Phase 2 | yes   |
+| 23 | GitHub releases        | =list=            | script, changed | internet               | Phase 2 | yes   |
+| 24 | Live score             | =stat=            | script, changed | internet               | Phase 3 | no    |
+| 25 | Comic of the day       | =image=           | script, changed | internet               | Phase 3 | no    |
 
-*** 1. Status card                                               :first:
+*** 1. Status card                                               :first:built:
 
 - Shows :: A script's status line as a card: its text, its bar and its colour. This is the
   "script output" widget. Every script that calls =status()= today gets a widget with no change:
@@ -912,7 +1002,7 @@ Twenty-five. Twelve are in the first build.
 - Taps :: Runs the script, as a tap on a pinned line does.
 - Sketch :: None needed. An existing script already does: ~status("NZ 136/8", { progress = 0.6 })~
 
-*** 2. Weather                                                   :first:
+*** 2. Weather                                                   :first:built:
 
 - Shows :: The temperature, large. The sky under it. Humidity and wind, smaller.
 - Sizes :: 1×1, 2×1, 4×1.
@@ -930,7 +1020,7 @@ Twenty-five. Twelve are in the first build.
   if not quiet then log(place, fmt.stats({ … })) end
   #+end_src
 
-*** 3. Air quality                                               :first:
+*** 3. Air quality                                               :first:built:
 
 - Shows :: The index in a ring, in its band's colour (good, warn, bad), with the band's name.
 - Sizes :: 1×1, 2×1, 2×2.
@@ -946,7 +1036,7 @@ Twenty-five. Twelve are in the first build.
   });
   #+end_src
 
-*** 4. 3-day forecast                                            :first:
+*** 4. 3-day forecast                                            :first:built:
 
 - Shows :: Three rows: the day, the sky, the low and the high.
 - Sizes :: 2×2, 4×2.
@@ -959,7 +1049,7 @@ Twenty-five. Twelve are in the first build.
     title: d.name, icon: d.icon, trailing: `${d.low}–${d.high}°` })) });
   #+end_src
 
-*** 5. Countdown to a date                                       :first:
+*** 5. Countdown to a date                                       :first:built:
 
 - Shows :: The days to the nearest date you saved, with its name. Kolahal ticks.
 - Sizes :: 1×1, 2×1, 2×2.
@@ -974,7 +1064,7 @@ Twenty-five. Twelve are in the first build.
   end
   #+end_src
 
-*** 6. Hacker News                                               :first:
+*** 6. Hacker News                                               :first:built:
 
 - Shows :: The top stories, each with its points. Lobsters gets the same widget.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -990,7 +1080,7 @@ Twenty-five. Twelve are in the first build.
   if widget then widget.show{ title = "Hacker News", items = rows } end
   #+end_src
 
-*** 7. Feed headlines                                            :first:
+*** 7. Feed headlines                                            :first:built:
 
 - Shows :: The newest items of one feed you choose.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1000,7 +1090,7 @@ Twenty-five. Twelve are in the first build.
 - Taps :: A row opens its item.
 - Sketch :: The JavaScript example in [[*Example in JavaScript: a list][section 2]] is this script.
 
-*** 8. Quote of the day                                          :first:
+*** 8. Quote of the day                                          :first:built:
 
 - Shows :: A quote and who said it.
 - Sizes :: 2×1, 2×2, 4×1.
@@ -1012,7 +1102,7 @@ Twenty-five. Twelve are in the first build.
   widget.show({ kind: "text", text: quote.text, caption: quote.author });
   #+end_src
 
-*** 9. Battery and network                                       :first:
+*** 9. Battery and network                                       :first:built:
 
 - Shows :: The battery in a ring, "charging" when it is, and the network: Wi-Fi, mobile, offline.
 - Sizes :: 1×1, 2×1.
@@ -1023,7 +1113,7 @@ Twenty-five. Twelve are in the first build.
   page shows. A script version is still possible for someone who wants their own
   (=device.battery()= with =@on charger, unplug=).
 
-*** 10. Unlocks                                                  :first:
+*** 10. Unlocks                                                  :first:built:
 
 - Shows :: Today's unlocks, large, over bars for the last 7 days.
 - Sizes :: 1×1, 2×1, 2×2.
@@ -1043,7 +1133,7 @@ Twenty-five. Twelve are in the first build.
   if args[1] == "week" then log("Unlocks this week", fmt.bars(rowsOf(days))) end
   #+end_src
 
-*** 11. Web number                                               :first:
+*** 11. Web number                                               :first:built:
 
 - Shows :: One number from any JSON address: a price, a count, a sensor at home.
 - Sizes :: 1×1, 2×1.
@@ -1066,7 +1156,7 @@ Twenty-five. Twelve are in the first build.
   widget.show({ value: String(value), label: options.label, tap: { url: options.url } });
   #+end_src
 
-*** 12. Crypto prices                                            :first:
+*** 12. Crypto prices                                            :first:built:
 
 - Shows :: Each coin with its price and its change today, green or red.
 - Sizes :: 2×2, 4×2.
@@ -1079,7 +1169,7 @@ Twenty-five. Twelve are in the first build.
     title: c.name, trailing: c.price, detail: c.change, color: c.up ? "good" : "bad" })) });
   #+end_src
 
-*** 13. Shortcuts                                                :phase2:
+*** 13. Shortcuts                                                :phase2:built:
 
 - Shows :: A grid of buttons for commands you pick: =torch=, =dnd=, =todo=, =weather=, =open maps=.
   This is the quick-command grid.
@@ -1095,7 +1185,7 @@ Twenty-five. Twelve are in the first build.
   - After a backup is imported, its commands are listed under "worth a look", as gestures and
     aliases are.
 
-*** 14. Now playing                                              :phase2:
+*** 14. Now playing                                              :phase2:built:
 
 - Shows :: The track, the artist, the position, and three buttons.
 - Sizes :: 2×1, 4×1, 4×2.
@@ -1104,7 +1194,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live.
 - Taps :: Previous, play or pause, next. The card opens the player.
 
-*** 15. Todos                                                    :phase2:
+*** 15. Todos                                                    :phase2:built:
 
 - Shows :: Your open todos, each with a checkbox, and "+2 more".
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1112,7 +1202,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live.
 - Taps :: A checkbox marks the todo done, with Undo. The card runs =todo= and turns to the log.
 
-*** 16. Agenda                                                   :phase2:
+*** 16. Agenda                                                   :phase2:built:
 
 - Shows :: Today's and the next days' calendar events.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1122,7 +1212,7 @@ Twenty-five. Twelve are in the first build.
   themselves.
 - Taps :: An event opens in the calendar app. The card runs =agenda= and turns to the log.
 
-*** 17. Reminders                                                :phase2:
+*** 17. Reminders                                                :phase2:built:
 
 - Shows :: The next reminder with the time to it, and the two after it.
 - Sizes :: 2×1, 2×2, 4×2.
@@ -1130,7 +1220,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live. Kolahal ticks the time.
 - Taps :: The card runs =reminders= and turns to the log.
 
-*** 18. Notes                                                    :phase2:
+*** 18. Notes                                                    :phase2:built:
 
 - Shows :: Your newest note, or the newest three in a larger box.
 - Sizes :: 2×1, 2×2, 4×2.
@@ -1138,7 +1228,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live.
 - Taps :: The card runs =notes= and turns to the log.
 
-*** 19. World clocks                                             :phase2:
+*** 19. World clocks                                             :phase2:built:
 
 - Shows :: The time in the places you list.
 - Sizes :: 2×1, 2×2, 4×1.
@@ -1155,7 +1245,7 @@ Twenty-five. Twelve are in the first build.
   widget.show{ zones = zones }
   #+end_src
 
-*** 20. Habit streak                                             :phase2:
+*** 20. Habit streak                                             :phase2:built:
 
 - Shows :: Your streak in days, bars for the last 7 days, and a "Done today" button.
 - Sizes :: 2×1, 2×2.
@@ -1181,7 +1271,7 @@ Twenty-five. Twelve are in the first build.
     style = "bars", tap = { args = "done", label = "Done today" } }
   #+end_src
 
-*** 21. Quick toggles                                            :phase2:
+*** 21. Quick toggles                                            :phase2:built:
 
 - Shows :: Switches for Do Not Disturb and the work profile.
 - Sizes :: 2×1, 4×1.
@@ -1207,7 +1297,7 @@ Twenty-five. Twelve are in the first build.
   widget.show{ items = items, staleAfter = 60 }
   #+end_src
 
-*** 22. Currency rates                                           :phase2:
+*** 22. Currency rates                                           :phase2:built:
 
 - Shows :: One unit of your currency in the others you chose.
 - Sizes :: 2×2, 4×2.
@@ -1220,7 +1310,7 @@ Twenty-five. Twelve are in the first build.
     items: to.map((c) => ({ title: c, trailing: rate(c) })) });
   #+end_src
 
-*** 23. GitHub releases                                          :phase2:
+*** 23. GitHub releases                                          :phase2:built:
 
 - Shows :: The newest release of each repository you watch, and how old it is.
 - Sizes :: 2×2, 4×2.
@@ -1386,6 +1476,8 @@ Nothing was measured; treat the totals as a guide to what is big and what is sma
 
 ** Phase 1: the first build
 
+*Built.* [[*What is built][What is built]] names the few parts that wait.
+
 The smallest set that is useful on its own: 6 kinds, 12 widgets.
 
 | Part                                                                                             | Size |
@@ -1415,6 +1507,9 @@ each add a little.
 
 ** Phase 2: taps that change things, and live data
 
+*Built*, but for three parts: the =app= action, the review of Shortcuts after an import, and the
+widget preview in the script editor.
+
 5 kinds, 11 widgets. About 15 to 20 working days.
 
 | Part                                                                                             | Size |
@@ -1427,7 +1522,7 @@ each add a little.
 
 ** Phase 3: more data for scripts
 
-About 15 working days.
+Not started. About 15 working days.
 
 - The =image= kind, Comic of the day, Live score.
 - Read functions for scripts, each behind a new =@uses= item: =todos=, =notes=, =reminders=,
@@ -1436,6 +1531,8 @@ About 15 working days.
 - Styled text in widgets (=fmt.bold=, =fmt.color=).
 
 ** Phase 4: only if asked
+
+Not started.
 
 - Home-screen widgets for other launchers, with Glance: a second renderer for =stat=, =list= and
   =text= that reads the same stored state. About 10 to 15 working days.
