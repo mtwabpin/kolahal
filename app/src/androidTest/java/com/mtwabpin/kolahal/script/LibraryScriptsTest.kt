@@ -839,4 +839,120 @@ class LibraryScriptsTest {
         host.flush()
         assertEquals("nil", only().first)
     }
+
+    /** A tap on one of Quick toggles' switches, as the widgets page starts it. The word is the switch's `args`. */
+    private val switchTap = mapOf("name" to "action", "widget" to true)
+
+    /** The switches Quick toggles last showed: each label with its state. */
+    private fun switches(): List<Pair<Any?, Any?>> = ((shown() as Map<*, *>)["items"] as List<*>).map { (it as Map<*, *>).let { s -> s["label"] to s["on"] } }
+
+    /**
+     * Quick toggles, with Do Not Disturb and the work profile standing in, their state kept in the
+     * script's store between runs. A tap changes the thing and shows its new state. A change that
+     * didn't work still shows the state as it is, and then fails the run.
+     */
+    @Test fun quickTogglesShowTheStateAfterEachTap() {
+        // _noAccess: Kolahal has no Do Not Disturb access. _yours: you turned Do Not Disturb on, so
+        // Kolahal's "off" changes nothing. _refuse: Android refuses to pause or resume.
+        val standIns = """
+            device.dnd = function() return store.get("_dnd") or "off" end
+            device.setDnd = function(mode)
+              if store.get("_noAccess") then return false end
+              if not store.get("_yours") then store.set("_dnd", mode == "on" and "priority" or mode) end
+              return true
+            end
+            device.work = function() return store.get("_work") end
+            device.setWork = function(on)
+              if store.get("_refuse") then return false end
+              store.set("_work", on and "on" or "paused")
+              return true
+            end
+            sleep = function() end
+        """.trimIndent() + "\n" + luaKeepsShown
+        fun tap(word: String) = run("quick-toggles.lua", word, event = switchTap, before = standIns)
+        /** Taps [word]'s switch, and checks that the run fails with [why]. */
+        fun fails(word: String, why: String) {
+            val message = runCatching { tap(word) }.exceptionOrNull()?.message.orEmpty()
+            assertTrue(message, message.contains(why))
+        }
+
+        // No work profile: the one switch. A run for the widgets page logs nothing.
+        run("quick-toggles.lua", event = forWidget, before = standIns)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(
+            mapOf(
+                "items" to listOf(mapOf("label" to "Do Not Disturb", "icon" to "🌙", "on" to false, "tap" to mapOf("args" to "dnd"))),
+                "staleAfter" to 60.0,
+            ),
+            shown(),
+        )
+        // A tap on a switch that isn't there changes nothing.
+        tap("work")
+        assertEquals(listOf("Do Not Disturb" to false), switches())
+
+        store.set("_work", "on")
+        tap("dnd")
+        assertEquals("priority", store.get("_dnd"))
+        assertEquals(listOf("Do Not Disturb" to true, "Work profile" to true), switches())
+        tap("work")
+        assertEquals("paused", store.get("_work"))
+        assertEquals(listOf("Do Not Disturb" to true, "Work profile" to false), switches())
+        tap("dnd")
+        tap("work")
+        assertEquals(listOf("off", "on"), listOf(store.get("_dnd"), store.get("_work")))
+        // No tap logs a line.
+        assertEquals(emptyList<LogEntry>(), lines())
+
+        // Without Do Not Disturb access the switch stays as it is, and the run fails with what to do.
+        store.set("_noAccess", "1")
+        fails("dnd", "Kolahal needs Do Not Disturb access: type dnd access")
+        assertEquals(listOf("Do Not Disturb" to false, "Work profile" to true), switches())
+        store.set("_noAccess", null)
+        // Do Not Disturb that you turned on outside Kolahal stays on.
+        store.set("_dnd", "alarms")
+        store.set("_yours", "1")
+        fails("dnd", "Do Not Disturb is still on")
+        assertEquals(listOf("Do Not Disturb" to true, "Work profile" to true), switches())
+        store.set("_yours", null)
+        store.set("_dnd", null)
+        // Android refuses to pause, and then to resume.
+        store.set("_refuse", "1")
+        fails("work", "Couldn't pause the work profile")
+        assertEquals(listOf("Do Not Disturb" to false, "Work profile" to true), switches())
+        store.set("_work", "paused")
+        fails("work", "Couldn't resume the work profile")
+        assertEquals(listOf("Do Not Disturb" to false, "Work profile" to false), switches())
+
+        // Run by hand, it logs both states. A word that is no switch gets the usage.
+        run("quick-toggles.lua", before = standIns)
+        assertEquals(Triple("Quick toggles", "Do Not Disturb off\nWork profile paused", null), only())
+        run("quick-toggles.lua", "wifi", before = standIns)
+        assertEquals(Triple("Usage: script run quick-toggles [dnd|work]", null, StyledText.Colour.MUTED), only())
+    }
+
+    /** Quick toggles' first switch turns the phone's real Do Not Disturb on and off, and waits until Android has done it. */
+    @Test fun quickTogglesSwitchDoNotDisturb() {
+        val had = nm.isNotificationPolicyAccessGranted
+        shell("cmd notification allow_dnd ${context.packageName}")
+        val all = android.app.NotificationManager.INTERRUPTION_FILTER_ALL
+        val priority = android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
+        try {
+            // Kolahal's own off too: one left on would keep it on, whatever the shell sets.
+            nm.setInterruptionFilter(all)
+            youSet("off", all)
+            run("quick-toggles.lua", "dnd", event = switchTap, before = luaKeepsShown)
+            assertEquals(priority, nm.currentInterruptionFilter)
+            // The emulator has no work profile, so this is the one switch. It is on by the time the script shows it.
+            assertEquals(listOf("Do Not Disturb" to true), switches())
+            run("quick-toggles.lua", "dnd", event = switchTap, before = luaKeepsShown)
+            assertEquals(all, nm.currentInterruptionFilter)
+            assertEquals(listOf("Do Not Disturb" to false), switches())
+            assertEquals(emptyList<LogEntry>(), lines())
+        } finally {
+            nm.setInterruptionFilter(all)
+            shell("cmd notification set_dnd off")
+            // Do Not Disturb access as it was.
+            if (!had) shell("cmd notification disallow_dnd ${context.packageName}")
+        }
+    }
 }

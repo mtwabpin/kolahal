@@ -103,6 +103,7 @@ night-dnd.lua b6040383e43eb9e7
 night-dnd.lua b730147ecba5e5c8
 night-work.lua 4a5390218bb41547
 night-work.lua 639645bd4fc54757
+quick-toggles.lua f0a6c365ed8f7840
 quote.js 00781894f6456c1d
 quote.js 269efab3b7c0a8ca
 quote.js 4c6e605da198e0ee

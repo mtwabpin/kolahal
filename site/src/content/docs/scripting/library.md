@@ -1,9 +1,9 @@
 ---
 title: Script library
-description: The 38 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 39 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
-Kolahal includes 38 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 39 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Fourteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Fifteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -89,6 +89,7 @@ None of the network scripts need an API key.
 | [unlock-chart](#unlock-chart) | Lua | | on unlock | |
 | [habit](#habit) | Lua | yes | daily 00:01 | |
 | [world-clocks](#world-clocks) | Lua | | | |
+| [quick-toggles](#quick-toggles) | Lua | | | |
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
 | [night-work](#night-work) | Lua | | daily 23:00 and 07:00 | |
 | [template-command](#templates) | Lua | yes | | |
@@ -106,7 +107,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Fourteen scripts have a [widget](/scripting/overview/#widgets): a card on the
+Fifteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -128,6 +129,7 @@ Fourteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
 | [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
+| [quick-toggles](#quick-toggles) | switches for Do Not Disturb and the work profile | on a switch: turns it on or off |
 | [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
 
 - A script fills its widget on its own timer. The widgets page also runs it when you place the
@@ -464,6 +466,24 @@ script set world-clocks zones "Asia/Kolkata=Pune Asia/Dubai=Head_office UTC"
   names the zone.
 - It has no timer. It runs when you place the widget and when you tap the card. So after you
   change the option, tap the card: it then shows the new places.
+
+## quick-toggles
+
+**Quick toggles**: a [widget](#widgets) with a switch for Do Not Disturb, and one for the work
+profile when the phone has one. It doesn't use the network.
+
+- A tap on a switch runs the script. It changes the thing, waits until Android has done it, and
+  shows the new state. Until then the switch shows that it is working.
+- Kolahal needs Do Not Disturb access for the first switch. Run `dnd access` once.
+- Since Android 15, the switch turns Kolahal's own Do Not Disturb mode on and off. If you turned
+  Do Not Disturb on yourself, it stays on, and the switch stays on too.
+- Android lets only the default launcher pause and resume the work profile. If your work profile
+  needs its PIN to resume, Android asks you for it.
+- When a change doesn't work, the switch goes back, the card says "Failed", and the log says why.
+- Both can change outside Kolahal. So the card counts as old after a minute: the widgets page then
+  reads both again when you open it.
+- It has `@uses dnd, work`. `script run quick-toggles` logs both states.
+- Wi-Fi and Bluetooth have no switch here: Android lets an app only open their panels.
 
 ## night-dnd
 

@@ -13,7 +13,7 @@ class LibraryFilesTest {
         .mapNotNull { f -> ScriptLang.of(f.extension)?.let { f to it } }.sortedBy { it.first.name }
 
     @Test fun theyAreAllThere() {
-        assertEquals(38, files.size)
+        assertEquals(39, files.size)
     }
 
     /**

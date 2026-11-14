@@ -46,9 +46,39 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua"),
+            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua"),
             withWidget,
         )
+    }
+
+    /**
+     * A switch for Do Not Disturb, and one for the work profile on a phone that has one. Each has
+     * its state, and a tap that runs the script again with one word.
+     */
+    @Test fun quickToggles() {
+        val dnd = luaTable("label" to "Do Not Disturb", "icon" to "🌙", "on" to true, "tap" to luaTable("args" to "dnd"))
+        val work = luaTable("label" to "Work profile", "icon" to "💼", "on" to false, "tap" to luaTable("args" to "work"))
+        assertEquals(
+            WidgetSpec.Toggles(
+                WidgetBase(staleAfter = 60),
+                items = listOf(
+                    WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd"), icon = "🌙"),
+                    WidgetSpec.Toggle("Work profile", on = false, tap = WidgetTap(args = "work"), icon = "💼"),
+                ),
+            ),
+            fromLua("quick-toggles.lua", luaTable("items" to luaList(dnd, work), "staleAfter" to 60.0)),
+        )
+        // A phone with no work profile has the one switch.
+        val one = fromLua("quick-toggles.lua", luaTable("items" to luaList(dnd), "staleAfter" to 60.0)) as WidgetSpec.Toggles
+        assertEquals(listOf("Do Not Disturb"), one.items.map { it.label })
+    }
+
+    /** quick-toggles asks for Do Not Disturb and the work profile, and for nothing else. */
+    @Test fun quickTogglesAsksOnlyForWhatItSwitches() {
+        val code = sourceFile("src/main/assets/library/quick-toggles.lua").readText()
+        assertEquals(listOf("dnd", "work"), ScriptAccess.asksFor(code))
+        assertEquals(listOf(ScriptAccess.WIDGET, "dnd", "work"), ScriptAccess.items(code))
+        assertEquals(false, ScriptMeta.postsNotifications(code))
     }
 
     /**
