@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Sixteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Eighteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -107,7 +107,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Sixteen scripts have a [widget](/scripting/overview/#widgets): a card on the
+Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -127,6 +127,8 @@ Sixteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
 | [xkcd](#xkcd) | the latest comic, with its number and title under it | opens the comic on xkcd.com |
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
+| [cricket](#cricket) | the followed match: both scores, how it stands, and the overs as a bar | runs `cricket live`, and home turns to the log |
+| [football](#football) | the followed match: the score, the minute, and the minutes played as a bar | runs `football live`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
 | [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
@@ -390,6 +392,13 @@ script pin cricket           # the score at the top of home
   `India` matches India A too. Use the abbreviation (`IND`, `NZ`) to pick the senior side.
 - Its `team` option is the team its timer looks for (`any`: the first live international), and
   `refresh` is how often the pinned score updates while home shows it (30 seconds, 10 at the fastest).
+- Its widget is **Live score**: both sides' scores large, and how the match stands under them.
+  - While the match is on, the overs are a bar that moves. In a chase, the runs to win and the
+    balls left are beside the score.
+  - While the widgets page shows the card, the score is fetched again every `refresh` seconds.
+    Out of view it follows the timer.
+  - With no match to follow it says "No live match". A tap runs `cricket live`, and home turns to
+    the log.
 
 ## football
 
@@ -407,6 +416,10 @@ football live                # the league's live matches, as a table
   `esp.1`, `ger.1`, `ita.1`, `fra.1`, `uefa.champions`, `ind.1`, `usa.1` or another.
 - Its `team` option is the team its timer looks for (`any`: the league's first live match), and
   `refresh` is how often the pinned score updates while home shows it.
+- Its widget is **Live score**, as for `cricket`: the score large between the two sides, the
+  minute beside it (HT at half time, FT at the end), and the minutes played as a bar that moves
+  while the match is on. A tap runs `football live`, and home turns to the log.
+
 ## charge-reminder
 
 **Charge reminder**: runs when you plug in the charger and when you unplug it. It has no timer and

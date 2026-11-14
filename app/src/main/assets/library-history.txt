@@ -27,6 +27,7 @@ countdown.lua d5225127ce46560d
 countdown.lua dcc0bc4fbcf0ff05
 countdown.lua ebe3745821ff306f
 countdown.lua f82a17cd65b4d3fd
+cricket.js 211cd5b39c08819e
 cricket.js d907db1f453cdd6b
 cricket.js dd0ff998c45a47c8
 cricket.js e1da3a0e5b33f281
@@ -56,6 +57,7 @@ exchange.js a80850174a186602
 exchange.js cfcde40c26aae233
 exchange.js e46d14f1eb642d4f
 football.js 0eae300a9d6af343
+football.js 31f8b60d1fa5618d
 football.js 53a4b1afdb897b76
 football.js f676f6de549205fd
 forecast.js 10da580a645d7176

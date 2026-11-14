@@ -1,9 +1,10 @@
 // @title Live football
 // @desc Live football scores from one league: the team option's live match as its status line, to pin at the top of home; football live lists them all
 // @author Kolahal
-// @version 1.5
+// @version 1.6
 // @command
 // @usage [live|<team>]
+// @widget stat 4x1
 // @every 15m
 // @tags sport, football, soccer, live
 // @requires 0.4.7
@@ -24,6 +25,11 @@
 // From Kolahal 0.4.16, `football live` shows as a table (fmt.table), a match with a tag for how it
 // stands (LIVE, FT, UPCOMING) and the minutes played as a bar; a typed command shows "Fetching
 // scores…" at once, which turns into the answer. An older Kolahal shows lines, as before.
+//
+// Its widget, once you placed it on the widgets page, is the live score: the score large between
+// the two sides, the minute beside it, and the minutes played as a bar that moves while the match is
+// on. While the page shows it, it is fetched again every refresh seconds. A tap lists the league's
+// live matches in the log.
 
 const league = (options.league || "eng.1").trim();
 const BOARD = `https://site.api.espn.com/apis/site/v2/sports/soccer/${encodeURIComponent(league)}/scoreboard`;
@@ -77,14 +83,55 @@ function progress(event) {
   return m ? Math.min(1, Number(m[1]) / 90) : null;
 }
 
+// An older Kolahal has no widgets: there the script only keeps its status line.
+const hasWidget = typeof widget !== "undefined";
+
+// A tap on its widget lists the league's live matches, and home turns to the log.
+const TAP = { args: "live", page: "log", label: "Live matches" };
+
+// Its widget for a match: the score large between the two sides ("ARS 2–1 CHE"), home first, with
+// the minute beside it ("HT" at half time, "FT" at the end) and the match's name under it.
+// While it's on: the minutes played as a bar that moves, and the widgets page asks again every
+// [every] seconds while it shows the card. A card one row tall has the bar in the place of the name.
+function card(event, live, p, every) {
+  const [home, away] = ["home", "away"].map((h) => sides(event).find((c) => c.homeAway === h) || {});
+  const abbr = (c) => (c.team && c.team.abbreviation) || "?";
+  const type = (event.status && event.status.type) || {};
+  const clock = state(event) === "post" ? ["FT", "full time"]
+    : type.shortDetail === "HT" ? ["HT", "half time"]
+    : [(event.status && event.status.displayClock) || "", "minute"];
+  const d = {
+    icon: "⚽",
+    value: `${abbr(home)} ${home.score ?? ""}–${away.score ?? ""} ${abbr(away)}`,
+    label: event.name || "",
+    tap: TAP,
+    // A result changes no more. A live score is old after a minute out of view.
+    staleAfter: live ? 60 : 900,
+  };
+  if (clock[0]) d.more = [{ value: clock[0], label: clock[1] }];
+  if (!live) return d;
+  d.color = "good";
+  d.moving = true;
+  d.refresh = every;
+  if (p != null) d.progress = p;
+  return d;
+}
+
+// Its status line: the match's line, the minutes played as its bar, and runs again while it's live.
+// Its widget shows the same match.
 function showMatch(event) {
-  if (state(event) === "in") {
-    const p = progress(event);
-    const every = Math.max(10, Number(options.refresh) || 30);
-    status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
-  } else {
-    status(line(event));
-  }
+  const live = state(event) === "in";
+  const p = live ? progress(event) : null;
+  const every = Math.max(10, Number(options.refresh) || 30);
+  if (live) status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
+  else status(line(event));
+  if (hasWidget) widget.show(card(event, live, p, every));
+}
+
+// No match to follow: no status line, and its widget says so.
+function showNone() {
+  status(null);
+  if (hasWidget) widget.show({ icon: "⚽", value: "–", label: `No live match in ${league}`, tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }).
@@ -102,13 +149,13 @@ async function update(match, all) {
   const event = (all || (await matches())).find((e) => e.id === match.id);
   if (!event) {
     store.set("match", null);
-    return status(null);
+    return showNone();
   }
   if (state(event) === "post") {
     if (!match.ended) store.set("match", JSON.stringify({ ...match, ended: Date.now() }));
     else if (Date.now() - match.ended > RESULT_HOURS * 3600000) {
       store.set("match", null);
-      return status(null);
+      return showNone();
     }
   }
   showMatch(event);
@@ -124,9 +171,13 @@ const match = kept();
 
 if (event && event.name === "refresh") {
   if (match) await update(match);
-  else status(null);
+  else showNone();
   return;
 }
+
+// The widgets page asked for this run. It is as quiet as a refresh: it logs nothing, and it fetches
+// the league's scores once.
+const forWidget = !!event && event.name === "widget";
 
 if (!words) {
   // The timer: the followed match while it's on, then the team option's next live one. A failed
@@ -139,8 +190,10 @@ if (!words) {
     const live = all.filter((e) => state(e) === "in");
     const found = team.toLowerCase() === "any" ? live[0] : matchesOf(live, team)[0];
     if (found && (!match || found.id !== match.id)) follow(found);
+    else if (!match) showNone();
   } catch (e) {
-    // Tried again at the next run.
+    // Tried again at the next run. A run for the widget fails instead, so its card says so.
+    if (forWidget) throw e;
   }
   return;
 }

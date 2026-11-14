@@ -1,9 +1,10 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.5
+// @version 1.6
 // @command
 // @usage [live|<team>]
+// @widget stat 4x1
 // @every 15m
 // @tags sport, cricket, live
 // @requires 0.4.7
@@ -24,6 +25,11 @@
 // tag for how it stands (LIVE, RESULT, UPCOMING) and the overs as a bar; a typed command shows
 // "Fetching scores…" at once, which turns into the answer. An older Kolahal shows them as lines, as
 // before.
+//
+// Its widget, once you placed it on the widgets page, is the live score: both sides' scores large,
+// how the match stands, and the overs as a bar that moves while the match is on. In a chase it has
+// the runs to win and the balls left beside the score. While the page shows it, it is fetched again
+// every refresh seconds. A tap lists the live matches in the log.
 
 const PANEL = "https://site.web.api.espn.com/apis/site/v2/sports/cricket/scorepanel";
 const BOARD = (league) => `https://site.web.api.espn.com/apis/site/v2/sports/cricket/${league}/scoreboard`;
@@ -125,15 +131,60 @@ const progress = (event) => {
   return o ? o.share : null;
 };
 
-// Its status line: the match's line, its bar when there's a limit, and runs again while it's live.
-function showMatch(event) {
-  if (state(event) === "in") {
-    const p = progress(event);
-    const every = Math.max(10, Number(options.refresh) || 30);
-    status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
-  } else {
-    status(line(event));
+// An older Kolahal has no widgets: there the script only keeps its status line.
+const hasWidget = typeof widget !== "undefined";
+
+// A tap on its widget lists the live matches, and home turns to the log.
+const TAP = { args: "live", page: "log", label: "Live matches" };
+
+// Its widget for a match: both sides' scores large ("IND 237/4 · NZ 299/8"), and how the match
+// stands under them.
+// - While it's on: the overs as a bar that moves, and the widgets page asks again every [every]
+//   seconds while it shows the card. A card one row tall has the bar in the place of the words.
+// - In a chase: the runs to win and the balls left beside the score, as the summary gives them
+//   ("India require 64 runs with 60 balls remaining").
+function card(event, live, p, every) {
+  const abbr = (c) => (c.team && c.team.abbreviation) || "?";
+  const runs = (c) => (c.score || "").split(" (")[0].trim();
+  const said = (event.status && event.status.summary) || "";
+  const d = {
+    icon: "🏏",
+    value: teams(event).map((c) => `${abbr(c)} ${runs(c)}`.trim()).join(" · ") || "–",
+    label: said,
+    tap: TAP,
+    // A result changes no more. A live score is old after a minute out of view.
+    staleAfter: live ? 60 : 900,
+  };
+  if (!live) return d;
+  d.color = "good";
+  d.moving = true;
+  d.refresh = every;
+  if (p != null) d.progress = p;
+  if (/\b(?:require|need)s?\b/i.test(said)) {
+    const toWin = said.match(/(\d+)\s+(?:more\s+)?runs?\b/);
+    const balls = said.match(/(\d+)\s+balls?\b/);
+    d.more = [];
+    if (toWin) d.more.push({ value: toWin[1], label: "to win" });
+    if (balls) d.more.push({ value: balls[1], label: "balls left" });
   }
+  return d;
+}
+
+// Its status line: the match's line, its bar when there's a limit, and runs again while it's live.
+// Its widget shows the same match.
+function showMatch(event) {
+  const live = state(event) === "in";
+  const p = live ? progress(event) : null;
+  const every = Math.max(10, Number(options.refresh) || 30);
+  if (live) status(line(event), p == null ? { refresh: every } : { progress: p, refresh: every });
+  else status(line(event));
+  if (hasWidget) widget.show(card(event, live, p, every));
+}
+
+// No match to follow: no status line, and its widget says so.
+function showNone() {
+  status(null);
+  if (hasWidget) widget.show({ icon: "🏏", value: "–", label: "No live match", tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }) and what it shows now.
@@ -155,13 +206,13 @@ async function update(match) {
   const event = await followed(match);
   if (!event) {
     store.set("match", null);
-    return status(null);
+    return showNone();
   }
   if (state(event) === "post") {
     if (!match.ended) store.set("match", JSON.stringify({ ...match, ended: Date.now() }));
     else if (Date.now() - match.ended > RESULT_HOURS * 3600000) {
       store.set("match", null);
-      return status(null);
+      return showNone();
     }
   }
   showMatch(event);
@@ -178,9 +229,13 @@ const match = kept();
 if (event && event.name === "refresh") {
   // While home shows the score: only the followed match's league, a few KB.
   if (match) await update(match);
-  else status(null);
+  else showNone();
   return;
 }
+
+// The widgets page asked for this run. It is as quiet as a refresh: it logs nothing, and while a
+// match is on it fetches that match's league only.
+const forWidget = !!event && event.name === "widget";
 
 if (!words) {
   // The timer: the followed match while it's on, then the team option's next live one. A failed
@@ -192,8 +247,10 @@ if (!words) {
     const live = (await allMatches()).filter((m) => state(m.event) === "in");
     const found = team.toLowerCase() === "any" ? live.find((m) => international(m.event)) : matchesOf(live, team)[0];
     if (found && (!match || found.event.id !== match.id)) follow(found.league, found.event);
+    else if (!match) showNone();
   } catch (e) {
-    // Tried again at the next run.
+    // Tried again at the next run. A run for the widget fails instead, so its card says so.
+    if (forWidget) throw e;
   }
   return;
 }

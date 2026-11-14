@@ -46,7 +46,7 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
+            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
             withWidget,
         )
     }
@@ -423,6 +423,91 @@ class LibraryWidgetsTest {
         // It goes online, as before, and it has the widget's switch now.
         assertEquals(listOf(ScriptAccess.INTERNET), ScriptAccess.asksFor(code))
         assertEquals(true, ScriptAccess.WIDGET in ScriptAccess.items(code))
+    }
+
+    /** A tap on a score's card runs the script with "live" and turns home to the log. */
+    private val liveTap = WidgetTap(args = "live", label = "Live matches", toLog = true)
+    private val jsLiveTap = mapOf("args" to "live", "page" to "log", "label" to "Live matches")
+
+    /**
+     * Live score, cricket: both sides' scores large and how the match stands. While the match is on,
+     * the overs are a bar that moves and the page asks again every `refresh` seconds. A chase has the
+     * runs to win and the balls left.
+     */
+    @Test fun cricket() {
+        val chase = parse(
+            "cricket.js",
+            mapOf(
+                "icon" to "🏏", "value" to "IND 237/4 · NZ 299/8", "label" to "India require 64 runs with 60 balls remaining", "tap" to jsLiveTap,
+                "staleAfter" to 60L, "color" to "good", "moving" to true, "refresh" to 30L, "progress" to 0.8,
+                "more" to listOf(mapOf("value" to "64", "label" to "to win"), mapOf("value" to "60", "label" to "balls left")),
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Stat(
+                WidgetBase(icon = "🏏", color = StyledText.Colour.GOOD, tap = liveTap, staleAfter = 60, refresh = 30),
+                value = "IND 237/4 · NZ 299/8", label = "India require 64 runs with 60 balls remaining",
+                more = listOf(WidgetSpec.Small("64", "to win"), WidgetSpec.Small("60", "balls left")), progress = 0.8f, moving = true,
+            ),
+            chase,
+        )
+        // A Test has no limit of overs: no bar. The fastest refresh is 10 seconds.
+        val test = parse(
+            "cricket.js",
+            mapOf(
+                "icon" to "🏏", "value" to "IND 245 & 120/3 · NZ 245", "label" to "Day 2: India lead by 120 runs", "tap" to jsLiveTap,
+                "staleAfter" to 60L, "color" to "good", "moving" to true, "refresh" to 10L,
+            ),
+        ) as WidgetSpec.Stat
+        assertEquals(null, test.progress)
+        assertEquals(10, test.base.refresh)
+        // The result: it changes no more, so nothing moves and the page asks for nothing.
+        val result = parse("cricket.js", mapOf("icon" to "🏏", "value" to "IND 301/6 · NZ 299/8", "label" to "India won by 4 wickets", "tap" to jsLiveTap, "staleAfter" to 900L))
+        assertEquals(
+            WidgetSpec.Stat(WidgetBase(icon = "🏏", tap = liveTap, staleAfter = 900), value = "IND 301/6 · NZ 299/8", label = "India won by 4 wickets"),
+            result,
+        )
+        // Nothing to follow.
+        val none = parse("cricket.js", mapOf("icon" to "🏏", "value" to "–", "label" to "No live match", "tap" to jsLiveTap, "staleAfter" to 900L))
+        assertEquals(WidgetSpec.Stat(WidgetBase(icon = "🏏", tap = liveTap, staleAfter = 900), value = "–", label = "No live match"), none)
+    }
+
+    /** Live score, football: the score large between the two sides, the minute beside it, and the minutes played as a bar. */
+    @Test fun football() {
+        val live = parse(
+            "football.js",
+            mapOf(
+                "icon" to "⚽", "value" to "ARS 2–1 CHE", "label" to "Chelsea at Arsenal", "tap" to jsLiveTap, "staleAfter" to 60L,
+                "more" to listOf(mapOf("value" to "67'", "label" to "minute")), "color" to "good", "moving" to true, "refresh" to 30L, "progress" to 0.7444444444444445,
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Stat(
+                WidgetBase(icon = "⚽", color = StyledText.Colour.GOOD, tap = liveTap, staleAfter = 60, refresh = 30),
+                value = "ARS 2–1 CHE", label = "Chelsea at Arsenal", more = listOf(WidgetSpec.Small("67'", "minute")), progress = 0.7444444444444445.toFloat(), moving = true,
+            ),
+            live,
+        )
+        val ended = parse(
+            "football.js",
+            mapOf("icon" to "⚽", "value" to "ARS 2–1 CHE", "label" to "Chelsea at Arsenal", "tap" to jsLiveTap, "staleAfter" to 900L, "more" to listOf(mapOf("value" to "FT", "label" to "full time"))),
+        )
+        assertEquals(
+            WidgetSpec.Stat(WidgetBase(icon = "⚽", tap = liveTap, staleAfter = 900), value = "ARS 2–1 CHE", label = "Chelsea at Arsenal", more = listOf(WidgetSpec.Small("FT", "full time"))),
+            ended,
+        )
+        val none = parse("football.js", mapOf("icon" to "⚽", "value" to "–", "label" to "No live match in eng.1", "tap" to jsLiveTap, "staleAfter" to 900L))
+        assertEquals(WidgetSpec.Stat(WidgetBase(icon = "⚽", tap = liveTap, staleAfter = 900), value = "–", label = "No live match in eng.1"), none)
+    }
+
+    /** The scores' scripts start at 4 cells by 1 row, and have the widget's switch beside what they had. */
+    @Test fun theScoresHaveAWideStatWidget() {
+        for (file in listOf("cricket.js", "football.js")) {
+            val code = sourceFile("src/main/assets/library/$file").readText()
+            assertEquals(file, ScriptMeta.Widget(WidgetKind.STAT, com.mtwabpin.kolahal.widgets.WidgetSize.S4X1), ScriptMeta.widget(code))
+            assertEquals(file, true, ScriptAccess.WIDGET in ScriptAccess.items(code))
+            assertEquals(file, false, ScriptMeta.postsNotifications(code))
+        }
     }
 
     @Test fun quote() {
