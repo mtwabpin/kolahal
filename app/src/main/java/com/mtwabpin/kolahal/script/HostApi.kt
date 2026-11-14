@@ -538,7 +538,7 @@ class HostApi(
         effects++
         flush()
         val line = widgetLine("widget.show") ?: return false
-        val placed = grants?.allows(ScriptAccess.WIDGET) == true
+        val placed = widgetPlacedNow()
         if (!widgetCall("widget.show")) return placed
         val raw = desc ?: throw IllegalArgumentException("widget.show expects a description: a table or object such as { value, label }")
         val spec = WidgetParser.parse(raw, line.kind, text = { StyledText.plain(redact(it)) }, link = ::widgetLink)
@@ -548,13 +548,21 @@ class HostApi(
         return placed
     }
 
+    /**
+     * Whether the script's widget is on the widgets page now. Read from the database at each call, not
+     * from the access the run started with: a widget removed while the run sleeps or waits for the web
+     * must not get content back, and one placed meanwhile gets it.
+     */
+    private fun widgetPlacedNow(): Boolean =
+        scriptId?.let { com.mtwabpin.kolahal.data.ScriptRepository.get(context).byId(it)?.grants?.allows(ScriptAccess.WIDGET) } == true
+
     /** `widget.clear()`: removes the widget's content. Its card then says that there is nothing to show. */
     fun widgetClear() {
         live()
         effects++
         flush()
         widgetLine("widget.clear") ?: return
-        if (grants?.allows(ScriptAccess.WIDGET) == true && widgetCall("widget.clear")) WidgetStates.clear(context, scriptName)
+        if (widgetPlacedNow() && widgetCall("widget.clear")) WidgetStates.clear(context, scriptName)
     }
 
     /**

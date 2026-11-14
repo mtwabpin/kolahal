@@ -274,19 +274,19 @@ class ScriptWidgetCardTest {
         assertEquals(listOf(new), texts(new))
     }
 
-    /** Content that can't be read, and a source nothing fills yet, say "widget unavailable". */
+    /** Content that can't be read, and a built-in widget this version doesn't know, say "widget unavailable". */
     @Test fun whatCantBeReadIsUnavailable() {
         // Set just now, as `widget.show` leaves it, and then not what Kolahal reads: another kind, another format.
         val broken = kept("broken", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         KvStore(context, Stores.WIDGET).set(broken, "{\"v\":1,\"kind\":\"gauge\",\"value\":\"24\"}")
         val newer = kept("newer", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         KvStore(context, Stores.WIDGET).set(newer, "{\"v\":2,\"kind\":\"stat\",\"value\":\"24\"}")
-        showSources(WidgetSource.script(broken), WidgetSource.script(newer), WidgetSource.STATUS + "wcard-line", WidgetSource.BUILTIN + "battery")
+        showSources(WidgetSource.script(broken), WidgetSource.script(newer), WidgetSource.BUILTIN + "wcard-nosuch")
         for (name in listOf(broken, newer)) {
             draws(name, name, "widget unavailable")
             says(name, "$name: widget unavailable")
         }
-        for (what in listOf("wcard-line", "battery")) {
+        for (what in listOf("wcard-nosuch")) {
             val card = hasContentDescription("$what: widget unavailable") and hasAnyAncestor(hasTestTag("widget-card"))
             compose.onNode(card).assert(hasText(what) and hasText("widget unavailable"))
         }
@@ -331,6 +331,9 @@ class ScriptWidgetCardTest {
         override fun refresh(script: String) { all += "refresh $script" }
         override fun tap(script: String, tap: WidgetTap) { all += "tap $script ${tap.args ?: tap.url}" }
         override fun longPress() { all += "arrange" }
+        override fun runStatus(script: String) { all += "run status $script" }
+        override fun refreshStatus(script: String) { all += "refresh status $script" }
+        override fun openBattery() { all += "battery" }
     }
 
     /** On the widgets page a tap on the card is its `tap`, a row's tap is the row's own, and a long-press on either arranges. */

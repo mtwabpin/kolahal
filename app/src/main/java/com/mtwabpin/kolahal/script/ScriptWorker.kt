@@ -178,7 +178,12 @@ internal object ScriptRun {
         }
         if (refresh && failed != lastError) refreshes.set(refreshKey, failed)
         // The card says when its last run failed ("Failed 10:42"), and forgets it after one that works.
-        if (widgetRun && script != null) runCatching { com.mtwabpin.kolahal.widgets.WidgetStates.ran(ctx, name, failed) }
+        // Only while the widget is still placed: one removed during the run keeps nothing.
+        if (widgetRun && script != null) runCatching {
+            if (ScriptRepository.get(ctx).byId(script.id)?.grants?.allows(ScriptAccess.WIDGET) == true) {
+                com.mtwabpin.kolahal.widgets.WidgetStates.ran(ctx, name, failed)
+            }
+        }
         script?.let {
             // If a refresh ended the same way as the last one, leave the script's row as it is. Writing it
             // every few seconds would make home read every script again.
