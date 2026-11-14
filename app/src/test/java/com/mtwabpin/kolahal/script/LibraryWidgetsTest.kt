@@ -46,9 +46,39 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "forecast.js", "headlines.js", "hn.lua", "quote.js", "unlock-chart.lua", "weather.lua", "webnumber.js"),
+            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "headlines.js", "hn.lua", "quote.js", "unlock-chart.lua", "weather.lua", "webnumber.js"),
             withWidget,
         )
+    }
+
+    /** One unit of the from currency in each of the others. The script writes each rate as text itself ("83.420"). */
+    @Test fun exchange() {
+        val spec = parse(
+            "exchange.js",
+            mapOf(
+                "title" to "1 USD",
+                "items" to listOf(
+                    mapOf("title" to "EUR", "trailing" to "0.92000"),
+                    mapOf("title" to "INR", "trailing" to "83.420"),
+                    mapOf("title" to "JPY", "trailing" to "149.50"),
+                ),
+                "empty" to "No rates",
+                "tap" to jsToLog,
+                "staleAfter" to 43_200L,
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Rows(
+                WidgetBase(title = "1 USD", tap = toLog, staleAfter = 43_200),
+                items = listOf(WidgetSpec.Row("EUR", trailing = "0.92000"), WidgetSpec.Row("INR", trailing = "83.420"), WidgetSpec.Row("JPY", trailing = "149.50")),
+                empty = "No rates",
+            ),
+            spec,
+        )
+        // None of its currencies is known: an empty array, and the card says "No rates".
+        val none = parse("exchange.js", mapOf("title" to "1 USD", "items" to emptyList<Any?>(), "empty" to "No rates", "tap" to jsToLog, "staleAfter" to 43_200L)) as WidgetSpec.Rows
+        assertEquals(emptyList<WidgetSpec.Row>(), none.items)
+        assertEquals("No rates", none.empty)
     }
 
     /** `device.unlocks(7)` gives whole numbers. Like every Lua number, they arrive as doubles. */

@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Ten scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Eleven scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -75,7 +75,7 @@ None of the network scripts need an API key.
 | [aqi](#aqi) | JS | yes | daily 08:00 | |
 | [sun](#sun) | JS | yes | daily 05:00 | |
 | [crypto](#crypto) | JS | yes | every 30m | |
-| [exchange](#exchange) | JS | yes | | |
+| [exchange](#exchange) | JS | yes | every 6h | |
 | [ip](#ip) | Lua | yes | every 30m | yes |
 | [webnumber](#webnumber) | JS | | every 1h | |
 | [wikipedia](#wikipedia) | JS | yes | | |
@@ -104,7 +104,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Ten scripts have a [widget](/scripting/overview/#widgets): a card on the
+Eleven scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -117,6 +117,7 @@ Ten scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [forecast](#forecast) | three days, each with its sky, its low and its high | runs `forecast`, and home turns to the log |
 | [aqi](#aqi) | the air quality figure in a ring, in its band's colour | runs `aqi`, and home turns to the log |
 | [crypto](#crypto) | its coins, each with its price and the day's change | runs `crypto`, and home turns to the log |
+| [exchange](#exchange) | one unit of your currency in each of the others you chose | runs `exchange`, and home turns to the log |
 | [hn](#hn) | the first 8 stories of the front page, with their points | on a row: opens the story |
 | [headlines](#headlines) | the newest items of a feed you choose | on a row: opens the item |
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
@@ -126,7 +127,7 @@ Ten scripts have a [widget](/scripting/overview/#widgets): a card on the
 
 - A script fills its widget on its own timer. The widgets page also runs it when you place the
   widget, and when it shows the widget with old content.
-- weather, forecast, aqi and crypto fill the widget only in runs with no arguments. So
+- weather, forecast, aqi, crypto and exchange fill the widget only in runs with no arguments. So
   `weather Paris` at the prompt doesn't change the card.
 - Old content stays on the card, with its age under it ("2 h ago"). After a run for the widget
   failed, the card says "Failed 10:42" and keeps its content.
@@ -264,6 +265,9 @@ exchange 100 usd inr eur
 exchange usd inr             # 1 USD
 exchange 50 eur              # in USD
 ```
+
+Its [widget](#widgets) lists what one unit of its `from` option is in each of its `to` options. Its
+timer fills it every 6 hours; the rates change once a day.
 
 ## ip
 

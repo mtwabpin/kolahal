@@ -3,6 +3,8 @@
 // @desc Convert currency: exchange [amount] <from> [to…] (e.g. exchange 100 usd inr eur)
 // @usage [<amount>] <from> [<to…>]
 // @title Currency converter
+// @widget list 2x2
+// @every 6h
 // @option from USD Default currency to convert from
 // @option to "EUR GBP INR JPY" Default currencies to convert to
 //
@@ -14,11 +16,22 @@
 //                              (good on a timer as a status line)
 //
 // Rates update once a day, so a timer more often than every few hours is wasted.
+// Its widget, once you placed it on the widgets page, lists what one unit of its from option is
+// in each of its to options.
 
-// A failure: what didn't work, in the theme's bad colour, and why under it.
-const fail = (what, why) => log(fmt.color("bad", what), why);
+// The widgets page asked for this run: it fills the widget and logs nothing.
+const quiet = !!event && event.name === "widget";
+
+// A failure: what didn't work, in the theme's bad colour, and why under it. In a run for the
+// widget it is an error instead, so the run counts as failed.
+const fail = (what, why) => {
+  if (quiet) throw new Error(`${what}: ${why}`);
+  return log(fmt.color("bad", what), why);
+};
 
 const words = (argline || "").trim().split(/\s+/).filter(Boolean);
+// No arguments at all: the run that fills the widget. "exchange 50" is not one.
+const bare = words.length === 0;
 
 let amount = 1;
 if (words.length > 0 && /^[\d.,]+$/.test(words[0])) amount = parseFloat(words.shift().replace(/,/g, ""));
@@ -65,15 +78,30 @@ const parts = [];
 for (const to of targets) {
   const rate = data.rates[to];
   if (rate == null) {
-    fail(`${to}: no such currency`);
+    // One unknown currency doesn't stop a run for the widget: the others still show.
+    if (!quiet) fail(`${to}: no such currency`);
     continue;
   }
-  rows.push({ to, value: num(amount * rate) });
+  rows.push({ to, value: num(amount * rate), rate: num(rate) });
   parts.push(`${to} ${num(rate)}`);
+}
+// Its widget, for its own currencies (no arguments): each one with what one unit of the from
+// currency is in it. A tap runs exchange again and turns home to the log.
+if (typeof widget !== "undefined" && bare) {
+  widget.show({
+    title: `1 ${from}`,
+    items: rows.map((r) => ({ title: r.to, trailing: r.rate })),
+    empty: "No rates",
+    tap: { args: "", page: "log" },
+    // It runs every 6 hours: content counts as old only after 12, so the card shows no age between runs.
+    staleAfter: 12 * 3600,
+  });
 }
 // Several targets: one table, the values on the right. One target: big numbers, the value large
 // with its currency under it, then the rate for one unit; the line copies the value.
-if (rows.length > 1) {
+if (quiet) {
+  // A run for the widget logs nothing.
+} else if (rows.length > 1) {
   log(`${amountText} ${from}`, fmt.table(rows.map((r) => [r.to, r.value]), { align: "lr" }));
 } else {
   for (const r of rows) {

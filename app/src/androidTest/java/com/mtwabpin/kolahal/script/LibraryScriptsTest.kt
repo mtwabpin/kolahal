@@ -199,6 +199,32 @@ class LibraryScriptsTest {
             "notify = function(title) log('notified ' .. title) end\n"
 
     /**
+     * Code to run first: it keeps what the script hands to `widget.show` in the script's store, as
+     * JSON, and passes it on. The widget isn't placed here, so `widget.show` checks the description
+     * with the real parser and stores nothing: a field it refuses ends the run with an error.
+     */
+    private val jsKeepsShown = "const widget = { show: (d) => { store.set('_shown', JSON.stringify(d)); return globalThis.widget.show(d); } };\n"
+
+    /** [jsKeepsShown] for a Lua script. */
+    private val luaKeepsShown = "do local show = widget.show; widget = { show = function(d) store.set('_shown', json.encode(d)); return show(d) end } end\n"
+
+    /** What the last run handed to `widget.show`, with every number as a double. Null when it handed nothing. It is forgotten once read. */
+    private fun shown(): Any? = store.get("_shown")?.let {
+        store.set("_shown", null)
+        doubles(Json.parse(it))
+    }
+
+    private fun doubles(v: Any?): Any? = when (v) {
+        is Map<*, *> -> v.mapValues { doubles(it.value) }
+        is List<*> -> v.map(::doubles)
+        is Number -> v.toDouble()
+        else -> v
+    }
+
+    /** The event of a run that the widgets page asks for. */
+    private val forWidget = mapOf("name" to "widget")
+
+    /**
      * Lobsters: each new story once, with its tags, score and a link to its comments; a text post's
      * line opens its discussion; a story under the score option waits.
      */
@@ -335,6 +361,40 @@ class LibraryScriptsTest {
         assertEquals("100 USD", e.text)
         assertEquals(listOf("8,342.00" to "INR", "83.420" to "1 USD in INR"), bigNumbers(e.ctx.body!!))
         assertEquals("8342.00", e.ctx.copy)
+    }
+
+    /**
+     * Exchange's widget: one unit of its from option in each of its to options. A run for the
+     * widget logs nothing. A run with arguments leaves the widget alone.
+     */
+    @Test fun exchangeFillsItsWidgetWithItsOwnCurrencies() {
+        val rates = standIns("""{"result":"success","rates":{"USD":1,"EUR":0.92,"GBP":0.79,"INR":83.42,"JPY":149.5}}""") + jsKeepsShown
+        fun row(code: String, rate: String) = mapOf("title" to code, "trailing" to rate)
+        fun card(title: String, vararg rows: Map<String, String>) = mapOf(
+            "title" to title, "items" to rows.toList(), "empty" to "No rates",
+            "tap" to mapOf("args" to "", "page" to "log"), "staleAfter" to 43_200.0,
+        )
+        run("exchange.js", event = forWidget, before = rates)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(card("1 USD", row("EUR", "0.92000"), row("GBP", "0.79000"), row("INR", "83.420"), row("JPY", "149.50")), shown())
+        assertEquals("USD: EUR 0.92000 · GBP 0.79000 · INR 83.420 · JPY 149.50", status.get(name))
+
+        // Its options pick the currencies. One that isn't known is left out, and doesn't stop the run.
+        run("exchange.js", event = forWidget, options = mapOf("from" to "usd", "to" to "inr, xxx"), before = rates)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(card("1 USD", row("INR", "83.420")), shown())
+
+        // On its timer, and after a tap on the card, it fills the widget and logs the table too.
+        run("exchange.js", before = rates)
+        assertEquals("1 USD", lines().single().text)
+        assertEquals(4, (shown() as Map<*, *>)["items"].let { it as List<*> }.size)
+
+        // With arguments it converts, and the card keeps what it has.
+        run("exchange.js", "100 usd inr", before = rates)
+        assertEquals("100 USD", lines().single().text)
+        assertNull(shown())
+        run("exchange.js", "50", before = rates)
+        assertNull(shown())
     }
 
     /** The index large in its band's colour, with the band under it; the 24-hour figure and PM2.5 beside it; the other readings in a table. */
