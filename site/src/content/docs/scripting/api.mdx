@@ -652,6 +652,7 @@ widget.show({
 | `toggles` | 1 to 6 switches, each on or off | `4x1` |
 | `clock` | the time in up to 4 places. Kolahal moves the clocks, with no run | `2x1` |
 | `agenda` | events by day | `4x2` |
+| `image` | a picture from the web, with a caption | `2x2` |
 
 Kolahal has one more kind, `media`, for its own
 [Now playing widget](/guides/widgets/#kolahals-own-widgets). A script can't use it: it is an error
@@ -1019,6 +1020,62 @@ widget.show({ kind: "agenda", days: 3, empty: "Nothing planned", events: [
 </TabItem>
 </Tabs>
 
+**`image`**: a picture from the web. The script gives the picture's link, and home fetches the
+picture.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `image` | an `https://` link, up to 2000 characters | Needed. Where the picture is. |
+| `alt` | text, up to 200 | Needed, and not empty. What the picture shows, in words. |
+| `caption` | text, up to 60 | A line with the picture: its name, its source. |
+| `fit` | `crop` or `fit` | `crop` fills the card, and the picture loses its edges. `fit` shows the whole picture, with space beside it. Without it: `crop`. |
+
+- The link must start with `https://`. A link with plain `http://` is an error here. A line's
+  [`ctx.image`](#logtitle-body-ctx) still takes one.
+- The link is never cut. One over 2000 characters is an error.
+- It is checked as every link of a widget is ([Taps](#taps)): the script's internet access must be
+  on, and a link that is refused is an error in the script.
+- `alt` is for a screen reader, which can't see the picture. The card also shows it while it has
+  no picture: before the picture has come, with no network, and when the picture can't be read.
+- Home fetches the picture when the widgets page comes into view, not when the script runs. It
+  fetches a link once and keeps the picture, as it does for the pictures on log lines.
+- A picture file can be 10 MB at most. A larger one is not shown, and the card keeps its `alt`.
+- **Arrange widgets** shows the picture only when home has it already. It fetches nothing.
+- The script itself needs no request for the picture. It makes one only to learn the link.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @title Picture of the day
+-- @widget image 4x2
+
+local res = http.cached("https://example.com/today.json", 3600)
+local today = json.decode(res.body)
+widget.show{
+  image = today.url,                 -- "https://example.com/pictures/1432.jpg"
+  alt = today.description,           -- "A red fox in the snow"
+  caption = today.title,
+  tap = { url = today.page, label = "open the page" },
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @title Picture of the day
+// @widget image 4x2
+
+const res = await http.cached("https://example.com/today.json", 3600);
+const today = JSON.parse(res.body);
+widget.show({
+  image: today.url,                  // "https://example.com/pictures/1432.jpg"
+  alt: today.description,            // "A red fox in the snow"
+  caption: today.title,
+  tap: { url: today.page, label: "open the page" },
+});
+```
+</TabItem>
+</Tabs>
+
 ### Limits
 
 What a description keeps, and what it refuses.
@@ -1038,6 +1095,8 @@ What a description keeps, and what it refuses.
 | `clock`: `zones` | 1 to 4 places | the first 4 are kept; none is an error |
 | `agenda`: `events` | 20 events | the first 20 are kept |
 | `agenda`: `days` | 1 to 7 | held between 1 and 7 |
+| `image`: `image` | 2000 characters | an error: a link is never cut |
+| `image`: the picture's file | 10 MB | not shown; the card keeps its `alt` |
 | `staleAfter` | 60 to 604800 seconds | held between them |
 | `refresh` | 10 to 3600 seconds | held between them |
 | A tap's `args` | 200 characters | cut |

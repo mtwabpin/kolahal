@@ -14,7 +14,8 @@ Your log, settings, scripts, feeds and notifications are stored in the app's pri
 Kolahal itself makes network requests in exactly five cases:
 
 1. **Scripts** that you write or install. They make requests through `http.*` and `rss.*`. If a log line links to an image (`image`),
-   the home screen downloads the image when the line appears.
+   the home screen downloads the image when the line appears. If a script's [widget](/scripting/api/#widgets) is a picture
+   (`@widget image`), the home screen downloads the picture when the widgets page comes into view.
    - Scripts connect only to the URLs in their code.
    - The [library scripts](/scripting/library/) use wttr.in, Open-Meteo, CoinGecko, open.er-api.com, api.ipify.org, Wikipedia,
      xkcd.com, ZenQuotes, Reddit, GitHub and hnrss.org.
