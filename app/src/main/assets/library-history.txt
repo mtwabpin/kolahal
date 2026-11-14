@@ -198,4 +198,5 @@ xkcd.js 331f996d34e65f12
 xkcd.js 3f75bf2d82b5dc6a
 xkcd.js 621f386c60c20b9b
 xkcd.js c4e6ad3bfdeff9ce
+xkcd.js cf8d54aef74a5d91
 xkcd.js db0593bc94a46ac2

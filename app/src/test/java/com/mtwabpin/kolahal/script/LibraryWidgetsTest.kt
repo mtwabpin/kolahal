@@ -46,7 +46,7 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua"),
+            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
             withWidget,
         )
     }
@@ -391,6 +391,38 @@ class LibraryWidgetsTest {
             ),
             spec,
         )
+    }
+
+    /**
+     * Comic of the day: the latest comic whole, with its number and title under it. The comic's own
+     * words are its alt text. A tap opens the comic on xkcd.com.
+     */
+    @Test fun xkcd() {
+        val words = "Her daughter is named Help I'm trapped in a driver's license factory."
+        fun comic(alt: String, title: String) = parse(
+            "xkcd.js",
+            mapOf(
+                "image" to "https://imgs.xkcd.com/comics/exploits_of_a_mom.png", "alt" to alt, "caption" to "#327 $title", "fit" to "fit",
+                "tap" to mapOf("url" to "https://xkcd.com/327/", "label" to "Open on xkcd.com"), "staleAfter" to 21_600L,
+            ),
+        ) as WidgetSpec.Image
+        assertEquals(
+            WidgetSpec.Image(
+                WidgetBase(tap = WidgetTap(url = "https://xkcd.com/327/", label = "Open on xkcd.com"), staleAfter = 21_600),
+                image = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png", alt = words, caption = "#327 Exploits of a Mom", fit = "fit",
+            ),
+            comic(words, "Exploits of a Mom"),
+        )
+        // A comic's words can be long, and a title too: both are cut, not refused.
+        val long = comic("w".repeat(900), "t".repeat(90))
+        assertEquals(200, long.alt.length)
+        assertEquals(60, long.caption!!.length)
+        // Its @widget line: a picture, 4 cells wide and 2 rows tall.
+        val code = sourceFile("src/main/assets/library/xkcd.js").readText()
+        assertEquals(ScriptMeta.Widget(WidgetKind.IMAGE, com.mtwabpin.kolahal.widgets.WidgetSize.S4X2), ScriptMeta.widget(code))
+        // It goes online, as before, and it has the widget's switch now.
+        assertEquals(listOf(ScriptAccess.INTERNET), ScriptAccess.asksFor(code))
+        assertEquals(true, ScriptAccess.WIDGET in ScriptAccess.items(code))
     }
 
     @Test fun quote() {

@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Fifteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Sixteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -107,7 +107,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Fifteen scripts have a [widget](/scripting/overview/#widgets): a card on the
+Sixteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -125,6 +125,7 @@ Fifteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [headlines](#headlines) | the newest items of a feed you choose | on a row: opens the item |
 | [releases](#releases) | each watched repository, with its newest release and how old it is | on a row: opens the release |
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
+| [xkcd](#xkcd) | the latest comic, with its number and title under it | opens the comic on xkcd.com |
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
@@ -336,6 +337,13 @@ script set webnumber label BTC
 
 **xkcd**: the comic itself in the log, with its alt text below. Use `xkcd`, `xkcd 327` or
 `xkcd random`. On a timer, it notifies you only when a new comic is out.
+
+Its widget is **Comic of the day**: the latest comic, whole, with its number and title under it.
+
+- Kolahal fetches the picture itself, over https only, and only while the widgets page is in view.
+- A screen reader says the comic's own words (its alt text). The card shows them too where it
+  has no picture to draw, such as on the **Arrange widgets** screen before the picture was loaded.
+- `xkcd 327` and `xkcd random` at the prompt don't change the card.
 
 ## quote
 
