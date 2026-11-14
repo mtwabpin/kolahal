@@ -19,6 +19,7 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import androidx.core.content.edit
+import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -27,6 +28,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.ThisInstall
 import com.mtwabpin.kolahal.script.ScriptOptions
+import com.mtwabpin.kolahal.script.ScriptRun
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -234,9 +236,7 @@ class WidgetHost private constructor(context: Context) {
      * Removes a widget from the page. For one of a script's own widgets:
      * - The database's copies of the list follow ([follow]). The script's `widget` access goes off
      *   when this was its last widget.
-     * - What the widget showed is forgotten.
-     * - A further widget also loses the options set for it, so the next widget that gets its id
-     *   starts clean. The first widget's options are the script's own, and they stay.
+     * - Everything kept for the widget is forgotten ([forgetWidget]).
      */
     fun remove(key: String) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
@@ -244,10 +244,23 @@ class WidgetHost private constructor(context: Context) {
         update { all -> all.filterNot { it.key == key } }
         val ref = WidgetSource.scriptRef(w.source) ?: return
         // After the copies are written: a run still on its way then finds the widget gone, and stores nothing more.
-        follow(ref.script) {
-            WidgetStates.forget(app, ref.key)
-            ScriptOptions(app).clear(ref.script, ref.id)
-        }
+        follow(ref.script) { script -> forgetWidget(ref, script) }
+    }
+
+    /**
+     * Forgets everything kept for the widget [ref], which left the page. [script] is its script,
+     * or null when no script has its name.
+     * - What it showed, and when.
+     * - For a further widget also what was its own: the options set for it, and the error of its
+     *   last quiet run ([ScriptRun.errorKey]). So the next widget that gets its id starts clean.
+     * - The first widget's options are the script's own, and they stay. Its error key is the one
+     *   the script's pinned line shares, and it stays too.
+     */
+    private fun forgetWidget(ref: WidgetRef, script: Script?) {
+        WidgetStates.forget(app, ref.key)
+        if (ref.first) return
+        ScriptOptions(app).clear(ref.script, ref.id)
+        if (script != null) KvStore(app, Stores.WORKER).set(ScriptRun.errorKey(script.id, ref.id), null)
     }
 
     // ---- widgets Kolahal draws itself -------------------------------------------------------
@@ -260,30 +273,35 @@ class WidgetHost private constructor(context: Context) {
         WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }.filter { it.script == script }
 
     /**
-     * Places [script]'s first widget at the end of the page, at [size]. Returns false when it is already
-     * placed (or its name can't be stored), and changes nothing then.
+     * Places [script]'s first widget at the end of the page, at [size]: the one a timer's run fills,
+     * with the script's own options. Returns false when it is already placed, when the script has
+     * all the widgets it may have, or when its name can't be stored. Nothing changes then.
      * - The entry is on the page when this returns.
      * - Then, on [checks]' thread, the database's copies follow, and only after that a `"widget"`
      *   run is queued ([followAndRun]).
      */
-    fun placeScript(script: Script, size: WidgetSize): Boolean {
-        val ref = WidgetRef(script.name)
-        val added = placeSource(WidgetSource.script(ref), size)
-        if (added) followAndRun(ref)
-        return added
-    }
+    fun placeScript(script: Script, size: WidgetSize): Boolean = placeWidget(script, size) { "" } != null
 
     /**
      * Places one more widget of [script] at the end of the page, at [size]: a further widget, with
      * the smallest free id ([WidgetRef.nextId]). It follows the script's options until you set one
-     * for it. Returns which widget it is, or null when the script has
-     * [WidgetRef.MAX_PER_SCRIPT] widgets already; nothing changes then.
+     * for it. Returns which widget it is, or null when the script has all the widgets it may have;
+     * nothing changes then.
      *
      * What follows is as for [placeScript]: the copies, then a run for this widget only.
      */
-    fun placeAnother(script: Script, size: WidgetSize): WidgetRef? {
+    fun placeAnother(script: Script, size: WidgetSize): WidgetRef? = placeWidget(script, size) { taken -> WidgetRef.nextId(taken) }
+
+    /**
+     * Places one widget of [script] at the end of the page, at [size]. [id] picks which one, from
+     * the ids of its widgets that are placed now. Returns the widget placed. Null, and no change,
+     * when [id] gave none or one that is placed already, and when the script has
+     * [WidgetRef.MAX_PER_SCRIPT] widgets: this is the one place that keeps that limit.
+     */
+    private fun placeWidget(script: Script, size: WidgetSize, id: (taken: Set<String>) -> String?): WidgetRef? {
         val source = placeNew(size) { all ->
-            WidgetRef.nextId(PlacedIds.of(all)[script.name].orEmpty())?.let { WidgetSource.script(WidgetRef(script.name, it)) }
+            val taken = PlacedIds.of(all)[script.name].orEmpty()
+            if (WidgetRef.roomFor(taken)) id(taken)?.let { WidgetSource.script(WidgetRef(script.name, it)) } else null
         }
         return WidgetSource.scriptRef(source)?.also(::followAndRun)
     }

@@ -187,6 +187,28 @@ class WidgetPickerScriptsTest {
         compose.runOnIdle { assertNull(vm.widgetOptionsAsked.value) }
     }
 
+    /**
+     * The script's first widget was removed, and a further one is still on the page. A tap places
+     * the first one again, not a third: only the first is filled by the runs on the script's timer.
+     */
+    @Test fun aTapAddsTheFirstWidgetAgainWhenItIsGone() {
+        val s = t.place(t.create("-weather", code))
+        val second = t.placeAnother(s)
+        t.host.remove(t.key(s.name))
+        t.host.settle()
+        assertEquals(listOf(second), t.host.placedOf(s.name))
+        val vm = model(Screen.WIDGET_PICKER, s)
+        compose.setContent { WidgetPickerScreen(vm) { } }
+        val row = hasText(title) and hasText("Stat") and hasClickAction()
+        scrollTo(row)
+        compose.waitForNode(row and hasText("Added · tap to add another"))
+        compose.onNode(row).performClick()
+        t.placed(s)
+        assertEquals(setOf(WidgetRef(s.name), second), t.host.placedOf(s.name).toSet())
+        assertEquals("24", (t.stored(s.name).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        compose.waitForText("Added $title")
+    }
+
     /** At six widgets of one script the row counts them, and a tap places no more. */
     @Test fun aScriptWithSixWidgetsGetsNoMore() {
         val s = t.place(t.create("-weather", code))

@@ -55,12 +55,15 @@ data class WidgetRef(val script: String, val id: String = "") {
             return if (ScriptNames.NAME.matches(script) && ID.matches(id)) WidgetRef(script, id) else null
         }
 
+        /** Whether a script whose placed widgets have the ids [taken] may get one more: it has fewer than [MAX_PER_SCRIPT]. */
+        fun roomFor(taken: Collection<String>): Boolean = taken.size < MAX_PER_SCRIPT
+
         /**
-         * The id for one more widget of a script whose placed widgets have the ids [taken]: the
-         * smallest free one of "2", "3", … Null when the script has [MAX_PER_SCRIPT] widgets already.
+         * The id for one more further widget of a script whose placed widgets have the ids [taken]:
+         * the smallest free one of "2", "3", … Null when the script has no room for one ([roomFor]).
          */
         fun nextId(taken: Collection<String>): String? {
-            if (taken.size >= MAX_PER_SCRIPT) return null
+            if (!roomFor(taken)) return null
             return generateSequence(2) { it + 1 }.map { it.toString() }.first { it !in taken }
         }
     }

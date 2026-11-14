@@ -55,6 +55,10 @@ class WidgetRefTest {
         assertNull(WidgetRef.nextId(listOf("", "2", "3", "4", "5", "6")))
         assertNull(WidgetRef.nextId(listOf("2", "3", "4", "5", "6", "7")))
         assertEquals(6, WidgetRef.MAX_PER_SCRIPT)
+        // The limit is on how many there are, the first widget included.
+        assertTrue(WidgetRef.roomFor(listOf("", "2", "3", "4", "5")))
+        assertFalse(WidgetRef.roomFor(listOf("", "2", "3", "4", "5", "6")))
+        assertFalse(WidgetRef.roomFor(listOf("2", "3", "4", "5", "6", "7")))
     }
 
     private fun placed(source: String) = PlacedWidget(null, source, 0L, 96, 0)

@@ -1,10 +1,12 @@
 package com.mtwabpin.kolahal.widgets
 
+import android.app.Application
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.LogKept
+import com.mtwabpin.kolahal.TestViewModels
 import com.mtwabpin.kolahal.data.Backup
 import com.mtwabpin.kolahal.data.FullBackup
 import com.mtwabpin.kolahal.data.KvStore
@@ -13,6 +15,7 @@ import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptOptions
+import com.mtwabpin.kolahal.waitUntil
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,6 +42,8 @@ class WidgetInstancesTest {
     private val options = ScriptOptions(context)
     // Only the backup test replaces the log, and only it has the log put back.
     @get:Rule val logKept = LogKept(eachTest = false)
+    // Only the tap test makes a view model, for the cards' actions as home has them.
+    @get:Rule val vms = TestViewModels()
 
     @After fun tearDown() = t.close()
 
@@ -57,6 +62,36 @@ class WidgetInstancesTest {
 
     /** What is set in the option scope of the widget [ref]. */
     private fun scope(ref: WidgetRef) = KvStore(context, ScriptOptions.scope(ref.script, ref.id)).all()
+
+    /**
+     * A tap on a button of one widget's card runs the script for that widget: with that widget's
+     * options, into that widget, and the run's end is noted for that card. The same button on the
+     * script's other widget is a tap of its own: the two don't share the 2-second gate.
+     */
+    @Test fun aTapOnACardRunsTheScriptForThatWidget() {
+        val tapped = "-- @widget stat 2x1\n-- @option city London The city to show\n" +
+            "widget.show{ value = options.city .. ':' .. (args[1] or 'none'), label = (event and event.instance) or 'first' }"
+        val s = t.place(t.create("-t", tapped))
+        val first = WidgetRef(s.name)
+        val second = t.placeAnother(s)
+        options.set(s.name, "city", "Tokyo", second.id)
+        assertEquals("London:none" to "first", shown(first))
+        assertEquals("London:none" to "2", shown(second))
+        val tried = t.stored(first).triedAt to t.stored(second).triedAt
+
+        val vm = vms.terminal(context.applicationContext as Application)
+        val go = WidgetTap(args = "go", label = "Go")
+        // One after the other at once, as two quick taps on the two cards.
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            vm.widgetActions.tap(second.key, go)
+            vm.widgetActions.tap(first.key, go)
+        }
+        waitUntil("the tap on the second card didn't fill the second widget", 30_000) { shown(second) == ("Tokyo:go" to "2") }
+        waitUntil("the tap on the first card didn't fill the first widget", 30_000) { shown(first) == ("London:go" to "first") }
+        // Each run's end is noted for the card that was tapped.
+        waitUntil("the runs' ends weren't noted", 30_000) { t.stored(first).triedAt > tried.first && t.stored(second).triedAt > tried.second }
+        assertNull(t.stored(second).error)
+    }
 
     /** Two widgets of one script, each filled by a real run in the `:script` process, each with its own option value. */
     @Test fun twoWidgetsOfOneScriptShowTwoOptionValues() {
@@ -116,6 +151,12 @@ class WidgetInstancesTest {
         val worker = KvStore(context, Stores.WORKER)
         assertNull(worker.get("refresh-error:${s.id}"))
         assertTrue(worker.get("refresh-error:${s.id}#2").orEmpty().contains("no second"))
+
+        // Removed, the widget leaves nothing behind. The next widget with its id says its own first error.
+        host.remove(t.entry(second)!!.key)
+        host.settle()
+        assertEquals(nothing, t.stored(second))
+        assertNull(worker.get("refresh-error:${s.id}#2"))
     }
 
     /** Removing one widget leaves the other as it is. A further widget takes the options set for it with it. */
@@ -184,6 +225,12 @@ class WidgetInstancesTest {
         // One is removed: its id is free again.
         host.remove(t.entry(WidgetRef(s.name, "4"))!!.key)
         assertEquals(WidgetRef(s.name, "4"), host.placeAnother(s, WidgetSize.S2X1))
+        // The limit counts the first widget too: with six further ones there is no room for it.
+        assertFalse("the first widget is on the page", host.placeScript(s, WidgetSize.S2X1))
+        host.remove(t.entry(WidgetRef(s.name))!!.key)
+        assertEquals(WidgetRef(s.name, "7"), host.placeAnother(s, WidgetSize.S2X1))
+        assertFalse("six widgets are on the page", host.placeScript(s, WidgetSize.S2X1))
+        assertEquals(6, host.placedOf(s.name).size)
         t.placed(s)
     }
 

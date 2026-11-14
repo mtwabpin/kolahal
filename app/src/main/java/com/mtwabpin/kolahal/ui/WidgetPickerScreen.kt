@@ -212,7 +212,9 @@ private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, empty
  * - A built-in widget and a Status card are placed once. A script's own widget can be placed
  *   again: a tap on a row that says "Added" places a further widget of the script
  *   ([WidgetHost.placeAnother]), and the Widgets screen then shows that widget's options, so you
- *   can set what differs from the first one.
+ *   can set what differs from the first one. When the script's first widget was removed and a
+ *   further one is still there, the tap places the first one again: only that one is filled by
+ *   the runs on the script's timer.
  * - Then the installed providers from every profile, grouped by app. Work and private apps get a
  *   badge. Each provider shows its preview and default size. Picking one starts the bind flow in MainActivity.
  */
@@ -313,13 +315,17 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                     KolahalWidgetCard(w.title, w.what, w.size, added = says) {
                         // The script as it is now. One that was deleted a moment ago places nothing.
                         val script = vm.scriptList.value.firstOrNull { it.name == w.script } ?: return@KolahalWidgetCard
+                        val onPage = widgets.placedOf(w.script)
+                        val full = "${w.title} has ${WidgetRef.MAX_PER_SCRIPT} widgets already, the most a script may have"
                         when {
                             w.isStatus -> picked(widgets.placeStatus(script, w.size), w.name)
-                            // The script's first widget on the page.
-                            widgets.placedOf(w.script).isEmpty() -> picked(widgets.placeScript(script, w.size), w.name)
-                            // It has one already: this is a further widget, with options of its own.
+                            !WidgetRef.roomFor(onPage.map { it.id }) -> widgets.message(full)
+                            // Its first widget, when that one is not on the page. A run on the script's
+                            // timer fills only the first, so it comes before any further widget.
+                            onPage.none { it.first } -> picked(widgets.placeScript(script, w.size), w.name)
+                            // It has its first widget: this is a further one, with options of its own.
                             else -> when (val ref = widgets.placeAnother(script, w.size)) {
-                                null -> widgets.message("${w.title} has ${WidgetRef.MAX_PER_SCRIPT} widgets already, the most a script may have")
+                                null -> widgets.message(full)
                                 else -> {
                                     picked(true, ref.titled(w.title))
                                     // The Widgets screen shows its options, to set what differs from the

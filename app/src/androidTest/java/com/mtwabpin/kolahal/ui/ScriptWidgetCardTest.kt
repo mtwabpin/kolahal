@@ -49,6 +49,7 @@ import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -397,6 +398,42 @@ class ScriptWidgetCardTest {
         compose.waitForIdle()
         assertEquals(listOf("refresh $old"), asked.all.toList())
         assertFalse(asked.all.any { it.endsWith(current) })
+    }
+
+    /**
+     * A script can have several widgets on the page. Each card is one widget: it draws what is kept
+     * under its own key (`name`, `name#2`), and asks for its own runs and taps by that key. Only
+     * this gives a further widget its runs.
+     */
+    @Test fun eachWidgetOfAScriptHasItsOwnCard() {
+        val asked = Asked()
+        val first = kept("two", WidgetSpec.Stat(WidgetBase(), "London", label = "first"))
+        // A further widget's key has its id after the script's name.
+        fun further(id: String) = WidgetRef(first, id).key.also { names += it; WidgetStates.forget(context, it) }
+        val second = further("2")
+        val third = further("3")
+        assertEquals("$first#2", second)
+        WidgetStates.put(context, second, WidgetSpec.Stat(WidgetBase(tap = WidgetTap(args = "go", label = "go on")), "Tokyo", label = "second"))
+        // The third has nothing kept: its card is the one that asks for a run.
+        showSources("script:$first", "script:$second", "script:$third", actions = asked, inView = true)
+
+        draws(first, "London", "first")
+        draws(second, "Tokyo", "second")
+        // With no title of its own, a card has its script's name. A further widget's has its id too.
+        draws(first, first)
+        draws(second, "$first 2")
+        compose.onNode(hasTestTag("widget:$third")).assertExists()
+        // The first widget's card does not draw the second one's content, and the other way round.
+        assertFalse(texts(first).toString(), texts(first).contains("Tokyo"))
+        assertFalse(texts(second).toString(), texts(second).contains("London"))
+
+        compose.waitFor("the empty card asked for no run") { asked.all.isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(listOf("refresh $third"), asked.all.toList())
+        // A tap is for the card's own widget: the second's own action, and a refresh of the first.
+        compose.onNode(inCard(second) and hasClickLabel("go on")).performClick()
+        compose.onNode(inCard(first) and hasClickLabel("refresh")).performClick()
+        compose.runOnIdle { assertEquals(listOf("refresh $third", "tap $second go", "tap $first null"), asked.all.toList()) }
     }
 
     /** What the view model knows of these scripts, and their status lines, as the cards get them. */
