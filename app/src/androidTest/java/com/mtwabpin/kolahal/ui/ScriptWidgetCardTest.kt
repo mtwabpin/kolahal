@@ -344,8 +344,8 @@ class ScriptWidgetCardTest {
     /** What a card asks for, in the order asked. */
     private class Asked : WidgetCardActions {
         val all = CopyOnWriteArrayList<String>()
-        override fun refresh(script: String) { all += "refresh $script" }
-        override fun tap(script: String, tap: WidgetTap) { all += "tap $script ${tap.args ?: tap.url}" }
+        override fun refresh(widget: String) { all += "refresh $widget" }
+        override fun tap(widget: String, tap: WidgetTap) { all += "tap $widget ${tap.args ?: tap.url}" }
         override fun longPress() { all += "arrange" }
         override fun runStatus(script: String) { all += "run status $script" }
         override fun refreshStatus(script: String, every: Int): Long { all += "refresh status $script"; return 60_000L }

@@ -58,6 +58,7 @@ import com.mtwabpin.kolahal.terminal.WidgetFeed
 import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -364,12 +365,13 @@ private const val MIN_REFRESH_S = 10
  */
 @Composable
 internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed? = null) {
-    val name = WidgetSource.scriptName(w.source)
+    // Which widget of which script: a script can have several on the page ([WidgetRef]).
+    val ref = WidgetSource.scriptRef(w.source)
     val status = WidgetSource.statusName(w.source)
     val builtin = WidgetSource.builtinId(w.source)
     GuiTheme {
-        if (name != null) {
-            ScriptWidget(name, height, actions, feed)
+        if (ref != null) {
+            ScriptWidget(ref, height, actions, feed)
         } else if (status != null) {
             StatusWidget(status, height, actions, feed)
         } else if (builtin == WidgetSource.BATTERY) {
@@ -416,26 +418,31 @@ private fun knownScript(feed: WidgetFeed?, name: String): Known {
 }
 
 /**
- * The card of the script [name]'s own widget.
- * - It draws what the script stored with `widget.show`, and reads that again only when it changes.
+ * The card of one widget of a script: [ref] says which script, and which of its widgets.
+ * - It draws what the script stored for this widget with `widget.show`, and reads that again only
+ *   when it changes. Everything it keeps and asks for is by the widget's key ([WidgetRef.key]), so
+ *   two widgets of one script each have their own content, runs and taps.
  * - While in view, it asks for a quiet run when its content is old, or as often as its `refresh` says.
  * - A card whose script is gone, off or without its `@widget` line says so ([scriptNote]). It asks
  *   for no runs. A tap on it opens the Scripts screen, or the Widgets screen when the script is gone.
+ * - A description without a title has the script's title. A further widget's then has its id too:
+ *   "Weather 2".
  */
 @Composable
-private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
+private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
+    val key = ref.key
     val context = LocalContext.current.applicationContext
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    var state by remember(name) { mutableStateOf<WidgetState?>(null) }
+    var state by remember(key) { mutableStateOf<WidgetState?>(null) }
     // The state is read once, and again when this widget's own number moves ([WidgetStates.versionOf]):
     // another widget's change reads nothing here. Only while home is on screen, and off the main thread.
-    LaunchedEffect(name, lifecycle) {
+    LaunchedEffect(key, lifecycle) {
         var seen: Int? = null
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            WidgetStates.versionOf(name).collectLatest { version ->
+            WidgetStates.versionOf(key).collectLatest { version ->
                 // Home came back and the number did not move: the state in use is still right.
                 if (version == seen) return@collectLatest
-                val read = withContext(Dispatchers.IO) { WidgetStates.read(context, name) }
+                val read = withContext(Dispatchers.IO) { WidgetStates.read(context, key) }
                 seen = version
                 // An equal state keeps the one in use, so the card is not drawn again.
                 if (read != state) state = read
@@ -443,7 +450,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         }
     }
     // The script's @title, for a description without a title of its own. The view model has read it.
-    val known = knownScript(feed, name)
+    val known = knownScript(feed, ref.script)
     // The script is gone or off, or its code has lost the `@widget` line: the card says so, and asks
     // for no runs. Without the line a run stores nothing, so the card would ask again at every view.
     val missing = scriptNote(known.read, known.script, ownWidget = true)
@@ -455,7 +462,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         // The page came into view, or home came back with the page in view: run the script once if
         // it never filled the widget, or if its content is old. A script that is switched on again
         // starts this again, so its card is filled at once.
-        LaunchedEffect(name, actions, lifecycle) {
+        LaunchedEffect(key, actions, lifecycle) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 var asked = -1L
                 snapshotFlow { state }.collectLatest { s ->
@@ -466,7 +473,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
                     while (last != asked) {
                         if (WidgetAge.due(s.setAt, s.triedAt, s.spec?.base?.staleAfter, System.currentTimeMillis())) {
                             asked = last
-                            actions.refresh(name)
+                            actions.refresh(key)
                         } else {
                             // Content can grow old while the page shows.
                             delay(LOOK_AGAIN_MS)
@@ -477,11 +484,11 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         }
         // `refresh` in the description: run again that often, only while in view.
         val every = state?.spec?.base?.refresh
-        if (every != null) LaunchedEffect(name, actions, lifecycle, every) {
+        if (every != null) LaunchedEffect(key, actions, lifecycle, every) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     delay(every.coerceAtLeast(MIN_REFRESH_S) * 1000L)
-                    actions.refresh(name)
+                    actions.refresh(key)
                 }
             }
         }
@@ -492,8 +499,8 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     val spec = s?.spec
     // Nothing stored and no run ended yet: the widget was just placed, and its first run is on its way.
     val fresh = s != null && !s.hasContent && s.setAt == 0L && s.triedAt == 0L
-    var gaveUp by remember(name) { mutableStateOf(false) }
-    LaunchedEffect(name, fresh, shown) {
+    var gaveUp by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(key, fresh, shown) {
         if (!fresh) {
             // The next first run gets its own wait: a script that was off and is on again.
             gaveUp = false
@@ -514,7 +521,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         fresh && !gaveUp -> CardNote.LOADING
         else -> CardNote.NOTHING
     }
-    val title = spec?.base?.title ?: known.script?.title ?: name
+    val title = spec?.base?.title ?: ref.titled(known.script?.title ?: ref.script)
     // The minute's tick, from the header's clock: content grows old, and a countdown's words change.
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
@@ -540,18 +547,18 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         if (footer == null) content else "$content. ${footer.said}"
     }
     val tap = spec?.base?.tap
-    val onClick: (() -> Unit)? = remember(actions, name, tap, missing) {
-        actions?.let { a -> if (missing != null) noteTap(missing, a) else { { a.tap(name, tap ?: NO_TAP) } } }
+    val onClick: (() -> Unit)? = remember(actions, key, tap, missing) {
+        actions?.let { a -> if (missing != null) noteTap(missing, a) else { { a.tap(key, tap ?: NO_TAP) } } }
     }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
-    val onTap: ((WidgetTap) -> Unit)? = remember(actions, name) { actions?.let { a -> { t: WidgetTap -> a.tap(name, t) } } }
+    val onTap: ((WidgetTap) -> Unit)? = remember(actions, key) { actions?.let { a -> { t: WidgetTap -> a.tap(key, t) } } }
     WidgetCard(
         title = title,
         height = height,
         spec = spec,
         note = note,
         description = description,
-        modifier = Modifier.testTag("widget:$name"),
+        modifier = Modifier.testTag("widget:$key"),
         failure = failure,
         footer = footer,
         onClick = onClick,

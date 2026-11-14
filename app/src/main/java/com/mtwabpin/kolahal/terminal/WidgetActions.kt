@@ -15,6 +15,7 @@ import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.flow.StateFlow
 
@@ -68,11 +69,18 @@ class WidgetFeed(val scripts: StateFlow<Map<String, WidgetScript>?>, val lines: 
  * [WidgetActions]. A card with no actions (the Widgets screen, while arranging) takes no taps.
  */
 interface WidgetCardActions {
-    /** Runs [script] again, quietly, to fill its widget. The page asks for this, so the run is not the user's. */
-    fun refresh(script: String)
+    /**
+     * Runs the script of the widget [widget] again, quietly, to fill that one widget. [widget] is
+     * the widget's key ([WidgetRef.key]): `weather`, or `weather#2` for a script's further widget.
+     * The page asks for this, so the run is not the user's.
+     */
+    fun refresh(widget: String)
 
-    /** A tap on the card of [script], or on one of its rows. A [tap] with no arguments and no link means "refresh". */
-    fun tap(script: String, tap: WidgetTap)
+    /**
+     * A tap on the card of the widget [widget] (its key, as for [refresh]), or on one of its rows.
+     * A [tap] with no arguments and no link means "refresh".
+     */
+    fun tap(widget: String, tap: WidgetTap)
 
     /** A tap on the Status card of [script]: runs the script, as a tap on its pinned line does. */
     fun runStatus(script: String)
@@ -176,7 +184,8 @@ internal object StatusTurns {
 /**
  * Taps and refresh requests from the cards Kolahal draws on the widgets page. The view model holds
  * one as `widgetActions`.
- * - A refresh is a quiet run with the event "widget". It is never two at once for one script.
+ * - A refresh is a quiet run with the event "widget", for one widget. It is never two at once for one widget,
+ *   and one script's runs go one after another.
  * - A tap with arguments runs the same script again, as a button under a log line does. It counts
  *   as a run the user started.
  * - A tap with a link opens it, as a link in a log line does.
@@ -219,30 +228,36 @@ class WidgetActions internal constructor(
     private val scripts = ScriptRepository.get(context)
     private val logs = LogRepository.get(context)
 
-    override fun refresh(script: String) = host.io {
-        // Without its `@widget` line a run stores nothing for the card, so there is nothing to run for.
-        scripts.byName(script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }?.let { ScriptScheduler.refreshWidget(context, it) }
+    override fun refresh(widget: String) {
+        val ref = WidgetRef.parse(widget) ?: return
+        host.io {
+            // Without its `@widget` line a run stores nothing for the card, so there is nothing to run for.
+            scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }?.let { ScriptScheduler.refreshWidget(context, it, ref.id) }
+        }
     }
 
-    override fun tap(script: String, tap: WidgetTap) {
+    override fun tap(widget: String, tap: WidgetTap) {
+        val ref = WidgetRef.parse(widget) ?: return
+        val script = ref.script
         val url = tap.url
         val args = tap.args
         when {
             url != null -> host.openUrl(url)
             args != null -> {
-                if (!taps.allow("widget:$script:$args")) return
+                // The gate is by widget: the same button on two widgets of one script starts a run for each.
+                if (!taps.allow("widget:$widget:$args")) return
                 host.io {
                     val s = scripts.byName(script)
                     when {
                         s == null -> logs.add(LogKind.ERROR, "No script named '$script' — 'script ls'")
                         !s.enabled -> logs.add(LogKind.INFO, "$script is off: script on $script", ctx = LogContext.of(LogContext.COMMAND to "script on $script"))
-                        else -> ScriptScheduler.runNow(context, s, words(args), event(tap.label))
+                        else -> ScriptScheduler.runNow(context, s, words(args), event(tap.label, ref.id))
                     }
                 }
                 if (tap.toLog) host.showLog()
             }
             // No action on the card: a tap refreshes it.
-            else -> if (taps.allow("widget:$script")) refresh(script)
+            else -> if (taps.allow("widget:$widget")) refresh(widget)
         }
     }
 
@@ -315,11 +330,17 @@ class WidgetActions internal constructor(
         /** The arguments of a tap, split at spaces, as a line button's are. */
         internal fun words(args: String): List<String> = args.split(Regex("\\s+")).filter { it.isNotEmpty() }
 
-        /** The `event` of a run that a tap on a widget starts: a line button's event, marked as a widget's. */
-        internal fun event(label: String?): Map<String, Any?> = buildMap {
+        /**
+         * The `event` of a run that a tap on a widget starts: a line button's event, marked as a
+         * widget's. [widget] is the id of the widget that was tapped ([WidgetRef.id]). A further
+         * widget's event says which one it is ([ScriptScheduler.INSTANCE]), so the run fills that
+         * widget with that widget's options. The first widget's event is as it always was.
+         */
+        internal fun event(label: String?, widget: String = ""): Map<String, Any?> = buildMap {
             put("name", "action")
             if (label != null) put("label", label)
             put("widget", true)
+            if (widget.isNotEmpty()) put(ScriptScheduler.INSTANCE, widget)
         }
 
         /**

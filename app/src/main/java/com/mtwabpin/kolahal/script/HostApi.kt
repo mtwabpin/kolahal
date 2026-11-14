@@ -13,7 +13,9 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.notify.Notifier
 import com.mtwabpin.kolahal.widgets.WidgetJson
+import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.WidgetParser
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetStates
 import okhttp3.Headers.Companion.toHeaders
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -58,6 +60,11 @@ class HostApi(
     val options: Map<String, String> = emptyMap(),
     /** Its `@widget` line ([ScriptMeta.widget]). Null when it has none: then `widget.show` is an error. */
     private val widget: ScriptMeta.Widget? = null,
+    /**
+     * Which of the script's widgets this run fills ([WidgetRef.id]): "" for its first widget, which
+     * every run fills that is not for a further one. [options] are that widget's.
+     */
+    private val widgetId: String = "",
 ) {
     class Secrets(val declared: List<ScriptMeta.Secret>, val values: Map<String, String>)
 
@@ -523,7 +530,8 @@ class HostApi(
     // ---- its widget ----------------------------------------------------------------------
 
     /**
-     * `widget.show(desc)`: checks [desc] ([WidgetParser]) and stores it as this script's widget.
+     * `widget.show(desc)`: checks [desc] ([WidgetParser]) and stores it as the widget this run fills
+     * ([widgetKey]): the script's first widget, or the further one the run is for.
      * - Every text has its secrets masked. The parser takes the styles out first, so a style can't hide a secret from the mask.
      * - Every link is checked ([widgetLink]). A link that is refused is an error.
      * - It is stored only for a widget you placed. Returns true when it is placed. A widget that
@@ -531,7 +539,8 @@ class HostApi(
      * - A run may call it [MAX_WIDGET_PER_RUN] times. Later calls change nothing.
      *
      * This runs in the `:script` process, which can't see the widgets page. So "placed" comes only
-     * from the script's access ([ScriptAccess.WIDGET]): the main process sets it when you place the widget.
+     * from the database's copies of the placed list ([widgetPlacedNow]): the main process writes
+     * them when you place or remove a widget.
      */
     fun widgetShow(desc: Map<*, *>?): Boolean {
         live()
@@ -545,11 +554,18 @@ class HostApi(
         // The texts have limits of their own. A link has none, so this is what stops a huge one.
         require(WidgetJson.encode(spec).toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
         if (placed) {
-            WidgetStates.put(context, scriptName, spec, quietly = true)
+            WidgetStates.put(context, widgetKey, spec, quietly = true)
             widgetChanged = true
         }
         return placed
     }
+
+    /**
+     * The key of the widget this run fills ([WidgetRef.key]): the script's name for its first
+     * widget, `name#2` for a further one. `widget.show` and `widget.clear` store under it, and the
+     * run's end is noted under it.
+     */
+    internal val widgetKey: String = WidgetRef(scriptName, widgetId).key
 
     /**
      * Whether this run changed what the script's widget keeps, with `widget.show` or `widget.clear`.
@@ -560,21 +576,28 @@ class HostApi(
         private set
 
     /**
-     * Whether the script's widget is on the widgets page now. Read from the database at each call, not
-     * from the access the run started with: a widget removed while the run sleeps or waits for the web
-     * must not get content back, and one placed meanwhile gets it.
+     * Whether the widget this run fills is on the widgets page now. Two things must say so:
+     * - the script's `widget` access is on: one of its widgets is placed;
+     * - the row of its name has this widget's id ([PlacedIds.holds]). A name with no row was placed
+     *   before rows were kept, and has its first widget only.
+     *
+     * Both are read from the database at each call, not from what the run started with: a widget
+     * removed while the run sleeps or waits for the web must not get content back, and one placed
+     * meanwhile gets it.
      */
-    private fun widgetPlacedNow(): Boolean =
-        scriptId?.let { com.mtwabpin.kolahal.data.ScriptRepository.get(context).byId(it)?.grants?.allows(ScriptAccess.WIDGET) } == true
+    internal fun widgetPlacedNow(): Boolean {
+        val script = scriptId?.let { ScriptRepository.get(context).byId(it) } ?: return false
+        return script.grants.allows(ScriptAccess.WIDGET) && PlacedIds.holds(WidgetStates.placedIds(context, scriptName), widgetId)
+    }
 
-    /** `widget.clear()`: removes the widget's content. Its card then says that there is nothing to show. */
+    /** `widget.clear()`: removes the content of the widget this run fills. Its card then says that there is nothing to show. */
     fun widgetClear() {
         live()
         effects++
         flush()
         widgetLine("widget.clear") ?: return
         if (widgetPlacedNow() && widgetCall("widget.clear")) {
-            WidgetStates.clear(context, scriptName, quietly = true)
+            WidgetStates.clear(context, widgetKey, quietly = true)
             widgetChanged = true
         }
     }

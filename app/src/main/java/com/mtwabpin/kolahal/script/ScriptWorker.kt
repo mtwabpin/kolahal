@@ -9,9 +9,9 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.withLock
@@ -91,12 +91,16 @@ internal object ScriptRun {
         // whenever its card is old. So what stays the same isn't reported again: an error shows once until
         // a run works, and a returned result isn't logged.
         val widgetRun = on == ScriptScheduler.WIDGET
-        // A tap on the script's own widget started this run: the card puts `widget = true` in the
-        // tap's event. It is a run like any other that you start, and its end is noted for the card too.
-        val widgetTap = on == "action" && event?.get("widget") == true
+        // Which of the script's widgets this run is for, when it is for one ([widgetOf]): the page
+        // asked for it, or a tap on that widget's card started it. A tap's run is a run like any other
+        // that you start, and its end is noted for the card too. Null: the run is for no widget.
+        val forWidget = widgetOf(event)
+        // The widget whose options the run reads and which `widget.show` fills. Every run that is
+        // not for a further widget fills the first one, with the script's own options.
+        val widgetId = forWidget.orEmpty()
         val refresh = script != null && (on == ScriptScheduler.REFRESH || widgetRun) && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
         val refreshes = KvStore(ctx, Stores.WORKER)
-        val refreshKey = "refresh-error:${script?.id}"
+        val refreshKey = errorKey(script?.id, widgetId)
         val lastError = if (refresh) refreshes.get(refreshKey) else null
         var failed: String? = null
         fun fail(text: String, context: LogContext) {
@@ -113,8 +117,9 @@ internal object ScriptRun {
             from = from,
             grants = script?.grants,
             secrets = script?.let { s -> ScriptMeta.secrets(s.code).let { d -> HostApi.Secrets(d, SecretStore(ctx).usable(s.name, d)) } },
-            options = script?.let { s -> ScriptOptions(ctx).values(s.name, ScriptMeta.options(s.code)) }.orEmpty(),
+            options = script?.let { s -> ScriptOptions(ctx).values(s.name, ScriptMeta.options(s.code), widgetId) }.orEmpty(),
             widget = script?.let { ScriptMeta.widget(it.code) },
+            widgetId = widgetId,
         )
         val engine = ScriptEngine.forLang(lang)
         val started = System.currentTimeMillis()
@@ -181,7 +186,7 @@ internal object ScriptRun {
         } finally {
             host.finish()
             // Here, so it happens however the run ends: with a result, an error, a timeout, or stopped by Android.
-            if (script != null) widgetEnd(ctx, script, host, noteEnd = (widgetRun || widgetTap) && !stopped, failed)
+            if (script != null) widgetEnd(ctx, host, noteEnd = forWidget != null && !stopped, failed)
         }
         // A run you started asked for things nobody has allowed yet, and got empty answers. Offer to allow them.
         if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
@@ -202,27 +207,49 @@ internal object ScriptRun {
     }
 
     /**
-     * The end of a run of [script], for its widget. The cards hear of a run once, here, whatever it changed.
+     * The end of a script's run, for the widget the run filled ([HostApi.widgetKey]). The cards hear
+     * of a run once, here, whatever it changed.
      * - [noteEnd], after a run for the widget that ended by itself: one the widgets page asked for,
      *   or one a tap on the widget started. The card says when its last such run failed ("Failed
      *   10:42"), and forgets it after one that works. So the time and [failed] are noted, but only
      *   while the widget is still placed: one removed during the run keeps nothing. A switch that
      *   waits for its script stops waiting then too, whether or not the run showed anything.
-     * - Then one message goes to the cards, if the run stored something: this note, or what
+     * - Then one message goes to that widget's card, if the run stored something: this note, or what
      *   `widget.show` and `widget.clear` stored ([HostApi.widgetChanged]). Those calls send none
      *   themselves, so a run that calls them twenty times and notes its end still sends one.
      * - A run on its timer or for an event that calls `widget.show` is announced in the same way.
      * Nothing here throws: it runs while the run's own result or error is on its way out.
      */
-    private fun widgetEnd(ctx: Context, script: Script, host: HostApi, noteEnd: Boolean, failed: String?) {
+    private fun widgetEnd(ctx: Context, host: HostApi, noteEnd: Boolean, failed: String?) {
         val states = com.mtwabpin.kolahal.widgets.WidgetStates
         val noted = noteEnd && runCatching {
-            val placed = ScriptRepository.get(ctx).byId(script.id)?.grants?.allows(ScriptAccess.WIDGET) == true
-            if (placed) states.ran(ctx, script.name, failed, quietly = true)
+            val placed = host.widgetPlacedNow()
+            if (placed) states.ran(ctx, host.widgetKey, failed, quietly = true)
             placed
         }.getOrDefault(false)
-        if (noted || host.widgetChanged) states.announce(ctx, script.name)
+        if (noted || host.widgetChanged) states.announce(ctx, host.widgetKey)
     }
+
+    /**
+     * Which of a script's widgets a run with this [event] is for: "" for its first widget, or a
+     * further widget's id. Null when the run is for no widget.
+     * - A run is for a widget when the widgets page asked for it (`event.name` is "widget"), or when
+     *   a tap on a card started it (the card puts `widget = true` in the tap's event).
+     * - Only such a run reads [ScriptScheduler.INSTANCE], and only an id of the allowed form counts.
+     *   The main process builds these events. A script can't set the field for its own run.
+     */
+    internal fun widgetOf(event: Map<*, *>?): String? {
+        val name = event?.get("name")
+        if (name != ScriptScheduler.WIDGET && !(name == "action" && event?.get("widget") == true)) return null
+        return (event?.get(ScriptScheduler.INSTANCE) as? String)?.takeIf(WidgetRef.ID::matches).orEmpty()
+    }
+
+    /**
+     * The key of the last error of a script's quiet runs, in [Stores.WORKER]: such an error is
+     * logged once, until a run works. Each further widget has its own (`refresh-error:12#2`), so
+     * one widget's failed run does not hide another's.
+     */
+    internal fun errorKey(scriptId: Long?, widgetId: String): String = "refresh-error:" + WidgetRef(scriptId.toString(), widgetId).key
 
     /** The source line of a script error. Lua messages carry `name:LINE:`; QuickJS exceptions carry a line number. */
     private fun errorLine(e: Throwable, lang: ScriptLang, name: String): Int? = when (lang) {
