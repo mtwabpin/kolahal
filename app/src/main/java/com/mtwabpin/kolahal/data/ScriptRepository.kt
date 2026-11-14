@@ -3,16 +3,19 @@ package com.mtwabpin.kolahal.data
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
 import androidx.core.database.sqlite.transaction
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.widgets.WidgetHost
-import com.mtwabpin.kolahal.widgets.WidgetSource
+import com.mtwabpin.kolahal.widgets.PlacedIds
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetStates
 
 enum class ScriptLang(val ext: String) {
@@ -66,7 +69,7 @@ class ScriptRepository private constructor(private val context: Context) {
     fun create(name: String, lang: ScriptLang, code: String, enabled: Boolean = true): Script {
         // Nothing from an earlier script with this name carries over: no status line a run left behind, no widget content, no values.
         StatusLines.clear(context, name)
-        WidgetStates.forget(context, name)
+        WidgetStates.forgetScript(context, name)
         db.writableDatabase.delete("kv", "scope = ?", arrayOf(SecretStore.scope(name)))
         db.writableDatabase.insertOrThrow("scripts", null, ContentValues().apply {
             put("name", name)
@@ -82,13 +85,17 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Whether a widget is already placed under [name], for a script whose [code] has a `@widget`
+     * Whether any widget is already placed under [name], for a script whose [code] has a `@widget`
      * line: one a backup restored before its script, or one a deleted script left on the page. It is
      * this script's widget, so its `widget` access is on: the placed list decides it. The list
      * belongs to the main process.
+     *
+     * The access says only that the script has a widget on the page. Which of its widgets are
+     * there is in the name's `widget.placed` row, which the list wrote when they were placed
+     * ([setWidgetPlaced]). So a script that takes a name whose only widget is `#2` fills that one.
      */
     private fun widgetPlaced(name: String, code: String): Boolean =
-        ScriptMeta.widget(code) != null && runCatching { widgetsPage?.isPlaced(WidgetSource.script(name)) }.getOrNull() == true
+        ScriptMeta.widget(code) != null && runCatching { widgetsPage?.placedOf(name)?.isNotEmpty() }.getOrNull() == true
 
     /**
      * The widgets page's list of placed widgets. It belongs to the main process: null in the
@@ -141,8 +148,8 @@ class ScriptRepository private constructor(private val context: Context) {
         } ?: return
         // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
         if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(context, s.name)
-        // The same for a widget: code without its `@widget` line leaves no content behind.
-        if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forget(context, s.name)
+        // The same for its widgets: code without its `@widget` line leaves no content behind, on any of them.
+        if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forgetScript(context, s.name)
         forgetRemovedSecrets(s.name, code)
         if (!byUser && s.enabled) ScriptAccess.askToAllow(context, s.name, asks, "now requests")
     }
@@ -209,8 +216,8 @@ class ScriptRepository private constructor(private val context: Context) {
         setAtTimes(id, ScriptMeta.timesAfter(s.code, code, s.atTimes))
         forgetRemovedSecrets(s.name, code)
         StatusLines.clear(context, s.name)
-        // What its widget showed came from the old code. The widget stays placed, and says the script is off.
-        WidgetStates.forget(context, s.name)
+        // What its widgets showed came from the old code. They stay placed, and say the script is off.
+        WidgetStates.forgetScript(context, s.name)
     }
 
     /**
@@ -255,8 +262,8 @@ class ScriptRepository private constructor(private val context: Context) {
         // a line left by a run while it was off would show.
         if (enabled != s.enabled) {
             StatusLines.clear(context, s.name)
-            // Its widget's content goes for the same reasons. The widget stays placed.
-            WidgetStates.forget(context, s.name)
+            // Its widgets' content goes for the same reasons. The widgets stay placed.
+            WidgetStates.forgetScript(context, s.name)
         }
     }
 
@@ -279,32 +286,60 @@ class ScriptRepository private constructor(private val context: Context) {
         change(id) { s -> put("access", ScriptAccess.encode(s.access + (item to allowed))) }
     }
 
+    /** The rows that say which widgets of each name are on the page ([Stores.WIDGET_PLACED]). */
+    private val placedRows get() = KvStore(context, Stores.WIDGET_PLACED)
+
     /**
-     * Makes the `widget` access of the script [name] say [placed], as the placed list does. The list
-     * is the truth. This item is its copy in the database, where the `:script` process can read it.
-     * - Only [WidgetHost] calls it, from the list. The copy never goes the other way.
-     * - It writes only when the item differs, and keeps every other item ([ScriptAccess.following]).
+     * Makes the database say which widgets of the name [name] are on the widgets page: [ids], as the
+     * placed list has them ([PlacedIds]). The list is the truth. The database keeps two copies of
+     * it, where the `:script` process can read them:
+     * - the name's `widget.placed` row: the ids. With no id there is no row.
+     * - the `widget` access of the script with that name: on when any of its widgets is placed.
+     *
+     * Both are written in one step, so a run never reads one without the other.
+     * - Only [WidgetHost] calls it, from the list. The copies never go the other way.
+     * - The row is written whether or not a script has the name: a widget can wait on the page for
+     *   its script, and the script that takes the name must find which widget it is.
+     * - The access is written only when it differs, and every other item is kept ([ScriptAccess.following]).
      * Returns the script as it is then, or null when no script has the name.
      */
-    fun setWidgetPlaced(name: String, placed: Boolean): Script? {
-        val id = byName(name)?.id ?: return null
-        var access: Map<String, Boolean>? = null
-        val s = change(id) { now ->
-            // The name is checked again: this is the row as stored now, and a rename may have come between.
-            if (now.name == name) access = ScriptAccess.following(now.access, placed)?.also { put("access", ScriptAccess.encode(it)) }
-        } ?: return null
-        return if (s.name != name) null else s.copy(access = access ?: s.access)
+    fun setWidgetPlaced(name: String, ids: Set<String>): Script? {
+        var wrote = false
+        val script = db.writableDatabase.transaction {
+            placedRows.set(name, ids.takeIf { it.isNotEmpty() }?.let(PlacedIds::encode))
+            // The script as stored now: a switch set a moment ago is in it, and a rename has moved it away.
+            val now = byName(name) ?: return@transaction null
+            val access = ScriptAccess.following(now.access, ids.isNotEmpty()) ?: return@transaction now
+            update("scripts", ContentValues().apply { put("access", ScriptAccess.encode(access)) }, "id = ?", arrayOf(now.id.toString()))
+            wrote = true
+            now.copy(access = access)
+        }
+        if (wrote) version.incrementAndGet()
+        return script
     }
 
     /**
-     * Makes every script's `widget` access say what the placed list says: on for the scripts named
-     * in [placed], off for every other one. It writes only the rows that differ, each in its own step.
+     * Makes the database say what the whole placed list says, in one step. [placed] has the ids of
+     * the widgets on the page, by script name ([PlacedIds.of]).
+     * - Every name on the page has its `widget.placed` row, and the row of any other name goes.
+     * - Every script's `widget` access is on when a widget of its name is placed, and off otherwise.
+     * It writes only what differs.
      */
-    fun followPlaced(placed: Set<String>) {
-        for (s in all()) {
-            if (ScriptAccess.following(s.access, s.name in placed) == null) continue
-            change(s.id) { now -> ScriptAccess.following(now.access, now.name in placed)?.let { put("access", ScriptAccess.encode(it)) } }
+    fun followPlaced(placed: Map<String, Set<String>>) {
+        val wanted = placed.filterValues { it.isNotEmpty() }.mapValues { PlacedIds.encode(it.value) }
+        var wrote = false
+        db.writableDatabase.transaction {
+            val rows = placedRows.all()
+            placedRows.setAll((rows.keys - wanted.keys).associateWith { null } + wanted.filter { (name, row) -> rows[name] != row })
+            // Only the name and the access are read: no script's code is held while the database is locked.
+            val changes = ArrayList<Pair<Long, Map<String, Boolean>>>()
+            rawQuery("SELECT id, name, access FROM scripts", null).use { c ->
+                while (c.moveToNext()) ScriptAccess.following(ScriptAccess.parse(c.getString(2)), c.getString(1) in wanted)?.let { changes += c.getLong(0) to it }
+            }
+            for ((id, access) in changes) update("scripts", ContentValues().apply { put("access", ScriptAccess.encode(access)) }, "id = ?", arrayOf(id.toString()))
+            wrote = changes.isNotEmpty()
         }
+        if (wrote) version.incrementAndGet()
     }
 
     fun setAtTimes(id: Long, times: List<String>) = update(id) {
@@ -322,6 +357,7 @@ class ScriptRepository private constructor(private val context: Context) {
     /**
      * Renames a script. Check the name first (`ScriptNames.invalid`).
      * - Its secrets and its status line (with its bar and refresh), stored by name, move with it.
+     * - So does everything its widgets keep: what each one shows, and each further widget's own options.
      * - A copy from the library or from Get more scripts becomes yours. It no longer gets their updates.
      * - Lines already in the log keep the old name.
      */
@@ -333,23 +369,52 @@ class ScriptRepository private constructor(private val context: Context) {
             update("scripts", ContentValues().apply { put("name", to); put("changed_at", System.currentTimeMillis()) }, "id = ?", arrayOf(id.toString()))
             delete("kv", "scope = ?", arrayOf(SecretStore.scope(to)))
             update("kv", ContentValues().apply { put("scope", SecretStore.scope(to)) }, "scope = ?", arrayOf(SecretStore.scope(s.name)))
-            delete("kv", "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(to)))
-            update("kv", ContentValues().apply { put("scope", com.mtwabpin.kolahal.script.ScriptOptions.scope(to)) }, "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(s.name)))
-            delete("kv", "scope = ? AND k = ?", arrayOf(Stores.STATUS, to))
-            update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(Stores.STATUS, s.name))
-            delete("kv", "scope = ? AND k = ?", arrayOf(Stores.STATUS_EXTRAS, to))
-            update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(Stores.STATUS_EXTRAS, s.name))
-            // What its widget shows, and when it was set.
-            for (scope in listOf(Stores.WIDGET, Stores.WIDGET_META)) {
+            // Its options, and what you set for each of its further widgets.
+            moveNamed("scope", ScriptOptions.scope(s.name), ScriptOptions.furtherScopes(s.name), ScriptOptions.scope(to), ScriptOptions.furtherScopes(to))
+            // Its status line, and which of its widgets are on the page. The placed list writes that row
+            // again in a moment ([WidgetHost.renameScript]). Moved here, a run in between does not find the
+            // script with its `widget` access on and no row, which would read as "the first widget is placed".
+            for (scope in listOf(Stores.STATUS, Stores.STATUS_EXTRAS, Stores.WIDGET_PLACED)) {
                 delete("kv", "scope = ? AND k = ?", arrayOf(scope, to))
                 update("kv", ContentValues().apply { put("k", to) }, "scope = ? AND k = ?", arrayOf(scope, s.name))
             }
+            // What each of its widgets shows, and when it was set.
+            for (scope in listOf(Stores.WIDGET, Stores.WIDGET_META)) moveNamed("k", s.name, WidgetRef.further(s.name), to, WidgetRef.further(to), scope)
         }
         forgetOrigin(s.name)
         version.incrementAndGet()
-        // Its placed widget follows the name. The list of placed widgets belongs to the main process.
+        // Its placed widgets follow the name. The list of placed widgets belongs to the main process.
         runCatching { widgetsPage?.renameScript(s.name, to) }
         WidgetStates.bump()
+    }
+
+    /**
+     * A WHERE clause for "[column] is [name], or starts with [further]", and its arguments. With
+     * [further] as what a further widget's entry starts with (`weather#`), it matches everything
+     * kept for a script and for each of its widgets, and nothing of a script with a longer name.
+     * The match is exact, never LIKE: `_` is in script names, and LIKE reads it as any character.
+     */
+    private fun namedOrFurther(column: String, name: String, further: String): Pair<String, List<String>> =
+        "($column = ? OR substr($column, 1, ${further.length}) = ?)" to listOf(name, further)
+
+    /**
+     * Moves what the `kv` table keeps under a script's name to another name, inside a transaction.
+     * [column] is where the name is: `scope`, or `k` within the one [scope].
+     * - The entry [from] becomes [to].
+     * - Each further widget's entry keeps its id: one that starts with [fromFurther] (`weather#2`)
+     *   then starts with [toFurther] (`sky#2`).
+     * - What was kept under the new name goes first ([namedOrFurther]).
+     */
+    private fun SQLiteDatabase.moveNamed(column: String, from: String, fromFurther: String, to: String, toFurther: String, scope: String? = null) {
+        val inScope = if (scope == null) "" else "scope = ? AND "
+        val scopeArgs = listOfNotNull(scope)
+        val (target, targetArgs) = namedOrFurther(column, to, toFurther)
+        delete("kv", inScope + target, (scopeArgs + targetArgs).toTypedArray())
+        update("kv", ContentValues().apply { put(column, to) }, "$inScope$column = ?", (scopeArgs + from).toTypedArray())
+        execSQL(
+            "UPDATE kv SET $column = ? || substr($column, ${fromFurther.length + 1}) WHERE ${inScope}substr($column, 1, ${fromFurther.length}) = ?",
+            (listOf(toFurther) + scopeArgs + fromFurther).toTypedArray(),
+        )
     }
 
     /** Stops treating the script as the library's or Get more scripts' copy, so it gets no updates. */
@@ -363,11 +428,14 @@ class ScriptRepository private constructor(private val context: Context) {
         ScriptScheduler.cancel(context, id)
         byId(id)?.let {
             SecretStore(context).clear(it.name)
-            db.writableDatabase.delete("kv", "scope = ?", arrayOf(com.mtwabpin.kolahal.script.ScriptOptions.scope(it.name)))
+            // Its options, and what you set for each of its further widgets.
+            val (options, args) = namedOrFurther("scope", ScriptOptions.scope(it.name), ScriptOptions.furtherScopes(it.name))
+            db.writableDatabase.delete("kv", options, args.toTypedArray())
             StatusLines.clear(context, it.name)
-            // What its widget showed goes. The widget stays on the page and says the script was removed,
-            // until you remove it or a script takes the name again.
-            WidgetStates.forget(context, it.name)
+            // What its widgets showed goes. The widgets stay on the page and say the script was removed,
+            // until you remove them or a script takes the name again. So the name's `widget.placed`
+            // row stays too: it belongs to the placed list.
+            WidgetStates.forgetScript(context, it.name)
             forgetOrigin(it.name)
         }
         db.writableDatabase.delete("scripts", "id = ?", arrayOf(id.toString()))

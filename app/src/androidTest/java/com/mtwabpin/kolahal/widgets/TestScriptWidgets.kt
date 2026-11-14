@@ -119,10 +119,15 @@ class TestScriptWidgets(private val prefix: String) {
         val worker = KvStore(context, Stores.WORKER)
         mine.forEach { s ->
             ScriptScheduler.cancel(context, s.id)
+            // The error a quiet run left, for its first widget and for each further one.
             worker.set("refresh-error:${s.id}", null)
+            worker.deleteStartingWith("refresh-error:${s.id}#")
             scripts.delete(s.id)
         }
-        (names + mine.map { it.name }).forEach { WidgetStates.forget(context, it) }
+        (names + mine.map { it.name }).forEach { WidgetStates.forgetScript(context, it) }
+        // The rows that say which widgets of a name are placed. Removing a widget takes its name's row
+        // away; a row a test wrote for a name that is not on the page is still there.
+        KvStore(context, Stores.WIDGET_PLACED).deleteStartingWith(prefix)
         // Messages left for a widget screen aren't the next test's.
         while (host.takeMessage() != null) Unit
     }

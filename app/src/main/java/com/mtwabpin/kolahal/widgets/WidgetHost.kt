@@ -25,6 +25,7 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.data.ThisInstall
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -244,6 +245,10 @@ class WidgetHost private constructor(context: Context) {
     /** Whether the widget with this [source] is on the page. A widget with a source is placed once. */
     fun isPlaced(source: String): Boolean = _widgets.value.any { it.source == source }
 
+    /** The widgets of the script [script] that are on the page, in page order. A Status card is not one of them. */
+    fun placedOf(script: String): List<WidgetRef> =
+        WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }.filter { it.script == script }
+
     /**
      * Places [script]'s own widget at the end of the page, at [size]. Returns false when it is already
      * placed (or its name can't be stored), and changes nothing then.
@@ -301,27 +306,38 @@ class WidgetHost private constructor(context: Context) {
      * change in one step of its own ([ScriptRepository.setWidgetPlaced]), so a switch you set at the
      * same moment (`script deny … internet`) is not lost.
      */
-    private fun follow(name: String, run: Boolean = false) = checks.execute {
+    private fun follow(name: String, run: Boolean = false) = copy { scripts ->
+        val placed = isPlaced(WidgetSource.script(name))
+        val script = scripts.setWidgetPlaced(name, PlacedIds.of(_widgets.value)[name].orEmpty())
+        if (!placed) WidgetStates.forget(app, name)
+        else if (run && script != null) ScriptScheduler.refreshWidget(app, script)
+    }
+
+    /**
+     * Writes the database's copies of the placed list, on [checks]' thread: [write] gets the script
+     * list to write them with ([ScriptRepository.setWidgetPlaced], [ScriptRepository.followPlaced]).
+     * Every such write goes through here, for one reason: [ThisInstall.check] comes first. On a
+     * phone that got its database from another phone, that check clears the copies
+     * ([Stores.THIS_PHONE]). It runs once, and elsewhere it starts later than this
+     * ([com.mtwabpin.kolahal.apps.PackageEvents], [com.mtwabpin.kolahal.calls.CallEvents]). Without
+     * it here, it could clear the rows written a moment before.
+     */
+    private fun copy(write: (ScriptRepository) -> Unit) = checks.execute {
         runCatching {
-            val placed = isPlaced(WidgetSource.script(name))
-            val script = ScriptRepository.get(app).setWidgetPlaced(name, placed)
-            if (!placed) WidgetStates.forget(app, name)
-            else if (run && script != null) ScriptScheduler.refreshWidget(app, script)
+            ThisInstall.check(app)
+            write(ScriptRepository.get(app))
         }
     }
 
     /**
-     * Makes every script's `widget` access follow the placed list: on for each placed `script:<name>`
-     * entry, off for every other script. The placed list wins, because it is the one the user changes.
+     * Makes the database follow the whole placed list: each name's row says which of its widgets
+     * are on the page, and every script's `widget` access is on when one of its widgets is placed,
+     * off otherwise. The placed list wins, because it is the one the user changes.
      * - It runs at start and after a backup is imported. A backup carries only the access you switched
      *   off, so without this a restored widget would stay empty.
      * - It writes only where the two differ, on [checks]' thread.
      */
-    fun syncAccess() = checks.execute {
-        runCatching {
-            ScriptRepository.get(app).followPlaced(_widgets.value.mapNotNull { WidgetSource.scriptName(it.source) }.toSet())
-        }
-    }
+    fun syncAccess() = copy { it.followPlaced(PlacedIds.of(_widgets.value)) }
 
     /**
      * Waits until the access changes asked for so far are written ([placeScript], [remove],
@@ -345,7 +361,7 @@ class WidgetHost private constructor(context: Context) {
             update { WidgetSource.renamed(it, from, to) }
             follow(from)
         }
-        if (moved || isPlaced(WidgetSource.script(to))) follow(to)
+        if (moved || placedOf(to).isNotEmpty()) follow(to)
     }
 
     fun move(key: String, direction: Int) = update { WidgetOrder.move(it, key, direction) }

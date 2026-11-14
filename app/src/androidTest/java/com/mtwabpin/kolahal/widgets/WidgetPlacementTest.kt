@@ -216,21 +216,32 @@ class WidgetPlacementTest {
     @Test fun theAccessFollowsThePlacedList() {
         val off = t.create("-f", code)
         // The copy in the database, written as the list would write it, but against what the list says.
-        assertTrue(scripts.setWidgetPlaced(off.name, true)!!.grants.allows(ScriptAccess.WIDGET))
+        assertTrue(scripts.setWidgetPlaced(off.name, setOf(""))!!.grants.allows(ScriptAccess.WIDGET))
         val placed = t.place(t.create("-g", code))
-        assertFalse(scripts.setWidgetPlaced(placed.name, false)!!.grants.allows(ScriptAccess.WIDGET))
+        assertFalse(scripts.setWidgetPlaced(placed.name, emptySet())!!.grants.allows(ScriptAccess.WIDGET))
         assertTrue(on(off))
         assertFalse(on(placed))
+        // Each name's row says which of its widgets are placed, as the access says that one is.
+        assertEquals(setOf(""), WidgetStates.placedIds(context, off.name))
+        assertNull(WidgetStates.placedIds(context, placed.name))
         host.syncAccess()
         host.settle()
         assertFalse(on(off))
         assertTrue(on(placed))
+        assertNull(WidgetStates.placedIds(context, off.name))
+        assertEquals(setOf(""), WidgetStates.placedIds(context, placed.name))
         // A switch set by hand never changes it, whoever asks: only the list does.
         scripts.setAccess(placed.id, ScriptAccess.WIDGET, false)
         scripts.setAccess(off.id, ScriptAccess.WIDGET, true)
         assertTrue(on(placed))
         assertFalse(on(off))
-        assertNull(scripts.setWidgetPlaced(t.name("-nobody"), true))
+        // A name with no script has no access to set, and still gets its row: a widget can wait for its script.
+        assertNull(scripts.setWidgetPlaced(t.name("-nobody"), setOf("2")))
+        assertEquals(setOf("2"), WidgetStates.placedIds(context, t.name("-nobody")))
+        // The row follows the list too: that name is not on the page.
+        host.syncAccess()
+        host.settle()
+        assertNull(WidgetStates.placedIds(context, t.name("-nobody")))
 
         // A backup's widget of a script is placed as it comes, and its script may fill it.
         val restored = t.create("-h", code)
@@ -256,7 +267,7 @@ class WidgetPlacementTest {
             // The three writers wait at one gate, so they start together.
             val gate = java.util.concurrent.CountDownLatch(1)
             val writes = listOf<() -> Unit>(
-                { scripts.setWidgetPlaced(s.name, on) },
+                { scripts.setWidgetPlaced(s.name, if (on) setOf("") else emptySet()) },
                 { scripts.setAccess(s.id, "apps", !on) },
                 { scripts.setAccess(s.id, "clipboard", on) },
             )
@@ -270,7 +281,7 @@ class WidgetPlacementTest {
             val on = round % 2 == 0
             val gate = java.util.concurrent.CountDownLatch(1)
             val writers = listOf<() -> Unit>(
-                { scripts.setWidgetPlaced(s.name, on) },
+                { scripts.setWidgetPlaced(s.name, if (on) setOf("") else emptySet()) },
                 { scripts.saveCode(s.id, "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = $round }", byUser = true) },
             ).map { write -> kotlin.concurrent.thread { gate.await(); write() } }
             gate.countDown()
