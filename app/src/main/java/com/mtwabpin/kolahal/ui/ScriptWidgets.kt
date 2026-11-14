@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -90,6 +91,25 @@ val LocalWidgetsShown = compositionLocalOf { false }
  * hands a long-press on to this.
  */
 internal val LocalCardLongPress = compositionLocalOf<(() -> Unit)?> { null }
+
+/**
+ * Where a kind's content says "+3 more" when the card has a title line: the line shows it at its
+ * end ([TitleLine]), and the content keeps no room for a line of its own. Null where the card has
+ * no title line (a small card, a wide card that gave its line away): there the content draws the
+ * line itself. Use it with [ReportMore].
+ */
+internal val LocalMoreNote = compositionLocalOf<((String?) -> Unit)?> { null }
+
+/**
+ * Hands [text] ("+3 more", or null for nothing left out) to the title line ([LocalMoreNote]). It is
+ * written after the content is drawn, and taken back when the content leaves the card.
+ */
+@Composable
+internal fun ReportMore(text: String?) {
+    val note = LocalMoreNote.current ?: return
+    LaunchedEffect(note, text) { note(text) }
+    DisposableEffect(note) { onDispose { note(null) } }
+}
 
 /** What a card shows when it has no content to draw. */
 internal enum class CardNote {
@@ -212,8 +232,9 @@ internal fun WidgetCard(
  * - The title line starts with the badge: [badge] (a drawable), or the content's icon, or the
  *   first letter of the title ([WidgetWords.badgeLetter]). It is 24 dp in a large card and 20 dp
  *   in a wide one. A small card has no title line, so no badge.
- * - Large: the title line, the content, and the footer as the last line.
- * - Wide: the title line with the footer at its end, then the content. Without the title line
+ * - Large: the title line, the content, and the footer as the last line. The title line ends with
+ *   "+3 more" from a list or an agenda ([LocalMoreNote]).
+ * - Wide: the title line with "+3 more" and the footer at its end, then the content. Without the title line
  *   there is no place for the footer. A screen reader still hears both.
  */
 @Composable
@@ -230,22 +251,36 @@ private fun CardLayout(
     badge: Int?,
 ) {
     val type = MaterialTheme.typography
+    // "+3 more" from the content, for the end of the title line ([LocalMoreNote]).
+    var more by remember { mutableStateOf<String?>(null) }
+    val setMore: (String?) -> Unit = remember { { more = it } }
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            TitleLine(title, spec, badge, 24.dp, type.titleSmall)
+            TitleLine(title, spec, badge, 24.dp, type.titleSmall) { MoreNote(more) }
             Spacer(Modifier.height(6.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                CompositionLocalProvider(LocalMoreNote provides setMore) { CardBody(spec, note, failure, box, onTap, stamp) }
+            }
             if (footer != null) FooterLine(footer, Modifier.padding(top = 4.dp))
         }
         WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
             if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium) {
+                MoreNote(more)
                 if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                CompositionLocalProvider(LocalMoreNote provides setMore.takeIf { titled }) { CardBody(spec, note, failure, box, onTap, stamp) }
+            }
         }
         // No room for a title or a footer: the content alone. A screen reader still hears both.
         WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
     }
+}
+
+/** "+3 more" at the end of a title line, or nothing. */
+@Composable
+private fun MoreNote(text: String?) {
+    if (text != null) Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
 }
 
 /**

@@ -665,6 +665,21 @@ class WidgetWordsTest {
         assertEquals(0, WidgetWords.rowsShown(0, 152, 48, 20))
     }
 
+    /** Segmented rows have 2 dp between two. A card with a title line says "+3 more" there, so it keeps no room for it. */
+    @Test fun rowsWithGapsCountTheGapsOnlyBetweenRows() {
+        // A 2x2 card's content is 138 dp: three rows of 44 dp with two gaps of 2 take 136.
+        assertEquals(3, WidgetWords.rowsShown(3, 138, 44, 0, gapDp = 2))
+        assertEquals(3, WidgetWords.rowsShown(5, 138, 44, 0, gapDp = 2))
+        assertEquals("one dp short", 2, WidgetWords.rowsShown(5, 135, 44, 0, gapDp = 2))
+        // With a "+ more" line in the body.
+        assertEquals(2, WidgetWords.rowsShown(5, 138, 44, 20, gapDp = 2))
+        assertTrue(WidgetWords.showsMore(5, 2, 138, 44, 20, gapDp = 2))
+        assertFalse(WidgetWords.showsMore(3, 3, 138, 44, 20, gapDp = 2))
+        // Large clock rows, 28 dp each, with gaps of 2: four take 118.
+        assertEquals(4, WidgetWords.clockRows(4, 118, gapDp = 2))
+        assertEquals(3, WidgetWords.clockRows(4, 117, gapDp = 2))
+    }
+
     /** A large card with no icon has the first letter of its title as its badge. */
     @Test fun aBadgeLetterIsTheTitlesFirstLetterAsACapital() {
         assertEquals("P", WidgetWords.badgeLetter("pune weather"))

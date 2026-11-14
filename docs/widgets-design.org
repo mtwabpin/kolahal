@@ -658,7 +658,7 @@ can't run it.
 |--------------------------+--------------------------------------------------------------------------------------------------------|
 | The card                 | A =Surface= with large round corners (28 dp; 24 dp for 1×1).                                           |
 | The icon badge           | Clipped to a =MaterialShapes= shape with =toShape()=: a cookie for a number, a round pill for a list. One shape for each kind. Every large card has one: a built-in card has its own icon, and a card with no =icon= has the first letter of its title. |
-| List rows                | =SegmentedListItem= with =segShapes=, as Settings has.                                                 |
+| List rows                | Each row in a lightly tinted container: 16 dp corners at the ends of the list, 4 dp between rows, 2 dp apart. A plain =Row=, so a row can be as low as 32 dp. A clock's rows in a large card too. |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
 | Toggles                  | =ToggleButton=: round when off, squarer and filled when on. Off is a light tint of the text colour. A tall one says "On" or "Off" under its label. |
 | Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match. A countdown's bar is still. |

@@ -718,7 +718,8 @@ class ScriptWidgetCardTest {
         // Tall enough for two days, each with its heading and an event.
         show(plans, quiet, height = 280.dp, actions = asked)
         val standup = today.plusDays(1).atTime(9, 30).format(clock)
-        draws(plans, "Plans", "Today", "all day", "Holiday", "Tomorrow", standup, "Standup")
+        // The day headings are in capitals.
+        draws(plans, "Plans", "TODAY", "all day", "Holiday", "TOMORROW", standup, "Standup")
         assertEquals(emptyList<String>(), texts(plans).filter { it == "Ended" || it == "Too far" })
         assertEquals("Plans: Today, all day Holiday, Tomorrow, $standup Standup", said(plans))
         compose.onNode(inCard(plans) and hasText("Standup") and hasClickLabel("open event")).performClick()

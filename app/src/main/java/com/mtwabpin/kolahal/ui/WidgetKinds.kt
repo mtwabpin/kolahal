@@ -45,6 +45,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -448,8 +449,8 @@ internal object WidgetWords {
     /** A row of a clock in a large box is at least this tall, in dp. */
     const val CLOCK_ROW_DP = 28
 
-    /** How many of [count] places a large box [heightDp] tall shows as rows. */
-    fun clockRows(count: Int, heightDp: Int): Int = (heightDp / CLOCK_ROW_DP).coerceIn(1, maxOf(1, count))
+    /** How many of [count] places a large box [heightDp] tall shows as rows, with [gapDp] between two. */
+    fun clockRows(count: Int, heightDp: Int, gapDp: Int = 0): Int = ((heightDp + gapDp) / (CLOCK_ROW_DP + gapDp)).coerceIn(1, maxOf(1, count))
 
     /** What an agenda says with no event to show, when its description has no `empty` text. */
     const val NO_EVENTS = "No events"
@@ -698,19 +699,22 @@ internal object WidgetWords {
     }
 
     /**
-     * How many of [count] rows to draw in [heightDp], each [rowDp] tall. When rows are left out,
-     * [moreDp] is kept free for the "+3 more" line, as long as one row still fits above it.
+     * How many of [count] rows to draw in [heightDp], each [rowDp] tall, with [gapDp] between two.
+     * When rows are left out, [moreDp] is kept free for the "+3 more" line, as long as one row still
+     * fits above it. A card with a title line says "+3 more" there, and keeps no room: [moreDp] 0.
      */
-    fun rowsShown(count: Int, heightDp: Int, rowDp: Int, moreDp: Int): Int {
+    fun rowsShown(count: Int, heightDp: Int, rowDp: Int, moreDp: Int, gapDp: Int = 0): Int {
         if (count <= 0 || rowDp <= 0) return 0
-        if (count * rowDp <= heightDp) return count
-        val aboveMore = (heightDp - moreDp) / rowDp
-        return if (aboveMore >= 1) aboveMore else (heightDp / rowDp).coerceIn(1, count)
+        val step = rowDp + gapDp
+        // n rows take n * step - gapDp.
+        if (count * step - gapDp <= heightDp) return count
+        val aboveMore = (heightDp + gapDp - moreDp) / step
+        return if (aboveMore >= 1) aboveMore else ((heightDp + gapDp) / step).coerceIn(1, count)
     }
 
-    /** Whether the "+3 more" line fits under [shown] rows. */
-    fun showsMore(count: Int, shown: Int, heightDp: Int, rowDp: Int, moreDp: Int): Boolean =
-        shown < count && shown * rowDp + moreDp <= heightDp
+    /** Whether the "+3 more" line fits under [shown] rows ([rowsShown]). */
+    fun showsMore(count: Int, shown: Int, heightDp: Int, rowDp: Int, moreDp: Int, gapDp: Int = 0): Boolean =
+        shown < count && shown * (rowDp + gapDp) - gapDp + moreDp <= heightDp
 }
 
 /** The colour of a widget's badge, bar and chart: its role's colour in this theme, or the accent. */
@@ -951,8 +955,12 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
 
 /**
  * `list`: as many rows as fit, then "+3 more".
- * - A row that can be tapped is 48 dp tall, and so is a row with a second line. Other rows are 32 dp.
+ * - Each row is in a lightly tinted container: large corners at the ends of the list, small ones
+ *   between rows, and [ROW_GAP_DP] between two ([segmentShape]).
+ * - A row that can be tapped is 48 dp tall. A row with a second line is 44 dp. Other rows are 32 dp.
  * - A narrow list (under 200 dp) leaves the second lines out.
+ * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
+ *   line under the rows.
  */
 @Composable
 private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
@@ -960,17 +968,24 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
         QuietLine(spec.empty ?: WidgetWords.NOTHING)
         return
     }
+    val inTitle = LocalMoreNote.current != null
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val details = maxWidth >= 200.dp && spec.items.any { it.detail != null }
-        val rowDp = if (details || spec.items.any { it.tap != null }) 48 else 32
+        val rowDp = when {
+            spec.items.any { it.tap != null } -> 48
+            details -> 44
+            else -> 32
+        }
         val heightDp = maxHeight.value.toInt()
-        val shown = WidgetWords.rowsShown(spec.items.size, heightDp, rowDp, MORE_DP)
+        val moreDp = if (inTitle) 0 else MORE_DP
+        val shown = WidgetWords.rowsShown(spec.items.size, heightDp, rowDp, moreDp, ROW_GAP_DP)
         val more = spec.items.size - shown
-        Column(Modifier.fillMaxSize()) {
+        ReportMore(if (more > 0) "+$more more" else null)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
             spec.items.take(shown).forEachIndexed { i, row ->
-                key(i) { ListRow(row, rowDp.dp, details, onTap) }
+                key(i) { ListRow(row, rowDp.dp, details, segmentShape(i, shown), onTap) }
             }
-            if (WidgetWords.showsMore(spec.items.size, shown, heightDp, rowDp, MORE_DP)) {
+            if (!inTitle && WidgetWords.showsMore(spec.items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
                 Text(
                     "+$more more",
                     style = MaterialTheme.typography.labelMedium,
@@ -983,10 +998,33 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
     }
 }
 
+/** The room between two rows of a list or of a clock, in dp. */
+internal const val ROW_GAP_DP = 2
+
 /**
- * One row of a list. Its colour is on its icon and on the text at its end, or on a dot when it has
- * neither. A row with a tap takes the press before the card does, so it hands a long-press on to
- * the card ([LocalCardLongPress]).
+ * The shape of row [index] of [count] in a segmented list: 16 dp corners at the list's two ends,
+ * 4 dp between rows, as Settings groups its rows ([segShapes]) in less room.
+ */
+internal fun segmentShape(index: Int, count: Int): Shape {
+    val outer = 16.dp
+    val inner = 4.dp
+    return RoundedCornerShape(
+        topStart = if (index == 0) outer else inner,
+        topEnd = if (index == 0) outer else inner,
+        bottomStart = if (index == count - 1) outer else inner,
+        bottomEnd = if (index == count - 1) outer else inner,
+    )
+}
+
+/** The tint of a segmented row ([segmentShape]): a little lighter than the card. */
+@Composable
+internal fun segmentColour(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+
+/**
+ * One row of a list, in its container of [shape]. Its colour is on its icon, or else on a dot at
+ * its start. The text at its end is dim: the colour says what the row is, not what its number is.
+ * A row with a tap takes the press before the card does, so it hands a long-press on to the card
+ * ([LocalCardLongPress]).
  *
  * A row with `done` has a checkbox at its start, in the row's colour.
  * - The box takes no tap of its own. A tap anywhere on the row is the row's tap, and the row is
@@ -995,7 +1033,7 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
  *   built-in widget) shows the new state.
  */
 @Composable
-private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((WidgetTap) -> Unit)?) {
+private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, shape: Shape, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val tap = row.tap
@@ -1014,7 +1052,8 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((
         Modifier
     }
     Row(
-        Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(12.dp)).then(press),
+        Modifier.fillMaxWidth().height(height).clip(shape).background(segmentColour()).then(press)
+            .padding(start = if (done != null) 0.dp else 12.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val icon = row.icon
@@ -1023,13 +1062,13 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((
                 checked = done,
                 onCheckedChange = null,
                 colors = if (colour != null) CheckboxDefaults.colors(checkedColor = colour) else CheckboxDefaults.colors(),
-                modifier = Modifier.padding(end = 8.dp),
+                modifier = Modifier.padding(start = 2.dp, end = 4.dp),
             )
         }
         if (icon != null) {
-            Text(icon, style = type.titleMedium, color = colour ?: scheme.onSurface, maxLines = 1, modifier = Modifier.padding(end = 8.dp))
-        } else if (done == null && colour != null && row.trailing == null) {
-            Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(colour))
+            Text(icon, style = type.titleMedium, color = colour ?: scheme.onSurface, maxLines = 1, modifier = Modifier.padding(end = 10.dp))
+        } else if (done == null && colour != null) {
+            Box(Modifier.padding(end = 10.dp).size(8.dp).clip(CircleShape).background(colour))
         }
         Column(Modifier.weight(1f)) {
             Text(cardText(row.title), style = type.bodyMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1038,7 +1077,7 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((
             }
         }
         row.trailing?.let {
-            Text(cardText(it), style = type.labelLarge, color = colour ?: scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+            Text(cardText(it), style = type.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
