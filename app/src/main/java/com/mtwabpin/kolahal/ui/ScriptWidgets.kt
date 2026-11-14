@@ -388,8 +388,8 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         delay(LOADING_MS)
         gaveUp = true
     }
-    // The failed run's own words, for a card with nothing else to show.
-    val failure = remember(s?.error) { WidgetWords.firstLine(s?.error) }
+    // The failed run's own words, for a card with nothing else to show. Without "tap to edit": a tap here refreshes.
+    val failure = remember(s?.error) { WidgetWords.cardError(s?.error) }
     val note = when {
         s == null -> CardNote.WAITING
         spec != null -> null

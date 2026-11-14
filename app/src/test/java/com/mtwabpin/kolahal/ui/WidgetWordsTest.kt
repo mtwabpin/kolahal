@@ -217,6 +217,22 @@ class WidgetWordsTest {
         assertNull(WidgetWords.firstLine(null))
     }
 
+    /** The stored error is the log line's text (ScriptWorker). A tap on the card only refreshes, so the card leaves the log line's taps out. */
+    @Test fun aCardsErrorPromisesNoTapItDoesNotHave() {
+        // A failed run: the log line opens the editor at the line. The card keeps the line's number.
+        assertEquals("weather: attempt to index a nil value (line 7)", WidgetWords.cardError("weather: attempt to index a nil value (tap to edit line 7)"))
+        // A switch that is off stopped the run: the log line allows it.
+        assertEquals("weather: internet is off for this script", WidgetWords.cardError("weather: internet is off for this script — tap to allow"))
+        // Any other error stays as it is.
+        assertEquals("weather: timed out after 30s", WidgetWords.cardError("weather: timed out after 30s"))
+        assertEquals("weather: no network", WidgetWords.cardError("\n  weather: no network  \nstack traceback: …"))
+        // Only at the end of the first line: a script's own words stay.
+        assertEquals("quiz: (tap to edit line 3) is no answer", WidgetWords.cardError("quiz: (tap to edit line 3) is no answer"))
+        assertEquals("quiz: say — tap to allow — aloud (line 12)", WidgetWords.cardError("quiz: say — tap to allow — aloud (tap to edit line 12)"))
+        assertNull(WidgetWords.cardError("  \n "))
+        assertNull(WidgetWords.cardError(null))
+    }
+
     @Test fun aListDrawsTheRowsThatFitAndCountsTheRest() {
         // All fit: no "+ more" line.
         assertEquals(3, WidgetWords.rowsShown(3, 152, 48, 20))

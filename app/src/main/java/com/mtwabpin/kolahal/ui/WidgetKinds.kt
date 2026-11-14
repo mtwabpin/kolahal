@@ -270,6 +270,24 @@ internal object WidgetWords {
     /** The first line of an error with something on it, for a card with nothing else to show. */
     fun firstLine(error: String?): String? = error?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotEmpty() }
 
+    /** The end of a failed run's log line: a tap on that line opens the editor at the line. */
+    private val EDIT_TAIL = Regex("""\s*\(tap to edit line (\d+)\)$""")
+
+    /** The end of the log line of a run that a switch stopped: a tap on that line allows the item. */
+    private const val ALLOW_TAIL = "— tap to allow"
+
+    /**
+     * A failed run's error as a card shows it: its first line ([firstLine]) without what only the
+     * log line can do. The stored error is the log line's text. A tap on that line edits the script
+     * or allows an item. A tap on the card only runs the script again, so the card promises no more.
+     * - "(tap to edit line 7)" at the end becomes "(line 7)".
+     * - "— tap to allow" at the end is left out.
+     */
+    fun cardError(error: String?): String? {
+        val line = firstLine(error) ?: return null
+        return line.replace(EDIT_TAIL) { " (line ${it.groupValues[1]})" }.removeSuffix(ALLOW_TAIL).trim().ifEmpty { null }
+    }
+
     /**
      * How many of [count] rows to draw in [heightDp], each [rowDp] tall. When rows are left out,
      * [moreDp] is kept free for the "+3 more" line, as long as one row still fits above it.
