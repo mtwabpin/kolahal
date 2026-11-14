@@ -641,6 +641,14 @@ widget.show({
 | `progress` | a ring or a bar, or up to 4 bars | `2x1` |
 | `chart` | numbers over time, as a line or as bars | `2x2` |
 | `countdown` | the time to a moment. Kolahal counts it down, with no run | `2x1` |
+| `buttons` | 1 to 8 buttons | `4x1` |
+| `toggles` | 1 to 6 switches, each on or off | `4x1` |
+| `clock` | the time in up to 4 places. Kolahal moves the clocks, with no run | `2x1` |
+| `agenda` | events by day | `4x2` |
+
+Kolahal has one more kind, `media`, for its own
+[Now playing widget](/guides/widgets/#kolahals-own-widgets). A script can't use it: it is an error
+on the `@widget` line and in `kind`.
 
 ### widget.show(desc)
 
@@ -665,6 +673,8 @@ Rules for every description:
   error that names the field.
 - A field with no value (`nil`, `null`, `undefined`) counts as left out.
 - Text over its limit is cut, with "…" at its end. A list over its limit keeps its first items.
+- Buttons and switches are never cut. More than the kind takes is an error: a button that was
+  left out without a word would be a tap you can't make. [Limits](#limits) has every number.
 - Text is plain. Styles from [`fmt`](#styles-fmt) are removed. A secret's value is masked, as in
   the log.
 - A colour is a role, never a colour value. The theme picks the colour, so the card reads on every
@@ -679,7 +689,7 @@ Every kind takes these fields. All are optional.
 | `icon` | text, up to 4 characters | An emoji or a letter, drawn in a badge. |
 | `color` | a role | The colour of the badge, the bar, the ring or the chart: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
-| `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour. |
+| `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is in view. |
 
 ### Kinds and their fields
@@ -711,7 +721,7 @@ Every kind takes these fields. All are optional.
 | `items` | a list of rows | Needed. The first 12 are kept. It can be empty. |
 | `empty` | text, up to 60 | What the card says with no rows: `Nothing new`. |
 
-Each row is `{ title, detail, trailing, icon, color, tap }`. Only `title` is needed.
+Each row is `{ title, detail, trailing, icon, color, tap, done }`. Only `title` is needed.
 
 | Field | Value | What it is |
 | --- | --- | --- |
@@ -721,6 +731,10 @@ Each row is `{ title, detail, trailing, icon, color, tap }`. Only `title` is nee
 | `icon` | text, up to 4 | An emoji or a letter in front. |
 | `color` | a role | The colour of its icon and of its `trailing` text. A row with neither gets a dot in front. |
 | `tap` | an action | What a tap on the row does ([Taps](#taps)). |
+| `done` | true or false | The row has a checkbox in front: ticked with `true`, empty with `false`. Without it, the row has none. |
+
+A checkbox is for a todo or a habit. It only shows a state: Kolahal doesn't change it. Give the
+row a `tap` with `args`, and let that run change the thing and call `widget.show` again.
 
 **`progress`**: how far along something is, as a ring, a bar, or several bars. It needs `value` or
 `items`.
@@ -813,6 +827,195 @@ widget.show({ kind: "countdown", title: "Goa trip", to: new Date(2026, 11, 20).g
 </TabItem>
 </Tabs>
 
+**`buttons`**: 1 to 8 buttons. Each button has its own tap.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `items` | a list of buttons | Needed: 1 to 8. No buttons, or more than 8, is an error. |
+
+Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `label` | text, up to 24 | The button's text. |
+| `icon` | text, up to 4 | An emoji or a letter in front of the text. |
+| `color` | a role | The button's colour. |
+| `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
+
+- A small card shows fewer buttons, never smaller ones. So put the important ones first.
+- A button can't run a terminal command. In a run that a button starts, the script can use
+  [`launcher.run`](#launcherruncommand), under its rules.
+
+**`toggles`**: 1 to 6 switches. Each has a state, on or off, that the script reports.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `items` | a list of switches | Needed: 1 to 6. No switches, or more than 6, is an error. |
+
+Each switch is `{ label, icon, on, tap }`. `label`, `on` and `tap` are needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `label` | text, up to 24 | The switch's text. |
+| `icon` | text, up to 4 | An emoji or a letter in front of the text. |
+| `on` | true or false | Needed. The state now. |
+| `tap` | `{ args }` | Needed. The arguments that switch it. A link is an error: a switch always runs this script again. |
+
+How a switch works:
+
+1. You tap it. The switch shows that it is working.
+2. The script runs with the tap's arguments. [`event.name`](#event) is `"action"`.
+3. The script changes the thing, for example with
+   [`device.setDnd`](#devicednd--devicesetdndmode). Then it calls `widget.show` with the new
+   state.
+4. When the run ends, the switch shows the state that the script reported.
+
+- Kolahal never guesses the new state. So call `widget.show` in every run that a tap starts, also
+  when the change didn't work. The same description as before is fine.
+- If the run doesn't end within 10 seconds, the switch stops waiting and shows the state it had.
+- The thing can change outside Kolahal. So without `staleAfter`, the content of a `toggles`
+  widget counts as old after one minute, not one hour. The widgets page then runs the script when
+  it shows the widget.
+
+**`clock`**: the time in up to 4 places. The script gives the places once, and Kolahal moves the
+clocks. No run is needed as time passes.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `zones` | a list of places | Needed, with at least one place. The first 4 are kept. |
+| `seconds` | true or false | Shows the seconds too. |
+
+Each place is `{ zone, label }`. `zone` is needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `zone` | a time zone's name | Needed: `Asia/Kolkata`, `Europe/London`, `America/New_York`, `UTC`. A name that Kolahal doesn't know is an error that names it. |
+| `label` | text, up to 24 | What to call the place. Without it: the zone's name. |
+
+- The times follow the phone's 12-hour or 24-hour setting.
+- A clock never gets old. Give it a long `staleAfter`, such as a week (604800), so the widgets
+  page doesn't run the script each hour for nothing.
+
+**`agenda`**: events by day. The script gives the events with their times, and Kolahal writes the
+times and the days.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `events` | a list of events | Needed. The first 20 are kept. It can be empty. |
+| `days` | a number, 1 to 7 | How many days to show, from today. Without it: 3. |
+| `empty` | text, up to 60 | What the card says with no events: `Nothing planned`. |
+
+Each event is `{ title, starts, ends, allDay, where, color, tap }`. `title` and `starts` are
+needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `title` | text, up to 80 | The event's name. |
+| `starts` | a time in seconds | Needed. When it starts: `os.time{…}` in Lua, `Date.now() / 1000` in JavaScript. |
+| `ends` | a time in seconds, not before `starts` | When it ends. |
+| `allDay` | true or false | The event takes the whole day, and shows no time. |
+| `where` | text, up to 60 | The place. |
+| `color` | a role | The colour of the event's mark. |
+| `tap` | an action | What a tap on the event does ([Taps](#taps)). |
+
+- Kolahal writes each time in the phone's 12-hour or 24-hour form, and puts the events under
+  their day.
+- An event that has ended is left out, with no run.
+- A time in milliseconds is an error that says to divide it by 1000.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- buttons: each one runs this script again with its own arguments
+widget.show{ kind = "buttons", items = {
+  { label = "Start", icon = "▶", tap = { args = "start" } },
+  { label = "Stop", icon = "■", color = "bad", tap = { args = "stop" } },
+  { label = "Help", tap = { url = "https://example.com/help" } },
+} }
+
+-- toggles: the script changes the thing, then reports the new state
+-- (the script needs @uses dnd)
+if event and event.name == "action" and args[1] == "dnd" then
+  device.setDnd(device.dnd() == "off" and "on" or "off")
+end
+widget.show{ kind = "toggles", items = {
+  { label = "Do Not Disturb", on = device.dnd() ~= "off", tap = { args = "dnd" } },
+} }
+
+-- clock: Kolahal moves the clocks
+widget.show{ kind = "clock", staleAfter = 604800, zones = {
+  { zone = "Asia/Kolkata", label = "Pune" },
+  { zone = "America/New_York" },
+} }
+
+-- agenda: two events, and the days from today to the day after tomorrow
+local noon = os.time{ year = 2026, month = 12, day = 20, hour = 12 }
+widget.show{ kind = "agenda", days = 3, empty = "Nothing planned", events = {
+  { title = "Lunch with Asha", starts = noon, ends = noon + 3600, where = "Cafe Goodluck" },
+  { title = "Goa trip", starts = noon + 86400, allDay = true, color = "good" },
+} }
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// buttons: each one runs this script again with its own arguments
+widget.show({ kind: "buttons", items: [
+  { label: "Start", icon: "▶", tap: { args: "start" } },
+  { label: "Stop", icon: "■", color: "bad", tap: { args: "stop" } },
+  { label: "Help", tap: { url: "https://example.com/help" } },
+] });
+
+// toggles: the script changes the thing, then reports the new state
+// (the script needs @uses dnd)
+if (event && event.name === "action" && args[0] === "dnd") {
+  device.setDnd(device.dnd() === "off" ? "on" : "off");
+}
+widget.show({ kind: "toggles", items: [
+  { label: "Do Not Disturb", on: device.dnd() !== "off", tap: { args: "dnd" } },
+] });
+
+// clock: Kolahal moves the clocks
+widget.show({ kind: "clock", staleAfter: 604800, zones: [
+  { zone: "Asia/Kolkata", label: "Pune" },
+  { zone: "America/New_York" },
+] });
+
+// agenda: two events, and the days from today to the day after tomorrow
+const noon = new Date(2026, 11, 20, 12).getTime() / 1000;
+widget.show({ kind: "agenda", days: 3, empty: "Nothing planned", events: [
+  { title: "Lunch with Asha", starts: noon, ends: noon + 3600, where: "Cafe Goodluck" },
+  { title: "Goa trip", starts: noon + 86400, allDay: true, color: "good" },
+] });
+```
+</TabItem>
+</Tabs>
+
+### Limits
+
+What a description keeps, and what it refuses.
+
+| What | Limit | Over the limit |
+| --- | --- | --- |
+| A whole description | 32 KB | an error |
+| `widget.show` and `widget.clear` in one run | 20 calls | later calls change nothing |
+| A text | the number in its field's table | cut, with "…" at its end |
+| `list`: `items` | 12 rows | the first 12 are kept |
+| `stat`: `more` | 3 smaller values | the first 3 are kept |
+| `progress`: `items` | 4 bars | the first 4 are kept |
+| `chart`: `points` | 60 numbers | the last 60 are kept: the newest |
+| `chart`: `labels` | 2 texts | the first 2 are kept |
+| `buttons`: `items` | 1 to 8 buttons | an error, as for none |
+| `toggles`: `items` | 1 to 6 switches | an error, as for none |
+| `clock`: `zones` | 1 to 4 places | the first 4 are kept; none is an error |
+| `agenda`: `events` | 20 events | the first 20 are kept |
+| `agenda`: `days` | 1 to 7 | held between 1 and 7 |
+| `staleAfter` | 60 to 604800 seconds | held between them |
+| `refresh` | 10 to 3600 seconds | held between them |
+| A tap's `args` | 200 characters | cut |
+| A tap's `label` | 24 characters | cut |
+| Taps on one card, row, button, switch or event | one run in 2 seconds | the tap is ignored |
+| A switch that waits for its run | 10 seconds | it shows the state it had |
+
 ### Taps
 
 `tap` is an action: a table with exactly one of `args` and `url`.
@@ -828,6 +1031,12 @@ An action can also have:
 - `page = "log"`, with `args`: home turns to the log after the tap. Use it for a run that logs
   something.
 
+Where an action goes:
+
+- `tap` in the description: a tap on the card.
+- `tap` in a row of a `list`, a button of `buttons`, a switch of `toggles` or an event of an
+  `agenda`: a tap on that item. A button and a switch need one. A switch takes only `{ args }`.
+
 Rules:
 
 - In a run that a tap starts, [`event.name`](#event) is `"action"`, as for a
@@ -835,7 +1044,7 @@ Rules:
   `label`, when it has one. The arguments are in `args`.
 - A link must be a web link (`http` or `https`), and the script's internet access must be on. A link
   that is refused is an error in the script, so the card never has a tap that does nothing.
-- One card or row starts at most one run in 2 seconds.
+- One card, row, button, switch or event starts at most one run in 2 seconds.
 - A card with no `tap` refreshes when you tap it.
 - A script can't put a terminal command behind a tap.
 - A long-press on a card opens **Arrange widgets**.
@@ -901,7 +1110,7 @@ The widgets page asks for runs too. In these runs, [`event.name`](#event) is `"w
 
 - when you place the widget: one run at once.
 - when the widgets page comes into view and the content is older than `staleAfter` (one hour
-  without it): one run.
+  without it, one minute for `toggles`): one run.
 - every `refresh` seconds while the widget is in view, when the description has `refresh`.
 - when you tap a card that has no `tap`.
 
