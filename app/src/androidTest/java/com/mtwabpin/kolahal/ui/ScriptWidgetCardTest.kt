@@ -9,9 +9,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
@@ -22,6 +25,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
@@ -30,10 +34,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mtwabpin.kolahal.data.Config
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
 import com.mtwabpin.kolahal.terminal.WidgetFeed
@@ -56,6 +63,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -458,5 +466,244 @@ class ScriptWidgetCardTest {
         lines.value = listOf(StatusLine(set, "NZ 140/8"))
         draws("status:$set", "Cricket", "NZ 140/8")
         says("status:$set", "Cricket: NZ 140/8")
+    }
+
+    /** The card's own node on the widgets page: the one that takes the card's tap, with [label] for a screen reader. */
+    private fun cardOf(name: String, label: String = "refresh") = inCard(name) and hasClickLabel(label)
+
+    private fun isCheckbox(ticked: Boolean) =
+        SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox) and
+            SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, if (ticked) ToggleableState.On else ToggleableState.Off)
+
+    /**
+     * A row with `done` has a checkbox, ticked or not, as the description says. A tap on the row is
+     * the row's tap. Kolahal doesn't tick the box itself: the script shows the new state.
+     */
+    @Test fun aRowWithDoneHasACheckbox() {
+        val asked = Asked()
+        fun todos(milk: Boolean) = WidgetSpec.Rows(
+            WidgetBase(title = "Todo"),
+            listOf(
+                WidgetSpec.Row("Buy milk", done = milk, tap = WidgetTap(args = "done 1", label = "mark as done")),
+                WidgetSpec.Row("Call mum", done = true, tap = WidgetTap(args = "undo 2")),
+                WidgetSpec.Row("No box", tap = WidgetTap(args = "open 3")),
+            ),
+        )
+        val todo = kept("done", todos(milk = false))
+        // Tall enough for three rows: a row with a tap is 48 dp.
+        show(todo, height = 280.dp, actions = asked)
+        draws(todo, "Todo", "Buy milk", "Call mum", "No box")
+        val milk = inCard(todo) and hasText("Buy milk")
+        compose.onNode(milk and isCheckbox(ticked = false)).assertExists()
+        compose.onNode(inCard(todo) and hasText("Call mum") and isCheckbox(ticked = true)).assertExists()
+        // A row without `done` is no checkbox.
+        compose.onAllNodes(inCard(todo) and SemanticsMatcher.keyIsDefined(SemanticsProperties.ToggleableState)).assertCountEquals(2)
+        // The card says each box's state.
+        compose.onNode(cardOf(todo)).assertContentDescriptionEquals("Todo: Buy milk, not done, Call mum, done, No box")
+
+        compose.onNode(milk and hasClickLabel("mark as done")).performClick()
+        compose.runOnIdle { assertEquals(listOf("tap $todo done 1"), asked.all.toList()) }
+        // The box is as the description says, until the script shows a new one.
+        compose.onNode(milk and isCheckbox(ticked = false)).assertExists()
+        WidgetStates.put(context, todo, todos(milk = true))
+        compose.waitFor("the row isn't ticked after the script showed it done") {
+            compose.onAllNodes(milk and isCheckbox(ticked = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /** Three buttons: one whose tap has its own words for a screen reader, one in a colour, and one that opens a link. */
+    private val timerButtons = WidgetSpec.Buttons(
+        WidgetBase(title = "Timer"),
+        listOf(
+            WidgetSpec.Button("Start", WidgetTap(args = "start", label = "start the timer")),
+            WidgetSpec.Button("Stop", WidgetTap(args = "stop 1"), color = StyledText.Colour.BAD),
+            WidgetSpec.Button("Help", WidgetTap(url = "https://example.com/help")),
+        ),
+    )
+
+    /**
+     * `buttons`: each button with its label. A tap on a button is the button's own action. For a
+     * screen reader each button is an item of its own, and the card names them.
+     */
+    @Test fun buttonsAreDrawnAndTapped() {
+        val asked = Asked()
+        val timer = kept("buttons", timerButtons)
+        show(timer, actions = asked)
+        draws(timer, "Timer", "Start", "Stop", "Help")
+        compose.onNode(cardOf(timer)).assertContentDescriptionEquals("Timer: Start, Stop, Help")
+        compose.onNode(inCard(timer) and hasText("Start") and hasClickLabel("start the timer")).performClick()
+        compose.onNode(inCard(timer) and hasText("Stop") and hasClickAction()).performClick()
+        compose.onNode(inCard(timer) and hasText("Help") and hasClickAction()).performClick()
+        // A long-press on a button arranges, as one on the card does, and is no tap on the button.
+        compose.onNode(inCard(timer) and hasText("Stop") and hasClickAction()).performTouchInput { longClick() }
+        compose.runOnIdle {
+            assertEquals(listOf("tap $timer start", "tap $timer stop 1", "tap $timer https://example.com/help", "arrange"), asked.all.toList())
+        }
+    }
+
+    /** As the Widgets screen draws a `buttons` card, the buttons are there and take no taps. */
+    @Test fun buttonsTakeNoTapsWhileArranging() {
+        val timer = kept("buttons-still", timerButtons)
+        show(timer)
+        draws(timer, "Timer", "Start", "Stop", "Help")
+        compose.onAllNodes(inCard(timer) and hasClickAction() and isEnabled()).assertCountEquals(0)
+    }
+
+    /**
+     * `toggles`: each switch with its label and the state the script reported. A tap hands the
+     * switch's action on, and the switch says "working" until the script's run ends: the card's
+     * stamp moves then, also when the run reports the same state as before. Kolahal never guesses
+     * the new state.
+     */
+    @Test fun aSwitchWaitsForItsScript() {
+        val asked = Asked()
+        fun switches(dnd: Boolean, work: Boolean) = WidgetSpec.Toggles(
+            WidgetBase(title = "Quick"),
+            listOf(
+                WidgetSpec.Toggle("Do Not Disturb", on = dnd, tap = WidgetTap(args = "dnd")),
+                WidgetSpec.Toggle("Work", on = work, tap = WidgetTap(args = "work", label = "pause work")),
+            ),
+        )
+        val quick = kept("toggles", switches(dnd = false, work = true))
+        show(quick, actions = asked)
+        draws(quick, "Quick", "Do Not Disturb", "Work")
+        fun switch(label: String) = inCard(quick) and hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
+        fun isOn(on: Boolean) = SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, if (on) ToggleableState.On else ToggleableState.Off)
+        val working = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "working")
+        fun waitsNoMore(label: String, on: Boolean) = compose.waitFor("$label isn't ${if (on) "on" else "off"} and done waiting") {
+            compose.onAllNodes(switch(label) and isOn(on) and !working).fetchSemanticsNodes().isNotEmpty()
+        }
+        val dnd = switch("Do Not Disturb")
+        val work = switch("Work")
+        compose.onNode(dnd).assert(isOn(false) and !working)
+        compose.onNode(work).assert(isOn(true) and !working and hasClickLabel("pause work"))
+        // Each switch is an item of its own, and the card names them with their state.
+        assertEquals("Quick: Do Not Disturb off, Work on", said(quick))
+
+        compose.onNode(dnd).performClick()
+        compose.runOnIdle { assertEquals(listOf("tap $quick dnd"), asked.all.toList()) }
+        // It waits, in the state it had. The other switch doesn't wait.
+        compose.onNode(dnd).assert(working and isOn(false))
+        compose.onNode(work).assert(!working)
+        // A second tap while it waits starts nothing.
+        compose.onNode(dnd).performClick()
+        compose.runOnIdle { assertEquals(1, asked.all.size) }
+
+        // The run ends with the state as it was: the change didn't work. The same description is
+        // kept, only its time moves, and that is enough for the switch.
+        WidgetStates.put(context, quick, switches(dnd = false, work = true))
+        waitsNoMore("Do Not Disturb", on = false)
+
+        // The other switch, and a run that reports a new state.
+        compose.onNode(work).performClick()
+        compose.onNode(work).assert(working and isOn(true))
+        WidgetStates.put(context, quick, switches(dnd = false, work = false))
+        waitsNoMore("Work", on = false)
+        compose.runOnIdle { assertEquals(listOf("tap $quick dnd", "tap $quick work"), asked.all.toList()) }
+        assertEquals("Quick: Do Not Disturb off, Work off", said(quick))
+    }
+
+    /** What the card's own node says to a screen reader, once it says anything. */
+    private fun said(name: String, label: String = "refresh"): String {
+        fun now() = compose.onAllNodes(cardOf(name, label)).fetchSemanticsNodes().flatMap { it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty() }
+        compose.waitFor("$name's card says nothing") { now().isNotEmpty() }
+        return now().single()
+    }
+
+    /** A time of day as Kolahal writes it: in 24-hour or 12-hour form, as its own setting says. */
+    private val clock = DateTimeFormatter.ofPattern(TimeFormats.clock(Config.get(context)[Keys.CLOCK_24H]), Locale.getDefault())
+
+    /**
+     * `clock`: each place with its name and its time there. Kolahal writes the time: no run of the
+     * script is needed for it. A place without a label has the last part of its zone's name.
+     */
+    @Test fun aClockShowsTheTimeInEachPlace() {
+        val asked = Asked()
+        val world = kept(
+            "clock",
+            WidgetSpec.Clock(WidgetBase(title = "World"), listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("America/New_York"), WidgetSpec.Zone("UTC"))),
+        )
+        // The time in a zone, at this minute and at the next: the card may be drawn across a tick.
+        fun times(zone: String) = listOf(0L, 60L).map { Instant.now().plusSeconds(it).atZone(ZoneId.of(zone)).format(clock) }
+        // Tall enough for a row for each place.
+        show(world, height = 240.dp, actions = asked)
+        draws(world, "World", "Pune", "New York", "UTC")
+        for (zone in listOf("Asia/Kolkata", "America/New_York", "UTC")) {
+            assertTrue("${texts(world)} has none of ${times(zone)}", texts(world).any { it in times(zone) })
+        }
+        // A screen reader hears each place with its time, in one item with the card.
+        val heard = said(world)
+        assertTrue(heard, heard.startsWith("World: ") && times("Asia/Kolkata").any { "Pune $it" in heard } && times("UTC").any { "UTC $it" in heard })
+        // The content has no tap of its own: a tap on the card refreshes it.
+        compose.onNode(cardOf(world)).performClick()
+        compose.runOnIdle { assertEquals(listOf("tap $world null"), asked.all.toList()) }
+    }
+
+    /**
+     * `agenda`: the events under "Today" and "Tomorrow", each with its time. Kolahal leaves out an
+     * event that has ended and one past the description's `days`, with no run of the script. A tap
+     * on an event is the event's own.
+     */
+    @Test fun anAgendaShowsItsEventsByDay() {
+        val asked = Asked()
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        fun at(day: Long, hour: Int, minute: Int = 0) = today.plusDays(day).atTime(hour, minute).atZone(zone).toEpochSecond()
+        val plans = kept(
+            "agenda",
+            WidgetSpec.Agenda(
+                WidgetBase(title = "Plans"),
+                listOf(
+                    WidgetSpec.Event("Standup", starts = at(1, 9, 30), ends = at(1, 10), tap = WidgetTap(args = "open 7", label = "open event")),
+                    WidgetSpec.Event("Holiday", starts = at(0, 0), ends = at(1, 0), allDay = true),
+                    WidgetSpec.Event("Ended", starts = at(-1, 10), ends = at(-1, 11)),
+                    WidgetSpec.Event("Too far", starts = at(2, 12)),
+                ),
+                days = 2,
+            ),
+        )
+        val quiet = kept("agenda-empty", WidgetSpec.Agenda(WidgetBase(title = "Plans"), listOf(WidgetSpec.Event("Ended", starts = at(-1, 10), ends = at(-1, 11))), empty = "Nothing planned"))
+        // Tall enough for two days, each with its heading and an event.
+        show(plans, quiet, height = 280.dp, actions = asked)
+        val standup = today.plusDays(1).atTime(9, 30).format(clock)
+        draws(plans, "Plans", "Today", "all day", "Holiday", "Tomorrow", standup, "Standup")
+        assertEquals(emptyList<String>(), texts(plans).filter { it == "Ended" || it == "Too far" })
+        assertEquals("Plans: Today, all day Holiday, Tomorrow, $standup Standup", said(plans))
+        compose.onNode(inCard(plans) and hasText("Standup") and hasClickLabel("open event")).performClick()
+        compose.runOnIdle { assertEquals(listOf("tap $plans open 7"), asked.all.toList()) }
+        // With every event over, it says its own words for that.
+        draws(quiet, "Plans", "Nothing planned")
+        assertEquals("Plans: Nothing planned", said(quiet))
+    }
+
+    /**
+     * `media`: the kind only Kolahal fills, so nothing is kept for it and the card is drawn here as
+     * the Now playing widget draws it. The track and the artist with the app; three buttons hand
+     * `prev`, `toggle` and `next` to the card's `onTap`; a tap beside them is the card's own.
+     */
+    @Test fun aMediaCardHasTheTrackAndThreeButtons() {
+        val taps = CopyOnWriteArrayList<String>()
+        val track = WidgetSpec.Media(
+            WidgetBase(title = "Now playing"), title = "Blue in Green", artist = "Miles Davis", app = "Player",
+            playing = true, position = 61_000, positionAt = System.currentTimeMillis(), speed = 0f, duration = 337_000,
+        )
+        compose.setContent {
+            KolahalTheme {
+                Box(Modifier.width(320.dp)) {
+                    WidgetCard(
+                        title = "Now playing", height = 260.dp, spec = track, note = null, description = "Now playing: Blue in Green",
+                        modifier = Modifier.testTag("widget:media"),
+                        onClick = { taps += "card" }, onClickLabel = "open Player", onLongClick = { taps += "arrange" },
+                        onTap = { taps += it.args.orEmpty() },
+                    )
+                }
+            }
+        }
+        draws("media", "Blue in Green", "Miles Davis · Player", "1:01", "5:37")
+        // It plays, so the middle button pauses.
+        for (button in listOf("Previous", "Pause", "Next")) compose.onNode(inCard("media") and hasContentDescription(button) and hasClickAction()).performClick()
+        compose.onAllNodes(inCard("media") and hasContentDescription("Play")).assertCountEquals(0)
+        compose.onNode(cardOf("media", "open Player")).performTouchInput { click(Offset(centerX, 6.dp.toPx())) }
+        compose.runOnIdle { assertEquals(listOf("prev", "toggle", "next", "card"), taps.toList()) }
     }
 }
