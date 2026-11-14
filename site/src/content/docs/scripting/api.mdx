@@ -874,9 +874,10 @@ How a switch works:
 
 - Kolahal never guesses the new state. So call `widget.show` in every run that a tap starts, also
   when the change didn't work. The same description as before is fine.
-- A run that fails ends the wait too. The switch then shows the state it had, and the card says
-  "Failed".
-- If the run doesn't end within 10 seconds, the switch stops waiting and shows the state it had.
+- A run that fails ends the wait too. The switch then shows the state it had, the card says
+  "Failed 10:42" under it, and the error is in the log. So when a change can't be made, call
+  `widget.show` with the state as it is, and raise an error after it.
+- With no answer in 10 seconds, the switch stops waiting and shows the state it had.
 - A second tap on the same switch within 2 seconds does nothing. No run starts for it.
 - The thing can change outside Kolahal. So without `staleAfter`, the content of a `toggles`
   widget counts as old after one minute, not one hour. The widgets page then runs the script when
@@ -1062,6 +1063,9 @@ Rules:
 - A link must be a web link (`http` or `https`), and the script's internet access must be on. A link
   that is refused is an error in the script, so the card never has a tap that does nothing.
 - One card, row, button, switch or event starts at most one run in 2 seconds.
+- A run that a tap started is a run like any other that you start: what it logs is in the log,
+  and so is its error. If it fails, the card also says "Failed 10:42" under its content, as after
+  a failed [`"widget"` run](#when-a-widgets-script-runs). The next run that works clears that.
 - A card with no `tap` refreshes when you tap it.
 - A script can't put a terminal command behind a tap.
 - A long-press on a card opens **Arrange widgets**.

@@ -482,7 +482,8 @@ profile when the phone has one. It doesn't use the network.
   Do Not Disturb on yourself, it stays on, and the switch stays on too.
 - Android lets only the default launcher pause and resume the work profile. If your work profile
   needs its PIN to resume, Android asks you for it.
-- When a change doesn't work, the switch goes back, the card says "Failed", and the log says why.
+- When a change doesn't work, the switch stays as it was, the card says "Failed", and the log
+  says why.
 - Both can change outside Kolahal. So the card counts as old after a minute: the widgets page then
   reads both again when you open it.
 - It has `@uses dnd, work`. `script run quick-toggles` logs both states.

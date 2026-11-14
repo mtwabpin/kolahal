@@ -91,6 +91,9 @@ internal object ScriptRun {
         // whenever its card is old. So what stays the same isn't reported again: an error shows once until
         // a run works, and a returned result isn't logged.
         val widgetRun = on == ScriptScheduler.WIDGET
+        // A tap on the script's own widget started this run: the card puts `widget = true` in the
+        // tap's event. It is a run like any other that you start, and its end is noted for the card too.
+        val widgetTap = on == "action" && event?.get("widget") == true
         val refresh = script != null && (on == ScriptScheduler.REFRESH || widgetRun) && !inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)
         val refreshes = KvStore(ctx, Stores.WORKER)
         val refreshKey = "refresh-error:${script?.id}"
@@ -178,7 +181,7 @@ internal object ScriptRun {
         } finally {
             host.finish()
             // Here, so it happens however the run ends: with a result, an error, a timeout, or stopped by Android.
-            if (script != null) widgetEnd(ctx, script, host, noteEnd = widgetRun && !stopped, failed)
+            if (script != null) widgetEnd(ctx, script, host, noteEnd = (widgetRun || widgetTap) && !stopped, failed)
         }
         // A run you started asked for things nobody has allowed yet, and got empty answers. Offer to allow them.
         if (script != null && host.undecided.isNotEmpty() && inputData.getBoolean(ScriptWorker.KEY_INTERACTIVE, false)) {
@@ -200,9 +203,11 @@ internal object ScriptRun {
 
     /**
      * The end of a run of [script], for its widget. The cards hear of a run once, here, whatever it changed.
-     * - [noteEnd], after a widget's run that ended by itself: the card says when its last run failed
-     *   ("Failed 10:42"), and forgets it after one that works. So the time and [failed] are noted, but
-     *   only while the widget is still placed: one removed during the run keeps nothing.
+     * - [noteEnd], after a run for the widget that ended by itself: one the widgets page asked for,
+     *   or one a tap on the widget started. The card says when its last such run failed ("Failed
+     *   10:42"), and forgets it after one that works. So the time and [failed] are noted, but only
+     *   while the widget is still placed: one removed during the run keeps nothing. A switch that
+     *   waits for its script stops waiting then too, whether or not the run showed anything.
      * - Then one message goes to the cards, if the run stored something: this note, or what
      *   `widget.show` and `widget.clear` stored ([HostApi.widgetChanged]). Those calls send none
      *   themselves, so a run that calls them twenty times and notes its end still sends one.

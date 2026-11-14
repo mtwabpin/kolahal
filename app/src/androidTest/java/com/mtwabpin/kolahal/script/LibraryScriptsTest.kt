@@ -977,7 +977,7 @@ class LibraryScriptsTest {
      * Quick toggles as it runs for real: placed on the widgets page, with what its `@uses` line
      * names allowed, as after an install. The run that placing asks for shows the switch, and a
      * tap's run switches Do Not Disturb. Without Do Not Disturb access, a tap's run still shows the
-     * state as it is, so the switch stops waiting, and then fails.
+     * state as it is and then fails: the card has the error, until a tap that works.
      */
     @Test fun placedQuickTogglesSwitchForReal() {
         val t = TestScriptWidgets("libq")
@@ -1021,12 +1021,20 @@ class LibraryScriptsTest {
             val after = state()
             assertEquals(all, nm.currentInterruptionFilter)
             assertEquals(listOf("Do Not Disturb" to false), switches())
-            // The script showed the state again before it failed. That moves the content's time, which is
-            // what a waiting switch watches: a tap's run that fails is not noted for the card by itself.
+            // The script showed the state again before it failed, so the content's time moved.
             assertTrue("set at ${after.setAt}, before the tap ${before.setAt}", after.setAt > before.setAt)
-            assertNull(after.error)
+            // The tap's run is noted for the card, with its error: the card says "Failed".
+            assertTrue(after.error.orEmpty(), after.error.orEmpty().contains("Kolahal needs Do Not Disturb access: type dnd access"))
+            assertTrue("tried at ${after.triedAt}, set at ${after.setAt}", after.triedAt >= after.setAt)
             val status = t.scripts.byId(s.id)!!.lastStatus.orEmpty()
             assertTrue(status, status.startsWith("error: Couldn't change Do Not Disturb"))
+
+            // With the access back, a tap that works forgets the error.
+            shell("cmd notification allow_dnd ${context.packageName}")
+            waitUntil("Do Not Disturb access didn't come back") { nm.isNotificationPolicyAccessGranted }
+            tap()
+            assertNull(state().error)
+            assertEquals(listOf("Do Not Disturb" to true), switches())
         } finally {
             shell("cmd notification allow_dnd ${context.packageName}")
             nm.setInterruptionFilter(all)

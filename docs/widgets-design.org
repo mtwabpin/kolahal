@@ -81,9 +81,13 @@ The scripts are in =app/src/main/assets/library/=. The user's guide is
 - *Shortcuts.* The list is one key of home's own preferences, not a part of the placed widget. Its
   editor is a sheet on the Widgets screen. A backup carries the list with that file, and an import
   lists each shortcut that the file brought as worth a look.
-- *Toggles.* A switch stops waiting when its run ends, also when the run failed: the card then
-  says "Failed" in its footer. After 10 seconds with no answer it stops waiting too, and shows the
-  state it had. A second tap on the same switch within 2 seconds starts no run.
+- *"Failed" on a card.* Two kinds of run note their end for the card: a run that the widgets page
+  asked for (a ="widget"= run), and a run that a tap on the widget started. So the card says
+  "Failed" after one of those failed. It does not after a failed timer, daily or event run: that
+  error is in the log only.
+- *Toggles.* A switch stops waiting when the card's stamp moves: the script called =widget.show=,
+  or the tap's run ended, also when it failed. After 10 seconds with no answer it stops waiting
+  too, and shows the state it had. A second tap on the same switch within 2 seconds starts no run.
 - *Habit streak* is a command too (=habit done=, =habit undo=), because a tap can be a mistake.
   It keeps its days as one text in its store: a store holds 1000 keys at most, so a key for each
   day would fill it in under three years.

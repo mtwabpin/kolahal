@@ -604,7 +604,7 @@ class ScriptWidgetCardTest {
 
         // A run whose end is noted for the card ends the wait too, also when it failed and showed
         // nothing new: the stamp is the later of the content's time and that run's. The card says
-        // that it failed. (Only a run the widgets page asked for is noted so, not a tap's own run.)
+        // that it failed. (A tap's own run is noted so, and a run the widgets page asked for.)
         val torch = switch("Torch")
         compose.onNode(torch).performClick()
         compose.onNode(torch).assert(working and isOn(false))

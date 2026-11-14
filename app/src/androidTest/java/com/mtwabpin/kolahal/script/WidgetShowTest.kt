@@ -173,6 +173,51 @@ class WidgetShowTest {
         assertNull(stored(s).error)
     }
 
+    /**
+     * A tap on the widget starts a run of its own, and that run's end is noted for the card as a
+     * page's run is: its time, and its error when it failed. So the card says "Failed", and a
+     * switch that waits for its script stops waiting, also when the run showed nothing. A button
+     * under a log line and a run that you typed are not the widget's: they leave the card alone.
+     */
+    @Test fun aTapsRunIsNotedForTheCard() {
+        val s = t.place(script("-- @widget stat\nif args[1] == 'fail' then error('no luck', 0) end\nwidget.show{ value = args[1] or 'none' }"))
+        assertEquals("none", stat(s).value)
+        /** A run that you started, with one word. [event] is its event as JSON, or null for a run that you typed. */
+        fun run(word: String, event: String?) {
+            val data = listOfNotNull(
+                ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_INTERACTIVE to true, ScriptWorker.KEY_ARGS to arrayOf(word),
+                event?.let { ScriptWorker.KEY_EVENT to it },
+            )
+            runBlocking { ScriptRun.run(context, workDataOf(*data.toTypedArray())) }
+        }
+        val tap = "{\"name\":\"action\",\"label\":\"Try\",\"widget\":true}"
+        val placedAt = stored(s)
+
+        // A button under a log line, and a run that you typed: their failure is in the log only.
+        run("fail", "{\"name\":\"action\",\"label\":\"Try\"}")
+        run("fail", null)
+        assertEquals(placedAt, stored(s))
+        assertEquals(2, errors().size)
+
+        // A tap on the widget that fails: the card has the error and when it came, and keeps its content.
+        val before = System.currentTimeMillis()
+        run("fail", tap)
+        val failed = stored(s)
+        assertEquals("none", stat(s).value)
+        assertTrue(failed.error.orEmpty(), failed.error.orEmpty().contains("no luck"))
+        assertTrue("tried at ${failed.triedAt}", failed.triedAt >= before)
+        assertEquals(placedAt.setAt, failed.setAt)
+        // It is still a run that you started: its error is logged each time, not once.
+        assertEquals(3, errors().size)
+
+        // A tap that works forgets the error, and its time is noted too.
+        run("two", tap)
+        val worked = stored(s)
+        assertEquals("two", stat(s).value)
+        assertNull(worked.error)
+        assertTrue("tried at ${worked.triedAt}, set at ${worked.setAt}", worked.triedAt >= worked.setAt && worked.setAt > failed.setAt)
+    }
+
     /** Code typed at the prompt has no script to keep a widget for: it gets a line that says so. */
     @Test fun codeTypedAtThePromptGetsALine() {
         val typed = mapOf(ScriptLang.LUA to "widget.show{ value = 1 }\nwidget.clear()", ScriptLang.JS to "widget.show({ value: 1 });\nwidget.clear();")
