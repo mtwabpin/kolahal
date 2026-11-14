@@ -332,7 +332,7 @@ class ScriptWidgetCardTest {
         override fun tap(script: String, tap: WidgetTap) { all += "tap $script ${tap.args ?: tap.url}" }
         override fun longPress() { all += "arrange" }
         override fun runStatus(script: String) { all += "run status $script" }
-        override fun refreshStatus(script: String) { all += "refresh status $script" }
+        override fun refreshStatus(script: String, every: Int): Long { all += "refresh status $script"; return 60_000L }
         override fun openBattery() { all += "battery" }
     }
 

@@ -237,7 +237,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** What the cards of the widgets page read from here, and not from the database ([WidgetFeed]). */
     val widgetFeed = WidgetFeed(widgetScripts, _lines.asStateFlow())
 
-    /** When each pinned line last ran again, by script name, in [SystemClock.elapsedRealtime] time. */
+    /**
+     * When each status line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
+     * time. The pinned header and the Status cards of the widgets page share it ([StatusTurns]), so a
+     * script that is pinned and also has a card runs once in each period. Only the main thread uses it.
+     */
     private val pinRuns = HashMap<String, Long>()
 
     /**
@@ -1041,9 +1045,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * Taps and refresh requests of the script widgets on the widgets page ([WidgetActions]). A tap
-     * shares the 2-second gate of the header and the log's buttons ([itemTaps]).
+     * shares the 2-second gate of the header and the log's buttons ([itemTaps]). A Status card's
+     * `refresh` shares the pinned header's table of last runs ([pinRuns]).
      */
-    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, object : WidgetActions.Host {
+    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, pinRuns, object : WidgetActions.Host {
         override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
         override fun openUrl(url: String) = this@TerminalViewModel.openUrl(url)
         override fun openScreen(screen: Screen) = this@TerminalViewModel.openScreen(screen)

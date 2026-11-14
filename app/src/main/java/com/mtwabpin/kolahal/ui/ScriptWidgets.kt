@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -50,7 +49,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.data.StatusLine
-import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
@@ -289,7 +287,7 @@ private const val MIN_REFRESH_S = 10
  * Draws placed widget [w], which Kolahal draws itself ([PlacedWidget.source]), [height] tall.
  * - A script's widget draws what the script stored with `widget.show` ([WidgetStates]). The main
  *   process never waits for a script: the card comes from stored state, and a run fills it later.
- * - A Status card draws its script's status line ([StatusLines]).
+ * - A Status card draws its script's status line ([StatusLine]).
  * - The built-in Battery and network widget draws the device's status, live ([DeviceStatus]).
  * - Any other source says "widget unavailable": a built-in widget that this version does not have,
  *   from a newer Kolahal's backup.
@@ -470,7 +468,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     )
 }
 
-/** The Status card's pure parts: what it draws for a status line, and when the line's `refresh` is due. */
+/** The Status card's pure part: what it draws for a status line. */
 internal object StatusCards {
     /** What the card says while its script has set no status line. */
     const val NO_LINE = "No status line yet"
@@ -489,18 +487,10 @@ internal object StatusCards {
             progress = line.progress?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
         )
     }
-
-    /**
-     * How long to wait, in milliseconds, before the script of a line with `refresh = every` (seconds)
-     * runs again. 0 means now: it has not run for this yet, or its last such run ([lastRun], on the
-     * clock of [now]) is that old. A pinned line is due by the same rule.
-     */
-    fun waitMs(every: Int, lastRun: Long?, now: Long): Long {
-        if (lastRun == null) return 0L
-        val gap = every.coerceIn(StatusLines.MIN_REFRESH, StatusLines.MAX_REFRESH) * 1000L
-        return (gap - (now - lastRun)).coerceIn(0L, gap)
-    }
 }
+
+/** The shortest time between two questions of a Status card about its line's `refresh`. A guard: the answer is never shorter. */
+private const val MIN_ASK_MS = 1_000L
 
 /**
  * [name]'s status line as [feed] has it, or null when the script has set none. The view model reads
@@ -516,18 +506,14 @@ private fun statusLine(feed: WidgetFeed?, name: String): StatusLine? {
 }
 
 /**
- * When each Status card's script last ran again for its line's `refresh`, by script name, in
- * [SystemClock.elapsedRealtime] time. It outlives the card, so turning the page away and back
- * starts no extra run. Only the main thread uses it.
- */
-private val statusRuns = HashMap<String, Long>()
-
-/**
  * The Status card of the script [name]: its status line (`status(text, opts)`) as a stat card.
  * - The text is the value. The line's progress is the bar, in the line's colour.
  * - It needs no run and no access item. The line is stored whether or not a card shows it.
  * - A tap runs the script, as a tap on its pinned line does.
- * - The line's own `refresh` counts while the card is in view, as it does for a pinned line.
+ * - The line's own `refresh` counts while the card is in view, as it does for a pinned line. The
+ *   view model keeps one time of the last run for both, so a script that is pinned and has a card
+ *   runs once in each period. That time outlives the card: turning the page away and back starts
+ *   no extra run.
  * - The card itself reads nothing from the database. Its line and its script's title come from the
  *   view model ([feed]), which reads them for the pinned header anyway. So a new log line costs a
  *   card nothing, in view or not. A card with no feed stays empty.
@@ -542,15 +528,8 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     val every = line?.refresh
     if (actions != null && every != null && LocalWidgetsShown.current) LaunchedEffect(name, actions, lifecycle, every) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                val wait = StatusCards.waitMs(every, statusRuns[name], SystemClock.elapsedRealtime())
-                if (wait > 0) {
-                    delay(wait)
-                } else {
-                    statusRuns[name] = SystemClock.elapsedRealtime()
-                    actions.refreshStatus(name)
-                }
-            }
+            // The view model runs the script if it is due, and says how long to wait before the next question.
+            while (true) delay(actions.refreshStatus(name, every).coerceAtLeast(MIN_ASK_MS))
         }
     }
 

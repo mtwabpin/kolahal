@@ -2,12 +2,14 @@ package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -71,8 +73,15 @@ interface WidgetCardActions {
     /** A tap on the Status card of [script]: runs the script, as a tap on its pinned line does. */
     fun runStatus(script: String)
 
-    /** Runs [script] again, quietly, for its status line's `refresh`. A Status card in view asks for this, as home does for a pinned line. */
-    fun refreshStatus(script: String)
+    /**
+     * The Status card of [script] is in view, and its line asks to run again every [every] seconds
+     * (`refresh`). Runs the script again, quietly, if that is due now. Returns how long the card
+     * waits before it asks again, in milliseconds.
+     *
+     * The pinned header asks for the same runs, and both go by one table of last runs ([StatusTurns]).
+     * So a script that is pinned and also has a card runs once in each period, not twice.
+     */
+    fun refreshStatus(script: String, every: Int): Long
 
     /** A tap on the Battery and network card: opens Android's battery screen, as the header's battery does. */
     fun openBattery()
@@ -111,6 +120,37 @@ internal object WidgetAge {
 }
 
 /**
+ * When a status line's `refresh` is due for a Status card. Pure, like [PinnedTurns]. Times are in
+ * milliseconds on one clock.
+ *
+ * The cards and the pinned header share one table of last runs, by script name (the view model's).
+ * [PinnedTurns.due] reads it for the header, and the view model writes it. [due] reads and writes
+ * it for a card. Whoever asks first runs the script, and the other one then waits a whole period.
+ */
+internal object StatusTurns {
+    /**
+     * How long to wait before the script of a line with `refresh = every` (seconds) runs again.
+     * 0 means now: it has not run for this yet, or its last such run ([lastRun]) is that old.
+     * A pinned line is due by the same rule.
+     */
+    fun waitMs(every: Int, lastRun: Long?, now: Long): Long {
+        if (lastRun == null) return 0L
+        val gap = every.coerceIn(StatusLines.MIN_REFRESH, StatusLines.MAX_REFRESH) * 1000L
+        return (gap - (now - lastRun)).coerceIn(0L, gap)
+    }
+
+    /**
+     * A card asks at [now] whether [name]'s script runs again. True when it is due. [runs] then has
+     * [now] as its last run, so the next question, from the card or the header, waits a whole period.
+     */
+    fun due(runs: MutableMap<String, Long>, name: String, every: Int, now: Long): Boolean {
+        if (waitMs(every, runs[name], now) > 0L) return false
+        runs[name] = now
+        return true
+    }
+}
+
+/**
  * Taps and refresh requests from the cards Kolahal draws on the widgets page. The view model holds
  * one as `widgetActions`.
  * - A refresh is a quiet run with the event "widget". It is never two at once for one script.
@@ -121,8 +161,15 @@ internal object WidgetAge {
  * - A tap on the Battery and network card opens Android's battery screen.
  *
  * [taps]: one item starts at most one run in 2 seconds. The header and the log's buttons share this gate.
+ * [statusRuns]: when each status line last ran again for its `refresh`, in [SystemClock.elapsedRealtime]
+ * time. It is the pinned header's own table ([StatusTurns]). Only the main thread uses it.
  */
-class WidgetActions(private val context: Context, private val taps: TapGate, private val host: Host) : WidgetCardActions {
+class WidgetActions(
+    private val context: Context,
+    private val taps: TapGate,
+    private val statusRuns: MutableMap<String, Long>,
+    private val host: Host,
+) : WidgetCardActions {
     /** What these actions need from the view model. */
     interface Host {
         fun io(block: suspend () -> Unit)
@@ -175,8 +222,13 @@ class WidgetActions(private val context: Context, private val taps: TapGate, pri
         }
     }
 
-    override fun refreshStatus(script: String) = host.io {
-        scripts.byName(script)?.takeIf { it.enabled }?.let { ScriptScheduler.refreshPinned(context, it) }
+    override fun refreshStatus(script: String, every: Int): Long {
+        val now = SystemClock.elapsedRealtime()
+        if (StatusTurns.due(statusRuns, script, every, now)) host.io {
+            scripts.byName(script)?.takeIf { it.enabled }?.let { ScriptScheduler.refreshPinned(context, it) }
+        }
+        // Just after a run this is the whole period, so the card's loop never spins.
+        return StatusTurns.waitMs(every, statusRuns[script], now)
     }
 
     override fun openBattery() {

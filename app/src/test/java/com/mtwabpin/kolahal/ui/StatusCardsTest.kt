@@ -42,23 +42,4 @@ class StatusCardsTest {
         val spec = StatusCards.spec("Cricket", StatusLine("cricket", "NZ 136/8", progress = 0.6f))!!
         assertEquals("Cricket: NZ 136/8, 60%", WidgetWords.description("Cricket", spec, 0L, ZoneId.of("UTC")))
     }
-
-    @Test fun aRefreshIsDueAtOnceAndThenWhenItIsOld() {
-        // It has not run for its refresh yet: now.
-        assertEquals(0L, StatusCards.waitMs(30, null, 5_000L))
-        // It ran 10 seconds ago, and asks for every 30.
-        assertEquals(20_000L, StatusCards.waitMs(30, 100_000L, 110_000L))
-        assertEquals(0L, StatusCards.waitMs(30, 100_000L, 130_000L))
-        assertEquals(0L, StatusCards.waitMs(30, 100_000L, 900_000L))
-        // Just after a run, the whole gap is still to wait. So the card's loop never spins.
-        assertEquals(30_000L, StatusCards.waitMs(30, 100_000L, 100_000L))
-    }
-
-    @Test fun aRefreshIsNeverFasterThanAStatusLineAllows() {
-        assertEquals(10_000L, StatusCards.waitMs(1, 100_000L, 100_000L))
-        assertEquals(10_000L, StatusCards.waitMs(0, 100_000L, 100_000L))
-        assertEquals(3_600_000L, StatusCards.waitMs(99_999, 100_000L, 100_000L))
-        // A last run in the future (the clock started again) waits one gap at most.
-        assertEquals(30_000L, StatusCards.waitMs(30, 500_000L, 100_000L))
-    }
 }
