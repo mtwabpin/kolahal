@@ -240,10 +240,51 @@ internal object WidgetWords {
                     add(countdown(spec.to, now, "days", spec.reached, zone).text)
                     add(spec.label)
                 }
+                // Each button and each switch is an item of its own for a screen reader. The card names them.
+                is WidgetSpec.Buttons -> spec.items.forEach { add(it.label) }
+                is WidgetSpec.Toggles -> spec.items.forEach { add(words(it.label, if (it.on) "on" else "off")) }
+                is WidgetSpec.Clock -> spec.zones.forEach { add(it.label ?: it.zone) }
+                is WidgetSpec.Agenda -> {
+                    if (spec.events.isEmpty()) add(spec.empty ?: NOTHING)
+                    spec.events.forEach { add(it.title) }
+                }
+                is WidgetSpec.Media -> {
+                    add(spec.title)
+                    add(spec.artist)
+                    add(spec.app)
+                    add(if (spec.playing) "playing" else "paused")
+                }
             }
         }
         val said = parts.filterNot { it.isNullOrBlank() }.joinToString(", ")
         return if (title.isNullOrBlank()) said else "$title: $said"
+    }
+
+    /**
+     * True for a kind whose words change as time passes: the card's description for a screen reader
+     * is then made again every minute, with the moment. For any other kind the moment is not read.
+     */
+    fun timed(spec: WidgetSpec?): Boolean = spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda
+
+    /** What a wide card draws around its content: the [title] line over it, and the icon's [badge] at its start. */
+    data class Frame(val title: Boolean, val badge: Boolean)
+
+    /** A wide card this tall has room for its title line over a row of buttons, in dp: a button is 48 dp. */
+    const val TITLED_BUTTONS_DP = 88
+
+    /** A wide card this wide has room for its badge beside its buttons, in dp. A card of two cells is narrower. */
+    const val BADGED_BUTTONS_DP = 250
+
+    /**
+     * What a wide card, [widthDp] by [heightDp], draws around [spec]'s content.
+     * - A kind made of buttons needs 48 dp for each of them. A card too low for the title line and
+     *   a button leaves the title out, and a card too narrow for the badge and two buttons leaves
+     *   the badge out.
+     * - Any other kind has both. A screen reader hears the title either way.
+     */
+    fun wideFrame(spec: WidgetSpec?, widthDp: Int, heightDp: Int): Frame = when (spec) {
+        is WidgetSpec.Buttons, is WidgetSpec.Toggles, is WidgetSpec.Media -> Frame(title = heightDp >= TITLED_BUTTONS_DP, badge = widthDp >= BADGED_BUTTONS_DP)
+        else -> Frame(title = true, badge = true)
     }
 
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
@@ -334,10 +375,13 @@ private val STILL: (Float) -> Float = { 0f }
  * space it is given and draws no frame and no title.
  * - Each kind has a small, a wide and a large layout. A small one leaves parts out; the card's
  *   description for a screen reader still has them.
- * - [onTap] gets a row's own action. With null, rows take no taps (the Widgets screen).
+ * - [onTap] gets the action of a row, a button, a switch or an event. With null, nothing inside
+ *   the content takes a tap (the Widgets screen).
+ * - [stamp] is a number that changes when the content was filled again, also with the same
+ *   description. A switch that waits for its script watches it. 0 for a card that has none.
  */
 @Composable
-internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
+internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long = 0) {
     when (spec) {
         is WidgetSpec.Stat -> StatBody(spec, box)
         is WidgetSpec.Text -> TextBody(spec, box)
@@ -345,6 +389,11 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Progress -> ProgressBody(spec, box)
         is WidgetSpec.Chart -> ChartBody(spec, box)
         is WidgetSpec.Countdown -> CountdownBody(spec, box)
+        is WidgetSpec.Buttons -> ButtonsBody(spec, box, onTap)
+        is WidgetSpec.Toggles -> TogglesBody(spec, box, onTap, stamp)
+        is WidgetSpec.Clock -> ClockBody(spec, box)
+        is WidgetSpec.Agenda -> AgendaBody(spec, box, onTap)
+        is WidgetSpec.Media -> MediaBody(spec, box, onTap)
     }
 }
 

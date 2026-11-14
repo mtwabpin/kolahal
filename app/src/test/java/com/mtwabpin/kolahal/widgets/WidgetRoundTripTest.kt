@@ -47,8 +47,54 @@ class WidgetRoundTripTest {
                 mapOf("title" to "Story", "detail" to "by pg", "trailing" to "412", "icon" to "Y", "color" to "good", "tap" to mapOf("url" to "https://example.com/1")),
                 mapOf("title" to "Another", "tap" to mapOf("args" to "open 2", "label" to "Open")),
                 mapOf("title" to "Plain"),
+                // A row with a checkbox, ticked and not. "Not ticked" must not come back as "no checkbox".
+                mapOf("title" to "Buy milk", "done" to false, "tap" to mapOf("args" to "done 1")),
+                mapOf("title" to "Call home", "done" to true),
             ),
             "empty" to "Nothing new",
+        ),
+    )
+
+    @Test fun buttons() = roundTrip(
+        WidgetKind.BUTTONS,
+        base + mapOf(
+            "items" to listOf(
+                mapOf("label" to "On", "icon" to "☀", "color" to "good", "tap" to mapOf("args" to "on", "label" to "Switch on")),
+                mapOf("label" to "Report", "tap" to mapOf("args" to "report", "page" to "log")),
+                mapOf("label" to "Docs", "tap" to mapOf("url" to "https://example.com/docs")),
+            ),
+        ),
+    )
+
+    @Test fun toggles() = roundTrip(
+        WidgetKind.TOGGLES,
+        base + mapOf(
+            "items" to listOf(
+                mapOf("label" to "Do Not Disturb", "icon" to "🌙", "on" to true, "tap" to mapOf("args" to "dnd off", "label" to "Turn off")),
+                // A switch that is off comes back off, not without a state.
+                mapOf("label" to "Work profile", "on" to false, "tap" to mapOf("args" to "work on")),
+            ),
+        ),
+    )
+
+    @Test fun clock() = roundTrip(
+        WidgetKind.CLOCK,
+        base + mapOf(
+            "zones" to listOf(mapOf("zone" to "Asia/Kolkata", "label" to "Pune"), mapOf("zone" to "America/New_York"), mapOf("zone" to "UTC"), mapOf("zone" to "+05:45")),
+            "seconds" to true,
+        ),
+    )
+
+    @Test fun agenda() = roundTrip(
+        WidgetKind.AGENDA,
+        base + mapOf(
+            "events" to listOf(
+                mapOf("title" to "Final", "starts" to 1_800_000_000L, "ends" to 1_800_007_200L, "where" to "Pune", "color" to "good", "tap" to mapOf("url" to "https://example.com/final")),
+                mapOf("title" to "Holiday", "starts" to 1_800_050_000L, "allDay" to true, "tap" to mapOf("args" to "open 2")),
+                mapOf("title" to "Launch", "starts" to 1_800_100_000L),
+            ),
+            "days" to 7,
+            "empty" to "Nothing planned",
         ),
     )
 
@@ -84,5 +130,15 @@ class WidgetRoundTripTest {
         roundTrip(WidgetKind.PROGRESS, mapOf("value" to 0.5))
         roundTrip(WidgetKind.CHART, mapOf("points" to listOf(1, 2)))
         roundTrip(WidgetKind.COUNTDOWN, mapOf("to" to 1_797_000_000L))
+        roundTrip(WidgetKind.BUTTONS, mapOf("items" to listOf(mapOf("label" to "Go", "tap" to mapOf("args" to "")))))
+        roundTrip(WidgetKind.TOGGLES, mapOf("items" to listOf(mapOf("label" to "Mute", "on" to false, "tap" to mapOf("args" to "mute")))))
+        roundTrip(WidgetKind.CLOCK, mapOf("zones" to listOf(mapOf("zone" to "UTC"))))
+        roundTrip(WidgetKind.AGENDA, mapOf("events" to emptyList<Any>()))
+    }
+
+    /** Every kind a script can use is in the tests above: a new kind needs its round trip. */
+    @Test fun everyKindForScriptsIsHere() {
+        val tested = setOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda")
+        assertEquals(tested, WidgetKind.forScripts.map { it.id }.toSet())
     }
 }

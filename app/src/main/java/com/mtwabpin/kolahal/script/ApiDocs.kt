@@ -39,13 +39,25 @@ object ApiDocs {
      * What `widget.show` does, the same words for Lua and JavaScript. The editor shows the start
      * on one line, so what the call does and returns comes first, and the fields of each kind after.
      */
-    private const val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
-        "stat: value, label, unit, delta, trend, more, progress, moving. text: text, caption. " +
-        "list: items (each { title, detail, trailing, icon, color, tap }), empty. " +
-        "progress: value, max, text, label, style, moving, or items for bars (each { label, value, max, text, color }). " +
-        "chart: points, style, min, max, value, label, labels, summary. countdown: to, from (times in seconds), label, style, reached. " +
+    private val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
+        WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
         "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter, refresh (seconds). " +
         "An unknown field is an error"
+
+    /** The fields of a [kind] widget, as the reference lists them. Only the kinds a script can use are asked for. */
+    private fun widgetFields(kind: WidgetKind): String = when (kind) {
+        WidgetKind.STAT -> "value, label, unit, delta, trend, more, progress, moving"
+        WidgetKind.TEXT -> "text, caption"
+        WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done }), empty"
+        WidgetKind.PROGRESS -> "value, max, text, label, style, moving, or items for bars (each { label, value, max, text, color })"
+        WidgetKind.CHART -> "points, style, min, max, value, label, labels, summary"
+        WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style, reached"
+        WidgetKind.BUTTONS -> "items (1 to 8, each { label, icon, color, tap })"
+        WidgetKind.TOGGLES -> "items (1 to 6, each { label, icon, on, tap }; the tap is { args }, and the run shows the new state)"
+        WidgetKind.CLOCK -> "zones (each { zone, label }; a zone is a name such as Asia/Kolkata), seconds"
+        WidgetKind.AGENDA -> "events (each { title, starts, ends (times in seconds), allDay, where, color, tap }), days, empty"
+        WidgetKind.MEDIA -> ""
+    }
 
     val all: List<ApiDoc> = listOf(
         ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again, ctx.gap = true puts a small space above it to start a new item of a list. line.set(title, body?, ctx?) changes it in place while the script runs"),
@@ -175,7 +187,7 @@ object ApiDocs {
         Directive("usage", "[<args>]", "Its arguments, like a usage line in help: [<city>]"),
         Directive(
             "widget", "<kind> [<size>]",
-            "It has a widget for the widgets page, filled with widget.show. Kinds: " + WidgetKind.entries.joinToString(" ") { it.id } +
+            "It has a widget for the widgets page, filled with widget.show. Kinds: " + WidgetKind.forScripts.joinToString(" ") { it.id } +
                 ". Sizes: " + WidgetSize.entries.joinToString(" ") { it.id },
         ),
         Directive("on", "<event>, …", "Run on these events: " + ScriptMeta.EVENTS.joinToString(" ")),

@@ -210,6 +210,11 @@ class ScriptMetaTest {
         assertEquals(WidgetSize.S2X1, ScriptMeta.widget("-- @widget progress")!!.size)
         assertEquals(WidgetSize.S2X2, ScriptMeta.widget("-- @widget chart")!!.size)
         assertEquals(WidgetSize.S2X1, ScriptMeta.widget("-- @widget countdown")!!.size)
+        assertEquals(ScriptMeta.Widget(WidgetKind.BUTTONS, WidgetSize.S4X1), ScriptMeta.widget("-- @widget buttons"))
+        assertEquals(ScriptMeta.Widget(WidgetKind.TOGGLES, WidgetSize.S4X1), ScriptMeta.widget("// @widget toggles"))
+        assertEquals(ScriptMeta.Widget(WidgetKind.CLOCK, WidgetSize.S2X1), ScriptMeta.widget("-- @widget clock"))
+        assertEquals(ScriptMeta.Widget(WidgetKind.AGENDA, WidgetSize.S4X2), ScriptMeta.widget("// @widget agenda"))
+        assertEquals(ScriptMeta.Widget(WidgetKind.CLOCK, WidgetSize.S4X1), ScriptMeta.widget("-- @widget clock 4x1"))
         // A wrong size does not hide the widget.
         assertEquals(ScriptMeta.Widget(WidgetKind.TEXT, WidgetSize.S2X2), ScriptMeta.widget("-- @widget text 9x9"))
         // No line, no kind, a kind Kolahal doesn't draw, another directive, or a call in the code.
@@ -218,19 +223,41 @@ class ScriptMetaTest {
         assertNull(ScriptMeta.widget("-- @widget hologram 2x2"))
         assertNull(ScriptMeta.widget("-- @widgets stat"))
         assertNull(ScriptMeta.widget("widget.show{ value = 1 }"))
+        // A kind only Kolahal fills: a script that names it has no widget.
+        assertNull(ScriptMeta.widget("-- @widget media"))
+        assertNull(ScriptMeta.widget("// @widget Media 4x1"))
     }
 
     @Test fun sizesAndKindsHaveNames() {
         assertEquals(listOf("1x1", "2x1", "2x2", "4x1", "4x2", "4x4"), WidgetSize.entries.map { it.id })
         assertEquals(listOf(3, 6, 6, 12, 12, 12), WidgetSize.entries.map { it.span })
         assertEquals(listOf(1, 1, 2, 1, 2, 4), WidgetSize.entries.map { it.rows })
-        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown"), WidgetKind.entries.map { it.id })
+        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda", "media"), WidgetKind.entries.map { it.id })
         assertEquals(WidgetSize.S4X1, WidgetSize.named(" 4X1 "))
         assertNull(WidgetSize.named("3x1"))
         assertNull(WidgetSize.named(null))
         assertEquals(WidgetKind.COUNTDOWN, WidgetKind.named("Countdown"))
-        assertNull(WidgetKind.named("buttons"))
+        assertEquals(WidgetKind.BUTTONS, WidgetKind.named("buttons"))
+        assertEquals(WidgetKind.AGENDA, WidgetKind.named(" AGENDA "))
+        assertNull(WidgetKind.named("image"))
         assertNull(WidgetKind.named(null))
+    }
+
+    /** `media` is a kind only Kolahal fills: a script can't name it, and no list for scripts has it. */
+    @Test fun aScriptCantNameAKindOnlyKolahalFills() {
+        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda"), WidgetKind.forScripts.map { it.id })
+        assertEquals(listOf(WidgetKind.MEDIA), WidgetKind.entries.filterNot { it.script })
+        assertNull(WidgetKind.named("media"))
+        assertNull(WidgetKind.named("MEDIA"))
+        // Every kind for scripts is found by its name, and no other is.
+        WidgetKind.entries.forEach { assertEquals(it.takeIf { k -> k.script }, WidgetKind.named(it.id)) }
+        // The reference lists what a script can write, and no more.
+        val line = ApiDocs.directives.single { it.name == "widget" }.doc
+        assertTrue(line, line.contains("Kinds: stat text list progress chart countdown buttons toggles clock agenda."))
+        assertFalse(line, line.contains("media"))
+        val show = ApiDocs.all.first { it.name == "widget.show" }.doc
+        WidgetKind.forScripts.forEach { assertTrue("${it.id} in: $show", show.contains("${it.id}: ")) }
+        assertFalse(show, show.contains("media"))
     }
 
     /** The widgets page item is off until the widget is placed, and nothing asks for it: placing is the user's act. */

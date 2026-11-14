@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.WidgetTap
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -185,6 +186,43 @@ class WidgetWordsTest {
         // A countdown that draws a clock is still said in words: a running clock is noise.
         val trip = WidgetSpec.Countdown(base, to = now + 3 * 3600L + 20, label = "Goa trip")
         assertEquals("Trip: 3 hours, Goa trip", WidgetWords.description("Trip", trip, now, utc))
+    }
+
+    private val go = WidgetTap(args = "go")
+
+    /** The card names its buttons and its switches. Each of them is an item of its own for a screen reader too. */
+    @Test fun buttonsTogglesAndMediaHaveWords() {
+        val now = at(day = 20, hour = 0)
+        val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("Torch", go), WidgetSpec.Button("Timer", go)))
+        assertEquals("Shortcuts: Torch, Timer", WidgetWords.description("Shortcuts", buttons, now, utc))
+        val toggles = WidgetSpec.Toggles(base, items = listOf(WidgetSpec.Toggle("Do Not Disturb", on = true, tap = go), WidgetSpec.Toggle("Work", on = false, tap = go)))
+        assertEquals("Quick toggles: Do Not Disturb on, Work off", WidgetWords.description("Quick toggles", toggles, now, utc))
+        val media = WidgetSpec.Media(base, title = "Song", artist = "Singer", app = "Player", playing = true, position = 0, positionAt = 0, speed = 1f, duration = 0)
+        assertEquals("Now playing: Song, Singer, Player, playing", WidgetWords.description("Now playing", media, now, utc))
+        assertEquals("Now playing: Player, paused", WidgetWords.description("Now playing", media.copy(title = null, artist = null, playing = false), now, utc))
+    }
+
+    /** A countdown, a clock and an agenda say the time, so their words are made again as it passes. No other kind's are. */
+    @Test fun onlyAKindThatTellsTheTimeIsSaidAgainAsTimePasses() {
+        assertTrue(WidgetWords.timed(WidgetSpec.Countdown(base, to = 5)))
+        assertTrue(WidgetWords.timed(WidgetSpec.Clock(base, zones = listOf(WidgetSpec.Zone("UTC")))))
+        assertTrue(WidgetWords.timed(WidgetSpec.Agenda(base, events = emptyList())))
+        assertFalse(WidgetWords.timed(WidgetSpec.Stat(base, value = "1")))
+        assertFalse(WidgetWords.timed(WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))))
+        assertFalse(WidgetWords.timed(null))
+    }
+
+    /** A button is never under 48 dp. So a wide card too low or too narrow leaves out its title line or its badge, not a button. */
+    @Test fun aWideCardOfButtonsLeavesOutWhatHasNoRoom() {
+        val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))
+        val toggles = WidgetSpec.Toggles(base, items = listOf(WidgetSpec.Toggle("A", on = true, tap = go)))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(buttons, 340, 88))
+        assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(buttons, 340, 72))
+        assertEquals(WidgetWords.Frame(title = true, badge = false), WidgetWords.wideFrame(buttons, 165, 96))
+        assertEquals(WidgetWords.Frame(title = false, badge = false), WidgetWords.wideFrame(toggles, 165, 80))
+        // Any other kind, and a card with no content, has both.
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(WidgetSpec.Stat(base, value = "1"), 165, 72))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(null, 165, 72))
     }
 
     @Test fun anAgeIsShortOnTheCardAndInWholeWordsForAScreenReader() {

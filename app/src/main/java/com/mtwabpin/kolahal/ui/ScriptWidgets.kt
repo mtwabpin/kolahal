@@ -143,8 +143,11 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?, ownWidget: Boolean
  *   end of the title's line. Small has no room for it.
  * - [description] is the whole card for a screen reader, in one item. Rows with their own tap are
  *   items of their own inside it.
- * - [onClick] is a tap on the card and [onLongClick] a long-press. [onTap] gets a row's own action.
- *   With all three null the card takes no touches (the Widgets screen).
+ * - [onClick] is a tap on the card and [onLongClick] a long-press. [onTap] gets the own action of a
+ *   row, a button, a switch or an event. With all three null the card takes no touches (the Widgets screen).
+ * - [stamp] is a number that changes when the content was filled again, also with the same
+ *   description: a script's card gives the time of its last run. A switch that waits for its script
+ *   watches it ([KindBody]).
  */
 @Composable
 internal fun WidgetCard(
@@ -160,10 +163,13 @@ internal fun WidgetCard(
     onClickLabel: String? = null,
     onLongClick: (() -> Unit)? = null,
     onTap: ((WidgetTap) -> Unit)? = null,
+    stamp: Long = 0,
 ) {
     val scheme = MaterialTheme.colorScheme
     BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
-        val box = WidgetSizes.box(maxWidth.value.toInt(), maxHeight.value.toInt())
+        val widthDp = maxWidth.value.toInt()
+        val heightDp = maxHeight.value.toInt()
+        val box = WidgetSizes.box(widthDp, heightDp)
         // The tap and the description are on one node, so a screen reader finds one item.
         val press = if (onClick != null) {
             Modifier.combinedClickable(
@@ -183,14 +189,19 @@ internal fun WidgetCard(
         ) {
             Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
                 CompositionLocalProvider(LocalCardLongPress provides onLongClick) {
-                    CardLayout(title, spec, note, failure, footer, box, onTap)
+                    // A card with a note draws no content, so its frame is the usual one.
+                    val frame = WidgetWords.wideFrame(spec.takeIf { note == null }, widthDp, heightDp)
+                    CardLayout(title, spec, note, failure, footer, box, frame, onTap, stamp)
                 }
             }
         }
     }
 }
 
-/** The title, the badge, the content and the footer, placed for [box]. */
+/**
+ * The title, the badge, the content and the footer, placed for [box]. [frame] says which of the
+ * title line and the badge a wide box has ([WidgetWords.wideFrame]).
+ */
 @Composable
 private fun CardLayout(
     title: String,
@@ -199,7 +210,9 @@ private fun CardLayout(
     failure: String?,
     footer: WidgetWords.Footer?,
     box: WidgetSizes.Box,
+    frame: WidgetWords.Frame,
     onTap: ((WidgetTap) -> Unit)?,
+    stamp: Long,
 ) {
     val type = MaterialTheme.typography
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -215,24 +228,25 @@ private fun CardLayout(
                 Text(title, style = type.titleSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
             Spacer(Modifier.height(8.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
             if (footer != null) FooterLine(footer, Modifier.padding(top = 4.dp))
         }
         WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
+            if (icon != null && frame.badge) {
                 IconBadge(icon, colour, badgeShape(spec), 40.dp)
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Without the title line there is no place for the footer. A screen reader still hears both.
+                if (frame.title) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(title, style = type.labelMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
                 }
-                Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap) }
+                Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
             }
         }
         // No room for a title or a footer: the content alone. A screen reader still hears both.
-        WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap) }
+        WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
     }
 }
 
@@ -254,7 +268,7 @@ private fun FooterLine(footer: WidgetWords.Footer, modifier: Modifier = Modifier
 /** The content, or what the card says without any. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
+private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
     val small = box == WidgetSizes.Box.SMALL
     when {
         note == CardNote.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -269,7 +283,7 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
         note == CardNote.REMOVED -> QuietLine(WidgetWords.REMOVED, small)
         note == CardNote.OFF -> QuietLine(WidgetWords.OFF, small)
         note == CardNote.NO_WIDGET -> QuietLine(WidgetWords.NO_WIDGET, small)
-        note == null && spec != null -> KindBody(spec, box, onTap)
+        note == null && spec != null -> KindBody(spec, box, onTap, stamp)
     }
 }
 
@@ -297,6 +311,11 @@ private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
     is WidgetSpec.Progress -> MaterialShapes.Circle
     is WidgetSpec.Chart -> MaterialShapes.Gem
     is WidgetSpec.Countdown -> MaterialShapes.Sunny
+    is WidgetSpec.Buttons -> MaterialShapes.Clover4Leaf
+    is WidgetSpec.Toggles -> MaterialShapes.Slanted
+    is WidgetSpec.Clock -> MaterialShapes.Cookie12Sided
+    is WidgetSpec.Agenda -> MaterialShapes.Arch
+    is WidgetSpec.Media -> MaterialShapes.Flower
     null -> MaterialShapes.Circle
 }.toShape()
 
@@ -496,8 +515,8 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     val footer = remember(s, minute, zone) {
         s?.let { WidgetWords.footer(it.hasContent, WidgetAge.old(it.setAt, it.spec?.base?.staleAfter, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone) }
     }
-    // Only a countdown's own words change with the time.
-    val now = if (spec is WidgetSpec.Countdown) minute.time / 1000 else 0L
+    // Only the words of a kind that tells the time change with it: a countdown, a clock, an agenda.
+    val now = if (WidgetWords.timed(spec)) minute.time / 1000 else 0L
     val description = remember(title, spec, note, failure, footer, now, zone) {
         val content = when {
             spec != null -> WidgetWords.description(title, spec, now, zone)
@@ -536,6 +555,9 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         },
         onLongClick = onLongClick,
         onTap = onTap,
+        // The time of the last run that ended, whether it showed something or failed. A switch that
+        // waits for its script stops waiting when this moves.
+        stamp = s?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L,
     )
 }
 

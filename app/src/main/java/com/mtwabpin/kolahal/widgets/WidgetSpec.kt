@@ -24,20 +24,34 @@ enum class WidgetSize(val id: String, val cells: Int, val rows: Int) {
     }
 }
 
-/** The kinds of card Kolahal draws for a script's widget. [size] is the size a kind gets when its `@widget` line names none. */
-enum class WidgetKind(val id: String, val size: WidgetSize) {
+/**
+ * The kinds of card Kolahal draws. [size] is the size a kind gets when its `@widget` line names none.
+ * - A kind with [script] can be a script's widget: its `@widget` line names it and `widget.show` fills it.
+ * - A kind without it is filled by Kolahal only. A script can't name it, and it is never stored.
+ */
+enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean = true) {
     STAT("stat", WidgetSize.S2X1),
     TEXT("text", WidgetSize.S2X2),
     LIST("list", WidgetSize.S4X2),
     PROGRESS("progress", WidgetSize.S2X1),
     CHART("chart", WidgetSize.S2X2),
-    COUNTDOWN("countdown", WidgetSize.S2X1);
+    COUNTDOWN("countdown", WidgetSize.S2X1),
+    BUTTONS("buttons", WidgetSize.S4X1),
+    TOGGLES("toggles", WidgetSize.S4X1),
+    CLOCK("clock", WidgetSize.S2X1),
+    AGENDA("agenda", WidgetSize.S4X2),
+
+    /** What is playing. A script can't see that and may not send media commands, so only Kolahal fills it. */
+    MEDIA("media", WidgetSize.S4X1, script = false);
 
     companion object {
-        /** The kind with this name, in any case. Null for anything else. */
+        /** The kinds a script's widget can have, in the order the docs list them. */
+        val forScripts: List<WidgetKind> = entries.filter { it.script }
+
+        /** The kind a script can use with this name, in any case. Null for anything else, and for a kind only Kolahal fills. */
         fun named(id: String?): WidgetKind? {
             val wanted = id?.trim()?.lowercase() ?: return null
-            return entries.firstOrNull { it.id == wanted }
+            return forScripts.firstOrNull { it.id == wanted }
         }
     }
 }
@@ -89,7 +103,10 @@ sealed interface WidgetSpec {
     /** Kind `text`: a few lines and a caption. */
     data class Text(override val base: WidgetBase, val text: String, val caption: String? = null) : WidgetSpec
 
-    /** One row of [Rows]. */
+    /**
+     * One row of [Rows]. With [done] (true or false) the row has a checkbox, ticked or not, for a todo
+     * or a habit. With null it has none.
+     */
     data class Row(
         val title: String,
         val detail: String? = null,
@@ -97,6 +114,7 @@ sealed interface WidgetSpec {
         val icon: String? = null,
         val color: StyledText.Colour? = null,
         val tap: WidgetTap? = null,
+        val done: Boolean? = null,
     )
 
     /** Kind `list`: rows. [empty] is what to say with no rows. */
@@ -142,6 +160,56 @@ sealed interface WidgetSpec {
         val style: String? = null,
         val reached: String? = null,
     ) : WidgetSpec
+
+    /** One button of [Buttons]. */
+    data class Button(val label: String, val tap: WidgetTap, val icon: String? = null, val color: StyledText.Colour? = null)
+
+    /** Kind `buttons`: a grid of 1 to 8 buttons. A small card draws fewer buttons, never smaller ones. */
+    data class Buttons(override val base: WidgetBase, val items: List<Button>) : WidgetSpec
+
+    /** One switch of [Toggles]. [on] is its state as the script last reported it. Its [tap] always has `args`. */
+    data class Toggle(val label: String, val on: Boolean, val tap: WidgetTap, val icon: String? = null)
+
+    /** Kind `toggles`: 1 to 6 switches. A tap runs the script, and the script reports the new state. */
+    data class Toggles(override val base: WidgetBase, val items: List<Toggle>) : WidgetSpec
+
+    /** One place of a [Clock]. [zone] is a time zone name that `java.time.ZoneId.of` knows, such as `Asia/Kolkata`. */
+    data class Zone(val zone: String, val label: String? = null)
+
+    /** Kind `clock`: the time in up to 4 places. Kolahal ticks. With [seconds], it shows seconds. */
+    data class Clock(override val base: WidgetBase, val zones: List<Zone>, val seconds: Boolean = false) : WidgetSpec
+
+    /** One event of an [Agenda]. [starts] and [ends] are in seconds since 1970. An [allDay] event shows no time. */
+    data class Event(
+        val title: String,
+        val starts: Long,
+        val ends: Long? = null,
+        val allDay: Boolean = false,
+        val where: String? = null,
+        val color: StyledText.Colour? = null,
+        val tap: WidgetTap? = null,
+    )
+
+    /** Kind `agenda`: up to 20 events by day, for [days] days from today (1 to 7). [empty] is what to say with no events. */
+    data class Agenda(override val base: WidgetBase, val events: List<Event>, val days: Int = 3, val empty: String? = null) : WidgetSpec
+
+    /**
+     * Kind `media`: what is playing, with its controls. Made by Kolahal only; never parsed, never stored.
+     * Times are in milliseconds. [position] was right at the moment [positionAt] (on the phone's clock,
+     * `System.currentTimeMillis`), and moves at [speed] while [playing]. A [duration] of 0 or less
+     * means it is not known.
+     */
+    data class Media(
+        override val base: WidgetBase,
+        val title: String?,
+        val artist: String?,
+        val app: String,
+        val playing: Boolean,
+        val position: Long,
+        val positionAt: Long,
+        val speed: Float,
+        val duration: Long,
+    ) : WidgetSpec
 }
 
 /**
@@ -156,6 +224,11 @@ sealed interface WidgetSpec {
  *   link that isn't a web link, a text or a description far longer than `widget.show` allows.
  * - A list longer than its limit is cut as `widget.show` cuts it, and a number outside its range
  *   is brought into it. The parser has done both already, so this changes nothing it wrote.
+ * - Where `widget.show` refuses and does not cut, this refuses too: no buttons or more than
+ *   [MAX_BUTTONS], no switches or more than [MAX_TOGGLES], a switch whose tap is not `{ args }`,
+ *   no zones, a zone that `java.time.ZoneId.of` does not know.
+ * - A kind only Kolahal fills (`media`) is never written and never read: [encode] gives "" for it,
+ *   and [decode] gives null. So the :script process can't hand one to the main process.
  * - Unknown keys are skipped.
  */
 object WidgetJson {
@@ -173,6 +246,13 @@ object WidgetJson {
     const val MAX_BARS = 4
     const val MAX_POINTS = 60
     const val MAX_LABELS = 2
+    const val MAX_BUTTONS = 8
+    const val MAX_TOGGLES = 6
+    const val MAX_ZONES = 4
+    const val MAX_EVENTS = 20
+    const val MIN_DAYS = 1
+    const val MAX_DAYS = 7
+    const val DEFAULT_DAYS = 3
     const val MIN_STALE = 60
     const val MAX_STALE = 604_800
     const val MIN_REFRESH = 10
@@ -182,8 +262,15 @@ object WidgetJson {
 
     private const val LOG = "log"
 
-    /** The JSON for [spec]. Fields that are null, false or empty are left out. */
-    fun encode(spec: WidgetSpec): String = runCatching { Json.stringify(toMap(spec)) }.getOrDefault("")
+    /**
+     * The JSON for [spec]. Fields that are null, false or empty are left out. A true-or-false field
+     * that says something when it is false (a switch's `on`, a row's `done`) is written then too.
+     * "" for a kind that is never stored ([WidgetKind.script] is false).
+     */
+    fun encode(spec: WidgetSpec): String {
+        if (!kindOf(spec).script) return ""
+        return runCatching { Json.stringify(toMap(spec)) }.getOrDefault("")
+    }
 
     /** The description stored as [text]. Null for anything that isn't one: it never throws. */
     fun decode(text: String?): WidgetSpec? {
@@ -205,6 +292,11 @@ object WidgetJson {
         is WidgetSpec.Progress -> WidgetKind.PROGRESS
         is WidgetSpec.Chart -> WidgetKind.CHART
         is WidgetSpec.Countdown -> WidgetKind.COUNTDOWN
+        is WidgetSpec.Buttons -> WidgetKind.BUTTONS
+        is WidgetSpec.Toggles -> WidgetKind.TOGGLES
+        is WidgetSpec.Clock -> WidgetKind.CLOCK
+        is WidgetSpec.Agenda -> WidgetKind.AGENDA
+        is WidgetSpec.Media -> WidgetKind.MEDIA
     }
 
     /** A map of the pairs whose value is not null, in the order given. */
@@ -250,7 +342,7 @@ object WidgetJson {
                 "items" to spec.items.map {
                     fields(
                         "title" to it.title, "detail" to it.detail, "trailing" to it.trailing, "icon" to it.icon,
-                        "color" to it.color?.role, "tap" to it.tap?.let(::tapMap),
+                        "color" to it.color?.role, "tap" to it.tap?.let(::tapMap), "done" to it.done,
                     )
                 },
                 "empty" to spec.empty,
@@ -278,6 +370,28 @@ object WidgetJson {
                 "summary" to spec.summary,
             )
             is WidgetSpec.Countdown -> fields("to" to spec.to, "from" to spec.from, "label" to spec.label, "style" to spec.style, "reached" to spec.reached)
+            is WidgetSpec.Buttons -> fields(
+                "items" to spec.items.map { fields("label" to it.label, "icon" to it.icon, "color" to it.color?.role, "tap" to tapMap(it.tap)) },
+            )
+            is WidgetSpec.Toggles -> fields(
+                "items" to spec.items.map { fields("label" to it.label, "icon" to it.icon, "on" to it.on, "tap" to tapMap(it.tap)) },
+            )
+            is WidgetSpec.Clock -> fields(
+                "zones" to spec.zones.map { fields("zone" to it.zone, "label" to it.label) },
+                "seconds" to flag(spec.seconds),
+            )
+            is WidgetSpec.Agenda -> fields(
+                "events" to spec.events.map {
+                    fields(
+                        "title" to it.title, "starts" to it.starts, "ends" to it.ends, "allDay" to flag(it.allDay), "where" to it.where,
+                        "color" to it.color?.role, "tap" to it.tap?.let(::tapMap),
+                    )
+                },
+                "days" to spec.days,
+                "empty" to spec.empty,
+            )
+            // Not reached: [encode] stops before it.
+            is WidgetSpec.Media -> emptyMap()
         }
         return common + own
     }
@@ -311,6 +425,19 @@ object WidgetJson {
         else -> odd()
     }
 
+    /** A true-or-false field that has no value when it is left out: a row's `done`. */
+    private fun Map<*, *>.flagOrNull(key: String): Boolean? = when (val v = this[key]) {
+        null -> null
+        is Boolean -> v
+        else -> odd()
+    }
+
+    /** A time zone name that `java.time.ZoneId.of` knows. */
+    private fun Map<*, *>.zone(key: String): String = needText(key).also { name -> runCatching { java.time.ZoneId.of(name) }.getOrNull() ?: odd() }
+
+    /** A list that must have 1 to [max] items. `widget.show` refuses any other, so nothing is cut here. */
+    private fun Map<*, *>.counted(key: String, max: Int): List<*> = list(key)?.takeIf { it.size in 1..max } ?: odd()
+
     private fun Map<*, *>.colour(key: String): StyledText.Colour? = text(key)?.let { role -> StyledText.Colour.entries.firstOrNull { it.role == role } ?: odd() }
 
     private fun Map<*, *>.oneOf(key: String, vararg words: String): String? = text(key)?.also { if (it !in words) odd() }
@@ -336,7 +463,8 @@ object WidgetJson {
 
     private fun fromMap(m: Map<*, *>): WidgetSpec? {
         if ((m["v"] as? Number)?.toDouble() != FORMAT.toDouble()) return null
-        val kind = WidgetKind.entries.firstOrNull { it.id == m["kind"] } ?: return null
+        // Only a kind a script can fill is ever stored.
+        val kind = WidgetKind.forScripts.firstOrNull { it.id == m["kind"] } ?: return null
         val base = WidgetBase(
             title = m.text("title"),
             icon = m.text("icon"),
@@ -362,7 +490,7 @@ object WidgetJson {
                 base,
                 items = (m.list("items") ?: odd()).take(MAX_ROWS).map {
                     val r = obj(it)
-                    WidgetSpec.Row(r.needText("title"), r.text("detail"), r.text("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"))
+                    WidgetSpec.Row(r.needText("title"), r.text("detail"), r.text("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
                 },
                 empty = m.text("empty"),
             )
@@ -398,6 +526,46 @@ object WidgetJson {
                 style = m.oneOf("style", "days", "clock"),
                 reached = m.text("reached"),
             )
+            WidgetKind.BUTTONS -> WidgetSpec.Buttons(
+                base,
+                items = m.counted("items", MAX_BUTTONS).map {
+                    val b = obj(it)
+                    WidgetSpec.Button(b.needText("label"), b.tap("tap") ?: odd(), b.text("icon"), b.colour("color"))
+                },
+            )
+            WidgetKind.TOGGLES -> WidgetSpec.Toggles(
+                base,
+                items = m.counted("items", MAX_TOGGLES).map {
+                    val t = obj(it)
+                    // A switch runs its script. It never opens a link.
+                    val tap = t.tap("tap")?.takeIf { tap -> tap.args != null } ?: odd()
+                    WidgetSpec.Toggle(t.needText("label"), t.flagOrNull("on") ?: odd(), tap, t.text("icon"))
+                },
+            )
+            WidgetKind.CLOCK -> WidgetSpec.Clock(
+                base,
+                zones = (m.list("zones") ?: odd()).take(MAX_ZONES).map { obj(it).let { z -> WidgetSpec.Zone(z.zone("zone"), z.text("label")) } }.ifEmpty { odd() },
+                seconds = m.flag("seconds"),
+            )
+            WidgetKind.AGENDA -> WidgetSpec.Agenda(
+                base,
+                events = (m.list("events") ?: odd()).take(MAX_EVENTS).map {
+                    val e = obj(it)
+                    WidgetSpec.Event(
+                        title = e.needText("title"),
+                        starts = e.seconds("starts") ?: odd(),
+                        ends = e.seconds("ends"),
+                        allDay = e.flag("allDay"),
+                        where = e.text("where"),
+                        color = e.colour("color"),
+                        tap = e.tap("tap"),
+                    )
+                },
+                days = m.number("days")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
+                empty = m.text("empty"),
+            )
+            // Not reached: `media` is not among the kinds looked up above.
+            WidgetKind.MEDIA -> null
         }
     }
 

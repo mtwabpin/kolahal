@@ -28,8 +28,8 @@ object ScriptCheck {
         val kind = words[0]
         val size = words.getOrNull(1)
         return when {
-            kind.isEmpty() -> "@widget needs a kind: ${WidgetKind.entries.joinToString(", ") { it.id }}"
-            WidgetKind.named(kind) == null -> "@widget $kind isn't a kind: ${WidgetKind.entries.joinToString(", ") { it.id }}"
+            kind.isEmpty() -> "@widget needs a kind: ${WidgetKind.forScripts.joinToString(", ") { it.id }}"
+            WidgetKind.named(kind) == null -> "@widget $kind isn't a kind: ${WidgetKind.forScripts.joinToString(", ") { it.id }}"
             size != null && WidgetSize.named(size) == null -> "@widget $kind $size isn't a size: ${WidgetSize.entries.joinToString(", ") { it.id }}"
             else -> null
         }

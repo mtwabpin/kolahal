@@ -79,8 +79,8 @@ class WidgetParserTest {
     @Test fun aListNeedsItsItemsAndEachItemItsTitle() {
         assertTrue(refused(emptyMap(), WidgetKind.LIST)!!.startsWith("widget: items is needed: a list of rows"))
         assertEquals("widget: item 2 of items: title is needed: the row's text", refused(mapOf("items" to listOf(mapOf("title" to "a"), mapOf("detail" to "b"))), WidgetKind.LIST))
-        assertEquals("widget: items must be a list of { title, detail, trailing, icon, color, tap }, not 'rows'", refused(mapOf("items" to "rows"), WidgetKind.LIST))
-        assertEquals("widget: item 1 of items: must be { title, detail, trailing, icon, color, tap }, not 'a row'", refused(mapOf("items" to listOf("a row")), WidgetKind.LIST))
+        assertEquals("widget: items must be a list of { title, detail, trailing, icon, color, tap, done }, not 'rows'", refused(mapOf("items" to "rows"), WidgetKind.LIST))
+        assertEquals("widget: item 1 of items: must be { title, detail, trailing, icon, color, tap, done }, not 'a row'", refused(mapOf("items" to listOf("a row")), WidgetKind.LIST))
     }
 
     /** An empty Lua table arrives as an empty map: it has no keys to tell a list from a table. */
@@ -91,11 +91,235 @@ class WidgetParserTest {
         assertEquals("widget: more must be a list of { value, label }, not a table", refused(mapOf("value" to 1, "more" to mapOf("value" to 2))))
     }
 
+    /** `done` on a row is true, false, or left out. Left out means "no checkbox", so false must stay false. */
+    @Test fun aRowCanHaveACheckbox() {
+        val rows = list(mapOf("title" to "Buy milk", "done" to false), mapOf("title" to "Call home", "done" to true), mapOf("title" to "Plain"), mapOf("title" to "Nil", "done" to null))
+        assertEquals(listOf(false, true, null, null), rows.items.map { it.done })
+        assertEquals("widget: item 1 of items: done must be true or false, not 'yes'", refused(mapOf("items" to listOf(mapOf("title" to "a", "done" to "yes"))), WidgetKind.LIST))
+        assertEquals("widget: item 1 of items: done must be true or false, not 1", refused(mapOf("items" to listOf(mapOf("title" to "a", "done" to 1))), WidgetKind.LIST))
+    }
+
+    // ---- buttons --------------------------------------------------------------------------
+
+    private fun buttons(vararg items: Any?) = parse(mapOf("items" to items.toList()), WidgetKind.BUTTONS) as WidgetSpec.Buttons
+
+    private fun button(label: String, args: String = label.lowercase()) = mapOf("label" to label, "tap" to mapOf("args" to args))
+
+    @Test fun buttonsWithAllTheirFields() {
+        val spec = parse(
+            mapOf(
+                "title" to "Lights", "icon" to "💡", "color" to "warn",
+                "items" to listOf(
+                    mapOf("label" to "On", "icon" to "☀", "color" to "good", "tap" to mapOf("args" to "on", "label" to "Switch on")),
+                    mapOf("label" to "Docs", "tap" to mapOf("url" to "https://example.com")),
+                    mapOf("label" to 7, "tap" to mapOf("args" to "")),
+                ),
+            ),
+            WidgetKind.BUTTONS,
+        )
+        assertEquals(
+            WidgetSpec.Buttons(
+                WidgetBase(title = "Lights", icon = "💡", color = StyledText.Colour.WARN),
+                items = listOf(
+                    WidgetSpec.Button("On", WidgetTap(args = "on", label = "Switch on"), icon = "☀", color = StyledText.Colour.GOOD),
+                    WidgetSpec.Button("Docs", WidgetTap(url = "https://example.com")),
+                    WidgetSpec.Button("7", WidgetTap(args = "")),
+                ),
+            ),
+            spec,
+        )
+    }
+
+    /** 1 to 8 buttons. More is an error and nothing is cut: a button that went missing is a tap you can't make. */
+    @Test fun buttonsAreOneToEight() {
+        assertEquals(8, buttons(*(1..8).map { button("B$it") }.toTypedArray()).items.size)
+        assertEquals(1, buttons(button("Only")).items.size)
+        assertEquals("widget: items has 9 buttons: give 8 at most", refused(mapOf("items" to (1..9).map { button("B$it") }), WidgetKind.BUTTONS))
+        assertEquals("widget: items is empty: give 1 to 8 buttons", refused(mapOf("items" to emptyList<Any>()), WidgetKind.BUTTONS))
+        assertEquals("widget: items is empty: give 1 to 8 buttons", refused(mapOf("items" to emptyMap<String, Any?>()), WidgetKind.BUTTONS))
+        assertEquals("widget: items is needed: a list of buttons, each { label, icon, color, tap }", refused(emptyMap(), WidgetKind.BUTTONS))
+        assertEquals("widget: items must be a list of { label, icon, color, tap }, not 'x'", refused(mapOf("items" to "x"), WidgetKind.BUTTONS))
+        assertEquals("widget: item 1 of items: must be { label, icon, color, tap }, not 'x'", refused(mapOf("items" to listOf("x")), WidgetKind.BUTTONS))
+    }
+
+    @Test fun aButtonNeedsItsLabelAndItsTap() {
+        assertEquals("widget: item 1 of items: label is needed: the button's text", refused(mapOf("items" to listOf(mapOf("tap" to mapOf("args" to "x")))), WidgetKind.BUTTONS))
+        assertEquals("widget: item 2 of items: tap is needed: what the button does, { args } or { url }", refused(mapOf("items" to listOf(button("A"), mapOf("label" to "B"))), WidgetKind.BUTTONS))
+        assertEquals("widget: item 1 of items: tap: give args or url", refused(mapOf("items" to listOf(mapOf("label" to "A", "tap" to mapOf("label" to "x")))), WidgetKind.BUTTONS))
+        assertEquals("widget: item 1 of items: no field 'command'; use label, icon, color, tap", refused(mapOf("items" to listOf(button("A") + ("command" to "torch"))), WidgetKind.BUTTONS))
+        // A command is no action: a description can't plant one.
+        assertEquals("widget: item 1 of items: tap: no field 'command'; use args, url, label, page", refused(mapOf("items" to listOf(mapOf("label" to "A", "tap" to mapOf("command" to "torch")))), WidgetKind.BUTTONS))
+        // The label is cut at 24.
+        assertEquals("x".repeat(23) + "…", buttons(button("x".repeat(40), "a")).items.single().label)
+    }
+
+    // ---- toggles --------------------------------------------------------------------------
+
+    private fun toggle(label: String, on: Boolean) = mapOf("label" to label, "on" to on, "tap" to mapOf("args" to "toggle ${label.lowercase()}"))
+
+    @Test fun togglesWithAllTheirFields() {
+        val spec = parse(
+            mapOf(
+                "title" to "Quick toggles",
+                "items" to listOf(mapOf("label" to "Do Not Disturb", "icon" to "🌙", "on" to true, "tap" to mapOf("args" to "dnd off", "label" to "Turn off")), toggle("Work", false)),
+            ),
+            WidgetKind.TOGGLES,
+        )
+        assertEquals(
+            WidgetSpec.Toggles(
+                // The thing can change elsewhere, so the content is old after a minute unless the script says otherwise.
+                WidgetBase(title = "Quick toggles", staleAfter = 60),
+                items = listOf(
+                    WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd off", label = "Turn off"), icon = "🌙"),
+                    WidgetSpec.Toggle("Work", on = false, tap = WidgetTap(args = "toggle work")),
+                ),
+            ),
+            spec,
+        )
+        assertEquals(600, parse(mapOf("staleAfter" to 600, "items" to listOf(toggle("A", true))), WidgetKind.TOGGLES).base.staleAfter)
+    }
+
+    @Test fun togglesAreOneToSix() {
+        assertEquals(6, (parse(mapOf("items" to (1..6).map { toggle("T$it", it % 2 == 0) }), WidgetKind.TOGGLES) as WidgetSpec.Toggles).items.size)
+        assertEquals("widget: items has 7 switches: give 6 at most", refused(mapOf("items" to (1..7).map { toggle("T$it", true) }), WidgetKind.TOGGLES))
+        assertEquals("widget: items is empty: give 1 to 6 switches", refused(mapOf("items" to emptyList<Any>()), WidgetKind.TOGGLES))
+        assertEquals("widget: items is needed: a list of switches, each { label, icon, on, tap }", refused(emptyMap(), WidgetKind.TOGGLES))
+    }
+
+    /** A switch needs its label, its state and a tap that runs the script. Kolahal never guesses the state. */
+    @Test fun aToggleNeedsItsLabelItsStateAndATapWithArgs() {
+        fun no(vararg fields: Pair<String, Any?>) = refused(mapOf("items" to listOf(mapOf(*fields))), WidgetKind.TOGGLES)
+        val tap = "tap" to mapOf("args" to "x")
+        assertEquals("widget: item 1 of items: label is needed: the switch's text", no("on" to true, tap))
+        assertEquals("widget: item 1 of items: on is needed: true or false, the state now", no("label" to "A", tap))
+        assertEquals("widget: item 1 of items: on is needed: true or false, the state now", no("label" to "A", "on" to null, tap))
+        assertEquals("widget: item 1 of items: on must be true or false, not 1", no("label" to "A", "on" to 1, tap))
+        assertEquals("widget: item 1 of items: on must be true or false, not 'on'", no("label" to "A", "on" to "on", tap))
+        assertEquals("widget: item 1 of items: tap is needed: { args }, the arguments that switch it", no("label" to "A", "on" to true))
+        assertEquals(
+            "widget: item 1 of items: tap must be { args }, not { url }: a switch runs this script again",
+            no("label" to "A", "on" to false, "tap" to mapOf("url" to "https://example.com")),
+        )
+        assertEquals("widget: item 1 of items: no field 'color'; use label, icon, on, tap", no("label" to "A", "on" to true, tap, "color" to "good"))
+    }
+
+    // ---- clock ----------------------------------------------------------------------------
+
+    private fun clock(vararg fields: Pair<String, Any?>) = parse(mapOf(*fields), WidgetKind.CLOCK) as WidgetSpec.Clock
+
+    @Test fun aClockWithAllItsFields() {
+        assertEquals(
+            WidgetSpec.Clock(WidgetBase(title = "World"), zones = listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("UTC"), WidgetSpec.Zone("+05:30")), seconds = true),
+            clock("title" to "World", "zones" to listOf(mapOf("zone" to " Asia/Kolkata ", "label" to "Pune"), mapOf("zone" to "UTC"), mapOf("zone" to "+05:30")), "seconds" to true),
+        )
+        assertEquals(false, clock("zones" to listOf(mapOf("zone" to "Europe/Paris"))).seconds)
+    }
+
+    /** The first 4 places are kept. A place past the fourth is not looked at. */
+    @Test fun aClockKeepsItsFirstFourZones() {
+        val six = listOf("Asia/Kolkata", "Europe/Paris", "America/New_York", "Asia/Tokyo", "Australia/Sydney", "Not/AZone").map { mapOf("zone" to it) }
+        assertEquals(listOf("Asia/Kolkata", "Europe/Paris", "America/New_York", "Asia/Tokyo"), clock("zones" to six).zones.map { it.zone })
+        // A label is cut at 24.
+        assertEquals("x".repeat(23) + "…", clock("zones" to listOf(mapOf("zone" to "UTC", "label" to "x".repeat(30)))).zones.single().label)
+    }
+
+    /** An unknown time zone is an error. It is never cut and never guessed. */
+    @Test fun aClockRefusesAZoneItDoesNotKnow() {
+        fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.CLOCK)
+        assertEquals("widget: item 1 of zones: no time zone 'Asia/Poona'; use a name such as Asia/Kolkata or UTC", no("zones" to listOf(mapOf("zone" to "Asia/Poona"))))
+        assertEquals("widget: item 2 of zones: no time zone 'IST'; use a name such as Asia/Kolkata or UTC", no("zones" to listOf(mapOf("zone" to "UTC"), mapOf("zone" to "IST"))))
+        assertEquals("widget: item 1 of zones: no time zone ''; use a name such as Asia/Kolkata or UTC", no("zones" to listOf(mapOf("zone" to ""))))
+        assertEquals("widget: item 1 of zones: zone must be a time zone name, such as Asia/Kolkata, not 5", no("zones" to listOf(mapOf("zone" to 5))))
+        assertEquals("widget: item 1 of zones: zone is needed: a time zone name, such as Asia/Kolkata", no("zones" to listOf(mapOf("label" to "Pune"))))
+        assertEquals("widget: zones is needed: a list of places, each { zone, label }", no())
+        assertEquals("widget: zones is needed: a list of places, each { zone, label }", no("zones" to emptyList<Any>()))
+        assertEquals("widget: zones must be a list of { zone, label }, not 'UTC'", no("zones" to "UTC"))
+        assertEquals("widget: seconds must be true or false, not 1", no("zones" to listOf(mapOf("zone" to "UTC")), "seconds" to 1))
+    }
+
+    // ---- agenda ---------------------------------------------------------------------------
+
+    private fun agenda(vararg fields: Pair<String, Any?>) = parse(mapOf(*fields), WidgetKind.AGENDA) as WidgetSpec.Agenda
+
+    @Test fun anAgendaWithAllItsFields() {
+        assertEquals(
+            WidgetSpec.Agenda(
+                WidgetBase(title = "Matches"),
+                events = listOf(
+                    WidgetSpec.Event("Final", starts = 1_800_000_000, ends = 1_800_007_200, where = "Pune", color = StyledText.Colour.GOOD, tap = WidgetTap(url = "https://example.com/final")),
+                    WidgetSpec.Event("Holiday", starts = 1_800_050_000, allDay = true),
+                    // A fraction is dropped, as for a countdown.
+                    WidgetSpec.Event("Launch", starts = 1_800_100_000),
+                ),
+                days = 5,
+                empty = "Nothing planned",
+            ),
+            agenda(
+                "title" to "Matches", "days" to 5, "empty" to "Nothing planned",
+                "events" to listOf(
+                    mapOf("title" to "Final", "starts" to 1_800_000_000, "ends" to 1_800_007_200, "where" to "Pune", "color" to "good", "tap" to mapOf("url" to "https://example.com/final")),
+                    mapOf("title" to "Holiday", "starts" to 1_800_050_000, "allDay" to true),
+                    mapOf("title" to "Launch", "starts" to 1_800_100_000.9),
+                ),
+            ),
+        )
+        // No events is fine: the card says `empty`. Three days is the default.
+        assertEquals(WidgetSpec.Agenda(WidgetBase(), events = emptyList(), days = 3), agenda("events" to emptyList<Any>()))
+    }
+
+    /** The first 20 events are kept, and the texts are cut: a title at 80, a place at 60. */
+    @Test fun anAgendaKeepsItsFirstTwentyEvents() {
+        val many = (1..25).map { mapOf("title" to "E$it", "starts" to 1_800_000_000 + it) }
+        assertEquals((1..20).map { "E$it" }, agenda("events" to many).events.map { it.title })
+        val long = agenda("events" to listOf(mapOf("title" to "t".repeat(100), "starts" to 1, "where" to "w".repeat(100)))).events.single()
+        assertEquals("t".repeat(79) + "…", long.title)
+        assertEquals("w".repeat(59) + "…", long.where)
+    }
+
+    /** `days` is held between 1 and 7. */
+    @Test fun anAgendasDaysAreOneToSeven() {
+        fun days(v: Any?) = agenda("events" to emptyList<Any>(), "days" to v).days
+        assertEquals(1, days(1))
+        assertEquals(7, days(7))
+        assertEquals(1, days(0))
+        assertEquals(1, days(-3))
+        assertEquals(7, days(30))
+        assertEquals(2, days(2.9))
+        assertEquals(3, days(null))
+        assertEquals("widget: days must be a number of days, from 1 to 7, not 'week'", refused(mapOf("events" to emptyList<Any>(), "days" to "week"), WidgetKind.AGENDA))
+    }
+
+    @Test fun anAgendaRefusesWhatItCantRead() {
+        fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.AGENDA)
+        fun event(vararg fields: Pair<String, Any?>) = no("events" to listOf(mapOf(*fields)))
+        assertEquals("widget: events is needed: a list of events, each { title, starts, ends, allDay, where, color, tap }", no())
+        assertEquals("widget: events must be a list of { title, starts, ends, allDay, where, color, tap }, not 'x'", no("events" to "x"))
+        assertEquals("widget: item 1 of events: title is needed: the event's name", event("starts" to 1))
+        assertTrue(event("title" to "a")!!.startsWith("widget: item 1 of events: starts is needed: when it starts, as a time in seconds"))
+        assertEquals("widget: item 1 of events: starts must be a time in seconds, not 'noon'", event("title" to "a", "starts" to "noon"))
+        // The time is in seconds. A time in milliseconds is an error that says so, as for a countdown.
+        assertEquals("widget: item 1 of events: starts must be a time in seconds, not in milliseconds: divide it by 1000", event("title" to "a", "starts" to 1_800_000_000_000_000))
+        assertEquals("widget: item 1 of events: ends must be a time in seconds, not in milliseconds: divide it by 1000", event("title" to "a", "starts" to 1, "ends" to 1_800_000_000_000_000))
+        assertEquals("widget: item 1 of events: ends must not be before starts", event("title" to "a", "starts" to 100, "ends" to 99))
+        assertEquals("widget: item 1 of events: allDay must be true or false, not 'yes'", event("title" to "a", "starts" to 1, "allDay" to "yes"))
+        assertEquals("widget: item 1 of events: no field 'location'; use title, starts, ends, allDay, where, color, tap", event("title" to "a", "starts" to 1, "location" to "x"))
+    }
+
+    // ---- a kind only Kolahal fills ----------------------------------------------------------
+
+    /** `media` is not a kind for scripts: not as `kind`, and not as the kind of the `@widget` line. */
+    @Test fun aScriptCantFillAMediaWidget() {
+        assertEquals("widget: no kind 'media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to "media", "title" to "Song")))
+        assertEquals("widget: no kind 'Media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to "Media")))
+        assertEquals("widget: a script can't fill a media widget", refused(mapOf("title" to "Song"), WidgetKind.MEDIA))
+        assertEquals("widget: a script can't fill a media widget", refused(emptyMap(), WidgetKind.MEDIA))
+    }
+
     @Test fun theKindFieldWinsOverTheWidgetLine() {
         assertEquals(WidgetSpec.Text(WidgetBase(), text = "hello"), parse(mapOf("kind" to "text", "text" to "hello"), WidgetKind.STAT))
         assertEquals(WidgetSpec.Stat(WidgetBase(), value = "1"), parse(mapOf("kind" to null, "value" to 1), WidgetKind.STAT))
-        assertEquals("widget: no kind 'graph'; use stat, text, list, progress, chart, countdown", refused(mapOf("kind" to "graph")))
-        assertEquals("widget: no kind 3; use stat, text, list, progress, chart, countdown", refused(mapOf("kind" to 3)))
+        assertEquals("widget: no kind 'graph'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to "graph")))
+        assertEquals("widget: no kind 3; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to 3)))
     }
 
     // ---- progress --------------------------------------------------------------------------
@@ -313,7 +537,7 @@ class WidgetParserTest {
             refused(mapOf("text" to "a", "value" to 1), WidgetKind.TEXT),
         )
         assertEquals(
-            "widget: item 2 of items: no field 'subtitle'; use title, detail, trailing, icon, color, tap",
+            "widget: item 2 of items: no field 'subtitle'; use title, detail, trailing, icon, color, tap, done",
             refused(mapOf("items" to listOf(mapOf("title" to "a"), mapOf("title" to "b", "subtitle" to "c"))), WidgetKind.LIST),
         )
         assertEquals("widget: item 1 of more: no field 'unit'; use value, label", refused(mapOf("value" to 1, "more" to listOf(mapOf("value" to 2, "unit" to "km")))))
@@ -480,6 +704,7 @@ class WidgetParserTest {
         assertEquals(emptySet<String>(), WidgetParser.FIELDS intersect (ApiDocs.luaKeywords + listOf("status", "notify")).toSet())
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "args", "url", "label", "page", "value", "more", "text", "caption", "items", "empty", "detail", "trailing")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("max", "style", "moving", "points", "min", "labels", "summary", "to", "from", "reached")))
+        assertTrue(WidgetParser.FIELDS.containsAll(listOf("done", "on", "zones", "zone", "seconds", "events", "starts", "ends", "allDay", "where", "days")))
         assertTrue(WidgetParser.FIELDS.all { Regex("[a-z][A-Za-z]*").matches(it) })
     }
 
@@ -492,6 +717,10 @@ class WidgetParserTest {
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.LIST),
             refused(mapOf("nope" to 1), WidgetKind.PROGRESS), refused(mapOf("nope" to 1), WidgetKind.CHART), refused(mapOf("nope" to 1), WidgetKind.COUNTDOWN),
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.PROGRESS),
+            refused(mapOf("nope" to 1), WidgetKind.BUTTONS), refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.BUTTONS),
+            refused(mapOf("nope" to 1), WidgetKind.TOGGLES), refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.TOGGLES),
+            refused(mapOf("nope" to 1), WidgetKind.CLOCK), refused(mapOf("zones" to listOf(mapOf("nope" to 1))), WidgetKind.CLOCK),
+            refused(mapOf("nope" to 1), WidgetKind.AGENDA), refused(mapOf("events" to listOf(mapOf("nope" to 1))), WidgetKind.AGENDA),
         )
         val known = errors.flatMap { listed.find(it!!)!!.groupValues[1].split(", ") }.toSet()
         assertEquals(WidgetParser.FIELDS, known)

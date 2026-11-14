@@ -56,6 +56,22 @@ object WidgetParser {
     const val MAX_BARS = 4
     const val MAX_POINTS = 60
 
+    /** A buttons widget has 1 to [MAX_BUTTONS] buttons, and a toggles widget 1 to [MAX_TOGGLES] switches. More is an error: nothing is cut. */
+    const val MAX_BUTTONS = 8
+    const val MAX_TOGGLES = 6
+
+    /** A clock keeps its first [MAX_ZONES] places, and an agenda its first [MAX_EVENTS] events. */
+    const val MAX_ZONES = 4
+    const val MAX_EVENTS = 20
+
+    /** An agenda shows [DEFAULT_DAYS] days from today, or `days` of them: [MIN_DAYS] to [MAX_DAYS]. */
+    const val MIN_DAYS = 1
+    const val MAX_DAYS = 7
+    const val DEFAULT_DAYS = 3
+
+    /** A toggles widget without `staleAfter` is old after this many seconds: the thing it switches can change elsewhere. */
+    const val TOGGLES_STALE = 60
+
     /**
      * The largest time a countdown takes, in seconds: the end of the year 9999, so any date a
      * script can write passes. A larger number is a time in milliseconds, as JavaScript's
@@ -74,11 +90,19 @@ object WidgetParser {
     private val SMALL = listOf("value", "label")
     private val TEXT = listOf("text", "caption")
     private val LIST = listOf("items", "empty")
-    private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap")
+    private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap", "done")
     private val PROGRESS = listOf("value", "max", "text", "label", "style", "items", "moving")
     private val BAR = listOf("label", "value", "max", "text", "color")
     private val CHART = listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
     private val COUNTDOWN = listOf("to", "from", "label", "style", "reached")
+    private val BUTTONS = listOf("items")
+    private val BUTTON = listOf("label", "icon", "color", "tap")
+    private val TOGGLES = listOf("items")
+    private val TOGGLE = listOf("label", "icon", "on", "tap")
+    private val CLOCK = listOf("zones", "seconds")
+    private val ZONE = listOf("zone", "label")
+    private val AGENDA = listOf("events", "days", "empty")
+    private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap")
 
     private val TRENDS = listOf("up", "down", "flat")
 
@@ -87,7 +111,10 @@ object WidgetParser {
      * writes `{ title = … }`), and none may be `status` or `notify`: those words in a script's code
      * switch on access items ([com.mtwabpin.kolahal.script.ScriptMeta.setsStatus]). A test checks this.
      */
-    val FIELDS: Set<String> = (COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + PROGRESS + BAR + CHART + COUNTDOWN).toSet()
+    val FIELDS: Set<String> = (
+        COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + PROGRESS + BAR + CHART + COUNTDOWN +
+            BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT
+        ).toSet()
 
     /** The fields of a [kind] widget, after the common ones. */
     private fun own(kind: WidgetKind): List<String> = when (kind) {
@@ -97,7 +124,15 @@ object WidgetParser {
         WidgetKind.PROGRESS -> PROGRESS
         WidgetKind.CHART -> CHART
         WidgetKind.COUNTDOWN -> COUNTDOWN
+        WidgetKind.BUTTONS -> BUTTONS
+        WidgetKind.TOGGLES -> TOGGLES
+        WidgetKind.CLOCK -> CLOCK
+        WidgetKind.AGENDA -> AGENDA
+        WidgetKind.MEDIA -> notForScripts(kind)
     }
+
+    /** A kind only Kolahal fills has no description a script can write. */
+    private fun notForScripts(kind: WidgetKind): Nothing = throw IllegalArgumentException("widget: a script can't fill a ${kind.id} widget")
 
     /**
      * [raw] as a checked description.
@@ -108,8 +143,9 @@ object WidgetParser {
      */
     fun parse(raw: Map<*, *>, default: WidgetKind, text: (String) -> String, link: (String) -> String): WidgetSpec {
         val kind = raw["kind"]?.let {
-            WidgetKind.named(it as? String) ?: throw IllegalArgumentException("widget: no kind ${shown(it)}; use ${WidgetKind.entries.joinToString { k -> k.id }}")
+            WidgetKind.named(it as? String) ?: throw IllegalArgumentException("widget: no kind ${shown(it)}; use ${WidgetKind.forScripts.joinToString { k -> k.id }}")
         } ?: default
+        if (!kind.script) notForScripts(kind)
         val t = Table(raw, "", "a ${kind.id} widget has no field", COMMON + own(kind), text, link)
         val base = WidgetBase(
             title = t.text("title", MAX_TITLE),
@@ -130,6 +166,11 @@ object WidgetParser {
             WidgetKind.PROGRESS -> progress(t, base)
             WidgetKind.CHART -> chart(t, base)
             WidgetKind.COUNTDOWN -> countdown(t, base)
+            WidgetKind.BUTTONS -> buttons(t, base)
+            WidgetKind.TOGGLES -> toggles(t, base)
+            WidgetKind.CLOCK -> clock(t, base)
+            WidgetKind.AGENDA -> agenda(t, base)
+            WidgetKind.MEDIA -> notForScripts(kind)
         }
     }
 
@@ -159,8 +200,83 @@ object WidgetParser {
                     icon = r.text("icon", MAX_ICON),
                     color = r.colour(),
                     tap = r.tap(),
+                    done = r.flagOrNull("done"),
                 )
             },
+            empty = t.text("empty", MAX_LABEL),
+        )
+    }
+
+    /**
+     * The number of items in the list [key], which must have 1 to [max]. More is an error, not a cut:
+     * a button that silently went missing would be a tap the user can't make. [things] names the
+     * items ("buttons"), and [shape] shows one.
+     */
+    private fun count(t: Table, key: String, max: Int, things: String, shape: String) {
+        val all = t.list(key, shape) ?: t.fail("$key is needed: a list of $things, each $shape")
+        if (all.isEmpty()) t.fail("$key is empty: give 1 to $max $things")
+        if (all.size > max) t.fail("$key has ${all.size} $things: give $max at most")
+    }
+
+    /** 1 to [MAX_BUTTONS] buttons. Each has a label and a tap. */
+    private fun buttons(t: Table, base: WidgetBase): WidgetSpec.Buttons {
+        val shape = "{ ${BUTTON.joinToString()} }"
+        count(t, "items", MAX_BUTTONS, "buttons", shape)
+        return WidgetSpec.Buttons(
+            base,
+            items = t.items("items", MAX_BUTTONS, shape, BUTTON).map { b ->
+                WidgetSpec.Button(
+                    label = b.need("label", MAX_SHORT, "the button's text"),
+                    tap = b.tap() ?: b.fail("tap is needed: what the button does, { args } or { url }"),
+                    icon = b.text("icon", MAX_ICON),
+                    color = b.colour(),
+                )
+            },
+        )
+    }
+
+    /**
+     * 1 to [MAX_TOGGLES] switches. Each has a label, its state (`on`) and a tap that runs the script
+     * again: Kolahal never guesses the new state, the script reports it. Without `staleAfter`, the
+     * content is old after [TOGGLES_STALE] seconds.
+     */
+    private fun toggles(t: Table, base: WidgetBase): WidgetSpec.Toggles {
+        val shape = "{ ${TOGGLE.joinToString()} }"
+        count(t, "items", MAX_TOGGLES, "switches", shape)
+        return WidgetSpec.Toggles(
+            base.copy(staleAfter = base.staleAfter ?: TOGGLES_STALE),
+            items = t.items("items", MAX_TOGGLES, shape, TOGGLE).map { s ->
+                val label = s.need("label", MAX_SHORT, "the switch's text")
+                val on = s.flagOrNull("on") ?: s.fail("on is needed: true or false, the state now")
+                val tap = s.tap() ?: s.fail("tap is needed: { args }, the arguments that switch it")
+                if (tap.args == null) s.fail("tap must be { args }, not { url }: a switch runs this script again")
+                WidgetSpec.Toggle(label, on, tap, icon = s.text("icon", MAX_ICON))
+            },
+        )
+    }
+
+    /** The time in up to [MAX_ZONES] places. The script gives the places once, and Kolahal ticks. */
+    private fun clock(t: Table, base: WidgetBase): WidgetSpec.Clock {
+        val shape = "{ ${ZONE.joinToString()} }"
+        val zones = t.items("zones", MAX_ZONES, shape, ZONE).map { z -> WidgetSpec.Zone(zone = z.zone("zone"), label = z.text("label", MAX_SHORT)) }
+        if (zones.isEmpty()) t.fail("zones is needed: a list of places, each $shape")
+        return WidgetSpec.Clock(base, zones, seconds = t.flag("seconds"))
+    }
+
+    /** Events by day. The first [MAX_EVENTS] are kept. Kolahal writes the times and drops events that have ended. */
+    private fun agenda(t: Table, base: WidgetBase): WidgetSpec.Agenda {
+        val shape = "{ ${EVENT.joinToString()} }"
+        if (!t.has("events")) t.fail("events is needed: a list of events, each $shape")
+        return WidgetSpec.Agenda(
+            base,
+            events = t.items("events", MAX_EVENTS, shape, EVENT).map { e ->
+                val title = e.need("title", MAX_ROW_TITLE, "the event's name")
+                val starts = e.time("starts") ?: e.fail("starts is needed: when it starts, as a time in seconds (os.time() in Lua, Date.now() / 1000 in JavaScript)")
+                val ends = e.time("ends")
+                if (ends != null && ends < starts) e.fail("ends must not be before starts")
+                WidgetSpec.Event(title, starts, ends, allDay = e.flag("allDay"), where = e.text("where", MAX_LABEL), color = e.colour(), tap = e.tap())
+            },
+            days = t.number("days", "a number of days, from $MIN_DAYS to $MAX_DAYS")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
             empty = t.text("empty", MAX_LABEL),
         )
     }
@@ -316,6 +432,24 @@ object WidgetParser {
         fun flag(key: String): Boolean {
             val v = values[key] ?: return false
             return v as? Boolean ?: fail("$key must be true or false, not ${shown(v)}")
+        }
+
+        /** A true-or-false field that has no value when it is left out: a row's `done`, a switch's `on`. */
+        fun flagOrNull(key: String): Boolean? {
+            val v = values[key] ?: return null
+            return v as? Boolean ?: fail("$key must be true or false, not ${shown(v)}")
+        }
+
+        /**
+         * A time zone by its name, such as `Asia/Kolkata` or `UTC`. It is needed, and it is never
+         * cut: a name `java.time.ZoneId.of` does not know is an error. Secrets and styles go first
+         * ([clean]), as for any text.
+         */
+        fun zone(key: String): String {
+            val v = values[key] ?: fail("$key is needed: a time zone name, such as Asia/Kolkata")
+            val name = (v as? String)?.let { clean(it).trim() } ?: fail("$key must be a time zone name, such as Asia/Kolkata, not ${shown(v)}")
+            runCatching { java.time.ZoneId.of(name) }.getOrNull() ?: fail("no time zone ${shown(name)}; use a name such as Asia/Kolkata or UTC")
+            return name
         }
 
         /** A field that takes one of a few words. */

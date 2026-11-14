@@ -117,6 +117,151 @@ class WidgetSpecJsonTest {
         roundTrip(WidgetSpec.Countdown(bare, to = -300_000_000L, from = -400_000_000L, style = "clock"))
     }
 
+    private val go = WidgetTap(args = "go")
+    private val buttons = WidgetSpec.Buttons(bare, items = listOf(WidgetSpec.Button("Go", go)))
+    private val toggles = WidgetSpec.Toggles(bare, items = listOf(WidgetSpec.Toggle("Mute", on = false, tap = go)))
+    private val clock = WidgetSpec.Clock(bare, zones = listOf(WidgetSpec.Zone("Asia/Kolkata")))
+    private val agenda = WidgetSpec.Agenda(bare, events = listOf(WidgetSpec.Event("Final", starts = 1_800_000_000L)))
+    private val media = WidgetSpec.Media(bare, title = "Song", artist = "Singer", app = "Player", playing = true, position = 1_000, positionAt = 2_000, speed = 1f, duration = 180_000)
+
+    /** A row's checkbox has three states: ticked, not ticked, and no checkbox. All three come back. */
+    @Test fun aRowsCheckboxRoundTrips() {
+        val spec = WidgetSpec.Rows(bare, items = listOf(WidgetSpec.Row("A", done = true), WidgetSpec.Row("B", done = false), WidgetSpec.Row("C")))
+        roundTrip(spec)
+        val stored = Json.parse(WidgetJson.encode(spec)) as Map<*, *>
+        assertEquals(listOf(mapOf("title" to "A", "done" to true), mapOf("title" to "B", "done" to false), mapOf("title" to "C")), stored["items"])
+        assertNull(WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to "a", "done" to "yes"))) }))
+        assertNull(WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to "a", "done" to 1))) }))
+    }
+
+    @Test fun buttonsRoundTrip() {
+        roundTrip(buttons)
+        roundTrip(
+            WidgetSpec.Buttons(
+                fullBase,
+                items = listOf(
+                    WidgetSpec.Button("On", WidgetTap(args = "on", label = "Switch on"), icon = "☀", color = StyledText.Colour.GOOD),
+                    WidgetSpec.Button("Report", WidgetTap(args = "report", toLog = true)),
+                    WidgetSpec.Button("Docs", WidgetTap(url = "https://example.com/docs")),
+                ),
+            )
+        )
+        roundTrip(WidgetSpec.Buttons(bare, items = (1..8).map { WidgetSpec.Button("B$it", WidgetTap(args = "$it")) }))
+        assertEquals(setOf("v", "kind", "items"), (Json.parse(WidgetJson.encode(buttons)) as Map<*, *>).keys)
+    }
+
+    @Test fun togglesRoundTrip() {
+        roundTrip(toggles)
+        roundTrip(
+            WidgetSpec.Toggles(
+                fullBase,
+                items = listOf(WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd off", label = "Turn off"), icon = "🌙"), WidgetSpec.Toggle("Work", on = false, tap = go)),
+            )
+        )
+        roundTrip(WidgetSpec.Toggles(bare, items = (1..6).map { WidgetSpec.Toggle("T$it", on = it % 2 == 0, tap = WidgetTap(args = "$it")) }))
+        // "Off" is stored: a switch always has a state.
+        assertEquals(listOf(mapOf("label" to "Mute", "on" to false, "tap" to mapOf("args" to "go"))), (Json.parse(WidgetJson.encode(toggles)) as Map<*, *>)["items"])
+    }
+
+    @Test fun clockRoundTrips() {
+        roundTrip(clock)
+        roundTrip(WidgetSpec.Clock(fullBase, zones = listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("UTC"), WidgetSpec.Zone("America/New_York", "NYC"), WidgetSpec.Zone("+05:45")), seconds = true))
+        assertEquals(setOf("v", "kind", "zones"), (Json.parse(WidgetJson.encode(clock)) as Map<*, *>).keys)
+    }
+
+    @Test fun agendaRoundTrips() {
+        roundTrip(agenda)
+        roundTrip(WidgetSpec.Agenda(bare, events = emptyList(), empty = "Nothing planned"))
+        roundTrip(
+            WidgetSpec.Agenda(
+                fullBase,
+                events = listOf(
+                    WidgetSpec.Event("Final", 1_800_000_000L, ends = 1_800_007_200L, where = "Pune", color = StyledText.Colour.GOOD, tap = WidgetTap(url = "https://example.com/final")),
+                    WidgetSpec.Event("Holiday", 1_800_050_000L, allDay = true, tap = WidgetTap(args = "open 2")),
+                    WidgetSpec.Event("Long ago", -300_000_000L),
+                ),
+                days = 7,
+                empty = "Nothing planned",
+            )
+        )
+        roundTrip(WidgetSpec.Agenda(bare, events = (1..20).map { WidgetSpec.Event("E$it", 1_800_000_000L + it) }, days = 1))
+    }
+
+    /**
+     * `media` is made by Kolahal only, in the main process. It is never stored, so it has no stored
+     * form, and no stored text reads back as one: the :script process can't hand one over.
+     */
+    @Test fun mediaIsNeverStoredAndNeverRead() {
+        assertEquals("", WidgetJson.encode(media))
+        assertEquals("", WidgetJson.encode(media.copy(base = fullBase)))
+        assertNull(WidgetJson.decode(WidgetJson.encode(media)))
+        listOf(
+            "{\"v\":1,\"kind\":\"media\"}",
+            "{\"v\":1,\"kind\":\"media\",\"title\":\"Song\",\"artist\":\"Singer\",\"app\":\"Player\",\"playing\":true,\"position\":0,\"positionAt\":0,\"speed\":1,\"duration\":1000}",
+            "{\"v\":1,\"kind\":\"MEDIA\",\"app\":\"Player\"}",
+        ).forEach { assertNull("decoded: $it", WidgetJson.decode(it)) }
+        // Every other kind's stored form names a kind a script can use.
+        listOf(stat, text, rows, progress, chart, countdown, buttons, toggles, clock, agenda).forEach { spec ->
+            val kind = (Json.parse(WidgetJson.encode(spec)) as Map<*, *>)["kind"]
+            assertNotNull("$kind", WidgetKind.named(kind as String))
+        }
+    }
+
+    /** Where `widget.show` refuses and does not cut, the stored form is refused too. */
+    @Test fun theNewKindsLimitsHoldAgain() {
+        fun button(i: Int) = mapOf("label" to "B$i", "tap" to mapOf("args" to "$i"))
+        fun toggle(i: Int) = mapOf("label" to "T$i", "on" to true, "tap" to mapOf("args" to "$i"))
+        // Buttons: 1 to 8.
+        assertNotNull(WidgetJson.decode(changed(buttons) { put("items", (1..8).map(::button)) }))
+        assertNull(WidgetJson.decode(changed(buttons) { put("items", (1..9).map(::button)) }))
+        assertNull(WidgetJson.decode(changed(buttons) { put("items", emptyList<Any>()) }))
+        assertNull(WidgetJson.decode(changed(buttons) { remove("items") }))
+        // Switches: 1 to 6, each with a state and a tap that runs the script.
+        assertNotNull(WidgetJson.decode(changed(toggles) { put("items", (1..6).map(::toggle)) }))
+        assertNull(WidgetJson.decode(changed(toggles) { put("items", (1..7).map(::toggle)) }))
+        assertNull(WidgetJson.decode(changed(toggles) { put("items", emptyList<Any>()) }))
+        assertNull(WidgetJson.decode(changed(toggles) { remove("items") }))
+        assertNull(WidgetJson.decode(changed(toggles) { put("items", listOf(mapOf("label" to "T", "tap" to mapOf("args" to "x")))) }))
+        assertNull(WidgetJson.decode(changed(toggles) { put("items", listOf(mapOf("label" to "T", "on" to true, "tap" to mapOf("url" to "https://example.com")))) }))
+        assertNull(WidgetJson.decode(changed(toggles) { put("items", listOf(mapOf("label" to "T", "on" to true))) }))
+        // A clock: the first 4 zones, each one a zone the phone knows.
+        val zones = WidgetJson.decode(changed(clock) { put("zones", listOf("UTC", "Asia/Kolkata", "Europe/Paris", "Asia/Tokyo", "Not/AZone").map { mapOf("zone" to it) }) }) as WidgetSpec.Clock
+        assertEquals(listOf("UTC", "Asia/Kolkata", "Europe/Paris", "Asia/Tokyo"), zones.zones.map { it.zone })
+        assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("zone" to "Asia/Poona"))) }))
+        assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("zone" to ""))) }))
+        assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("label" to "no zone"))) }))
+        assertNull(WidgetJson.decode(changed(clock) { put("zones", emptyList<Any>()) }))
+        assertNull(WidgetJson.decode(changed(clock) { remove("zones") }))
+        // An agenda: the first 20 events, times in seconds, 1 to 7 days.
+        val events = WidgetJson.decode(changed(agenda) { put("events", (1..30).map { mapOf("title" to "E$it", "starts" to it) }) }) as WidgetSpec.Agenda
+        assertEquals((1..20).map { "E$it" }, events.events.map { it.title })
+        assertNull(WidgetJson.decode(changed(agenda) { put("events", listOf(mapOf("title" to "a", "starts" to 1_800_000_000_000L))) }))
+        assertNull(WidgetJson.decode(changed(agenda) { put("events", listOf(mapOf("title" to "a", "starts" to 1, "ends" to 1e30))) }))
+        assertNull(WidgetJson.decode(changed(agenda) { remove("events") }))
+        fun days(v: Any?) = (WidgetJson.decode(changed(agenda) { put("days", v) }) as WidgetSpec.Agenda).days
+        assertEquals(1, days(0))
+        assertEquals(7, days(99))
+        assertEquals(3, days(null))
+        assertEquals(4, days(4))
+    }
+
+    /** One check for each field of the new kinds: the wrong type is refused, not converted. */
+    @Test fun aFieldOfTheWrongTypeGivesNullInTheNewKinds() {
+        fun refused(spec: WidgetSpec, key: String, vararg values: Any?) = values.forEach { v ->
+            assertNull("$key = $v", WidgetJson.decode(changed(spec) { put(key, v) }))
+        }
+        val tap = mapOf("args" to "x")
+        refused(buttons, "items", "x", 1, mapOf("a" to 1), listOf("x"), listOf(mapOf("label" to "no tap")), listOf(mapOf("tap" to tap)), listOf(mapOf("label" to 1, "tap" to tap)))
+        refused(buttons, "items", listOf(mapOf("label" to "a", "tap" to tap, "color" to "pink")), listOf(mapOf("label" to "a", "tap" to tap, "icon" to 1)), listOf(mapOf("label" to "a", "tap" to mapOf("command" to "torch"))))
+        refused(toggles, "items", "x", listOf("x"), listOf(mapOf("label" to "a", "on" to "true", "tap" to tap)), listOf(mapOf("label" to "a", "on" to 1, "tap" to tap)), listOf(mapOf("on" to true, "tap" to tap)))
+        refused(clock, "zones", "UTC", 1, listOf("UTC"), listOf(mapOf("zone" to 5)), listOf(mapOf("zone" to "UTC", "label" to 1)))
+        refused(clock, "seconds", "true", 1)
+        refused(agenda, "events", "x", 1, listOf("x"), listOf(mapOf("starts" to 1)), listOf(mapOf("title" to "a")), listOf(mapOf("title" to "a", "starts" to "noon")), listOf(mapOf("title" to 1, "starts" to 1)))
+        refused(agenda, "events", listOf(mapOf("title" to "a", "starts" to 1, "allDay" to "yes")), listOf(mapOf("title" to "a", "starts" to 1, "where" to 1)), listOf(mapOf("title" to "a", "starts" to 1, "color" to "pink")), listOf(mapOf("title" to "a", "starts" to 1, "tap" to "x")))
+        refused(agenda, "days", "3", true)
+        refused(agenda, "empty", 1)
+    }
+
     @Test fun everyColourAndTapFormRoundTrips() {
         StyledText.Colour.entries.forEach { roundTrip(text.copy(base = WidgetBase(color = it))) }
         roundTrip(text.copy(base = WidgetBase(tap = WidgetTap(args = "add 1"))))
