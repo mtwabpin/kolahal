@@ -1,7 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +26,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -62,12 +60,11 @@ import androidx.compose.ui.layout.onSizeChanged
 internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? = firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
 
 /**
- * Renders placed widget [w] at [height] via the shared AppWidgetHost. A long-press anywhere on it
- * calls [onLongPress]. When its profile is paused, [placeholder] is shown instead.
+ * Renders an app's placed widget [w] at [height] via the shared AppWidgetHost. A long-press anywhere
+ * on it calls [onLongPress]. When its profile is paused, [placeholder] is shown instead.
  *
- * A widget Kolahal draws itself ([PlacedWidget.source]) is drawn as its card. Here the card takes
- * no taps and asks for no runs: the Widgets screen arranges widgets. The widgets page draws such a
- * card itself, with its actions ([SourceWidget]).
+ * A widget Kolahal draws itself ([PlacedWidget.source]) has no app widget id, and is not drawn here.
+ * The widgets page and the Widgets screen draw its card themselves ([SourceWidget]).
  */
 @Composable
 internal fun HostedWidget(
@@ -77,13 +74,6 @@ internal fun HostedWidget(
     onLongPress: (() -> Unit)?,
     placeholder: @Composable (String) -> Unit,
 ) {
-    if (w.source != null) {
-        val press by rememberUpdatedState(onLongPress)
-        Box(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { press?.invoke() }) }) {
-            SourceWidget(w, height, actions = null)
-        }
-        return
-    }
     val id = w.id ?: return
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
