@@ -57,6 +57,9 @@ When you import a file:
 - The import result lists what you may want to check: a custom search address, gesture commands, and
   aliases that run code or change settings (`lua`, `js`, `=`, `config` and the like). An alias can
   have an app's name, so typing that name would run it.
+- It also lists each shortcut that the file brought for the
+  [Shortcuts widget](/guides/widgets/#shortcuts), for example `shortcut Torch = torch`. A button
+  of that widget runs its command at one tap.
 - Timer intervals under 15 minutes are raised to 15, because that is Android's minimum.
 
 Hidden apps and labels are saved per component and profile. They only carry over to a new phone if those match.

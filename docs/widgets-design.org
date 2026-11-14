@@ -79,7 +79,11 @@ The scripts are in =app/src/main/assets/library/=. The user's guide is
 - *Todos.* A tap on a row marks the todo done. The row stays, ticked, until the page is turned
   away, and a second tap opens the todo again. There is no Undo message.
 - *Shortcuts.* The list is one key of home's own preferences, not a part of the placed widget. Its
-  editor is a sheet on the Widgets screen. A backup carries the list with that file.
+  editor is a sheet on the Widgets screen. A backup carries the list with that file, and an import
+  lists each shortcut that the file brought as worth a look.
+- *Toggles.* A switch stops waiting when its run ends, also when the run failed: the card then
+  says "Failed" in its footer. After 10 seconds with no answer it stops waiting too, and shows the
+  state it had. A second tap on the same switch within 2 seconds starts no run.
 - *Habit streak* is a command too (=habit done=, =habit undo=), because a tap can be a mistake.
   It keeps its days as one text in its store: a store holds 1000 keys at most, so a key for each
   day would fill it in under three years.
@@ -103,7 +107,6 @@ From phases 1 and 2:
 - The six sizes as one-tap buttons in the Widgets screen's toolbar.
 - The "Widget" pill and filter chip in Scripts.
 - A widget preview in the script editor.
-- Shortcuts' commands in the "worth a look" list after a backup is imported.
 
 Phases 3 and 4 are not started.
 
@@ -911,8 +914,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Shows :: Up to 4 places, each with its time, and "tomorrow" or "yesterday" when the day differs.
 - Fields :: =zones= (needed): each ~{ zone, label }~. =zone= is a time zone name such as
   =Asia/Kolkata=; an unknown one is an error. =seconds= (true) shows seconds.
-- Kolahal ticks :: The script gives the places once. The time format follows the phone (12 or 24
-  hours).
+- Kolahal ticks :: The script gives the places once. The time is in 12-hour or 24-hour form, as
+  Kolahal's own setting says (=clock.24h=), like the header's clock.
 - Data :: A script with an option. No access needed.
 - Taps :: The card.
 
@@ -922,8 +925,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
   color, tap }~, with =title= and =starts= (a time in seconds) needed. =days=: how many days to
   show (3 by default). =empty=: what to say with no events.
-- Kolahal does :: It writes the times in the phone's format and drops events that have ended,
-  with no run.
+- Kolahal does :: It writes the times in the form of Kolahal's own setting (=clock.24h=), like
+  the header's clock, and drops events that have ended, with no run.
 - Data :: Built-in: the phone's calendar (phase 2). A script: any source of dated items, such as
   matches or launches from the web. Phase 3 adds =calendar.events= for scripts.
 - Taps :: Each event, and the card.
@@ -1507,8 +1510,7 @@ each add a little.
 
 ** Phase 2: taps that change things, and live data
 
-*Built*, but for three parts: the =app= action, the review of Shortcuts after an import, and the
-widget preview in the script editor.
+*Built*, but for two parts: the =app= action, and the widget preview in the script editor.
 
 5 kinds, 11 widgets. About 15 to 20 working days.
 

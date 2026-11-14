@@ -134,7 +134,8 @@ Each change is saved at once, and the card follows.
 - The command can be any command, also one such as `torch` or `dnd` that a
   [script](/scripting/overview/) may not run. You chose it yourself.
 - A script can't change your shortcuts.
-- Your shortcuts are in a [backup](/guides/backup/).
+- Your shortcuts are in a [backup](/guides/backup/). After an import, the result lists each
+  shortcut that the file brought.
 
 ### Now playing
 
@@ -225,7 +226,8 @@ the import.
 
 - A backup holds where a card is, not what it showed. Each card fills again by itself.
 - An imported script arrives switched off. Its card says "Script is off" until you turn the script on.
-- Your shortcuts come back with the Shortcuts widget.
+- Your shortcuts come back with the Shortcuts widget. The import result lists each shortcut that
+  the file brought, so you can check what its button runs.
 
 The same happens when Android restores Kolahal on a new phone from Android's own backup. A line in the log says
 how many widgets you need to add again. Tap it to open that page.
