@@ -40,7 +40,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *   json.encode(v) / json.decode(s)
  */
 class HostApi(
-    private val context: Context,
+    internal val context: Context,
     val scriptName: String,
     private val scriptId: Long?,
     private val notifyEnabled: Boolean,
@@ -104,7 +104,7 @@ class HostApi(
         over = true
     }
 
-    private fun live() {
+    internal fun live() {
         if (over) throw IllegalStateException("$scriptName has finished running")
     }
 
@@ -128,7 +128,7 @@ class HostApi(
      * mistake in the script, and this throws. If the user switched it off, this returns false and the
      * caller answers with an empty result.
      */
-    private fun may(what: String, call: String): Boolean {
+    internal fun may(what: String, call: String): Boolean {
         val g = grants ?: return true
         if (what !in g.declared) throw IllegalStateException("$call needs `@uses $what` at the top of the script")
         if (!g.allows(what) && what in g.undecided) undecided += what
@@ -524,7 +524,7 @@ class HostApi(
 
     /**
      * `widget.show(desc)`: checks [desc] ([WidgetParser]) and stores it as this script's widget.
-     * - Every text has its secrets masked and its styles removed. The first build draws plain text.
+     * - Every text has its secrets masked. The parser takes the styles out first, so a style can't hide a secret from the mask.
      * - Every link is checked ([widgetLink]). A link that is refused is an error.
      * - It is stored only for a widget you placed. Returns true when it is placed. A widget that
      *   isn't placed still has its description checked, so a mistake shows either way.
@@ -541,7 +541,7 @@ class HostApi(
         val placed = widgetPlacedNow()
         if (!widgetCall("widget.show")) return placed
         val raw = desc ?: throw IllegalArgumentException("widget.show expects a description: a table or object such as { value, label }")
-        val spec = WidgetParser.parse(raw, line.kind, text = { StyledText.plain(redact(it)) }, link = ::widgetLink)
+        val spec = WidgetParser.parse(raw, line.kind, text = ::redact, link = ::widgetLink)
         // The texts have limits of their own. A link has none, so this is what stops a huge one.
         require(WidgetJson.encode(spec).toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
         if (placed) {

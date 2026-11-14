@@ -315,6 +315,7 @@ private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
     is WidgetSpec.Toggles -> MaterialShapes.Slanted
     is WidgetSpec.Clock -> MaterialShapes.Cookie12Sided
     is WidgetSpec.Agenda -> MaterialShapes.Arch
+    is WidgetSpec.Image -> MaterialShapes.Cookie4Sided
     is WidgetSpec.Media -> MaterialShapes.Flower
     null -> MaterialShapes.Circle
 }.toShape()

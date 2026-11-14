@@ -123,6 +123,34 @@ class WidgetSpecJsonTest {
     private val clock = WidgetSpec.Clock(bare, zones = listOf(WidgetSpec.Zone("Asia/Kolkata")))
     private val agenda = WidgetSpec.Agenda(bare, events = listOf(WidgetSpec.Event("Final", starts = 1_800_000_000L)))
     private val media = WidgetSpec.Media(bare, title = "Song", artist = "Singer", app = "Player", playing = true, position = 1_000, positionAt = 2_000, speed = 1f, duration = 180_000)
+    private val picture = WidgetSpec.Image(bare, image = "https://example.com/a.png", alt = "A graph")
+
+    @Test fun imageRoundTrips() {
+        roundTrip(picture)
+        roundTrip(WidgetSpec.Image(fullBase, image = "https://example.com/comics/a%20b.png?size=2x&v=3#top", alt = "A \"graph\" — 日本語 👨‍👩‍👧", caption = "Monday", fit = "fit"))
+        roundTrip(picture.copy(fit = "crop"))
+        roundTrip(picture.copy(image = "https://example.com/" + "x".repeat(WidgetJson.MAX_PICTURE_LINK - 20), alt = "a".repeat(200), caption = "c".repeat(60)))
+        assertEquals(setOf("v", "kind", "image", "alt"), (Json.parse(WidgetJson.encode(picture)) as Map<*, *>).keys)
+        assertEquals("image", (Json.parse(WidgetJson.encode(picture)) as Map<*, *>)["kind"])
+    }
+
+    /**
+     * Home fetches a picture without a tap. So the stored link is checked again as `widget.show`
+     * checked it: https only, and not too long. The words for the picture must be there too.
+     */
+    @Test fun anImagesLinkAndWordsAreCheckedAgain() {
+        fun refused(key: String, vararg values: Any?) = values.forEach { v -> assertNull("$key = $v", WidgetJson.decode(changed(picture) { put(key, v) })) }
+        assertNotNull(WidgetJson.decode(changed(picture) { put("image", "HTTPS://example.com/a.png") }))
+        refused("image", null, 1, true, listOf("https://example.com/a.png"), mapOf("url" to "https://example.com/a.png"))
+        refused("image", "", "example.com/a.png", "http://example.com/a.png", "ftp://example.com/a.png", "file:///sdcard/a.png", "content://media/1", "data:image/png;base64,AAAA", " https://example.com/a.png")
+        assertNotNull(WidgetJson.decode(changed(picture) { put("image", "https://example.com/" + "x".repeat(WidgetJson.MAX_PICTURE_LINK - 20)) }))
+        refused("image", "https://example.com/" + "x".repeat(WidgetJson.MAX_PICTURE_LINK - 19))
+        refused("alt", null, "", "   ", 1, listOf("a"), "a".repeat(WidgetJson.MAX_TEXT + 1))
+        refused("caption", 1, listOf("a"), "c".repeat(WidgetJson.MAX_TEXT + 1))
+        refused("fit", "stretch", "Fit", 1, true)
+        // Left out, the caption and `fit` have no value: the card crops.
+        assertEquals(picture, WidgetJson.decode("{\"v\":1,\"kind\":\"image\",\"image\":\"https://example.com/a.png\",\"alt\":\"A graph\",\"extra\":1}"))
+    }
 
     /** A row's checkbox has three states: ticked, not ticked, and no checkbox. All three come back. */
     @Test fun aRowsCheckboxRoundTrips() {
@@ -201,7 +229,7 @@ class WidgetSpecJsonTest {
             "{\"v\":1,\"kind\":\"MEDIA\",\"app\":\"Player\"}",
         ).forEach { assertNull("decoded: $it", WidgetJson.decode(it)) }
         // Every other kind's stored form names a kind a script can use.
-        listOf(stat, text, rows, progress, chart, countdown, buttons, toggles, clock, agenda).forEach { spec ->
+        listOf(stat, text, rows, progress, chart, countdown, buttons, toggles, clock, agenda, picture).forEach { spec ->
             val kind = (Json.parse(WidgetJson.encode(spec)) as Map<*, *>)["kind"]
             assertNotNull("$kind", WidgetKind.named(kind as String))
         }

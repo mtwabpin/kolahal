@@ -59,10 +59,10 @@ class ScriptCheckTest {
         assertTrue(lua("-- @widget stat\n-- @widget list 4x2").isEmpty())
         assertTrue(lua("-- @widget buttons\n-- @widget toggles 2x2\n-- @widget clock 4x1\n-- @widget agenda").isEmpty())
         // `media` is a kind only Kolahal fills, so for a script it is no kind.
-        assertEquals("@widget media isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", lua("-- @widget media").single().text)
-        assertEquals(listOf(ScriptCheck.Issue(1, "@widget graph isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda")), lua("-- @widget graph"))
+        assertEquals("@widget media isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image", lua("-- @widget media").single().text)
+        assertEquals(listOf(ScriptCheck.Issue(1, "@widget graph isn't a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image")), lua("-- @widget graph"))
         assertEquals(listOf(ScriptCheck.Issue(1, "@widget stat 3x3 isn't a size: 1x1, 2x1, 2x2, 4x1, 4x2, 4x4")), lua("-- @widget stat 3x3"))
-        assertEquals("@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", ScriptCheck.check("// @widget", ScriptLang.JS).single().text)
+        assertEquals("@widget needs a kind: stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image", ScriptCheck.check("// @widget", ScriptLang.JS).single().text)
     }
 
     @Test fun theWidgetCallsAreInTheApi() {

@@ -273,6 +273,11 @@ internal object WidgetWords {
                         day.lines.forEach { add(listOfNotNull(words(it.time, it.event.title), it.event.where).joinToString(", ")) }
                     }
                 }
+                // The words for the picture, not the picture: they are the same whether it has loaded or not.
+                is WidgetSpec.Image -> {
+                    add(spec.alt)
+                    add(spec.caption)
+                }
                 is WidgetSpec.Media -> {
                     add(spec.title)
                     add(spec.artist)
@@ -656,6 +661,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Toggles -> TogglesBody(spec, onTap, stamp)
         is WidgetSpec.Clock -> ClockBody(spec, box)
         is WidgetSpec.Agenda -> AgendaBody(spec, onTap)
+        is WidgetSpec.Image -> ImageBody(spec, box)
         is WidgetSpec.Media -> MediaBody(spec, box, onTap)
     }
 }

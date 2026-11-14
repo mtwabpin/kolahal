@@ -56,6 +56,7 @@ object ApiDocs {
         WidgetKind.TOGGLES -> "items (1 to 6, each { label, icon, on, tap }; the tap is { args }, and the run shows the new state)"
         WidgetKind.CLOCK -> "zones (each { zone, label }; a zone is a name such as Asia/Kolkata), seconds"
         WidgetKind.AGENDA -> "events (each { title, starts, ends (times in seconds), allDay, where, color, tap }), days, empty"
+        WidgetKind.IMAGE -> "image (an https link to a picture), alt (what it shows, in words), caption, fit (crop or fit)"
         WidgetKind.MEDIA -> ""
     }
 

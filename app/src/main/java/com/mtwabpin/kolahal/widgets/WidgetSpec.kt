@@ -41,6 +41,9 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
     CLOCK("clock", WidgetSize.S2X1),
     AGENDA("agenda", WidgetSize.S4X2),
 
+    /** A picture from the web. Home fetches it, not the script. */
+    IMAGE("image", WidgetSize.S2X2),
+
     /** What is playing. A script can't see that and may not send media commands, so only Kolahal fills it. */
     MEDIA("media", WidgetSize.S4X1, script = false);
 
@@ -201,6 +204,21 @@ sealed interface WidgetSpec {
     data class Agenda(override val base: WidgetBase, val events: List<Event>, val days: Int = 3, val empty: String? = null) : WidgetSpec
 
     /**
+     * Kind `image`: a picture from the web, with a caption.
+     * - [image] is an https link. Home fetches the picture when the widgets page is in view.
+     * - [alt] says what the picture shows. A screen reader says it, and the card shows it when it has no picture.
+     * - [fit] is `crop` or `fit`. Null means `crop`: the picture fills the card and loses its edges.
+     *   With `fit`, the whole picture shows.
+     */
+    data class Image(
+        override val base: WidgetBase,
+        val image: String,
+        val alt: String,
+        val caption: String? = null,
+        val fit: String? = null,
+    ) : WidgetSpec
+
+    /**
      * Kind `media`: what is playing, with its controls. Made by Kolahal only; never parsed, never stored.
      * Times are in milliseconds. [position] was right at the moment [positionAt] (on the phone's clock,
      * `System.currentTimeMillis`), and moves at [speed] while [playing]. A [duration] of 0 or less
@@ -229,6 +247,8 @@ sealed interface WidgetSpec {
  *   the wrong type, a needed field that is missing, a number that isn't finite, a colour that isn't
  *   a role, a style that isn't one of its words, a tap without exactly one of `args` and `url`, a
  *   link that isn't a web link, a text or a description far longer than `widget.show` allows.
+ * - A picture's link must start with `https://` and have at most [MAX_PICTURE_LINK] characters, and
+ *   its `alt` text must not be blank. `widget.show` refuses the same ([isHttps]).
  * - A list longer than its limit is cut as `widget.show` cuts it, and a number outside its range
  *   is brought into it. The parser has done both already, so this changes nothing it wrote.
  * - Where `widget.show` refuses and does not cut, this refuses too: no buttons or more than
@@ -257,6 +277,8 @@ object WidgetJson {
     const val MAX_TOGGLES = 6
     const val MAX_ZONES = 4
     const val MAX_EVENTS = 20
+    /** The longest link of a picture, in characters. A longer one is refused, never cut. */
+    const val MAX_PICTURE_LINK = 2_000
     const val MIN_DAYS = 1
     const val MAX_DAYS = 7
     const val DEFAULT_DAYS = 3
@@ -303,6 +325,7 @@ object WidgetJson {
         is WidgetSpec.Toggles -> WidgetKind.TOGGLES
         is WidgetSpec.Clock -> WidgetKind.CLOCK
         is WidgetSpec.Agenda -> WidgetKind.AGENDA
+        is WidgetSpec.Image -> WidgetKind.IMAGE
         is WidgetSpec.Media -> WidgetKind.MEDIA
     }
 
@@ -397,6 +420,7 @@ object WidgetJson {
                 "days" to spec.days,
                 "empty" to spec.empty,
             )
+            is WidgetSpec.Image -> fields("image" to spec.image, "alt" to spec.alt, "caption" to spec.caption, "fit" to spec.fit)
             // Not reached: [encode] stops before it.
             is WidgetSpec.Media -> emptyMap()
         }
@@ -457,7 +481,16 @@ object WidgetJson {
 
     private fun obj(v: Any?): Map<*, *> = v as? Map<*, *> ?: odd()
 
-    private fun isWebLink(url: String) = url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)
+    private fun isWebLink(url: String) = isHttps(url) || url.startsWith("http://", ignoreCase = true)
+
+    /**
+     * True for a link that starts with `https://`. A picture's link must: home fetches it without
+     * a tap, so it never goes over plain http. The parser and [decode] both ask here, so they agree.
+     */
+    fun isHttps(url: String): Boolean = url.startsWith("https://", ignoreCase = true)
+
+    /** A picture's link: needed, https, and not longer than [MAX_PICTURE_LINK]. */
+    private fun Map<*, *>.picture(key: String): String = needText(key).also { if (!isHttps(it) || it.length > MAX_PICTURE_LINK) odd() }
 
     private fun Map<*, *>.tap(key: String): WidgetTap? {
         val m = obj(this[key] ?: return null)
@@ -570,6 +603,14 @@ object WidgetJson {
                 },
                 days = m.number("days")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
                 empty = m.text("empty"),
+            )
+            WidgetKind.IMAGE -> WidgetSpec.Image(
+                base,
+                image = m.picture("image"),
+                // The card shows this text when it has no picture, so a blank one is no text at all.
+                alt = m.needText("alt").also { if (it.isBlank()) odd() },
+                caption = m.text("caption"),
+                fit = m.oneOf("fit", "crop", "fit"),
             )
             // Not reached: `media` is not among the kinds looked up above.
             WidgetKind.MEDIA -> null

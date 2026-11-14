@@ -168,6 +168,11 @@ class WidgetWordsTest {
         assertEquals("Weather: 24°C, Sunny, up +2, 68% humidity, 12 km/h, 50%", WidgetWords.description("Weather", weather, now, utc))
         assertEquals("no title, no colon", "24", WidgetWords.description(null, WidgetSpec.Stat(base, value = "24"), now, utc))
         assertEquals("Quote: Be kind., Anon", WidgetWords.description("Quote", WidgetSpec.Text(base, text = "Be kind.", caption = "Anon"), now, utc))
+        // A picture is said by its words. They are the same whether it has loaded or not.
+        val picture = WidgetSpec.Image(base, image = "https://example.com/a.png", alt = "A graph of sleep", caption = "Monday")
+        assertEquals("Comic: A graph of sleep, Monday", WidgetWords.description("Comic", picture, now, utc))
+        assertEquals("A graph of sleep", WidgetWords.description(null, picture.copy(caption = null), now, utc))
+        assertFalse(WidgetWords.timed(picture))
     }
 
     @Test fun aListSaysEveryRowAlsoThoseThatDoNotFit() {

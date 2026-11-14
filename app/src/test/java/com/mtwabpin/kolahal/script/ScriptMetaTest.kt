@@ -232,20 +232,21 @@ class ScriptMetaTest {
         assertEquals(listOf("1x1", "2x1", "2x2", "4x1", "4x2", "4x4"), WidgetSize.entries.map { it.id })
         assertEquals(listOf(3, 6, 6, 12, 12, 12), WidgetSize.entries.map { it.span })
         assertEquals(listOf(1, 1, 2, 1, 2, 4), WidgetSize.entries.map { it.rows })
-        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda", "media"), WidgetKind.entries.map { it.id })
+        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda", "image", "media"), WidgetKind.entries.map { it.id })
         assertEquals(WidgetSize.S4X1, WidgetSize.named(" 4X1 "))
         assertNull(WidgetSize.named("3x1"))
         assertNull(WidgetSize.named(null))
         assertEquals(WidgetKind.COUNTDOWN, WidgetKind.named("Countdown"))
         assertEquals(WidgetKind.BUTTONS, WidgetKind.named("buttons"))
         assertEquals(WidgetKind.AGENDA, WidgetKind.named(" AGENDA "))
-        assertNull(WidgetKind.named("image"))
+        assertEquals(WidgetKind.IMAGE, WidgetKind.named("image"))
+        assertNull(WidgetKind.named("hologram"))
         assertNull(WidgetKind.named(null))
     }
 
     /** `media` is a kind only Kolahal fills: a script can't name it, and no list for scripts has it. */
     @Test fun aScriptCantNameAKindOnlyKolahalFills() {
-        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda"), WidgetKind.forScripts.map { it.id })
+        assertEquals(listOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda", "image"), WidgetKind.forScripts.map { it.id })
         assertEquals(listOf(WidgetKind.MEDIA), WidgetKind.entries.filterNot { it.script })
         assertNull(WidgetKind.named("media"))
         assertNull(WidgetKind.named("MEDIA"))
@@ -253,7 +254,7 @@ class ScriptMetaTest {
         WidgetKind.entries.forEach { assertEquals(it.takeIf { k -> k.script }, WidgetKind.named(it.id)) }
         // The reference lists what a script can write, and no more.
         val line = ApiDocs.directives.single { it.name == "widget" }.doc
-        assertTrue(line, line.contains("Kinds: stat text list progress chart countdown buttons toggles clock agenda."))
+        assertTrue(line, line.contains("Kinds: stat text list progress chart countdown buttons toggles clock agenda image."))
         assertFalse(line, line.contains("media"))
         val show = ApiDocs.all.first { it.name == "widget.show" }.doc
         WidgetKind.forScripts.forEach { assertTrue("${it.id} in: $show", show.contains("${it.id}: ")) }

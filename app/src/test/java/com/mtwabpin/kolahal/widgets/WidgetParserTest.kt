@@ -305,12 +305,71 @@ class WidgetParserTest {
         assertEquals("widget: item 1 of events: no field 'location'; use title, starts, ends, allDay, where, color, tap", event("title" to "a", "starts" to 1, "location" to "x"))
     }
 
+    // ---- image ----------------------------------------------------------------------------
+
+    private fun image(vararg fields: Pair<String, Any?>) = parse(mapOf(*fields), WidgetKind.IMAGE) as WidgetSpec.Image
+
+    private fun noImage(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.IMAGE)
+
+    @Test fun anImageWithAllItsFields() {
+        assertEquals(
+            WidgetSpec.Image(WidgetBase(title = "xkcd"), image = "https://example.com/a.png", alt = "A graph", caption = "Monday", fit = "fit"),
+            image("title" to "xkcd", "image" to " https://example.com/a.png ", "alt" to " A graph ", "caption" to "Monday", "fit" to " FIT "),
+        )
+        // Only the link and the words for it are needed. Without `fit` the card crops.
+        assertEquals(WidgetSpec.Image(WidgetBase(), image = "https://example.com/a.png", alt = "A graph"), image("image" to "https://example.com/a.png", "alt" to "A graph"))
+        assertEquals("crop", image("image" to "https://example.com/a.png", "alt" to "a", "fit" to "crop").fit)
+        // The texts are cut as any text is. A line break in them becomes a space.
+        val long = image("image" to "https://example.com/a.png", "alt" to "a".repeat(300), "caption" to "c\n" + "c".repeat(100))
+        assertEquals("a".repeat(199) + "…", long.alt)
+        assertEquals("c " + "c".repeat(57) + "…", long.caption)
+    }
+
+    @Test fun anImageNeedsAnHttpsLinkAndItsWords() {
+        val link = "https://example.com/a.png"
+        assertEquals("widget: image is needed: a link to a picture that starts with https://", noImage("alt" to "a"))
+        assertEquals("widget: image must be a link to a picture that starts with https://, not 3", noImage("image" to 3, "alt" to "a"))
+        assertEquals("widget: image must be a link to a picture that starts with https://, not an empty text", noImage("image" to "  ", "alt" to "a"))
+        // Plain http is refused, and the error does not repeat the link: it could hold a secret.
+        assertEquals("widget: image must start with https://: a widget's picture is not fetched over plain http", noImage("image" to "http://example.com/a.png?key=K", "alt" to "a"))
+        assertEquals("widget: image must start with https://: a widget's picture is not fetched over plain http", noImage("image" to "data:image/png;base64,AAAA", "alt" to "a"))
+        // A link is never cut: 2000 characters pass, one more is an error.
+        val longest = link + "?" + "x".repeat(2000 - link.length - 1)
+        assertEquals(longest, image("image" to longest, "alt" to "a").image)
+        assertEquals("widget: image is over 2000 characters", noImage("image" to longest + "x", "alt" to "a"))
+        // The words are needed, and they can't be empty: the card shows them when it has no picture.
+        assertEquals("widget: alt is needed: what the picture shows, in words, for a screen reader", noImage("image" to link))
+        assertEquals("widget: alt is needed: what the picture shows, in words, for a screen reader", noImage("image" to link, "alt" to "  "))
+        assertEquals("widget: alt must be text, not a table", noImage("image" to link, "alt" to mapOf("en" to "a")))
+        assertEquals("widget: fit must be crop or fit, not 'stretch'", noImage("image" to link, "alt" to "a", "fit" to "stretch"))
+        assertEquals("widget: an image widget has no field 'src'; use kind, title, icon, color, tap, staleAfter, refresh, image, alt, caption, fit", noImage("src" to link, "alt" to "a"))
+    }
+
+    /** The picture's link goes through the host, as a tap's link does: what the host returns is checked and stored. */
+    @Test fun anImagesLinkGoesThroughTheHost() {
+        val links = ArrayList<String>()
+        fun up(link: (String) -> String, vararg fields: Pair<String, Any?>) = WidgetParser.parse(mapOf(*fields), WidgetKind.IMAGE, text = { it.uppercase() }, link = link)
+        assertEquals(
+            WidgetSpec.Image(WidgetBase(), image = "https://example.com/a.png?checked", alt = "A", caption = "C"),
+            up({ links += it; "$it?checked" }, "image" to "https://example.com/a.png", "alt" to "a", "caption" to "c"),
+        )
+        assertEquals(listOf("https://example.com/a.png"), links)
+        // The host's own error stops the run.
+        val refusedByHost = assertThrows(IllegalArgumentException::class.java) { up({ throw IllegalArgumentException("widget: not a web link") }, "image" to "tel:112", "alt" to "a") }
+        assertEquals("widget: not a web link", refusedByHost.message)
+        // What the host returns is what counts: a link it turned into plain http is refused, and a long one too.
+        val turned = assertThrows(IllegalArgumentException::class.java) { up({ it.replace("https://", "http://") }, "image" to "https://example.com/a.png", "alt" to "a") }
+        assertEquals("widget: image must start with https://: a widget's picture is not fetched over plain http", turned.message)
+        val grown = assertThrows(IllegalArgumentException::class.java) { up({ it + "x".repeat(2000) }, "image" to "https://example.com/a.png", "alt" to "a") }
+        assertEquals("widget: image is over 2000 characters", grown.message)
+    }
+
     // ---- a kind only Kolahal fills ----------------------------------------------------------
 
     /** `media` is not a kind for scripts: not as `kind`, and not as the kind of the `@widget` line. */
     @Test fun aScriptCantFillAMediaWidget() {
-        assertEquals("widget: no kind 'media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to "media", "title" to "Song")))
-        assertEquals("widget: no kind 'Media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to "Media")))
+        assertEquals("widget: no kind 'media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image", refused(mapOf("kind" to "media", "title" to "Song")))
+        assertEquals("widget: no kind 'Media'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image", refused(mapOf("kind" to "Media")))
         assertEquals("widget: a script can't fill a media widget", refused(mapOf("title" to "Song"), WidgetKind.MEDIA))
         assertEquals("widget: a script can't fill a media widget", refused(emptyMap(), WidgetKind.MEDIA))
     }
@@ -318,8 +377,8 @@ class WidgetParserTest {
     @Test fun theKindFieldWinsOverTheWidgetLine() {
         assertEquals(WidgetSpec.Text(WidgetBase(), text = "hello"), parse(mapOf("kind" to "text", "text" to "hello"), WidgetKind.STAT))
         assertEquals(WidgetSpec.Stat(WidgetBase(), value = "1"), parse(mapOf("kind" to null, "value" to 1), WidgetKind.STAT))
-        assertEquals("widget: no kind 'graph'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to "graph")))
-        assertEquals("widget: no kind 3; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda", refused(mapOf("kind" to 3)))
+        assertEquals("widget: no kind 'graph'; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image", refused(mapOf("kind" to "graph")))
+        assertEquals("widget: no kind 3; use stat, text, list, progress, chart, countdown, buttons, toggles, clock, agenda, image", refused(mapOf("kind" to 3)))
     }
 
     // ---- progress --------------------------------------------------------------------------
@@ -724,6 +783,39 @@ class WidgetParserTest {
         assertEquals("x".repeat(36) + "•••", spec.base.title)
     }
 
+    /**
+     * The styles go before the mask. The mask looks for a secret as it is written, so a style mark
+     * in the middle of one would hide it, and taking the styles out afterwards would show it whole.
+     */
+    @Test fun aStyleCantHideASecretFromTheMask() {
+        val mask = { s: String -> s.replace("SECRET", "•••") }
+        val split = "key SEC" + StyledText.open(StyledText.Style.BOLD) + "RET" + StyledText.close(StyledText.Style.BOLD)
+        val coloured = StyledText.colour(StyledText.Colour.BAD, "SEC") + "RET"
+        val stat = WidgetParser.parse(
+            mapOf("value" to split, "title" to coloured, "label" to split, "more" to listOf(mapOf("value" to coloured, "label" to split)), "tap" to mapOf("args" to split, "label" to coloured)),
+            WidgetKind.STAT, text = mask, link = { it },
+        ) as WidgetSpec.Stat
+        assertEquals("key •••", stat.value)
+        assertEquals("•••", stat.base.title)
+        assertEquals("key •••", stat.label)
+        assertEquals(listOf(WidgetSpec.Small("•••", "key •••")), stat.more)
+        assertEquals(WidgetTap(args = "key •••", label = "•••"), stat.base.tap)
+        val text = WidgetParser.parse(mapOf("text" to "a\n$split", "caption" to coloured), WidgetKind.TEXT, text = mask, link = { it })
+        assertEquals(WidgetSpec.Text(WidgetBase(), text = "a\nkey •••", caption = "•••"), text)
+        val picture = WidgetParser.parse(mapOf("image" to "https://example.com/a.png", "alt" to split, "caption" to coloured), WidgetKind.IMAGE, text = mask, link = { it })
+        assertEquals(WidgetSpec.Image(WidgetBase(), image = "https://example.com/a.png", alt = "key •••", caption = "•••"), picture)
+        // A zone's name too: the mask sees it without its styles, so the secret is not looked up or quoted.
+        val zone = assertThrows(IllegalArgumentException::class.java) {
+            WidgetParser.parse(mapOf("zones" to listOf(mapOf("zone" to coloured))), WidgetKind.CLOCK, text = mask, link = { it })
+        }
+        assertEquals("widget: item 1 of zones: no time zone '•••'; use a name such as Asia/Kolkata or UTC", zone.message)
+        // The mask gets every text without a style mark in it.
+        val seen = ArrayList<String>()
+        WidgetParser.parse(mapOf("value" to StyledText.wrap(StyledText.Style.ITALIC, "v"), "unit" to StyledText.tag(StyledText.Colour.GOOD, "u")), WidgetKind.STAT, text = { seen += it; it }, link = { it })
+        assertEquals(setOf("v", "u"), seen.toSet())
+        assertTrue(seen.none(StyledText::has))
+    }
+
     /** A refused link stops the run with the host's own error. */
     @Test fun aRefusedLinkIsTheHostsError() {
         val e = assertThrows(IllegalArgumentException::class.java) {
@@ -743,6 +835,7 @@ class WidgetParserTest {
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "args", "url", "label", "page", "value", "more", "text", "caption", "items", "empty", "detail", "trailing")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("max", "style", "moving", "points", "min", "labels", "summary", "to", "from", "reached")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("done", "on", "zones", "zone", "seconds", "events", "starts", "ends", "allDay", "where", "days")))
+        assertTrue(WidgetParser.FIELDS.containsAll(listOf("image", "alt", "fit")))
         assertTrue(WidgetParser.FIELDS.all { Regex("[a-z][A-Za-z]*").matches(it) })
     }
 
@@ -759,6 +852,7 @@ class WidgetParserTest {
             refused(mapOf("nope" to 1), WidgetKind.TOGGLES), refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.TOGGLES),
             refused(mapOf("nope" to 1), WidgetKind.CLOCK), refused(mapOf("zones" to listOf(mapOf("nope" to 1))), WidgetKind.CLOCK),
             refused(mapOf("nope" to 1), WidgetKind.AGENDA), refused(mapOf("events" to listOf(mapOf("nope" to 1))), WidgetKind.AGENDA),
+            refused(mapOf("nope" to 1), WidgetKind.IMAGE),
         )
         val known = errors.flatMap { listed.find(it!!)!!.groupValues[1].split(", ") }.toSet()
         assertEquals(WidgetParser.FIELDS, known)

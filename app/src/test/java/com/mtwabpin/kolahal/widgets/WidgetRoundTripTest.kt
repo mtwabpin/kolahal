@@ -98,6 +98,11 @@ class WidgetRoundTripTest {
         ),
     )
 
+    @Test fun image() = roundTrip(
+        WidgetKind.IMAGE,
+        base + mapOf("image" to "https://example.com/comics/today.png?size=2x&v=3", "alt" to "A graph of \"quoted\" things — 日本語", "caption" to "Monday", "fit" to "fit"),
+    )
+
     @Test fun progress() = roundTrip(
         WidgetKind.PROGRESS,
         base + mapOf(
@@ -134,11 +139,12 @@ class WidgetRoundTripTest {
         roundTrip(WidgetKind.TOGGLES, mapOf("items" to listOf(mapOf("label" to "Mute", "on" to false, "tap" to mapOf("args" to "mute")))))
         roundTrip(WidgetKind.CLOCK, mapOf("zones" to listOf(mapOf("zone" to "UTC"))))
         roundTrip(WidgetKind.AGENDA, mapOf("events" to emptyList<Any>()))
+        roundTrip(WidgetKind.IMAGE, mapOf("image" to "https://example.com/a.png", "alt" to "A picture"))
     }
 
     /** Every kind a script can use is in the tests above: a new kind needs its round trip. */
     @Test fun everyKindForScriptsIsHere() {
-        val tested = setOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda")
+        val tested = setOf("stat", "text", "list", "progress", "chart", "countdown", "buttons", "toggles", "clock", "agenda", "image")
         assertEquals(tested, WidgetKind.forScripts.map { it.id }.toSet())
     }
 }

@@ -50,6 +50,9 @@ object WidgetParser {
     /** A chart's `summary`, the words a screen reader says for it. */
     const val MAX_SUMMARY = 200
 
+    /** A picture's `alt`, the words a screen reader says for it. The card shows them when it has no picture. */
+    const val MAX_ALT = 200
+
     /** A list keeps its first [MAX_ITEMS] items, and a stat its first [MAX_MORE] smaller values. */
     const val MAX_ITEMS = 12
     const val MAX_MORE = 3
@@ -105,6 +108,7 @@ object WidgetParser {
     private val ZONE = listOf("zone", "label")
     private val AGENDA = listOf("events", "days", "empty")
     private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap")
+    private val IMAGE = listOf("image", "alt", "caption", "fit")
 
     private val TRENDS = listOf("up", "down", "flat")
 
@@ -115,7 +119,7 @@ object WidgetParser {
      */
     val FIELDS: Set<String> = (
         COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + PROGRESS + BAR + CHART + COUNTDOWN +
-            BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT
+            BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE
         ).toSet()
 
     /** The fields of a [kind] widget, after the common ones. */
@@ -130,6 +134,7 @@ object WidgetParser {
         WidgetKind.TOGGLES -> TOGGLES
         WidgetKind.CLOCK -> CLOCK
         WidgetKind.AGENDA -> AGENDA
+        WidgetKind.IMAGE -> IMAGE
         WidgetKind.MEDIA -> notForScripts(kind)
     }
 
@@ -139,16 +144,19 @@ object WidgetParser {
     /**
      * [raw] as a checked description.
      * - [default] is the kind of the script's `@widget` line. The description's own `kind` wins.
-     * - [text] is called for every text before it is cut. It masks secrets and removes styles.
-     * - [link] is called for every link. It returns the link as it may be stored, or throws for a
-     *   link that is refused.
+     * - [text] is called for every text before it is cut. It masks secrets. The styles are removed
+     *   here, before it is called: a style mark in the middle of a secret would hide it from the mask.
+     * - [link] is called for every link, also a picture's. It returns the link as it may be stored,
+     *   or throws for a link that is refused.
      */
     fun parse(raw: Map<*, *>, default: WidgetKind, text: (String) -> String, link: (String) -> String): WidgetSpec {
         val kind = raw["kind"]?.let {
             WidgetKind.named(it as? String) ?: throw IllegalArgumentException("widget: no kind ${shown(it)}; use ${WidgetKind.forScripts.joinToString { k -> k.id }}")
         } ?: default
         if (!kind.script) notForScripts(kind)
-        val t = Table(raw, "", "a ${kind.id} widget has no field", COMMON + own(kind), text, link)
+        // "an image widget", "an agenda widget".
+        val a = if (kind.id.first() in "aeiou") "an" else "a"
+        val t = Table(raw, "", "$a ${kind.id} widget has no field", COMMON + own(kind), text, link)
         val base = WidgetBase(
             title = t.text("title", MAX_TITLE),
             icon = t.text("icon", MAX_ICON),
@@ -172,9 +180,25 @@ object WidgetParser {
             WidgetKind.TOGGLES -> toggles(t, base)
             WidgetKind.CLOCK -> clock(t, base)
             WidgetKind.AGENDA -> agenda(t, base)
+            WidgetKind.IMAGE -> image(t, base)
             WidgetKind.MEDIA -> notForScripts(kind)
         }
     }
+
+    private const val ALT_IS = "what the picture shows, in words, for a screen reader"
+
+    /**
+     * A picture from the web. The script gives its link, and home fetches it.
+     * - `image` is needed. It must be an https link. It is never cut: one that is too long is an error.
+     * - `alt` is needed, and it can't be empty. A screen reader says it, and the card shows it when it has no picture.
+     */
+    private fun image(t: Table, base: WidgetBase) = WidgetSpec.Image(
+        base,
+        image = t.picture("image"),
+        alt = t.need("alt", MAX_ALT, ALT_IS).ifEmpty { t.fail("alt is needed: $ALT_IS") },
+        caption = t.text("caption", MAX_CAPTION),
+        fit = t.choice("fit", listOf("crop", "fit")),
+    )
 
     private fun stat(t: Table, base: WidgetBase) = WidgetSpec.Stat(
         base,
@@ -375,8 +399,8 @@ object WidgetParser {
         fun has(key: String) = values[key] != null
 
         /**
-         * A text field, or null when it is left out or empty. A number becomes text. Secrets and
-         * styles go first ([clean]) and the cut comes after, so a cut never splits either.
+         * A text field, or null when it is left out or empty. A number becomes text. Styles go
+         * first, then secrets ([clean]), and the cut comes last, so a cut never splits either.
          * With [lines] the text keeps its line breaks; without, they become spaces.
          */
         fun text(key: String, max: Int, lines: Boolean = false): String? = textOrEmpty(key, max, lines)?.takeIf { it.isNotEmpty() }
@@ -394,7 +418,7 @@ object WidgetParser {
                 is Number -> numberText(v)
                 else -> fail("$key must be text, not ${shown(v)}")
             }
-            val cleaned = clean(given).let { if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim() }
+            val cleaned = clean(StyledText.plain(given)).let { if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim() }
             return cut(cleaned, max)
         }
 
@@ -444,12 +468,12 @@ object WidgetParser {
 
         /**
          * A time zone by its name, such as `Asia/Kolkata` or `UTC`. It is needed, and it is never
-         * cut: a name `java.time.ZoneId.of` does not know is an error. Secrets and styles go first
-         * ([clean]), as for any text.
+         * cut: a name `java.time.ZoneId.of` does not know is an error. Styles go first and then
+         * secrets ([clean]), as for any text.
          */
         fun zone(key: String): String {
             val v = values[key] ?: fail("$key is needed: a time zone name, such as Asia/Kolkata")
-            val name = (v as? String)?.let { clean(it).trim() } ?: fail("$key must be a time zone name, such as Asia/Kolkata, not ${shown(v)}")
+            val name = (v as? String)?.let { clean(StyledText.plain(it)).trim() } ?: fail("$key must be a time zone name, such as Asia/Kolkata, not ${shown(v)}")
             runCatching { java.time.ZoneId.of(name) }.getOrNull() ?: fail("no time zone ${shown(name)}; use a name such as Asia/Kolkata or UTC")
             return name
         }
@@ -481,6 +505,23 @@ object WidgetParser {
                 val map = item as? Map<*, *> ?: throw IllegalArgumentException("widget: ${where}must be $shape, not ${shown(item)}")
                 Table(map, where, "no field", known, clean, link)
             }
+        }
+
+        /**
+         * A picture's link. It is needed.
+         * - It must pass [link], as a tap's link does.
+         * - It must start with `https://`. Home fetches a picture without a tap, so never over plain http.
+         * - It is never cut. One over [WidgetJson.MAX_PICTURE_LINK] characters is an error.
+         * An error never quotes the link: it could hold a secret.
+         */
+        fun picture(key: String): String {
+            val what = "a link to a picture that starts with https://"
+            val v = values[key] ?: fail("$key is needed: $what")
+            val given = (v as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: fail("$key must be $what, not ${if (v is String) "an empty text" else shown(v)}")
+            val checked = link(given)
+            if (!WidgetJson.isHttps(checked)) fail("$key must start with https://: a widget's picture is not fetched over plain http")
+            if (checked.length > WidgetJson.MAX_PICTURE_LINK) fail("$key is over ${WidgetJson.MAX_PICTURE_LINK} characters")
+            return checked
         }
 
         /**
