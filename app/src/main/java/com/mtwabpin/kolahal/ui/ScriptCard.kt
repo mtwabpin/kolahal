@@ -526,8 +526,8 @@ private fun AccessPill(label: String, on: Boolean, icon: Int?, onToggle: () -> U
     )
 }
 
-/** An icon for every access and event pill, so the pills look alike. */
-private val PILL_ICONS = mapOf(
+/** An icon for every access and event pill, so the pills look alike. ScriptUsesTest checks that each `@uses` item has one. */
+internal val PILL_ICONS = mapOf(
     ScriptAccess.INTERNET to R.drawable.ic_public, "clipboard" to R.drawable.ic_clipboard, "dnd" to R.drawable.ic_do_not_disturb,
     "headset" to R.drawable.ic_headset,
     ScriptAccess.HEADER to R.drawable.ic_home, "notifications" to R.drawable.ic_notifications, "apps" to R.drawable.ic_apps,
@@ -535,4 +535,6 @@ private val PILL_ICONS = mapOf(
     "unlock" to R.drawable.ic_lock_open, "charger" to R.drawable.ic_battery, "unplug" to R.drawable.ic_battery,
     "wifi" to R.drawable.ic_wifi, "offline" to R.drawable.ic_cloud_off, "notification" to R.drawable.ic_notifications,
     "boot" to R.drawable.ic_restart,
+    "todos" to R.drawable.ic_check, "notes" to R.drawable.ic_edit, "reminders" to R.drawable.ic_alarm,
+    "calendar" to R.drawable.ic_calendar, "feeds" to R.drawable.ic_rss,
 )

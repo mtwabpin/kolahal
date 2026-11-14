@@ -40,9 +40,21 @@ object ScriptMeta {
      * - `commands`: launcher.run (terminal commands and other scripts)
      * - `dnd`: device.dnd and device.setDnd (Do Not Disturb)
      * - `work`: device.work and device.setWork (the work profile)
+     * - `todos`: todos.list and todos.setDone (your to-do list: reading it, and marking a todo done or open)
+     * - `notes`: notes.list
+     * - `reminders`: reminders.list
+     * - `calendar`: calendar.events (the phone's calendar; Kolahal also needs Android's calendar permission)
+     * - `feeds`: feeds.unread (the unread items of the feeds you follow)
      * The user allows each one ([ScriptAccess]).
+     *
+     * A new name here also needs:
+     * - its label and help ([ScriptAccess.label], [ScriptAccess.help]): the access and install dialogs show them,
+     * - its calls in [ScriptCheck], so the editor says when the `@uses` line is missing,
+     * - its short name and its pill icon (`USES_SHORT` and `PILL_ICONS`, in ui/),
+     * - its name in the `allowed` entry of [ApiDocs], and in the site's `@uses` table.
+     * ScriptUsesTest checks the first three.
      */
-    val USES = listOf("notifications", "clipboard", "apps", "commands", "dnd", "work")
+    val USES = listOf("notifications", "clipboard", "apps", "commands", "dnd", "work", "todos", "notes", "reminders", "calendar", "feeds")
 
     /** Known names from every `@uses` line. Unknown names are ignored. */
     fun uses(code: String): Set<String> {

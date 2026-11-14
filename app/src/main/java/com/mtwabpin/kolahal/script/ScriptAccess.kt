@@ -24,7 +24,8 @@ import com.mtwabpin.kolahal.data.Script
  *   While it is off, `widget.show` stores nothing.
  * - Each `@on` event: on unless switched off.
  * When an item is off, the script gets an empty answer where that is honest (no apps, no
- * notifications, no clipboard). Where it isn't honest (internet), the script stops.
+ * notifications, no clipboard, no todos, notes, reminders, events or feed items). Where it isn't
+ * honest (internet), the script stops.
  * Posting notifications has its own switch ([com.mtwabpin.kolahal.data.Script.notify]). It is shown
  * for a script that calls `notify` ([ScriptMeta.postsNotifications]).
  */
@@ -69,6 +70,11 @@ object ScriptAccess {
         "commands" -> "Run commands"
         "dnd" -> "Do Not Disturb"
         "work" -> "Work profile"
+        "todos" -> "Your to-dos"
+        "notes" -> "Your notes"
+        "reminders" -> "Your reminders"
+        "calendar" -> "Your calendar"
+        "feeds" -> "Your feeds"
         else -> "Runs on $item"
     }
 
@@ -82,6 +88,11 @@ object ScriptAccess {
         "commands" -> "Runs terminal commands and other scripts when you start it from the prompt; when off, it can't"
         "dnd" -> "Reads and turns Do Not Disturb on and off; when off, it can't"
         "work" -> "Reads, pauses and resumes the work profile; when off, it can't"
+        "todos" -> "Reads your to-do list, and marks to-dos done or open; when off, it sees none and changes none"
+        "notes" -> "Reads your notes; when off, it sees none"
+        "reminders" -> "Reads your reminders; when off, it sees none"
+        "calendar" -> "Reads the events of the next days from the phone's calendar; when off, it sees none"
+        "feeds" -> "Reads the unread items of the feeds you follow; when off, it sees none"
         else -> "Runs when this happens (@on $item)"
     }
 

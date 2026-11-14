@@ -117,6 +117,19 @@ class ScriptFiltersTest {
         assertFalse(ScriptFilters.sheetGroups(sample.map { it.copy(selfUpdated = true) }, emptySet()).toMap().containsKey(FilterGroup.SELF_UPDATED))
     }
 
+    /** Every `@uses` item has a chip with its short name, and an icon for its pill on a script's card. */
+    @Test fun everyUsesItemHasAChipAndAPillIcon() {
+        val uses = com.mtwabpin.kolahal.script.ScriptMeta.USES
+        assertEquals(uses.toSet(), USES_SHORT.keys)
+        assertEquals(emptyList<String>(), uses.filter { it !in PILL_ICONS })
+        assertEquals(uses.map { "uses:$it" }, ScriptFilters.ALL.filter { it.group == FilterGroup.USES }.map { it.id })
+        val names = ScriptFilters.ALL.filter { it.group == FilterGroup.USES }.map { it.label }
+        assertEquals(listOf("To-dos", "Notes", "Reminders", "Calendar", "Feeds"), names.takeLast(5))
+        // A script that reads your todos is found by its chip, and by no other.
+        val reader = script("todo-card", uses = setOf("todos"))
+        assertEquals(listOf("uses:todos"), ScriptFilters.ALL.filter { it.group == FilterGroup.USES && it.keeps(reader) }.map { it.id })
+    }
+
     /** Every word must be in the name, title, description, author or tags; case doesn't matter. */
     @Test fun theSearchFindsEveryWord() {
         val s = script("hn", text = "hn hacker news the top stories ann news reader")

@@ -35,14 +35,20 @@ object ScriptCheck {
         }
     }
 
-    /** What each `@uses` name allows a script to call. */
-    private val NEEDS = linkedMapOf(
+    /** What each `@uses` name allows a script to call. Every name of [ScriptMeta.USES] has its calls here (ScriptUsesTest). */
+    internal val NEEDS = linkedMapOf(
         "notifications" to Regex("""(?<![.\w])notifications\s*\.\s*recent\b"""),
         "clipboard" to Regex("""(?<![.\w])clipboard\s*\.\s*\w+"""),
         "apps" to Regex("""(?<![.\w])apps\s*\.\s*list\b"""),
         "commands" to Regex("""(?<![.\w])launcher\s*\.\s*run\b"""),
         "dnd" to Regex("""(?<![.\w])device\s*\.\s*(dnd|setDnd)\b"""),
         "work" to Regex("""(?<![.\w])device\s*\.\s*(work|setWork)\b"""),
+        // Only the calls themselves. A script may have a table of its own that is called `notes` or `feeds`.
+        "todos" to Regex("""(?<![.\w])todos\s*\.\s*(list|setDone)\b"""),
+        "notes" to Regex("""(?<![.\w])notes\s*\.\s*list\b"""),
+        "reminders" to Regex("""(?<![.\w])reminders\s*\.\s*list\b"""),
+        "calendar" to Regex("""(?<![.\w])calendar\s*\.\s*events\b"""),
+        "feeds" to Regex("""(?<![.\w])feeds\s*\.\s*unread\b"""),
     )
 
     private val directive = Regex("""^\s*(--|//)\s*@(\w+)\b[ \t]*(.*)$""")
