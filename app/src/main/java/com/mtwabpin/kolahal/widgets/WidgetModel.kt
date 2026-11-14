@@ -118,6 +118,20 @@ object WidgetLayout {
     /** Space between widgets (across and down) and on each side of the page. */
     const val GAP_DP = 8
 
+    /**
+     * The narrowest a placed widget may be, in columns. A widget Kolahal draws itself ([sourced]: it
+     * has a [PlacedWidget.source]) is at least one cell wide ([WidgetSizes.MIN_SPAN]); an app's
+     * widget at least [MIN_SPAN]. Every place that sets or reads a width uses this one rule.
+     */
+    fun minSpan(sourced: Boolean): Int = if (sourced) WidgetSizes.MIN_SPAN else MIN_SPAN
+
+    /**
+     * The lowest a placed widget may be, in dp: [WidgetSizes.MIN_HEIGHT_DP] for a widget Kolahal draws
+     * itself ([sourced]), [MIN_DP] for an app's widget. An app's widget whose details are known also
+     * has its own minimum ([minHeight]).
+     */
+    fun minDp(sourced: Boolean): Int = if (sourced) WidgetSizes.MIN_HEIGHT_DP else MIN_DP
+
     /** Width of a widget [span] columns wide on a page [pageDp] wide. Spans that add up to a full row fill it exactly. */
     fun widthDp(pageDp: Int, span: Int): Int = (pageDp + GAP_DP) * span / COLUMNS - GAP_DP
 
@@ -218,6 +232,8 @@ object WidgetOrder {
  * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
  *   its source (`script:weather`, see [WidgetSource]).
  * - Lines saved before widths existed have no span. They are full width.
+ * - A height or a width outside what the widget may have is brought inside it ([WidgetLayout.minDp],
+ *   [WidgetLayout.minSpan]). A saved line and a backup's entry follow the same rule.
  * - Flattened ComponentNames never contain `|`, and a source with one is refused.
  * - A Kolahal from before sources skips a line whose provider has no `/`. So going back to it drops
  *   these widgets and breaks nothing.
@@ -237,10 +253,11 @@ object WidgetCodec {
             id = if (source) null else f[0].toIntOrNull(),
             provider = f[1],
             profileSerial = f[2].toLongOrNull() ?: 0L,
-            heightDp = (f[3].toIntOrNull() ?: WidgetLayout.MIN_DP).coerceIn(WidgetLayout.MIN_DP, WidgetLayout.MAX_DP),
+            // A size below the widget's minimum (a list written by hand, or by another version) is raised to it.
+            heightDp = (f[3].toIntOrNull() ?: 0).coerceIn(WidgetLayout.minDp(source), WidgetLayout.MAX_DP),
             order = f[4].toIntOrNull() ?: 0,
             location = WidgetLocation.of(f[5]),
-            span = f.getOrNull(6)?.toIntOrNull()?.coerceIn(WidgetLayout.MIN_SPAN, WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS,
+            span = f.getOrNull(6)?.toIntOrNull()?.coerceIn(WidgetLayout.minSpan(source), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS,
         )
     }.toList()
 
@@ -270,14 +287,15 @@ object WidgetCodec {
             is String -> v.toDoubleOrNull()?.toLong()
             else -> null
         }
+        val sourced = WidgetSource.isSource(provider)
         PlacedWidget(
             id = null,
             provider = provider,
             profileSerial = num("profile") ?: 0L,
-            heightDp = (num("height")?.toInt() ?: WidgetLayout.MIN_DP).coerceIn(WidgetLayout.MIN_DP, WidgetLayout.MAX_DP),
+            heightDp = (num("height")?.toInt() ?: 0).coerceIn(WidgetLayout.minDp(sourced), WidgetLayout.MAX_DP),
             order = num("order")?.toInt() ?: 0,
             location = WidgetLocation.of(m["location"]),
-            span = num("span")?.toInt()?.coerceIn(WidgetLayout.MIN_SPAN, WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS,
+            span = num("span")?.toInt()?.coerceIn(WidgetLayout.minSpan(sourced), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS,
         )
     }
 

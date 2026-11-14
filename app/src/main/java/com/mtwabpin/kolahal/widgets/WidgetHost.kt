@@ -283,7 +283,7 @@ class WidgetHost private constructor(context: Context) {
                 id = null,
                 provider = source,
                 profileSerial = runCatching { serialOf(Process.myUserHandle()) }.getOrDefault(0L),
-                heightDp = WidgetSizes.heightDp(size, pageWidthDp()).coerceIn(WidgetSizes.MIN_HEIGHT_DP, WidgetLayout.MAX_DP),
+                heightDp = WidgetSizes.heightDp(size, pageWidthDp()).coerceIn(WidgetLayout.minDp(sourced = true), WidgetLayout.MAX_DP),
                 order = WidgetOrder.nextOrder(all),
                 span = size.span,
             )
@@ -356,7 +356,7 @@ class WidgetHost private constructor(context: Context) {
     fun resizeWidth(key: String, delta: Int) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
         // A widget Kolahal draws itself is at least one cell wide.
-        val span = WidgetLayout.resizeSpan(w.span, delta).coerceAtLeast(if (w.source != null) WidgetSizes.MIN_SPAN else WidgetLayout.MIN_SPAN)
+        val span = WidgetLayout.resizeSpan(w.span, delta).coerceAtLeast(WidgetLayout.minSpan(w.source != null))
         if (span != w.span) update { all -> all.map { if (it.key == key) it.copy(span = span) else it } }
     }
 
@@ -367,7 +367,8 @@ class WidgetHost private constructor(context: Context) {
     }
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
-        val min = if (w.source != null) WidgetSizes.MIN_HEIGHT_DP else w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.MIN_DP
+        // An app's widget has its own minimum. A widget Kolahal draws itself has no id, so it gets the rule's.
+        val min = w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.minDp(w.source != null)
         val h = WidgetLayout.resize(heightDp, 0, min)
         if (h != w.heightDp) update { all -> all.map { if (it.key == w.key) it.copy(heightDp = h) else it } }
     }

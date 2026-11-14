@@ -151,6 +151,39 @@ class WidgetModelTest {
         assertEquals(listOf(4, WidgetLayout.COLUMNS, WidgetLayout.COLUMNS), imported.map { it.span })
     }
 
+    /**
+     * One rule for the smallest a placed widget may be. A widget Kolahal draws itself is at least one
+     * cell wide and 72 dp high; an app's widget two columns and 48 dp. The saved list and a backup
+     * both follow it, so a restored widget is never smaller than the page lets you make it.
+     */
+    @Test fun aRestoredWidgetIsNeverBelowItsMinimum() {
+        assertEquals(WidgetSizes.MIN_SPAN to WidgetSizes.MIN_HEIGHT_DP, WidgetLayout.minSpan(true) to WidgetLayout.minDp(true))
+        assertEquals(WidgetLayout.MIN_SPAN to WidgetLayout.MIN_DP, WidgetLayout.minSpan(false) to WidgetLayout.minDp(false))
+        val smallest = WidgetSizes.MIN_HEIGHT_DP to WidgetSizes.MIN_SPAN
+        val sources = listOf("script:weather", "status:cricket", "builtin:battery")
+
+        // The saved list: too small, then with no height at all, then an app's widget.
+        val saved = WidgetCodec.decode((sources.map { "-|$it|0|10|0|panel|1" } + "-|script:bare|0||1|panel|2" + "3|com.a/.W|0|10|2|panel|1").joinToString("\n"))
+        assertEquals(sources + "script:bare" + "com.a/.W", saved.map { it.provider })
+        assertEquals(List(4) { smallest }, saved.take(4).map { it.heightDp to it.span })
+        assertEquals(WidgetLayout.MIN_DP to WidgetLayout.MIN_SPAN, saved[4].heightDp to saved[4].span)
+
+        // A backup: the same, whatever type its numbers come as.
+        val restored = WidgetCodec.fromExport(
+            sources.map { mapOf("provider" to it, "height" to 10.0, "span" to "1") } +
+                mapOf("provider" to "script:bare") +
+                mapOf("provider" to "com.a/.W", "height" to 10, "span" to 1),
+        )
+        assertEquals(List(3) { smallest }, restored.take(3).map { it.heightDp to it.span })
+        // No size in the backup: as low as it may be, and full width.
+        assertEquals(WidgetSizes.MIN_HEIGHT_DP to WidgetLayout.COLUMNS, restored[3].heightDp to restored[3].span)
+        assertEquals(WidgetLayout.MIN_DP to WidgetLayout.MIN_SPAN, restored[4].heightDp to restored[4].span)
+
+        // A size inside the limits stays, and the largest is the same for every widget.
+        val kept = WidgetCodec.decode("-|script:weather|0|96|0|panel|3\n-|script:tall|0|99999|1|panel|99")
+        assertEquals(listOf(96 to 3, WidgetLayout.MAX_DP to WidgetLayout.COLUMNS), kept.map { it.heightDp to it.span })
+    }
+
     // ---- widgets Kolahal draws itself: the provider field holds a source ----
 
     private fun script(name: String, order: Int = 0, span: Int = 6) = PlacedWidget(null, WidgetSource.script(name), 0L, 96, order, span = span)
