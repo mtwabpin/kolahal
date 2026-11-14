@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.provider.CalendarContract
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -10,6 +11,8 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StatusLines
+import com.mtwabpin.kolahal.productivity.Agenda
+import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -56,8 +59,9 @@ internal class WidgetScriptReader {
  *   After that, a name that is not in it has no script.
  * - [lines]: every stored status line, as the pinned header gets them. They are read before
  *   [scripts] gets its first value.
+ * - [own]: Kolahal's own data, for the built-in widgets ([OwnFeed]). Null for a feed made without it, in a test.
  */
-class WidgetFeed(val scripts: StateFlow<Map<String, WidgetScript>?>, val lines: StateFlow<List<StatusLine>>)
+class WidgetFeed(val scripts: StateFlow<Map<String, WidgetScript>?>, val lines: StateFlow<List<StatusLine>>, val own: OwnFeed? = null)
 
 /**
  * What a card on the widgets page can ask for. The card calls these, and the view model answers with
@@ -94,6 +98,19 @@ interface WidgetCardActions {
 
     /** A long-press on a card: opens the screen to arrange widgets. */
     fun longPress()
+
+    /**
+     * A tap inside the card of the built-in widget [id] (`todos`, `media`). [what] is one of that
+     * widget's few words ([OwnTaps]): `open`, `done #12`, `next`. Other words do nothing. A command
+     * is never among them.
+     */
+    fun own(id: String, what: String) {}
+
+    /**
+     * The card of the built-in widget [id] came into view. What can be old is read again: the
+     * calendar, at most once in a minute, and a list that something wrote past its store.
+     */
+    fun ownShown(id: String) {}
 }
 
 /**
@@ -165,15 +182,18 @@ internal object StatusTurns {
  * - A tap with a link opens it, as a link in a log line does.
  * - A tap on a Status card runs its script and says so in the log, as a tap on a pinned line does.
  * - A tap on the Battery and network card opens Android's battery screen.
+ * - A tap inside a built-in card ([own]) does one of the few things in [OwnTaps]. None of them runs a script.
  *
  * [taps]: one item starts at most one run in 2 seconds. The header and the log's buttons share this gate.
  * [statusRuns]: when each status line last ran again for its `refresh`, in [SystemClock.elapsedRealtime]
  * time. It is the pinned header's own table ([StatusTurns]). Only the main thread uses it.
+ * [ownData]: Kolahal's own data, which the built-in cards show and their taps change.
  */
-class WidgetActions(
+class WidgetActions internal constructor(
     private val context: Context,
     private val taps: TapGate,
     private val statusRuns: MutableMap<String, Long>,
+    private val ownData: OwnData,
     private val host: Host,
 ) : WidgetCardActions {
     /** What these actions need from the view model. */
@@ -184,6 +204,16 @@ class WidgetActions(
         fun openScreen(screen: Screen)
         /** Turns home to the log page. */
         fun showLog()
+        /**
+         * Runs [command] as if you had typed it and pressed Enter, as a gesture runs the command you
+         * set for it, and turns home to the log. So it may be a sensitive command. Only for a command
+         * that you chose yourself (a Shortcuts button), or a fixed one of Kolahal's own (`todo`).
+         */
+        fun runTyped(command: String)
+        /** Asks Android for the calendar permission, as `agenda --allow` does. */
+        fun requestCalendar()
+        /** Asks whether to open Android's Notification access screen, as `notifs enable` does. */
+        fun requestNotificationAccess()
     }
 
     private val scripts = ScriptRepository.get(context)
@@ -238,15 +268,44 @@ class WidgetActions(
         return StatusTurns.waitMs(every, statusRuns[script], now)
     }
 
-    override fun openBattery() {
-        // Some phones have no such screen. Then the log says so, as for any screen that can't open.
-        runCatching { context.startActivity(Intent(Intent.ACTION_POWER_USAGE_SUMMARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    // Some phones have no such screen. Then the log says so, as for any screen that can't open.
+    override fun openBattery() = start(Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
+
+    /** Opens [intent] in its own task. When nothing can open it, the log says so. */
+    private fun start(intent: Intent) {
+        runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onFailure { host.io { logs.add(LogKind.ERROR, "Can't open: ${it.message}") } }
     }
 
     override fun openScripts() = host.openScreen(Screen.SCRIPTS)
 
     override fun longPress() = host.openScreen(Screen.WIDGETS)
+
+    override fun own(id: String, what: String) {
+        when (val tap = OwnTaps.parse(id, what) ?: return) {
+            // A checkbox and a media button answer every tap: no 2-second gate. Neither prints a line.
+            is OwnTap.SetTodo -> ownData.setTodo(tap.id, tap.done)
+            is OwnTap.Media -> ownData.media(tap.action)
+            // A command prints in the log, so quick taps on one item run it once, as for a header item.
+            is OwnTap.Typed -> if (taps.allow("own:$id:$what")) host.runTyped(tap.command)
+            is OwnTap.RunShortcut -> {
+                // The command is looked up now, in your list: the card's description never holds it.
+                val shortcut = ownData.shortcut(tap.index) ?: return
+                if (taps.allow("own:$id:$what")) host.runTyped(shortcut.command)
+            }
+            OwnTap.EditShortcuts -> host.openScreen(Screen.WIDGETS)
+            OwnTap.OpenPlayer -> {
+                val playing = ownData.playing ?: return
+                val player = context.packageManager.getLaunchIntentForPackage(playing.pkg)
+                if (player != null) start(player) else host.io { logs.add(LogKind.ERROR, "Can't open ${playing.app}") }
+            }
+            OwnTap.AllowNotifications -> host.requestNotificationAccess()
+            OwnTap.AllowCalendar -> host.requestCalendar()
+            is OwnTap.OpenEvent -> start(eventIntent(tap.id, ownData.event(tap.id, tap.begin)))
+        }
+    }
+
+    override fun ownShown(id: String) = ownData.shown(id)
 
     companion object {
         /** The arguments of a tap, split at spaces, as a line button's are. */
@@ -257,6 +316,17 @@ class WidgetActions(
             put("name", "action")
             if (label != null) put("label", label)
             put("widget", true)
+        }
+
+        /**
+         * Opens the calendar event [id] in the calendar app. [event] is the event as the Agenda card
+         * last read it, or null. Its times say which time of a repeating event to show.
+         */
+        internal fun eventIntent(id: Long, event: AgendaEvent?): Intent = Intent(Intent.ACTION_VIEW, Agenda.eventUri(id)).apply {
+            if (event != null) {
+                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, event.begin)
+                putExtra(CalendarContract.EXTRA_EVENT_END_TIME, event.end)
+            }
         }
     }
 }

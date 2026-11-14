@@ -74,6 +74,9 @@ import kotlinx.coroutines.withContext
 /** Commands that change the todo, note, reminder and feed caches. */
 private val PRODUCTIVITY_COMMANDS = CommandCatalog.PRODUCTIVITY + setOf("feed", "feeds")
 
+/** How long after a todo is written the view model looks whether the log's reload has read it. A reload takes far less. */
+private const val TODO_FOLLOW_MS = 500L
+
 /**
  * Returns the ↑ history after [fresh] lines (oldest first) were added to it:
  * - the new commands come first, newest first;
@@ -234,8 +237,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /**
+     * Kolahal's own data for the built-in widgets: todos, notes, reminders, shortcuts, what plays
+     * and the calendar ([OwnData]). It reads on IO threads, and only what a card collects.
+     */
+    private val ownData = OwnData(app, viewModelScope)
+
     /** What the cards of the widgets page read from here, and not from the database ([WidgetFeed]). */
-    val widgetFeed = WidgetFeed(widgetScripts, _lines.asStateFlow())
+    val widgetFeed = WidgetFeed(widgetScripts, _lines.asStateFlow(), ownData.feed)
 
     /**
      * When each status line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
@@ -1046,13 +1055,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /**
      * Taps and refresh requests of the script widgets on the widgets page ([WidgetActions]). A tap
      * shares the 2-second gate of the header and the log's buttons ([itemTaps]). A Status card's
-     * `refresh` shares the pinned header's table of last runs ([pinRuns]).
+     * `refresh` shares the pinned header's table of last runs ([pinRuns]). A tap inside a built-in
+     * card changes Kolahal's own data ([ownData]), or runs a command as if it was typed ([runTyped]).
      */
-    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, pinRuns, object : WidgetActions.Host {
+    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, pinRuns, ownData, object : WidgetActions.Host {
         override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
         override fun openUrl(url: String) = this@TerminalViewModel.openUrl(url)
         override fun openScreen(screen: Screen) = this@TerminalViewModel.openScreen(screen)
         override fun showLog() { _logTurns.tryEmit(Unit) }
+        override fun runTyped(command: String) {
+            this@TerminalViewModel.runTyped(command)
+            showLog()
+        }
+        override fun requestCalendar() = requestCalendarPermission()
+        override fun requestNotificationAccess() = askNotificationAccess()
     })
 
     /**
@@ -1105,11 +1121,18 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
                 runCommand("lock")
             }
             // Gesture actions may be aliases, so they expand like typed input.
-            else -> {
-                _events.tryEmit(UiEvent.ScrollToBottom)
-                io { processor.run(action) }
-            }
+            else -> runTyped(action)
         }
+    }
+
+    /**
+     * Runs [command] as if you had typed it and pressed Enter: aliases expand, and a sensitive
+     * command runs. Only for a command that you set yourself (a gesture's, a Shortcuts button's),
+     * or a fixed one of Kolahal's own. Never for anything a script wrote.
+     */
+    private fun runTyped(command: String) {
+        _events.tryEmit(UiEvent.ScrollToBottom)
+        io { processor.run(command) }
     }
 
     /**
@@ -1239,7 +1262,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     override fun askNotificationAccess() = requests.askNotificationAccess()
     fun answerNotificationAccess(allow: Boolean) = requests.answerNotificationAccess(allow)
     override fun requestCalendarPermission() = requests.requestCalendarPermission()
-    fun onCalendarPermission(granted: Boolean) = requests.onCalendarPermission(granted)
+    fun onCalendarPermission(granted: Boolean) {
+        requests.onCalendarPermission(granted)
+        // The Agenda card reads the calendar now. Home did not stop for the question, so the card does not ask again by itself.
+        ownData.calendarAnswered()
+    }
     override fun requestCallLogPermission() = requests.requestCallLogPermission()
     fun onCallLogPermission(granted: Boolean) = requests.onCallLogPermission(granted)
 
@@ -1274,10 +1301,29 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Contacts with numbers (empty without the permission). Suggestions are computed again when they load. */
     val contacts get() = com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).contacts
 
+    private val todoStore = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
+
+    /** The todo store's count of writes ([com.mtwabpin.kolahal.productivity.TodoStore.changes]) when [refreshProductivity] last read the todos. */
+    @Volatile private var todosSeen = -1
+
+    /**
+     * The Todos widget's checkbox writes a todo and prints no line, so the caches that follow the
+     * log ([refreshCaches]) would miss it, and the header would count a todo that is done. This
+     * reads them again after such a write. A typed `todo` command prints a line, and the log's
+     * reload has read the todos by the time this looks: then it reads nothing.
+     */
+    private fun followTodoWrites() {
+        viewModelScope.launch {
+            todoStore.changes.drop(1).debounce(TODO_FOLLOW_MS).collect { if (it != todosSeen) refreshProductivity() }
+        }
+    }
+
     private fun refreshProductivity() {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                todoCache = com.mtwabpin.kolahal.productivity.TodoStore.get(context).all()
+                // Before the read: a write during it is then read again.
+                todosSeen = todoStore.changes.value
+                todoCache = todoStore.all()
                 noteCache = com.mtwabpin.kolahal.productivity.NoteStore.get(context).all()
                 reminderCache = com.mtwabpin.kolahal.productivity.ReminderStore.get(context).all()
                 _todoCount.value = todoCache.count { !it.done }
@@ -1386,6 +1432,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     init {
         startWatching()
+        followTodoWrites()
         searcher.start()
         // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
         viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }
