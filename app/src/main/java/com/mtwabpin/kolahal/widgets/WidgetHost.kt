@@ -370,10 +370,15 @@ class WidgetHost private constructor(context: Context) {
         setHeight(w, WidgetLayout.widthDp(pageWidthDp(), w.span))
     }
 
+    /**
+     * The lowest [w] may be, in dp. An app's widget has its own minimum when its details are known.
+     * A widget Kolahal draws itself has no id, so it gets [WidgetLayout.minDp].
+     */
+    fun minHeightOf(w: PlacedWidget): Int =
+        w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.minDp(w.source != null)
+
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
-        // An app's widget has its own minimum. A widget Kolahal draws itself has no id, so it gets the rule's.
-        val min = w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.minDp(w.source != null)
-        val h = WidgetLayout.resize(heightDp, 0, min)
+        val h = WidgetLayout.resize(heightDp, 0, minHeightOf(w))
         if (h != w.heightDp) update { all -> all.map { if (it.key == w.key) it.copy(heightDp = h) else it } }
     }
 

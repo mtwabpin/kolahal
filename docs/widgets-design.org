@@ -290,8 +290,8 @@ A library script that gains a widget keeps working on a version without widgets:
    └ widget.show(desc)
        └ HostApi.widgetShow
            ├ WidgetSpec.parse   types, limits, secrets masked, links checked
-           └ WidgetStates.put ─────────▶  scope "widget"       ── message ─▶  WidgetStates.version
- the run ends (ScriptRun)                                                       └ the cards re-read
+           └ WidgetStates.put ─────────▶  scope "widget"                       WidgetStates.versionOf(name)
+ the run ends (ScriptRun)              ── one message per run ─────────▶      └ the card re-reads
    └ ok, or the error ────────────────▶  scope "widget.meta"                      their own state
 
                     ◀──── a tap or a refresh request, queued with WorkManager ────
@@ -335,8 +335,10 @@ Do /not/ reuse =LogRepository.onStatusChanged()=. It raises the log's version, a
 view model read the log again. Widgets get their own message and their own counter:
 
 - =:script= sends =WIDGETS_CHANGED= (package-private, like =LOGS_CHANGED=).
-- =LauncherApp= receives it and raises =WidgetStates.version=.
-- Only the widget cards collect that counter, and only while home is visible.
+- It names the widget. =LauncherApp= receives it and raises that widget's number (=WidgetStates.versionOf=).
+- A run stores quietly and sends one message when it ends (=ScriptRun.widgetEnd=), not one per =widget.show=.
+  A =widget.show= early in a long run is drawn when the run ends.
+- Each card collects only its own number, and only while home is visible.
 
 *** What starts a run
 
@@ -354,8 +356,9 @@ view model read the log again. Widgets get their own message and their own count
 
 - "In view" means: the pager has settled on the widgets page, and home is on screen. Being
   composed is not enough, because the pager keeps the page composed beside the log.
-- A ="widget"= run is queued like a pinned line's refresh: unique work per script, and a new
-  request is dropped while one waits or runs. A script that goes online waits for a network.
+- A ="widget"= run and a pinned line's refresh share one queue per script (=script-<id>-refresh=). A new
+  request of the same kind is dropped while one waits or runs; the other kind waits behind it.
+  A script that goes online waits for a network.
 - A ="widget"= run is quiet, like a pinned line's refresh. What it returns isn't logged. A failure
   is logged once, until a run works again.
 - The script's own =log()= lines /are/ still logged in these runs. A library script skips them
@@ -377,10 +380,11 @@ battery in the background.
 | Failed, with content           | The content stays. The footer says "Failed 10:42" in the error colour. A tap on the footer tries again. |
 | Failed, no content             | A short message (the error's first line, with secrets masked) and two buttons: Retry, Open script.      |
 | Offline                        | For a script that goes online: "Offline · 2 h ago". The run waits for a network. No endless spinner.    |
-| The script is off              | "weather is off" and a Turn on button. Turning it on shows its access, as the Scripts screen does.      |
+| The script is off              | "Script is off". A tap opens Scripts, where turning it on shows its access. No run is asked for.       |
 | A key is missing               | "Needs WAQI_TOKEN" and an Add key button, as its card in Scripts has.                                   |
 | Access is off                  | "Internet is off for this script" and an Allow button.                                                  |
-| The script was deleted         | "Script removed" and a Remove button.                                                                   |
+| The script was deleted         | "Script removed". A tap opens the Widgets screen, where it can be removed.                              |
+| The script has no =@widget=    | "Script has no widget now". A tap opens Scripts. No run is asked for.                                   |
 | Nothing to show (=widget.clear=) | The title and "Nothing to show".                                                                      |
 
 The words come from Kolahal, never from the script, except the content and the error's first line.
@@ -560,7 +564,7 @@ can't run it.
 | List rows                | =SegmentedListItem= with =segShapes=, as Settings has.                                                 |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
 | Toggles                  | =ToggleButton=: round when off, squarer when on.                                                       |
-| Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match, a countdown.          |
+| Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match. A countdown's bar is still. |
 | A level that stands      | A plain track or ring: a battery, an air quality figure. A wave would say "working".                   |
 | Loading                  | =LoadingIndicator=.                                                                                    |
 | A value that changes     | The new value slides up over the old one (=AnimatedContent=), as the pinned header's lines do.         |
@@ -1331,8 +1335,8 @@ Changed files:
 - =script/ScriptWorker.kt= (=ScriptRun=) :: After a run of a script with a widget, write the meta:
   the time, and the error if it failed. Treat a ="widget"= run as it treats a ="refresh"= run:
   quiet, and an error reported once.
-- =script/ScriptScheduler.kt= :: =refreshWidget(script)=: unique work that keeps the one already
-  queued, with the event ="widget"=. Taps use =runNow=, as line buttons do.
+- =script/ScriptScheduler.kt= :: =refreshWidget(script)=: on the script's one refresh queue, shared with =refreshPinned=,
+  with the event ="widget"=. Taps use =runNow=, as line buttons do.
 - =data/Stores.kt= :: The two scopes, in =THIS_PHONE=. =StoresTest= then passes.
 - =data/ScriptRepository.kt=, =terminal/ScriptChanges.kt= :: Clear a widget's state where a status
   line is cleared: deleted, switched off, changed from outside, a name taken again. Move it, and

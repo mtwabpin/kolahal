@@ -76,7 +76,6 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
-import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -199,10 +198,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         label = labelOf(chosen) ?: chosen.provider,
                         index = panel.indexOf(chosen),
                         count = panel.size,
-                        minHeight = remember(chosen.key, providersVersion) {
-                            if (chosen.source != null) WidgetSizes.MIN_HEIGHT_DP
-                            else chosen.id?.let { widgets.cachedInfo(it) }?.let { widgets.minHeightDp(it) } ?: WidgetLayout.MIN_DP
-                        },
+                        minHeight = remember(chosen.key, providersVersion) { widgets.minHeightOf(chosen) },
                         onMove = { widgets.move(chosen.key, it) },
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },
@@ -396,8 +392,7 @@ private fun WidgetToolbar(
             }
             // Side by side if they fit. On a narrow screen or with large text, one below the other.
             FlowRow(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                // A widget Kolahal draws itself is at least one cell wide.
-                val minSpan = if (w.source != null) WidgetSizes.MIN_SPAN else WidgetLayout.MIN_SPAN
+                val minSpan = WidgetLayout.minSpan(w.source != null)
                 Stepper("Width", WidgetLayout.spanLabel(w.span), w.span > minSpan, w.span < WidgetLayout.COLUMNS, onWidth)
                 Stepper("Height", "${w.heightDp}", w.heightDp > minHeight, w.heightDp < WidgetLayout.MAX_DP, onHeight)
             }
