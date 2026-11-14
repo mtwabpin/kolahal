@@ -44,6 +44,20 @@ class WidgetTitlesTest {
         assertEquals(WidgetOptionWords.GONE, WidgetOptionWords.note(first, found = false, options = 0))
     }
 
+    /**
+     * What a picker row says of what is placed. A built-in widget and a Status card are placed
+     * once. A script's own widget can be placed again, up to six times.
+     */
+    @Test fun aPickerRowSaysWhatIsAdded() {
+        assertNull(pickerAdded(0))
+        assertEquals("Added", pickerAdded(1))
+        val most = com.mtwabpin.kolahal.widgets.WidgetRef.MAX_PER_SCRIPT
+        assertNull(pickerAdded(0, most))
+        assertEquals("Added · tap to add another", pickerAdded(1, most))
+        assertEquals("Added · tap to add another", pickerAdded(5, most))
+        assertEquals("Added · 6 of 6", pickerAdded(6, most))
+    }
+
     @Test fun aStatusCardAndABuiltInWidgetHaveNamesToo() {
         assertEquals("Weather in Paris status", sourceTitle("status:weather", scripts))
         assertEquals("hn status", sourceTitle("status:hn", scripts))

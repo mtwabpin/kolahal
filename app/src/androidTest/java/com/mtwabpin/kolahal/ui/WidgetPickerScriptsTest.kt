@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -37,6 +38,7 @@ import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.widgets.TestScriptWidgets
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetState
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -49,7 +51,8 @@ import org.junit.runner.RunWith
 
 /**
  * A script's own widget on the widget screens: its row in the picker's Kolahal section, which says
- * "Added" once it is placed, and its card on the Widgets screen, where a tap selects it.
+ * "Added" once it is placed and then places another, and its card on the Widgets screen, where a
+ * tap selects it.
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetPickerScriptsTest {
@@ -94,7 +97,8 @@ class WidgetPickerScriptsTest {
     /**
      * The picker's first section has a row for a script with a `@widget` line, and a Status card
      * for one that sets a status line. A tap places the widget at once and hands over to the
-     * Widgets screen. From then on the row says "Added", and a second tap places nothing.
+     * Widgets screen. From then on the row says "Added". A second tap on the script's own widget
+     * places another one; a Status card is placed once.
      */
     @Test fun thePickerListsAScriptsWidgetAndSaysWhenItIsAdded() {
         val s = t.create("-weather", code)
@@ -108,7 +112,7 @@ class WidgetPickerScriptsTest {
         val status = hasText("Wpick Line") and hasText("Status card") and hasClickAction()
         scrollTo(row)
         compose.onNodeWithText("Kolahal").assertExists()
-        compose.onAllNodes(row and hasText("Added")).assertCountEquals(0)
+        compose.onAllNodes(row and hasText("Added", substring = true)).assertCountEquals(0)
         scrollTo(status)
         compose.onAllNodesWithText("Wpick Plain").assertCountEquals(0)
 
@@ -129,13 +133,74 @@ class WidgetPickerScriptsTest {
         // The message waits for a widget screen. Here the picker is still up, and shows it.
         compose.waitForText("Added $title")
         scrollTo(row)
-        compose.waitForNode(row and hasText("Added"))
+        // A script's own widget can be placed again, and the row says so.
+        compose.waitForNode(row and hasText("Added · tap to add another"))
         // The Status card is a widget of its own, and is not placed.
-        compose.onAllNodes(status and hasText("Added")).assertCountEquals(0)
+        compose.onAllNodes(status and hasText("Added", substring = true)).assertCountEquals(0)
 
+        // A second tap places a further widget of the script, with a run of its own.
         compose.onNode(row).performClick()
-        compose.waitForText("$title is already on the widgets page", ms = 15_000)
-        assertEquals(1, t.host.widgets.value.count { it.source == t.source(s.name) })
+        val second = WidgetRef(s.name, "2")
+        t.placed(s)
+        assertEquals(listOf(WidgetRef(s.name), second), t.host.placedOf(s.name))
+        assertEquals("24", (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        compose.waitForText("Added $title 2", ms = 15_000)
+        // This script declares no option, so there is nothing to open on the Widgets screen.
+        compose.runOnIdle { assertNull(vm.widgetOptionsAsked.value) }
+
+        // A Status card is placed once: its row says "Added", and a second tap places nothing.
+        scrollTo(status)
+        compose.onNode(status).performClick()
+        compose.waitForNode(status and hasText("Added"))
+        compose.onNode(status).performClick()
+        compose.waitForText("Wpick Line status is already on the widgets page", ms = 20_000)
+        assertEquals(1, t.host.widgets.value.count { it.source == "status:${line.name}" })
+    }
+
+    /**
+     * A tap on the row of a script whose widget is on the page places a further widget, and hands
+     * over to the Widgets screen. That screen opens the new widget's options, so you can set what
+     * differs from the first one.
+     */
+    @Test fun aTapOnAnAddedScriptAddsAnotherAndOpensItsOptions() {
+        val s = t.place(t.create("-city", "-- @title Wpick City\n-- @widget stat 2x1\n-- @option city London The city to show\nwidget.show{ value = options.city }"))
+        val vm = model(Screen.WIDGET_PICKER, s)
+        compose.setContent {
+            // As home does: the picker, and the Widgets screen once the picker has closed.
+            val screen = vm.screen.collectAsState().value
+            if (screen == Screen.WIDGET_PICKER) WidgetPickerScreen(vm) { } else WidgetsScreen(vm) { _, _ -> }
+        }
+        val row = hasText("Wpick City") and hasText("Stat") and hasClickAction()
+        scrollTo(row)
+        compose.waitForNode(row and hasText("Added · tap to add another"))
+        compose.onNode(row).performClick()
+
+        val second = WidgetRef(s.name, "2")
+        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+        t.placed(s)
+        assertEquals(listOf(WidgetRef(s.name), second), t.host.placedOf(s.name))
+        // It follows the script's options until one is set for it.
+        assertEquals("London", (t.stored(second).spec as com.mtwabpin.kolahal.widgets.WidgetSpec.Stat).value)
+        // The Widgets screen shows its options, and says that they are this widget's own.
+        compose.waitForText("Options for Wpick City 2")
+        compose.onNodeWithText(WidgetOptionWords.WIDGET).assertExists()
+        compose.runOnIdle { assertNull(vm.widgetOptionsAsked.value) }
+    }
+
+    /** At six widgets of one script the row counts them, and a tap places no more. */
+    @Test fun aScriptWithSixWidgetsGetsNoMore() {
+        val s = t.place(t.create("-weather", code))
+        repeat(WidgetRef.MAX_PER_SCRIPT - 1) { assertTrue(t.host.placeAnother(s, com.mtwabpin.kolahal.widgets.WidgetSize.S2X1) != null) }
+        t.placed(s)
+        val vm = model(Screen.WIDGET_PICKER, s)
+        compose.setContent { WidgetPickerScreen(vm) { } }
+        val row = hasText(title) and hasText("Stat") and hasClickAction()
+        scrollTo(row)
+        compose.waitForNode(row and hasText("Added · 6 of 6"))
+        compose.onNode(row).performClick()
+        compose.waitForText("$title has 6 widgets already, the most a script may have")
+        assertEquals(6, t.host.placedOf(s.name).size)
+        compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
     }
 
     /**

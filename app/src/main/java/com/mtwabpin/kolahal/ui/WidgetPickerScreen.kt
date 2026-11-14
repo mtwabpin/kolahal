@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -63,8 +65,10 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.WidgetScript
+import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.Dispatchers
@@ -148,6 +152,21 @@ internal fun pickerScriptRows(scripts: Collection<WidgetScript>): List<PickerScr
 }.sortedBy { it.title.lowercase() }
 
 /**
+ * What a row of the picker's Kolahal section says about the widgets of its kind that are on the
+ * page already. Null when none is: the row then says nothing.
+ * - [placed]: how many are on the page. [most]: how many there may be.
+ * - A built-in widget and a Status card are placed once: "Added".
+ * - A script's own widget may be placed again, each with its own options, up to
+ *   [WidgetRef.MAX_PER_SCRIPT]: "Added · tap to add another". At the most, the row counts them.
+ */
+internal fun pickerAdded(placed: Int, most: Int = 1): String? = when {
+    placed <= 0 -> null
+    placed < most -> "Added · tap to add another"
+    most > 1 -> "Added · $placed of $most"
+    else -> "Added"
+}
+
+/**
  * A built-in widget, for the picker's Kolahal section. Kolahal fills it from its own data, so it has no script.
  * - [id] is its id in its source: `battery` in `builtin:battery`.
  * - [what] is the row's second line.
@@ -190,6 +209,10 @@ private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, empty
  *   line, and a Status card for each script that sets a status line. Picking one places it at once
  *   ([WidgetHost.placeBuiltin], [WidgetHost.placeScript], [WidgetHost.placeStatus]) and goes to the
  *   Widgets screen, as an app's widget does once it is bound.
+ * - A built-in widget and a Status card are placed once. A script's own widget can be placed
+ *   again: a tap on a row that says "Added" places a further widget of the script
+ *   ([WidgetHost.placeAnother]), and the Widgets screen then shows that widget's options, so you
+ *   can set what differs from the first one.
  * - Then the installed providers from every profile, grouped by app. Work and private apps get a
  *   badge. Each provider shows its preview and default size. Picking one starts the bind flow in MainActivity.
  */
@@ -204,6 +227,8 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val placed by widgets.widgets.collectAsStateWithLifecycle()
     val own = remember(scripts) { pickerScriptRows(scripts?.values.orEmpty()) }
     val added = remember(placed) { placed.mapNotNull { it.source }.toSet() }
+    // How many widgets of each script are on the page, by script name: a script can have several.
+    val scriptWidgets = remember(placed) { PlacedIds.of(placed).mapValues { it.value.size } }
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -278,15 +303,31 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
             if (anyOwn) {
                 item(key = "g:kolahal") { AppHeader(kolahalGroup) }
                 items(builtinsShown, key = { "s:${it.source}" }) { b ->
-                    KolahalWidgetCard(b.title, b.what, b.size, added = b.source in added) {
+                    KolahalWidgetCard(b.title, b.what, b.size, added = pickerAdded(if (b.source in added) 1 else 0)) {
                         picked(widgets.placeBuiltin(b.id, b.size), b.title)
                     }
                 }
                 items(ownShown, key = { "s:${it.source}" }) { w ->
-                    KolahalWidgetCard(w.title, w.what, w.size, added = w.source in added) {
+                    // A Status card is placed once. A script's own widget can be placed several times.
+                    val says = if (w.isStatus) pickerAdded(if (w.source in added) 1 else 0) else pickerAdded(scriptWidgets[w.script] ?: 0, WidgetRef.MAX_PER_SCRIPT)
+                    KolahalWidgetCard(w.title, w.what, w.size, added = says) {
                         // The script as it is now. One that was deleted a moment ago places nothing.
                         val script = vm.scriptList.value.firstOrNull { it.name == w.script } ?: return@KolahalWidgetCard
-                        picked(if (w.isStatus) widgets.placeStatus(script, w.size) else widgets.placeScript(script, w.size), w.name)
+                        when {
+                            w.isStatus -> picked(widgets.placeStatus(script, w.size), w.name)
+                            // The script's first widget on the page.
+                            widgets.placedOf(w.script).isEmpty() -> picked(widgets.placeScript(script, w.size), w.name)
+                            // It has one already: this is a further widget, with options of its own.
+                            else -> when (val ref = widgets.placeAnother(script, w.size)) {
+                                null -> widgets.message("${w.title} has ${WidgetRef.MAX_PER_SCRIPT} widgets already, the most a script may have")
+                                else -> {
+                                    picked(true, ref.titled(w.title))
+                                    // The Widgets screen shows its options, to set what differs from the
+                                    // script's own. A script that declares none has nothing to set.
+                                    if (scripts?.get(w.script)?.hasOptions == true) vm.askWidgetOptions(ref)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -322,11 +363,12 @@ private fun AppHeader(g: ProviderGroup) {
 
 /**
  * One of Kolahal's own widgets: its [title], [what] it is (its kind, "Status card" or "Built-in"),
- * and the [size] it starts with. A placed one says "Added": such a widget is placed once. A plain
- * row for now, with no drawn sample of the kind.
+ * and the [size] it starts with. [added] is what it says when one is on the page already
+ * ([pickerAdded]): "Added", or for a script's own widget that a tap adds another. Null says
+ * nothing. A plain row for now, with no drawn sample of the kind.
  */
 @Composable
-private fun KolahalWidgetCard(title: String, what: String, size: WidgetSize, added: Boolean, onClick: () -> Unit) {
+private fun KolahalWidgetCard(title: String, what: String, size: WidgetSize, added: String?, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -344,9 +386,16 @@ private fun KolahalWidgetCard(title: String, what: String, size: WidgetSize, add
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (added) {
+            if (added != null) {
                 Spacer(Modifier.width(8.dp))
-                Text("Added", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                // The longer words wrap in their own corner, so the title keeps its room.
+                Text(
+                    added,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.widthIn(max = 132.dp),
+                )
             }
             Spacer(Modifier.width(8.dp))
             Text("${size.cells}×${size.rows}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
