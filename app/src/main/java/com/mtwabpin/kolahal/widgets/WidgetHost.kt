@@ -26,6 +26,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.ThisInstall
+import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -230,14 +231,23 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /**
-     * Removes a widget from the page. For a script's own widget, its `widget` access goes off and what
-     * it showed is forgotten ([follow]).
+     * Removes a widget from the page. For one of a script's own widgets:
+     * - The database's copies of the list follow ([follow]). The script's `widget` access goes off
+     *   when this was its last widget.
+     * - What the widget showed is forgotten.
+     * - A further widget also loses the options set for it, so the next widget that gets its id
+     *   starts clean. The first widget's options are the script's own, and they stay.
      */
     fun remove(key: String) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
         w.id?.let { forget(it); runCatching { host.deleteAppWidgetId(it) } }
         update { all -> all.filterNot { it.key == key } }
-        WidgetSource.scriptName(w.source)?.let { follow(it) }
+        val ref = WidgetSource.scriptRef(w.source) ?: return
+        // After the copies are written: a run still on its way then finds the widget gone, and stores nothing more.
+        follow(ref.script) {
+            WidgetStates.forget(app, ref.key)
+            ScriptOptions(app).clear(ref.script, ref.id)
+        }
     }
 
     // ---- widgets Kolahal draws itself -------------------------------------------------------
@@ -250,16 +260,32 @@ class WidgetHost private constructor(context: Context) {
         WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }.filter { it.script == script }
 
     /**
-     * Places [script]'s own widget at the end of the page, at [size]. Returns false when it is already
+     * Places [script]'s first widget at the end of the page, at [size]. Returns false when it is already
      * placed (or its name can't be stored), and changes nothing then.
      * - The entry is on the page when this returns.
-     * - Then, on [checks]' thread, the script's `widget` access goes on, and only after that a
-     *   `"widget"` run is queued ([ScriptScheduler.refreshWidget]): the run reads the access from the database.
+     * - Then, on [checks]' thread, the database's copies follow, and only after that a `"widget"`
+     *   run is queued ([followAndRun]).
      */
     fun placeScript(script: Script, size: WidgetSize): Boolean {
-        val added = placeSource(WidgetSource.script(script.name), size)
-        if (added) follow(script.name, run = true)
+        val ref = WidgetRef(script.name)
+        val added = placeSource(WidgetSource.script(ref), size)
+        if (added) followAndRun(ref)
         return added
+    }
+
+    /**
+     * Places one more widget of [script] at the end of the page, at [size]: a further widget, with
+     * the smallest free id ([WidgetRef.nextId]). It follows the script's options until you set one
+     * for it. Returns which widget it is, or null when the script has
+     * [WidgetRef.MAX_PER_SCRIPT] widgets already; nothing changes then.
+     *
+     * What follows is as for [placeScript]: the copies, then a run for this widget only.
+     */
+    fun placeAnother(script: Script, size: WidgetSize): WidgetRef? {
+        val source = placeNew(size) { all ->
+            WidgetRef.nextId(PlacedIds.of(all)[script.name].orEmpty())?.let { WidgetSource.script(WidgetRef(script.name, it)) }
+        }
+        return WidgetSource.scriptRef(source)?.also(::followAndRun)
     }
 
     /**
@@ -277,12 +303,19 @@ class WidgetHost private constructor(context: Context) {
     fun placeBuiltin(id: String, size: WidgetSize): Boolean = placeSource(WidgetSource.builtin(id), size)
 
     /** Adds an entry for [source] at the end of the page, at [size]. False, and no change, when it is placed already or can't be stored. */
-    private fun placeSource(source: String, size: WidgetSize): Boolean {
-        if (!WidgetSource.isSource(source)) return false
-        var added = false
+    private fun placeSource(source: String, size: WidgetSize): Boolean = placeNew(size) { source } != null
+
+    /**
+     * Adds an entry at the end of the page, at [size]. [pick] chooses its source from the list as
+     * it is at that moment, under the list's lock, so two quick taps never pick the same one. Null
+     * adds nothing. Returns the source added. Null, and no change, when [pick] gave none, or gave
+     * one that is placed already or can't be stored.
+     */
+    private fun placeNew(size: WidgetSize, pick: (List<PlacedWidget>) -> String?): String? {
+        var added: String? = null
         update { all ->
-            added = all.none { it.source == source }
-            if (!added) return@update all
+            val source = pick(all)?.takeIf { s -> WidgetSource.isSource(s) && all.none { it.source == s } } ?: return@update all
+            added = source
             all + PlacedWidget(
                 id = null,
                 provider = source,
@@ -296,21 +329,30 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /**
-     * Makes one script's `widget` access say what the placed list says, on [checks]' thread: the
-     * database is not written on the caller's thread, and the changes happen in the order they were asked for.
-     * - Placed: the access goes on. With [run], a `"widget"` run is queued after that.
-     * - Not placed: the access goes off, and what the widget showed is forgotten.
-     * It reads the list when it runs, not when it is asked. So after a quick remove and add, the last one wins.
+     * Makes the database's copies for one script name say what the placed list says
+     * ([ScriptRepository.setWidgetPlaced]): which widgets of that name are on the page, and with
+     * that the script's `widget` access.
+     * - It runs on [checks]' thread: the database is not written on the caller's thread, and the
+     *   changes happen in the order they were asked for.
+     * - It reads the list when it runs, not when it is asked. So after a quick remove and add, the last one wins.
+     * - [then] runs after the copies are written, with the script as it is then, or null when no
+     *   script has the name.
      *
-     * The copy goes one way: from the list to the access, never back. The script list makes the
-     * change in one step of its own ([ScriptRepository.setWidgetPlaced]), so a switch you set at the
-     * same moment (`script deny … internet`) is not lost.
+     * The copies go one way: from the list to the database, never back. The script list makes the
+     * change in one step of its own, so a switch you set at the same moment (`script deny … internet`)
+     * is not lost.
      */
-    private fun follow(name: String, run: Boolean = false) = copy { scripts ->
-        val placed = isPlaced(WidgetSource.script(name))
-        val script = scripts.setWidgetPlaced(name, PlacedIds.of(_widgets.value)[name].orEmpty())
-        if (!placed) WidgetStates.forget(app, name)
-        else if (run && script != null) ScriptScheduler.refreshWidget(app, script)
+    private fun follow(script: String, then: (Script?) -> Unit = {}) = writeCopies { scripts ->
+        then(scripts.setWidgetPlaced(script, PlacedIds.of(_widgets.value)[script].orEmpty()))
+    }
+
+    /**
+     * What follows placing the widget [ref]: the database's copies ([follow]), and only after that
+     * one `"widget"` run for this widget ([ScriptScheduler.refreshWidget]). The run reads the copies
+     * from the database, so they must be there first. A widget removed again in the meantime gets no run.
+     */
+    private fun followAndRun(ref: WidgetRef) = follow(ref.script) { script ->
+        if (script != null && ref in placedOf(ref.script)) ScriptScheduler.refreshWidget(app, script, ref.id)
     }
 
     /**
@@ -322,7 +364,7 @@ class WidgetHost private constructor(context: Context) {
      * ([com.mtwabpin.kolahal.apps.PackageEvents], [com.mtwabpin.kolahal.calls.CallEvents]). Without
      * it here, it could clear the rows written a moment before.
      */
-    private fun copy(write: (ScriptRepository) -> Unit) = checks.execute {
+    private fun writeCopies(write: (ScriptRepository) -> Unit) = checks.execute {
         runCatching {
             ThisInstall.check(app)
             write(ScriptRepository.get(app))
@@ -337,11 +379,12 @@ class WidgetHost private constructor(context: Context) {
      *   off, so without this a restored widget would stay empty.
      * - It writes only where the two differ, on [checks]' thread.
      */
-    fun syncAccess() = copy { it.followPlaced(PlacedIds.of(_widgets.value)) }
+    fun syncAccess() = writeCopies { it.followPlaced(PlacedIds.of(_widgets.value)) }
 
     /**
-     * Waits until the access changes asked for so far are written ([placeScript], [remove],
-     * [renameScript], [syncAccess]). For tests: a caller on the main thread must not wait for the database.
+     * Waits until the changes to the database's copies asked for so far are written ([placeScript],
+     * [placeAnother], [remove], [renameScript], [syncAccess]). For tests: a caller on the main thread
+     * must not wait for the database.
      */
     @androidx.annotation.VisibleForTesting
     internal fun settle() {
@@ -350,10 +393,11 @@ class WidgetHost private constructor(context: Context) {
 
     /**
      * A script was renamed.
-     * - Its placed widgets keep their place, size and order under the new name ([WidgetSource.renamed]).
+     * - Every one of its placed widgets keeps its place, size, order and id under the new name
+     *   ([WidgetSource.renamed]).
      * - A widget may wait under the new name already: one a deleted script left on the page, or one
      *   from a backup. It is this script's widget now.
-     * Either way the script's `widget` access follows the list ([follow]).
+     * Either way the database's copies follow the list, for both names ([follow]).
      */
     fun renameScript(from: String, to: String) {
         val moved = _widgets.value.any { WidgetSource.isOf(it.source, from) }
@@ -584,6 +628,7 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
     return ordered.mapIndexed { i, w ->
         val source = w.source
         // A widget Kolahal draws itself: its name ("weather", "Battery and network"), and what it is ("script") where an app's widget has its package.
+        // A script's further widget has its id after the name: "weather 2".
         val label = source?.let(WidgetSource::label) ?: w.id?.let { info(it) }?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
         val state = when {
             w.pending -> "pending re-add"
