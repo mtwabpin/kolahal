@@ -252,9 +252,12 @@ class WidgetShowTest {
     @Test fun aRunTellsTheCardsOnce() {
         val calls = "widget.show{ value = 1 }\nwidget.clear()\nwidget.show{ value = 2 }"
         val s = script("-- @widget stat\n$calls", "-once")
-        // Its access goes on without placing the widget. Placing queues a run in the other process,
-        // and that run would tell the cards too, at a moment of its own.
-        assertTrue(scripts.setWidgetPlaced(s.name, true)!!.grants.allows(ScriptAccess.WIDGET))
+        // The widget is placed as a backup places it: on the page with its access on, and no run queued.
+        // Placing it from the picker queues a run in the other process, and that run would tell the
+        // cards too, at a moment of its own.
+        t.host.importWidgets(listOf(mapOf("provider" to t.source(s.name), "profile" to 0, "height" to 120, "order" to 90, "span" to 6)))
+        t.host.settle()
+        assertTrue(scripts.byId(s.id)!!.grants.allows(ScriptAccess.WIDGET))
         fun told() = WidgetStates.versions.value[s.name] ?: 0
 
         // A widget's run: three calls and the note of its end.
