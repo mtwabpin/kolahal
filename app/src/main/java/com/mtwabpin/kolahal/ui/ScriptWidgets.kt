@@ -105,6 +105,26 @@ internal enum class CardNote {
 
     /** A Status card whose script has set no status line. */
     NO_STATUS,
+
+    /** No script has the card's name any more: it was deleted. The card stays until you remove it. */
+    REMOVED,
+
+    /** The card's script is switched off. */
+    OFF,
+}
+
+/**
+ * The note of a card whose script can't fill it, or null for a script that can.
+ * - [read] is false while the view model has not read the scripts yet. Nothing is known then, and
+ *   the card says nothing about its script.
+ * - A null [script] means that no script has the name.
+ * Such a card asks for no runs: they would do nothing. A tap on it opens the Scripts screen.
+ */
+internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when {
+    !read -> null
+    script == null -> CardNote.REMOVED
+    !script.enabled -> CardNote.OFF
+    else -> null
 }
 
 /**
@@ -240,6 +260,8 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
         note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)
         note == CardNote.UNAVAILABLE -> QuietLine(WidgetWords.UNAVAILABLE, small)
         note == CardNote.NO_STATUS -> QuietLine(StatusCards.NO_LINE, small)
+        note == CardNote.REMOVED -> QuietLine(WidgetWords.REMOVED, small)
+        note == CardNote.OFF -> QuietLine(WidgetWords.OFF, small)
         note == null && spec != null -> KindBody(spec, box, onTap)
     }
 }
@@ -273,6 +295,9 @@ private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
 
 /** A tap on a card whose description has no action: the view model reads it as "refresh". */
 private val NO_TAP = WidgetTap()
+
+/** What a screen reader says a tap does on a card whose script is gone or off. */
+private const val OPEN_SCRIPTS = "open scripts"
 
 /** How long a card with nothing stored shows the loading shape. After that it says "Nothing to show": no spinner turns for ever. */
 private const val LOADING_MS = 20_000L
@@ -371,10 +396,16 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     }
     // The script's @title, for a description without a title of its own. The view model has read it.
     val known = knownScript(feed, name)
+    // The script is gone or off: the card says so, and asks for no runs.
+    val missing = scriptNote(known.read, known.script)
+    // With a feed, a run is asked for only once the scripts are read and the script can run. A card
+    // with no feed knows nothing of its script, and asks as if it were there.
+    val runnable = feed == null || (known.read && missing == null)
     val shown = LocalWidgetsShown.current
-    if (actions != null && shown) {
+    if (actions != null && shown && runnable) {
         // The page came into view, or home came back with the page in view: run the script once if
-        // it never filled the widget, or if its content is old.
+        // it never filled the widget, or if its content is old. A script that is switched on again
+        // starts this again, so its card is filled at once.
         LaunchedEffect(name, actions, lifecycle) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 var asked = -1L
@@ -407,18 +438,25 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         }
     }
 
-    val s = state
+    // What is stored counts only while the script can fill the card. Kolahal forgets it when a script goes or is switched.
+    val s = state.takeIf { missing == null }
     val spec = s?.spec
     // Nothing stored and no run ended yet: the widget was just placed, and its first run is on its way.
     val fresh = s != null && !s.hasContent && s.setAt == 0L && s.triedAt == 0L
     var gaveUp by remember(name) { mutableStateOf(false) }
-    if (fresh && shown && !gaveUp) LaunchedEffect(name) {
-        delay(LOADING_MS)
-        gaveUp = true
+    LaunchedEffect(name, fresh, shown) {
+        if (!fresh) {
+            // The next first run gets its own wait: a script that was off and is on again.
+            gaveUp = false
+        } else if (shown && !gaveUp) {
+            delay(LOADING_MS)
+            gaveUp = true
+        }
     }
     // The failed run's own words, for a card with nothing else to show. Without "tap to edit": a tap here refreshes.
     val failure = remember(s?.error) { WidgetWords.cardError(s?.error) }
     val note = when {
+        missing != null -> missing
         s == null -> CardNote.WAITING
         spec != null -> null
         // Something is stored, and it can't be read.
@@ -443,12 +481,17 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
             note == CardNote.FAILED -> "$title: $failure"
             note == CardNote.NOTHING -> "$title: ${WidgetWords.NOTHING}"
             note == CardNote.UNAVAILABLE -> "$title: ${WidgetWords.UNAVAILABLE}"
+            note == CardNote.REMOVED -> "$title: ${WidgetWords.REMOVED}"
+            note == CardNote.OFF -> "$title: ${WidgetWords.OFF}"
             else -> title
         }
         if (footer == null) content else "$content. ${footer.said}"
     }
     val tap = spec?.base?.tap
-    val onClick: (() -> Unit)? = remember(actions, name, tap) { actions?.let { a -> { a.tap(name, tap ?: NO_TAP) } } }
+    val onClick: (() -> Unit)? = remember(actions, name, tap, missing) {
+        // A refresh would do nothing for a script that is gone or off. The Scripts screen is where it comes back.
+        actions?.let { a -> if (missing != null) { { a.openScripts() } } else { { a.tap(name, tap ?: NO_TAP) } } }
+    }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
     val onTap: ((WidgetTap) -> Unit)? = remember(actions, name) { actions?.let { a -> { t: WidgetTap -> a.tap(name, t) } } }
     WidgetCard(
@@ -462,7 +505,11 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         footer = footer,
         onClick = onClick,
         // With no action of its own, a tap on the card refreshes it.
-        onClickLabel = if (tap == null) "refresh" else tap.label,
+        onClickLabel = when {
+            missing != null -> OPEN_SCRIPTS
+            tap == null -> "refresh"
+            else -> tap.label
+        },
         onLongClick = onLongClick,
         onTap = onTap,
     )
@@ -510,6 +557,7 @@ private fun statusLine(feed: WidgetFeed?, name: String): StatusLine? {
  * - The text is the value. The line's progress is the bar, in the line's colour.
  * - It needs no run and no access item. The line is stored whether or not a card shows it.
  * - A tap runs the script, as a tap on its pinned line does.
+ * - A card whose script is gone or off says so ([scriptNote]). A tap on it opens the Scripts screen.
  * - The line's own `refresh` counts while the card is in view, as it does for a pinned line. The
  *   view model keeps one time of the last run for both, so a script that is pinned and has a card
  *   runs once in each period. That time outlives the card: turning the page away and back starts
@@ -522,7 +570,10 @@ private fun statusLine(feed: WidgetFeed?, name: String): StatusLine? {
 private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val known = knownScript(feed, name)
-    val line = statusLine(feed, name)
+    // The script is gone or off: the card says so, and asks for no runs.
+    val missing = scriptNote(known.read, known.script)
+    // The line counts once the scripts are read, and only for a script that can set it.
+    val line = statusLine(feed, name).takeIf { known.read && missing == null }
 
     // `refresh` in the line's options: run again that often, only while in view.
     val every = line?.refresh
@@ -538,6 +589,7 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     val note = when {
         // Until the view model has read the scripts and the lines, the card stays empty. It does not say "no status line".
         !known.read -> CardNote.WAITING
+        missing != null -> missing
         spec == null -> CardNote.NO_STATUS
         else -> null
     }
@@ -546,10 +598,15 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
             // A stat's words have no time in them, so the moment and the zone don't matter.
             spec != null -> WidgetWords.description(title, spec, 0L, ZoneId.systemDefault())
             note == CardNote.NO_STATUS -> "$title: ${StatusCards.NO_LINE}"
+            note == CardNote.REMOVED -> "$title: ${WidgetWords.REMOVED}"
+            note == CardNote.OFF -> "$title: ${WidgetWords.OFF}"
             else -> title
         }
     }
-    val onClick: (() -> Unit)? = remember(actions, name) { actions?.let { a -> { a.runStatus(name) } } }
+    val onClick: (() -> Unit)? = remember(actions, name, missing) {
+        // A script that is gone or off can't be run from here. The Scripts screen is where it comes back.
+        actions?.let { a -> if (missing != null) { { a.openScripts() } } else { { a.runStatus(name) } } }
+    }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
     WidgetCard(
         title = title,
@@ -559,7 +616,7 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         description = description,
         modifier = Modifier.testTag("widget:status:$name"),
         onClick = onClick,
-        onClickLabel = "run",
+        onClickLabel = if (missing != null) OPEN_SCRIPTS else "run",
         onLongClick = onLongClick,
     )
 }

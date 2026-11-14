@@ -86,6 +86,12 @@ interface WidgetCardActions {
     /** A tap on the Battery and network card: opens Android's battery screen, as the header's battery does. */
     fun openBattery()
 
+    /**
+     * A tap on a card whose script can't fill it: the script is gone or switched off. Opens the
+     * Scripts screen, where it is switched on or added again.
+     */
+    fun openScripts()
+
     /** A long-press on a card: opens the screen to arrange widgets. */
     fun longPress()
 }
@@ -236,6 +242,8 @@ class WidgetActions(
         runCatching { context.startActivity(Intent(Intent.ACTION_POWER_USAGE_SUMMARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onFailure { host.io { logs.add(LogKind.ERROR, "Can't open: ${it.message}") } }
     }
+
+    override fun openScripts() = host.openScreen(Screen.SCRIPTS)
 
     override fun longPress() = host.openScreen(Screen.WIDGETS)
 

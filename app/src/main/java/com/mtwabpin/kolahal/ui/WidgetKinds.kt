@@ -81,6 +81,12 @@ internal object WidgetWords {
     const val NOTHING = "Nothing to show"
     const val UNAVAILABLE = "widget unavailable"
 
+    /** What a card says when no script has its name any more. */
+    const val REMOVED = "Script removed"
+
+    /** What a card says while its script is switched off. */
+    const val OFF = "Script is off"
+
     /** A number without a needless ".0": 9, 2.5, 3.14. At most two decimals. */
     fun num(v: Float): String {
         if (v.isNaN() || v.isInfinite()) return "–"

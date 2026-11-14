@@ -334,6 +334,7 @@ class ScriptWidgetCardTest {
         override fun runStatus(script: String) { all += "run status $script" }
         override fun refreshStatus(script: String, every: Int): Long { all += "refresh status $script"; return 60_000L }
         override fun openBattery() { all += "battery" }
+        override fun openScripts() { all += "scripts" }
     }
 
     /** On the widgets page a tap on the card is its `tap`, a row's tap is the row's own, and a long-press on either arranges. */
