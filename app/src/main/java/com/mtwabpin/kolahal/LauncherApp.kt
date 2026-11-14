@@ -142,7 +142,8 @@ class LauncherApp : Application(), Configuration.Provider {
         }, IntentFilter(LogRepository.ACTION_LOGS_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         // A script's widget has its own message, so new content redraws the cards and the log is not read again.
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) = com.mtwabpin.kolahal.widgets.WidgetStates.bump()
+            override fun onReceive(context: Context, intent: Intent) =
+                com.mtwabpin.kolahal.widgets.WidgetStates.bump(intent.getStringExtra(com.mtwabpin.kolahal.widgets.WidgetStates.EXTRA_NAME))
         }, IntentFilter(com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
 
         // The :script process doesn't see settings changes. So home copies `log.keep-lines` to a place

@@ -6,7 +6,10 @@ import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.script.Json
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -42,11 +45,33 @@ object WidgetStates {
     private const val TRIED = "tried"
     private const val ERROR = "error"
 
+    /** The name of the widget that changed, in [ACTION_CHANGED]. Absent: any of them may have changed. */
+    const val EXTRA_NAME = "name"
+
     private val _version = MutableStateFlow(0)
-    /** Increases when any widget's state changes. The cards collect it and [read] again. */
+    /** Increases when any widget's state changes. */
     val version: StateFlow<Int> = _version.asStateFlow()
 
-    fun bump() = _version.update { it + 1 }
+    /** Moves when a change named no widget, so a card with no entry in [versions] yet reads again too. */
+    private val everyone = MutableStateFlow(0)
+
+    private val _versions = MutableStateFlow<Map<String, Int>>(emptyMap())
+    /** For each widget, by script name, a number that increases when its state changes. */
+    val versions: StateFlow<Map<String, Int>> = _versions.asStateFlow()
+
+    /** [name]'s number in [versions]: a card collects only its own, and reads again only when it moves. */
+    fun versionOf(name: String): Flow<Int> = combine(versions, everyone) { all, any -> (all[name] ?: 0) + any }.distinctUntilChanged()
+
+    /** [name]'s state changed; null when it isn't known which widget's did (then every widget's number moves). */
+    fun bump(name: String? = null) {
+        _version.update { it + 1 }
+        _versions.update { all ->
+            if (name != null) all + (name to (all[name] ?: 0) + 1)
+            else all.mapValues { it.value + 1 }
+        }
+        if (name == null) everyone.update { it + 1 }
+    }
+
 
     /**
      * Stores [spec] as [name]'s widget, for `widget.show`.
@@ -60,13 +85,13 @@ object WidgetStates {
             if (content.get(name) != json) content.set(name, json)
             writeMeta(context, name, meta(context, name).copy(set = System.currentTimeMillis(), error = null))
         }
-        announce(context)
+        announce(context, name)
     }
 
     /** Removes [name]'s content, for `widget.clear`. Its times and its error stay. */
     fun clear(context: Context, name: String) {
         runCatching { KvStore(context, Stores.WIDGET).set(name, null) }
-        announce(context)
+        announce(context, name)
     }
 
     /** Notes that a run of [name] just ended: with [error] when it failed, with null when it worked. */
@@ -74,7 +99,7 @@ object WidgetStates {
         runCatching {
             writeMeta(context, name, meta(context, name).copy(tried = System.currentTimeMillis(), error = error?.take(MAX_ERROR)?.ifBlank { null }))
         }
-        announce(context)
+        announce(context, name)
     }
 
     /**
@@ -84,7 +109,7 @@ object WidgetStates {
     fun forget(context: Context, name: String) {
         runCatching { KvStore(context, Stores.WIDGET).set(name, null) }
         runCatching { KvStore(context, Stores.WIDGET_META).set(name, null) }
-        announce(context)
+        announce(context, name)
     }
 
     /**
@@ -120,8 +145,10 @@ object WidgetStates {
      * Tells the cards. From the :script process a message goes to the main one, as the log's does
      * ([com.mtwabpin.kolahal.data.LogRepository.ACTION_LOGS_CHANGED]). This process's own counter rises too.
      */
-    private fun announce(context: Context) {
-        if (Singleton.inScriptProcess) runCatching { context.sendBroadcast(Intent(ACTION_CHANGED).setPackage(context.packageName)) }
-        bump()
+    private fun announce(context: Context, name: String) {
+        if (Singleton.inScriptProcess) {
+            runCatching { context.sendBroadcast(Intent(ACTION_CHANGED).setPackage(context.packageName).putExtra(EXTRA_NAME, name)) }
+        }
+        bump(name)
     }
 }
