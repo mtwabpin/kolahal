@@ -465,6 +465,21 @@ class WidgetWordsTest {
         assertEquals("World: Pune 2:00 AM tomorrow, New York 3:30 PM", WidgetWords.description("World", clock, now, utc, clock24 = false, locale = Locale.US))
     }
 
+    /**
+     * A switch waits 10 seconds for its script. A tap within 2 seconds of the last one with the
+     * same arguments starts no run, so the switch does not wait for it.
+     */
+    @Test fun aSwitchWaitsTenSecondsAndNotForATapThatStartsNoRun() {
+        assertEquals(10_000L, WidgetWords.WORKING_MS)
+        assertFalse("the first tap", WidgetWords.tooSoon(null, 5_000))
+        assertTrue(WidgetWords.tooSoon(5_000, 5_000))
+        assertTrue(WidgetWords.tooSoon(5_000, 6_999))
+        assertFalse(WidgetWords.tooSoon(5_000, 7_000))
+        assertFalse("a clock that went back", WidgetWords.tooSoon(5_000, 4_000))
+        // The window is the view model's: the same as for a button under a log line.
+        assertEquals(2_000L, WidgetWords.TAP_WINDOW_MS)
+    }
+
     /** A countdown, a clock and an agenda say the time, so their words are made again as it passes. No other kind's are. */
     @Test fun onlyAKindThatTellsTheTimeIsSaidAgainAsTimePasses() {
         assertTrue(WidgetWords.timed(WidgetSpec.Countdown(base, to = 5)))

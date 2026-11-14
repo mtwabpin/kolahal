@@ -513,6 +513,19 @@ internal object WidgetWords {
         return ((room + 4) / (CONTROL_DP + 4)).coerceIn(1, 3)
     }
 
+    /** How long a switch shows "working" after a tap, with no answer from its script, in milliseconds. */
+    const val WORKING_MS = 10_000L
+
+    /** The view model starts at most one run in this time for a tap with the same arguments, in milliseconds. */
+    const val TAP_WINDOW_MS = 2_000L
+
+    /**
+     * True for a tap at [now] that comes too soon after the last one with the same arguments, at
+     * [last] (null for none). The view model starts no run for such a tap, so a switch does not
+     * show "working" for it. Both times are on one clock that never goes back.
+     */
+    fun tooSoon(last: Long?, now: Long): Boolean = last != null && now - last in 0 until TAP_WINDOW_MS
+
     /** What a wide card draws around its content: the [title] line over it, and the icon's [badge] at its start. */
     data class Frame(val title: Boolean, val badge: Boolean)
 
@@ -640,7 +653,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Chart -> ChartBody(spec, box)
         is WidgetSpec.Countdown -> CountdownBody(spec, box)
         is WidgetSpec.Buttons -> ButtonsBody(spec, onTap)
-        is WidgetSpec.Toggles -> TogglesBody(spec, box, onTap, stamp)
+        is WidgetSpec.Toggles -> TogglesBody(spec, onTap, stamp)
         is WidgetSpec.Clock -> ClockBody(spec, box)
         is WidgetSpec.Agenda -> AgendaBody(spec, onTap)
         is WidgetSpec.Media -> MediaBody(spec, box, onTap)

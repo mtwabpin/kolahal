@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,13 +30,18 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -51,9 +57,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -179,22 +188,44 @@ private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: I
  * - A tall cell: the icon over the label.
  * - Any other cell: the icon alone. A screen reader still hears the label.
  * The label gets smaller, down to 10 sp, before it is cut with "…".
+ *
+ * With [working], a sign that something is going on takes the icon's place ([WorkingSign]). A
+ * switch shows it while it waits for its script.
  */
 @Composable
-private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp) {
-    val type = MaterialTheme.typography
+private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp, working: Boolean = false) {
+    val lead: (@Composable () -> Unit)? = when {
+        working -> { { WorkingSign() } }
+        icon != null -> { { Text(icon, style = MaterialTheme.typography.titleMedium, maxLines = 1, softWrap = false) } }
+        else -> null
+    }
     when {
-        icon == null -> ControlLabel(label, lines = if (height >= TWO_LINES) 2 else 1)
+        lead == null -> ControlLabel(label, lines = if (height >= TWO_LINES) 2 else 1)
         width >= SIDE_BY_SIDE -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(icon, style = type.titleMedium, maxLines = 1, softWrap = false)
+            lead()
             Spacer(Modifier.width(6.dp))
             ControlLabel(label, lines = 1, Modifier.weight(1f, fill = false))
         }
         height >= TWO_LINES -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(icon, style = type.titleMedium, maxLines = 1, softWrap = false)
+            lead()
             ControlLabel(label, lines = 1)
         }
-        else -> Text(icon, style = type.titleMedium, maxLines = 1, softWrap = false, modifier = Modifier.semantics { contentDescription = label })
+        else -> Box(Modifier.semantics { contentDescription = label }) { lead() }
+    }
+}
+
+/**
+ * The sign of a switch that waits for its script: the loading shape, as tall as an icon.
+ * - The shape changes form for as long as it is drawn. So it is drawn only while the widgets page
+ *   is in view, and a switch waits for 10 seconds at most.
+ * - It is no item for a screen reader: the switch says "working" itself.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun WorkingSign() {
+    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+        if (LocalWidgetsShown.current) LoadingIndicator(Modifier.fillMaxSize().clearAndSetSemantics {}, color = LocalContentColor.current)
+        else Text("…", style = MaterialTheme.typography.titleMedium, maxLines = 1)
     }
 }
 
@@ -259,12 +290,89 @@ private fun CardButton(button: WidgetSpec.Button, colour: Color?, width: Dp, hei
     }
 }
 
-// ---- stubs ----------------------------------------------------------------------------------
+// ---- toggles --------------------------------------------------------------------------------
 
-/** `toggles`: switches. [stamp] changes when the script's run ends. Not drawn yet. */
+/** The switch that waits for its script: which one, and the card's stamp when it was tapped. */
+private data class Waiting(val index: Int, val stamp: Long)
+
+/**
+ * `toggles`: switches, each with a label, an icon and a state. Kolahal never guesses the new
+ * state: the script changes the thing and reports it.
+ * 1. A tap hands the switch's action to [onTap], and the switch shows "working". Its state stays
+ *    as the script last reported it.
+ * 2. The script runs and shows the new state. The card's [stamp] moves when the run ends, whether
+ *    it showed something or failed, and the switch stops waiting. [stamp] is watched and not the
+ *    description, because a run that reports the same state stores an equal description.
+ * 3. With no answer in 10 seconds ([WidgetWords.WORKING_MS]) the switch stops waiting too. It
+ *    shows the state it had, and a failed run is in the card's footer.
+ *
+ * - A switch that waits takes no second tap. And a tap that comes within 2 seconds of the last one
+ *   with the same arguments does nothing: the view model starts no run for it and does not say so,
+ *   so "working" would wait for a run that never comes.
+ * - Up to six in a row and two rows, each at least 48 dp: a small card shows the first ones only.
+ */
 @Composable
-internal fun TogglesBody(spec: WidgetSpec.Toggles, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
-    QuietLine(WidgetWords.UNAVAILABLE, small = box == WidgetSizes.Box.SMALL)
+internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
+    var waiting by remember { mutableStateOf<Waiting?>(null) }
+    val lastTaps = remember { HashMap<String, Long>() }
+    // The run ended: nothing waits any more.
+    LaunchedEffect(stamp) { waiting = null }
+    LaunchedEffect(waiting) {
+        if (waiting != null) {
+            delay(WidgetWords.WORKING_MS)
+            waiting = null
+        }
+    }
+    val working = waiting?.takeIf { it.stamp == stamp }?.index
+    ControlGrid(spec.items.size, maxColumns = 6) { index, width, height ->
+        val toggle = spec.items[index]
+        val onClick: (() -> Unit)? = onTap?.let { tap ->
+            {
+                val args = toggle.tap.args.orEmpty()
+                val at = SystemClock.elapsedRealtime()
+                if (working != index && !WidgetWords.tooSoon(lastTaps[args], at)) {
+                    lastTaps[args] = at
+                    waiting = Waiting(index, stamp)
+                    tap(toggle.tap)
+                }
+            }
+        }
+        CardToggle(toggle, working == index, width, height, onClick)
+    }
+}
+
+/**
+ * One switch: a Material toggle button, filled while on.
+ * - With [working] the loading shape takes its icon's place, and a screen reader hears "working".
+ * - With a null [onClick] it takes no tap, and looks as it does on the page.
+ * - A long-press is the card's long-press.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun CardToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, height: Dp, onClick: (() -> Unit)?) {
+    val source = remember { MutableInteractionSource() }
+    val press = cardPress(source)
+    val colors = ToggleButtonDefaults.colors().let {
+        // A switch that takes no tap keeps the colours of its state.
+        it.copy(
+            disabledContainerColor = if (toggle.on) it.checkedContainerColor else it.containerColor,
+            disabledContentColor = if (toggle.on) it.checkedContentColor else it.contentColor,
+        )
+    }
+    ToggleButton(
+        checked = toggle.on,
+        onCheckedChange = { press.click { onClick?.invoke() } },
+        modifier = Modifier.fillMaxSize().tapLabel(toggle.tap.label).semantics {
+            role = Role.Switch
+            if (working) stateDescription = "working"
+        },
+        enabled = onClick != null,
+        colors = colors,
+        contentPadding = CONTROL_PADDING,
+        interactionSource = source,
+    ) {
+        ControlContent(toggle.icon, toggle.label, width, height, working)
+    }
 }
 
 // ---- clock ----------------------------------------------------------------------------------
