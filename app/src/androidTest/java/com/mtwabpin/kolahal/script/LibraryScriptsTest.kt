@@ -662,6 +662,36 @@ class LibraryScriptsTest {
         assertEquals(1.0, card()["value"])
     }
 
+    /**
+     * World clocks: a place for each zone of its option, with the label written after the zone, or
+     * else the last part of the zone's name. Run by hand, it logs the places.
+     */
+    @Test fun worldClocksReadsItsZonesOption() {
+        fun place(zone: String, label: String) = mapOf("zone" to zone, "label" to label)
+        val start = listOf(place("Asia/Kolkata", "Kolkata"), place("Europe/London", "London"), place("America/New_York", "New York"))
+        run("world-clocks.lua", event = forWidget, before = luaKeepsShown)
+        assertEquals(emptyList<LogEntry>(), lines())
+        // The clocks never get old: the content counts as current for a week.
+        assertEquals(mapOf("zones" to start, "staleAfter" to 604_800.0), shown())
+
+        // A label of its own, with "_" for a space. Commas work between zones too.
+        run("world-clocks.lua", event = forWidget, options = mapOf("zones" to "Asia/Dubai=Head_office, UTC"), before = luaKeepsShown)
+        assertEquals(listOf(place("Asia/Dubai", "Head office"), place("UTC", "UTC")), (shown() as Map<*, *>)["zones"])
+        // With nothing in the option, the zones it starts with.
+        run("world-clocks.lua", event = forWidget, options = mapOf("zones" to " "), before = luaKeepsShown)
+        assertEquals(start, (shown() as Map<*, *>)["zones"])
+
+        // A zone that Kolahal doesn't know: the run fails, and the error names it.
+        val wrong = runCatching { run("world-clocks.lua", event = forWidget, options = mapOf("zones" to "Asia/Pune")) }
+        assertEquals(true, wrong.exceptionOrNull()?.message?.contains("no time zone 'Asia/Pune'"))
+
+        run("world-clocks.lua")
+        assertEquals(
+            Triple("World clocks", "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: tap + Add on the widgets page", null),
+            only(),
+        )
+    }
+
     @Test fun chargeReminderSumsUpASession() {
         run("charge-reminder.lua")
         assertEquals(Triple("No charging session yet: plug in the charger", null, StyledText.Colour.MUTED), only())

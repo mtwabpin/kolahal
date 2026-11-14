@@ -1,9 +1,9 @@
 ---
 title: Script library
-description: The 37 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 38 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
-Kolahal includes 37 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 38 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Thirteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Fourteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -88,6 +88,7 @@ None of the network scripts need an API key.
 | [charge-reminder](#charge-reminder) | Lua | | on charger and unplug | yes |
 | [unlock-chart](#unlock-chart) | Lua | | on unlock | |
 | [habit](#habit) | Lua | yes | daily 00:01 | |
+| [world-clocks](#world-clocks) | Lua | | | |
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
 | [night-work](#night-work) | Lua | | daily 23:00 and 07:00 | |
 | [template-command](#templates) | Lua | yes | | |
@@ -105,7 +106,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Thirteen scripts have a [widget](/scripting/overview/#widgets): a card on the
+Fourteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -126,6 +127,7 @@ Thirteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
+| [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
 | [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
 
 - A script fills its widget on its own timer. The widgets page also runs it when you place the
@@ -440,6 +442,28 @@ habit undo                   # take today's mark away
 - It runs at 00:01, so the card starts the new day with an open bar.
 - It counts one habit. For a second one, rename your copy (`script mv habit read`) and install
   habit again. Each copy has its own days and its own widget.
+
+## world-clocks
+
+**World clocks**: a [widget](#widgets) with the time in up to 4 places. Kolahal moves the clocks
+itself, so the script uses no battery while you look at them. It doesn't use the network, and it
+needs no access.
+
+```sh
+script set world-clocks zones "Asia/Kolkata Europe/London America/New_York"
+script set world-clocks zones "Asia/Kolkata=Pune Asia/Dubai=Head_office UTC"
+```
+
+- Its `zones` option lists the places: time zones by name, such as `Asia/Kolkata`,
+  `Europe/London` or `UTC`. The first 4 show.
+- A place's name on the card is the last part of its zone: "New York" for `America/New_York`.
+- To pick the name yourself, write it after the zone: `Asia/Kolkata=Pune`. Write a space in a name
+  as `_`.
+- The times follow the phone's 12-hour or 24-hour setting.
+- A zone that Kolahal doesn't know makes the run fail. The card then says "Failed", and the log
+  names the zone.
+- It has no timer. It runs when you place the widget and when you tap the card. So after you
+  change the option, tap the card: it then shows the new places.
 
 ## night-dnd
 

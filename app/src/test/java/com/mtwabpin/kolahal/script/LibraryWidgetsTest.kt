@@ -46,9 +46,53 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js"),
+            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua"),
             withWidget,
         )
+    }
+
+    /**
+     * A clock for each place of its zones option, each with a label: its own, or the last part of the
+     * zone's name. The content never gets old, so it counts as current for a week.
+     */
+    @Test fun worldClocks() {
+        val week = 604_800
+        val spec = fromLua(
+            "world-clocks.lua",
+            luaTable(
+                "zones" to luaList(
+                    luaTable("zone" to "Asia/Kolkata", "label" to "Kolkata"),
+                    luaTable("zone" to "America/New_York", "label" to "New York"),
+                    luaTable("zone" to "Asia/Dubai", "label" to "Head office"),
+                    luaTable("zone" to "UTC", "label" to "UTC"),
+                ),
+                "staleAfter" to week.toDouble(),
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Clock(
+                WidgetBase(staleAfter = week),
+                zones = listOf(
+                    WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("America/New_York", "New York"),
+                    WidgetSpec.Zone("Asia/Dubai", "Head office"), WidgetSpec.Zone("UTC", "UTC"),
+                ),
+            ),
+            spec,
+        )
+        // It hands over every zone of the option. A clock keeps the first four.
+        val six = luaList(*List(6) { luaTable("zone" to "Etc/GMT+${it + 1}", "label" to "GMT+${it + 1}") }.toTypedArray())
+        assertEquals(4, (fromLua("world-clocks.lua", luaTable("zones" to six, "staleAfter" to week.toDouble())) as WidgetSpec.Clock).zones.size)
+        // A zone that isn't one is an error that names it. The card then says that the run failed.
+        val wrong = runCatching { fromLua("world-clocks.lua", luaTable("zones" to luaList(luaTable("zone" to "Asia/Pune", "label" to "Pune")), "staleAfter" to week.toDouble())) }
+        assertEquals("widget: item 1 of zones: no time zone 'Asia/Pune'; use a name such as Asia/Kolkata or UTC", wrong.exceptionOrNull()?.message)
+    }
+
+    /** world-clocks asks for nothing: Kolahal knows the time zones. */
+    @Test fun worldClocksAsksForNoAccess() {
+        val code = sourceFile("src/main/assets/library/world-clocks.lua").readText()
+        assertEquals(emptyList<String>(), ScriptAccess.asksFor(code))
+        assertEquals(listOf(ScriptAccess.WIDGET), ScriptAccess.items(code))
+        assertEquals(false, ScriptMeta.postsNotifications(code))
     }
 
     /**
