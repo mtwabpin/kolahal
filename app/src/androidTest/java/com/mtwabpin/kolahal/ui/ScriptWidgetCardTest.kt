@@ -602,8 +602,9 @@ class ScriptWidgetCardTest {
         waitsNoMore("Work", on = false)
         assertEquals("Quick: Do Not Disturb off, Work off, Torch off", said(quick))
 
-        // A run that fails shows nothing new, and ends the wait too: the stamp is the time of the
-        // last run, whatever came of it. The card says that it failed.
+        // A run whose end is noted for the card ends the wait too, also when it failed and showed
+        // nothing new: the stamp is the later of the content's time and that run's. The card says
+        // that it failed. (Only a run the widgets page asked for is noted so, not a tap's own run.)
         val torch = switch("Torch")
         compose.onNode(torch).performClick()
         compose.onNode(torch).assert(working and isOn(false))
@@ -633,8 +634,9 @@ class ScriptWidgetCardTest {
             "clock",
             WidgetSpec.Clock(WidgetBase(title = "World"), listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("America/New_York"), WidgetSpec.Zone("UTC"))),
         )
-        // The time in a zone, at this minute and at the next: the card may be drawn across a tick.
-        fun times(zone: String) = listOf(0L, 60L).map { Instant.now().plusSeconds(it).atZone(ZoneId.of(zone)).format(clock) }
+        // The time in a zone, at this minute, the one before and the one after: the minute may turn
+        // between the card's drawing and the check, either way round.
+        fun times(zone: String) = listOf(-60L, 0L, 60L).map { Instant.now().plusSeconds(it).atZone(ZoneId.of(zone)).format(clock) }
         // Tall enough for a row for each place.
         show(world, height = 240.dp, actions = asked)
         draws(world, "World", "Pune", "New York", "UTC")

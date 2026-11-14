@@ -11,6 +11,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.shownText
 import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.widgets.TestScriptWidgets
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -970,6 +971,72 @@ class LibraryScriptsTest {
         assertEquals(Triple("Quick toggles", "Do Not Disturb off\nWork profile paused", null), only())
         run("quick-toggles.lua", "wifi", before = standIns)
         assertEquals(Triple("Usage: script run quick-toggles [dnd|work]", null, StyledText.Colour.MUTED), only())
+    }
+
+    /**
+     * Quick toggles as it runs for real: placed on the widgets page, with what its `@uses` line
+     * names allowed, as after an install. The run that placing asks for shows the switch, and a
+     * tap's run switches Do Not Disturb. Without Do Not Disturb access, a tap's run still shows the
+     * state as it is, so the switch stops waiting, and then fails.
+     */
+    @Test fun placedQuickTogglesSwitchForReal() {
+        val t = TestScriptWidgets("libq")
+        val had = nm.isNotificationPolicyAccessGranted
+        shell("cmd notification allow_dnd ${context.packageName}")
+        val all = android.app.NotificationManager.INTERRUPTION_FILTER_ALL
+        val priority = android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
+        try {
+            nm.setInterruptionFilter(all)
+            youSet("off", all)
+            val s = t.place(t.create("toggles", library.code(library.entries.single { it.file == "quick-toggles.lua" })))
+            fun state() = t.stored(s.name)
+            fun switches() = (state().spec as WidgetSpec.Toggles).items.map { it.label to it.on }
+            // A tap on the switch, as the widgets page starts it.
+            fun tap() = runBlocking {
+                ScriptRun.run(
+                    context,
+                    workDataOf(
+                        ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_INTERACTIVE to true,
+                        ScriptWorker.KEY_ARGS to arrayOf("dnd"), ScriptWorker.KEY_EVENT to "{\"name\":\"action\",\"widget\":true}",
+                    ),
+                )
+            }
+            // The emulator has no work profile, so there is the one switch.
+            assertNull(state().error)
+            assertEquals(listOf("Do Not Disturb" to false), switches())
+            assertEquals(60, state().spec!!.base.staleAfter)
+
+            tap()
+            assertEquals(priority, nm.currentInterruptionFilter)
+            assertEquals(listOf("Do Not Disturb" to true), switches())
+            tap()
+            assertEquals(all, nm.currentInterruptionFilter)
+            assertEquals(listOf("Do Not Disturb" to false), switches())
+
+            // Without Do Not Disturb access the change can't be made.
+            shell("cmd notification disallow_dnd ${context.packageName}")
+            waitUntil("Do Not Disturb access is still there") { !nm.isNotificationPolicyAccessGranted }
+            val before = state()
+            tap()
+            val after = state()
+            assertEquals(all, nm.currentInterruptionFilter)
+            assertEquals(listOf("Do Not Disturb" to false), switches())
+            // The script showed the state again before it failed. That moves the content's time, which is
+            // what a waiting switch watches: a tap's run that fails is not noted for the card by itself.
+            assertTrue("set at ${after.setAt}, before the tap ${before.setAt}", after.setAt > before.setAt)
+            assertNull(after.error)
+            val status = t.scripts.byId(s.id)!!.lastStatus.orEmpty()
+            assertTrue(status, status.startsWith("error: Couldn't change Do Not Disturb"))
+        } finally {
+            shell("cmd notification allow_dnd ${context.packageName}")
+            nm.setInterruptionFilter(all)
+            shell("cmd notification set_dnd off")
+            // Do Not Disturb access as it was.
+            if (!had) shell("cmd notification disallow_dnd ${context.packageName}")
+            t.close()
+            // The failed run's error line is the test's own.
+            logs.recent(limit = 200).filter { it.source.orEmpty().startsWith("libq") || it.text.startsWith("libq") }.forEach { logs.delete(it.id) }
+        }
     }
 
     /** Quick toggles' first switch turns the phone's real Do Not Disturb on and off, and waits until Android has done it. */
