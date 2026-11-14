@@ -177,13 +177,45 @@ script tells it. For example the weather, a feed's headlines, or your unlocks of
   [library scripts](/scripting/library/#widgets) have one.
 - A script that keeps a [status line](/scripting/overview/#status-lines) has a second row, its
   **Status card**: the line as a card, with no change to the script.
-- A script's widget is placed once. After that its row in the picker says **Added**.
+- You can place a script's widget more than once ([below](#the-same-widget-more-than-once)). A
+  status card is placed once.
 - The card is drawn in the theme's colours.
 - A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.
 - A long-press opens **Arrange widgets**. There you arrange and resize the card like any other widget.
   It can be as small as a quarter of the page wide.
 - Under old content, the card says its age ("2 h ago"). After a run that failed, it says "Failed 10:42"
   and keeps what it had.
+
+### The same widget more than once
+
+A script's widget can be on the page several times, each with its own settings: the weather for
+two cities, a countdown to two days.
+
+1. Place the script's widget as usual. Its row in the picker then says
+   **Added · tap to add another**.
+2. Tap that row. One more widget is added, and its **Options** sheet opens.
+3. Set what this widget should show: its city, its day. These are the script's
+   [options](/scripting/overview/#options).
+
+To change a widget's options later:
+
+1. Open **Settings → Widgets → Arrange widgets**.
+2. Select the script's card: long-press it, or tap the edit button and then the card.
+3. Tap **Options** in the toolbar at the bottom.
+
+What to know:
+
+- A script can have 6 widgets at most.
+- A further widget follows the script's own options until you set one for that widget. After
+  that it keeps its own value for that option.
+- The first widget has no options of its own. Its **Options** are the script's, the same as in the
+  script's sheet and `script set`.
+- The script's timer fills the first widget only. A further widget runs the script for itself:
+  when you place it, when you look at it and its content is old, when you tap it, and when you
+  change its options. So more widgets don't run anything more in the background.
+- Removing a widget deletes what it showed and its own options. The script and its other widgets
+  stay.
+- Kolahal's own widgets and a script's status card are placed once.
 
 ## Arrange and resize
 
@@ -225,6 +257,7 @@ Kolahal's own widgets and your scripts' widgets need no **Add again**. They are 
 the import.
 
 - A backup holds where a card is, not what it showed. Each card fills again by itself.
+- A script's further widgets come back too, each with the options you set for it.
 - An imported script arrives switched off. Its card says "Script is off" until you turn the script on.
 - Your shortcuts come back with the Shortcuts widget. The import result lists each shortcut that
   the file brought, so you can check what its button runs.

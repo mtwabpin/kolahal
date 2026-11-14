@@ -530,6 +530,8 @@ Your values are stored apart from the code, by script name.
 - They are deleted with the script.
 - If a value is no longer one of the choices (for example, an update removed it), the script reads
   the default.
+- When the script's widget is on the widgets page more than once, each further widget can have
+  values of its own ([the same widget more than once](/guides/widgets/#the-same-widget-more-than-once)).
 
 ## Getting scripts from others
 

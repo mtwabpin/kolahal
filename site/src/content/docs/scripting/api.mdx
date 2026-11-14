@@ -637,7 +637,8 @@ widget.show({
   ([Arrange and resize](/guides/widgets/#arrange-and-resize)). It can be as small as a quarter of
   the page wide and 72dp tall.
 - A card draws for the space it has, not for the size on this line. A small card shows less.
-- A script has one widget.
+- A script has one `@widget` line. You can place its widget more than once, each with its own
+  options ([several widgets from one script](#several-widgets-from-one-script)).
 - Without this line, `widget.show` is an error that says to add it.
 
 | Kind | Shows | Size without one |
@@ -662,6 +663,8 @@ on the `@widget` line and in `kind`.
 
 Checks the description `desc` and stores it as this script's widget. The card then shows it.
 
+- When the script has [several widgets](#several-widgets-from-one-script), it fills the one the
+  run is for. A run that is for no widget fills the first one.
 - It returns `true` when you placed the widget.
 - It returns `false` when you didn't. The description is still checked, so a mistake shows either
   way. But nothing is stored.
@@ -1217,6 +1220,92 @@ Rules for a `"widget"` run:
 - A script that is switched off isn't run.
 
 Content older than `staleAfter` stays on the card. The card says its age under it: "2 h ago".
+
+### Several widgets from one script
+
+You can place a script's widget more than once: the weather for two cities, a countdown to two
+days. Each widget is a card of its own, with its own content and its own
+[options](/scripting/overview/#options).
+
+- In the picker, the row of a script whose widget is placed says **Added · tap to add another**. A
+  tap places one more widget, and opens its options.
+- A script can have 6 widgets at most.
+- The script needs no change. It reads `options` and calls `widget.show`, as for one widget.
+
+Which widget a run fills:
+
+- A run for one widget fills that widget: a [`"widget"` run](#when-a-widgets-script-runs) that the
+  widgets page asks for, and a run that a [tap](#taps) on that card starts. In such a run,
+  [`options`](#options) has that widget's values, and `widget.show` and `widget.clear` change
+  that widget only.
+- Every other run fills the first widget, with the script's own options: a timer, a daily time,
+  an event, a run you type, a pinned line's refresh.
+- So a further widget is not filled by the script's timer. It gets a quiet run of its own when
+  you place it, when it is in view with old content, on its `refresh`, on a tap, and after you
+  change one of its options. Nothing more runs in the background.
+- One script's runs go one after another, also for two of its widgets.
+
+How a script tells its widgets apart:
+
+- [`event.instance`](#event) is the widget's number, as text: `"2"`, `"3"` and so on for the
+  further widgets. For the first widget it is nil (undefined in JavaScript).
+- A widget keeps its number while it is placed. When you remove a widget, its number is free, and
+  the next widget you place takes the smallest free one.
+- It is there only in a run for one widget: a `"widget"` run, or a tap on a card.
+- `event.widget` is `true` in a tap's run, as for one widget.
+- Kolahal sets it. A script can't choose which widget it fills.
+- Most scripts don't need it, because `options` is that widget's already. Use it for a
+  [`store`](#storegetkey--storesetkey-value) key that each widget needs for itself.
+
+A widget's options:
+
+- A further widget follows the script's options until you set one for that widget. After that,
+  it keeps its own value for that option, and follows the script for the others.
+- To change them, open **Arrange widgets**, select the card and tap **Options**
+  ([Widgets from scripts](/guides/widgets/#widgets-from-scripts)).
+- The first widget has no options of its own. Its **Options** are the script's.
+- Removing a widget deletes its content and its own options.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @title Days to go
+-- @widget countdown
+-- @option day 2026-12-25 The day, as year-month-day
+-- @option what Christmas What it is
+
+-- Each widget of this script has its own `day` and `what`.
+local y, m, d = options.day:match("(%d+)-(%d+)-(%d+)")
+widget.show{
+  to = os.time{ year = y, month = m, day = d, hour = 0 },
+  label = options.what,
+}
+
+-- A counter that each widget keeps for itself.
+local key = "seen" .. (event and event.instance or "")
+store.set(key, tostring((tonumber(store.get(key)) or 0) + 1))
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @title Days to go
+// @widget countdown
+// @option day 2026-12-25 The day, as year-month-day
+// @option what Christmas What it is
+
+// Each widget of this script has its own `day` and `what`.
+const [y, m, d] = options.day.split("-").map(Number);
+widget.show({
+  to: new Date(y, m - 1, d).getTime() / 1000,
+  label: options.what,
+});
+
+// A counter that each widget keeps for itself.
+const key = "seen" + ((event && event.instance) || "");
+store.set(key, String((Number(store.get(key)) || 0) + 1));
+```
+</TabItem>
+</Tabs>
 
 ### widget.clear()
 
@@ -1858,6 +1947,9 @@ The script's [`@option`](/scripting/overview/#options) settings by name, as text
 one you set in its sheet or with `script set`, or else the default from its line. In code typed at
 the prompt, `options` is empty.
 
+In a run for a [further widget](#several-widgets-from-one-script) of the script, each value is
+the one you set for that widget, or else the script's value, or else the default.
+
 ```lua
 -- @option city London The city to show
 log("Weather for " .. options.city)
@@ -1892,6 +1984,9 @@ Other runs:
   `true`. `event.label` is the tap's `label`, when it has one.
 - A run that the widgets page asks for gets `event.name` `"widget"`
   ([when a widget's script runs](#when-a-widgets-script-runs)).
+- A run for a [further widget](#several-widgets-from-one-script) of the script also gets
+  `event.instance`, that widget's number as text (`"2"`). This is so in a `"widget"` run and in a
+  run that a tap on that card starts. For the script's first widget, `event.instance` is not there.
 - All other runs get nil (null in JavaScript).
 
 ## Work profile
