@@ -80,6 +80,7 @@ hn.lua 3d1b1faf27b83155
 hn.lua 542b6a456f28fc60
 hn.lua 5742fa9049ea2ac9
 hn.lua 5dedcba9d9549642
+hn.lua 81d30640f4569078
 hn.lua 962d194f8edbd501
 hn.lua a23c20bda6c3c181
 hn.lua acc5c237c02f2204
@@ -167,6 +168,7 @@ template-timer.lua 5145a5c61ecd8c73
 template-timer.lua d9b29f717c37ae2c
 unlock-chart.lua bebea0e4b919078c
 weather.lua 0676f7f2b339aa96
+weather.lua 08fd82ab49c5424c
 weather.lua 4bc1e1f9d961ff89
 weather.lua 4d5cb544f9f16cf1
 weather.lua 5892242f20f61307

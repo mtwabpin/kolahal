@@ -34,7 +34,8 @@ if widget and (quiet or allowed("widget")) then
         tap = link and { url = link } or nil,
       }
     end
-    widget.show{ title = "Hacker News", items = rows, empty = "No stories" }
+    -- It runs every hour: content counts as old only after two, so the card shows no age between runs.
+    widget.show{ title = "Hacker News", items = rows, empty = "No stories", staleAfter = 2 * 3600 }
   elseif quiet then
     error("Couldn't fetch Hacker News: " .. tostring(front), 0)
   end

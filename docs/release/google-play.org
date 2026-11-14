@@ -156,7 +156,7 @@ SCRIPTS IN LUA OR JAVASCRIPT
 • Run a script on a timer, at set times, or when something happens, such as unlocking the phone or plugging it in.
 • Make a script into a command of your own that takes arguments.
 • Keep a status line you can pin at the top, post a notification, fetch from the web.
-• Start from 24 ready-made scripts (weather, live cricket and football, Hacker News and more, and templates for your own) in an editor with completion.
+• Start from 36 ready-made scripts (weather, live cricket and football, Hacker News and more, and templates for your own) in an editor with completion.
 • Scripts run sandboxed, in a separate process.
 
 MAKE IT YOURS

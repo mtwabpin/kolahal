@@ -79,6 +79,8 @@ if widget and line == "" then
     title = place, icon = icon, value = temp, label = sky,
     more = { { value = humidity, label = "humidity" }, { value = wind, label = "wind" } },
     tap = { args = "", page = "log" },
+    -- It runs every hour: content counts as old only after two, so the card shows no age between runs.
+    staleAfter = 2 * 3600,
   }
 end
 if quiet then return end
