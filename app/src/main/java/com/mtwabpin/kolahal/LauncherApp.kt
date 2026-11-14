@@ -145,6 +145,12 @@ class LauncherApp : Application(), Configuration.Provider {
             override fun onReceive(context: Context, intent: Intent) =
                 com.mtwabpin.kolahal.widgets.WidgetStates.bump(intent.getStringExtra(com.mtwabpin.kolahal.widgets.WidgetStates.EXTRA_NAME))
         }, IntentFilter(com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        // A script that ticks a todo (todos.setDone) writes in :script. Home counts only its own writes, so the
+        // script's write says so in a message. The Todos widget and the todo list then read the list again.
+        ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) =
+                com.mtwabpin.kolahal.productivity.TodoStore.get(this@LauncherApp).changedElsewhere()
+        }, IntentFilter(com.mtwabpin.kolahal.productivity.TodoStore.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
 
         // The :script process doesn't see settings changes. So home copies `log.keep-lines` to a place
         // where :script can read it, and trims the log now and whenever the value changes.

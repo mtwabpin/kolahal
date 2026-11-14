@@ -31,7 +31,9 @@ fun <T> pickRef(ref: String?, list: List<T>, id: (T) -> Long): T? {
 
 /**
  * Counts the writes of one store, so that whoever shows its items knows when to read them again.
- * - It counts in this process only. Only the main process writes these stores.
+ * - It counts in this process only. The main process makes every write but one: a script's
+ *   `todos.setDone` writes in the `:script` process. That write tells the main process with a
+ *   message ([TodoStore.ACTION_CHANGED]), and the count rises there too ([TodoStore.changedElsewhere]).
  * - A write that goes past the store (a backup that is restored) does not count.
  */
 private class Changes {
@@ -47,8 +49,19 @@ class TodoStore private constructor(context: Context) {
     private val db = Db.get(context)
     private val written = Changes()
 
-    /** Rises on every write, in this process. The Todos widget reads the list again when it does. */
+    /**
+     * Rises on every write: one made in this process, and one a script made in the `:script`
+     * process ([changedElsewhere]). The Todos widget reads the list again when it does.
+     */
     val changes: StateFlow<Int> get() = written.flow
+
+    /**
+     * A script changed a todo in the `:script` process ([ACTION_CHANGED]). The count of writes rises
+     * here too, so home reads the list again. LauncherApp calls this in the main process.
+     */
+    fun changedElsewhere() {
+        written.after(Unit)
+    }
 
     fun all(): List<Todo> {
         val out = ArrayList<Todo>()
@@ -77,6 +90,24 @@ class TodoStore private constructor(context: Context) {
         }, "id = ?", arrayOf(id.toString())))
     }
 
+    /**
+     * Marks todo [id] done, or open again, only when it is not so already. Whether it changed:
+     * false when no todo has the id, and when the todo is so already. A script's `todos.setDone`
+     * uses it.
+     * - It is one statement. When two callers ask at once, one of them gets true.
+     * - A todo that is done already keeps the time it was done at. [setDone] would write a new
+     *   time, which moves the todo to the top of the done ones.
+     * - A call that changes nothing is not counted as a write.
+     */
+    fun mark(id: Long, done: Boolean): Boolean {
+        val rows = db.writableDatabase.update("todos", ContentValues().apply {
+            put("done", if (done) 1 else 0)
+            if (done) put("done_at", System.currentTimeMillis()) else putNull("done_at")
+        }, "id = ? AND done != ?", arrayOf(id.toString(), if (done) "1" else "0"))
+        if (rows > 0) written.after(Unit)
+        return rows > 0
+    }
+
     fun edit(id: Long, text: String) {
         written.after(db.writableDatabase.update("todos", ContentValues().apply { put("text", text) }, "id = ?", arrayOf(id.toString())))
     }
@@ -86,7 +117,14 @@ class TodoStore private constructor(context: Context) {
     /** Deletes finished items and returns how many it deleted. */
     fun clearDone(): Int = written.after(db.writableDatabase.delete("todos", "done = 1", null))
 
-    companion object : Singleton<TodoStore>(::TodoStore)
+    companion object : Singleton<TodoStore>(::TodoStore) {
+        /**
+         * Sent inside the app when a script changed a todo in the `:script` process (`todos.setDone`),
+         * as [com.mtwabpin.kolahal.widgets.WidgetStates.ACTION_CHANGED] is for a widget. LauncherApp
+         * receives it and calls [changedElsewhere]. It carries nothing: home reads the list again.
+         */
+        const val ACTION_CHANGED = "com.mtwabpin.kolahal.TODOS_CHANGED"
+    }
 }
 
 /** Quick notes, newest first. */
