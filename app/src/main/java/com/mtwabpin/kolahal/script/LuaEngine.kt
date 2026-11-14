@@ -186,6 +186,17 @@ class LuaEngine : ScriptEngine {
         lua.table("apps", "list" to { l: Lua -> l.pushValue(host.appsList()); 1 })
         lua.table("notifications", "recent" to { l: Lua -> l.pushValue(host.notificationsRecent(if (l.isNumber(1)) l.toInteger(1).toInt() else 20)); 1 })
         lua.table("launcher", "run" to { l: Lua -> l.push(host.runCommand(l.checkString())); 1 })
+        // Your own lists, each behind the `@uses` item of its name ([HostData]). One HostData for the run: it counts the todos the run changes.
+        val data = HostData(host.context, host::may, host::live, host::logError)
+        lua.table(
+            "todos",
+            "list" to { l: Lua -> l.pushValue(data.todosList()); 1 },
+            // The id and done go as they are: HostData says what is wrong with them.
+            "setDone" to { l: Lua -> l.args().let { a -> l.push(data.todosSetDone(a.getOrNull(0), a.getOrNull(1))) }; 1 },
+        )
+        lua.table("notes", "list" to { l: Lua -> l.pushValue(data.notesList(l.args().firstOrNull())); 1 })
+        lua.table("reminders", "list" to { l: Lua -> l.pushValue(data.remindersList()); 1 })
+        lua.table("calendar", "events" to { l: Lua -> l.pushValue(data.calendarEvents(l.args().firstOrNull())); 1 })
         lua.global("sleep") { l ->
             host.sleep(l.toInteger(1))
             0

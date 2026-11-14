@@ -133,6 +133,17 @@ class JsEngine : ScriptEngine {
         js.define("apps") { function("list") { toJs(host.appsList()) } }
         js.define("notifications") { function("recent") { args -> toJs(host.notificationsRecent((args.getOrNull(0) as? Number)?.toInt() ?: 20)) } }
         js.define("launcher") { function("run") { args -> host.runCommand(args.req()) } }
+        // Your own lists, each behind the `@uses` item of its name ([HostData]). They read what is on the
+        // phone and wait for nothing, so they are plain functions: no await. One HostData for the run: it
+        // counts the todos the run changes. Each namespace must also be in guard.js `spaces`, below.
+        val data = HostData(host.context, host::may, host::live, host::logError)
+        js.define("todos") {
+            function("list") { toJs(data.todosList()) }
+            function("setDone") { args -> data.todosSetDone(args.getOrNull(0), args.getOrNull(1)) }
+        }
+        js.define("notes") { function("list") { args -> toJs(data.notesList(args.getOrNull(0))) } }
+        js.define("reminders") { function("list") { toJs(data.remindersList()) } }
+        js.define("calendar") { function("events") { args -> toJs(data.calendarEvents(args.getOrNull(0))) } }
         js.asyncFunction("sleep") { args -> host.sleepAsync((args.getOrNull(0) as? Number)?.toLong() ?: 0L) }
         js.define("rss") {
             asyncFunction("fetch") { args -> io { toJs(host.rssFetch(args.req())) } }
@@ -281,7 +292,7 @@ class JsEngine : ScriptEngine {
               const g = globalThis;
               for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set"]) install(g, name, false);
               install(g, "sleep", true);
-              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget"];
+              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar"];
               for (const ns of spaces) {
                 const o = g[ns];
                 const ks = names(o);

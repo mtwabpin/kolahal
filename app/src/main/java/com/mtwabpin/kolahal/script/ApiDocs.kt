@@ -84,7 +84,8 @@ object ApiDocs {
         ApiDoc("fmt.plain", "fmt.plain(text) -> string", "The text without its styles, for anything other than the log"),
         ApiDoc("notify", "notify(title, body, ctx?) -> bool", "Post a notification if enabled for the script; ctx.url opens on tap"),
         ApiDoc("status", "status(text, opts?)", "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) clears it"),
-        ApiDoc("allowed", "allowed(what) -> bool", "Whether this script may use `what`: internet, header, widget (true once you placed its widget), notifications, apps, clipboard, commands, dnd, work or an @on event"),
+        // Every `@uses` item is named, from the list itself: a new item can't be left out here.
+        ApiDoc("allowed", "allowed(what) -> bool", "Whether this script may use `what`: internet, header, widget (true once you placed its widget), ${ScriptMeta.USES.joinToString(", ")} or an @on event"),
         ApiDoc("widget", "widget", "This script's widget on the widgets page: show, clear", kind = NS),
         ApiDoc("widget.show", "widget.show{ value, label, … } -> bool", WIDGET_SHOW, LUA),
         ApiDoc("widget.show", "widget.show({ value, label, … }) -> bool", WIDGET_SHOW, JS),
@@ -136,6 +137,16 @@ object ApiDocs {
 
         ApiDoc("notifications", "notifications", "Recent notifications: recent", kind = NS),
         ApiDoc("notifications.recent", "notifications.recent(n?=20) -> [{ pkg, app, title, text, time }]", "Newest first, up to 50 (needs notification access)"),
+
+        ApiDoc("todos", "todos", "Your to-do list: list, setDone", kind = NS),
+        ApiDoc("todos.list", "todos.list() -> [{ id, text, done }]", "Your todos, the open ones first, as the todo command lists them; up to 200 (needs @uses todos)"),
+        ApiDoc("todos.setDone", "todos.setDone(id, done) -> bool", "Mark the todo with this id done (true) or open again (false); true when it changed; at most 20 per run (needs @uses todos)"),
+        ApiDoc("notes", "notes", "Your notes: list", kind = NS),
+        ApiDoc("notes.list", "notes.list(n?=10) -> [{ id, text, created }]", "Your notes, newest first, up to 50; created is a time in seconds (needs @uses notes)"),
+        ApiDoc("reminders", "reminders", "Your reminders: list", kind = NS),
+        ApiDoc("reminders.list", "reminders.list() -> [{ id, text, at, repeats }]", "The reminders that are set, soonest first; at is a time in seconds; repeats says how one repeats, and is nil/null for one that doesn't (needs @uses reminders)"),
+        ApiDoc("calendar", "calendar", "The phone's calendar: events", kind = NS),
+        ApiDoc("calendar.events", "calendar.events(days?=3) -> [{ id, title, starts, ends, allDay }]", "The events of the next days (1 to 30), up to 100, with times in seconds as an agenda widget takes them; empty without the calendar permission (needs @uses calendar)"),
 
         ApiDoc("launcher", "launcher", "Drive the launcher: run", kind = NS),
         ApiDoc("launcher.run", "launcher.run(command) -> bool", "Run a terminal command (needs @uses commands); only when started from the prompt, at most 10 per run"),
