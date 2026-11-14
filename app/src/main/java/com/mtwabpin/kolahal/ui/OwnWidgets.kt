@@ -21,11 +21,15 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.takeWhole
+import com.mtwabpin.kolahal.productivity.Agenda
+import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Repeat
 import com.mtwabpin.kolahal.productivity.TimeSpec
 import com.mtwabpin.kolahal.productivity.Todo
+import com.mtwabpin.kolahal.terminal.AgendaRead
+import com.mtwabpin.kolahal.terminal.OwnData
 import com.mtwabpin.kolahal.terminal.OwnFeed
 import com.mtwabpin.kolahal.terminal.OwnTap
 import com.mtwabpin.kolahal.terminal.OwnTaps
@@ -33,13 +37,16 @@ import com.mtwabpin.kolahal.terminal.WidgetCardActions
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.Shortcuts
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.Locale
 
 /**
@@ -51,7 +58,7 @@ import java.util.Locale
  */
 internal object OwnCards {
     /** The built-in widgets that [OwnWidget] draws. Battery and network has a card of its own. */
-    private val DRAWN = setOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS, WidgetSource.MEDIA)
+    private val DRAWN = setOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS, WidgetSource.MEDIA, WidgetSource.AGENDA)
 
     /** Whether [OwnWidget] draws the built-in widget [id]. */
     fun draws(id: String?): Boolean = id in DRAWN
@@ -126,6 +133,50 @@ internal object OwnCards {
         speed = if (p.state == PlaybackState.STATE_PLAYING) p.speed else 0f,
         duration = p.duration.coerceAtLeast(0),
     )
+
+    // ---- agenda -----------------------------------------------------------------------------
+
+    /** What the Agenda card says without the calendar permission. A tap on the card asks for it. */
+    const val ALLOW_CALENDAR = "Allow calendar access"
+    private const val MAX_EVENT_TITLE = 80
+
+    /**
+     * The Agenda card for the calendar's [events], as [Agenda.query] gave them at [now] (in
+     * milliseconds): the events of [days] days from today, at most [WidgetJson.MAX_EVENTS].
+     * - [Agenda.group] says which events count: the read is a day wider on each side than what is
+     *   shown, and an event that has ended is left out.
+     * - The calendar keeps an all-day event at midnight UTC. Here it starts at midnight in [zone],
+     *   so it is on the right day wherever the phone is. One that started before today starts today.
+     * - An event's tap holds its id and its start (`event 41 1800000000000`), so the right time of
+     *   a repeating event opens.
+     */
+    fun agenda(events: List<AgendaEvent>, zone: ZoneId, now: Long, days: Int): WidgetSpec.Agenda {
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        // An all-day event of several days is in the group of each of its days. It is one event here.
+        val shown = Agenda.group(events, zone, today, days, now).flatMap { it.second }.distinct()
+        return WidgetSpec.Agenda(
+            base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.AGENDA)),
+            events = shown.take(WidgetJson.MAX_EVENTS).map { e ->
+                val tap = WidgetTap(args = OwnTaps.event(e.id, e.begin), label = "open event")
+                val title = cut(e.title.trim(), MAX_EVENT_TITLE)
+                if (e.allDay) {
+                    val first = Instant.ofEpochMilli(e.begin).atZone(ZoneOffset.UTC).toLocalDate()
+                    val after = maxOf(Instant.ofEpochMilli(e.end).atZone(ZoneOffset.UTC).toLocalDate(), first.plusDays(1))
+                    WidgetSpec.Event(
+                        title = title,
+                        starts = maxOf(first, today).atStartOfDay(zone).toEpochSecond(),
+                        ends = after.atStartOfDay(zone).toEpochSecond(),
+                        allDay = true,
+                        tap = tap,
+                    )
+                } else {
+                    WidgetSpec.Event(title = title, starts = e.begin / 1000, ends = e.end.takeIf { it > e.begin }?.let { it / 1000 }, allDay = false, tap = tap)
+                }
+            },
+            days = days,
+            empty = if (days == 1) "Nothing left today" else "No events in the next $days days",
+        )
+    }
 
     // ---- todos ------------------------------------------------------------------------------
 
@@ -249,6 +300,7 @@ internal fun OwnWidget(id: String, height: Dp, actions: WidgetCardActions?, own:
         WidgetSource.NOTES -> NotesWidget(height, actions, own)
         WidgetSource.SHORTCUTS -> ShortcutsWidget(height, actions, own)
         WidgetSource.MEDIA -> MediaWidget(height, actions, own)
+        WidgetSource.AGENDA -> AgendaWidget(height, actions, own)
     }
 }
 
@@ -258,7 +310,8 @@ internal fun OwnWidget(id: String, height: Dp, actions: WidgetCardActions?, own:
  * - A tap on the card sends [cardTap] to [WidgetCardActions.own], and a tap on a row sends the row's
  *   own words. [onRowTap] sees a row's words first.
  * - While the page is in view, and each time home comes back to it, the card says so
- *   ([WidgetCardActions.ownShown]), so that old data is read again.
+ *   ([WidgetCardActions.ownShown]), so that old data is read again. With [againMs] it says so
+ *   again that often while it stays in view: for data that changes with no sign, as a calendar does.
  */
 @Composable
 private fun OwnCard(
@@ -270,10 +323,17 @@ private fun OwnCard(
     cardTap: String,
     cardTapLabel: String,
     onRowTap: ((String) -> Unit)? = null,
+    againMs: Long? = null,
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    if (actions != null && LocalWidgetsShown.current) LaunchedEffect(id, actions, lifecycle) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { actions.ownShown(id) }
+    if (actions != null && LocalWidgetsShown.current) LaunchedEffect(id, actions, lifecycle, againMs) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            actions.ownShown(id)
+            if (againMs != null) while (true) {
+                delay(againMs)
+                actions.ownShown(id)
+            }
+        }
     }
     val onClick: (() -> Unit)? = remember(actions, id, cardTap) { actions?.let { a -> { a.own(id, cardTap) } } }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
@@ -352,6 +412,48 @@ private fun MediaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
         actions = actions,
         cardTap = if (allowed) OwnTaps.OPEN else OwnTaps.ALLOW,
         cardTapLabel = if (!allowed) "allow notification access" else if (session != null) "open ${session.app}" else "open the player",
+    )
+}
+
+/** For a card with no feed: a calendar that is never read. The card stays empty. */
+private val NO_AGENDA: StateFlow<AgendaRead> = MutableStateFlow(AgendaRead.NOT_READ)
+
+/** While the Agenda card stays in view, it asks for the calendar again this often. */
+private const val AGENDA_AGAIN_MS = 15 * 60_000L
+
+/**
+ * The built-in Agenda card: the phone's calendar for today and the next days.
+ * - The view model reads the calendar on an IO thread when the page comes into view, and every 15
+ *   minutes while it stays there, but at most once in a minute. An event that has ended drops out
+ *   by itself in between.
+ * - A tap on an event opens it in the calendar app. A tap on the card runs `agenda` and turns home
+ *   to the log.
+ * - Without the calendar permission the card says "Allow calendar access", and a tap asks for it.
+ */
+@Composable
+private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
+    val read by (own?.agenda ?: NO_AGENDA).collectAsStateWithLifecycle()
+    // Nothing is read yet: the card stays empty, and does not say "allow" before it knows.
+    val known = read.at != 0L
+    val zone = remember(read) { ZoneId.systemDefault() }
+    val spec: WidgetSpec? = remember(read, zone) {
+        when {
+            !known -> null
+            !read.allowed -> OwnCards.quiet(WidgetSource.AGENDA, OwnCards.ALLOW_CALENDAR)
+            else -> OwnCards.agenda(read.events, zone, read.at, OwnData.AGENDA_DAYS)
+        }
+    }
+    val description = remember(spec) { spec?.let { WidgetWords.description(it.base.title, it, read.at / 1000, zone) } ?: "Agenda" }
+    val ask = known && !read.allowed
+    OwnCard(
+        id = WidgetSource.AGENDA,
+        height = height,
+        spec = spec,
+        description = description,
+        actions = actions,
+        cardTap = if (ask) OwnTaps.ALLOW else OwnTaps.OPEN,
+        cardTapLabel = if (ask) "allow calendar access" else "open the agenda",
+        againMs = AGENDA_AGAIN_MS,
     )
 }
 

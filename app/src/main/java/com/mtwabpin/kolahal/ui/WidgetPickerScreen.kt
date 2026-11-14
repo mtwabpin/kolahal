@@ -176,6 +176,7 @@ internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
     builtinRow(WidgetSource.SHORTCUTS, WidgetSize.S4X1, "buttons commands quick"),
     builtinRow(WidgetSource.MEDIA, WidgetSize.S4X1, "media music player song"),
     builtinRow(WidgetSource.TODOS, WidgetSize.S4X2, "todo to-do tasks checklist"),
+    builtinRow(WidgetSource.AGENDA, WidgetSize.S4X2, "calendar events"),
     builtinRow(WidgetSource.REMINDERS, WidgetSize.S2X2, "remind alarm"),
     builtinRow(WidgetSource.NOTES, WidgetSize.S2X2, "note"),
 ).filter { it.id == WidgetSource.BATTERY || OwnCards.draws(it.id) }
