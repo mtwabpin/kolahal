@@ -173,7 +173,7 @@ A [script](/scripting/overview/#widgets) can have a widget too: a card that Kola
 script tells it. For example the weather, a feed's headlines, or your unlocks of the last 7 days.
 
 - The picker lists these in the **Kolahal** group, after Kolahal's own: a row for each of your scripts
-  that has a widget, with its kind and the size it starts with. Fifteen
+  that has a widget, with its kind and the size it starts with. Eighteen
   [library scripts](/scripting/library/#widgets) have one.
 - A script that keeps a [status line](/scripting/overview/#status-lines) has a second row, its
   **Status card**: the line as a card, with no change to the script.
