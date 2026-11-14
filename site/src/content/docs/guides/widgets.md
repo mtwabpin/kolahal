@@ -56,6 +56,21 @@ The picker lists every installed widget, grouped by app. It shows each widget's 
 2. Some widgets have a setup screen, for example to pick a city, a calendar or a note. It opens next.
    If you leave it before you finish, the widget isn't added.
 
+## Widgets from scripts
+
+A [script](/scripting/overview/#widgets) can have a widget too: a card that Kolahal draws from what the
+script tells it. For example the weather, a feed's headlines, or your unlocks of the last 7 days.
+
+- The picker lists these in the **Kolahal** group: a row for each of your scripts that has a widget, with
+  its kind and the size it starts with. Ten [library scripts](/scripting/library/#widgets) have one.
+- A script's widget is placed once. After that its row in the picker says **Added**.
+- The card is drawn in the theme's colours.
+- A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.
+- A long-press opens **Arrange widgets**. There you arrange and resize the card like any other widget.
+  It can be as small as a quarter of the page wide.
+- Under old content, the card says its age ("2 h ago"). After a run that failed, it says "Failed 10:42"
+  and keeps what it had.
+
 ## Arrange and resize
 
 Each widget has a width and a height. The page is twelve columns wide. So a widget can take a

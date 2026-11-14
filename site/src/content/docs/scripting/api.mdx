@@ -33,6 +33,8 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`notify(title, body, ctx?)`](#notifytitle-body-ctx) | `true` if a notification was posted |
 | [`status(text, opts?)`](#statustext-opts) | nothing; sets or clears its status line |
 | [`allowed(what)`](#allowedwhat) | `true` if you let this script use `what` |
+| [`widget.show(desc)`](#widgetshowdesc) | `true` if its widget is placed; fills its [widget](#widgets) |
+| [`widget.clear()`](#widgetclear) | nothing; empties its widget |
 | [`http.get(url, headers?)`](#httpgeturl-headers) | `{ status, ok, body, headers }` |
 | [`http.request(opts)`](#httprequestopts) | same as `http.get` |
 | [`http.cached(url, seconds?)`](#httpcachedurl-seconds) | same, plus `cached` |
@@ -44,7 +46,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`clipboard.get()` / `clipboard.set(text)`](#clipboardget--clipboardsettext) | string or nil |
 | [`device.battery()`](#devicebattery) | `{ level, charging }` |
 | [`device.network()`](#devicenetwork) | `"wifi"`, `"cell"`, `"eth"`, `"net"` or `"offline"` |
-| [`device.unlocks()`](#deviceunlocks) | today's unlock count |
+| [`device.unlocks(days?)`](#deviceunlocksdays) | today's unlock count, or a list of the last days' counts |
 | [`device.dnd()` / `device.setDnd(mode)`](#devicednd--devicesetdndmode) | Do Not Disturb |
 | [`apps.list()`](#appslist) | `[{ label, pkg, profile }]` |
 | [`notifications.recent(n?)`](#notificationsrecentn) | `[{ pkg, app, title, text, time }]` |
@@ -537,8 +539,8 @@ status(null);
 
 Returns whether this script may use `what`. `what` is one of:
 
-- `"internet"`, `"header"`, `"notifications"`, `"apps"`, `"clipboard"`, `"commands"`, `"dnd"`,
-  `"work"`,
+- `"internet"`, `"header"`, `"widget"`, `"notifications"`, `"apps"`, `"clipboard"`, `"commands"`,
+  `"dnd"`, `"work"`,
 - an `@on` event, such as `"unlock"`.
 
 You switch these on and off for each script
@@ -548,6 +550,9 @@ can do something else instead.
 - A script has `"internet"` only if its code uses `http`, `rss`, `url`, `image` or `launcher.run`.
 - `"header"` means you pinned the script, so its status line shows at the top of home. A script has
   it only if it calls `status`.
+- `"widget"` means you placed the script's [widget](#widgets) on the widgets page. A script has it
+  only if it has an `@widget` line. It has no switch: placing the widget turns it on, and removing
+  the widget turns it off.
 - Code typed at the prompt gets `true` for everything.
 
 <Tabs syncKey="lang">
@@ -568,6 +573,355 @@ if (allowed("header")) status(text); else log(text);
 Whatever the script returns is printed as an output line. Tables and objects are printed as JSON.
 Long-press the line to copy it. If a one-liner run with `lua` / `js` produces nothing, it prints
 `nil`.
+
+## Widgets
+
+A script can fill one card on the [widgets page](/guides/widgets/). The script says what to show: a
+kind of card, and that kind's fields. Kolahal draws the card, in the theme's colours. A script
+draws nothing itself.
+
+1. Put an [`@widget` line](#the-widget-line) at the top of the script.
+2. Call [`widget.show`](#widgetshowdesc) with a description: a table in Lua, an object in
+   JavaScript.
+3. Place the widget: tap **+ Add** on the widgets page. The picker lists your scripts' widgets in
+   the **Kolahal** group. A script can't place its own widget.
+
+Widgets need Kolahal 0.5.8 or newer.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @title Steps
+-- @widget stat 2x1
+
+widget.show{
+  value = "6,240",
+  label = "steps today",
+  more = { { value = "4.1 km", label = "walked" } },
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @title Steps
+// @widget stat 2x1
+
+widget.show({
+  value: "6,240",
+  label: "steps today",
+  more: [{ value: "4.1 km", label: "walked" }],
+});
+```
+</TabItem>
+</Tabs>
+
+### The @widget line
+
+```lua
+-- @widget <kind> [<size>]
+```
+
+- The kind is the card to draw. A description can name another kind with its `kind` field.
+- The size is the size the widget has when you place it: `1x1`, `2x1`, `2x2`, `4x1`, `4x2` or
+  `4x4`. It is in cells of a 4-column grid, as home screens count them, the width first. One cell
+  is a quarter of the page wide.
+- Without a size, the kind's own size is used. It is in the table below.
+- After that, you resize the widget like any other
+  ([Arrange and resize](/guides/widgets/#arrange-and-resize)). It can be as small as a quarter of
+  the page wide and 72dp tall.
+- A card draws for the space it has, not for the size on this line. A small card shows less.
+- A script has one widget.
+- Without this line, `widget.show` is an error that says to add it.
+
+| Kind | Shows | Size without one |
+| --- | --- | --- |
+| `stat` | one big value with its label, and up to 3 smaller values | `2x1` |
+| `text` | a few lines of text, and a caption | `2x2` |
+| `list` | rows | `4x2` |
+| `progress` | a ring or a bar, or up to 4 bars | `2x1` |
+| `chart` | numbers over time, as a line or as bars | `2x2` |
+| `countdown` | the time to a moment. Kolahal counts it down, with no run | `2x1` |
+
+### widget.show(desc)
+
+Checks the description `desc` and stores it as this script's widget. The card then shows it.
+
+- It returns `true` when you placed the widget.
+- It returns `false` when you didn't. The description is still checked, so a mistake shows either
+  way. But nothing is stored.
+- [`allowed("widget")`](#allowedwhat) tells the same before the call. A script can skip its work
+  when it is `false`.
+- It works only in saved scripts, like `status`. Code typed at the prompt gets a line that says so.
+- A run can call `widget.show` and `widget.clear` 20 times in all. Later calls change nothing.
+- A description can be 32 KB at most.
+- Kolahal before 0.5.8 has no `widget`. A script that must also run there checks first:
+  `if widget then … end` in Lua, `if (typeof widget !== "undefined") …` in JavaScript.
+
+Rules for every description:
+
+- An unknown field is an error that lists the fields the kind has. So a typo such as `colour`
+  doesn't pass unseen.
+- Each field has one type. A number where text is expected becomes text. Any other wrong type is an
+  error that names the field.
+- A field with no value (`nil`, `null`, `undefined`) counts as left out.
+- Text over its limit is cut, with "…" at its end. A list over its limit keeps its first items.
+- Text is plain. Styles from [`fmt`](#styles-fmt) are removed. A secret's value is masked, as in
+  the log.
+- A colour is a role, never a colour value. The theme picks the colour, so the card reads on every
+  theme.
+
+Every kind takes these fields. All are optional.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `kind` | a kind's name | The card to draw. Without it: the kind on the `@widget` line. |
+| `title` | text, up to 40 characters | The card's small heading. Without it: the script's `@title`, or its name. |
+| `icon` | text, up to 4 characters | An emoji or a letter, drawn in a badge. |
+| `color` | a role | The colour of the badge, the bar, the ring or the chart: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
+| `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
+| `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour. |
+| `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is in view. |
+
+### Kinds and their fields
+
+**`stat`**: one big value.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `value` | text or a number, up to 40 characters | Needed. The big value. |
+| `label` | text, up to 60 | What the value is, under it. |
+| `unit` | text, up to 12 | Its unit: `°C`, `km`. |
+| `delta` | text, up to 16 | A change, such as `+2.4%`. |
+| `trend` | `up`, `down` or `flat` | An arrow for the change. |
+| `more` | a list of `{ value, label }` | Up to 3 smaller values. Each text is up to 24 characters, and `value` is needed. |
+| `progress` | a number, 0 to 1 | A bar under the value. |
+| `moving` | true or false | Draws the bar as a wave, for something in progress. |
+
+**`text`**: a few lines.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `text` | text, up to 500 | Needed. It keeps its line breaks. |
+| `caption` | text, up to 60 | A line under it: an author, a source. |
+
+**`list`**: rows. The card shows as many rows as fit, then "+3 more".
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `items` | a list of rows | Needed. The first 12 are kept. It can be empty. |
+| `empty` | text, up to 60 | What the card says with no rows: `Nothing new`. |
+
+Each row is `{ title, detail, trailing, icon, color, tap }`. Only `title` is needed.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `title` | text, up to 80 | The row's text. |
+| `detail` | text, up to 120 | A second line. |
+| `trailing` | text, up to 24 | A short text at the row's end: a price, a count. |
+| `icon` | text, up to 4 | An emoji or a letter in front. |
+| `color` | a role | The colour of its icon and of its `trailing` text. A row with neither gets a dot in front. |
+| `tap` | an action | What a tap on the row does ([Taps](#taps)). |
+
+**`progress`**: how far along something is, as a ring, a bar, or several bars. It needs `value` or
+`items`.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `value` | a number | How far along it is, from 0 to `max`. |
+| `max` | a number above 0 | The top of the scale. Without it: 1. |
+| `text` | text, up to 24 | What the ring's middle says: `68%`. Without it: the percent. |
+| `label` | text, up to 60 | What it is. |
+| `style` | `ring` or `bar` | Without it, the card picks one for the space it has. |
+| `items` | a list of bars | Up to 4 bars, each `{ label, value, max, text, color }`. `value` is needed. |
+| `moving` | true or false | Draws the ring and the bars as waves, for something in progress. |
+
+A value is held between 0 and its `max`. Bars are on one scale: the widget's `max`, or else the
+largest value among them. A bar with its own `max` uses that.
+
+**`chart`**: numbers over time.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `points` | a list of numbers | Needed. The oldest comes first. The last 60 are kept. |
+| `style` | `line` or `bars` | Without it: `line`. |
+| `min`, `max` | numbers | The scale. Without them, it comes from the points; bars start at 0. `min` must be below `max`. |
+| `value` | text or a number, up to 40 | The headline over the chart. |
+| `label` | text, up to 60 | What the headline is. |
+| `labels` | a list of two texts, up to 16 each | Words for the first and the last point: `Mon`, `Today`. |
+| `summary` | text, up to 200 | What a screen reader says for the chart. |
+
+**`countdown`**: the time to a moment. The script gives the moment once, and Kolahal counts. No
+run is needed as time passes.
+
+| Field | Value | What it is |
+| --- | --- | --- |
+| `to` | a time in seconds | Needed. The moment: `os.time{…}` in Lua, `Date.now() / 1000` in JavaScript. |
+| `from` | a time in seconds, before `to` | Where the wait started. With it, the card has a bar from the start to the moment. |
+| `label` | text, up to 60 | What the moment is. |
+| `style` | `days` or `clock` | `days` says "12 days", `clock` says "03:25:10". Without it: days while the moment is more than 48 hours away, a clock after that. |
+| `reached` | text, up to 60 | What the card says on the day, once the moment has passed. Without it: "today". |
+
+- After that day, the card says how long ago the moment was.
+- A time in milliseconds is an error that says to divide it by 1000.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- a list: each row opens a link
+widget.show{
+  title = "Reading list",
+  items = {
+    { title = "Lua 5.4 manual", trailing = "docs", tap = { url = "https://www.lua.org/manual/5.4/" } },
+    { title = "No link here", detail = "A row needs only its title" },
+  },
+  empty = "Nothing to read",
+}
+
+-- progress: a ring, in the warning colour
+widget.show{ kind = "progress", value = 168, max = 300, text = "168", label = "Unhealthy", color = "warn" }
+
+-- chart: seven days as bars
+widget.show{ kind = "chart", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
+  value = 8, label = "unlocks today", labels = { "Sun", "Today" } }
+
+-- countdown: Kolahal counts the days
+widget.show{ kind = "countdown", title = "Goa trip", to = os.time{ year = 2026, month = 12, day = 20, hour = 0 } }
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// a list: each row opens a link
+widget.show({
+  title: "Reading list",
+  items: [
+    { title: "MDN", trailing: "docs", tap: { url: "https://developer.mozilla.org/" } },
+    { title: "No link here", detail: "A row needs only its title" },
+  ],
+  empty: "Nothing to read",
+});
+
+// progress: a ring, in the warning colour
+widget.show({ kind: "progress", value: 168, max: 300, text: "168", label: "Unhealthy", color: "warn" });
+
+// chart: seven days as bars
+widget.show({ kind: "chart", points: [12, 30, 0, 45, 7, 1, 8], style: "bars",
+  value: 8, label: "unlocks today", labels: ["Sun", "Today"] });
+
+// countdown: Kolahal counts the days
+widget.show({ kind: "countdown", title: "Goa trip", to: new Date(2026, 11, 20).getTime() / 1000 });
+```
+</TabItem>
+</Tabs>
+
+### Taps
+
+`tap` is an action: a table with exactly one of `args` and `url`.
+
+| Action | What a tap does |
+| --- | --- |
+| `{ args = "add 1" }` | This script runs again with these arguments. They are up to 200 characters, split at spaces. `args` can be empty: the script then runs with no arguments. |
+| `{ url = "https://…" }` | The web link opens. |
+
+An action can also have:
+
+- `label`: what a screen reader says for it, up to 24 characters.
+- `page = "log"`, with `args`: home turns to the log after the tap. Use it for a run that logs
+  something.
+
+Rules:
+
+- In a run that a tap starts, [`event.name`](#event) is `"action"`, as for a
+  [button](#buttons) under a line. `event.widget` is `true`, and `event.label` is the action's
+  `label`, when it has one. The arguments are in `args`.
+- A link must be a web link (`http` or `https`), and the script's internet access must be on. A link
+  that is refused is an error in the script, so the card never has a tap that does nothing.
+- One card or row starts at most one run in 2 seconds.
+- A card with no `tap` refreshes when you tap it.
+- A script can't put a terminal command behind a tap.
+- A long-press on a card opens **Arrange widgets**.
+
+This widget counts glasses of water. A tap adds one.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @title Water
+-- @widget progress 2x1
+-- @option goal 8 Glasses a day
+
+local today = os.date("%Y-%m-%d")
+local n = tonumber(store.get(today) or "0")
+if event and event.name == "action" and args[1] == "add" then
+  n = n + 1
+  store.set(today, tostring(n))
+end
+local goal = tonumber(options.goal) or 8
+widget.show{
+  value = n, max = goal,
+  text = n .. " / " .. goal,
+  color = n >= goal and "good" or "accent",
+  tap = { args = "add", label = "Add a glass" },
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @title Water
+// @widget progress 2x1
+// @option goal 8 Glasses a day
+
+const d = new Date();
+const today = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+let n = Number(store.get(today) || "0");
+if (event && event.name === "action" && args[0] === "add") {
+  n += 1;
+  store.set(today, String(n));
+}
+const goal = Number(options.goal) || 8;
+widget.show({
+  value: n, max: goal,
+  text: `${n} / ${goal}`,
+  color: n >= goal ? "good" : "accent",
+  tap: { args: "add", label: "Add a glass" },
+});
+```
+</TabItem>
+</Tabs>
+
+This script has no timer. It runs when you place its widget, when you tap it, and when the widgets
+page shows it with old content.
+
+### When a widget's script runs
+
+The script's own timers and events fill the widget, as they run the script
+([`@every`, `@at`](/scripting/overview/#running-scripts), [`@on`](/scripting/overview/#event-triggers)).
+A run fills it only when it calls `widget.show`.
+
+The widgets page asks for runs too. In these runs, [`event.name`](#event) is `"widget"`:
+
+- when you place the widget: one run at once.
+- when the widgets page comes into view and the content is older than `staleAfter` (one hour
+  without it): one run.
+- every `refresh` seconds while the widget is in view, when the description has `refresh`.
+- when you tap a card that has no `tap`.
+
+Rules for a `"widget"` run:
+
+- It is quiet. What the script returns isn't logged. Its own `log` lines are, so a script skips
+  them when `event.name` is `"widget"`.
+- There are never two at once for one script. A script that goes online (`http`, `rss`) waits for a
+  network.
+- If it fails, the card keeps its content and says "Failed 10:42" under it. A card with no content
+  shows the error's first line. The error shows in the log once, until a run works again.
+- The next `widget.show` clears the failure.
+- A script that is switched off isn't run.
+
+Content older than `staleAfter` stays on the card. The card says its age under it: "2 h ago".
+
+### widget.clear()
+
+Removes the widget's content. The card then says "Nothing to show". Like `widget.show`, it needs
+the `@widget` line and works only in saved scripts.
 
 ## HTTP
 
@@ -832,9 +1186,9 @@ phone is plugged in.
 
 Returns the active network: `"wifi"`, `"cell"`, `"eth"`, `"net"` (any other kind) or `"offline"`.
 
-### device.unlocks()
+### device.unlocks(days?)
 
-Returns how many times you unlocked the phone today, as in the header.
+Without an argument, it returns how many times you unlocked the phone today, as in the header.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -848,6 +1202,31 @@ return string.format("%d%% %s · %s · %d unlocks", b.level or -1,
 ```js
 const b = device.battery();
 return `${b.level}% ${b.charging ? "charging" : ""} · ${device.network()} · ${device.unlocks()} unlocks`;
+```
+</TabItem>
+</Tabs>
+
+With `days`, it returns a list instead: one count for each of the last `days` days.
+
+- The oldest day comes first. Today's count is the last one.
+- `days` is from 1 to 30. A number outside that is held at its nearest end, and a fraction is
+  dropped. Anything that isn't a number is an error.
+- The counts are the ones the [`unlocks` command](/guides/apps/#screen-time-and-unlocks) shows. A
+  day that Kolahal has no count for is 0.
+- It needs no `@uses` line, like today's count.
+- Kolahal before 0.5.8 ignores `days` and returns today's count as a number.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+local week = device.unlocks(7)      -- { 12, 30, 0, 45, 7, 1, 8 }
+local today = week[#week]           -- 8
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+const week = device.unlocks(7);     // [12, 30, 0, 45, 7, 1, 8]
+const today = week[week.length - 1]; // 8
 ```
 </TabItem>
 </Tabs>
@@ -990,6 +1369,10 @@ Other runs:
   `"refresh"`.
 - A run that a [button](#buttons) under one of the script's lines starts gets `event.name`
   `"action"` and `event.label`, the button's label. Its arguments are in `args`.
+- A run that a [tap on the script's widget](#taps) starts gets the same, and `event.widget` is
+  `true`. `event.label` is the tap's `label`, when it has one.
+- A run that the widgets page asks for gets `event.name` `"widget"`
+  ([when a widget's script runs](#when-a-widgets-script-runs)).
 - All other runs get nil (null in JavaScript).
 
 ## Work profile

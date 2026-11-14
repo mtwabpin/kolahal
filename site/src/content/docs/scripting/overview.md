@@ -29,7 +29,7 @@ script run hn              # run it now
 script every hn 30m        # and every 30 minutes
 ```
 
-The fastest way to start is the [script library](/scripting/library/). `script lib` lists 16
+The fastest way to start is the [script library](/scripting/library/). `script lib` lists 36
 ready-made scripts. `script install weather` installs one, with useful timers already set.
 
 ## Lua or JavaScript?
@@ -200,6 +200,54 @@ status clear weather  # remove one (or: status clear all)
 Tap a line at the top to run its script again. Long-press it for Run, Unpin and Edit. Every line
 that a script logged also has **Pin to the top** (or **Unpin**) in its long-press menu.
 
+## Widgets
+
+A script can fill a card on the [widgets page](/guides/widgets/): a big number, a few lines of
+text, a list, a ring, a chart or a countdown. The script says what to show. Kolahal draws it, in
+the theme's colours.
+
+```lua
+-- @title Battery
+-- @widget progress 1x1
+-- @on charger, unplug
+
+local b = device.battery()
+widget.show{
+  value = b.level or 0, max = 100,
+  text = (b.level or "?") .. "%",
+  label = b.charging and "charging" or "on battery",
+}
+```
+
+- The `@widget` line says that the script has a widget, which kind of card it is, and how large it
+  starts: `@widget <kind> [<size>]`.
+  - The kinds are `stat`, `text`, `list`, `progress`, `chart` and `countdown`.
+  - The sizes are `1x1`, `2x1`, `2x2`, `4x1`, `4x2` and `4x4`, in cells of a 4-column grid.
+- `widget.show{…}` fills the card. Each kind has its own fields:
+  [the API reference](/scripting/api/#widgets) lists them.
+- You place the widget yourself. Tap **+ Add** on the widgets page (or run `widget add`) and pick
+  it in the **Kolahal** group. A script can't place itself.
+- Until you place it, `widget.show` only checks what it gets, and stores nothing.
+- A tap on the card can run the script again with arguments, or open a web link
+  ([Taps](/scripting/api/#taps)). Without either, a tap refreshes the card.
+- A script can't put a terminal command behind a tap.
+
+When the script runs:
+
+- on its own timers and events, as any script does;
+- when you place the widget;
+- when the widgets page shows the widget with content older than one hour. The description's
+  `staleAfter` changes the hour.
+
+In the last two cases `event.name` is `"widget"`, and the run is quiet: what the script returns
+isn't logged ([when a widget's script runs](/scripting/api/#when-a-widgets-script-runs)).
+
+A script with no timer is a good widget. It runs only when you look at it or tap it, so it uses no
+battery in the background.
+
+Widgets need Kolahal 0.5.8 or newer. Ten [library](/scripting/library/#widgets) scripts have one,
+for example weather, hn and countdown.
+
 ## Command scripts
 
 Add `@command` in a comment, and the script becomes a terminal command with the script's name.
@@ -278,6 +326,7 @@ them, and the [library](/scripting/library/) scripts have them too.
 | `@author <name>`, `@version <x.y>` | Shown in the script's sheet in the script manager. |
 | `@every <15m\|1h\|1d>`, `@at <HH:mm>[, …]` | The suggested timer. Kolahal sets it when you add the script from a file, a folder or the library. |
 | `@notify` | Suggests notifications. Kolahal switches them on when you add the script. |
+| `@widget <kind> [<size>]` | The script has a [widget](#widgets) for the widgets page, of this kind. The size is the one it starts with. |
 | `@tags <word>[, …]` | Search keywords for Get more scripts. |
 | `@requires <x.y.z>` | The oldest Kolahal version the script works with. Kolahal won't add it from a file, a folder, a backup or Get more scripts until you have that version or newer. |
 
@@ -360,6 +409,8 @@ When a switch is off, a call returns nothing if that is a valid result. Otherwis
 | An `@uses` item | gets nothing. `apps.list()` and `notifications.recent()` return empty lists, `clipboard.get()` returns nil, `clipboard.set()` does nothing, and `launcher.run` returns false. |
 | An `@on` event | doesn't run on that event. |
 
+- A script's [widget](#widgets) has no switch. Placing the widget on the widgets page turns it on,
+  and removing it turns it off. While it is off, `widget.show` stores nothing.
 - To unpin a script, long-press its line at the top of home and tap **Unpin**.
 - In the terminal, `script access <name>` lists the switches. `script allow <name> <what…>` and
   `script deny <name> <what…>` change them. `notify` is the name of the notifications switch.

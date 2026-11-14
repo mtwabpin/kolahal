@@ -1,9 +1,9 @@
 ---
 title: Script library
-description: The 24 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 36 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
-Kolahal includes 33 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 36 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -59,6 +59,8 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
+Ten scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+
 None of the network scripts need an API key.
 
 | Script | Lang | Command | Suggested timer | Notifies |
@@ -67,6 +69,7 @@ None of the network scripts need an API key.
 | [lobsters](#lobsters) | Lua | | every 1h | yes |
 | [releases](#releases) | Lua | yes | every 3h | yes |
 | [reddit](#reddit) | JS | yes | | |
+| [headlines](#headlines) | JS | | every 1h | |
 | [weather](#weather) | Lua | yes | every 1h | |
 | [forecast](#forecast) | JS | yes | daily 07:00 | |
 | [aqi](#aqi) | JS | yes | daily 08:00 | |
@@ -74,6 +77,7 @@ None of the network scripts need an API key.
 | [crypto](#crypto) | JS | yes | every 30m | |
 | [exchange](#exchange) | JS | yes | | |
 | [ip](#ip) | Lua | yes | every 30m | yes |
+| [webnumber](#webnumber) | JS | | every 1h | |
 | [wikipedia](#wikipedia) | JS | yes | | |
 | [wiktionary](#wiktionary) | JS | yes | | |
 | [xkcd](#xkcd) | JS | yes | every 6h | yes |
@@ -82,6 +86,7 @@ None of the network scripts need an API key.
 | [cricket](#cricket) | JS | yes | every 15m | |
 | [football](#football) | JS | yes | every 15m | |
 | [charge-reminder](#charge-reminder) | Lua | | on charger and unplug | yes |
+| [unlock-chart](#unlock-chart) | Lua | | on unlock | |
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
 | [night-work](#night-work) | Lua | | daily 23:00 and 07:00 | |
 | [template-command](#templates) | Lua | yes | | |
@@ -96,6 +101,36 @@ None of the network scripts need an API key.
 | [template-js](#templates) | JS | yes | | |
 | [template-logs](#templates) | Lua | yes | | |
 | [template-logs-js](#templates) | JS | yes | | |
+
+## Widgets
+
+Ten scripts have a [widget](/scripting/overview/#widgets): a card on the
+[widgets page](/guides/widgets/) that the script fills. To use one:
+
+1. Install the script.
+2. Tap **+ Add** on the widgets page, or run `widget add`.
+3. Pick the script in the **Kolahal** group.
+
+| Script | Its widget shows | A tap |
+| --- | --- | --- |
+| [weather](#weather) | the temperature, large, with the sky, humidity and wind | runs `weather`, and home turns to the log |
+| [forecast](#forecast) | three days, each with its sky, its low and its high | runs `forecast`, and home turns to the log |
+| [aqi](#aqi) | the air quality figure in a ring, in its band's colour | runs `aqi`, and home turns to the log |
+| [crypto](#crypto) | its coins, each with its price and the day's change | runs `crypto`, and home turns to the log |
+| [hn](#hn) | the first 8 stories of the front page, with their points | on a row: opens the story |
+| [headlines](#headlines) | the newest items of a feed you choose | on a row: opens the item |
+| [quote](#quote) | the last quote, and who said it | fetches a new quote |
+| [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
+| [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
+| [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
+
+- A script fills its widget on its own timer. The widgets page also runs it when you place the
+  widget, and when it shows the widget with old content.
+- weather, forecast, aqi and crypto fill the widget only in runs with no arguments. So
+  `weather Paris` at the prompt doesn't change the card.
+- Old content stays on the card, with its age under it ("2 h ago"). After a run for the widget
+  failed, the card says "Failed 10:42" and keeps its content.
+- A long-press on a card opens **Arrange widgets**. There you resize, move or remove it.
 
 ## hn
 
@@ -136,6 +171,22 @@ discussion; a post that links to another site ends with a link to it.
 - `reddit` shows the subreddit in its `subreddit` option (r/android by default).
 - `reddit linux` shows r/linux.
 - The `posts` option shows up to 25 posts.
+
+## headlines
+
+**Feed headlines**: a [widget](#widgets) that lists the newest items of one feed (RSS or Atom),
+under the feed's own title. A tap on a row opens that item.
+
+```sh
+script set headlines url https://example.com/feed.xml
+```
+
+- Its `url` option is the feed's address. It starts as the front page of Hacker News.
+- It reads the feed every hour, and only while its widget is on the widgets page.
+- After you change the feed, the card shows it at the script's next run. To run it at once, tap the
+  card's heading.
+- It logs no headlines. To read feeds in the log, with unread counts, use
+  [`feed`](/guides/feeds/).
 
 ## weather
 
@@ -218,6 +269,30 @@ exchange 50 eur              # in USD
 
 **Public IP** from api.ipify.org. Long-press the line to copy it. On a timer, it notifies you when
 the IP changes and sets the IP as its status line. This helps you notice when a VPN drops.
+
+## webnumber
+
+**Web number**: a [widget](#widgets) that shows one number from any JSON address: a price, a count,
+a sensor at home. The number is large, with its label under it. A tap opens the address.
+
+```sh
+script set webnumber url https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd
+script set webnumber path bitcoin.usd
+script set webnumber label BTC
+```
+
+- `url` is the address of a JSON document.
+- `path` says where the number is in the document: the keys from the top, with dots between them
+  (`bitcoin.usd`, `data.price`).
+  - A number picks an item of a list, counted from 0: `items.0.count`.
+  - An empty path means that the document itself is the number.
+- `label` is the text under the number. Without it, the last word of the path is used.
+- Until `url` is set, the card says which option to set. Tap the card after you set one.
+- It asks the address every hour, and only while its widget is on the widgets page. The answer is
+  kept for 10 minutes, so a change of `path` or `label` asks the site nothing new.
+- A number has at most 2 decimals, and commas from 10,000 up: `67,123.46`. Text that isn't a number
+  shows as it is.
+- If the path leads to a list, to an object or to nothing, the run fails and says what is there.
 
 ## wikipedia
 
@@ -315,6 +390,21 @@ doesn't use the network.
   when you unplugged.
 - It notifies you when you unplug below 30% (its `low` option).
 - When you run it yourself, it shows the last session.
+
+## unlock-chart
+
+**Unlocks**: a [widget](#widgets) with today's unlock count, large, over a bar for each of the last
+7 days. The oldest day comes first. It doesn't use the network, and it needs no access.
+
+- It runs when you unlock the phone, at most once in 30 seconds. So the count is right when you
+  reach the widgets page.
+- A tap on the card logs the 7 days, each with its bar, and home turns to the log.
+  `script run unlock-chart` logs them too.
+- The counts are the ones the built-in [`unlocks`](/guides/apps/#screen-time-and-unlocks) command
+  shows. They are most accurate with usage access (`usage-access`).
+- While its widget isn't on the widgets page, a run for an unlock does nothing. To stop these runs
+  too, switch its `unlock` event off in the script's sheet.
+- It isn't named `unlocks`, because a script can't have a built-in command's name.
 
 ## night-dnd
 
