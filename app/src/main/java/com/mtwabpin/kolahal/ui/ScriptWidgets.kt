@@ -123,7 +123,7 @@ internal enum class CardNote {
  * - A null [script] means that no script has the name.
  * - [ownWidget] is true for the card of the script's own widget, which needs the `@widget` line.
  *   A Status card needs none.
- * Such a card asks for no runs: they would do nothing. A tap on it opens the Scripts screen.
+ * Such a card asks for no runs: they would do nothing. A tap on it leads to where it is put right ([noteTap]).
  */
 internal fun scriptNote(read: Boolean, script: WidgetScript?, ownWidget: Boolean): CardNote? = when {
     !read -> null
@@ -303,8 +303,18 @@ private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
 /** A tap on a card whose description has no action: the view model reads it as "refresh". */
 private val NO_TAP = WidgetTap()
 
-/** What a screen reader says a tap does on a card whose script can't fill it ([scriptNote]). */
-private const val OPEN_SCRIPTS = "open scripts"
+/**
+ * A tap on a card whose script can't fill it ([note], from [scriptNote]). A refresh would do nothing there.
+ * - The script is gone: nothing fills the card again. As for a widget that is unavailable, a tap
+ *   opens the screen where the widget is removed.
+ * - The script is off, or has no `@widget` line: a tap opens the Scripts screen, where it is
+ *   switched on or edited.
+ */
+private fun noteTap(note: CardNote, actions: WidgetCardActions): () -> Unit =
+    if (note == CardNote.REMOVED) { { actions.longPress() } } else { { actions.openScripts() } }
+
+/** What a screen reader says [noteTap] does. */
+private fun noteTapLabel(note: CardNote): String = if (note == CardNote.REMOVED) "arrange widgets" else "open scripts"
 
 /** How long a card with nothing stored shows the loading shape. After that it says "Nothing to show": no spinner turns for ever. */
 private const val LOADING_MS = 20_000L
@@ -385,7 +395,7 @@ private fun knownScript(feed: WidgetFeed?, name: String): Known {
  * - It draws what the script stored with `widget.show`, and reads that again only when it changes.
  * - While in view, it asks for a quiet run when its content is old, or as often as its `refresh` says.
  * - A card whose script is gone, off or without its `@widget` line says so ([scriptNote]). It asks
- *   for no runs, and a tap on it opens the Scripts screen.
+ *   for no runs. A tap on it opens the Scripts screen, or the Widgets screen when the script is gone.
  */
 @Composable
 private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
@@ -504,8 +514,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     }
     val tap = spec?.base?.tap
     val onClick: (() -> Unit)? = remember(actions, name, tap, missing) {
-        // A refresh would do nothing for a script that is gone or off. The Scripts screen is where it comes back.
-        actions?.let { a -> if (missing != null) { { a.openScripts() } } else { { a.tap(name, tap ?: NO_TAP) } } }
+        actions?.let { a -> if (missing != null) noteTap(missing, a) else { { a.tap(name, tap ?: NO_TAP) } } }
     }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
     val onTap: ((WidgetTap) -> Unit)? = remember(actions, name) { actions?.let { a -> { t: WidgetTap -> a.tap(name, t) } } }
@@ -521,7 +530,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         onClick = onClick,
         // With no action of its own, a tap on the card refreshes it.
         onClickLabel = when {
-            missing != null -> OPEN_SCRIPTS
+            missing != null -> noteTapLabel(missing)
             tap == null -> "refresh"
             else -> tap.label
         },
@@ -572,7 +581,8 @@ private fun statusLine(feed: WidgetFeed?, name: String): StatusLine? {
  * - The text is the value. The line's progress is the bar, in the line's colour.
  * - It needs no run and no access item. The line is stored whether or not a card shows it.
  * - A tap runs the script, as a tap on its pinned line does.
- * - A card whose script is gone or off says so ([scriptNote]). A tap on it opens the Scripts screen.
+ * - A card whose script is gone or off says so ([scriptNote]). A tap on it opens the Scripts
+ *   screen, or the Widgets screen when the script is gone.
  * - The line's own `refresh` counts while the card is in view, as it does for a pinned line. The
  *   view model keeps one time of the last run for both, so a script that is pinned and has a card
  *   runs once in each period. That time outlives the card: turning the page away and back starts
@@ -619,8 +629,8 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         }
     }
     val onClick: (() -> Unit)? = remember(actions, name, missing) {
-        // A script that is gone or off can't be run from here. The Scripts screen is where it comes back.
-        actions?.let { a -> if (missing != null) { { a.openScripts() } } else { { a.runStatus(name) } } }
+        // A script that is gone or off can't be run from here.
+        actions?.let { a -> if (missing != null) noteTap(missing, a) else { { a.runStatus(name) } } }
     }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
     WidgetCard(
@@ -631,7 +641,7 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
         description = description,
         modifier = Modifier.testTag("widget:status:$name"),
         onClick = onClick,
-        onClickLabel = if (missing != null) OPEN_SCRIPTS else "run",
+        onClickLabel = if (missing != null) noteTapLabel(missing) else "run",
         onLongClick = onLongClick,
     )
 }

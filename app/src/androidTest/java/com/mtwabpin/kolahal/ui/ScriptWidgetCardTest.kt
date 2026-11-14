@@ -398,7 +398,7 @@ class ScriptWidgetCardTest {
     /**
      * A card that knows its script from the view model says when the script can't fill it: it is
      * gone, it is off, or its code has no `@widget` line any more. Such a card asks for no run, also
-     * in view, and a tap on it opens the Scripts screen.
+     * in view. A tap on it opens the Scripts screen, or the Widgets screen when the script is gone.
      */
     @Test fun aCardSaysWhenItsScriptCantFillIt() {
         val asked = Asked()
@@ -419,7 +419,8 @@ class ScriptWidgetCardTest {
         draws(off, "Off one", "Script is off")
         draws(bare, bare, "Script has no widget now")
         val scripts = hasClickLabel("open scripts")
-        compose.onNode(inCard(gone) and scripts).assert(hasContentDescription("$gone: Script removed"))
+        val arrange = hasClickLabel("arrange widgets")
+        compose.onNode(inCard(gone) and arrange).assert(hasContentDescription("$gone: Script removed"))
         compose.onNode(inCard(off) and scripts).assert(hasContentDescription("Off one: Script is off"))
         compose.onNode(inCard(bare) and scripts).assert(hasContentDescription("$bare: Script has no widget now"))
 
@@ -429,8 +430,10 @@ class ScriptWidgetCardTest {
         compose.waitForIdle()
         assertEquals(listOf("refresh $there"), asked.all.toList())
 
+        // Off: the Scripts screen switches it on. Gone: the Widgets screen removes the widget.
         compose.onNode(inCard(off) and scripts).performClick()
-        compose.runOnIdle { assertEquals(listOf("refresh $there", "scripts"), asked.all.toList()) }
+        compose.onNode(inCard(gone) and arrange).performClick()
+        compose.runOnIdle { assertEquals(listOf("refresh $there", "scripts", "arrange"), asked.all.toList()) }
     }
 
     /**

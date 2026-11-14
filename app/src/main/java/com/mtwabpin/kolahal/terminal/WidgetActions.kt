@@ -87,8 +87,8 @@ interface WidgetCardActions {
     fun openBattery()
 
     /**
-     * A tap on a card whose script can't fill it: the script is gone, switched off, or has lost its
-     * `@widget` line. Opens the Scripts screen, where it is switched on, added again or edited.
+     * A tap on a card whose script can't fill it as it is: the script is switched off, or has lost
+     * its `@widget` line. Opens the Scripts screen, where it is switched on or edited.
      */
     fun openScripts()
 
