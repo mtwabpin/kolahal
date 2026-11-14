@@ -22,8 +22,10 @@ import com.mtwabpin.kolahal.script.ScriptFiles
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
+import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -341,18 +343,41 @@ class ScriptActions(
     private val _optionsVersion = MutableStateFlow(0)
     val optionsVersion: StateFlow<Int> = _optionsVersion.asStateFlow()
 
-    /** Returns the `@option` values of [s] (yours or the defaults), and the names of the ones you set. */
-    fun optionValues(s: Script): Pair<Map<String, String>, Set<String>> {
+    /**
+     * Returns the `@option` values of [s] (yours or the defaults), and the names of the ones you set.
+     * With [widget], the id of one of its further widgets ([WidgetRef.id]): the values that
+     * widget's runs read, and the names of the ones you set for that widget only.
+     */
+    fun optionValues(s: Script, widget: String = ""): Pair<Map<String, String>, Set<String>> {
         val declared = ScriptMeta.options(s.code)
-        val store = com.mtwabpin.kolahal.script.ScriptOptions(context)
-        return store.values(s.name, declared) to store.changed(s.name, declared)
+        val store = ScriptOptions(context)
+        return store.values(s.name, declared, widget) to store.changed(s.name, declared, widget)
     }
 
     /** Sets [option] for [script]. A null value resets it to its default. */
-    fun setOption(script: String, option: String, value: String?) = io {
-        com.mtwabpin.kolahal.script.ScriptOptions(context).set(script, option, value)
+    fun setOption(script: String, option: String, value: String?) = io { writeOption(WidgetRef(script), option, value) }
+
+    /**
+     * Sets [option] for the widget [ref], from its options sheet on the Widgets screen. Then it asks
+     * for one quiet run of that widget, so its card shows what the new value gives.
+     * - The first widget's options are the script's own, as [setOption] sets them.
+     * - A further widget's value is for that widget only. A null value makes it follow the script again.
+     * - The run goes after a run of that widget that is already there, and is not dropped for it:
+     *   that one may have read the old value.
+     */
+    fun setWidgetOption(ref: WidgetRef, option: String, value: String?) = io {
+        writeOption(ref, option, value)
+        // Without its `@widget` line, or switched off, a run stores nothing for the card.
+        scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }
+            ?.let { ScriptScheduler.refreshWidget(context, it, ref.id, again = true) }
+    }
+
+    /** Stores [value] for [option] of the script itself ([ref] is its first widget) or of one further widget, and says so in the log. */
+    private fun writeOption(ref: WidgetRef, option: String, value: String?) {
+        ScriptOptions(context).set(ref.script, option, value, ref.id)
         _optionsVersion.value++
-        logs.add(LogKind.INFO, "$script: $option " + if (value == null) "reset to default" else "= $value", ctx = LogContext.of(LogContext.SCRIPT to script))
+        val reset = if (ref.first) "reset to default" else "follows the script again"
+        logs.add(LogKind.INFO, "${ref.titled(ref.script)}: $option " + if (value == null) reset else "= $value", ctx = LogContext.of(LogContext.SCRIPT to ref.script))
     }
 
     /** A secret that the terminal asks for (`script secret`). The prompt is shown over home. */

@@ -23,6 +23,27 @@ class WidgetTitlesTest {
         assertEquals("old", sourceTitle("script:old", emptyMap()))
     }
 
+    /** A script can have several widgets. A further one has its id after the title, so they can be told apart. */
+    @Test fun aFurtherWidgetHasItsIdAfterTheTitle() {
+        assertEquals("Weather in Paris 2", sourceTitle("script:weather#2", scripts))
+        assertEquals("hn 3", sourceTitle("script:hn#3", scripts))
+        assertEquals("old 2", sourceTitle("script:old#2", emptyMap()))
+        // An id that can't be one names no script's widget: the text as it is stored.
+        assertEquals("weather#Two", sourceTitle("script:weather#Two", scripts))
+        // A Status card has no id.
+        assertEquals("weather#2 status", sourceTitle("status:weather#2", scripts))
+    }
+
+    /** The options sheet says whose options it shows: the script's own, or one further widget's. */
+    @Test fun theOptionsSheetSaysWhoseOptionsTheyAre() {
+        val first = com.mtwabpin.kolahal.widgets.WidgetRef("weather")
+        val second = com.mtwabpin.kolahal.widgets.WidgetRef("weather", "2")
+        assertEquals(WidgetOptionWords.SCRIPT, WidgetOptionWords.note(first, found = true, options = 2))
+        assertEquals(WidgetOptionWords.WIDGET, WidgetOptionWords.note(second, found = true, options = 2))
+        assertEquals(WidgetOptionWords.NONE, WidgetOptionWords.note(second, found = true, options = 0))
+        assertEquals(WidgetOptionWords.GONE, WidgetOptionWords.note(first, found = false, options = 0))
+    }
+
     @Test fun aStatusCardAndABuiltInWidgetHaveNamesToo() {
         assertEquals("Weather in Paris status", sourceTitle("status:weather", scripts))
         assertEquals("hn status", sourceTitle("status:hn", scripts))

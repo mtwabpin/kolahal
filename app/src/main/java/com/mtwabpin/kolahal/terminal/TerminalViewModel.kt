@@ -261,6 +261,24 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun shortcutsEditorOpened() = ownData.shortcutsEditorOpened()
 
+    private val _widgetOptionsAsked = MutableStateFlow<com.mtwabpin.kolahal.widgets.WidgetRef?>(null)
+
+    /**
+     * The widget whose options the Widgets screen should show: a further widget of a script that
+     * the picker just placed, so you can set what differs from the script's own options. Null when
+     * nothing is asked. The Widgets screen opens the sheet, then calls [widgetOptionsOpened].
+     */
+    val widgetOptionsAsked: StateFlow<com.mtwabpin.kolahal.widgets.WidgetRef?> = _widgetOptionsAsked.asStateFlow()
+
+    /** Asks the Widgets screen to show the options of the widget [ref] ([widgetOptionsAsked]). */
+    fun askWidgetOptions(ref: com.mtwabpin.kolahal.widgets.WidgetRef) {
+        _widgetOptionsAsked.value = ref
+    }
+
+    fun widgetOptionsOpened() {
+        _widgetOptionsAsked.value = null
+    }
+
     /**
      * When each status line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
      * time. The pinned header and the Status cards of the widgets page share it ([StatusTurns]), so a

@@ -26,8 +26,16 @@ import kotlinx.coroutines.flow.StateFlow
  * - [enabled]: the script is on.
  * - [widget]: its `@widget` line, or null when it has none.
  * - [setsStatus]: its code sets a status line.
+ * - [hasOptions]: its code has an `@option` line. Then each of its widgets has options to set.
  */
-data class WidgetScript(val name: String, val title: String?, val enabled: Boolean, val widget: ScriptMeta.Widget?, val setsStatus: Boolean)
+data class WidgetScript(
+    val name: String,
+    val title: String?,
+    val enabled: Boolean,
+    val widget: ScriptMeta.Widget?,
+    val setsStatus: Boolean,
+    val hasOptions: Boolean = false,
+)
 
 /**
  * Makes [WidgetScript]s from the script list. The list changes at every run of a script, but code
@@ -43,7 +51,10 @@ internal class WidgetScriptReader {
         val next = scripts.associate { s ->
             val before = known[s.name]?.takeIf { codes[s.name] == s.code }
             s.name to when {
-                before == null -> WidgetScript(s.name, ScriptMeta.title(s.code), s.enabled, ScriptMeta.widget(s.code), ScriptMeta.setsStatus(s.code))
+                before == null -> WidgetScript(
+                    s.name, ScriptMeta.title(s.code), s.enabled, ScriptMeta.widget(s.code), ScriptMeta.setsStatus(s.code),
+                    hasOptions = ScriptMeta.options(s.code).isNotEmpty(),
+                )
                 before.enabled != s.enabled -> before.copy(enabled = s.enabled)
                 else -> before
             }

@@ -77,6 +77,7 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
+import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -104,7 +105,8 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
 /**
  * The name of a widget Kolahal draws itself, from its source ([WidgetSource]). Null for an app's widget.
  * - `script:weather`: the script's `@title`, else its name.
- * - `status:weather`: the same, then "status".
+ * - `script:weather#2`, a further widget of the script: the same, then its id: "Weather 2".
+ * - `status:weather`: the script's title or name, then "status".
  * - `builtin:battery`: the built-in widget's name ([WidgetSource.builtinTitle]), "Battery and network".
  * - A script that is gone, and a built-in widget this version does not know: the name in the source.
  *
@@ -113,10 +115,11 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
  */
 internal fun sourceTitle(provider: String, scripts: Map<String, WidgetScript>): String? {
     if (!WidgetSource.isSource(provider)) return null
-    val name = provider.substringAfter(':')
-    if (provider.startsWith(WidgetSource.BUILTIN)) return WidgetSource.builtinTitle(name) ?: name
-    val title = scripts[name]?.title ?: name
-    return if (provider.startsWith(WidgetSource.STATUS)) "$title status" else title
+    WidgetSource.builtinId(provider)?.let { return WidgetSource.builtinTitle(it) ?: it }
+    WidgetSource.scriptRef(provider)?.let { ref -> return ref.titled(scripts[ref.script]?.title ?: ref.script) }
+    WidgetSource.statusName(provider)?.let { name -> return "${scripts[name]?.title ?: name} status" }
+    // A script's source whose id can't be one: the text as it is stored.
+    return provider.substringAfter(':')
 }
 
 /**
@@ -150,6 +153,16 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
         if (editorAsked) {
             shortcutsEditor = true
             vm.shortcutsEditorOpened()
+        }
+    }
+    // The options sheet of one script widget is open, by the widget's key: from that widget's toolbar,
+    // or because the picker just placed a further widget of a script and asked for it.
+    var optionsFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val optionsAsked by vm.widgetOptionsAsked.collectAsStateWithLifecycle()
+    LaunchedEffect(optionsAsked) {
+        optionsAsked?.let {
+            optionsFor = it.key
+            vm.widgetOptionsOpened()
         }
     }
     val snackbar = rememberWidgetMessages(widgets)
@@ -204,6 +217,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
             },
             bottomBar = {
                 if (chosen != null) {
+                    val chosenRef = WidgetSource.scriptRef(chosen.source)
                     WidgetToolbar(
                         w = chosen,
                         label = labelOf(chosen) ?: chosen.provider,
@@ -214,8 +228,15 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },
                         onSquare = { widgets.square(chosen.key) },
-                        // Only the Shortcuts widget has something to edit here: its list of commands.
-                        onEdit = if (chosen.source == WidgetSource.builtin(WidgetSource.SHORTCUTS)) { { shortcutsEditor = true } } else null,
+                        // What the widget itself holds, if anything:
+                        // - the Shortcuts widget: its list of commands;
+                        // - a widget of a script that declares options: its options. The first widget's
+                        //   are the script's own, and a further widget can have values of its own.
+                        edit = when {
+                            chosen.source == WidgetSource.builtin(WidgetSource.SHORTCUTS) -> ToolbarEdit("Edit shortcuts") { shortcutsEditor = true }
+                            chosenRef != null && scripts?.get(chosenRef.script)?.hasOptions == true -> ToolbarEdit("Options") { optionsFor = chosenRef.key }
+                            else -> null
+                        },
                         onRemove = { confirmRemove = chosen },
                         onDone = { selected = null; editing = false },
                     )
@@ -327,8 +348,13 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
         }
 
         if (shortcutsEditor) ShortcutsEditor(vm) { shortcutsEditor = false }
+
+        optionsFor?.let(WidgetRef::parse)?.let { ref -> WidgetOptionsSheet(vm, ref) { optionsFor = null } }
     }
 }
+
+/** A button of the toolbar for what the selected widget itself holds: its [label], and what a tap does. */
+private class ToolbarEdit(val label: String, val onClick: () -> Unit)
 
 /**
  * One widget as it shows on the widgets page. While [editing], a tap selects it instead of going to the widget.
@@ -378,7 +404,8 @@ private fun WidgetCard(
 
 /**
  * The controls for the selected widget, docked at the bottom: width, height, square, move, remove.
- * With [onEdit], there is a button for what the widget itself holds: the Shortcuts widget's list.
+ * With [edit], there is a button for what the widget itself holds: the Shortcuts widget's list, or
+ * the options of a script's widget.
  */
 @Composable
 private fun WidgetToolbar(
@@ -391,7 +418,7 @@ private fun WidgetToolbar(
     onHeight: (Int) -> Unit,
     onWidth: (Int) -> Unit,
     onSquare: () -> Unit,
-    onEdit: (() -> Unit)?,
+    edit: ToolbarEdit?,
     onRemove: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -419,8 +446,8 @@ private fun WidgetToolbar(
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(-1) }, enabled = index > 0) { Icon(painterResource(R.drawable.ic_arrow_back), "Move earlier") }
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(1) }, enabled = index < count - 1) { Icon(painterResource(R.drawable.ic_arrow_forward), "Move later") }
                 Spacer(Modifier.weight(1f))
-                if (onEdit != null) {
-                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) { Text("Edit shortcuts") }
+                if (edit != null) {
+                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = edit.onClick) { Text(edit.label) }
                     Spacer(Modifier.width(8.dp))
                 }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSquare) { Text("Square") }

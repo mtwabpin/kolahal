@@ -195,8 +195,13 @@ object ScriptScheduler {
      * (for a network, say) or runs, the next one is dropped. The run is not interactive, and its
      * `event.name` is [WIDGET]. It shares one queue with the script's other widgets' runs and the
      * pinned line's refreshes ([refresh]).
+     *
+     * [again]: something the run reads has just changed, one of the widget's options. A run of
+     * this widget that is already there may have read the old value. So this one is not dropped:
+     * it goes after that one ([queued]).
      */
-    fun refreshWidget(context: Context, script: Script, widget: String = "") = refresh(context, script, widgetKind(widget))
+    fun refreshWidget(context: Context, script: Script, widget: String = "", again: Boolean = false) =
+        refresh(context, script, widgetKind(widget), again)
 
     /**
      * The name of the one queue of a script's refresh runs (WorkManager's unique work): its pinned
@@ -232,10 +237,12 @@ object ScriptScheduler {
      *   because each kind has its own event and a script may do other things for each. Also a
      *   widget's card asks once for each state, so a dropped request would leave it waiting.
      * - Nothing is there: the run starts the queue.
+     * - [again]: the request is never dropped. What its run reads has just changed, and the run of
+     *   its kind that is there may have started before that. It goes after it.
      */
-    internal fun queued(kind: String, waiting: Collection<String>): Queued = when {
-        kind in waiting -> Queued.DROPPED
+    internal fun queued(kind: String, waiting: Collection<String>, again: Boolean = false): Queued = when {
         waiting.isEmpty() -> Queued.ALONE
+        kind in waiting && !again -> Queued.DROPPED
         else -> Queued.AFTER
     }
 
@@ -269,7 +276,7 @@ object ScriptScheduler {
      *
      * Call it off the main thread: it waits for WorkManager to read the queue.
      */
-    private fun refresh(context: Context, script: Script, kind: String) {
+    private fun refresh(context: Context, script: Script, kind: String, again: Boolean = false) {
         val wm = WorkManager.getInstance(context)
         val queue = refreshQueue(script.id)
         val request = OneTimeWorkRequestBuilder<ScriptWorker>()
@@ -287,7 +294,7 @@ object ScriptScheduler {
         synchronized(refreshLock) {
             val waiting = runCatching { wm.getWorkInfosForUniqueWork(queue).get(QUEUE_READ_S, TimeUnit.SECONDS) }.getOrNull()
                 ?.filter { !it.state.isFinished }?.map { kindOf(it.tags) }
-            val policy = when (if (waiting == null) Queued.ALONE else queued(kind, waiting)) {
+            val policy = when (if (waiting == null) Queued.ALONE else queued(kind, waiting, again)) {
                 Queued.DROPPED -> return
                 Queued.AFTER -> androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE
                 // KEEP never stops a run. If the queue couldn't be read and a run is there, this request is dropped.

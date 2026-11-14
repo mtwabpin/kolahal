@@ -108,4 +108,18 @@ class RefreshQueueTest {
         }
         assertEquals(listOf(widget, second, pinned, third), queue)
     }
+
+    /**
+     * After an option of a widget changed, its run is asked for "again". The run of that widget
+     * that is there may have read the old value, so the new one is not dropped: it goes after it.
+     */
+    @Test fun aRunAfterAChangeIsNeverDropped() {
+        assertEquals(Queued.AFTER, ScriptScheduler.queued(second, listOf(second), again = true))
+        assertEquals(Queued.AFTER, ScriptScheduler.queued(widget, listOf(pinned, widget), again = true))
+        assertEquals(Queued.AFTER, ScriptScheduler.queued(second, listOf(widget), again = true))
+        // Nothing is there: it starts the queue, as any run does.
+        assertEquals(Queued.ALONE, ScriptScheduler.queued(second, emptyList(), again = true))
+        // A request that is not "again" is dropped as before.
+        assertEquals(Queued.DROPPED, ScriptScheduler.queued(second, listOf(second)))
+    }
 }

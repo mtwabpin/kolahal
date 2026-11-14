@@ -29,6 +29,16 @@ class WidgetScriptsTest {
         assertEquals(emptyMap<String, WidgetScript>(), WidgetScriptReader().read(emptyList()))
     }
 
+    /** A script with an `@option` line has options to set for each of its widgets. The Widgets screen then offers them. */
+    @Test fun aScriptWithAnOptionLineHasOptions() {
+        val reader = WidgetScriptReader()
+        val withOption = weather.copy(code = "-- @option city London The city to show\n" + weather.code)
+        assertEquals(false, reader.read(listOf(weather))["weather"]!!.hasOptions)
+        assertEquals(true, reader.read(listOf(withOption))["weather"]!!.hasOptions)
+        // The line is gone again: so are the options.
+        assertEquals(false, reader.read(listOf(weather))["weather"]!!.hasOptions)
+    }
+
     /** The script list changes at every run. What the widget screens see does not, so nothing is drawn again. */
     @Test fun aRunChangesNothing() {
         val reader = WidgetScriptReader()
