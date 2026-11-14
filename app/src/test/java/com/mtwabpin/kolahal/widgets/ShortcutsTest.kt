@@ -97,6 +97,56 @@ class ShortcutsTest {
         assertEquals(full, Shortcuts.with(full, 8, Shortcut("Ninth", "echo 9")))
     }
 
+    /** After a backup is imported, every shortcut that the file brought is listed for a look, whatever it runs. */
+    @Test fun anImportedBackupsShortcutsAreWorthALook() {
+        val planted = listOf(Shortcut("Torch", "uninstall bank"), Shortcut("Weather", "weather"), Shortcut("todo", "todo"))
+        assertEquals(
+            listOf("shortcut Torch = uninstall bank", "shortcut Weather = weather", "shortcut todo"),
+            Shortcuts.review(before = emptyList(), after = planted),
+        )
+        // Onto a phone that has shortcuts: only what the file changed is listed.
+        assertEquals(listOf("shortcut Weather = weather"), Shortcuts.review(before = three, after = three + Shortcut("Weather", "weather")))
+        // A command that changed under a label you know is the one to see.
+        assertEquals(
+            listOf("shortcut Torch = uninstall bank"),
+            Shortcuts.review(before = three, after = listOf(Shortcut("Torch", "uninstall bank"), three[1], three[2])),
+        )
+        // So is a label that moved to another of your commands: the button would not do what it says.
+        assertEquals(
+            listOf("shortcut Torch = todo", "shortcut Todo = torch"),
+            Shortcuts.review(before = three, after = listOf(Shortcut("Torch", "todo"), Shortcut("Todo", "torch"), three[2])),
+        )
+    }
+
+    /** A file that brings no list, the same list, or only another order or other icons, plants nothing. */
+    @Test fun yourOwnShortcutsAreNotListed() {
+        assertEquals(emptyList<String>(), Shortcuts.review(before = three, after = three))
+        assertEquals(emptyList<String>(), Shortcuts.review(before = three, after = three.reversed()))
+        assertEquals(emptyList<String>(), Shortcuts.review(before = three, after = three.map { it.copy(icon = "★") }))
+        assertEquals(emptyList<String>(), Shortcuts.review(before = three, after = emptyList()))
+        assertEquals(emptyList<String>(), Shortcuts.review(before = emptyList(), after = emptyList()))
+    }
+
+    /** A long command is cut for the line, as an alias is. The "…" says that there is more to read in the editor. */
+    @Test fun aLongCommandIsCutInTheReview() {
+        val long = "echo " + "a".repeat(100)
+        val line = Shortcuts.review(emptyList(), listOf(Shortcut("Say", long))).single()
+        assertEquals("shortcut Say = " + long.take(59) + "…", line)
+        val exact = "c".repeat(60)
+        assertEquals("shortcut Sixty = $exact", Shortcuts.review(emptyList(), listOf(Shortcut("Sixty", exact))).single())
+    }
+
+    /** The backup's import reads the list before and after, and adds what [Shortcuts.review] says to its own review. */
+    @Test fun theBackupImportListsTheShortcuts() {
+        val backup = com.mtwabpin.kolahal.sourceFile("src/main/java/com/mtwabpin/kolahal/data/Backup.kt").readText()
+        val before = backup.indexOf("Shortcuts.read(context)")
+        val restore = backup.indexOf("FullBackup.importRaw(context")
+        val review = backup.indexOf("Shortcuts.review(shortcutsBefore")
+        assertTrue("the list is read before the file's data is restored", before in 0 until restore)
+        assertTrue("and compared after it", review > restore)
+        assertTrue("the result's review has the shortcuts", backup.contains("+ sensitiveAliases + shortcuts"))
+    }
+
     /** What is stored may be anything: an older version's text, or a backup written by hand. */
     @Test fun decodeNeverThrows() {
         assertEquals(emptyList<Shortcut>(), Shortcuts.decode(null))

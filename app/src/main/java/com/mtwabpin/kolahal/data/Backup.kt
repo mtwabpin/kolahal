@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptImport
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.widgets.Shortcuts
 
 /**
  * One JSON file with everything a user customises: settings, aliases, hidden/renamed apps and
@@ -87,7 +88,10 @@ class Backup(private val context: Context) {
         /** Rows restored from the raw data section (0 for older backups that hold only settings). */
         val restored: Int = 0,
         val full: Boolean = false,
-        /** What from the file is worth a look: where searches go, what gestures run, and aliases that run code or change settings. */
+        /**
+         * What from the file is worth a look: where searches go, what gestures run, aliases that run code
+         * or change settings, and the commands behind the Shortcuts widget's buttons.
+         */
         val review: List<String> = emptyList(),
         /** The file is from a newer Kolahal ([VERSION] is lower than its format). What this version doesn't know was skipped. */
         val newer: Boolean = false,
@@ -101,6 +105,9 @@ class Backup(private val context: Context) {
         // sections are skipped. The result says so, rather than refusing the whole file.
         val newer = ((root["kolahal"] as? Number)?.toInt() ?: 0) > VERSION
         val skipped = ArrayList<String>()
+
+        // The Shortcuts widget's list as it is before the file's data replaces it. What the file brings is listed for a look below.
+        val shortcutsBefore = runCatching { Shortcuts.read(context) }.getOrDefault(emptyList())
 
         // Raw data first, so the readable sections below (which people edit by hand) win.
         val data = root["data"] as? Map<*, *>
@@ -200,8 +207,11 @@ class Backup(private val context: Context) {
             .mapNotNull { (name, body) -> (body as? String)?.takeIf(::toReview)?.let { name to it } }
             .sortedBy { it.first }
             .map { (name, body) -> "alias $name = ${if (body.length > 60) body.take(59) + "…" else body}" }
+        // A button of the Shortcuts widget runs its command at one tap, as a gesture does. So every shortcut
+        // that the file brought is listed, whatever it runs ([Shortcuts.review]).
+        val shortcuts = Shortcuts.review(shortcutsBefore, runCatching { Shortcuts.read(context) }.getOrDefault(emptyList()))
         val review = listOf(Keys.SEARCH_URL, Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)
-            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases
+            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases + shortcuts
         return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review, newer = newer)
     }
 

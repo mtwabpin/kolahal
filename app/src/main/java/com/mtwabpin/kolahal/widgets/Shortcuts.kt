@@ -78,6 +78,27 @@ object Shortcuts {
         return clean(list.toMutableList().apply { add(to, removeAt(index)) })
     }
 
+    /** The longest command a review line shows whole, as for an alias. A longer one ends in "…". */
+    private const val MAX_REVIEW = 60
+
+    /**
+     * What is worth a look after a backup file was imported: one line for each shortcut that the
+     * file brought, such as `shortcut Torch = torch`. A button runs its command at one tap, so you
+     * should see each command that you did not set yourself.
+     * - [before] is the list on the phone before the import, and [after] the list after it.
+     * - A shortcut that was there before with the same label and the same command is yours: it is
+     *   not listed. One whose command changed under its old label is listed.
+     * - A file that brought no list changes nothing, so nothing is listed.
+     */
+    fun review(before: List<Shortcut>, after: List<Shortcut>): List<String> {
+        val mine = before.map { it.label to it.command }.toSet()
+        return after.filter { (it.label to it.command) !in mine }.map { s ->
+            val command = if (s.command.length > MAX_REVIEW) s.command.takeWhole(MAX_REVIEW - 1) + "…" else s.command
+            // A shortcut with no label of its own has its command as the label: say it once.
+            if (s.label == s.command) "shortcut $command" else "shortcut ${s.label} = $command"
+        }
+    }
+
     /**
      * The list stored as [text]. Anything that isn't a list gives an empty list, and an item that
      * isn't a shortcut is skipped: it never throws. What it returns is [clean].
