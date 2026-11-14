@@ -24,9 +24,13 @@ import kotlinx.coroutines.flow.update
 data class WidgetState(val spec: WidgetSpec?, val hasContent: Boolean, val setAt: Long = 0, val triedAt: Long = 0, val error: String? = null)
 
 /**
- * The store of what script widgets show, by script name, in two key-value scopes:
+ * The store of what script widgets show, in two key-value scopes:
  * - [Stores.WIDGET]: the description as JSON ([WidgetJson]).
  * - [Stores.WIDGET_META]: `{"set":ms,"tried":ms,"error":"…"}`. Kolahal writes it, never the script.
+ *
+ * Each widget is kept by its key ([WidgetRef.key]). That is the `name` every function here takes:
+ * the script's name for its first widget (`weather`), and the name with an id for a further one
+ * (`weather#2`). Only [forgetScript] and [placedIds] take a script's name, and say so.
  *
  * Both processes use it. The :script process writes while a script runs, and tells the main process
  * with a message ([ACTION_CHANGED]) of its own, not the log's: the log's would make home read the
@@ -59,7 +63,7 @@ object WidgetStates {
     private val everyone = MutableStateFlow(0)
 
     private val _versions = MutableStateFlow<Map<String, Int>>(emptyMap())
-    /** For each widget, by script name, a number that increases when its state changes. */
+    /** For each widget, by its key, a number that increases when its state changes. */
     val versions: StateFlow<Map<String, Int>> = _versions.asStateFlow()
 
     /** [name]'s number in [versions]: a card collects only its own, and reads again only when it moves. */
@@ -109,15 +113,36 @@ object WidgetStates {
         if (!quietly) announce(context, name)
     }
 
-    /**
-     * Removes everything kept for [name]: when its widget is taken off the page, and when the script
-     * is deleted, switched off or changed from outside.
-     */
+    /** Removes everything kept for the one widget [name]: when it is taken off the page. */
     fun forget(context: Context, name: String) {
         runCatching { KvStore(context, Stores.WIDGET).set(name, null) }
         runCatching { KvStore(context, Stores.WIDGET_META).set(name, null) }
         announce(context, name)
     }
+
+    /**
+     * Removes everything kept for every widget of the script [script]: when the script is deleted,
+     * switched on or off, or changed from outside. What they showed came from the script as it was.
+     * The widgets stay on the page, and their options stay.
+     */
+    fun forgetScript(context: Context, script: String) {
+        for (scope in listOf(Stores.WIDGET, Stores.WIDGET_META)) runCatching {
+            val store = KvStore(context, scope)
+            store.set(script, null)
+            // Every further widget's key starts with the name and the separator. A longer name does not.
+            store.deleteStartingWith(WidgetRef.further(script))
+        }
+        // It is not known here which widgets the script has, so every card looks again.
+        announce(context, null)
+    }
+
+    /**
+     * The ids of [script]'s widgets on the widgets page, as the main process last copied them from
+     * the placed list ([Stores.WIDGET_PLACED], [PlacedIds]). Null when the name has no row. The
+     * `:script` process asks this, with [PlacedIds.holds], before it stores anything for a widget.
+     */
+    fun placedIds(context: Context, script: String): Set<String>? =
+        PlacedIds.parse(runCatching { KvStore(context, Stores.WIDGET_PLACED).get(script) }.getOrNull())
 
     /**
      * [name]'s state. It reads the database, so call it on an IO thread. The stored description is
@@ -149,16 +174,17 @@ object WidgetStates {
     }
 
     /**
-     * Tells the cards that [name]'s state changed. From the :script process a message goes to the main
-     * one, as the log's does ([com.mtwabpin.kolahal.data.LogRepository.ACTION_LOGS_CHANGED]). This
-     * process's own counter rises too.
+     * Tells the cards that [name]'s state changed; with null, that any widget's may have. From the
+     * :script process a message goes to the main one, as the log's does
+     * ([com.mtwabpin.kolahal.data.LogRepository.ACTION_LOGS_CHANGED]). This process's own counter rises too.
      *
      * The writes above call it, unless they are asked to write quietly. Then the caller calls it,
      * once for all of them: a run does, when it ends.
      */
-    fun announce(context: Context, name: String) {
+    fun announce(context: Context, name: String?) {
         if (Singleton.inScriptProcess) {
-            runCatching { context.sendBroadcast(Intent(ACTION_CHANGED).setPackage(context.packageName).putExtra(EXTRA_NAME, name)) }
+            // Without the name, the main process moves every widget's number ([bump]).
+            runCatching { context.sendBroadcast(Intent(ACTION_CHANGED).setPackage(context.packageName).apply { if (name != null) putExtra(EXTRA_NAME, name) }) }
         }
         bump(name)
     }

@@ -84,12 +84,19 @@ object Stores {
     /** Which install wrote the database ([ThisInstall]). This phone only. */
     const val INSTALL = "install"
     /**
-     * What each placed script widget shows, by script name: the checked description as JSON
+     * What each placed script widget shows, by the widget's key ([com.mtwabpin.kolahal.widgets.WidgetRef.key]:
+     * `weather`, `weather#2`): the checked description as JSON
      * ([com.mtwabpin.kolahal.widgets.WidgetStates]). A run makes it again, and it may hold private text. This phone only.
      */
     const val WIDGET = "widget"
-    /** When a widget's content was set, when a run was last tried, and its last error, by script name. This phone only. */
+    /** When a widget's content was set, when a run was last tried, and its last error, by the widget's key. This phone only. */
     const val WIDGET_META = "widget.meta"
+    /**
+     * Which widgets of each script are on the widgets page, by script name: a list of their ids
+     * ([com.mtwabpin.kolahal.widgets.PlacedIds]). It is a copy of the placed list, for the `:script`
+     * process, which can't see the list. The list is in [WIDGETS] and writes this again at start. This phone only.
+     */
+    const val WIDGET_PLACED = "widget.placed"
     /** Scripts' status lines, by script name. */
     const val STATUS = "status"
     /** What a status line shows besides its text, by script name. */
@@ -107,7 +114,10 @@ object Stores {
     const val SCRIPT_PREFIX = "script:"
     /** A script's secret values: "secret:<name>". Never in a backup. */
     const val SECRET_PREFIX = "secret:"
-    /** A script's option values: "option:<name>". */
+    /**
+     * A script's option values: "option:<name>". What you set for one of its further widgets only
+     * is in a scope of its own: "option:<name>#2" ([com.mtwabpin.kolahal.script.ScriptOptions]).
+     */
     const val OPTION_PREFIX = "option:"
 
     /**
@@ -115,7 +125,7 @@ object Stores {
      * backup file holds them, they are skipped. A transfer to a new phone copies them, so [ThisInstall]
      * clears them there.
      */
-    val THIS_PHONE = listOf(CALLS, PACKAGES, WORKER, SHARED_SETTINGS, NOTIFICATIONS_MIRROR, INSTALL, WIDGET, WIDGET_META)
+    val THIS_PHONE = listOf(CALLS, PACKAGES, WORKER, SHARED_SETTINGS, NOTIFICATIONS_MIRROR, INSTALL, WIDGET, WIDGET_META, WIDGET_PLACED)
 
     val SCOPES = THIS_PHONE + listOf(STATUS, STATUS_EXTRAS, FX, UNLOCKS, LOG_MARKS, OLD_PINS)
 }

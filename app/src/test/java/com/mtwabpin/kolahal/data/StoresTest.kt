@@ -45,4 +45,13 @@ class StoresTest {
     @Test fun aTransferToANewPhoneLeavesOutWhatStoresSays() {
         assertEquals(Stores.PREFS.filter { !it.toNewPhone }.map { it.name }.toSet(), excluded("data_extraction_rules.xml", "device-transfer"))
     }
+
+    /**
+     * What a script's widgets show, and the copy of the placed list, are this phone's. A backup
+     * leaves them out, and a new phone clears them: the placed list writes its copy again at start.
+     */
+    @Test fun theWidgetScopesStayOnThisPhone() {
+        assertEquals("widget.placed", Stores.WIDGET_PLACED)
+        assertEquals(emptyList<String>(), listOf(Stores.WIDGET, Stores.WIDGET_META, Stores.WIDGET_PLACED) - Stores.THIS_PHONE.toSet())
+    }
 }
