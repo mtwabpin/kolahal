@@ -140,4 +140,56 @@ class LogLineTextTest {
             assertEquals(indents.text, render(plain).paragraphStyles[0].item.textIndent?.restLine)
         }
     }
+
+    // ---- a widget's text --------------------------------------------------------------------
+
+    /** A card draws weight, slant, lines and colour, and leaves plain pieces to the Text's own style. */
+    @Test fun aWidgetsTextHasWeightSlantLinesAndColour() {
+        val text = widgetText(
+            "a " + StyledText.wrap(StyledText.Style.BOLD, "bold") + " " + StyledText.wrap(StyledText.Style.ITALIC, "slant") + " " +
+                StyledText.wrap(StyledText.Style.UNDERLINE, "under") + " " + StyledText.wrap(StyledText.Style.STRIKE, "struck") + " " +
+                StyledText.colour(StyledText.Colour.GOOD, "green") + " " +
+                StyledText.colour(StyledText.Colour.BAD, StyledText.wrap(StyledText.Style.BOLD, StyledText.wrap(StyledText.Style.UNDERLINE, StyledText.wrap(StyledText.Style.STRIKE, "all")))),
+        )
+        assertEquals("a bold slant under struck green all", text.text)
+        assertEquals(FontWeight.Bold, text.at("bold").fontWeight)
+        assertEquals(FontStyle.Italic, text.at("slant").fontStyle)
+        assertEquals(TextDecoration.Underline, text.at("under").textDecoration)
+        assertEquals(TextDecoration.LineThrough, text.at("struck").textDecoration)
+        assertEquals(Term.palette.good, text.at("green").color)
+        assertEquals(Term.error, text.at("all").color)
+        assertEquals(FontWeight.Bold, text.at("all").fontWeight)
+        assertEquals(TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough)), text.at("all").textDecoration)
+        // Six styled pieces, and nothing over the plain ones: they keep the colour of their Text.
+        assertEquals(6, text.spanStyles.size)
+        assertTrue(text.spanStyles.none { it.start == 0 })
+        // Plain text comes back plain, and lines stay lines.
+        assertEquals(AnnotatedString("no styles"), widgetText("no styles"))
+        val lines = widgetText(StyledText.wrap(StyledText.Style.BOLD, "one\ntwo"))
+        assertEquals("one\ntwo", lines.text)
+        assertEquals(2, lines.spanStyles.count { it.item.fontWeight == FontWeight.Bold })
+    }
+
+    /** A card's text is never a link, and what only the log draws shows as its words. */
+    @Test fun aWidgetsTextIsNeverALink() {
+        val text = widgetText(
+            "see " + StyledText.link("https://example.com/x", StyledText.wrap(StyledText.Style.BOLD, "the page")) + " " +
+                StyledText.tag(StyledText.Colour.BAD, "LIVE") + " " + StyledText.wrap(StyledText.Style.CODE, "v1.2"),
+        )
+        assertEquals("see the page LIVE v1.2", text.text)
+        assertEquals(0, text.getLinkAnnotations(0, text.length).size)
+        assertEquals(0, text.getStringAnnotations(0, text.length).size)
+        assertEquals(FontWeight.Bold, text.at("the page").fontWeight)
+        // The link's own look is not there either: no underline, and no link colour.
+        assertEquals(null, text.at("the page").textDecoration)
+        assertNotEquals(Term.link, text.at("the page").color)
+        // A tag keeps its colour, and has no chip. Code has no shade and no font of its own.
+        assertEquals(Term.error, text.at("LIVE").color)
+        assertEquals(null, text.at("LIVE").fontWeight)
+        assertTrue(text.spanStyles.none { it.item.background != androidx.compose.ui.graphics.Color.Unspecified || it.item.fontFamily != null })
+        // A table, a bar and a list show as the words that plain text has.
+        val blocks = StyledText.table(listOf(listOf("a", "b")), header = false) + "\n" + StyledText.meter(0.0, 0.5, null, "Overs", "", "40/50") + "\n" + StyledText.list(listOf("one"), numbered = false)
+        assertEquals("a\tb\nOvers\t40/50\n• one", widgetText(blocks).text)
+        assertEquals(0, widgetText(blocks).spanStyles.size)
+    }
 }

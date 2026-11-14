@@ -1,7 +1,6 @@
 package com.mtwabpin.kolahal.widgets
 
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.script.Json
 
 /**
@@ -15,6 +14,8 @@ import com.mtwabpin.kolahal.script.Json
  *   are the exception: more than their limit is an error, because one that is cut is a tap the
  *   user can't make.
  * - A field with no value (`nil`, `null`, `undefined`) counts as left out.
+ * - Plain, with a few exceptions. A text loses its styles (`fmt.bold`, `fmt.color`, …). Only the
+ *   fields of [STYLED] keep them, and only bold, italic, underline, strike and the colour roles.
  *
  * Every error is an IllegalArgumentException that starts with "widget: ". The script gets it as
  * its own error, with the line number.
@@ -126,6 +127,16 @@ object WidgetParser {
             BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE
         ).toSet()
 
+    /**
+     * The fields whose text keeps its styles, as `<kind>.<field>`: bold, italic, underline, strike
+     * and the colour roles ([StyledText.inline]).
+     * - A link, a tag, a code chip, a table and a bar are for the log. In these fields too they lose
+     *   their marks and keep their words.
+     * - A limit counts the characters that show, not the marks.
+     * - Every other text is plain: all its styles are taken out.
+     */
+    val STYLED: List<String> = listOf("text.text", "text.caption", "list.items.title", "list.items.detail", "list.items.trailing", "stat.label", "image.caption")
+
     /** The fields of a [kind] widget, after the common ones. */
     private fun own(kind: WidgetKind): List<String> = when (kind) {
         WidgetKind.STAT -> STAT
@@ -173,8 +184,8 @@ object WidgetParser {
             WidgetKind.STAT -> stat(t, base)
             WidgetKind.TEXT -> WidgetSpec.Text(
                 base,
-                text = t.need("text", MAX_TEXT, "the text to show", lines = true),
-                caption = t.text("caption", MAX_CAPTION),
+                text = t.need("text", MAX_TEXT, "the text to show", lines = true, styled = true),
+                caption = t.text("caption", MAX_CAPTION, styled = true),
             )
             WidgetKind.LIST -> rows(t, base)
             WidgetKind.PROGRESS -> progress(t, base)
@@ -200,14 +211,14 @@ object WidgetParser {
         base,
         image = t.picture("image"),
         alt = t.need("alt", MAX_ALT, ALT_IS).ifEmpty { t.fail("alt is needed: $ALT_IS") },
-        caption = t.text("caption", MAX_CAPTION),
+        caption = t.text("caption", MAX_CAPTION, styled = true),
         fit = t.choice("fit", listOf("crop", "fit")),
     )
 
     private fun stat(t: Table, base: WidgetBase) = WidgetSpec.Stat(
         base,
         value = t.need("value", MAX_VALUE, "the big value, as text or a number"),
-        label = t.text("label", MAX_LABEL),
+        label = t.text("label", MAX_LABEL, styled = true),
         unit = t.text("unit", MAX_UNIT),
         delta = t.text("delta", MAX_DELTA),
         trend = t.choice("trend", TRENDS),
@@ -224,9 +235,9 @@ object WidgetParser {
             base,
             items = t.items("items", MAX_ITEMS, "{ ${ROW.joinToString()} }", ROW).map { r ->
                 WidgetSpec.Row(
-                    title = r.need("title", MAX_ROW_TITLE, "the row's text"),
-                    detail = r.text("detail", MAX_DETAIL),
-                    trailing = r.text("trailing", MAX_SHORT),
+                    title = r.need("title", MAX_ROW_TITLE, "the row's text", styled = true),
+                    detail = r.text("detail", MAX_DETAIL, styled = true),
+                    trailing = r.text("trailing", MAX_SHORT, styled = true),
                     icon = r.text("icon", MAX_ICON),
                     color = r.colour(),
                     tap = r.tap(),
@@ -405,25 +416,46 @@ object WidgetParser {
         /**
          * A text field, or null when it is left out or empty. A number becomes text. Styles go
          * first, then secrets ([clean]), and the cut comes last, so a cut never splits either.
-         * With [lines] the text keeps its line breaks; without, they become spaces.
+         * - With [lines] the text keeps its line breaks; without, they become spaces.
+         * - With [styled] the text keeps the styles a card draws ([STYLED], [styledClean]). The
+         *   limit [max] then counts what shows, not the marks.
          */
-        fun text(key: String, max: Int, lines: Boolean = false): String? = textOrEmpty(key, max, lines)?.takeIf { it.isNotEmpty() }
+        fun text(key: String, max: Int, lines: Boolean = false, styled: Boolean = false): String? =
+            textOrEmpty(key, max, lines, styled)?.takeIf { it.isNotEmpty() }
 
         /** A text field that must be there. [what] says what it is for, in the error. It may be empty. */
-        fun need(key: String, max: Int, what: String, lines: Boolean = false): String =
-            textOrEmpty(key, max, lines) ?: fail("$key is needed: $what")
+        fun need(key: String, max: Int, what: String, lines: Boolean = false, styled: Boolean = false): String =
+            textOrEmpty(key, max, lines, styled) ?: fail("$key is needed: $what")
 
-        private fun textOrEmpty(key: String, max: Int, lines: Boolean = false): String? = values[key]?.let { textOf(key, it, max, lines) }
+        private fun textOrEmpty(key: String, max: Int, lines: Boolean, styled: Boolean): String? = values[key]?.let { textOf(key, it, max, lines, styled) }
 
         /** [v] as the text of [key]. [key] is named in the error. */
-        private fun textOf(key: String, v: Any?, max: Int, lines: Boolean = false): String {
+        private fun textOf(key: String, v: Any?, max: Int, lines: Boolean = false, styled: Boolean = false): String {
             val given = when (v) {
                 is String -> v
                 is Number -> numberText(v)
                 else -> fail("$key must be text, not ${shown(v)}")
             }
-            val cleaned = clean(StyledText.plain(given)).let { if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim() }
-            return cut(cleaned, max)
+            val cleaned = (if (styled) styledClean(given) else clean(StyledText.plain(given)))
+                .let { if (lines) it.replace("\r\n", "\n").trim() else it.replace(BREAKS, " ").trim() }
+            // For a plain text this is the cut it always was. For a styled one it also closes every style.
+            return StyledText.take(cleaned, max)
+        }
+
+        /**
+         * [given] with the styles a card draws ([StyledText.inline]) and its secrets masked.
+         * - The mask ([clean]) runs on the styled text. It looks for a secret as it is written, so
+         *   it does not find one that has a style mark in its middle.
+         * - So the mask runs again on the plain form, which is what the card shows. If it finds a
+         *   secret there, the styles are dropped: the text is kept plain, and masked.
+         */
+        private fun styledClean(given: String): String {
+            if (!StyledText.has(given)) return clean(given)
+            // A line break is "\n" before the styles are read: a style that ends a line would hide the "\r" of "\r\n".
+            val masked = StyledText.inline(clean(StyledText.inline(given.replace("\r\n", "\n"))))
+            val shown = StyledText.plain(masked)
+            val again = clean(shown)
+            return if (again == shown) masked else again
         }
 
         /** A list of plain values, whole. Null when it is left out. [what] names its items, in the error. */
@@ -556,8 +588,6 @@ object WidgetParser {
 
     private val BREAKS = Regex("""\s*[\r\n]+\s*""")
 
-    /** [s], or its start with "…" when it is longer than [max]. It never ends in half an emoji. */
-    private fun cut(s: String, max: Int): String = if (s.length <= max) s else s.takeWhole(max - 1) + "…"
 
     /** [d] as the cards hold numbers. One too large for that is held at the largest there is. */
     private fun float(d: Double): Float = d.coerceIn(-Float.MAX_VALUE.toDouble(), Float.MAX_VALUE.toDouble()).toFloat()

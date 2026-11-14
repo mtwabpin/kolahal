@@ -215,6 +215,87 @@ class WidgetSpecJsonTest {
         roundTrip(WidgetSpec.Agenda(bare, events = (1..20).map { WidgetSpec.Event("E$it", 1_800_000_000L + it) }, days = 1))
     }
 
+    // ---- styled text ------------------------------------------------------------------------
+
+    private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
+    private fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+    private val styled = "a " + bold("b") + " " + good("c")
+
+    /** The fields that may be styled come back with their styles. */
+    @Test fun styledFieldsRoundTrip() {
+        roundTrip(WidgetSpec.Text(fullBase, text = styled + "\n" + bold("second line"), caption = good("who")))
+        roundTrip(WidgetSpec.Rows(bare, items = listOf(WidgetSpec.Row(styled, detail = bold("d"), trailing = good("+2%")), WidgetSpec.Row("plain"))))
+        roundTrip(stat.copy(label = styled))
+        roundTrip(picture.copy(caption = styled))
+        // Every style a card draws, on one piece.
+        val all = StyledText.colour(StyledText.Colour.WARN, StyledText.wrap(StyledText.Style.BOLD, StyledText.wrap(StyledText.Style.ITALIC, StyledText.wrap(StyledText.Style.UNDERLINE, StyledText.wrap(StyledText.Style.STRIKE, "x")))))
+        roundTrip(text.copy(text = all))
+    }
+
+    /**
+     * The main process trusts no stored text. A styled field is read through StyledText.inline
+     * again: a link, a tag, a code chip, a table and a bar come back as their words, whatever
+     * the :script process wrote. So a stored text can't make a card draw one.
+     */
+    @Test fun aStoredStyledFieldKeepsOnlyWhatACardDraws() {
+        val link = "see " + StyledText.link("https://evil.example/x", bold("here"))
+        val read = WidgetJson.decode(changed(text) { put("text", link); put("caption", StyledText.tag(StyledText.Colour.BAD, "LIVE") + StyledText.wrap(StyledText.Style.CODE, "x")) }) as WidgetSpec.Text
+        assertEquals("see " + bold("here"), read.text)
+        assertEquals(emptyList<String>(), StyledText.links(read.text))
+        assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + "x", read.caption)
+        val table = StyledText.table(listOf(listOf("a", "b")), header = true) + "\n" + StyledText.bar(0.5) + "\n" + StyledText.stats(listOf("1" to "one"))
+        val row = (WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to table, "detail" to link, "trailing" to StyledText.item(1) + "x"))) }) as WidgetSpec.Rows).items.single()
+        assertEquals(WidgetSpec.Row("a\tb\n1 one", detail = "see " + bold("here"), trailing = "• x"), row)
+        assertEquals("a\tb", (WidgetJson.decode(changed(stat) { put("label", StyledText.table(listOf(listOf("a", "b")), header = false)) }) as WidgetSpec.Stat).label)
+        assertEquals("go", (WidgetJson.decode(changed(picture) { put("caption", StyledText.link("https://evil.example", "go")) }) as WidgetSpec.Image).caption)
+        // A style left open is closed, and only the first 32 styled pieces keep their styles.
+        assertEquals(bold("open"), (WidgetJson.decode(changed(text) { put("text", StyledText.open(StyledText.Style.BOLD) + "open") }) as WidgetSpec.Text).text)
+        val many = (WidgetJson.decode(changed(text) { put("text", (1..50).joinToString(" ") { bold("w$it") }) }) as WidgetSpec.Text).text
+        assertEquals(32, StyledText.lines(many).flatMap { it.spans }.count { it.styles.isNotEmpty() })
+        // A styled field still has the limit of every text.
+        assertNull(WidgetJson.decode(changed(text) { put("text", bold("x".repeat(WidgetJson.MAX_TEXT))) }))
+    }
+
+    /** Every other text is plain. One with a style marker in it was not written by `widget.show`, and is refused. */
+    @Test fun aMarkerInAPlainFieldIsRefused() {
+        val marked = listOf(bold("b"), good("g"), "x" + StyledText.close(StyledText.Style.ITALIC), StyledText.link("https://example.com", "l"), StyledText.tag(StyledText.Colour.BAD, "t"))
+        fun refused(spec: WidgetSpec, change: MutableMap<String, Any?>.(String) -> Unit) = marked.forEach { m -> assertNull("$m in ${WidgetJson.encode(spec)}", WidgetJson.decode(changed(spec) { change(m) })) }
+        // The fields every kind has, and a tap's.
+        refused(stat) { put("title", it) }
+        refused(stat) { put("icon", it) }
+        refused(stat) { put("tap", mapOf("args" to it)) }
+        refused(stat) { put("tap", mapOf("args" to "x", "label" to it)) }
+        refused(stat) { put("tap", mapOf("url" to "https://example.com/$it")) }
+        // Each kind's plain fields.
+        refused(stat) { put("value", it) }
+        refused(stat) { put("unit", it) }
+        refused(stat) { put("delta", it) }
+        refused(stat) { put("more", listOf(mapOf("value" to it))) }
+        refused(stat) { put("more", listOf(mapOf("value" to "1", "label" to it))) }
+        refused(rows) { put("empty", it) }
+        refused(rows) { m -> put("items", listOf(mapOf("title" to "t", "icon" to m))) }
+        refused(progress) { put("text", it) }
+        refused(progress) { put("label", it) }
+        refused(progress) { m -> put("items", listOf(mapOf("label" to m, "value" to 1))) }
+        refused(chart) { put("value", it) }
+        refused(chart) { put("label", it) }
+        refused(chart) { put("summary", it) }
+        refused(chart) { m -> put("labels", listOf("a", m)) }
+        refused(countdown) { put("label", it) }
+        refused(countdown) { put("reached", it) }
+        refused(buttons) { m -> put("items", listOf(mapOf("label" to m, "tap" to mapOf("args" to "x")))) }
+        refused(toggles) { m -> put("items", listOf(mapOf("label" to m, "on" to true, "tap" to mapOf("args" to "x")))) }
+        refused(clock) { m -> put("zones", listOf(mapOf("zone" to "UTC", "label" to m))) }
+        refused(agenda) { m -> put("events", listOf(mapOf("title" to m, "starts" to 1))) }
+        refused(agenda) { m -> put("events", listOf(mapOf("title" to "t", "starts" to 1, "where" to m))) }
+        refused(agenda) { put("empty", it) }
+        refused(picture) { put("alt", it) }
+        refused(picture) { m -> put("image", "https://example.com/$m.png") }
+        // A character that only looks like a marker is plain text, and passes.
+        val near = String(Character.toChars(0x10FB80))
+        assertEquals("a${near}b", (WidgetJson.decode(changed(stat) { put("value", "a${near}b") }) as WidgetSpec.Stat).value)
+    }
+
     /**
      * `media` is made by Kolahal only, in the main process. It is never stored, so it has no stored
      * form, and no stored text reads back as one: the :script process can't hand one over.

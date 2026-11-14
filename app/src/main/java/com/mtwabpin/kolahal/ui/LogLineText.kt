@@ -281,6 +281,47 @@ internal fun styledText(text: String): AnnotatedString =
     if (!StyledText.has(text)) AnnotatedString(text) else buildAnnotatedString { appendStyled(text, SpanStyle(), Term.fg) }
 
 /**
+ * A widget's text, with the styles a card draws: weight (bold), slant (italic), lines (underline,
+ * strike) and colour. Plain text comes back as it is.
+ * - It is never a link. A tap on a card's text is the card's own tap, and a card opens a link only
+ *   through its `tap`. So this does not use the log's span code, which makes links that open.
+ * - Anything else the log draws (a tag, a code chip, a table, a bar, a list) shows as its plain
+ *   words ([StyledText.inline]). A stored text is in that form already. This runs it again, so a
+ *   text from anywhere else is safe too.
+ * - A colour is a role of the theme, as in the log ([colourOf]). A piece without one keeps the
+ *   colour its [Text] gives.
+ */
+internal fun widgetText(text: String): AnnotatedString {
+    if (!StyledText.has(text)) return AnnotatedString(text)
+    return buildAnnotatedString {
+        StyledText.lines(StyledText.inline(text)).forEachIndexed { i, line ->
+            if (i > 0) append('\n')
+            for (span in line.spans) {
+                val style = widgetStyle(span.styles, span.colour)
+                if (style == null) append(span.text) else withStyle(style) { append(span.text) }
+            }
+        }
+    }
+}
+
+/** The style of one piece of a widget's text. Null for a piece with nothing to draw differently. */
+private fun widgetStyle(styles: Set<StyledText.Style>, colour: StyledText.Colour?): SpanStyle? {
+    val bold = StyledText.Style.BOLD in styles
+    val italic = StyledText.Style.ITALIC in styles
+    val lines = listOfNotNull(
+        TextDecoration.Underline.takeIf { StyledText.Style.UNDERLINE in styles },
+        TextDecoration.LineThrough.takeIf { StyledText.Style.STRIKE in styles },
+    )
+    if (!bold && !italic && lines.isEmpty() && colour == null) return null
+    return SpanStyle(
+        color = colourOf(colour),
+        fontWeight = if (bold) FontWeight.Bold else null,
+        fontStyle = if (italic) FontStyle.Italic else null,
+        textDecoration = if (lines.isEmpty()) null else TextDecoration.combine(lines),
+    )
+}
+
+/**
  * [text] that wraps only at a space or after "|", never inside a word, for `help`'s rows.
  * - After each "|" goes a zero-width space, so `<5m|1h30m>` can wrap there.
  * - After each "-", "–" and "/" goes a word joiner, so `--settings`, `0–100` and `a/b` stay whole.

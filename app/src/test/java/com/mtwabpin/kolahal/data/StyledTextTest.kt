@@ -246,4 +246,147 @@ class StyledTextBlocksTest {
         assertEquals("v0 x", StyledText.lines(StyledText.stats(listOf("v0\nx" to "l"))).single().stats!!.single().value.single().text)
         assertEquals("", StyledText.stats(emptyList()))
     }
+
+    // ---- styled text outside the log: a widget's text ----------------------------------------
+
+    private fun bold(s: String) = StyledText.wrap(Style.BOLD, s)
+    private fun italic(s: String) = StyledText.wrap(Style.ITALIC, s)
+    private fun green(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+
+    /** Each piece of [text] as (words, styles, colour). */
+    private fun pieces(text: String) = StyledText.lines(text).flatMap { it.spans }.map { Triple(it.text, it.styles, it.colour) }
+
+    /** The styles of each piece of [text], by its words. */
+    private fun stylesIn(text: String) = StyledText.lines(text).flatMap { it.spans }.associate { it.text to it.styles }
+
+    /** inline keeps bold, italic, underline, strike and colours, and what the text shows stays the same. */
+    @Test fun inlineKeepsWeightSlantLinesAndColour() {
+        val text = "a " + bold("b") + " " + italic("c") + " " + StyledText.wrap(Style.UNDERLINE, "d") + " " + StyledText.wrap(Style.STRIKE, "e") + " " + green("f") + " g"
+        val kept = StyledText.inline(text)
+        assertEquals("a b c d e f g", StyledText.plain(kept))
+        assertEquals(
+            listOf(
+                Triple("a ", emptySet(), null), Triple("b", setOf(Style.BOLD), null), Triple(" ", emptySet(), null), Triple("c", setOf(Style.ITALIC), null),
+                Triple(" ", emptySet(), null), Triple("d", setOf(Style.UNDERLINE), null), Triple(" ", emptySet(), null), Triple("e", setOf(Style.STRIKE), null),
+                Triple(" ", emptySet(), null), Triple("f", emptySet<Style>(), StyledText.Colour.GOOD), Triple(" g", emptySet(), null),
+            ),
+            pieces(kept),
+        )
+        // Plain text is left alone: the same object comes back.
+        assertSame("no styles", StyledText.inline("no styles"))
+        // Every colour role stays.
+        StyledText.Colour.entries.forEach { assertEquals(it, pieces(StyledText.inline(StyledText.colour(it, "x"))).single().third) }
+    }
+
+    /** What only the log draws loses its marks and keeps its words: a link, a tag, a code chip, a table, a bar, big numbers, a list. */
+    @Test fun inlineDropsWhatOnlyTheLogDraws() {
+        val link = StyledText.inline("see " + StyledText.link("https://example.com/x", bold("the page")) + " now")
+        assertEquals("see the page now", StyledText.plain(link))
+        assertEquals(emptyList<String>(), StyledText.links(link))
+        assertFalse(link.contains("example.com"))
+        assertEquals(setOf(Style.BOLD), stylesIn(link)["the page"])
+
+        val tag = StyledText.inline(StyledText.tag(StyledText.Colour.BAD, "LIVE") + " " + StyledText.wrap(Style.CODE, "v1.2"))
+        assertEquals("LIVE v1.2", StyledText.plain(tag))
+        // The tag's colour stays. Its chip and the code's shade go.
+        assertEquals(listOf(Triple("LIVE", emptySet<Style>(), StyledText.Colour.BAD), Triple(" v1.2", emptySet(), null)), pieces(tag))
+
+        val blocks = "Top\n" + StyledText.table(listOf(listOf("a", bold("b")), listOf("c", "d")), header = false) + "\n" +
+            StyledText.meter(0.0, 0.5, StyledText.Colour.GOOD, "Overs", "", "40/50") + "\n" + StyledText.bar(0.5) + "\n" +
+            StyledText.stats(listOf("24°" to "Pune")) + "\n" + StyledText.list(listOf("one", italic("two")), numbered = true)
+        val kept = StyledText.inline(blocks)
+        assertEquals(StyledText.plain(blocks), StyledText.plain(kept))
+        assertEquals("Top\na\tb\nc\td\nOvers\t40/50\n24° Pune\n1. one\n2. two", StyledText.plain(kept))
+        assertFalse(StyledText.hasBlock(kept))
+        assertTrue(StyledText.lines(kept).all { it.level == 0 && it.row == null && it.meter == null && it.stats == null })
+        // A style inside a list item stays. A style inside a table cell goes with the table.
+        assertEquals(setOf(Style.ITALIC), stylesIn(kept)["two"])
+        assertTrue(pieces(kept).none { it.first == "b" })
+    }
+
+    /** inline gives one fixed form: run again on its own result, it changes nothing. Nothing is left open. */
+    @Test fun inlineGivesTheSameTextWhenRunTwice() {
+        val nested = bold("a " + italic("b " + green("c") + " d") + " e") + green("f " + StyledText.colour(StyledText.Colour.BAD, "g") + " h")
+        val open = StyledText.open(Style.BOLD) + "left open\n" + StyledText.open(Style.ITALIC) + "second line" + StyledText.close(Style.STRIKE)
+        val stray = "x" + StyledText.close(Style.BOLD) + "y" + StyledText.item(1) + "z" + StyledText.link("https://example.com", "") + bold("")
+        val mixed = StyledText.tag(StyledText.Colour.INFO, "NEW") + StyledText.link("https://example.com", green("go")) + "\n" + StyledText.list(listOf(bold("x")), numbered = false, level = 2)
+        for (text in listOf(nested, open, stray, mixed, bold("a") + bold("b") + " " + bold("c"), "plain", "", "a\n\nb", green("multi\nline"))) {
+            val once = StyledText.inline(text)
+            assertEquals(once, StyledText.inline(once))
+            assertEquals(StyledText.plain(text), StyledText.plain(once))
+            // take leaves the form alone too.
+            assertEquals(once, StyledText.take(once, 1000))
+        }
+        // Pieces with the same styles are one piece.
+        assertEquals(bold("ab") + " " + bold("c"), StyledText.inline(bold("a") + bold("b") + " " + bold("c")))
+        // A style left open ends with its line, and goes on in the next: each line's piece is closed.
+        assertEquals(bold("left open") + "\n" + StyledText.wrap(Style.BOLD, StyledText.wrap(Style.ITALIC, "second line")), StyledText.inline(open))
+        // Styles are written in one order, the colour outside.
+        assertEquals(StyledText.inline(bold(italic(green("x")))), StyledText.inline(green(italic(bold("x")))))
+        assertEquals(green(bold(italic("x"))), StyledText.inline(italic(bold(green("x")))))
+        // A marker with no words leaves nothing.
+        assertEquals("xyz", StyledText.inline(stray))
+    }
+
+    /** Only the first styled pieces keep their styles, so markers can't make a short text long. */
+    @Test fun inlineKeepsALimitedNumberOfStyledPieces() {
+        val many = (1..50).joinToString(" ") { bold("w$it") }
+        val kept = StyledText.inline(many)
+        assertEquals(StyledText.plain(many), StyledText.plain(kept))
+        assertEquals(32, pieces(kept).count { it.second.isNotEmpty() })
+        assertEquals(setOf(Style.BOLD), stylesIn(kept)["w32"])
+        assertTrue(StyledText.plain(kept).endsWith("w49 w50"))
+        assertEquals(kept, StyledText.inline(kept))
+        assertEquals(bold("a") + " b c", StyledText.inline(bold("a") + " " + italic("b") + " " + green("c"), maxRuns = 1))
+        assertEquals("a b", StyledText.inline(bold("a") + " " + italic("b"), maxRuns = 0))
+        // 500 characters in the most styled pieces stay far under the 4000 units a stored text may have.
+        val worst = (1..32).joinToString("") { StyledText.colour(StyledText.Colour.WARN, bold(italic(StyledText.wrap(Style.UNDERLINE, StyledText.wrap(Style.STRIKE, "x"))))) + "y" } + "z".repeat(436)
+        assertEquals(500, StyledText.plain(worst).length)
+        assertTrue(StyledText.inline(worst).length <= 500 + 32 * 20)
+    }
+
+    /** take counts what shows, not the markers, and ends a longer text in "…" with nothing left open. */
+    @Test fun takeCutsWhatShowsAndClosesItsStyles() {
+        // Plain text is cut as before.
+        assertSame("short", StyledText.take("short", 5))
+        assertEquals("abcd…", StyledText.take("abcdefgh", 5))
+        assertEquals("a…", StyledText.take("a😀bc", 3))
+        // Markers are not counted: 5 characters show, so nothing is cut.
+        assertEquals(bold("ab") + green("cde"), StyledText.take(bold("ab") + green("cde"), 5))
+        // A cut inside a styled piece: the "…" is in the piece, and the piece is closed.
+        val cut = StyledText.take(bold("abcdef") + " tail", 4)
+        assertEquals(bold("abc…"), cut)
+        assertEquals("abc…", StyledText.plain(cut))
+        // A cut between two pieces: the "…" goes with the piece before.
+        assertEquals(bold("abc…"), StyledText.take(bold("abc") + italic("defgh"), 4))
+        assertEquals("ab" + italic("c…"), StyledText.take("ab" + italic("cdefgh"), 4))
+        // A cut never ends in half an emoji, also inside a styled piece.
+        assertEquals(green("ab…"), StyledText.take(green("ab😀cd"), 4))
+        // What shows is never longer than the limit.
+        val long = (1..40).joinToString(" ") { if (it % 2 == 0) bold("word$it") else green("word$it") }
+        for (max in listOf(1, 2, 7, 24, 60, 200)) {
+            val taken = StyledText.take(StyledText.inline(long), max)
+            assertEquals(max, StyledText.plain(taken).length)
+            assertTrue(StyledText.plain(taken).endsWith("…"))
+            assertEquals(taken, StyledText.inline(taken))
+        }
+        // Text that only the log draws comes back in inline's form, cut or not.
+        assertEquals("go", StyledText.take(StyledText.link("https://example.com", "go"), 10))
+        assertEquals("LIV…", StyledText.plain(StyledText.take(StyledText.tag(StyledText.Colour.BAD, "LIVE NOW"), 4)))
+    }
+
+    /** hasMarker tells a marker from other private-use characters, which plain text may hold. */
+    @Test fun hasMarkerFindsMarkersOnly() {
+        assertTrue(StyledText.hasMarker(bold("a")))
+        assertTrue(StyledText.hasMarker("a" + StyledText.close(Style.TAG)))
+        assertTrue(StyledText.hasMarker(StyledText.link("https://example.com", "x")))
+        assertTrue(StyledText.hasMarker(StyledText.bar(0.5)))
+        assertFalse(StyledText.hasMarker("plain 😀 text"))
+        assertFalse(StyledText.hasMarker(""))
+        // A character next to the markers' range is no marker, though it starts with the same half.
+        val near = String(Character.toChars(0x10FB80))
+        assertTrue(StyledText.has(near))
+        assertFalse(StyledText.hasMarker("a${near}b"))
+        assertEquals("a${near}b", StyledText.inline("a${near}b"))
+    }
 }

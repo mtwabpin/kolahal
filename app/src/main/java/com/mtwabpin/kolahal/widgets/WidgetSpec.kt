@@ -78,10 +78,13 @@ data class WidgetBase(
 )
 
 /**
- * A script's widget description after it was checked: one class for each kind. Texts are plain and
- * already cut to their limits, and colours are roles of the theme.
+ * A script's widget description after it was checked: one class for each kind. Texts are already
+ * cut to their limits, and colours are roles of the theme.
  * - WidgetParser makes one from what a script passes to `widget.show`.
  * - [WidgetJson] stores it and reads it back.
+ * - A text is plain. Only the fields of [WidgetParser.STYLED] may hold styles: bold, italic,
+ *   underline, strike and colour roles, in the form of [StyledText.inline]. A card draws them, and
+ *   a screen reader hears the plain words.
  */
 @Immutable
 sealed interface WidgetSpec {
@@ -249,6 +252,9 @@ sealed interface WidgetSpec {
  *   link that isn't a web link, a text or a description far longer than `widget.show` allows.
  * - A picture's link must start with `https://` and have at most [MAX_PICTURE_LINK] characters, and
  *   its `alt` text must not be blank. `widget.show` refuses the same ([isHttps]).
+ * - A text with a style marker in it is refused, except in the few fields that may have styles
+ *   ([WidgetParser.STYLED]). Such a field passes through [StyledText.inline] again, so no stored
+ *   text can make a card draw a link, a tag or a table.
  * - A list longer than its limit is cut as `widget.show` cuts it, and a number outside its range
  *   is brought into it. The parser has done both already, so this changes nothing it wrote.
  * - Where `widget.show` refuses and does not cut, this refuses too: no buttons or more than
@@ -434,13 +440,30 @@ object WidgetJson {
 
     private fun odd(): Nothing = throw Odd()
 
+    /**
+     * A plain text field. One with a style marker in it is refused: `widget.show` takes the styles
+     * out of every text but those of [WidgetParser.STYLED].
+     */
     private fun Map<*, *>.text(key: String): String? = when (val v = this[key]) {
         null -> null
-        is String -> if (v.length <= MAX_TEXT) v else odd()
+        is String -> if (v.length <= MAX_TEXT && !StyledText.hasMarker(v)) v else odd()
         else -> odd()
     }
 
     private fun Map<*, *>.needText(key: String): String = text(key) ?: odd()
+
+    /**
+     * A text field that may have styles ([WidgetParser.STYLED]). It goes through [StyledText.inline]
+     * again, so only the styles a card draws come out: never a link, a tag or a table. What
+     * `widget.show` wrote is in that form already, so this changes nothing of it.
+     */
+    private fun Map<*, *>.styled(key: String): String? = when (val v = this[key]) {
+        null -> null
+        is String -> if (v.length <= MAX_TEXT) StyledText.inline(v) else odd()
+        else -> odd()
+    }
+
+    private fun Map<*, *>.needStyled(key: String): String = styled(key) ?: odd()
 
     private fun finite(v: Any?): Float = (v as? Number)?.toFloat()?.takeIf { it.isFinite() } ?: odd()
 
@@ -517,7 +540,7 @@ object WidgetJson {
             WidgetKind.STAT -> WidgetSpec.Stat(
                 base,
                 value = m.needText("value"),
-                label = m.text("label"),
+                label = m.styled("label"),
                 unit = m.text("unit"),
                 delta = m.text("delta"),
                 trend = m.oneOf("trend", "up", "down", "flat"),
@@ -525,12 +548,12 @@ object WidgetJson {
                 progress = m.number("progress")?.coerceIn(0f, 1f),
                 moving = m.flag("moving"),
             )
-            WidgetKind.TEXT -> WidgetSpec.Text(base, m.needText("text"), m.text("caption"))
+            WidgetKind.TEXT -> WidgetSpec.Text(base, m.needStyled("text"), m.styled("caption"))
             WidgetKind.LIST -> WidgetSpec.Rows(
                 base,
                 items = (m.list("items") ?: odd()).take(MAX_ROWS).map {
                     val r = obj(it)
-                    WidgetSpec.Row(r.needText("title"), r.text("detail"), r.text("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
+                    WidgetSpec.Row(r.needStyled("title"), r.styled("detail"), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
                 },
                 empty = m.text("empty"),
             )
@@ -555,7 +578,7 @@ object WidgetJson {
                 max = m.number("max"),
                 value = m.text("value"),
                 label = m.text("label"),
-                labels = m.list("labels").orEmpty().take(MAX_LABELS).map { (it as? String)?.takeIf { s -> s.length <= MAX_TEXT } ?: odd() },
+                labels = m.list("labels").orEmpty().take(MAX_LABELS).map { (it as? String)?.takeIf { s -> s.length <= MAX_TEXT && !StyledText.hasMarker(s) } ?: odd() },
                 summary = m.text("summary"),
             )
             WidgetKind.COUNTDOWN -> WidgetSpec.Countdown(
@@ -609,7 +632,7 @@ object WidgetJson {
                 image = m.picture("image"),
                 // The card shows this text when it has no picture, so a blank one is no text at all.
                 alt = m.needText("alt").also { if (it.isBlank()) odd() },
-                caption = m.text("caption"),
+                caption = m.styled("caption"),
                 fit = m.oneOf("fit", "crop", "fit"),
             )
             // Not reached: `media` is not among the kinds looked up above.

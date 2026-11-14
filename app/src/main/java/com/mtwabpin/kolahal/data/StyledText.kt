@@ -483,18 +483,139 @@ object StyledText {
      */
     fun plain(text: String): String {
         if (!has(text)) return text
-        fun words(spans: List<Span>) = spans.joinToString("") { it.text }
-        return lines(text).mapNotNull { line ->
-            // A table row: its cells, separated by tabs, so a copied table pastes into a spreadsheet.
-            line.row?.let { row -> return@mapNotNull row.cells.joinToString("\t") { c -> words(c.spans) } }
-            line.meter?.let { m -> return@mapNotNull listOf(m.label, m.start, m.end).map(::words).filter { it.isNotEmpty() }.joinToString("\t").ifEmpty { null } }
-            line.stats?.let { s -> return@mapNotNull s.joinToString(" · ") { listOf(words(it.value), words(it.label)).filter(String::isNotEmpty).joinToString(" ") }.ifEmpty { null } }
-            val words = words(line.spans)
-            when (line.level) {
-                0 -> words
-                1 -> "${line.prefix} $words"
-                else -> "  ${line.prefix} $words"
+        return lines(text).mapNotNull { line -> blockWords(line) ?: (itemStart(line) + words(line.spans)).takeIf { !isBlockLine(line) } }.joinToString("\n")
+    }
+
+    private fun words(spans: List<Span>) = spans.joinToString("") { it.text }
+
+    private fun isBlockLine(line: Line) = line.row != null || line.meter != null || line.stats != null
+
+    /**
+     * The words of a table row, a bar or a line of big numbers, as plain text. Null for any other
+     * line, and for a bar or a line of numbers with no text: such a line is left out.
+     */
+    private fun blockWords(line: Line): String? {
+        // A table row: its cells, separated by tabs, so a copied table pastes into a spreadsheet.
+        line.row?.let { row -> return row.cells.joinToString("\t") { c -> words(c.spans) } }
+        line.meter?.let { m -> return listOf(m.label, m.start, m.end).map(::words).filter { it.isNotEmpty() }.joinToString("\t").ifEmpty { null } }
+        line.stats?.let { s -> return s.joinToString(" · ") { listOf(words(it.value), words(it.label)).filter(String::isNotEmpty).joinToString(" ") }.ifEmpty { null } }
+        return null
+    }
+
+    /** What a list item starts with, as plain text: its bullet or number, further in at the second level. Nothing for any other line. */
+    private fun itemStart(line: Line): String = when (line.level) {
+        0 -> ""
+        1 -> "${line.prefix} "
+        else -> "  ${line.prefix} "
+    }
+
+    // ---- styled text outside the log ---------------------------------------------------------
+
+    /** The styles [inline] keeps, in the order it writes them. A colour is kept too. */
+    private val INLINE = listOf(Style.BOLD, Style.ITALIC, Style.UNDERLINE, Style.STRIKE)
+
+    /** A piece of [inline] text: its words, the styles it keeps and its colour. */
+    private data class Run(val text: String, val styles: List<Style>, val colour: Colour?) {
+        val styled get() = styles.isNotEmpty() || colour != null
+    }
+
+    /**
+     * [text] as runs: what it shows, in order, each piece with the styles [inline] keeps.
+     * - Pieces that follow each other with the same styles are one run.
+     * - A line break is plain text. So is a list item's bullet or number, and all of a table row,
+     *   a bar and a line of big numbers. The words are those of [plain].
+     */
+    private fun runs(text: String): List<Run> {
+        val out = ArrayList<Run>()
+        fun add(words: String, styles: List<Style> = emptyList(), colour: Colour? = null) {
+            if (words.isEmpty()) return
+            val last = out.lastOrNull()
+            if (last != null && last.styles == styles && last.colour == colour) out[out.lastIndex] = last.copy(text = last.text + words)
+            else out += Run(words, styles, colour)
+        }
+        var first = true
+        for (line in lines(text)) {
+            val block = if (isBlockLine(line)) blockWords(line) ?: continue else null
+            if (!first) add("\n")
+            first = false
+            if (block != null) {
+                add(block)
+                continue
             }
-        }.joinToString("\n")
+            add(itemStart(line))
+            for (span in line.spans) add(span.text, INLINE.filter { it in span.styles }, span.colour)
+        }
+        return out
+    }
+
+    /** [runs] as text with markers. Each styled run opens and closes its own styles, so nothing is left open. */
+    private fun marked(runs: List<Run>, maxRuns: Int): String {
+        val out = StringBuilder()
+        var styled = 0
+        for (run in runs) {
+            // Past the limit a run keeps its words and loses its styles.
+            if (!run.styled || styled >= maxRuns) {
+                out.append(run.text)
+                continue
+            }
+            styled++
+            run.colour?.let { out.append(char(COLOUR + it.ordinal)) }
+            run.styles.forEach { out.append(open(it)) }
+            out.append(run.text)
+            run.styles.asReversed().forEach { out.append(close(it)) }
+            if (run.colour != null) out.append(char(COLOUR_END))
+        }
+        return out.toString()
+    }
+
+    /**
+     * [text] with only the styles that text outside the log may have: bold, italic, underline,
+     * strike and the colour roles. A widget's text is kept so.
+     * - A link, a tag, a code chip, a table, a bar and a line of big numbers lose their marks and
+     *   keep their words. A link's address goes. What the text shows is what [plain] gives.
+     * - The first [maxRuns] styled pieces keep their styles. Later ones keep their words only, so
+     *   the markers can't make a short text long.
+     * - The result is in one fixed form: every styled piece opens and closes its own styles. So
+     *   this gives the same text when it is run again on its own result.
+     */
+    fun inline(text: String, maxRuns: Int = 32): String = if (!has(text)) text else marked(runs(text), maxRuns)
+
+    /**
+     * The first [max] characters that [text] shows, with its [inline] styles. A longer text ends
+     * in "…" in the place of its [max]th character. Markers are not counted.
+     * - No style is left open, and the cut never ends in half an emoji.
+     * - A text with markers comes back in [inline]'s form, whether it was cut or not.
+     */
+    fun take(text: String, max: Int): String {
+        if (!has(text)) return if (text.length <= max) text else text.takeWhole(max - 1) + "…"
+        val all = runs(text)
+        if (all.sumOf { it.text.length } <= max) return marked(all, Int.MAX_VALUE)
+        val kept = ArrayList<Run>()
+        var left = (max - 1).coerceAtLeast(0)
+        for (run in all) {
+            if (run.text.length <= left) {
+                kept += run
+                left -= run.text.length
+                continue
+            }
+            val start = run.text.takeWhole(left)
+            // With nothing of this run kept, the "…" goes with the run before it.
+            val last = kept.lastOrNull()
+            if (start.isEmpty() && last != null) kept[kept.lastIndex] = last.copy(text = last.text + "…") else kept += run.copy(text = "$start…")
+            break
+        }
+        return marked(kept, Int.MAX_VALUE)
+    }
+
+    /** True when [text] holds a marker of any kind. Plain text that only looks like one ([has]) does not count. */
+    fun hasMarker(text: String): Boolean {
+        if (!has(text)) return false
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            if (cp in BASE..LAST) return true
+            i += Character.charCount(cp)
+        }
+        return false
     }
 }

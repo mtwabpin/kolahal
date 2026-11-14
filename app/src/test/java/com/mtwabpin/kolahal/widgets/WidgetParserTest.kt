@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.widgets
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ApiDocs
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -840,6 +841,146 @@ class WidgetParserTest {
         WidgetParser.parse(mapOf("value" to StyledText.wrap(StyledText.Style.ITALIC, "v"), "unit" to StyledText.tag(StyledText.Colour.GOOD, "u")), WidgetKind.STAT, text = { seen += it; it }, link = { it })
         assertEquals(setOf("v", "u"), seen.toSet())
         assertTrue(seen.none(StyledText::has))
+    }
+
+    // ---- styled text ------------------------------------------------------------------------
+
+    private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
+    private fun italic(s: String) = StyledText.wrap(StyledText.Style.ITALIC, s)
+    private fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+
+    /** Seven fields keep bold, italic, underline, strike and colours. They are the ones [WidgetParser.STYLED] lists. */
+    @Test fun aFewFieldsKeepTheirStyles() {
+        val styled = "a " + bold("b") + " " + good("c")
+        val text = parse(mapOf("text" to styled, "caption" to italic("who")), WidgetKind.TEXT) as WidgetSpec.Text
+        assertEquals(WidgetSpec.Text(WidgetBase(), text = styled, caption = italic("who")), text)
+        val rows = parse(mapOf("items" to listOf(mapOf("title" to styled, "detail" to bold("d"), "trailing" to good("+2%")))), WidgetKind.LIST) as WidgetSpec.Rows
+        assertEquals(WidgetSpec.Row(styled, detail = bold("d"), trailing = good("+2%")), rows.items.single())
+        assertEquals(good("Sunny"), stat("label" to good("Sunny")).label)
+        assertEquals(bold("Monday"), image("image" to "https://example.com/a.png", "alt" to "a", "caption" to bold("Monday")).caption)
+        assertEquals(
+            listOf("text.text", "text.caption", "list.items.title", "list.items.detail", "list.items.trailing", "stat.label", "image.caption"),
+            WidgetParser.STYLED,
+        )
+        // Underline and strike stay, and every colour role.
+        val lines = StyledText.wrap(StyledText.Style.UNDERLINE, "u") + StyledText.wrap(StyledText.Style.STRIKE, "s")
+        assertEquals(lines, stat("label" to lines).label)
+        StyledText.Colour.entries.forEach { assertEquals(StyledText.colour(it, "x"), stat("label" to StyledText.colour(it, "x")).label) }
+    }
+
+    /** Every other text is plain: its styles are taken out, as before. */
+    @Test fun everyOtherFieldLosesItsStyles() {
+        val s = bold("b") + good("g")
+        val stat = parse(
+            mapOf(
+                "title" to s, "icon" to bold("i"), "value" to s, "unit" to s, "delta" to s, "more" to listOf(mapOf("value" to s, "label" to s)),
+                "tap" to mapOf("args" to s, "label" to s),
+            ),
+        ) as WidgetSpec.Stat
+        assertEquals(
+            WidgetSpec.Stat(WidgetBase(title = "bg", icon = "i", tap = WidgetTap(args = "bg", label = "bg")), value = "bg", unit = "bg", delta = "bg", more = listOf(WidgetSpec.Small("bg", "bg"))),
+            stat,
+        )
+        val rows = parse(mapOf("items" to listOf(mapOf("title" to "t", "icon" to bold("i"))), "empty" to s), WidgetKind.LIST) as WidgetSpec.Rows
+        assertEquals("i", rows.items.single().icon)
+        assertEquals("bg", rows.empty)
+        assertEquals("bg", image("image" to "https://example.com/a.png", "alt" to s).alt)
+        assertEquals("bg", progress("value" to 1, "text" to s, "label" to s).label)
+        val chart = parse(mapOf("points" to listOf(1), "value" to s, "label" to s, "labels" to listOf(s, s), "summary" to s), WidgetKind.CHART) as WidgetSpec.Chart
+        assertEquals(listOf("bg", "bg", "bg", "bg", "bg"), listOf(chart.value, chart.label, chart.summary) + chart.labels)
+        val buttons = parse(mapOf("items" to listOf(mapOf("label" to s, "tap" to mapOf("args" to "x")))), WidgetKind.BUTTONS) as WidgetSpec.Buttons
+        assertEquals("bg", buttons.items.single().label)
+        val agenda = agenda("events" to listOf(mapOf("title" to s, "starts" to 5, "where" to s)), "empty" to s)
+        assertEquals(listOf("bg", "bg", "bg"), listOf(agenda.events.single().title, agenda.events.single().where, agenda.empty))
+    }
+
+    /** What only the log draws loses its marks and keeps its words, also in a field that may be styled: no link, no tag, no table. */
+    @Test fun aStyledFieldTakesNoLinkTagOrTable() {
+        val link = StyledText.link("https://example.com/x", bold("the page"))
+        val text = parse(mapOf("text" to "see $link", "caption" to StyledText.tag(StyledText.Colour.BAD, "LIVE") + " " + StyledText.wrap(StyledText.Style.CODE, "v1")), WidgetKind.TEXT) as WidgetSpec.Text
+        assertEquals("see " + bold("the page"), text.text)
+        assertEquals(emptyList<String>(), StyledText.links(text.text))
+        assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + " v1", text.caption)
+        val table = StyledText.table(listOf(listOf("a", "b")), header = false) + "\n" + StyledText.meter(0.0, 0.5, null, "Overs", "", "40/50") + "\n" + StyledText.list(listOf("one"), numbered = false)
+        val body = parse(mapOf("text" to table), WidgetKind.TEXT) as WidgetSpec.Text
+        assertEquals("a\tb\nOvers\t40/50\n• one", body.text)
+        assertFalse(StyledText.has(body.text))
+        // A one-line field has them on one line.
+        assertEquals("a\tb Overs\t40/50 • one", stat("label" to table).label)
+    }
+
+    /** A limit counts what shows, not the marks. A cut ends in "…" and leaves no style open. */
+    @Test fun aStyledTextIsCutByWhatShows() {
+        // 60 characters show: nothing is cut, though the marks make the text longer.
+        val whole = (1..30).joinToString("") { bold("a") + "b" }
+        assertEquals(60, StyledText.plain(whole).length)
+        val kept = stat("label" to whole).label!!
+        assertEquals(StyledText.inline(whole), kept)
+        assertEquals(60, StyledText.plain(kept).length)
+        // One more is cut, and the cut piece is closed.
+        val cut = stat("label" to whole + bold("c")).label!!
+        assertEquals(60, StyledText.plain(cut).length)
+        assertEquals(StyledText.plain(whole).take(59) + "…", StyledText.plain(cut))
+        assertEquals(cut, StyledText.inline(cut))
+        assertEquals(bold("x".repeat(499) + "…"), (parse(mapOf("text" to bold("x".repeat(600))), WidgetKind.TEXT) as WidgetSpec.Text).text)
+        // Line breaks: kept in a text's lines, a space anywhere else. The styles go on over them.
+        val two = parse(mapOf("text" to bold("one\r\ntwo"), "caption" to good("a\nb")), WidgetKind.TEXT) as WidgetSpec.Text
+        assertEquals(bold("one") + "\n" + bold("two"), two.text)
+        assertEquals(good("a") + " " + good("b"), two.caption)
+        // Many styled pieces: the first 32 keep their styles, and the words all stay.
+        val many = (1..40).joinToString(" ") { bold("w$it") }
+        val text = (parse(mapOf("text" to many), WidgetKind.TEXT) as WidgetSpec.Text).text
+        assertEquals(StyledText.plain(many), StyledText.plain(text))
+        assertEquals(32, StyledText.lines(text).flatMap { it.spans }.count { it.styles.isNotEmpty() })
+        // A text of marks alone is an empty text: a field that can be left out is left out.
+        assertNull(stat("label" to bold("")).label)
+        assertEquals("", (parse(mapOf("text" to bold("") + good("")), WidgetKind.TEXT) as WidgetSpec.Text).text)
+        // A number is text, as before.
+        assertEquals("5", stat("label" to 5).label)
+    }
+
+    /**
+     * A styled text is masked, and what it shows is masked again. A secret written whole is masked
+     * and the styles stay. A secret with a style mark in its middle passes the first mask: the
+     * second finds it, and then the text is kept plain.
+     */
+    @Test fun aStyledTextIsMaskedTwice() {
+        val mask = { s: String -> s.replace("SECRET", "•••") }
+        fun label(given: String) = (WidgetParser.parse(mapOf("value" to 1, "label" to given), WidgetKind.STAT, text = mask, link = { it }) as WidgetSpec.Stat).label
+        // Whole, inside a styled piece and outside one: masked, and the styles stay.
+        assertEquals(bold("key •••") + " ok", label(bold("key SECRET") + " ok"))
+        assertEquals(good("a") + " ••• " + italic("b"), label(good("a") + " SECRET " + italic("b")))
+        // Split by a mark: the styles are dropped, and the plain text is masked.
+        assertEquals("key ••• ok", label("key SEC" + bold("RET") + " " + good("ok")))
+        assertEquals("•••", label(good("SEC") + italic("RET")))
+        assertEquals("•••", label("SEC" + StyledText.link("https://example.com", "RET")))
+        assertEquals("••• and •••", label(bold("SECRET") + " and S" + good("ECRET")))
+        // Every styled field goes the same way.
+        val split = "SEC" + bold("RET")
+        val text = WidgetParser.parse(mapOf("text" to "a\n$split", "caption" to split), WidgetKind.TEXT, text = mask, link = { it })
+        assertEquals(WidgetSpec.Text(WidgetBase(), text = "a\n•••", caption = "•••"), text)
+        val rows = WidgetParser.parse(mapOf("items" to listOf(mapOf("title" to split, "detail" to split, "trailing" to split))), WidgetKind.LIST, text = mask, link = { it }) as WidgetSpec.Rows
+        assertEquals(WidgetSpec.Row("•••", detail = "•••", trailing = "•••"), rows.items.single())
+        // The mask sees a styled text with its marks first, and then what it shows.
+        val seen = ArrayList<String>()
+        WidgetParser.parse(mapOf("value" to 1, "label" to bold("b") + " c"), WidgetKind.STAT, text = { seen += it; it }, link = { it })
+        assertEquals(listOf("1", bold("b") + " c", "b c"), seen)
+        // A masked text is cut after the mask, by what shows.
+        val long = label(bold("x".repeat(57) + "SECRET"))!!
+        assertEquals(bold("x".repeat(57) + "•••"), long)
+    }
+
+    /** What a script may write passes the stored form too: a styled description reads back as it was made. */
+    @Test fun aStyledDescriptionRoundTrips() {
+        val styled = "a " + bold("b") + " " + good("c") + " " + StyledText.link("https://example.com", "d") + StyledText.tag(StyledText.Colour.BAD, "e")
+        val specs = listOf(
+            parse(mapOf("text" to styled + "\n" + italic("second"), "caption" to styled), WidgetKind.TEXT),
+            parse(mapOf("items" to listOf(mapOf("title" to styled, "detail" to styled, "trailing" to bold("9"))), "empty" to styled), WidgetKind.LIST),
+            parse(mapOf("value" to styled, "label" to styled, "title" to styled)),
+            parse(mapOf("image" to "https://example.com/a.png", "alt" to styled, "caption" to styled), WidgetKind.IMAGE),
+            parse(mapOf("text" to (1..60).joinToString(" ") { bold("w$it") + good("x") }), WidgetKind.TEXT),
+        )
+        for (spec in specs) assertEquals(spec, WidgetJson.decode(WidgetJson.encode(spec)))
     }
 
     /** A refused link stops the run with the host's own error. */

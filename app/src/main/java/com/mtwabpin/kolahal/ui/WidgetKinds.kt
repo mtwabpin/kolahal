@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -286,7 +287,8 @@ internal object WidgetWords {
                 }
             }
         }
-        val said = parts.filterNot { it.isNullOrBlank() }.joinToString(", ")
+        // A few fields may be styled ([WidgetParser.STYLED]). A screen reader hears their plain words.
+        val said = StyledText.plain(parts.filterNot { it.isNullOrBlank() }.joinToString(", "))
         return if (title.isNullOrBlank()) said else "$title: $said"
     }
 
@@ -708,6 +710,14 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
     }
 }
 
+/**
+ * [text] as a card draws it, with its styles ([widgetText]). Only a few fields may have styles
+ * ([com.mtwabpin.kolahal.widgets.WidgetParser.STYLED]). It is made again only when the text or the
+ * theme's colours change.
+ */
+@Composable
+internal fun cardText(text: String): AnnotatedString = remember(text, Term.palette) { widgetText(text) }
+
 /** One line in the middle of the body, for "Nothing to show" and the like. */
 @Composable
 internal fun QuietLine(text: String, small: Boolean = false) {
@@ -779,7 +789,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     if (box == WidgetSizes.Box.SMALL) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             BigText(WidgetWords.joined(spec.value, spec.unit), valueStyle(box))
-            spec.label?.let { Text(it, style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            spec.label?.let { Text(cardText(it), style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         return
     }
@@ -802,7 +812,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                         }
                     }
                     if (large || spec.progress == null) spec.label?.let {
-                        Text(it, style = if (large) type.bodyMedium else type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(cardText(it), style = if (large) type.bodyMedium else type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 spec.more.take(beside).forEach { SmallValue(it, Modifier.padding(start = 12.dp).widthIn(max = 72.dp)) }
@@ -839,9 +849,9 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     }
     Column(Modifier.fillMaxSize()) {
         // The text gets the height that is left, and its last line that fits ends in "…".
-        Text(spec.text, style = style, color = MaterialTheme.colorScheme.onSurface, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).fillMaxWidth())
+        Text(cardText(spec.text), style = style, color = MaterialTheme.colorScheme.onSurface, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).fillMaxWidth())
         if (box != WidgetSizes.Box.SMALL) spec.caption?.let {
-            Text(it, style = type.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(cardText(it), style = type.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -929,13 +939,13 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, onTap: ((
             Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(colour))
         }
         Column(Modifier.weight(1f)) {
-            Text(row.title, style = type.bodyMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(cardText(row.title), style = type.bodyMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (details) row.detail?.let {
-                Text(it, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(cardText(it), style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         row.trailing?.let {
-            Text(it, style = type.labelLarge, color = colour ?: scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+            Text(cardText(it), style = type.labelLarge, color = colour ?: scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
         }
     }
 }

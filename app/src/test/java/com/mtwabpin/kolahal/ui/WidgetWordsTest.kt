@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -173,6 +174,22 @@ class WidgetWordsTest {
         assertEquals("Comic: A graph of sleep, Monday", WidgetWords.description("Comic", picture, now, utc))
         assertEquals("A graph of sleep", WidgetWords.description(null, picture.copy(caption = null), now, utc))
         assertFalse(WidgetWords.timed(picture))
+    }
+
+    /** A few fields may be styled. A screen reader hears their plain words: no mark is said or shown as a box. */
+    @Test fun aScreenReaderHearsStyledTextPlain() {
+        val now = at(day = 20, hour = 0)
+        fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
+        fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+        val quote = WidgetSpec.Text(base, text = "Be " + bold("kind") + ".", caption = good("Anon"))
+        assertEquals("Quote: Be kind., Anon", WidgetWords.description("Quote", quote, now, utc))
+        val rows = WidgetSpec.Rows(base, items = listOf(WidgetSpec.Row(bold("BTC"), detail = good("▲ 1.2%"), trailing = bold("67,120")), WidgetSpec.Row("ETH", done = true)))
+        assertEquals("Prices: BTC, ▲ 1.2%, 67,120, ETH, done", WidgetWords.description("Prices", rows, now, utc))
+        assertEquals("24, Sunny", WidgetWords.description(null, WidgetSpec.Stat(base, value = "24", label = good("Sunny")), now, utc))
+        val picture = WidgetSpec.Image(base, image = "https://example.com/a.png", alt = "A graph", caption = bold("Monday"))
+        assertEquals("A graph, Monday", WidgetWords.description(null, picture, now, utc))
+        // No description has a mark in it.
+        listOf(quote, rows, picture).forEach { assertFalse(StyledText.has(WidgetWords.description("T", it, now, utc))) }
     }
 
     @Test fun aListSaysEveryRowAlsoThoseThatDoNotFit() {

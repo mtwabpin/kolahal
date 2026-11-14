@@ -64,7 +64,7 @@ internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
         }
         if (caption != null) {
             Text(
-                caption,
+                cardText(caption),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
