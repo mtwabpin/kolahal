@@ -1,0 +1,6 @@
+Widgets from scripts:
+• A script can fill a card on the widgets page: a number, a list, a chart, a countdown, a clock, a picture, buttons or switches.
+• Six cards of Kolahal's own: Todos, Reminders, Notes, Shortcuts, Now playing and Agenda.
+• 18 library scripts have a widget: weather, crypto, live scores, habit streaks and more.
+• The same widget can be placed more than once, each with its own options.
+• Scripts can read your todos, notes, calendar and more, each only if you allow it.
