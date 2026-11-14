@@ -246,6 +246,21 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** What the cards of the widgets page read from here, and not from the database ([WidgetFeed]). */
     val widgetFeed = WidgetFeed(widgetScripts, _lines.asStateFlow(), ownData.feed)
 
+    /** The Shortcuts widget's list, for its editor on the Widgets screen. Null until it is read. */
+    val shortcuts: StateFlow<List<com.mtwabpin.kolahal.widgets.Shortcut>?> get() = ownData.feed.shortcuts
+
+    /**
+     * Stores the Shortcuts widget's list. Only the Widgets screen's editor calls this: the list
+     * holds commands that a tap runs as if you had typed them, so no command and no script may
+     * write it (ShortcutsWriteTest).
+     */
+    fun saveShortcuts(list: List<com.mtwabpin.kolahal.widgets.Shortcut>) = ownData.saveShortcuts(list)
+
+    /** True when a tap on the Shortcuts card asked for the editor. The Widgets screen opens it, then calls [shortcutsEditorOpened]. */
+    val shortcutsEditorAsked: StateFlow<Boolean> get() = ownData.shortcutsEditorAsked
+
+    fun shortcutsEditorOpened() = ownData.shortcutsEditorOpened()
+
     /**
      * When each status line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
      * time. The pinned header and the Status cards of the widgets page share it ([StatusTurns]), so a

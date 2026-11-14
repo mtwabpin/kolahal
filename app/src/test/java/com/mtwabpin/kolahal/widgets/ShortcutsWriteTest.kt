@@ -42,16 +42,30 @@ class ShortcutsWriteTest {
     /** [Shortcuts.write] has one caller: the view model's own data for the built-in widgets. */
     @Test fun onlyTheViewModelsDataWritesTheList() {
         val writers = naming(Regex("""\bShortcuts\s*\.\s*write\b|\bShortcuts\s*::\s*write\b""")) - "widgets/Shortcuts.kt"
-        assertEquals("Shortcuts.write is for the Widgets screen's editor only", emptySet<String>(), writers - setOf("terminal/OwnWidgets.kt"))
+        assertEquals("Shortcuts.write is for the Widgets screen's editor only", setOf("terminal/OwnWidgets.kt"), writers)
     }
 
     /**
-     * The view model's save has these callers and no other: the view model hands it on, and the
-     * Widgets screen's editor calls it. No command handler is among them, and nothing in script/.
+     * The save is named in three files and no other: the view model's data has it, the view model
+     * hands it on, and the Widgets screen's editor calls it. No command handler is among them, and
+     * nothing in script/.
      */
     @Test fun onlyTheEditorSavesTheList() {
-        val allowed = setOf("terminal/OwnWidgets.kt", "terminal/TerminalViewModel.kt", "ui/ShortcutsEditor.kt", "ui/WidgetsScreen.kt")
-        assertEquals("saveShortcuts is for the Widgets screen's editor only", emptySet<String>(), naming(Regex("""\bsaveShortcuts\b""")) - allowed)
+        val named = setOf("terminal/OwnWidgets.kt", "terminal/TerminalViewModel.kt", "ui/ShortcutsEditor.kt")
+        assertEquals("saveShortcuts is for the Widgets screen's editor only", named, naming(Regex("""\bsaveShortcuts\b""")))
+    }
+
+    /**
+     * The view model reaches a command handler only as a TerminalUi, and a script only through
+     * commands. The save is not a part of TerminalUi, so neither can ask the view model for it.
+     */
+    @Test fun theSaveIsNotSomethingACommandCanAskFor() {
+        val ui = File(root, "terminal/TerminalUi.kt").readText()
+        assertTrue(ui.contains("interface TerminalUi"))
+        assertTrue("TerminalUi must not offer the shortcuts", !ui.contains("hortcut"))
+        // The view model's own save overrides nothing: it is not on any interface.
+        val vm = code(File(root, "terminal/TerminalViewModel.kt")).single { it.contains("fun saveShortcuts") }
+        assertTrue(vm, !vm.contains("override"))
     }
 
     /**

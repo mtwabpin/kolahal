@@ -293,7 +293,11 @@ class WidgetActions internal constructor(
                 val shortcut = ownData.shortcut(tap.index) ?: return
                 if (taps.allow("own:$id:$what")) host.runTyped(shortcut.command)
             }
-            OwnTap.EditShortcuts -> host.openScreen(Screen.WIDGETS)
+            OwnTap.EditShortcuts -> {
+                // The Widgets screen is where the list is changed. It opens with the editor.
+                ownData.askShortcutsEditor()
+                host.openScreen(Screen.WIDGETS)
+            }
             OwnTap.OpenPlayer -> {
                 val playing = ownData.playing ?: return
                 val player = context.packageManager.getLaunchIntentForPackage(playing.pkg)

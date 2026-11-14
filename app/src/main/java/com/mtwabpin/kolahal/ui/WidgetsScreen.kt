@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.FlowRow
@@ -142,6 +143,15 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     var editing by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf<PlacedWidget?>(null) }
+    // The Shortcuts widget's editor is open: from the toolbar of that widget, or because a tap on its card asked for it.
+    var shortcutsEditor by rememberSaveable { mutableStateOf(false) }
+    val editorAsked by vm.shortcutsEditorAsked.collectAsStateWithLifecycle()
+    LaunchedEffect(editorAsked) {
+        if (editorAsked) {
+            shortcutsEditor = true
+            vm.shortcutsEditorOpened()
+        }
+    }
     val snackbar = rememberWidgetMessages(widgets)
     BackHandler { if (editing || selected != null) { editing = false; selected = null } else vm.closeScreen() }
 
@@ -204,6 +214,8 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         onHeight = { widgets.resize(chosen.key, it * WidgetLayout.STEP_DP) },
                         onWidth = { widgets.resizeWidth(chosen.key, it) },
                         onSquare = { widgets.square(chosen.key) },
+                        // Only the Shortcuts widget has something to edit here: its list of commands.
+                        onEdit = if (chosen.source == WidgetSource.builtin(WidgetSource.SHORTCUTS)) { { shortcutsEditor = true } } else null,
                         onRemove = { confirmRemove = chosen },
                         onDone = { selected = null; editing = false },
                     )
@@ -313,6 +325,8 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                 onDismiss = { confirmRemove = null },
             ) { confirmRemove = null; selected = null; widgets.remove(w.key) }
         }
+
+        if (shortcutsEditor) ShortcutsEditor(vm) { shortcutsEditor = false }
     }
 }
 
@@ -362,7 +376,10 @@ private fun WidgetCard(
     }
 }
 
-/** The controls for the selected widget, docked at the bottom: width, height, square, move, remove. */
+/**
+ * The controls for the selected widget, docked at the bottom: width, height, square, move, remove.
+ * With [onEdit], there is a button for what the widget itself holds: the Shortcuts widget's list.
+ */
 @Composable
 private fun WidgetToolbar(
     w: PlacedWidget,
@@ -374,6 +391,7 @@ private fun WidgetToolbar(
     onHeight: (Int) -> Unit,
     onWidth: (Int) -> Unit,
     onSquare: () -> Unit,
+    onEdit: (() -> Unit)?,
     onRemove: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -401,6 +419,10 @@ private fun WidgetToolbar(
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(-1) }, enabled = index > 0) { Icon(painterResource(R.drawable.ic_arrow_back), "Move earlier") }
                 IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(1) }, enabled = index < count - 1) { Icon(painterResource(R.drawable.ic_arrow_forward), "Move later") }
                 Spacer(Modifier.weight(1f))
+                if (onEdit != null) {
+                    FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) { Text("Edit shortcuts") }
+                    Spacer(Modifier.width(8.dp))
+                }
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onSquare) { Text("Square") }
             }
         }

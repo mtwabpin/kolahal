@@ -168,15 +168,16 @@ private fun builtinRow(id: String, size: WidgetSize, words: String): PickerBuilt
 
 /**
  * The built-in widgets, in the order the picker lists them. They come before your scripts' widgets.
- * Only a widget whose card is drawn is listed here ([OwnCards.draws]; Battery and network has a
- * card of its own).
+ * Only a widget whose card is drawn is listed ([OwnCards.draws]; Battery and network has a card of
+ * its own). So a widget is taken out of this version in one place.
  */
 internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
     builtinRow(WidgetSource.BATTERY, WidgetSize.S2X1, "charging wi-fi"),
+    builtinRow(WidgetSource.SHORTCUTS, WidgetSize.S4X1, "buttons commands quick"),
     builtinRow(WidgetSource.TODOS, WidgetSize.S4X2, "todo to-do tasks checklist"),
     builtinRow(WidgetSource.REMINDERS, WidgetSize.S2X2, "remind alarm"),
     builtinRow(WidgetSource.NOTES, WidgetSize.S2X2, "note"),
-)
+).filter { it.id == WidgetSource.BATTERY || OwnCards.draws(it.id) }
 
 /** The header of the picker's first section: Kolahal's own widgets. Some are built in, and your scripts fill the others. */
 private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, emptyList(), emptyList(), emptyList())

@@ -28,6 +28,8 @@ import com.mtwabpin.kolahal.terminal.OwnFeed
 import com.mtwabpin.kolahal.terminal.OwnTap
 import com.mtwabpin.kolahal.terminal.OwnTaps
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
+import com.mtwabpin.kolahal.widgets.Shortcut
+import com.mtwabpin.kolahal.widgets.Shortcuts
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -47,7 +49,7 @@ import java.util.Locale
  */
 internal object OwnCards {
     /** The built-in widgets that [OwnWidget] draws. Battery and network has a card of its own. */
-    private val DRAWN = setOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES)
+    private val DRAWN = setOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS)
 
     /** Whether [OwnWidget] draws the built-in widget [id]. */
     fun draws(id: String?): Boolean = id in DRAWN
@@ -68,6 +70,28 @@ internal object OwnCards {
     /** A card that only says [words], in the middle: "No notes yet". */
     fun quiet(id: String, words: String): WidgetSpec.Rows =
         WidgetSpec.Rows(base = WidgetBase(title = WidgetSource.builtinTitle(id)), items = emptyList(), empty = words)
+
+    // ---- shortcuts --------------------------------------------------------------------------
+
+    /** What the Shortcuts card says while its list is empty. A tap on the card opens the editor. */
+    const val NO_SHORTCUTS = "No shortcuts yet. Tap to add commands."
+
+    /**
+     * The Shortcuts card: a button for each shortcut of [list], with its label and its icon. Null
+     * for an empty list: the card then says how to add some ([NO_SHORTCUTS]).
+     *
+     * A button's tap holds its place in the list (`run 2`), never its command. The view model looks
+     * the command up in your list when the button is tapped.
+     */
+    fun shortcuts(list: List<Shortcut>): WidgetSpec.Buttons? {
+        if (list.isEmpty()) return null
+        return WidgetSpec.Buttons(
+            base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.SHORTCUTS)),
+            items = list.take(Shortcuts.MAX).mapIndexed { i, s ->
+                WidgetSpec.Button(label = s.label, tap = WidgetTap(args = OwnTaps.run(i), label = "run"), icon = s.icon)
+            },
+        )
+    }
 
     // ---- todos ------------------------------------------------------------------------------
 
@@ -189,6 +213,7 @@ internal fun OwnWidget(id: String, height: Dp, actions: WidgetCardActions?, own:
         WidgetSource.TODOS -> TodosWidget(height, actions, own)
         WidgetSource.REMINDERS -> RemindersWidget(height, actions, own)
         WidgetSource.NOTES -> NotesWidget(height, actions, own)
+        WidgetSource.SHORTCUTS -> ShortcutsWidget(height, actions, own)
     }
 }
 
@@ -240,6 +265,20 @@ private fun OwnCard(
         onLongClick = onLongClick,
         onTap = onTap,
     )
+}
+
+/**
+ * The built-in Shortcuts card: a button for each command you picked in the Widgets screen.
+ * - A button runs its command as if you had typed it, as a gesture runs the command you set for it.
+ * - A tap beside the buttons, and a tap on the card while the list is empty, opens the editor.
+ * - It has no data to read again, and nothing to run.
+ */
+@Composable
+private fun ShortcutsWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
+    val list by (own?.shortcuts ?: NOT_READ).collectAsStateWithLifecycle()
+    val spec: WidgetSpec? = remember(list) { list?.let { OwnCards.shortcuts(it) ?: OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS) } }
+    val description = remember(spec) { spec?.let { WidgetWords.description(it.base.title, it, 0L, ZoneId.systemDefault()) } ?: "Shortcuts" }
+    OwnCard(WidgetSource.SHORTCUTS, height, spec, description, actions, cardTap = OwnTaps.EDIT, cardTapLabel = "edit shortcuts")
 }
 
 /**

@@ -5,6 +5,8 @@ import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.terminal.OwnTap
 import com.mtwabpin.kolahal.terminal.OwnTaps
+import com.mtwabpin.kolahal.widgets.Shortcut
+import com.mtwabpin.kolahal.widgets.Shortcuts
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,11 +29,61 @@ class OwnCardsTest {
     private val todos = listOf(Todo(1, "Buy milk", false), Todo(4, "Call the bank", false), Todo(6, "Water the plants", false), Todo(3, "Pay rent", true), Todo(2, "Post letter", true))
 
     @Test fun theCardsOwnWidgetDraws() {
-        assertTrue(listOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES).all(OwnCards::draws))
+        assertTrue(listOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS).all(OwnCards::draws))
         // Battery and network has its own card, and an id from a newer version has none.
         assertFalse(OwnCards.draws(WidgetSource.BATTERY))
         assertFalse(OwnCards.draws("comic"))
         assertFalse(OwnCards.draws(null))
+    }
+
+    private val shortcuts = listOf(Shortcut("Torch", "torch on", "🔦"), Shortcut("Add milk", "todo buy milk"), Shortcut("Maps", "open maps", "M"))
+
+    @Test fun shortcutsHasAButtonForEach() {
+        val spec = OwnCards.shortcuts(shortcuts)!!
+        assertEquals("Shortcuts", spec.base.title)
+        assertEquals(listOf("Torch", "Add milk", "Maps"), spec.items.map { it.label })
+        assertEquals(listOf("🔦", null, "M"), spec.items.map { it.icon })
+        // A button names its place in the list, and the view model knows these words.
+        assertEquals(listOf("run 0", "run 1", "run 2"), spec.items.map { it.tap.args })
+        assertEquals(
+            listOf(OwnTap.RunShortcut(0), OwnTap.RunShortcut(1), OwnTap.RunShortcut(2)),
+            spec.items.map { OwnTaps.parse(WidgetSource.SHORTCUTS, it.tap.args!!) },
+        )
+        assertTrue(spec.items.all { it.tap.url == null })
+        // Never more buttons than the widget has.
+        assertEquals(Shortcuts.MAX, OwnCards.shortcuts((1..12).map { Shortcut("S$it", "echo $it") })!!.items.size)
+    }
+
+    /** A command is never in a card's description: only its place in your list. So nothing that reads a description can run or change one. */
+    @Test fun aShortcutsCardNeverHoldsACommand() {
+        val text = OwnCards.shortcuts(shortcuts).toString()
+        shortcuts.forEach { assertFalse(it.command, text.contains(it.command)) }
+        // Even when the label is the command's first word, the whole command is not there.
+        assertFalse(OwnCards.shortcuts(listOf(Shortcut("todo", "todo buy milk and eggs"))).toString().contains("buy milk"))
+    }
+
+    /** With no shortcuts there are no buttons: the card says how to add some. */
+    @Test fun anEmptyShortcutsListIsAQuietCard() {
+        assertNull(OwnCards.shortcuts(emptyList()))
+        val quiet = OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS)
+        assertEquals("Shortcuts", quiet.base.title)
+        assertEquals("No shortcuts yet. Tap to add commands.", quiet.empty)
+        // A tap on that card asks for the editor.
+        assertEquals(OwnTap.EditShortcuts, OwnTaps.parse(WidgetSource.SHORTCUTS, OwnTaps.EDIT))
+    }
+
+    /** While a command is typed in the editor, the commands that start so are offered. */
+    @Test fun theEditorOffersCommandsThatStartAsTyped() {
+        val commands = listOf("agenda", "alarm", "alias", "apps", "todo", "torch", "weather")
+        assertEquals(listOf("todo", "torch"), ShortcutPicks.matching("to", commands))
+        assertEquals(listOf("torch"), ShortcutPicks.matching(" TOR", commands))
+        assertEquals(listOf("agenda", "alarm", "alias", "apps"), ShortcutPicks.matching("a", commands))
+        // Nothing to offer: no text, a whole command, a second word, or no match.
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("", commands))
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("torch", commands))
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("todo buy", commands))
+        assertEquals(emptyList<String>(), ShortcutPicks.matching("zz", commands))
+        assertEquals(ShortcutPicks.MAX, ShortcutPicks.matching("c", (1..20).map { "c$it" }).size)
     }
 
     @Test fun todosShowsTheOpenOnes() {

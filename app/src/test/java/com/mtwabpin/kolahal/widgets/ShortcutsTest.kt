@@ -67,6 +67,36 @@ class ShortcutsTest {
         assertEquals(8, Shortcuts.clean(listOf(Shortcut("none", "")) + many).size)
     }
 
+    private val three = listOf(Shortcut("Torch", "torch"), Shortcut("Todo", "todo"), Shortcut("Maps", "open maps"))
+
+    /** What the editor does: add at the end, change one in its place, remove one, move one. */
+    @Test fun theEditorsChanges() {
+        val dnd = Shortcut("Quiet", "dnd", "🌙")
+        assertEquals(three + dnd, Shortcuts.with(three, 3, dnd))
+        assertEquals(listOf(three[0], dnd, three[2]), Shortcuts.with(three, 1, dnd))
+        assertEquals(listOf(dnd), Shortcuts.with(emptyList(), 0, dnd))
+        // A place that is not there changes nothing.
+        assertEquals(three, Shortcuts.with(three, 7, dnd))
+        assertEquals(three, Shortcuts.with(three, -1, dnd))
+        assertEquals(listOf(three[0], three[2]), Shortcuts.without(three, 1))
+        assertEquals(three, Shortcuts.without(three, 9))
+        assertEquals(listOf(three[1], three[0], three[2]), Shortcuts.moved(three, 1, -1))
+        assertEquals(listOf(three[0], three[2], three[1]), Shortcuts.moved(three, 1, 1))
+        // At an end of the list there is nowhere to go.
+        assertEquals(three, Shortcuts.moved(three, 0, -1))
+        assertEquals(three, Shortcuts.moved(three, 2, 1))
+        assertEquals(three, Shortcuts.moved(three, 5, 1))
+    }
+
+    /** A change gives a clean list: what was typed is cut, and a ninth shortcut is not added. */
+    @Test fun aChangedListIsClean() {
+        assertEquals(Shortcut("weather", "weather"), Shortcuts.with(three, 3, Shortcut(" ", " weather\n")).last())
+        // Changing one to have no command takes it out.
+        assertEquals(listOf(three[0], three[2]), Shortcuts.with(three, 1, Shortcut("Empty", "")))
+        val full = (1..8).map { Shortcut("S$it", "echo $it") }
+        assertEquals(full, Shortcuts.with(full, 8, Shortcut("Ninth", "echo 9")))
+    }
+
     /** What is stored may be anything: an older version's text, or a backup written by hand. */
     @Test fun decodeNeverThrows() {
         assertEquals(emptyList<Shortcut>(), Shortcuts.decode(null))

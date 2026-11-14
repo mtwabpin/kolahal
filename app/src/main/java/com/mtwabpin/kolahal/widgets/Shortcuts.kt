@@ -57,6 +57,27 @@ object Shortcuts {
         Shortcut(label, command, icon)
     }.take(MAX)
 
+    // ---- what the editor does to a list: each gives a new, clean list -------------------------
+
+    /** [list] with [shortcut] at [index]: in the place of the one there, or at the end when [index] is the list's size. */
+    fun with(list: List<Shortcut>, index: Int, shortcut: Shortcut): List<Shortcut> = clean(
+        when (index) {
+            in list.indices -> list.mapIndexed { i, s -> if (i == index) shortcut else s }
+            list.size -> list + shortcut
+            else -> list
+        },
+    )
+
+    /** [list] without the shortcut at [index]. */
+    fun without(list: List<Shortcut>, index: Int): List<Shortcut> = clean(list.filterIndexed { i, _ -> i != index })
+
+    /** [list] with the shortcut at [index] one place earlier ([direction] -1) or later (+1). No change at an end of the list. */
+    fun moved(list: List<Shortcut>, index: Int, direction: Int): List<Shortcut> {
+        val to = index + direction.coerceIn(-1, 1)
+        if (index !in list.indices || to !in list.indices) return list
+        return clean(list.toMutableList().apply { add(to, removeAt(index)) })
+    }
+
     /**
      * The list stored as [text]. Anything that isn't a list gives an empty list, and an item that
      * isn't a shortcut is skipped: it never throws. What it returns is [clean].

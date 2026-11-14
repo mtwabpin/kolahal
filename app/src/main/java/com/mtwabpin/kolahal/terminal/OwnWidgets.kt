@@ -294,6 +294,24 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
         scope.launch(taps) { runCatching { Shortcuts.write(context, cleaned) } }
     }
 
+    private val editorAsked = MutableStateFlow(false)
+
+    /**
+     * True from a tap that asks for the Shortcuts editor (the card's `edit`) until the Widgets
+     * screen has opened it ([shortcutsEditorOpened]).
+     */
+    val shortcutsEditorAsked: StateFlow<Boolean> = editorAsked.asStateFlow()
+
+    /** The Shortcuts card asks for its editor. The Widgets screen, which is opened next, shows it. */
+    fun askShortcutsEditor() {
+        editorAsked.value = true
+    }
+
+    /** The Widgets screen has opened the editor that was asked for. */
+    fun shortcutsEditorOpened() {
+        editorAsked.value = false
+    }
+
     /** Marks the todo [id] done, or open again. The store counts the write, so the card follows. */
     fun setTodo(id: Long, done: Boolean) {
         scope.launch(taps) { runCatching { todoStore.setDone(id, done) } }
