@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import android.media.session.PlaybackState
+import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.sourceFile
 import com.mtwabpin.kolahal.productivity.AgendaEvent
@@ -111,6 +112,38 @@ class OwnCardsTest {
         assertFalse(paused.playing)
         assertEquals(0f, paused.speed)
         assertEquals(61_000L, paused.position)
+    }
+
+    /** The media body's three buttons send words ([WidgetWords]) that the view model knows ([OwnTaps]): the same words. */
+    @Test fun theMediaBodysButtonsAreNowPlayingsWords() {
+        assertEquals(OwnTaps.PREV, WidgetWords.MEDIA_PREV)
+        assertEquals(OwnTaps.TOGGLE, WidgetWords.MEDIA_TOGGLE)
+        assertEquals(OwnTaps.NEXT, WidgetWords.MEDIA_NEXT)
+        assertEquals(OwnTap.Media(MediaRepository.Action.PREV), OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_PREV))
+        assertEquals(OwnTap.Media(MediaRepository.Action.TOGGLE), OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_TOGGLE))
+        assertEquals(OwnTap.Media(MediaRepository.Action.NEXT), OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_NEXT))
+    }
+
+    /**
+     * The card's position is on the phone's clock, as the session's is. So the media body's bar is
+     * where the header's line says the track is: moving while it plays, standing while it is paused
+     * or buffers.
+     */
+    @Test fun theMediaBodysPositionIsTheSessions() {
+        listOf(PlaybackState.STATE_PLAYING, PlaybackState.STATE_PAUSED, PlaybackState.STATE_BUFFERING).forEach { state ->
+            val p = session(state, speed = 1.5f)
+            listOf(0L, 10_000L, 120_000L, 3_600_000L).forEach { after ->
+                val now = p.positionAt + after
+                assertEquals("state $state, $after ms later", p.positionNow(now), WidgetWords.mediaPosition(OwnCards.media(p), now))
+            }
+        }
+        // Playing at one and a half speed: 10 seconds later the track is 15 seconds on. It never passes its end.
+        val playing = OwnCards.media(session(PlaybackState.STATE_PLAYING, speed = 1.5f))
+        assertEquals(76_000L, WidgetWords.mediaPosition(playing, playing.positionAt + 10_000))
+        assertEquals(562_000L, WidgetWords.mediaPosition(playing, playing.positionAt + 3_600_000))
+        // A player that gives no position and no length: the body draws no bar.
+        val bare = OwnCards.media(session(PlaybackState.STATE_PLAYING, position = -1, duration = -1))
+        assertNull(WidgetWords.mediaFraction(bare, bare.positionAt + 10_000))
     }
 
     /** While a track buffers, the button says "pause", and the position does not move by itself. */
