@@ -318,6 +318,18 @@ class WidgetModelTest {
         assertEquals(all, WidgetSource.renamed(all, "weather", ""))
     }
 
+    /**
+     * An entry of the new name gives way only to the entry that takes its place. A script with just
+     * a Status card, renamed to a name whose widget waits on the page, keeps that widget: it is its own now.
+     */
+    @Test fun aRenameKeepsAWaitingWidgetThatNothingReplaces() {
+        val all = listOf(PlacedWidget(null, "status:weather", 0L, 72, 0, span = 12), script("sky", order = 1), PlacedWidget(null, "status:sky", 0L, 72, 2, span = 6))
+        val renamed = WidgetSource.renamed(all, "weather", "sky")
+        // The Status card moves over the old one of that name. The `script:` widget stays where it is.
+        assertEquals(listOf("status:sky" to 12, "script:sky" to 6), renamed.map { it.provider to it.span })
+        assertEquals(listOf(0, 1), renamed.map { it.order })
+    }
+
     // ---- built-in widgets: no script fills them ----
 
     private val battery = PlacedWidget(null, WidgetSource.builtin(WidgetSource.BATTERY), 0L, 88, 1, span = 6)

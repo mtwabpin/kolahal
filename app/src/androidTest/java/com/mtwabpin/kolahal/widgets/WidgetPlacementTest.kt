@@ -141,6 +141,61 @@ class WidgetPlacementTest {
         assertFalse(on(t.create("-d", "return 1")))
     }
 
+    /**
+     * A widget can wait on the page for a script: a deleted script leaves its own there. A script that
+     * gets the name later has the widget, whichever way it gets there: by a rename, or with a
+     * `@widget` line added to its code.
+     */
+    @Test fun aWaitingWidgetIsTheScriptsAfterARenameOrAnEdit() {
+        // Leaves a widget on the page under the name made with the suffix, with no script.
+        fun waiting(suffix: String): PlacedWidget {
+            val s = t.place(t.create(suffix, code))
+            scripts.delete(s.id)
+            host.settle()
+            return t.entry(s.name)!!
+        }
+
+        // A rename onto the name.
+        val first = waiting("-i")
+        val renamed = t.create("-j", code)
+        assertFalse(on(renamed))
+        scripts.rename(renamed.id, t.name("-i"))
+        host.settle()
+        assertTrue("renamed onto a placed widget's name, it may fill it", on(renamed))
+        assertEquals(first, t.entry(t.name("-i")))
+        assertNull(t.entry(t.name("-j")))
+        t.run(renamed)
+        assertEquals(seven, t.stored(t.name("-i")).spec)
+
+        // A `@widget` line added to a script that had none. Its access is on as soon as the code is saved.
+        val second = waiting("-k")
+        val plain = t.create("-k", "return 1")
+        assertFalse(on(plain))
+        scripts.saveCode(plain.id, code, byUser = true)
+        assertTrue("with its `@widget` line, it may fill the widget of its name", on(plain))
+        assertEquals(true, now(plain).access[ScriptAccess.WIDGET])
+        assertEquals(second, t.entry(plain.name))
+        t.run(plain)
+        assertEquals(seven, t.stored(plain.name).spec)
+
+        // The same for code from outside: a library update, then a file or a backup.
+        val third = waiting("-l")
+        val updated = t.create("-l", "return 1")
+        scripts.saveCode(updated.id, code)
+        assertTrue(on(updated))
+        assertEquals(third, t.entry(updated.name))
+        waiting("-n")
+        val replaced = t.create("-n", "return 1")
+        scripts.replaceCode(replaced.id, code)
+        assertEquals(true, now(replaced).access[ScriptAccess.WIDGET])
+
+        // A script whose widget isn't placed gets nothing from the line.
+        val unplaced = t.create("-m", "return 1")
+        scripts.saveCode(unplaced.id, code, byUser = true)
+        assertFalse(on(unplaced))
+        assertNull(now(unplaced).access[ScriptAccess.WIDGET])
+    }
+
     /** `script allow|deny <name> widget` is refused, and says where the widget is added and removed. */
     @Test fun theAccessIsNotSwitchedByHand() {
         val s = t.create("-e", code)

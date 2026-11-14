@@ -67,12 +67,16 @@ object WidgetSource {
 
     /**
      * [all] after the script [from] was renamed to [to]: its widgets keep their place, size and order
-     * under the new name. An entry that an earlier script named [to] left behind gives way. Nothing
-     * changes when the new name can't be stored.
+     * under the new name. An entry that an earlier script named [to] left behind gives way to the
+     * one that takes its place. One that nothing replaces stays: it is the renamed script's widget
+     * now. Nothing changes when the new name can't be stored.
      */
     fun renamed(all: List<PlacedWidget>, from: String, to: String): List<PlacedWidget> {
-        val moved = ofScript(from).zip(ofScript(to)).toMap()
-        if (from == to || moved.values.any { !isSource(it) } || all.none { it.provider in moved }) return all
+        val names = ofScript(from).zip(ofScript(to)).toMap()
+        if (from == to || names.values.any { !isSource(it) }) return all
+        // Only the entries that are placed move. A Status card that moves must not remove a waiting `script:` widget.
+        val moved = names.filterKeys { source -> all.any { it.provider == source } }
+        if (moved.isEmpty()) return all
         return all.filterNot { it.provider in moved.values }.map { w -> moved[w.provider]?.let { w.copy(provider = it) } ?: w }
     }
 }

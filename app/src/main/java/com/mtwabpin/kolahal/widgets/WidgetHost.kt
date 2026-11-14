@@ -329,19 +329,27 @@ class WidgetHost private constructor(context: Context) {
 
     /**
      * Waits until the access changes asked for so far are written ([placeScript], [remove],
-     * [syncAccess]). For tests: a caller on the main thread must not wait for the database.
+     * [renameScript], [syncAccess]). For tests: a caller on the main thread must not wait for the database.
      */
     @androidx.annotation.VisibleForTesting
     internal fun settle() {
         runCatching { checks.submit {}.get(10, java.util.concurrent.TimeUnit.SECONDS) }
     }
 
-    /** A script was renamed: its placed widgets keep their place, size and order under the new name ([WidgetSource.renamed]). */
+    /**
+     * A script was renamed.
+     * - Its placed widgets keep their place, size and order under the new name ([WidgetSource.renamed]).
+     * - A widget may wait under the new name already: one a deleted script left on the page, or one
+     *   from a backup. It is this script's widget now.
+     * Either way the script's `widget` access follows the list ([follow]).
+     */
     fun renameScript(from: String, to: String) {
-        if (WidgetSource.ofScript(from).none(::isPlaced)) return
-        update { WidgetSource.renamed(it, from, to) }
-        follow(from)
-        follow(to)
+        val moved = WidgetSource.ofScript(from).any(::isPlaced)
+        if (moved) {
+            update { WidgetSource.renamed(it, from, to) }
+            follow(from)
+        }
+        if (moved || isPlaced(WidgetSource.script(to))) follow(to)
     }
 
     fun move(key: String, direction: Int) = update { WidgetOrder.move(it, key, direction) }

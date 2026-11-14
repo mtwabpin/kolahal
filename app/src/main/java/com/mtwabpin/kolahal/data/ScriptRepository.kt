@@ -73,7 +73,7 @@ class ScriptRepository private constructor(private val context: Context) {
             put("lang", lang.ext)
             put("code", code)
             put("enabled", if (enabled) 1 else 0)
-            val placed = if (widgetPlaced(name, code)) mapOf(ScriptAccess.WIDGET to true) else emptyMap()
+            val placed = placedAccess(name, code)
             if (enabled || placed.isNotEmpty()) put("access", ScriptAccess.encode((if (enabled) ScriptAccess.allowUndecided(code, emptyMap()) else emptyMap()) + placed))
             put("changed_at", System.currentTimeMillis())
         })
@@ -82,14 +82,21 @@ class ScriptRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Whether a widget is already placed under [name], for a new script whose [code] has a `@widget`
+     * Whether a widget is already placed under [name], for a script whose [code] has a `@widget`
      * line: one a backup restored before its script, or one a deleted script left on the page. It is
-     * the new script's widget now, so its `widget` access starts on: the placed list decides it. The
-     * list belongs to the main process.
+     * this script's widget, so its `widget` access is on: the placed list decides it. The list
+     * belongs to the main process.
      */
     private fun widgetPlaced(name: String, code: String): Boolean =
         ScriptMeta.widget(code) != null && !Singleton.inScriptProcess &&
             runCatching { WidgetHost.get(context).isPlaced(WidgetSource.script(name)) }.getOrDefault(false)
+
+    /**
+     * The `widget` access that [code] gets under [name]: on when its widget is placed ([widgetPlaced]),
+     * nothing otherwise. A new script starts with it, and so does code that gains its `@widget` line.
+     */
+    private fun placedAccess(name: String, code: String): Map<String, Boolean> =
+        if (widgetPlaced(name, code)) mapOf(ScriptAccess.WIDGET to true) else emptyMap()
 
     /**
      * Saves new code for a script.
@@ -104,6 +111,7 @@ class ScriptRepository private constructor(private val context: Context) {
      * - A pin at the top ([ScriptAccess.HEADER]) stays, even while the code doesn't call `status()`:
      *   it is your choice of where its line shows, not something the code may do.
      * - Its place on the widgets page ([ScriptAccess.WIDGET]) stays in the same way: the placed list decides it.
+     *   Code that gains a `@widget` line while a widget of its name waits on the page has it on at once.
      */
     fun saveCode(id: Long, code: String, byUser: Boolean = false) {
         val found = byId(id) ?: return
@@ -115,7 +123,7 @@ class ScriptRepository private constructor(private val context: Context) {
         val access = when {
             byUser -> if (s.enabled) s.access + newUses.associateWith { true } else s.access
             else -> s.access + (newEvents + newInternet).associateWith { false }
-        }
+        } + placedAccess(s.name, code)
         update(id) {
             put("code", code)
             put("access", ScriptAccess.encode(access))
@@ -148,6 +156,7 @@ class ScriptRepository private constructor(private val context: Context) {
      * - The script is switched off.
      * - What it was allowed goes back to undecided, so switching it on asks again. What you switched
      *   off stays off. Its place on the widgets page ([ScriptAccess.WIDGET]) stays: the placed list decides it.
+     *   New code with a `@widget` line has it on when a widget of its name waits on the page.
      * - Internet that it didn't use before starts off.
      * - Its secret values ([com.mtwabpin.kolahal.script.SecretStore]) stay for the sites they were set
      *   for, except for `@secret` lines it no longer has.
@@ -157,7 +166,7 @@ class ScriptRepository private constructor(private val context: Context) {
         update(id) {
             put("code", code)
             put("enabled", 0)
-            put("access", ScriptAccess.encode(s.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(s, code).associateWith { false }))
+            put("access", ScriptAccess.encode(s.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(s, code).associateWith { false } + placedAccess(s.name, code)))
             put("changed_at", System.currentTimeMillis())
         }
         // Its timers follow a changed `@every` or `@at` line, as after an edit. A timer set in its sheet stays.
