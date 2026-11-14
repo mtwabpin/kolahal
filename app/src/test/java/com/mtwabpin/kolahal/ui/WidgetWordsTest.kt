@@ -247,6 +247,67 @@ class WidgetWordsTest {
         assertEquals(WidgetWords.Grid(0, 0, 0), WidgetWords.grid(0, 312, 124, 4))
     }
 
+    private val song = WidgetSpec.Media(base, title = "Song", artist = "Singer", app = "Player", playing = true, position = 60_000, positionAt = 1_000_000, speed = 1f, duration = 180_000)
+
+    /** The position moves only while playing, at the player's speed, and stays inside the track. */
+    @Test fun aMediaPositionMovesOnlyWhilePlaying() {
+        assertEquals(60_000, WidgetWords.mediaPosition(song, 1_000_000))
+        assertEquals(75_000, WidgetWords.mediaPosition(song, 1_015_000))
+        assertEquals("at double speed", 90_000, WidgetWords.mediaPosition(song.copy(speed = 2f), 1_015_000))
+        assertEquals("paused", 60_000, WidgetWords.mediaPosition(song.copy(playing = false), 1_015_000))
+        assertEquals("never past the end", 180_000, WidgetWords.mediaPosition(song, 9_000_000))
+        // The two clocks are read at different moments, so "now" can be just before the position's time.
+        assertEquals(60_000, WidgetWords.mediaPosition(song, 999_000))
+        assertEquals("never before the start", 0, WidgetWords.mediaPosition(song.copy(position = -5_000, playing = false), 1_000_000))
+        assertEquals("no length known", 9_060_000, WidgetWords.mediaPosition(song.copy(duration = 0), 10_000_000))
+        // A speed that is no number counts as 1, and a huge one does not wrap around.
+        assertEquals(75_000, WidgetWords.mediaPosition(song.copy(speed = Float.NaN), 1_015_000))
+        assertEquals(180_000, WidgetWords.mediaPosition(song.copy(speed = Float.MAX_VALUE), 1_015_000))
+    }
+
+    @Test fun aMediaBarRunsFromTheStartToTheEndOfTheTrack() {
+        assertEquals(1f / 3, WidgetWords.mediaFraction(song, 1_000_000)!!, 1e-6f)
+        assertEquals(0.5f, WidgetWords.mediaFraction(song, 1_030_000)!!, 1e-6f)
+        assertEquals(1f, WidgetWords.mediaFraction(song, 9_000_000)!!, 0f)
+        assertNull("no length, no bar", WidgetWords.mediaFraction(song.copy(duration = 0), 1_000_000))
+        assertNull(WidgetWords.mediaFraction(song.copy(duration = -1), 1_000_000))
+    }
+
+    @Test fun aMediaTimeIsWrittenAsPlayersWriteIt() {
+        assertEquals("0:00", WidgetWords.mediaTime(0))
+        assertEquals("0:07", WidgetWords.mediaTime(7_900))
+        assertEquals("3:45", WidgetWords.mediaTime(225_000))
+        assertEquals("59:59", WidgetWords.mediaTime(3_599_000))
+        assertEquals("1:02:03", WidgetWords.mediaTime(3_723_000))
+        assertEquals("0:00", WidgetWords.mediaTime(-5_000))
+    }
+
+    /** The app's name is the big line when the player gives no title, and then it is not said twice. */
+    @Test fun aMediaCardNamesTheTrackOrElseTheApp() {
+        assertEquals("Song", WidgetWords.mediaTitle(song))
+        assertEquals("Singer · Player", WidgetWords.mediaLine(song))
+        assertEquals("Player", WidgetWords.mediaLine(song.copy(artist = null)))
+        assertEquals("Player", WidgetWords.mediaTitle(song.copy(title = null)))
+        assertEquals("Singer", WidgetWords.mediaLine(song.copy(title = " ")))
+        assertEquals("", WidgetWords.mediaLine(song.copy(title = null, artist = null)))
+    }
+
+    /** A narrow card has fewer media buttons, never smaller ones. Play or pause is always there. */
+    @Test fun aNarrowMediaCardHasFewerButtons() {
+        // Beside the texts: 4×1 has all three, also with its badge. 2×1 has play or pause alone.
+        assertEquals(3, WidgetWords.mediaButtons(312, besideText = true))
+        assertEquals(3, WidgetWords.mediaButtons(260, besideText = true))
+        assertEquals(1, WidgetWords.mediaButtons(136, besideText = true))
+        assertEquals(2, WidgetWords.mediaButtons(204, besideText = true))
+        // In a row of their own: 4×2 has three, 2×2 has two.
+        assertEquals(3, WidgetWords.mediaButtons(312, besideText = false))
+        assertEquals(2, WidgetWords.mediaButtons(136, besideText = false))
+        assertEquals(1, WidgetWords.mediaButtons(64, besideText = false))
+        assertEquals(1, WidgetWords.mediaButtons(0, besideText = true))
+        // The words the buttons hand over are the ones the Now playing widget reads.
+        assertEquals(listOf("prev", "toggle", "next"), listOf(WidgetWords.MEDIA_PREV, WidgetWords.MEDIA_TOGGLE, WidgetWords.MEDIA_NEXT))
+    }
+
     /** A countdown, a clock and an agenda say the time, so their words are made again as it passes. No other kind's are. */
     @Test fun onlyAKindThatTellsTheTimeIsSaidAgainAsTimePasses() {
         assertTrue(WidgetWords.timed(WidgetSpec.Countdown(base, to = 5)))
@@ -265,6 +326,9 @@ class WidgetWordsTest {
         assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(buttons, 340, 72))
         assertEquals(WidgetWords.Frame(title = true, badge = false), WidgetWords.wideFrame(buttons, 165, 96))
         assertEquals(WidgetWords.Frame(title = false, badge = false), WidgetWords.wideFrame(toggles, 165, 80))
+        // A media card's first line is the track, so it never has the title line.
+        assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(song, 344, 96))
+        assertEquals(WidgetWords.Frame(title = false, badge = false), WidgetWords.wideFrame(song, 168, 88))
         // Any other kind, and a card with no content, has both.
         assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(WidgetSpec.Stat(base, value = "1"), 165, 72))
         assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(null, 165, 72))

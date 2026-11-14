@@ -304,6 +304,53 @@ internal object WidgetWords {
         return Grid(columns = (shown + rows - 1) / rows, rows = rows, shown = shown)
     }
 
+    /** The words a media card's three buttons hand to `onTap`, as a tap's `args`. */
+    const val MEDIA_PREV = "prev"
+    const val MEDIA_TOGGLE = "toggle"
+    const val MEDIA_NEXT = "next"
+
+    /** The big line of a media card: the title, or the app's name when the player gives none. */
+    fun mediaTitle(spec: WidgetSpec.Media): String = spec.title?.takeIf { it.isNotBlank() } ?: spec.app
+
+    /** The small line of a media card: "Artist · App". The app is left out where it is the big line. */
+    fun mediaLine(spec: WidgetSpec.Media): String =
+        listOfNotNull(spec.artist?.takeIf { it.isNotBlank() }, spec.app.takeIf { !spec.title.isNullOrBlank() && it.isNotBlank() }).joinToString(" · ")
+
+    /**
+     * Where playback is at [now], in milliseconds: from 0 to the duration, when that is known.
+     * It moves only while playing, at the player's speed, from the last position the player gave.
+     */
+    fun mediaPosition(spec: WidgetSpec.Media, now: Long): Long {
+        val speed = spec.speed.takeIf { it.isFinite() } ?: 1f
+        val moved = if (spec.playing) ((now - spec.positionAt).coerceAtLeast(0) * speed.toDouble()) else 0.0
+        val at = (spec.position + moved).coerceIn(0.0, Long.MAX_VALUE.toDouble()).toLong()
+        return if (spec.duration > 0) at.coerceAtMost(spec.duration) else at
+    }
+
+    /** How far through the track playback is at [now], from 0 to 1. Null when the length is not known. */
+    fun mediaFraction(spec: WidgetSpec.Media, now: Long): Float? =
+        if (spec.duration > 0) (mediaPosition(spec, now).toDouble() / spec.duration).toFloat().coerceIn(0f, 1f) else null
+
+    /** A position or a length as players write it: "0:07", "3:45", "1:02:03". */
+    fun mediaTime(ms: Long): String {
+        val s = ms.coerceAtLeast(0) / 1000
+        return if (s >= HOUR) String.format(Locale.ROOT, "%d:%02d:%02d", s / HOUR, s % HOUR / 60, s % 60)
+        else String.format(Locale.ROOT, "%d:%02d", s / 60, s % 60)
+    }
+
+    /** The least width of a media card's texts beside its buttons, in dp. */
+    private const val MEDIA_TEXT_DP = 96
+
+    /**
+     * How many of a media card's three buttons a box [widthDp] wide has: 3 (previous, play or pause,
+     * next), 2 (play or pause, next) or 1 (play or pause). A button is 48 dp, with 4 dp between two.
+     * With [besideText] the texts are in the same row and keep [MEDIA_TEXT_DP].
+     */
+    fun mediaButtons(widthDp: Int, besideText: Boolean): Int {
+        val room = widthDp - if (besideText) MEDIA_TEXT_DP + CONTROL_GAP_DP else 0
+        return ((room + 4) / (CONTROL_DP + 4)).coerceIn(1, 3)
+    }
+
     /** What a wide card draws around its content: the [title] line over it, and the icon's [badge] at its start. */
     data class Frame(val title: Boolean, val badge: Boolean)
 
@@ -318,10 +365,13 @@ internal object WidgetWords {
      * - A kind made of buttons needs 48 dp for each of them. A card too low for the title line and
      *   a button leaves the title out, and a card too narrow for the badge and two buttons leaves
      *   the badge out.
+     * - A media card never has the title line. Its own first line is the track's title, and
+     *   "Now playing" over that says nothing new.
      * - Any other kind has both. A screen reader hears the title either way.
      */
     fun wideFrame(spec: WidgetSpec?, widthDp: Int, heightDp: Int): Frame = when (spec) {
-        is WidgetSpec.Buttons, is WidgetSpec.Toggles, is WidgetSpec.Media -> Frame(title = heightDp >= TITLED_BUTTONS_DP, badge = widthDp >= BADGED_BUTTONS_DP)
+        is WidgetSpec.Buttons, is WidgetSpec.Toggles -> Frame(title = heightDp >= TITLED_BUTTONS_DP, badge = widthDp >= BADGED_BUTTONS_DP)
+        is WidgetSpec.Media -> Frame(title = false, badge = widthDp >= BADGED_BUTTONS_DP)
         else -> Frame(title = true, badge = true)
     }
 

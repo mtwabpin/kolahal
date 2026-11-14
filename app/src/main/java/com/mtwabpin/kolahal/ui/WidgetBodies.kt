@@ -14,25 +14,35 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -41,6 +51,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -250,8 +264,135 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, box: WidgetSizes.Box, onTap: ((
     QuietLine(WidgetWords.UNAVAILABLE, small = box == WidgetSizes.Box.SMALL)
 }
 
-/** `media`: what is playing, with its controls. Not drawn yet. */
+// ---- the time, for media and the clock -------------------------------------------------------
+
+/**
+ * The time now, in milliseconds.
+ * - It moves by the minute, with the header's clock ([rememberNow]). That tick also comes when
+ *   home is back on screen and when the clock is set.
+ * - With [seconds] it moves every second, but only while the widgets page is in view and home is
+ *   on screen. A card nobody sees ticks for nothing.
+ */
+@Composable
+private fun rememberMillis(seconds: Boolean): Long {
+    val (minute, _) = rememberNow()
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(minute) { now = System.currentTimeMillis() }
+    if (seconds && LocalWidgetsShown.current) {
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        LaunchedEffect(lifecycle) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val ms = System.currentTimeMillis()
+                    now = ms
+                    // Wake when the next second starts.
+                    delay(1000 - ms % 1000)
+                }
+            }
+        }
+    }
+    return now
+}
+
+// ---- media ----------------------------------------------------------------------------------
+
+private val PREV = WidgetTap(args = WidgetWords.MEDIA_PREV)
+private val TOGGLE = WidgetTap(args = WidgetWords.MEDIA_TOGGLE)
+private val NEXT = WidgetTap(args = WidgetWords.MEDIA_NEXT)
+
+/** In a large box, the bar needs this much height, and the two times under it this much. */
+private val MEDIA_BAR_FROM = 104.dp
+private val MEDIA_TIMES_FROM = 122.dp
+
+/**
+ * `media`: what is playing, with its controls. Only Kolahal makes this kind.
+ * - Small: play or pause alone.
+ * - Wide: the title, the artist and the app, with a bar for the position under them, and the
+ *   buttons at the end. A narrow box has fewer buttons, never smaller ones ([WidgetWords.mediaButtons]).
+ * - Large: the same in rows, with the position and the length under the bar.
+ * - The three buttons hand `prev`, `toggle` and `next` to [onTap]. A tap elsewhere is the card's.
+ * - The position moves every second only while something plays, its length is known and the page
+ *   is in view. The bar stands still between ticks: it is no wave, because a wave is drawn on every frame.
+ */
 @Composable
 internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
-    QuietLine(WidgetWords.UNAVAILABLE, small = box == WidgetSizes.Box.SMALL)
+    if (box == WidgetSizes.Box.SMALL) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { MediaButtons(1, spec.playing, onTap) }
+        return
+    }
+    val type = MaterialTheme.typography
+    val scheme = MaterialTheme.colorScheme
+    val colour = roleColour(spec.base)
+    val title = WidgetWords.mediaTitle(spec)
+    val line = WidgetWords.mediaLine(spec)
+    val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
+    val fraction = WidgetWords.mediaFraction(spec, now)?.let(WidgetWords::barStep)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val width = maxWidth.value.toInt()
+        val tall = maxHeight
+        if (box == WidgetSizes.Box.WIDE) {
+            // The buttons are measured first, so the texts get what is left and are cut, not the buttons.
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = type.bodyMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (fraction != null && tall >= TWO_LINES) LevelBar(fraction, moving = false, colour, Modifier.padding(top = 4.dp))
+                }
+                Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
+                MediaButtons(WidgetWords.mediaButtons(width, besideText = true), spec.playing, onTap)
+            }
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                Column(Modifier.weight(1f).fillMaxWidth()) {
+                    Text(title, style = type.titleMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (fraction != null && tall >= MEDIA_BAR_FROM) {
+                        Spacer(Modifier.weight(1f))
+                        LevelBar(fraction, moving = false, colour)
+                        if (tall >= MEDIA_TIMES_FROM) Row(Modifier.fillMaxWidth()) {
+                            Text(WidgetWords.mediaTime(WidgetWords.mediaPosition(spec, now)), style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+                            Spacer(Modifier.weight(1f))
+                            Text(WidgetWords.mediaTime(spec.duration), style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+                        }
+                    }
+                }
+                Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
+                    MediaButtons(WidgetWords.mediaButtons(width, besideText = false), spec.playing, onTap)
+                }
+            }
+        }
+    }
+}
+
+/** [count] of the three buttons, in a row: play or pause alone, then with next, then with previous too. */
+@Composable
+private fun MediaButtons(count: Int, playing: Boolean, onTap: ((WidgetTap) -> Unit)?) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (count >= 3) MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, mirrored = true)
+        MediaButton(TOGGLE, if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Play", onTap, strong = true)
+        if (count >= 2) MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap)
+    }
+}
+
+/**
+ * One of the media buttons, 48 dp across. [said] is its name for a screen reader.
+ * - [strong]: the filled button, for play or pause. The others are tonal.
+ * - [mirrored]: the icon is turned to point back. "Previous" is the "next" icon, mirrored.
+ * - With a null [onTap] it takes no tap, and looks as it does on the page.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MediaButton(tap: WidgetTap, icon: Int, said: String, onTap: ((WidgetTap) -> Unit)?, strong: Boolean = false, mirrored: Boolean = false) {
+    val source = remember { MutableInteractionSource() }
+    val press = cardPress(source)
+    val onClick = { press.click { onTap?.invoke(tap) } }
+    val modifier = Modifier.size(WidgetWords.CONTROL_DP.dp)
+    val drawn: @Composable () -> Unit = { Icon(painterResource(icon), said, if (mirrored) Modifier.scale(scaleX = -1f, scaleY = 1f) else Modifier) }
+    if (strong) {
+        val colors = IconButtonDefaults.filledIconButtonColors().let { it.copy(disabledContainerColor = it.containerColor, disabledContentColor = it.contentColor) }
+        FilledIconButton(onClick = onClick, shapes = IconButtonDefaults.shapes(), modifier = modifier, enabled = onTap != null, colors = colors, interactionSource = source, content = drawn)
+    } else {
+        val colors = IconButtonDefaults.filledTonalIconButtonColors().let { it.copy(disabledContainerColor = it.containerColor, disabledContentColor = it.contentColor) }
+        FilledTonalIconButton(onClick = onClick, shapes = IconButtonDefaults.shapes(), modifier = modifier, enabled = onTap != null, colors = colors, interactionSource = source, content = drawn)
+    }
 }
