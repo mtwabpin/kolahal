@@ -1039,7 +1039,7 @@ picture.
 | `image` | an `https://` link, up to 2000 characters | Needed. Where the picture is. |
 | `alt` | text, up to 200 | Needed, and not empty. What the picture shows, in words. |
 | `caption` | text, up to 60 | A line with the picture: its name, its source. |
-| `fit` | `crop` or `fit` | `crop` fills the card, and the picture loses its edges. `fit` shows the whole picture, with space beside it. Without it: `crop`. |
+| `fit` | `crop` or `fit` | `crop` covers the whole card, to its edges, and the picture loses its edges: the caption and the title are on a chip over it. `fit` shows the whole picture inside the card, under its title line, with space beside it. Without it: `crop`. |
 
 - The link must start with `https://`. A link with plain `http://` is an error here. A line's
   [`ctx.image`](#logtitle-body-ctx) still takes one.

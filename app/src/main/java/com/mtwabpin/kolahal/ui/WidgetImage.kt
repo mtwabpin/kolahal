@@ -29,6 +29,8 @@ private val PICTURE_SHAPE = RoundedCornerShape(12.dp)
  *   its edges. With `fit = "fit"` the whole picture shows, with room around it.
  * - Only a large card has the caption: a small or a low one gives all its room to the picture.
  *   A screen reader still hears it.
+ * - With [bleed], the picture covers the whole card, to its edges, and the card puts the caption on
+ *   a chip over it ([BleedImageCard]). This body then draws neither the caption nor corners.
  *
  * Home fetches the picture, not the script ([rememberWebImage], [LogImages]):
  * - Only while the widgets page is in view ([LocalWidgetsShown]). The page is composed beside the
@@ -42,11 +44,11 @@ private val PICTURE_SHAPE = RoundedCornerShape(12.dp)
  * ([WidgetWords.description]), whether the picture has loaded or not.
  */
 @Composable
-internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
+internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box, bleed: Boolean = false) {
     val inView = LocalWidgetsShown.current
-    val caption = spec.caption.takeIf { box == WidgetSizes.Box.LARGE }
+    val caption = spec.caption.takeIf { box == WidgetSizes.Box.LARGE && !bleed }
     Column(Modifier.fillMaxSize()) {
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().clip(PICTURE_SHAPE)) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().then(if (bleed) Modifier else Modifier.clip(PICTURE_SHAPE))) {
             val size = WidgetWords.pictureSize(constraints.maxWidth, constraints.maxHeight)
             val state = rememberWebImage(spec.image, size.widthPx, size.maxPixels, enabled = inView, httpsOnly = true)
             val picture = state?.getOrNull()

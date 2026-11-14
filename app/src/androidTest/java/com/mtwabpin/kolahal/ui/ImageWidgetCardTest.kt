@@ -68,7 +68,7 @@ class ImageWidgetCardTest {
     private var inView by mutableStateOf(false)
 
     /** [spec]'s card, [width] by [height]. */
-    private fun show(spec: WidgetSpec.Image, shown: Boolean, width: Dp = 320.dp, height: Dp = 200.dp) {
+    private fun show(spec: WidgetSpec.Image, shown: Boolean, width: Dp = 320.dp, height: Dp = 200.dp, footer: WidgetWords.Footer? = null) {
         inView = shown
         compose.setContent {
             KolahalTheme {
@@ -81,6 +81,7 @@ class ImageWidgetCardTest {
                                 spec = spec,
                                 note = null,
                                 description = WidgetWords.description(spec.base.title, spec, 0L, ZoneId.systemDefault()),
+                                footer = footer,
                             )
                         }
                     }
@@ -120,6 +121,30 @@ class ImageWidgetCardTest {
         val kept = assertNotNullAnd(LogImages.cachedAny(url))
         val place = compose.onNodeWithTag("widget-picture", useUnmergedTree = true).fetchSemanticsNode().size
         assertTrue("${kept.width}×${kept.height} for a place of $place", kept.width <= place.width * 2 + 32 && kept.width * kept.height <= 2 * (place.width + 16) * (place.height + 16))
+    }
+
+    /**
+     * A cropped picture covers the whole card, to its edges. Its caption, its title and the footer
+     * are on a chip over it, so a failed run still shows.
+     */
+    @Test fun aCroppedPictureCoversTheCardAndKeepsItsFooter() {
+        downloaded(800, 400)
+        show(picture, shown = true, footer = WidgetWords.Footer("Failed 10:42", "Failed at 10:42", failed = true))
+        compose.waitFor("the picture isn't drawn; the card draws ${texts()}") { hasPicture() }
+        draws("Monday", "Comic", "Failed 10:42")
+        val card = compose.onNodeWithTag("widget-card", useUnmergedTree = true).fetchSemanticsNode().size
+        val place = compose.onNodeWithTag("widget-picture", useUnmergedTree = true).fetchSemanticsNode().size
+        assertEquals("the picture is as big as the card", card, place)
+    }
+
+    /** A picture that fits keeps the card's frame: the title line, and room around the picture. */
+    @Test fun aFittedPictureKeepsTheCardsFrame() {
+        downloaded(800, 400)
+        show(picture.copy(fit = "fit"), shown = true)
+        compose.waitFor("the picture isn't drawn; the card draws ${texts()}") { hasPicture() }
+        val card = compose.onNodeWithTag("widget-card", useUnmergedTree = true).fetchSemanticsNode().size
+        val framed = compose.onNodeWithTag("widget-picture", useUnmergedTree = true).fetchSemanticsNode().size
+        assertTrue("$framed inside $card", framed.width < card.width && framed.height < card.height)
     }
 
     private fun <T : Any> assertNotNullAnd(value: T?): T {

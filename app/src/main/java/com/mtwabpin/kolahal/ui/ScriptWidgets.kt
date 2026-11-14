@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -234,6 +235,7 @@ internal fun WidgetCard(
  *   in a wide one. A small card has no title line, so no badge.
  * - Large: the title line, the content, and the footer as the last line. The title line ends with
  *   "+3 more" from a list or an agenda ([LocalMoreNote]).
+ * - A cropped picture, large or wide, covers the whole card ([BleedImageCard]).
  * - Wide: the title line with "+3 more" and the footer at its end, then the content. Without the title line
  *   there is no place for the footer. A screen reader still hears both.
  */
@@ -250,6 +252,11 @@ private fun CardLayout(
     stamp: Long,
     badge: Int?,
 ) {
+    // A cropped picture covers the card. With a note (loading, failed) the card has its usual frame.
+    if (spec is WidgetSpec.Image && spec.fit != "fit" && note == null && box != WidgetSizes.Box.SMALL) {
+        BleedImageCard(title, spec, footer, box)
+        return
+    }
     val type = MaterialTheme.typography
     // "+3 more" from the content, for the end of the title line ([LocalMoreNote]).
     var more by remember { mutableStateOf<String?>(null) }
@@ -274,6 +281,32 @@ private fun CardLayout(
         }
         // No room for a title or a footer: the content alone. A screen reader still hears both.
         WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
+    }
+}
+
+/**
+ * A picture that covers the whole card ([WidgetSpec.Image] with `fit = "crop"`, large or wide).
+ * The card's own corners clip it. A chip over its lower start holds what the title line holds on
+ * other cards: the caption (large only) over the title, and the footer. So "Failed 10:42" still
+ * shows. Without the picture the body says its `alt` text, and the chip stays.
+ */
+@Composable
+private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: WidgetWords.Footer?, box: WidgetSizes.Box) {
+    val type = MaterialTheme.typography
+    val scheme = MaterialTheme.colorScheme
+    val caption = spec.caption.takeIf { box == WidgetSizes.Box.LARGE }
+    Box(Modifier.fillMaxSize()) {
+        ImageBody(spec, box, bleed = true)
+        Column(
+            Modifier.align(Alignment.BottomStart).padding(8.dp).clip(RoundedCornerShape(16.dp))
+                .background(scheme.surfaceContainerHigh.copy(alpha = 0.92f)).padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            caption?.let { Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
+            }
+        }
     }
 }
 
