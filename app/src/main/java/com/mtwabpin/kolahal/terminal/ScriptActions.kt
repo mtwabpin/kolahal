@@ -25,6 +25,7 @@ import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
+import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -359,17 +360,24 @@ class ScriptActions(
 
     /**
      * Sets [option] for the widget [ref], from its options sheet on the Widgets screen. Then it asks
-     * for one quiet run of that widget, so its card shows what the new value gives.
-     * - The first widget's options are the script's own, as [setOption] sets them.
-     * - A further widget's value is for that widget only. A null value makes it follow the script again.
-     * - The run goes after a run of that widget that is already there, and is not dropped for it:
+     * for one quiet run of each placed widget that reads the new value, so its card shows what the
+     * value gives ([ScriptOptions.readers]).
+     * - A further widget's value is for that widget only, and only that widget runs. A null value
+     *   makes it follow the script again.
+     * - The first widget's options are the script's own, as [setOption] sets them. Its further
+     *   widgets that have no value of their own follow the script, so they run too.
+     * - Each run goes after a run of that widget that is already there, and is not dropped for it:
      *   that one may have read the old value.
      */
     fun setWidgetOption(ref: WidgetRef, option: String, value: String?) = io {
         writeOption(ref, option, value)
-        // Without its `@widget` line, or switched off, a run stores nothing for the card.
-        scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }
-            ?.let { ScriptScheduler.refreshWidget(context, it, ref.id, again = true) }
+        // Without its `@widget` line, or switched off, a run stores nothing for a card.
+        val script = scripts.byName(ref.script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null } ?: return@io
+        val options = ScriptOptions(context)
+        val declared = ScriptMeta.options(script.code)
+        val placed = WidgetHost.get(context).placedOf(ref.script)
+        ScriptOptions.readers(ref, placed) { option in options.changed(script.name, declared, it.id) }
+            .forEach { ScriptScheduler.refreshWidget(context, script, it.id, again = true) }
     }
 
     /** Stores [value] for [option] of the script itself ([ref] is its first widget) or of one further widget, and says so in the log. */

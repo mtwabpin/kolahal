@@ -32,6 +32,7 @@ import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -125,10 +126,20 @@ class WidgetOptionsSheetTest {
         waitUntil("the second widget wasn't filled again with the script's value", 30_000) { value(second) == "London" }
     }
 
-    /** The first widget's sheet shows the script's own options, and a value set there is the script's. */
+    /**
+     * The first widget's sheet shows the script's own options, and a value set there is the script's.
+     * Every widget that reads the script's value is filled again: the first, and a further one that
+     * follows the script. A further widget with a value of its own keeps showing its own.
+     */
     @Test fun theFirstWidgetHasTheScriptsOptions() {
         val s = t.place(t.create("-weather", code))
         val first = WidgetRef(s.name)
+        val follows = t.placeAnother(s)
+        val own = t.placeAnother(s)
+        options.set(s.name, "city", "Tokyo", own.id)
+        t.refresh(s, own)
+        assertEquals(listOf("London", "London", "Tokyo"), listOf(first, follows, own).map(::value))
+        val ownTried = t.stored(own).triedAt
         val plain = t.place(t.create("-plain", "-- @title Wopts Plain\n-- @widget stat 2x1\nwidget.show{ value = 1 }"))
         val vm = model(s, plain)
         compose.setContent { WidgetsScreen(vm) { _, _ -> } }
@@ -149,5 +160,10 @@ class WidgetOptionsSheetTest {
         compose.waitFor("the script's value isn't stored") { options.values(s.name, declared)["city"] == "Paris" }
         assertEquals(setOf("city"), options.changed(s.name, declared))
         waitUntil("the first widget wasn't filled again", 30_000) { value(first) == "Paris" }
+        waitUntil("the widget that follows the script wasn't filled again", 30_000) { value(follows) == "Paris" }
+        // The widget with its own value reads nothing that changed: it got no run.
+        assertTrue("the queue didn't empty", t.runEnded(s.id))
+        assertEquals("Tokyo", value(own))
+        assertEquals(ownTried, t.stored(own).triedAt)
     }
 }

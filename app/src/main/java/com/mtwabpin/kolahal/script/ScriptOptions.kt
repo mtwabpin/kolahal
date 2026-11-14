@@ -68,5 +68,18 @@ class ScriptOptions(private val context: Context) {
         /** The options in [declared] that have a value of their own in [set]. */
         internal fun changed(declared: List<ScriptMeta.Option>, set: Map<String, String>): Set<String> =
             declared.filter { takes(it, set[it.name]) }.mapTo(HashSet()) { it.name }
+
+        /**
+         * The widgets whose runs read an option's value that was just set for [changed]. They are
+         * the ones to run again, so that their cards show what the new value gives.
+         * - [placed]: the script's widgets on the page.
+         * - [own]: whether a further widget has a value of its own for that option.
+         *
+         * A value set for a further widget is read by that widget only. The script's own value
+         * ([changed] is its first widget) is read by the first widget, and by each further widget
+         * that has no value of its own and so follows the script.
+         */
+        internal fun readers(changed: WidgetRef, placed: List<WidgetRef>, own: (WidgetRef) -> Boolean): List<WidgetRef> =
+            if (changed.first) placed.filter { it.first || !own(it) } else placed.filter { it == changed }
     }
 }

@@ -45,7 +45,8 @@ internal object WidgetOptionWords {
  *   here is kept for that widget only, and shows in the primary colour. Reset makes the option
  *   follow the script again.
  * - A saved value asks for one run of this widget, so its card shows what the new value gives
- *   ([com.mtwabpin.kolahal.terminal.ScriptActions.setWidgetOption]).
+ *   ([com.mtwabpin.kolahal.terminal.ScriptActions.setWidgetOption]). A value of the script's own
+ *   also runs the further widgets that follow it.
  *
  * It reads the script from the view model's list, and its values off the main thread.
  */
