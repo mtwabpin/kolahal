@@ -104,7 +104,8 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
  * The name of a widget Kolahal draws itself, from its source ([WidgetSource]). Null for an app's widget.
  * - `script:weather`: the script's `@title`, else its name.
  * - `status:weather`: the same, then "status".
- * - A script that is gone, and a built-in widget: the name in the source.
+ * - `builtin:battery`: the built-in widget's name ([WidgetSource.builtinTitle]), "Battery and network".
+ * - A script that is gone, and a built-in widget this version does not know: the name in the source.
  *
  * [scripts] are the scripts as the view model has read them, by name ([WidgetScript]). No code is
  * read here.
@@ -112,7 +113,7 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
 internal fun sourceTitle(provider: String, scripts: Map<String, WidgetScript>): String? {
     if (!WidgetSource.isSource(provider)) return null
     val name = provider.substringAfter(':')
-    if (provider.startsWith(WidgetSource.BUILTIN)) return name
+    if (provider.startsWith(WidgetSource.BUILTIN)) return WidgetSource.builtinTitle(name) ?: name
     val title = scripts[name]?.title ?: name
     return if (provider.startsWith(WidgetSource.STATUS)) "$title status" else title
 }

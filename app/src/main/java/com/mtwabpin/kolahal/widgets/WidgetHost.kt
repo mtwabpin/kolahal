@@ -567,8 +567,8 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
     val ordered = WidgetOrder.inLocation(all, WidgetLocation.PANEL) + WidgetOrder.sorted(all.filter { it.pending })
     return ordered.mapIndexed { i, w ->
         val source = w.source
-        // A widget Kolahal draws itself: its name ("weather"), and what it is ("script") where an app's widget has its package.
-        val label = source?.substringAfter(':') ?: w.id?.let { info(it) }?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
+        // A widget Kolahal draws itself: its name ("weather", "Battery and network"), and what it is ("script") where an app's widget has its package.
+        val label = source?.let(WidgetSource::label) ?: w.id?.let { info(it) }?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
         val state = when {
             w.pending -> "pending re-add"
             source == null && isPaused(w.profileSerial) -> "paused"

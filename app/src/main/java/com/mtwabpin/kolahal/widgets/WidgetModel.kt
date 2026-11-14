@@ -51,6 +51,18 @@ object WidgetSource {
 
     /** The id of the built-in Battery and network widget. Its source is `builtin:battery`. */
     const val BATTERY = "battery"
+    /** The id of the built-in Shortcuts widget: buttons for commands you picked ([Shortcuts]). */
+    const val SHORTCUTS = "shortcuts"
+    /** The id of the built-in Now playing widget. */
+    const val MEDIA = "media"
+    /** The id of the built-in Todos widget. */
+    const val TODOS = "todos"
+    /** The id of the built-in Agenda widget: the phone's calendar. */
+    const val AGENDA = "agenda"
+    /** The id of the built-in Reminders widget. */
+    const val REMINDERS = "reminders"
+    /** The id of the built-in Notes widget. */
+    const val NOTES = "notes"
 
     /** The source of the built-in widget [id]. */
     fun builtin(id: String): String = BUILTIN + id
@@ -61,6 +73,27 @@ object WidgetSource {
      * that it has nothing to draw.
      */
     fun builtinId(source: String?): String? = source?.takeIf { it.startsWith(BUILTIN) && isSource(it) }?.removePrefix(BUILTIN)
+
+    /**
+     * The name of the built-in widget [id], as the picker, the Widgets screen and `widgets ls` say
+     * it: "Battery and network". Null for an id this version does not know.
+     */
+    fun builtinTitle(id: String): String? = when (id) {
+        BATTERY -> "Battery and network"
+        SHORTCUTS -> "Shortcuts"
+        MEDIA -> "Now playing"
+        TODOS -> "Todos"
+        AGENDA -> "Agenda"
+        REMINDERS -> "Reminders"
+        NOTES -> "Notes"
+        else -> null
+    }
+
+    /**
+     * What `widgets ls` calls the widget with this [source]: a built-in widget's name, else the name
+     * in the source. That is the script's name, or a built-in id this version does not know.
+     */
+    fun label(source: String): String = builtinId(source)?.let(::builtinTitle) ?: source.substringAfter(':')
 
     /** The sources that belong to the script [name]: its own widget and its Status card. */
     fun ofScript(name: String): List<String> = listOf(SCRIPT + name, STATUS + name)

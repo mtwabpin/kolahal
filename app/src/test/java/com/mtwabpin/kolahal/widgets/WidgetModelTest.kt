@@ -350,6 +350,39 @@ class WidgetModelTest {
         assertNull(WidgetSource.statusName("builtin:battery"))
     }
 
+    /** Each built-in widget has one name: the picker, the Widgets screen and `widgets ls` say the same. */
+    @Test fun builtInWidgetsHaveNames() {
+        val titles = mapOf(
+            WidgetSource.BATTERY to "Battery and network",
+            WidgetSource.SHORTCUTS to "Shortcuts",
+            WidgetSource.MEDIA to "Now playing",
+            WidgetSource.TODOS to "Todos",
+            WidgetSource.AGENDA to "Agenda",
+            WidgetSource.REMINDERS to "Reminders",
+            WidgetSource.NOTES to "Notes",
+        )
+        assertEquals(7, titles.size)
+        titles.forEach { (id, title) ->
+            assertEquals(title, WidgetSource.builtinTitle(id))
+            assertTrue(id, WidgetSource.isSource(WidgetSource.builtin(id)))
+            assertEquals(id, WidgetSource.builtinId(WidgetSource.builtin(id)))
+        }
+        // An id from a newer version has no name here.
+        assertNull(WidgetSource.builtinTitle("comic"))
+        assertNull(WidgetSource.builtinTitle(""))
+    }
+
+    /** `widgets ls` names a built-in widget by its name, and a script's widget by the script's name. */
+    @Test fun aSourceHasALabel() {
+        assertEquals("Todos", WidgetSource.label("builtin:todos"))
+        assertEquals("Battery and network", WidgetSource.label("builtin:battery"))
+        assertEquals("comic", WidgetSource.label("builtin:comic"))
+        assertEquals("weather", WidgetSource.label("script:weather"))
+        assertEquals("weather", WidgetSource.label("status:weather"))
+        // A script named like a built-in widget keeps its own name.
+        assertEquals("todos", WidgetSource.label("script:todos"))
+    }
+
     /** It is placed like a script's widget: no id, not pending, one key wherever it moves. */
     @Test fun aBuiltInWidgetIsPlacedAndStored() {
         assertEquals("builtin:battery", battery.source)

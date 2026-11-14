@@ -26,8 +26,9 @@ class WidgetTitlesTest {
     @Test fun aStatusCardAndABuiltInWidgetHaveNamesToo() {
         assertEquals("Weather in Paris status", sourceTitle("status:weather", scripts))
         assertEquals("hn status", sourceTitle("status:hn", scripts))
-        assertEquals("battery", sourceTitle("builtin:battery", scripts))
-        // A script named like a built-in widget does not name it.
+        assertEquals("Battery and network", sourceTitle("builtin:battery", scripts))
+        assertEquals("Todos", sourceTitle("builtin:todos", scripts))
+        // A script named like a built-in widget does not name it. One this version does not know has the name in its source.
         assertEquals("hn", sourceTitle("builtin:hn", scripts))
     }
 
