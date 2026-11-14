@@ -139,12 +139,17 @@ private fun cardPress(source: InteractionSource): CardPress {
         LaunchedEffect(source, timeout) {
             // collectLatest: a release or a cancel arrives as the next interaction, and ends the wait.
             source.interactions.collectLatest { interaction ->
-                if (interaction is PressInteraction.Press) {
-                    press.held = false
-                    delay(timeout)
-                    press.held = true
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongPress()
+                when (interaction) {
+                    is PressInteraction.Press -> {
+                        press.held = false
+                        delay(timeout)
+                        press.held = true
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongPress()
+                    }
+                    // The press ended with no click (the finger left, or another screen opened): there is no click to swallow.
+                    is PressInteraction.Cancel -> press.held = false
+                    else -> {}
                 }
             }
         }
@@ -158,16 +163,25 @@ private fun Modifier.tapLabel(label: String?): Modifier = if (label == null) thi
 /**
  * Lays [count] buttons or switches out as a grid ([WidgetWords.grid]): fewer of them in a small
  * box, never smaller ones. [cell] draws item `index` to fill a cell `width` by `height`.
+ * - The grid sits in the middle of the box.
+ * - A box lower than one row (a large font makes the card's title line taller) does not press the
+ *   row under 48 dp. The row keeps its height and reaches down into the card's padding.
+ * - With nothing to lay out it says "Nothing to show": a built-in card can have no buttons yet.
  */
 @Composable
 private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: Int, width: Dp, height: Dp) -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    if (count <= 0) {
+        QuietLine(WidgetWords.NOTHING)
+        return
+    }
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val grid = WidgetWords.grid(count, maxWidth.value.toInt(), maxHeight.value.toInt(), maxColumns)
-        if (grid.shown == 0) return@BoxWithConstraints
         val gap = WidgetWords.CONTROL_GAP_DP.dp
         val width = (maxWidth - gap * (grid.columns - 1)) / grid.columns
         val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceIn(WidgetWords.CONTROL_DP.dp, MAX_CONTROL)
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically)) {
+        val all = height * grid.rows + gap * (grid.rows - 1)
+        // Measured with no limit on its height, and kept at the top when it is taller than the box.
+        Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true).height(all), verticalArrangement = Arrangement.spacedBy(gap)) {
             for (row in 0 until grid.rows) {
                 Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     for (column in 0 until grid.columns) {

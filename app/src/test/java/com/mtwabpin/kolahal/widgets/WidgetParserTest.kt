@@ -679,6 +679,44 @@ class WidgetParserTest {
         )
     }
 
+    /** The newer kinds: every label, title and place goes through the host, and every link is checked. */
+    @Test fun theTextsAndLinksOfButtonsTogglesClockAndAgendaGoThroughTheHostToo() {
+        val links = ArrayList<String>()
+        fun up(kind: WidgetKind, vararg fields: Pair<String, Any?>) =
+            WidgetParser.parse(mapOf(*fields), kind, text = { it.uppercase() }, link = { links += it; "checked:$it" })
+        assertEquals(
+            WidgetSpec.Buttons(
+                WidgetBase(),
+                items = listOf(WidgetSpec.Button("BL", WidgetTap(args = "BA", label = "TL"), icon = "BI"), WidgetSpec.Button("DOCS", WidgetTap(url = "checked:https://example.com/b"))),
+            ),
+            up(
+                WidgetKind.BUTTONS,
+                "items" to listOf(
+                    mapOf("label" to "bl", "icon" to "bi", "tap" to mapOf("args" to "ba", "label" to "tl")),
+                    mapOf("label" to "docs", "tap" to mapOf("url" to "https://example.com/b")),
+                ),
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Toggles(WidgetBase(staleAfter = 60), items = listOf(WidgetSpec.Toggle("SL", on = true, tap = WidgetTap(args = "SA"), icon = "SI"))),
+            up(WidgetKind.TOGGLES, "items" to listOf(mapOf("label" to "sl", "icon" to "si", "on" to true, "tap" to mapOf("args" to "sa")))),
+        )
+        // A zone's name goes through the host before it is looked up, so a secret can't be stored as one.
+        assertEquals(
+            WidgetSpec.Clock(WidgetBase(), zones = listOf(WidgetSpec.Zone("UTC", "ZL"))),
+            up(WidgetKind.CLOCK, "zones" to listOf(mapOf("zone" to "utc", "label" to "zl"))),
+        )
+        val masked = assertThrows(IllegalArgumentException::class.java) {
+            WidgetParser.parse(mapOf("zones" to listOf(mapOf("zone" to "Asia/Kolkata"))), WidgetKind.CLOCK, text = { "•••" }, link = { it })
+        }
+        assertEquals("widget: item 1 of zones: no time zone '•••'; use a name such as Asia/Kolkata or UTC", masked.message)
+        assertEquals(
+            WidgetSpec.Agenda(WidgetBase(), events = listOf(WidgetSpec.Event("ET", starts = 5, where = "EW", tap = WidgetTap(url = "checked:https://example.com/e"))), empty = "EE"),
+            up(WidgetKind.AGENDA, "events" to listOf(mapOf("title" to "et", "starts" to 5, "where" to "ew", "tap" to mapOf("url" to "https://example.com/e"))), "empty" to "ee"),
+        )
+        assertEquals(listOf("https://example.com/b", "https://example.com/e"), links)
+    }
+
     /** A secret is masked before the cut. A cut first could leave half a secret, which nothing masks. */
     @Test fun aTextIsMaskedBeforeItIsCut() {
         val title = "x".repeat(36) + "SECRET"

@@ -11,7 +11,9 @@ import com.mtwabpin.kolahal.script.Json
  *   is an error that names the field and says what to pass.
  * - Closed. An unknown field is an error that lists the known ones, so a typo (`colour`) doesn't
  *   pass unseen.
- * - Bounded. Text is cut with "…" at its limit. A list keeps its first items.
+ * - Bounded. Text is cut with "…" at its limit. A list keeps its first items. Buttons and switches
+ *   are the exception: more than their limit is an error, because one that is cut is a tap the
+ *   user can't make.
  * - A field with no value (`nil`, `null`, `undefined`) counts as left out.
  *
  * Every error is an IllegalArgumentException that starts with "widget: ". The script gets it as

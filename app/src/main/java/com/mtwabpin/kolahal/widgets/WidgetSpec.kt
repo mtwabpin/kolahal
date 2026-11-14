@@ -179,7 +179,14 @@ sealed interface WidgetSpec {
     /** Kind `clock`: the time in up to 4 places. Kolahal ticks. With [seconds], it shows seconds. */
     data class Clock(override val base: WidgetBase, val zones: List<Zone>, val seconds: Boolean = false) : WidgetSpec
 
-    /** One event of an [Agenda]. [starts] and [ends] are in seconds since 1970. An [allDay] event shows no time. */
+    /**
+     * One event of an [Agenda]. [starts] and [ends] are in seconds since 1970.
+     * - The card puts an event on the phone's own day of [starts], and drops it once [ends] has
+     *   passed. With no [ends], it drops the event when that day is over.
+     * - An [allDay] event shows no time. Its [starts] and [ends] must be midnights of the phone's
+     *   time zone. A calendar that keeps all-day events at midnight UTC must be shifted first, or
+     *   the event shows on the wrong day.
+     */
     data class Event(
         val title: String,
         val starts: Long,
