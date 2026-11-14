@@ -245,7 +245,7 @@ isn't logged ([when a widget's script runs](/scripting/api/#when-a-widgets-scrip
 A script with no timer is a good widget. It runs only when you look at it or tap it, so it uses no
 battery in the background.
 
-Widgets need Kolahal 0.5.8 or newer. Eleven [library](/scripting/library/#widgets) scripts have one,
+Widgets need Kolahal 0.5.8 or newer. Twelve [library](/scripting/library/#widgets) scripts have one,
 for example weather, hn and countdown.
 
 ## Command scripts

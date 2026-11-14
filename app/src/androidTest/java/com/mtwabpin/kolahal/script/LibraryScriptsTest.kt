@@ -506,6 +506,87 @@ class LibraryScriptsTest {
         assertEquals(listOf(null), lines().map { it.ctx.body }.distinct())
     }
 
+    /**
+     * Releases' widget: a row for each repo, with its newest release's tag and how old it is. It is
+     * read with rss.fetch, so a release on the card is still new to the check. A run for the widget
+     * checks nothing and logs nothing.
+     */
+    @Test fun releasesFillsItsWidgetAndLeavesTheCheckAlone() {
+        val today = LocalDate.now()
+        val ages = mapOf("mtwabpin/kolahal" to 3L, "x/today" to 0L, "x/yesterday" to 1L, "x/months" to 75L, "x/years" to 800L)
+        // Each repo's newest release is as old as [ages] says, and has an older one after it. neovim
+        // has none yet, termux can't be read, and x/undated has no date and no tag in its link.
+        // A check (rss.fresh) leaves a mark in the store.
+        val feeds = """
+            local dates = { ${ages.entries.joinToString { (repo, days) -> "[\"$repo\"] = \"${today.minusDays(days)}T10:00:00Z\"" }} }
+            local function feed(url)
+              local repo = url:match("github%.com/(.-)/releases%.atom")
+              if repo == "termux/termux-app" then error("HTTP 404") end
+              if repo == "neovim/neovim" then return { items = {} } end
+              if repo == "x/undated" then return { items = { { title = "First", link = "https://github.com/x/undated/releases/1" } } } end
+              return { items = {
+                { title = "Newest", link = "https://github.com/" .. repo .. "/releases/tag/v2.0", date = dates[repo] },
+                { title = "Older", link = "https://github.com/" .. repo .. "/releases/tag/v1.0", date = "2020-01-01T10:00:00Z" },
+              } }
+            end
+            rss = { fetch = feed, fresh = function(url) store.set("_checked", "1"); return feed(url) end }
+            notify = function(title, body) log('notified ' .. title .. ' ' .. body) end
+        """.trimIndent() + "\n" + luaKeepsShown
+        val empty = "No repos: releases add owner/repo"
+        fun release(repo: String, age: String?) = listOfNotNull(
+            "title" to repo, "trailing" to "v2.0", age?.let { "detail" to it }, "tap" to mapOf("url" to "https://github.com/$repo/releases/tag/v2.0"),
+        ).toMap()
+
+        run("releases.lua", event = forWidget, before = feeds)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertNull(store.get("_checked"))
+        assertEquals(
+            mapOf(
+                "items" to listOf(
+                    release("mtwabpin/kolahal", "3 days ago"),
+                    mapOf("title" to "neovim/neovim", "detail" to "no releases yet"),
+                    mapOf("title" to "termux/termux-app", "detail" to "couldn't read its releases", "color" to "bad"),
+                ),
+                "empty" to empty, "staleAfter" to 21_600.0,
+            ),
+            shown(),
+        )
+
+        // Each age in its own words. A release with no date has no second line, and one with no tag has its name.
+        for (repo in listOf("neovim/neovim", "termux/termux-app")) run("releases.lua", "rm $repo")
+        for (repo in listOf("x/today", "x/yesterday", "x/months", "x/years", "x/undated")) run("releases.lua", "add $repo")
+        run("releases.lua", event = forWidget, before = feeds)
+        assertEquals(
+            listOf(
+                release("mtwabpin/kolahal", "3 days ago"), release("x/today", "today"), release("x/yesterday", "yesterday"),
+                release("x/months", "2 months ago"), release("x/years", "2 years ago"),
+                mapOf("title" to "x/undated", "trailing" to "First", "tap" to mapOf("url" to "https://github.com/x/undated/releases/1")),
+            ),
+            (shown() as Map<*, *>)["items"],
+        )
+
+        // No feed can be read: the run fails, and shows nothing, so the card keeps what it has.
+        val offline = "rss = { fetch = function() error('offline') end }\n" + luaKeepsShown
+        val failed = runCatching { run("releases.lua", event = forWidget, before = offline) }
+        assertEquals(true, failed.exceptionOrNull()?.message?.contains("Couldn't read the releases"))
+        assertNull(shown())
+
+        // On its timer it fills the widget and then checks. What the card showed is still new to the check.
+        run("releases.lua", before = feeds)
+        assertEquals(6, ((shown() as Map<*, *>)["items"] as List<*>).size)
+        assertEquals("1", store.get("_checked"))
+        assertEquals("mtwabpin/kolahal latest Newest", StyledText.plain(lines().first().text))
+        assertEquals(6, lines().size)
+
+        // No repo is watched: the card says how to add one, and so does the log in a run by hand.
+        for (repo in ages.keys + "x/undated") run("releases.lua", "rm $repo")
+        run("releases.lua", event = forWidget, before = feeds)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(empty, (shown() as Map<*, *>)["empty"])
+        run("releases.lua", before = feeds)
+        assertEquals(Triple("No repos watched: releases add owner/repo", null, StyledText.Colour.MUTED), only())
+    }
+
     @Test fun chargeReminderSumsUpASession() {
         run("charge-reminder.lua")
         assertEquals(Triple("No charging session yet: plug in the charger", null, StyledText.Colour.MUTED), only())

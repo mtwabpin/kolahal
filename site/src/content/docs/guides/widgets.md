@@ -62,7 +62,7 @@ A [script](/scripting/overview/#widgets) can have a widget too: a card that Kola
 script tells it. For example the weather, a feed's headlines, or your unlocks of the last 7 days.
 
 - The picker lists these in the **Kolahal** group: a row for each of your scripts that has a widget, with
-  its kind and the size it starts with. Eleven [library scripts](/scripting/library/#widgets) have one.
+  its kind and the size it starts with. Twelve [library scripts](/scripting/library/#widgets) have one.
 - A script's widget is placed once. After that its row in the picker says **Added**.
 - The card is drawn in the theme's colours.
 - A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.

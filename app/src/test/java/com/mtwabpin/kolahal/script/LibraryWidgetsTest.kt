@@ -46,9 +46,46 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "headlines.js", "hn.lua", "quote.js", "unlock-chart.lua", "weather.lua", "webnumber.js"),
+            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "headlines.js", "hn.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js"),
             withWidget,
         )
+    }
+
+    /**
+     * Each watched repo with its newest release: the tag at the row's end, and its age under the
+     * repo's name. It gives no title, so the card has the script's `@title`.
+     */
+    @Test fun releases() {
+        val empty = "No repos: releases add owner/repo"
+        val spec = fromLua(
+            "releases.lua",
+            luaTable(
+                "items" to luaList(
+                    luaTable("title" to "neovim/neovim", "trailing" to "v0.11.4", "detail" to "3 days ago", "tap" to luaTable("url" to "https://github.com/neovim/neovim/releases/tag/v0.11.4")),
+                    // A release with no tag in its link has its name at the end. A long name is cut. With no date it has no second line.
+                    luaTable("title" to "a/named", "trailing" to "Kolahal 0.5.8: widgets from scripts", "tap" to luaTable("url" to "https://github.com/a/named/releases/1")),
+                    luaTable("title" to "a/new", "detail" to "no releases yet"),
+                    luaTable("title" to "a/gone", "detail" to "couldn't read its releases", "color" to "bad"),
+                ),
+                "empty" to empty, "staleAfter" to 21_600.0,
+            ),
+        )
+        assertEquals(
+            WidgetSpec.Rows(
+                WidgetBase(staleAfter = 21_600),
+                items = listOf(
+                    WidgetSpec.Row("neovim/neovim", detail = "3 days ago", trailing = "v0.11.4", tap = WidgetTap(url = "https://github.com/neovim/neovim/releases/tag/v0.11.4")),
+                    WidgetSpec.Row("a/named", trailing = "Kolahal 0.5.8: widgets …", tap = WidgetTap(url = "https://github.com/a/named/releases/1")),
+                    WidgetSpec.Row("a/new", detail = "no releases yet"),
+                    WidgetSpec.Row("a/gone", detail = "couldn't read its releases", color = StyledText.Colour.BAD),
+                ),
+                empty = empty,
+            ),
+            spec,
+        )
+        // No repo is watched: Lua's empty table, which is an empty list. The card then says how to add one.
+        val none = fromLua("releases.lua", luaTable("items" to luaTable(), "empty" to empty, "staleAfter" to 21_600.0))
+        assertEquals(WidgetSpec.Rows(WidgetBase(staleAfter = 21_600), items = emptyList(), empty = empty), none)
     }
 
     /** One unit of the from currency in each of the others. The script writes each rate as text itself ("83.420"). */

@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Eleven scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Twelve scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -104,7 +104,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Eleven scripts have a [widget](/scripting/overview/#widgets): a card on the
+Twelve scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -120,6 +120,7 @@ Eleven scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [exchange](#exchange) | one unit of your currency in each of the others you chose | runs `exchange`, and home turns to the log |
 | [hn](#hn) | the first 8 stories of the front page, with their points | on a row: opens the story |
 | [headlines](#headlines) | the newest items of a feed you choose | on a row: opens the item |
+| [releases](#releases) | each watched repository, with its newest release and how old it is | on a row: opens the release |
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
@@ -162,6 +163,14 @@ releases add neovim/neovim
 releases rm neovim/neovim
 releases list                # the watched repos; tap one for its releases
 ```
+
+Its [widget](#widgets) has a row for each watched repository, up to 12: the repository, its newest
+release's tag, and how old that release is ("3 days ago").
+
+- A tap on a row opens the release.
+- While the widget is on the widgets page, each check reads every feed once more, to fill it.
+- A release on the card doesn't count as seen. The next check still logs it and notifies you.
+- A repository that can't be read says so in its row, and the other rows still show.
 
 ## reddit
 
