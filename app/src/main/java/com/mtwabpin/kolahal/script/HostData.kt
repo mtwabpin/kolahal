@@ -5,6 +5,8 @@ import android.content.Intent
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.takeWhole
+import com.mtwabpin.kolahal.feeds.FeedItem
+import com.mtwabpin.kolahal.feeds.FeedRepository
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.NoteStore
@@ -14,17 +16,19 @@ import com.mtwabpin.kolahal.productivity.Repeat
 import com.mtwabpin.kolahal.productivity.ShownEvent
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.productivity.TodoStore
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.time.Instant
 import java.time.ZoneId
 
 /**
- * What a script reads of your own lists: `todos`, `notes`, `reminders` and `calendar`.
+ * What a script reads of your own lists: `todos`, `notes`, `reminders`, `calendar` and `feeds`.
  *
  *   todos.list()               -> [{ id, text, done }]
  *   todos.setDone(id, done)    -> true when that todo changed
  *   notes.list(n?)             -> [{ id, text, created }]
  *   reminders.list()           -> [{ id, text, at, repeats }]
  *   calendar.events(days?)     -> [{ id, title, starts, ends, allDay }]
+ *   feeds.unread(n?)           -> [{ id, feed, title, link, date, summary }]
  *
  * Each list is private data, behind the `@uses` item of its name ([ScriptMeta.USES]). [may] decides:
  * - The script does not declare the item: [may] throws an error that names the `@uses` line.
@@ -119,12 +123,30 @@ internal class HostData(
         return Agenda.shown(events, zone, now, count).take(MAX_EVENTS).map(::eventRow)
     }
 
+    /**
+     * `feeds.unread(n?)`: the newest [n] unread items of the feeds you follow, the newest first
+     * ([listCount]).
+     * - It reads what Kolahal has fetched already. It makes no request, so it needs no internet access.
+     * - It marks nothing as read, and changes nothing else.
+     *
+     * The feed database is read here in the `:script` process. Only reads are safe there:
+     * [FeedRepository.add] reads the settings, which only the main process can see.
+     */
+    fun feedsUnread(n: Any?): List<Map<String, Any?>> {
+        if (!may(FEEDS, "feeds.unread")) return emptyList()
+        val count = listCount("feeds.unread", "n", n, MAX_FEED_ITEMS, DEFAULT_FEED_ITEMS)
+        val repo = FeedRepository.get(context)
+        val names = repo.feeds().associate { it.id to feedName(it.title, it.url) }
+        return repo.items(unreadOnly = true, limit = count).map { feedRow(it, names[it.feedId].orEmpty()) }
+    }
+
     companion object {
         // The `@uses` items. Each is also the name of its namespace.
         const val TODOS = "todos"
         const val NOTES = "notes"
         const val REMINDERS = "reminders"
         const val CALENDAR = "calendar"
+        const val FEEDS = "feeds"
 
         /** The most todos `todos.list` gives. */
         const val MAX_TODOS = 200
@@ -140,6 +162,9 @@ internal class HostData(
         const val DEFAULT_CALENDAR_DAYS = 3
         /** The most events `calendar.events` gives. */
         const val MAX_EVENTS = 100
+        /** `feeds.unread(n)`: n is from 1 to [MAX_FEED_ITEMS]. Without it, [DEFAULT_FEED_ITEMS]. */
+        const val MAX_FEED_ITEMS = 50
+        const val DEFAULT_FEED_ITEMS = 10
         /** The longest text in a row, in characters. A longer one is cut and ends in "…". */
         const val MAX_TEXT = 4000
     }
@@ -216,3 +241,26 @@ internal fun reminderRow(r: Reminder): Map<String, Any?> {
 internal fun eventRow(e: ShownEvent): Map<String, Any?> =
     mapOf("id" to e.id, "title" to rowText(e.title), "starts" to e.starts, "ends" to e.ends, "allDay" to e.allDay)
 
+/**
+ * An unread feed item as `feeds.unread()` gives it, with the fields of an item of `rss.fetch`:
+ * - `id` is the item's guid, and `date` is the date as the feed wrote it. A feed's dates have many
+ *   forms, so Kolahal keeps no number for it.
+ * - `feed` is the name of its feed ([feedName]).
+ * - `link`, `date` and `summary` are nil when the feed gave none.
+ * Kolahal's own row number and the item's read flag are left out.
+ */
+internal fun feedRow(item: FeedItem, feed: String): Map<String, Any?> = mapOf(
+    "id" to rowText(item.guid),
+    "feed" to rowText(feed),
+    "title" to rowText(item.title),
+    "link" to item.link?.let(::rowText),
+    "date" to item.publishedText?.let(::rowText),
+    "summary" to item.summary?.let(::rowText),
+)
+
+/**
+ * A feed's name for a script: its title, or else its host without `www.`. Never its address: you
+ * may have typed a name and a password into it (`https://me:secret@example.com/feed`).
+ */
+internal fun feedName(title: String?, url: String): String =
+    title?.trim()?.takeIf { it.isNotEmpty() } ?: url.toHttpUrlOrNull()?.host?.removePrefix("www.").orEmpty()

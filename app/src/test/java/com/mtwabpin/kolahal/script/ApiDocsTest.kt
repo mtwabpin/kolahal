@@ -90,7 +90,7 @@ class ApiDocsTest {
 
     /** Your own lists are bound in both languages, with the same names. */
     @Test fun theListsAreBoundInBothLanguages() {
-        val lists = setOf("todos.list", "todos.setDone", "notes.list", "reminders.list", "calendar.events")
+        val lists = setOf("todos.list", "todos.setDone", "notes.list", "reminders.list", "calendar.events", "feeds.unread")
         assertEquals(lists, luaBindings().filter { it in lists }.toSet())
         assertEquals(lists, jsBindings().filter { it in lists }.toSet())
     }
@@ -100,7 +100,7 @@ class ApiDocsTest {
      * The line has the name of the call's namespace, and the editor's check knows the call too.
      */
     @Test fun aListCallSaysWhichUsesLineItNeeds() {
-        for (ns in listOf("todos", "notes", "reminders", "calendar")) {
+        for (ns in listOf("todos", "notes", "reminders", "calendar", "feeds")) {
             assertTrue(ns, ns in ScriptMeta.USES)
             val calls = ApiDocs.all.filter { it.qualifier == ns }
             assertTrue("$ns has no calls", calls.isNotEmpty())

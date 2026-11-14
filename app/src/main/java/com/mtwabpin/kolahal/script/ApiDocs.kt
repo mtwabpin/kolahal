@@ -147,6 +147,8 @@ object ApiDocs {
         ApiDoc("reminders.list", "reminders.list() -> [{ id, text, at, repeats }]", "The reminders that are set, soonest first; at is a time in seconds; repeats says how one repeats, and is nil/null for one that doesn't (needs @uses reminders)"),
         ApiDoc("calendar", "calendar", "The phone's calendar: events", kind = NS),
         ApiDoc("calendar.events", "calendar.events(days?=3) -> [{ id, title, starts, ends, allDay }]", "The events of the next days (1 to 30), up to 100, with times in seconds as an agenda widget takes them; empty without the calendar permission (needs @uses calendar)"),
+        ApiDoc("feeds", "feeds", "The feeds you follow: unread", kind = NS),
+        ApiDoc("feeds.unread", "feeds.unread(n?=10) -> [{ id, feed, title, link, date, summary }]", "The unread items of your feeds, newest first, up to 50, as Kolahal fetched them: no request is made, and nothing is marked read (needs @uses feeds)"),
 
         ApiDoc("launcher", "launcher", "Drive the launcher: run", kind = NS),
         ApiDoc("launcher.run", "launcher.run(command) -> bool", "Run a terminal command (needs @uses commands); only when started from the prompt, at most 10 per run"),

@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.feeds.FeedItem
 import com.mtwabpin.kolahal.productivity.Agenda
 import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
@@ -48,6 +49,8 @@ class HostDataTest {
         // Each call has its own limits.
         assertEquals(3, listCount("calendar.events", "days", null, HostData.MAX_CALENDAR_DAYS, HostData.DEFAULT_CALENDAR_DAYS))
         assertEquals(30, listCount("calendar.events", "days", 365, HostData.MAX_CALENDAR_DAYS, HostData.DEFAULT_CALENDAR_DAYS))
+        assertEquals(10, listCount("feeds.unread", "n", null, HostData.MAX_FEED_ITEMS, HostData.DEFAULT_FEED_ITEMS))
+        assertEquals(50, listCount("feeds.unread", "n", 500, HostData.MAX_FEED_ITEMS, HostData.DEFAULT_FEED_ITEMS))
     }
 
     @Test fun aCountThatIsNoNumberIsAnErrorThatSaysWhatToPass() {
@@ -132,18 +135,50 @@ class HostDataTest {
         assertFalse("begin" in eventRow(ShownEvent(41, "Standup", 1, 2, true, 3)))
     }
 
+    private val item = FeedItem(90, 2, "https://example.com/a?id=1", "A title", "https://example.com/a", "Sat, 14 Nov 2026 10:00:00 GMT", "A summary", 1_800_000_000_000, false)
+
+    /** A feed item has the fields of an item of `rss.fetch`, and the name of its feed. What the feed left out is nil. */
+    @Test fun aFeedItemsRow() {
+        assertEquals(
+            mapOf(
+                "id" to "https://example.com/a?id=1", "feed" to "Example", "title" to "A title",
+                "link" to "https://example.com/a", "date" to "Sat, 14 Nov 2026 10:00:00 GMT", "summary" to "A summary",
+            ),
+            feedRow(item, "Example"),
+        )
+        val bare = feedRow(item.copy(link = null, publishedText = null, summary = null), "")
+        assertEquals(listOf("id", "feed", "title", "link", "date", "summary"), bare.keys.toList())
+        assertEquals(listOf(null, null, null), listOf(bare["link"], bare["date"], bare["summary"]))
+        // The same names as an item of rss.fetch, and `feed`.
+        assertEquals(RssParser.Item("t", "l", "i", "d", "s").toMap().keys + "feed", bare.keys)
+        // Kolahal's own row number, the feed's number, the fetch time and the read flag are not for a script.
+        assertEquals(emptyList<Any?>(), feedRow(item, "Example").values.filter { it !is String })
+    }
+
+    /** A feed's name is its title, or its host. Never its address, which can hold a name and a password. */
+    @Test fun aFeedsNameIsNeverItsAddress() {
+        assertEquals("Hacker News: Front Page", feedName(" Hacker News: Front Page ", "https://news.ycombinator.com/rss"))
+        assertEquals("news.ycombinator.com", feedName(null, "https://news.ycombinator.com/rss"))
+        assertEquals("example.com", feedName("  ", "https://www.example.com/feed.xml"))
+        assertEquals("example.com", feedName(null, "https://me:hunter2@www.example.com/private/feed?key=abc123"))
+        assertEquals("", feedName(null, "not an address"))
+        assertEquals("", feedName(null, ""))
+    }
+
     // ---- what every row holds -------------------------------------------------------------
 
     private val longText = "x".repeat(5000)
 
+    /** A row of every kind, with [text] as each of its texts. */
     private fun rows(text: String): List<Map<String, Any?>> = listOf(
         todoRow(Todo(1, text, false)),
         noteRow(Note(2, text, 5_000)),
         reminderRow(Reminder(3, 5_000, text, repeat = "weekdays")),
         eventRow(ShownEvent(4, text, 5, 6, true, 5_000)),
+        feedRow(FeedItem(5, 1, text, text, text, text, text, 5_000, false), text),
     )
 
-    /** Text from your lists may hold style marks. A row never does: it is plain text. */
+    /** Text from your lists and from the web may hold style marks. A row never does: it is plain text. */
     @Test fun everyTextLosesItsStyles() {
         val styled = "a " + bold("bold") + " and " + StyledText.colour(StyledText.Colour.entries.first(), "red") + " b"
         assertTrue(StyledText.has(styled))
@@ -154,6 +189,9 @@ class HostDataTest {
             }
         }
         assertEquals("a bold and red b", todoRow(Todo(1, styled, false))["text"])
+        // A feed's name and an item's guid come from the web too.
+        val fromTheWeb = feedRow(item.copy(guid = styled), styled)
+        assertEquals(listOf("a bold and red b", "a bold and red b"), listOf(fromTheWeb["id"], fromTheWeb["feed"]))
     }
 
     /** A very long text is cut, so a list has a size a run can hold. */
@@ -177,7 +215,8 @@ class HostDataTest {
      * numbers and true or false. Anything else would arrive as a Java object in Lua.
      */
     @Test fun aRowHoldsOnlyTextWholeNumbersAndTrueOrFalse() {
-        for (row in rows("text")) {
+        // With the feed item whose feed gave no link, date or summary: those are nil.
+        for (row in rows("text") + feedRow(item.copy(link = null, publishedText = null, summary = null), "")) {
             for ((key, value) in row) {
                 assertTrue("$key is a ${value?.javaClass?.simpleName}: $row", value == null || value is String || value is Long || value is Boolean)
             }
@@ -192,7 +231,7 @@ class HostDataTest {
     @Test fun noFieldIsAKeywordOrAnAccessWord() {
         val fields = rows("text").flatMap { it.keys }.toSet()
         assertEquals(
-            setOf("id", "text", "done", "created", "at", "repeats", "title", "starts", "ends", "allDay"),
+            setOf("id", "text", "done", "created", "at", "repeats", "title", "starts", "ends", "allDay", "feed", "link", "date", "summary"),
             fields,
         )
         assertEquals(emptySet<String>(), fields intersect (ApiDocs.luaKeywords + ApiDocs.jsKeywords + listOf("status", "notify")).toSet())

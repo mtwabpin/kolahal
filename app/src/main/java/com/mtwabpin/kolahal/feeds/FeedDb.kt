@@ -9,7 +9,12 @@ import com.mtwabpin.kolahal.data.Singleton
  * Feed subscriptions and their fetched items.
  * - This database is separate from `kolahal.db`, so the feed schema can change without touching
  *   the log and script database.
- * - WAL lets the fetch worker's thread write while home reads. Both run in the main process.
+ * - WAL lets one writer work while others read. The fetch worker's thread writes while home reads,
+ *   both in the main process.
+ * - The `:script` process opens this database too, only to read: a script's `feeds.unread`
+ *   ([com.mtwabpin.kolahal.script.HostData.feedsUnread]). Every write stays in the main process.
+ *   [FeedRepository.add] must never run in `:script`: it reads settings that only the main
+ *   process can see.
  */
 class FeedDb private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {

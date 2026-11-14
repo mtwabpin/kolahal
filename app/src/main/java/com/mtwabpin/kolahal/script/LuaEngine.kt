@@ -197,6 +197,7 @@ class LuaEngine : ScriptEngine {
         lua.table("notes", "list" to { l: Lua -> l.pushValue(data.notesList(l.args().firstOrNull())); 1 })
         lua.table("reminders", "list" to { l: Lua -> l.pushValue(data.remindersList()); 1 })
         lua.table("calendar", "events" to { l: Lua -> l.pushValue(data.calendarEvents(l.args().firstOrNull())); 1 })
+        lua.table("feeds", "unread" to { l: Lua -> l.pushValue(data.feedsUnread(l.args().firstOrNull())); 1 })
         lua.global("sleep") { l ->
             host.sleep(l.toInteger(1))
             0
