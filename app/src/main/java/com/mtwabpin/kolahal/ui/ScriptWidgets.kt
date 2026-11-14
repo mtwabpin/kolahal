@@ -332,10 +332,15 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
     // The counter moves when any widget's state changes. It is collected only while home is on screen.
     val version by WidgetStates.version.collectAsStateWithLifecycle()
     var state by remember(name) { mutableStateOf<WidgetState?>(null) }
+    // The script's @title, for a description without a title of its own.
+    var scriptTitle by remember(name) { mutableStateOf<String?>(null) }
     LaunchedEffect(name, version) {
-        val read = withContext(Dispatchers.IO) { WidgetStates.read(context, name) }
+        val (read, titled) = withContext(Dispatchers.IO) {
+            WidgetStates.read(context, name) to ScriptRepository.get(context).byName(name)?.let { ScriptMeta.title(it.code) }
+        }
         // An equal state keeps the one in use, so the card is not drawn again.
         if (read != state) state = read
+        if (titled != scriptTitle) scriptTitle = titled
     }
     val shown = LocalWidgetsShown.current
     if (actions != null && shown) {
@@ -394,7 +399,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         fresh && !gaveUp -> CardNote.LOADING
         else -> CardNote.NOTHING
     }
-    val title = spec?.base?.title ?: name
+    val title = spec?.base?.title ?: scriptTitle ?: name
     // The minute's tick, from the header's clock: content grows old, and a countdown's words change.
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
