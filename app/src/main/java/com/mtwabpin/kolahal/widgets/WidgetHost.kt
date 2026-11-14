@@ -340,7 +340,7 @@ class WidgetHost private constructor(context: Context) {
      * Either way the script's `widget` access follows the list ([follow]).
      */
     fun renameScript(from: String, to: String) {
-        val moved = WidgetSource.ofScript(from).any(::isPlaced)
+        val moved = _widgets.value.any { WidgetSource.isOf(it.source, from) }
         if (moved) {
             update { WidgetSource.renamed(it, from, to) }
             follow(from)

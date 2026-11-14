@@ -212,7 +212,7 @@ class WidgetModelTest {
     @Test fun aStatusCardNamesItsScript() {
         assertEquals("status:cricket", WidgetSource.status("cricket"))
         assertEquals("cricket", WidgetSource.statusName("status:cricket"))
-        assertEquals(WidgetSource.ofScript("cricket")[1], WidgetSource.status("cricket"))
+        assertTrue(WidgetSource.isOf("status:cricket", "cricket"))
         // The script's own widget is another widget.
         assertNull(WidgetSource.statusName("script:cricket"))
         assertNull(WidgetSource.statusName("builtin:battery"))
@@ -303,7 +303,7 @@ class WidgetModelTest {
     @Test fun aRenamedScriptsWidgetsFollowIt() {
         val status = PlacedWidget(null, "status:weather", 0L, 72, 2, span = 12)
         val all = listOf(w(1, 0), script("weather", order = 1, span = 3), status, script("news", order = 3))
-        assertEquals(listOf("script:weather", "status:weather"), WidgetSource.ofScript("weather"))
+        assertEquals(listOf(false, true, true, false), all.map { WidgetSource.isOf(it.source, "weather") })
         val renamed = WidgetSource.renamed(all, "weather", "sky")
         assertEquals(listOf("com.a/.W0", "script:sky", "status:sky", "script:news"), renamed.map { it.provider })
         assertEquals(all.map { listOf(it.order, it.span, it.heightDp) }, renamed.map { listOf(it.order, it.span, it.heightDp) })
@@ -453,5 +453,58 @@ class WidgetModelTest {
         val back = WidgetSource.renamed(renamed, "power", "battery")
         assertEquals(listOf("builtin:battery", "script:battery", "status:battery"), back.map { it.provider })
         assertEquals(all, WidgetSource.renamed(all, "weather", "battery"))
+    }
+
+    // ---- several widgets of one script: `script:<name>#<id>` ----
+
+    private fun further(name: String, id: String, order: Int = 0) = PlacedWidget(null, WidgetSource.script(WidgetRef(name, id)), 0L, 96, order, span = 6)
+
+    /** A further widget's source has its id after the name. The first widget's source is as it always was. */
+    @Test fun aFurtherWidgetHasAnIdInItsSource() {
+        assertEquals("script:weather", WidgetSource.script(WidgetRef("weather")))
+        assertEquals("script:weather#2", WidgetSource.script(WidgetRef("weather", "2")))
+        assertTrue(WidgetSource.isSource("script:weather#2"))
+        assertEquals(WidgetRef("weather"), WidgetSource.scriptRef("script:weather"))
+        assertEquals(WidgetRef("weather", "2"), WidgetSource.scriptRef("script:weather#2"))
+        // The name is the script's, whichever widget it is.
+        assertEquals("weather", WidgetSource.scriptName("script:weather#2"))
+        // An id that can't be one names no widget.
+        assertNull(WidgetSource.scriptRef("script:weather#"))
+        assertNull(WidgetSource.scriptRef("script:weather#Two"))
+        assertNull(WidgetSource.scriptName("script:weather#2#3"))
+        assertNull(WidgetSource.scriptRef("status:weather#2"))
+        // Each widget is its own entry, with its own key.
+        assertEquals("s:script:weather#2", further("weather", "2").key)
+        assertFalse(further("weather", "2").pending)
+        // `widgets ls` says which one.
+        assertEquals("weather 2", WidgetSource.label("script:weather#2"))
+    }
+
+    /** The placed list stores a further widget and brings it back, from its file and from a backup. */
+    @Test fun aFurtherWidgetIsStoredAndRestored() {
+        val all = listOf(script("weather", order = 0), further("weather", "2", order = 1), further("weather", "3", order = 2))
+        assertEquals(all, WidgetCodec.decode(WidgetCodec.encode(all)))
+        val restored = WidgetCodec.fromExport(WidgetCodec.export(all))
+        assertEquals(all, restored)
+        // A backup's widget that is placed already is skipped, each by its own key.
+        val merged = WidgetCodec.mergePending(listOf(all[0], all[2]), restored)
+        assertEquals(listOf("script:weather", "script:weather#3", "script:weather#2"), merged.map { it.provider })
+    }
+
+    /** A rename moves every widget of the script, and each keeps its id. */
+    @Test fun aRenameMovesEveryWidgetOfTheScript() {
+        val status = PlacedWidget(null, "status:weather", 0L, 72, 3, span = 12)
+        val all = listOf(
+            script("weather", order = 0), further("weather", "2", order = 1), further("weatherman", "2", order = 2), status,
+            further("sky", "2", order = 4), further("sky", "3", order = 5),
+        )
+        assertEquals(listOf(true, true, false, true, false, false), all.map { WidgetSource.isOf(it.source, "weather") })
+        val renamed = WidgetSource.renamed(all, "weather", "sky")
+        // The waiting `script:sky#2` gives way to the one that takes its place. `script:sky#3` stays: it is the script's now.
+        assertEquals(listOf("script:sky", "script:sky#2", "script:weatherman#2", "status:sky", "script:sky#3"), renamed.map { it.provider })
+        assertEquals(listOf(0, 1, 2, 3, 5), renamed.map { it.order })
+        // A script with only a further widget on the page.
+        assertEquals(listOf("script:air#2"), WidgetSource.renamed(listOf(further("weather", "2")), "weather", "air").map { it.provider })
+        assertEquals(listOf(further("weather", "2")), WidgetSource.renamed(listOf(further("weather", "2")), "weather", ""))
     }
 }

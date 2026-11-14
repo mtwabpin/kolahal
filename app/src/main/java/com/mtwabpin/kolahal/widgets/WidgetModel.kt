@@ -18,7 +18,10 @@ object WidgetLocation {
  * placed entry holds the source where an app widget's entry holds its provider.
  */
 object WidgetSource {
-    /** `script:<name>`: the widget a script fills with `widget.show`. */
+    /**
+     * `script:<name>`: the widget a script fills with `widget.show`. A script's further widgets have
+     * an id after the name: `script:<name>#2` ([WidgetRef]).
+     */
     const val SCRIPT = "script:"
     /** `status:<name>`: the Status card of a script's status line. */
     const val STATUS = "status:"
@@ -37,11 +40,21 @@ object WidgetSource {
         return provider.length > prefix.length && provider.none { it == '/' || it == '|' || it == '\n' || it == '\r' }
     }
 
-    /** The source of the script [name]'s own widget. */
+    /** The source of the script [name]'s first widget. */
     fun script(name: String): String = SCRIPT + name
 
-    /** The script's name when [source] is a script's own widget. Null for anything else, a Status card included. */
-    fun scriptName(source: String?): String? = source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)
+    /** The source of the widget [ref]: `script:weather`, `script:weather#2`. */
+    fun script(ref: WidgetRef): String = SCRIPT + ref.key
+
+    /**
+     * Which widget of which script [source] is, when it is a script's own widget. Null for anything
+     * else, a Status card included, and for a source whose id can't be one ([WidgetRef.parse]).
+     */
+    fun scriptRef(source: String?): WidgetRef? =
+        source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)?.let(WidgetRef::parse)
+
+    /** The script's name when [source] is one of a script's own widgets. Null for anything else, a Status card included. */
+    fun scriptName(source: String?): String? = scriptRef(source)?.script
 
     /** The source of the Status card of the script [name]. */
     fun status(name: String): String = STATUS + name
@@ -91,24 +104,34 @@ object WidgetSource {
 
     /**
      * What `widgets ls` calls the widget with this [source]: a built-in widget's name, else the name
-     * in the source. That is the script's name, or a built-in id this version does not know.
+     * in the source. That is the script's name, or a built-in id this version does not know. A
+     * script's further widget has its id after the name: "weather 2".
      */
-    fun label(source: String): String = builtinId(source)?.let(::builtinTitle) ?: source.substringAfter(':')
+    fun label(source: String): String =
+        builtinId(source)?.let(::builtinTitle) ?: scriptRef(source)?.let { it.titled(it.script) } ?: source.substringAfter(':')
 
-    /** The sources that belong to the script [name]: its own widget and its Status card. */
-    fun ofScript(name: String): List<String> = listOf(SCRIPT + name, STATUS + name)
+    /** Whether [source] belongs to the script [name]: one of its own widgets, or its Status card. */
+    fun isOf(source: String?, name: String): Boolean = scriptName(source) == name || statusName(source) == name
 
     /**
-     * [all] after the script [from] was renamed to [to]: its widgets keep their place, size and order
-     * under the new name. An entry that an earlier script named [to] left behind gives way to the
-     * one that takes its place. One that nothing replaces stays: it is the renamed script's widget
-     * now. Nothing changes when the new name can't be stored.
+     * [source] under the name [to], when it belongs to the script [from] ([isOf]): `script:weather#2`
+     * becomes `script:sky#2`. Null for any other source.
+     */
+    private fun moved(source: String?, from: String, to: String): String? {
+        scriptRef(source)?.takeIf { it.script == from }?.let { return script(it.copy(script = to)) }
+        return statusName(source)?.takeIf { it == from }?.let { status(to) }
+    }
+
+    /**
+     * [all] after the script [from] was renamed to [to]: every one of its widgets keeps its place,
+     * size and order under the new name. An entry that an earlier script named [to] left behind
+     * gives way to the one that takes its place. One that nothing replaces stays: it is the renamed
+     * script's widget now. Nothing changes when the new name can't be stored.
      */
     fun renamed(all: List<PlacedWidget>, from: String, to: String): List<PlacedWidget> {
-        val names = ofScript(from).zip(ofScript(to)).toMap()
-        if (from == to || names.values.any { !isSource(it) }) return all
+        if (from == to || !isSource(script(to))) return all
         // Only the entries that are placed move. A Status card that moves must not remove a waiting `script:` widget.
-        val moved = names.filterKeys { source -> all.any { it.provider == source } }
+        val moved = all.mapNotNull { w -> moved(w.source, from, to)?.let { w.provider to it } }.toMap()
         if (moved.isEmpty()) return all
         return all.filterNot { it.provider in moved.values }.map { w -> moved[w.provider]?.let { w.copy(provider = it) } ?: w }
     }
