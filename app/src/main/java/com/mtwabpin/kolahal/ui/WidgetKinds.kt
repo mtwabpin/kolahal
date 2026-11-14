@@ -604,40 +604,33 @@ internal object WidgetWords {
      */
     fun tooSoon(last: Long?, now: Long): Boolean = last != null && now - last in 0 until TAP_WINDOW_MS
 
-    /** What a wide card draws around its content: the [title] line over it, and the icon's [badge] at its start. */
-    data class Frame(val title: Boolean, val badge: Boolean)
+    /** What a wide card takes from its height for its padding (24 dp) and its title line (20 dp), in dp. */
+    const val WIDE_CHROME_DP = 44
 
     /**
-     * A wide card this tall has room for its title line over a row of buttons (a button is 48 dp),
-     * or over two lines of text and a caption, in dp. A card of one row (92 dp) is lower.
+     * A wide card this tall has room for its title line over two lines of text and a caption
+     * (56 dp), or over a row of buttons with a little room around them, in dp. A card of one row
+     * (92 dp on most phones) is lower.
      */
-    const val TITLED_DP = 96
-
-    /** What a wide card takes from its height for its padding (24 dp) and its title line (16 dp), in dp. */
-    private const val WIDE_CHROME_DP = 40
-
-    /** A wide card this wide has room for its badge beside its buttons, in dp. A card of two cells is narrower. */
-    const val BADGED_BUTTONS_DP = 250
+    const val TITLED_DP = WIDE_CHROME_DP + 56
 
     /**
-     * What a wide card, [widthDp] by [heightDp], draws around [spec]'s content. A card with a
-     * [footer] ("Failed 10:42", "2 h ago") always has the title line: the footer is at its end, and
-     * a card has no other place for it. A screen reader hears the title either way.
-     * - A kind made of buttons needs 48 dp for each of them. A card too low for the title line and
-     *   a button leaves the title out, and a card too narrow for the badge and two buttons leaves
-     *   the badge out.
-     * - A text leaves the title out when the title line would leave it one line ([TITLED_DP]).
-     * - Bars with their names leave the title out when the title line would cost them their names.
-     * - A media card never has the title line. Its own first line is the track's title, and
-     *   "Now playing" over that says nothing new.
-     * - Any other kind has both.
+     * Whether a wide card [heightDp] tall draws its title line over [spec]'s content. The line has
+     * the badge, the title and the footer. A card with a [footer] ("Failed 10:42", "2 h ago")
+     * always has it: a card has no other place for the footer. A screen reader hears the title
+     * either way.
+     * - Buttons, switches and a text leave the line out under [TITLED_DP]: a button needs 48 dp, and
+     *   a text would get one line.
+     * - Bars with their names leave it out when it would cost them their names.
+     * - A media card never has it. Its own first line is the track's title, and "Now playing" over
+     *   that says nothing new.
+     * - Any other kind has it.
      */
-    fun wideFrame(spec: WidgetSpec?, widthDp: Int, heightDp: Int, footer: Boolean = false): Frame = when (spec) {
-        is WidgetSpec.Buttons, is WidgetSpec.Toggles -> Frame(title = footer || heightDp >= TITLED_DP, badge = widthDp >= BADGED_BUTTONS_DP)
-        is WidgetSpec.Media -> Frame(title = false, badge = widthDp >= BADGED_BUTTONS_DP)
-        is WidgetSpec.Text -> Frame(title = footer || heightDp >= TITLED_DP, badge = true)
-        is WidgetSpec.Progress -> Frame(title = footer || heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size, badge = true)
-        else -> Frame(title = true, badge = true)
+    fun wideTitle(spec: WidgetSpec?, heightDp: Int, footer: Boolean = false): Boolean = when (spec) {
+        is WidgetSpec.Buttons, is WidgetSpec.Toggles, is WidgetSpec.Text -> footer || heightDp >= TITLED_DP
+        is WidgetSpec.Media -> false
+        is WidgetSpec.Progress -> footer || heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size
+        else -> true
     }
 
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
@@ -909,7 +902,9 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 if (column > 0.dp) {
                     Column(Modifier.padding(start = 12.dp).widthIn(max = half), horizontalAlignment = Alignment.End) {
                         spec.label?.let {
-                            Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            // Over a smaller value the label is the column's heading. Alone it is a quiet note, on up to two lines.
+                            if (first != null) Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            else Text(cardText(it), style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
                         }
                         first?.let {
                             Text(WidgetWords.joined(it.value, it.label), style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)

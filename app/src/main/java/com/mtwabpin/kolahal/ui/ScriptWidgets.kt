@@ -43,6 +43,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -140,8 +141,8 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?, ownWidget: Boolean
 /**
  * The card of a script widget, [height] tall and as wide as it is given. Call it inside [GuiTheme].
  * - It has its own opaque surface, so its text reads over any wallpaper.
- * - It draws [spec] for the box it gets ([WidgetSizes.box]): large has the title in a row on top,
- *   wide has the badge at its start, small has the content only.
+ * - It draws [spec] for the box it gets ([WidgetSizes.box]): large and wide have a title line
+ *   on top ([CardLayout]), small has the content only.
  * - With a [note], it shows that and not the content. [failure] is the text of [CardNote.FAILED].
  * - [footer] is the content's age, or "Failed 10:42". Large has it as its last line, wide at the
  *   end of the title's line. Small has no room for it.
@@ -196,9 +197,9 @@ internal fun WidgetCard(
         ) {
             Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
                 CompositionLocalProvider(LocalCardLongPress provides onLongClick) {
-                    // A card with a note draws no content, so its frame is the usual one.
-                    val frame = WidgetWords.wideFrame(spec.takeIf { note == null }, widthDp, heightDp, footer = footer != null)
-                    CardLayout(title, spec, note, failure, footer, box, frame, onTap, stamp, badge)
+                    // A card with a note draws no content, so it has its title line.
+                    val titled = WidgetWords.wideTitle(spec.takeIf { note == null }, heightDp, footer = footer != null)
+                    CardLayout(title, spec, note, failure, footer, box, titled, onTap, stamp, badge)
                 }
             }
         }
@@ -206,11 +207,14 @@ internal fun WidgetCard(
 }
 
 /**
- * The title, the badge, the content and the footer, placed for [box]. [frame] says which of the
- * title line and the badge a wide box has ([WidgetWords.wideFrame]).
- * - A large card always has a badge: [badge] (a drawable), or the content's icon, or the first
- *   letter of the title ([WidgetWords.badgeLetter]). It is 24 dp, in the title's line.
- * - A wide card has the badge only for an icon of the content, as a column at its start.
+ * The title, the badge, the content and the footer, placed for [box]. [titled] says whether a
+ * wide box has its title line ([WidgetWords.wideTitle]).
+ * - The title line starts with the badge: [badge] (a drawable), or the content's icon, or the
+ *   first letter of the title ([WidgetWords.badgeLetter]). It is 24 dp in a large card and 20 dp
+ *   in a wide one. A small card has no title line, so no badge.
+ * - Large: the title line, the content, and the footer as the last line.
+ * - Wide: the title line with the footer at its end, then the content. Without the title line
+ *   there is no place for the footer. A screen reader still hears both.
  */
 @Composable
 private fun CardLayout(
@@ -220,46 +224,45 @@ private fun CardLayout(
     failure: String?,
     footer: WidgetWords.Footer?,
     box: WidgetSizes.Box,
-    frame: WidgetWords.Frame,
+    titled: Boolean,
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
     badge: Int?,
 ) {
     val type = MaterialTheme.typography
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val icon = spec?.base?.icon
-    val colour = roleColour(spec?.base)
     when (box) {
-        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val letter = if (badge == null && icon == null) WidgetWords.badgeLetter(title) else null
-                if (badge != null || icon != null || letter != null) {
-                    // A letter only says the title again, so a screen reader skips it.
-                    Badge(icon ?: letter, badge, colour, badgeShape(spec), 24.dp, quiet = icon == null)
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(title, style = type.titleSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(8.dp))
+        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            TitleLine(title, spec, badge, 24.dp, type.titleSmall)
+            Spacer(Modifier.height(6.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
             if (footer != null) FooterLine(footer, Modifier.padding(top = 4.dp))
         }
-        WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null && frame.badge) {
-                Badge(icon, null, colour, badgeShape(spec), 40.dp)
-                Spacer(Modifier.width(12.dp))
+        WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium) {
+                if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
             }
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                // Without the title line there is no place for the footer. A screen reader still hears both.
-                if (frame.title) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(title, style = type.labelMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
-                }
-                Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
-            }
+            Box(Modifier.weight(1f).fillMaxWidth()) { CardBody(spec, note, failure, box, onTap, stamp) }
         }
         // No room for a title or a footer: the content alone. A screen reader still hears both.
         WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
+    }
+}
+
+/**
+ * A card's title line, [size] tall: the badge, the [title] in [style], and [end] at its end. A
+ * badge with only the title's letter says the title again, so a screen reader skips it.
+ */
+@Composable
+private fun TitleLine(title: String, spec: WidgetSpec?, badge: Int?, size: Dp, style: TextStyle, end: @Composable () -> Unit = {}) {
+    val icon = spec?.base?.icon
+    val letter = if (badge == null && icon == null) WidgetWords.badgeLetter(title) else null
+    Row(Modifier.height(size), verticalAlignment = Alignment.CenterVertically) {
+        if (badge != null || icon != null || letter != null) {
+            Badge(icon ?: letter, badge, roleColour(spec?.base), badgeShape(spec), size, quiet = icon == null)
+            Spacer(Modifier.width(if (size >= 24.dp) 8.dp else 6.dp))
+        }
+        Text(title, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        end()
     }
 }
 

@@ -705,9 +705,9 @@ Every kind takes these fields. All are optional.
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is in view. |
 
-A wide card under 96dp tall gives its title line to its content when the content needs the room:
+A wide card under 100dp tall gives its title line to its content when the content needs the room:
 buttons, switches, a `text`, and bars with their names. A card one row high (`2x1`, `4x1`) is
-under 96dp on most phones. The age and "Failed 10:42" are on the title line, so a card with one of
+under 100dp on most phones. The age and "Failed 10:42" are on the title line, so a card with one of
 them to show keeps the line. A screen reader always says the title.
 
 ### Kinds and their fields
@@ -861,7 +861,7 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
 
 - A small card shows fewer buttons, never smaller ones. So put the important ones first.
-- A button is at least 48dp tall. A wide card under 96dp tall leaves out its title line to keep
+- A button is at least 48dp tall. A wide card under 100dp tall leaves out its title line to keep
   that room, unless it has an age or "Failed 10:42" to show (see above). The same goes for
   `toggles`.
 - A button can't run a terminal command. In a run that a button starts, the script can use

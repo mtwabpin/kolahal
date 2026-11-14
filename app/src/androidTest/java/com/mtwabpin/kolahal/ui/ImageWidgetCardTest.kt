@@ -193,7 +193,8 @@ class ImageWidgetCardTest {
         downloaded(900, 300)
         show(picture.copy(fit = "fit"), shown = true, width = 320.dp, height = 120.dp)
         compose.waitFor("the picture isn't drawn; the card draws ${texts()}") { hasPicture() }
-        assertEquals(listOf("Comic"), texts())
+        // The badge's letter and the title: no caption.
+        assertEquals(listOf("C", "Comic"), texts())
         says("Comic: A graph of sleep, Monday")
     }
 
