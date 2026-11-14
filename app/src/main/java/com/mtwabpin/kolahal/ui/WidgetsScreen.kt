@@ -66,11 +66,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.Script
-import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.WidgetFeed
+import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -107,12 +106,15 @@ internal fun rememberWidgetMessages(widgets: WidgetHost): SnackbarHostState {
  * - `script:weather`: the script's `@title`, else its name.
  * - `status:weather`: the same, then "status".
  * - A script that is gone, and a built-in widget: the name in the source.
+ *
+ * [scripts] are the scripts as the view model has read them, by name ([WidgetScript]). No code is
+ * read here.
  */
-internal fun sourceTitle(provider: String, scripts: List<Script>): String? {
+internal fun sourceTitle(provider: String, scripts: Map<String, WidgetScript>): String? {
     if (!WidgetSource.isSource(provider)) return null
     val name = provider.substringAfter(':')
     if (provider.startsWith(WidgetSource.BUILTIN)) return name
-    val title = scripts.firstOrNull { it.name == name }?.let { ScriptMeta.title(it.code) } ?: name
+    val title = scripts[name]?.title ?: name
     return if (provider.startsWith(WidgetSource.STATUS)) "$title status" else title
 }
 
@@ -151,11 +153,12 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     val labels = remember(placed, providersVersion) {
         placed.associate { (key, id, provider) -> key to (id?.let { widgets.cachedInfo(it) }?.loadLabel(context.packageManager) ?: provider.substringAfterLast('.')) }
     }
-    // A widget Kolahal draws itself is named by its script's title. They are apart from the labels
-    // above, which cost a call to another app each: the scripts change at every run.
-    val scripts by vm.scriptList.collectAsStateWithLifecycle()
+    // A widget Kolahal draws itself is named by its script's title. The view model has read the titles
+    // from the code, off the main thread, and its answer changes only when a title does: not at
+    // every run. They are apart from the labels above, which cost a call to another app each.
+    val scripts by vm.widgetScripts.collectAsStateWithLifecycle()
     val titles = remember(placed, scripts) {
-        placed.mapNotNull { (key, _, provider) -> sourceTitle(provider, scripts)?.let { key to it } }.toMap()
+        placed.mapNotNull { (key, _, provider) -> sourceTitle(provider, scripts.orEmpty())?.let { key to it } }.toMap()
     }
     fun labelOf(w: PlacedWidget): String? = titles[w.key] ?: labels[w.key]
     val chosen = panel.firstOrNull { it.key == selected }

@@ -11,7 +11,8 @@ import org.junit.Test
 class WidgetTitlesTest {
     private fun script(name: String, code: String) = Script(1, name, ScriptLang.LUA, code, 0, enabled = true, notify = false, lastRun = null, lastStatus = null)
 
-    private val scripts = listOf(script("weather", "-- @title Weather in Paris\n-- @widget stat"), script("hn", "-- @widget list"))
+    /** The scripts as the view model reads them from their code, by name. */
+    private val scripts = WidgetScriptReader().read(listOf(script("weather", "-- @title Weather in Paris\n-- @widget stat"), script("hn", "-- @widget list")))
 
     @Test fun aScriptsWidgetHasTheScriptsTitle() {
         assertEquals("Weather in Paris", sourceTitle("script:weather", scripts))
@@ -19,7 +20,7 @@ class WidgetTitlesTest {
         assertEquals("hn", sourceTitle("script:hn", scripts))
         // The script is gone: the name the widget was placed with.
         assertEquals("old", sourceTitle("script:old", scripts))
-        assertEquals("old", sourceTitle("script:old", emptyList()))
+        assertEquals("old", sourceTitle("script:old", emptyMap()))
     }
 
     @Test fun aStatusCardAndABuiltInWidgetHaveNamesToo() {
