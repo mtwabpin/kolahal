@@ -171,11 +171,13 @@ class OwnCardsTest {
         // What has ended and what is past the three days is left out. An event of several days is there once.
         assertEquals(listOf("Trip", "Birthday", "Workshop", "Standup", "Ping"), spec.events.map { it.title })
         assertEquals(listOf(true, true, false, false, false), spec.events.map { it.allDay })
-        // Times are in seconds. An event with no length has no end.
+        // Times are in seconds. An event with no length ends when it starts: it leaves the card when its time has come.
         val standup = spec.events[3]
         assertEquals(at(14, 17) / 1000, standup.starts)
         assertEquals(at(14, 17, 30) / 1000, standup.ends)
-        assertNull(spec.events[4].ends)
+        assertEquals(at(15, 9) / 1000, spec.events[4].starts)
+        assertEquals(at(15, 9) / 1000, spec.events[4].ends)
+        assertTrue(spec.events.all { it.ends != null })
         // An event's tap names it and its start, in words the view model knows.
         assertEquals("event 1 ${at(14, 17)}", standup.tap?.args)
         assertEquals(OwnTap.OpenEvent(1, at(14, 17)), OwnTaps.parse(WidgetSource.AGENDA, standup.tap!!.args!!))
@@ -200,6 +202,61 @@ class OwnCardsTest {
         assertEquals(midnight(17, zone), trip.ends)
         // The tap still names the event's own start, as the calendar has it.
         assertEquals("event 5 ${utcDay(12)}", trip.tap?.args)
+    }
+
+    /** What the card's body draws for the calendar's events at a moment: each day's label, then "time title" for each event ([WidgetWords.agenda]). */
+    private fun drawn(events: List<AgendaEvent>, z: ZoneId, nowMs: Long): List<String> =
+        WidgetWords.agenda(OwnCards.agenda(events, z, nowMs, days = 3), nowMs / 1000, z, clock24 = true, locale = Locale.US)
+            .flatMap { day -> listOf(day.label) + day.lines.map { "${it.time} ${it.event.title}" } }
+
+    /** The body puts each event under its day, all-day ones first. One that goes on says "now", and one that has ended is gone. */
+    @Test fun theBodyDrawsTheCalendarByDay() {
+        val events = listOf(
+            allDay(5, "Trip", 13, 16),
+            allDay(4, "Birthday", 14, 14),
+            timed(2, "Breakfast", at(14, 8), at(14, 9)),
+            timed(3, "Workshop", at(14, 15), at(14, 18)),
+            timed(1, "Standup", at(14, 17), at(14, 17, 30)),
+            timed(7, "Ping", at(15, 9), at(15, 9)),
+            allDay(9, "Holiday", 16, 16),
+        )
+        assertEquals(
+            listOf("Today", "all day Trip", "all day Birthday", "now Workshop", "17:00 Standup", "Tomorrow", "09:00 Ping", "Mon 16 Nov", "all day Holiday"),
+            drawn(events, zone, at(14, 16, 5)),
+        )
+    }
+
+    /**
+     * The calendar keeps an all-day event at midnight UTC, and the body goes by the phone's day. With
+     * the card's local midnights the event is under its own day, west and east of UTC.
+     */
+    @Test fun theBodyDrawsAnAllDayEventOnItsOwnDay() {
+        fun moment(z: ZoneId, day: Int, hour: Int, minute: Int = 0) = LocalDateTime.of(2026, 11, day, hour, minute).atZone(z).toInstant().toEpochMilli()
+        val birthday = listOf(allDay(4, "Birthday", 14, 14))
+        // West of UTC, the evening before: midnight UTC of the 14th has passed, but the 14th is tomorrow here.
+        val west = ZoneId.of("America/Los_Angeles")
+        assertEquals(listOf("Tomorrow", "all day Birthday"), drawn(birthday, west, moment(west, 13, 20)))
+        assertEquals(listOf("Today", "all day Birthday"), drawn(birthday, west, moment(west, 14, 23, 59)))
+        assertEquals(emptyList<String>(), drawn(birthday, west, moment(west, 15, 0, 1)))
+        // East of UTC, just after midnight: the 14th has begun here, and in UTC the 13th has hours to go.
+        val east = ZoneId.of("Pacific/Auckland")
+        val both = listOf(allDay(8, "Yesterday", 13, 13)) + birthday
+        assertEquals(listOf("Today", "all day Birthday"), drawn(both, east, moment(east, 14, 0, 30)))
+        assertEquals(listOf("Today", "all day Yesterday", "Tomorrow", "all day Birthday"), drawn(both, east, moment(east, 13, 23, 30)))
+        // An event of several days stays to the end of its last day, and not longer.
+        val trip = listOf(allDay(5, "Trip", 12, 14))
+        assertEquals(listOf("Today", "all day Trip"), drawn(trip, east, moment(east, 14, 23, 59)))
+        assertEquals(emptyList<String>(), drawn(trip, east, moment(east, 15, 0, 1)))
+    }
+
+    /** An event with no length is on the card until its time has come, as the `agenda` command lists it. */
+    @Test fun anEventWithNoLengthLeavesAtItsTime() {
+        val ping = listOf(timed(7, "Ping", at(14, 17), at(14, 17)))
+        assertEquals(listOf("Today", "17:00 Ping"), drawn(ping, zone, at(14, 16, 59)))
+        assertEquals(emptyList<String>(), drawn(ping, zone, at(14, 17, 0, 1)))
+        // Between two reads of the calendar the body drops it by itself: the card of 16:59 is drawn at 17:01.
+        val before = OwnCards.agenda(ping, zone, at(14, 16, 59), days = 3)
+        assertTrue(WidgetWords.agenda(before, at(14, 17, 1) / 1000, zone, clock24 = true, locale = Locale.US).isEmpty())
     }
 
     @Test fun theAgendaSaysWhenThereIsNothing() {

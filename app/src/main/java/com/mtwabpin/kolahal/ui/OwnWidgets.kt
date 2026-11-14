@@ -145,8 +145,14 @@ internal object OwnCards {
      * milliseconds): the events of [days] days from today, at most [WidgetJson.MAX_EVENTS].
      * - [Agenda.group] says which events count: the read is a day wider on each side than what is
      *   shown, and an event that has ended is left out.
-     * - The calendar keeps an all-day event at midnight UTC. Here it starts at midnight in [zone],
-     *   so it is on the right day wherever the phone is. One that started before today starts today.
+     * - The calendar keeps an all-day event at midnight UTC. The card's body puts an event on the
+     *   phone's day of its start, and drops it when its end has come ([WidgetWords.agenda]). So here
+     *   an all-day event starts at midnight in [zone] and ends at the midnight after its last day.
+     *   Left at UTC it would show a day early west of UTC, and stay for hours east of it. One that
+     *   started before today starts today.
+     * - Every event has its end, also one with no length. The body then drops it when its time has
+     *   come, as [Agenda.group] and the `agenda` command do. Without an end it would stay all day
+     *   on the card, and go at the next read of the calendar.
      * - An event's tap holds its id and its start (`event 41 1800000000000`), so the right time of
      *   a repeating event opens.
      */
@@ -170,7 +176,7 @@ internal object OwnCards {
                         tap = tap,
                     )
                 } else {
-                    WidgetSpec.Event(title = title, starts = e.begin / 1000, ends = e.end.takeIf { it > e.begin }?.let { it / 1000 }, allDay = false, tap = tap)
+                    WidgetSpec.Event(title = title, starts = e.begin / 1000, ends = maxOf(e.begin, e.end) / 1000, allDay = false, tap = tap)
                 }
             },
             days = days,
