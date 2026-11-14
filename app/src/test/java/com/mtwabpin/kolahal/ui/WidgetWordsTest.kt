@@ -495,6 +495,31 @@ class WidgetWordsTest {
         assertFalse(WidgetWords.timed(null))
     }
 
+    /** A card that has no picture says why. Out of view it shows the words for the picture, and never "Loading". */
+    @Test fun anImageCardSaysWhyItHasNoPicture() {
+        assertNull(WidgetWords.pictureNote(loaded = true, failed = false, inView = true, alt = "A graph"))
+        assertNull(WidgetWords.pictureNote(loaded = true, failed = false, inView = false, alt = "A graph"))
+        assertEquals("Loading picture…", WidgetWords.pictureNote(loaded = false, failed = false, inView = true, alt = "A graph"))
+        // Out of view nothing is fetched, so "Loading" would never end.
+        assertEquals("A graph", WidgetWords.pictureNote(loaded = false, failed = false, inView = false, alt = "A graph"))
+        assertEquals("Picture unavailable", WidgetWords.pictureNote(loaded = false, failed = true, inView = true, alt = "A graph"))
+        assertEquals("Picture unavailable", WidgetWords.pictureNote(loaded = false, failed = true, inView = false, alt = "A graph"))
+    }
+
+    /** A picture is decoded for its place: at most twice as wide, with at most twice its pixels. */
+    @Test fun aPictureIsDecodedNoLargerThanTwiceItsPlace() {
+        assertEquals(WidgetWords.PictureSize(widthPx = 640, maxPixels = 2f * 320 * 240), WidgetWords.pictureSize(320, 240))
+        // A place is counted in steps of 16 pixels, so a place one pixel wider needs no new decode.
+        assertEquals(WidgetWords.pictureSize(320, 240), WidgetWords.pictureSize(305, 225))
+        assertEquals(WidgetWords.PictureSize(widthPx = 672, maxPixels = 2f * 336 * 240), WidgetWords.pictureSize(321, 240))
+        // A place with no size, and one with no limit, still give a size that can be decoded.
+        assertEquals(WidgetWords.PictureSize(widthPx = 32, maxPixels = 2f * 16 * 16), WidgetWords.pictureSize(0, -5))
+        assertEquals(WidgetWords.PictureSize(widthPx = 8192, maxPixels = 2f * 4096 * 4096), WidgetWords.pictureSize(Int.MAX_VALUE, Int.MAX_VALUE))
+        // The largest card of a phone stays under the cache: 8 bytes for each pixel of its place.
+        val full = WidgetWords.pictureSize(1080, 1200)
+        assertTrue(full.maxPixels * 4 <= 12 * 1024 * 1024)
+    }
+
     /** A button is never under 48 dp. So a wide card too low or too narrow leaves out its title line or its badge, not a button. */
     @Test fun aWideCardOfButtonsLeavesOutWhatHasNoRoom() {
         val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))

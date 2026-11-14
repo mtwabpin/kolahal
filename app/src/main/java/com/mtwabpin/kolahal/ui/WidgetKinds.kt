@@ -296,6 +296,48 @@ internal object WidgetWords {
      */
     fun timed(spec: WidgetSpec?): Boolean = spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda
 
+    /** What an image card says while its picture is on its way. */
+    const val PICTURE_LOADING = "Loading picture…"
+
+    /** What an image card says when its picture can't be fetched or isn't a picture. */
+    const val PICTURE_UNAVAILABLE = "Picture unavailable"
+
+    /**
+     * What an image card says in the place of its picture. Null when it has the picture ([loaded]).
+     * - [failed]: [PICTURE_UNAVAILABLE].
+     * - Not there yet, and the widgets page is [inView]: [PICTURE_LOADING]. The fetch is on its way.
+     * - Not there, and the page is not in view: the picture's [alt] text. Nothing is fetched then,
+     *   so the card never says "Loading" for ever.
+     */
+    fun pictureNote(loaded: Boolean, failed: Boolean, inView: Boolean, alt: String): String? = when {
+        loaded -> null
+        failed -> PICTURE_UNAVAILABLE
+        inView -> PICTURE_LOADING
+        else -> alt
+    }
+
+    /** The size a picture is decoded at: at most [widthPx] wide, with at most [maxPixels] pixels. */
+    data class PictureSize(val widthPx: Int, val maxPixels: Float)
+
+    /** A place is counted in steps of this many pixels, so a place that is one pixel wider needs no new decode. */
+    private const val PICTURE_STEP = 16
+
+    /** The largest side a place counts with, in pixels. No card is larger, and the numbers stay small. */
+    private const val PICTURE_SIDE = 4096
+
+    /**
+     * The size to decode a picture at for a place [widthPx] by [heightPx] on the card.
+     * - At most twice as wide as the place, and at most twice its pixels. A picture that is wider
+     *   or taller than its place is cropped, so it needs more than the place has.
+     * - That caps its memory: 4 bytes a pixel, so at most 8 bytes for each pixel of the place.
+     */
+    fun pictureSize(widthPx: Int, heightPx: Int): PictureSize {
+        fun stepped(px: Int) = (px.coerceIn(1, PICTURE_SIDE) + PICTURE_STEP - 1) / PICTURE_STEP * PICTURE_STEP
+        val w = stepped(widthPx)
+        val h = stepped(heightPx)
+        return PictureSize(widthPx = w * 2, maxPixels = 2f * w * h)
+    }
+
     /** A grid of buttons or switches: [columns] across and [rows] down, with the first [shown] of them in it. */
     data class Grid(val columns: Int, val rows: Int, val shown: Int)
 
