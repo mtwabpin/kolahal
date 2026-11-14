@@ -19,7 +19,8 @@ import com.mtwabpin.kolahal.data.Script
  * - [HEADER], pinned at the top: a script that sets a status line ([ScriptMeta.setsStatus]) shows it
  *   at the top of home only after you pin it (`script pin`, or its menus). No script pins itself.
  * - [WIDGET], on the widgets page: a script with a `@widget` line has it only while its widget is
- *   placed there. Kolahal sets it from the placed list ([com.mtwabpin.kolahal.widgets.WidgetHost.syncAccess]).
+ *   placed there. Kolahal sets it from the placed list ([com.mtwabpin.kolahal.widgets.WidgetHost.syncAccess]),
+ *   and nothing else does: the list is the truth, and the item is its copy ([following]).
  *   While it is off, `widget.show` stores nothing.
  * - Each `@on` event: on unless switched off.
  * When an item is off, the script gets an empty answer where that is honest (no apps, no
@@ -108,6 +109,24 @@ object ScriptAccess {
     /** [values], plus everything [code] declares that nobody has decided yet, set to allowed. */
     fun allowUndecided(code: String, values: Map<String, Boolean>): Map<String, Boolean> =
         values + ScriptMeta.uses(code).filter { it !in values }.associateWith { true }
+
+    /**
+     * [values] with the [WIDGET] item as the placed list says: on while the script's widget is on the
+     * widgets page ([placed]), off when it is not. Null when it says so already: then nothing is written.
+     * - A script whose widget was never placed gets no item. A missing item is off.
+     * - Only this sets the item ([com.mtwabpin.kolahal.data.ScriptRepository.setWidgetPlaced]). It
+     *   changes the access as stored at that moment, so a switch set beside it is kept.
+     */
+    fun following(values: Map<String, Boolean>, placed: Boolean): Map<String, Boolean>? =
+        if ((values[WIDGET] == true) == placed) null else values + (WIDGET to placed)
+
+    /**
+     * [values] with the [WIDGET] item as it is in [now], the access stored at this moment. For a
+     * write that puts back an older copy of the access (undo after an update): the widget may have
+     * been placed or removed since the copy was taken, and the placed list decides the item.
+     */
+    fun keepingWidget(values: Map<String, Boolean>, now: Map<String, Boolean>): Map<String, Boolean> =
+        values - WIDGET + listOfNotNull(now[WIDGET]?.let { WIDGET to it })
 
     fun parse(raw: String?): Map<String, Boolean> =
         (raw?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() }).orEmpty()

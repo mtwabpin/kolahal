@@ -88,8 +88,15 @@ class ScriptRepository private constructor(private val context: Context) {
      * belongs to the main process.
      */
     private fun widgetPlaced(name: String, code: String): Boolean =
-        ScriptMeta.widget(code) != null && !Singleton.inScriptProcess &&
-            runCatching { WidgetHost.get(context).isPlaced(WidgetSource.script(name)) }.getOrDefault(false)
+        ScriptMeta.widget(code) != null && runCatching { widgetsPage?.isPlaced(WidgetSource.script(name)) }.getOrNull() == true
+
+    /**
+     * The widgets page's list of placed widgets. It belongs to the main process: null in the
+     * `:script` process, which can't follow it. This is the only way from here to [WidgetHost], for
+     * two things: whether a name's widget is placed ([widgetPlaced]), and a rename ([rename]).
+     * The access itself is written from there, never asked for from here ([setWidgetPlaced]).
+     */
+    private val widgetsPage: WidgetHost? get() = if (Singleton.inScriptProcess) null else WidgetHost.get(context)
 
     /**
      * The `widget` access that [code] gets under [name]: on when its widget is placed ([widgetPlaced]),
@@ -114,27 +121,55 @@ class ScriptRepository private constructor(private val context: Context) {
      *   Code that gains a `@widget` line while a widget of its name waits on the page has it on at once.
      */
     fun saveCode(id: Long, code: String, byUser: Boolean = false) {
-        val found = byId(id) ?: return
-        val declared = ScriptAccess.items(code).toSet()
-        val s = found.copy(access = found.access.filter { (item, on) -> !on || item in declared || item == ScriptAccess.HEADER || item == ScriptAccess.WIDGET })
-        val newUses = ScriptMeta.uses(code) - ScriptMeta.uses(s.code) - s.access.keys
-        val newEvents = ScriptMeta.events(code) - ScriptMeta.events(s.code).toSet() - s.access.keys
-        val newInternet = newInternet(s, code)
-        val access = when {
-            byUser -> if (s.enabled) s.access + newUses.associateWith { true } else s.access
-            else -> s.access + (newEvents + newInternet).associateWith { false }
-        } + placedAccess(s.name, code)
-        update(id) {
+        // The placed list is the main process's own, so it is read before the database's step, not inside it.
+        val placed = placedAccess(byId(id)?.name ?: return, code)
+        var asks = emptyList<String>()
+        val s = change(id) { found ->
+            val declared = ScriptAccess.items(code).toSet()
+            val kept = found.copy(access = found.access.filter { (item, on) -> !on || item in declared || item == ScriptAccess.HEADER || item == ScriptAccess.WIDGET })
+            val newUses = ScriptMeta.uses(code) - ScriptMeta.uses(kept.code) - kept.access.keys
+            val newEvents = ScriptMeta.events(code) - ScriptMeta.events(kept.code).toSet() - kept.access.keys
+            val newInternet = newInternet(kept, code)
+            val access = when {
+                byUser -> if (kept.enabled) kept.access + newUses.associateWith { true } else kept.access
+                else -> kept.access + (newEvents + newInternet).associateWith { false }
+            } + placed
             put("code", code)
             put("access", ScriptAccess.encode(access))
             put("changed_at", System.currentTimeMillis())
-        }
+            asks = newUses.toList() + newEvents + newInternet
+        } ?: return
         // Code that no longer sets a status line leaves none behind on its card, in `status` or pinned.
         if (ScriptMeta.setsStatus(s.code) && !ScriptMeta.setsStatus(code)) StatusLines.clear(context, s.name)
         // The same for a widget: code without its `@widget` line leaves no content behind.
         if (ScriptMeta.widget(s.code) != null && ScriptMeta.widget(code) == null) WidgetStates.forget(context, s.name)
         forgetRemovedSecrets(s.name, code)
-        if (!byUser && s.enabled) ScriptAccess.askToAllow(context, s.name, newUses.toList() + newEvents + newInternet, "now requests")
+        if (!byUser && s.enabled) ScriptAccess.askToAllow(context, s.name, asks, "now requests")
+    }
+
+    /**
+     * Reads the script [id] and writes what [block] puts for it, in one transaction: no other write
+     * to the database comes between the read and the write, from this process or the `:script` one.
+     * - Every write that makes the access from the stored one goes through here. So a change made
+     *   beside it (a switch set by hand, a widget placed or removed) is never written over with
+     *   what was read before it.
+     * - [block] gets the script as stored now, and only decides what to write. It writes nothing
+     *   itself and tells nobody: what follows from the change comes after this returns.
+     * Returns the script as it was read, or null when there is no such script.
+     */
+    private fun change(id: Long, block: ContentValues.(Script) -> Unit): Script? {
+        var wrote = false
+        val read = db.writableDatabase.transaction {
+            val s = byId(id) ?: return@transaction null
+            val values = ContentValues().apply { block(s) }
+            if (values.size() > 0) {
+                update("scripts", values, "id = ?", arrayOf(id.toString()))
+                wrote = true
+            }
+            s
+        }
+        if (wrote) version.incrementAndGet()
+        return read
     }
 
     /**
@@ -162,13 +197,13 @@ class ScriptRepository private constructor(private val context: Context) {
      *   for, except for `@secret` lines it no longer has.
      */
     fun replaceCode(id: Long, code: String) {
-        val s = byId(id) ?: return
-        update(id) {
+        val placed = placedAccess(byId(id)?.name ?: return, code)
+        val s = change(id) { now ->
             put("code", code)
             put("enabled", 0)
-            put("access", ScriptAccess.encode(s.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(s, code).associateWith { false } + placedAccess(s.name, code)))
+            put("access", ScriptAccess.encode(now.access.filter { (item, on) -> !on || item == ScriptAccess.WIDGET } + newInternet(now, code).associateWith { false } + placed))
             put("changed_at", System.currentTimeMillis())
-        }
+        } ?: return
         // Its timers follow a changed `@every` or `@at` line, as after an edit. A timer set in its sheet stays.
         setInterval(id, ScriptMeta.intervalAfter(s.code, code, s.intervalMin))
         setAtTimes(id, ScriptMeta.timesAfter(s.code, code, s.atTimes))
@@ -193,11 +228,13 @@ class ScriptRepository private constructor(private val context: Context) {
     /**
      * Puts back the code, access and change time that [before] had. Undo after an update or a reset
      * uses it, so the copy is exactly as it was. Its timers, switches and options were never changed.
+     * Its place on the widgets page stays as it is now: the placed list decides it, and the widget
+     * may have been placed or removed since [before] was read.
      */
     fun putBack(before: Script) {
-        update(before.id) {
+        change(before.id) { now ->
             put("code", before.code)
-            put("access", ScriptAccess.encode(before.access))
+            put("access", ScriptAccess.encode(ScriptAccess.keepingWidget(before.access, now.access)))
             if (before.changedAt == null) putNull("changed_at") else put("changed_at", before.changedAt)
         }
     }
@@ -210,11 +247,10 @@ class ScriptRepository private constructor(private val context: Context) {
      * Without it, those items stay off, and the caller offers a line to allow them ([ScriptAccess.askForNew]).
      */
     fun setEnabled(id: Long, enabled: Boolean, grant: Boolean = false) {
-        val s = byId(id) ?: return
-        update(id) {
+        val s = change(id) { now ->
             put("enabled", if (enabled) 1 else 0)
-            if (enabled && grant) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(s.code, s.access)))
-        }
+            if (enabled && grant) put("access", ScriptAccess.encode(ScriptAccess.allowUndecided(now.code, now.access)))
+        } ?: return
         // Clear its status line either way. If switched off, the line would come back stale. If switched on,
         // a line left by a run while it was off would show.
         if (enabled != s.enabled) {
@@ -231,10 +267,44 @@ class ScriptRepository private constructor(private val context: Context) {
         if (ScriptMeta.notifies(code)) setNotify(id, true)
     }
 
-    /** Switches one access item. See [ScriptAccess]. */
+    /**
+     * Switches one access item. See [ScriptAccess].
+     * - The item is changed in the access as stored at that moment ([change]), so two switches set
+     *   at the same time are both kept.
+     * - [ScriptAccess.WIDGET] is not switched here, and a call for it changes nothing: the placed
+     *   list sets it ([setWidgetPlaced]).
+     */
     fun setAccess(id: Long, item: String, allowed: Boolean) {
-        val s = byId(id) ?: return
-        update(id) { put("access", ScriptAccess.encode(s.access + (item to allowed))) }
+        if (item == ScriptAccess.WIDGET) return
+        change(id) { s -> put("access", ScriptAccess.encode(s.access + (item to allowed))) }
+    }
+
+    /**
+     * Makes the `widget` access of the script [name] say [placed], as the placed list does. The list
+     * is the truth. This item is its copy in the database, where the `:script` process can read it.
+     * - Only [WidgetHost] calls it, from the list. The copy never goes the other way.
+     * - It writes only when the item differs, and keeps every other item ([ScriptAccess.following]).
+     * Returns the script as it is then, or null when no script has the name.
+     */
+    fun setWidgetPlaced(name: String, placed: Boolean): Script? {
+        val id = byName(name)?.id ?: return null
+        var access: Map<String, Boolean>? = null
+        val s = change(id) { now ->
+            // The name is checked again: this is the row as stored now, and a rename may have come between.
+            if (now.name == name) access = ScriptAccess.following(now.access, placed)?.also { put("access", ScriptAccess.encode(it)) }
+        } ?: return null
+        return if (s.name != name) null else s.copy(access = access ?: s.access)
+    }
+
+    /**
+     * Makes every script's `widget` access say what the placed list says: on for the scripts named
+     * in [placed], off for every other one. It writes only the rows that differ, each in its own step.
+     */
+    fun followPlaced(placed: Set<String>) {
+        for (s in all()) {
+            if (ScriptAccess.following(s.access, s.name in placed) == null) continue
+            change(s.id) { now -> ScriptAccess.following(now.access, now.name in placed)?.let { put("access", ScriptAccess.encode(it)) } }
+        }
     }
 
     fun setAtTimes(id: Long, times: List<String>) = update(id) {
@@ -278,7 +348,7 @@ class ScriptRepository private constructor(private val context: Context) {
         forgetOrigin(s.name)
         version.incrementAndGet()
         // Its placed widget follows the name. The list of placed widgets belongs to the main process.
-        if (!Singleton.inScriptProcess) runCatching { WidgetHost.get(context).renameScript(s.name, to) }
+        runCatching { widgetsPage?.renameScript(s.name, to) }
         WidgetStates.bump()
     }
 

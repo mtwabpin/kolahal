@@ -25,7 +25,6 @@ import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Singleton
-import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -297,13 +296,15 @@ class WidgetHost private constructor(context: Context) {
      * - Placed: the access goes on. With [run], a `"widget"` run is queued after that.
      * - Not placed: the access goes off, and what the widget showed is forgotten.
      * It reads the list when it runs, not when it is asked. So after a quick remove and add, the last one wins.
+     *
+     * The copy goes one way: from the list to the access, never back. The script list makes the
+     * change in one step of its own ([ScriptRepository.setWidgetPlaced]), so a switch you set at the
+     * same moment (`script deny … internet`) is not lost.
      */
     private fun follow(name: String, run: Boolean = false) = checks.execute {
         runCatching {
-            val scripts = ScriptRepository.get(app)
-            val script = scripts.byName(name)
             val placed = isPlaced(WidgetSource.script(name))
-            if (script != null && (script.access[ScriptAccess.WIDGET] == true) != placed) scripts.setAccess(script.id, ScriptAccess.WIDGET, placed)
+            val script = ScriptRepository.get(app).setWidgetPlaced(name, placed)
             if (!placed) WidgetStates.forget(app, name)
             else if (run && script != null) ScriptScheduler.refreshWidget(app, script)
         }
@@ -318,12 +319,7 @@ class WidgetHost private constructor(context: Context) {
      */
     fun syncAccess() = checks.execute {
         runCatching {
-            val scripts = ScriptRepository.get(app)
-            val placed = _widgets.value.mapNotNull { WidgetSource.scriptName(it.source) }.toSet()
-            scripts.all().forEach { s ->
-                val on = s.name in placed
-                if ((s.access[ScriptAccess.WIDGET] == true) != on) scripts.setAccess(s.id, ScriptAccess.WIDGET, on)
-            }
+            ScriptRepository.get(app).followPlaced(_widgets.value.mapNotNull { WidgetSource.scriptName(it.source) }.toSet())
         }
     }
 

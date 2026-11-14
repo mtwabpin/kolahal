@@ -254,7 +254,7 @@ class WidgetShowTest {
         val s = script("-- @widget stat\n$calls", "-once")
         // Its access goes on without placing the widget. Placing queues a run in the other process,
         // and that run would tell the cards too, at a moment of its own.
-        scripts.setAccess(s.id, ScriptAccess.WIDGET, true)
+        assertTrue(scripts.setWidgetPlaced(s.name, true)!!.grants.allows(ScriptAccess.WIDGET))
         fun told() = WidgetStates.versions.value[s.name] ?: 0
 
         // A widget's run: three calls and the note of its end.

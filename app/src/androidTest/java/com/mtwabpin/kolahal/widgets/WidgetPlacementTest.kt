@@ -215,13 +215,22 @@ class WidgetPlacementTest {
     /** Where the two came apart (a restore, an older version), the access follows the placed list. */
     @Test fun theAccessFollowsThePlacedList() {
         val off = t.create("-f", code)
-        scripts.setAccess(off.id, ScriptAccess.WIDGET, true)
+        // The copy in the database, written as the list would write it, but against what the list says.
+        assertTrue(scripts.setWidgetPlaced(off.name, true)!!.grants.allows(ScriptAccess.WIDGET))
         val placed = t.place(t.create("-g", code))
-        scripts.setAccess(placed.id, ScriptAccess.WIDGET, false)
+        assertFalse(scripts.setWidgetPlaced(placed.name, false)!!.grants.allows(ScriptAccess.WIDGET))
+        assertTrue(on(off))
+        assertFalse(on(placed))
         host.syncAccess()
         host.settle()
         assertFalse(on(off))
         assertTrue(on(placed))
+        // A switch set by hand never changes it, whoever asks: only the list does.
+        scripts.setAccess(placed.id, ScriptAccess.WIDGET, false)
+        scripts.setAccess(off.id, ScriptAccess.WIDGET, true)
+        assertTrue(on(placed))
+        assertFalse(on(off))
+        assertNull(scripts.setWidgetPlaced(t.name("-nobody"), true))
 
         // A backup's widget of a script is placed as it comes, and its script may fill it.
         val restored = t.create("-h", code)
@@ -231,5 +240,43 @@ class WidgetPlacementTest {
         assertFalse(w.pending)
         assertEquals(120 to 6, w.heightDp to w.span)
         assertTrue(on(restored))
+    }
+
+    /**
+     * A widget placed or removed at the moment you set a switch loses neither change. The widgets
+     * page writes the `widget` item on a thread of its own, and each write is made from the access
+     * as stored at that moment, in one step. Before, each wrote the whole access as it had read it,
+     * and the later one undid the other: a `script deny` could be lost.
+     */
+    @Test fun aSwitchSetWhileTheWidgetChangesIsKept() {
+        val s = t.create("-r", "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = 7 }")
+        assertEquals(mapOf("apps" to true, "clipboard" to true), now(s).access)
+        repeat(40) { round ->
+            val on = round % 2 == 0
+            // The three writers wait at one gate, so they start together.
+            val gate = java.util.concurrent.CountDownLatch(1)
+            val writes = listOf<() -> Unit>(
+                { scripts.setWidgetPlaced(s.name, on) },
+                { scripts.setAccess(s.id, "apps", !on) },
+                { scripts.setAccess(s.id, "clipboard", on) },
+            )
+            val writers = writes.map { write -> kotlin.concurrent.thread { gate.await(); write() } }
+            gate.countDown()
+            writers.forEach { it.join(10_000) }
+            assertEquals("round $round", mapOf(ScriptAccess.WIDGET to on, "apps" to !on, "clipboard" to on), now(s).access)
+        }
+        // An edit beside a widget that is placed: the code is saved, and the widget's item stays.
+        repeat(20) { round ->
+            val on = round % 2 == 0
+            val gate = java.util.concurrent.CountDownLatch(1)
+            val writers = listOf<() -> Unit>(
+                { scripts.setWidgetPlaced(s.name, on) },
+                { scripts.saveCode(s.id, "-- @widget stat 2x1\n-- @uses apps\n-- @uses clipboard\nwidget.show{ value = $round }", byUser = true) },
+            ).map { write -> kotlin.concurrent.thread { gate.await(); write() } }
+            gate.countDown()
+            writers.forEach { it.join(10_000) }
+            assertEquals("round $round", on, now(s).access[ScriptAccess.WIDGET])
+            assertTrue(now(s).code.endsWith("value = $round }"))
+        }
     }
 }
