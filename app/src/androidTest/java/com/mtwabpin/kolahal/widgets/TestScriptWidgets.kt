@@ -9,6 +9,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.eventually
+import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptRun
 import com.mtwabpin.kolahal.script.ScriptScheduler
@@ -55,6 +56,32 @@ class TestScriptWidgets(private val prefix: String) {
     /** What is kept for [name]'s widget. */
     fun stored(name: String): WidgetState = WidgetStates.read(context, name)
 
+    /** The entry of the widget [ref] on the widgets page, or null. */
+    fun entry(ref: WidgetRef): PlacedWidget? = host.widgets.value.firstOrNull { it.source == WidgetSource.script(ref) }
+
+    /** What is kept for the widget [ref]: one of a script's widgets. */
+    fun stored(ref: WidgetRef): WidgetState = WidgetStates.read(context, ref.key)
+
+    /**
+     * Places one more widget of [s] as the picker does, and waits for what follows ([placed]): the
+     * database's copies are written, and the run for that widget has ended. Returns which widget it is.
+     */
+    fun placeAnother(s: Script, size: WidgetSize = ScriptMeta.widget(s.code)!!.size): WidgetRef {
+        val ref = host.placeAnother(s, size)
+        assertTrue("${s.name} has all the widgets it may have", ref != null)
+        placed(s)
+        return ref!!
+    }
+
+    /**
+     * Asks for a run of the widget [ref] of [s] as the widgets page does, and waits for it: a real
+     * run in the `:script` process, which reads everything it knows from the database.
+     */
+    fun refresh(s: Script, ref: WidgetRef) {
+        ScriptScheduler.refreshWidget(context, s, ref.id)
+        assertTrue("the run for ${ref.key} didn't end", runEnded(s.id, queued = true))
+    }
+
     /**
      * Places [s]'s widget as the picker does, and waits for what follows: its access is on, and the
      * run that placing queued has ended. Returns the script as it is then.
@@ -86,12 +113,15 @@ class TestScriptWidgets(private val prefix: String) {
         return ended
     }
 
-    /** Runs [s] here, as its timer would, and waits for the run. With [widget], as the widgets page asks for it. */
-    fun run(s: Script, widget: Boolean = false) {
+    /**
+     * Runs [s] here, as its timer would, and waits for the run. With [widget], as the widgets page
+     * asks for it: for the script's first widget, or with [id] for a further one.
+     */
+    fun run(s: Script, widget: Boolean = false, id: String = "") {
         val data = if (widget) {
             workDataOf(
                 ScriptWorker.KEY_SCRIPT_ID to s.id, ScriptWorker.KEY_SCHEDULED to true,
-                ScriptWorker.KEY_EVENT to "{\"name\":\"${ScriptScheduler.WIDGET}\"}",
+                ScriptWorker.KEY_EVENT to Json.stringify(ScriptScheduler.refreshEvent(ScriptScheduler.widgetKind(id))),
             )
         } else {
             workDataOf(ScriptWorker.KEY_SCRIPT_ID to s.id)
