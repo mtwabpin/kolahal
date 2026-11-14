@@ -43,7 +43,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.util.Locale
 
 /**
@@ -150,46 +149,30 @@ internal object OwnCards {
     /**
      * The Agenda card for the calendar's [events], as [Agenda.query] gave them at [now] (in
      * milliseconds): the events of [days] days from today, at most [WidgetJson.MAX_EVENTS].
-     * - [Agenda.group] says which events count: the read is a day wider on each side than what is
-     *   shown, and an event that has ended is left out.
-     * - The calendar keeps an all-day event at midnight UTC. The card's body puts an event on the
-     *   phone's day of its start, and drops it when its end has come ([WidgetWords.agenda]). So here
-     *   an all-day event starts at midnight in [zone] and ends at the midnight after its last day.
-     *   Left at UTC it would show a day early west of UTC, and stay for hours east of it. One that
-     *   started before today starts today.
-     * - Every event has its end, also one with no length. The body then drops it when its time has
-     *   come, as [Agenda.group] and the `agenda` command do. Without an end it would stay all day
-     *   on the card, and go at the next read of the calendar.
+     * - [Agenda.shown] says which events count, and when each starts and ends. A script's
+     *   `calendar.events` gives the same list.
+     * - The card's body puts an event on the phone's day of its start, and drops it when its end
+     *   has come ([WidgetWords.agenda]). So an all-day event starts and ends at midnights on the
+     *   phone, and every event has its end, also one with no length. Without an end it would stay
+     *   all day on the card, and go at the next read of the calendar.
      * - An event's tap holds its id and its start (`event 41 1800000000000`), so the right time of
      *   a repeating event opens.
      */
-    fun agenda(events: List<AgendaEvent>, zone: ZoneId, now: Long, days: Int): WidgetSpec.Agenda {
-        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-        // An all-day event of several days is in the group of each of its days. It is one event here.
-        val shown = Agenda.group(events, zone, today, days, now).flatMap { it.second }.distinct()
-        return WidgetSpec.Agenda(
+    fun agenda(events: List<AgendaEvent>, zone: ZoneId, now: Long, days: Int): WidgetSpec.Agenda =
+        WidgetSpec.Agenda(
             base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.AGENDA)),
-            events = shown.take(WidgetJson.MAX_EVENTS).map { e ->
-                val tap = WidgetTap(args = OwnTaps.event(e.id, e.begin), label = "open event")
-                val title = cut(e.title.trim(), MAX_EVENT_TITLE)
-                if (e.allDay) {
-                    val first = Instant.ofEpochMilli(e.begin).atZone(ZoneOffset.UTC).toLocalDate()
-                    val after = maxOf(Instant.ofEpochMilli(e.end).atZone(ZoneOffset.UTC).toLocalDate(), first.plusDays(1))
-                    WidgetSpec.Event(
-                        title = title,
-                        starts = maxOf(first, today).atStartOfDay(zone).toEpochSecond(),
-                        ends = after.atStartOfDay(zone).toEpochSecond(),
-                        allDay = true,
-                        tap = tap,
-                    )
-                } else {
-                    WidgetSpec.Event(title = title, starts = e.begin / 1000, ends = maxOf(e.begin, e.end) / 1000, allDay = false, tap = tap)
-                }
+            events = Agenda.shown(events, zone, now, days).take(WidgetJson.MAX_EVENTS).map { e ->
+                WidgetSpec.Event(
+                    title = cut(e.title.trim(), MAX_EVENT_TITLE),
+                    starts = e.starts,
+                    ends = e.ends,
+                    allDay = e.allDay,
+                    tap = WidgetTap(args = OwnTaps.event(e.id, e.begin), label = "open event"),
+                )
             },
             days = days,
             empty = if (days == 1) "Nothing left today" else "No events in the next $days days",
         )
-    }
 
     // ---- todos ------------------------------------------------------------------------------
 

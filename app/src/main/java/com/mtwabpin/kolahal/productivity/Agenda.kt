@@ -12,6 +12,15 @@ import java.time.ZoneOffset
 
 data class AgendaEvent(val id: Long, val title: String, val begin: Long, val end: Long, val allDay: Boolean)
 
+/**
+ * A calendar event as a card or a script shows it ([Agenda.shown]).
+ * - [starts] and [ends] are in seconds since 1970, as a widget takes them. An all-day event starts
+ *   and ends at midnights on the phone.
+ * - [begin] is the start as the calendar keeps it, in milliseconds. A tap opens the event at that
+ *   time, so the right day of a repeating event opens.
+ */
+data class ShownEvent(val id: Long, val title: String, val starts: Long, val ends: Long, val allDay: Boolean, val begin: Long)
+
 /** `agenda`: upcoming calendar instances. Needs READ_CALENDAR. */
 object Agenda {
     fun hasPermission(context: Context) =
@@ -83,6 +92,39 @@ object Agenda {
         }
         return byDay.map { (day, list) ->
             day to list.sortedWith(compareBy({ !it.allDay }, { it.begin }, { it.title }))
+        }
+    }
+
+    /**
+     * Pure. The events of [days] days from today, as [query] gave them at [now] (in milliseconds),
+     * in the order they are shown: by day, and all-day events first in a day. The Agenda card and
+     * a script's `calendar.events` both show this list.
+     * - [group] says which events count. The read is a day wider on each side than what is shown,
+     *   and an event that has ended is left out.
+     * - An all-day event of several days is in the group of each of its days. It is one event here.
+     * - The calendar keeps an all-day event at midnight UTC. Here it starts at midnight in [zone]
+     *   and ends at the midnight after its last day. Left at UTC it would show a day early west of
+     *   UTC, and stay for hours east of it. One that started before today starts today.
+     * - Every event has its end, also one with no length: its end is its start. Whoever shows the
+     *   list can then drop an event when its time has come, as [group] does.
+     */
+    fun shown(events: List<AgendaEvent>, zone: ZoneId, now: Long, days: Int): List<ShownEvent> {
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        return group(events, zone, today, days, now).flatMap { it.second }.distinct().map { e ->
+            if (e.allDay) {
+                val first = Instant.ofEpochMilli(e.begin).atZone(ZoneOffset.UTC).toLocalDate()
+                val after = maxOf(Instant.ofEpochMilli(e.end).atZone(ZoneOffset.UTC).toLocalDate(), first.plusDays(1))
+                ShownEvent(
+                    id = e.id,
+                    title = e.title,
+                    starts = maxOf(first, today).atStartOfDay(zone).toEpochSecond(),
+                    ends = after.atStartOfDay(zone).toEpochSecond(),
+                    allDay = true,
+                    begin = e.begin,
+                )
+            } else {
+                ShownEvent(e.id, e.title, starts = e.begin / 1000, ends = maxOf(e.begin, e.end) / 1000, allDay = false, begin = e.begin)
+            }
         }
     }
 
