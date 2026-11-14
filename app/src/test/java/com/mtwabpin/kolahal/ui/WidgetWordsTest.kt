@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.Locale
 
 /** What a widget's card says, and what a screen reader hears. */
 class WidgetWordsTest {
@@ -306,6 +307,90 @@ class WidgetWordsTest {
         assertEquals(1, WidgetWords.mediaButtons(0, besideText = true))
         // The words the buttons hand over are the ones the Now playing widget reads.
         assertEquals(listOf("prev", "toggle", "next"), listOf(WidgetWords.MEDIA_PREV, WidgetWords.MEDIA_TOGGLE, WidgetWords.MEDIA_NEXT))
+    }
+
+    private fun event(title: String, starts: Long, ends: Long? = null, allDay: Boolean = false, where: String? = null) =
+        WidgetSpec.Event(title, starts, ends, allDay, where)
+
+    private fun said(days: List<WidgetWords.AgendaDay>) = days.map { day -> day.label to day.lines.map { "${it.time} ${it.event.title}" } }
+
+    /** 20 December 2026 is a Sunday. */
+    @Test fun anAgendaListsItsEventsUnderTodayTomorrowAndDates() {
+        val now = at(day = 20, hour = 10)
+        val spec = WidgetSpec.Agenda(
+            base,
+            events = listOf(
+                event("Lunch", at(20, 13), at(20, 14)),
+                event("Dentist", at(21, 9, 30)),
+                event("Trip", at(22, 6), allDay = true),
+                event("Standup", at(20, 11)),
+                event("Review", at(22, 16)),
+                event("Too far", at(23, 9)),
+            ),
+        )
+        assertEquals(
+            listOf(
+                "Today" to listOf("11:00 Standup", "13:00 Lunch"),
+                "Tomorrow" to listOf("09:30 Dentist"),
+                // An all-day event comes first in its day, whatever its time.
+                "Tue 22 Dec" to listOf("all day Trip", "16:00 Review"),
+            ),
+            said(WidgetWords.agenda(spec, now, utc, clock24 = true, locale = Locale.US)),
+        )
+        // The time is written as the setting says.
+        assertEquals(listOf("11:00 AM Standup", "1:00 PM Lunch"), said(WidgetWords.agenda(spec, now, utc, clock24 = false, locale = Locale.US))[0].second)
+        // `days` says how many days, counted from today.
+        assertEquals(listOf("Today"), WidgetWords.agenda(spec.copy(days = 1), now, utc, true, Locale.US).map { it.label })
+        assertEquals(listOf("Today", "Tomorrow"), WidgetWords.agenda(spec.copy(days = 2), now, utc, true, Locale.US).map { it.label })
+        assertEquals(4, WidgetWords.agenda(spec.copy(days = 7), now, utc, true, Locale.US).size)
+        // The day is the phone's day: at 10:00 UTC it is 05:00 in New York, and 13:00 UTC is 08:00 there.
+        val newYork = ZoneId.of("America/New_York")
+        assertEquals("Today" to listOf("06:00 Standup", "08:00 Lunch"), said(WidgetWords.agenda(spec, now, newYork, true, Locale.US))[0])
+    }
+
+    /** An event that has ended is gone on the next minute's tick, with no run of the script. */
+    @Test fun anAgendaDropsAnEventWhenItHasEnded() {
+        val spec = WidgetSpec.Agenda(
+            base,
+            events = listOf(
+                event("Lunch", at(20, 13), at(20, 14)),
+                event("Launch", at(20, 9)),
+                event("Holiday", at(20, 0), at(21, 0), allDay = true),
+                event("Yesterday", at(19, 15)),
+                event("Camp", at(19, 8), at(21, 8)),
+            ),
+            days = 1,
+        )
+        fun todayAt(now: Long) = said(WidgetWords.agenda(spec, now, utc, clock24 = true, locale = Locale.US)).firstOrNull()?.second
+        // An event that goes on says "now". One with no end keeps its time: nobody knows whether it goes on.
+        assertEquals(listOf("all day Holiday", "now Camp", "09:00 Launch", "13:00 Lunch"), todayAt(at(20, 10)))
+        assertEquals(listOf("all day Holiday", "now Camp", "09:00 Launch", "now Lunch"), todayAt(at(20, 13, 30)))
+        assertEquals("at its end it is gone", listOf("all day Holiday", "now Camp", "09:00 Launch"), todayAt(at(20, 14)))
+        // After midnight: the all-day event has ended, and the event with no end is over with its day.
+        // The one that began two days ago and still goes on is under Today.
+        assertEquals(listOf("now Camp"), todayAt(at(21, 0)))
+        assertNull("nothing is left", todayAt(at(21, 8)))
+        assertEquals(emptyList<WidgetWords.AgendaDay>(), WidgetWords.agenda(WidgetSpec.Agenda(base, events = emptyList()), at(20, 10), utc, true))
+    }
+
+    @Test fun anAgendaDrawsTheEventsThatFitAndCountsTheRest() {
+        // Headings are 20 dp, events 32 dp, and "+2 more" needs 20 dp.
+        assertEquals(2, WidgetWords.agendaShown(listOf(2, 1, 1), 124, 20, 32, 20))
+        assertEquals("all of them, with no room kept for the line", 2, WidgetWords.agendaShown(listOf(1, 1), 104, 20, 32, 20))
+        assertEquals("the second day's heading needs its event", 1, WidgetWords.agendaShown(listOf(1, 1), 103, 20, 32, 20))
+        assertEquals(4, WidgetWords.agendaShown(listOf(2, 1, 1), 400, 20, 32, 20))
+        assertEquals("one event, however low the box", 1, WidgetWords.agendaShown(listOf(3), 40, 20, 32, 20))
+        assertEquals(0, WidgetWords.agendaShown(emptyList(), 124, 20, 32, 20))
+    }
+
+    @Test fun anAgendaIsSaidByDay() {
+        val now = at(day = 20, hour = 10)
+        val spec = WidgetSpec.Agenda(base, events = listOf(event("Lunch", at(20, 13), at(20, 14), where = "Cafe"), event("Dentist", at(21, 9, 30)), event("Gone", at(20, 8), at(20, 9))))
+        assertEquals("Agenda: Today, 13:00 Lunch, Cafe, Tomorrow, 09:30 Dentist", WidgetWords.description("Agenda", spec, now, utc, clock24 = true, locale = Locale.US))
+        assertEquals("Agenda: Today, 1:00 PM Lunch, Cafe, Tomorrow, 9:30 AM Dentist", WidgetWords.description("Agenda", spec, now, utc, clock24 = false, locale = Locale.US))
+        // With nothing left to show, it says the script's words, or its own.
+        assertEquals("Agenda: Nothing planned", WidgetWords.description("Agenda", spec.copy(empty = "Nothing planned"), at(23, 0), utc))
+        assertEquals("Agenda: No events", WidgetWords.description("Agenda", spec, at(23, 0), utc))
     }
 
     /** A countdown, a clock and an agenda say the time, so their words are made again as it passes. No other kind's are. */

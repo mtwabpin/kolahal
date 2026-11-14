@@ -65,12 +65,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.delay
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -218,8 +220,10 @@ internal object WidgetWords {
      * The whole card in one sentence, for a screen reader: "Weather: 24°C, Sunny, 68% humidity".
      * It has everything in the description, also what a small card leaves out. A countdown is said
      * in words ("5 hours"), never as a running clock.
+     * - [now] (seconds) and [zone] count for the kinds that tell the time ([timed]).
+     * - [clock24] and [locale] say how a time of day is written, for an agenda and a clock.
      */
-    fun description(title: String?, spec: WidgetSpec, now: Long, zone: ZoneId): String {
+    fun description(title: String?, spec: WidgetSpec, now: Long, zone: ZoneId, clock24: Boolean = false, locale: Locale = Locale.getDefault()): String {
         fun words(vararg parts: String?) = parts.filterNot { it.isNullOrBlank() }.joinToString(" ")
         val parts = buildList<String?> {
             when (spec) {
@@ -257,8 +261,13 @@ internal object WidgetWords {
                 is WidgetSpec.Toggles -> spec.items.forEach { add(words(it.label, if (it.on) "on" else "off")) }
                 is WidgetSpec.Clock -> spec.zones.forEach { add(it.label ?: it.zone) }
                 is WidgetSpec.Agenda -> {
-                    if (spec.events.isEmpty()) add(spec.empty ?: NOTHING)
-                    spec.events.forEach { add(it.title) }
+                    // What the card shows at this moment: an event that has ended is not said either.
+                    val days = agenda(spec, now, zone, clock24, locale)
+                    if (days.isEmpty()) add(spec.empty ?: NO_EVENTS)
+                    days.forEach { day ->
+                        add(day.label)
+                        day.lines.forEach { add(listOfNotNull(words(it.time, it.event.title), it.event.where).joinToString(", ")) }
+                    }
                 }
                 is WidgetSpec.Media -> {
                     add(spec.title)
@@ -302,6 +311,87 @@ internal object WidgetWords {
         val shown = minOf(count, across * down)
         val rows = if (shown <= across) 1 else down
         return Grid(columns = (shown + rows - 1) / rows, rows = rows, shown = shown)
+    }
+
+    /** What an agenda says with no event to show, when its description has no `empty` text. */
+    const val NO_EVENTS = "No events"
+
+    /** The headings of an agenda's first two days. Later days have their date. */
+    const val TODAY = "Today"
+    const val TOMORROW = "Tomorrow"
+
+    /** One event of an agenda as its card writes it: [time] is "09:30", "all day" or "now". */
+    data class AgendaLine(val time: String, val event: WidgetSpec.Event)
+
+    /** One day of an agenda: [label] is "Today", "Tomorrow" or the day ("Tue 20 Oct"). It has at least one line. */
+    data class AgendaDay(val label: String, val lines: List<AgendaLine>)
+
+    /**
+     * What an agenda shows at [now] (seconds): its events by day, in the time zone [zone].
+     * - The days are today and the ones after it, as many as the description's `days`.
+     * - An event that has ended is left out, with no run of the script. One with no `ends` is over
+     *   when its day is.
+     * - An event that began on an earlier day and still goes on is under Today.
+     * - In a day, all-day events come first, then the others by their start.
+     * - A time is written as [clock24] says ("14:30" or "2:30 PM"). An event with an end that has
+     *   begun says "now".
+     */
+    fun agenda(spec: WidgetSpec.Agenda, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): List<AgendaDay> {
+        fun at(seconds: Long) = Instant.ofEpochSecond(seconds).atZone(zone)
+        val today = at(now).toLocalDate()
+        val last = today.plusDays(spec.days.coerceIn(1, 7) - 1L)
+        val clock = TimeFormats.clockFormat(clock24, locale)
+        val byDay = java.util.TreeMap<LocalDate, MutableList<WidgetSpec.Event>>()
+        for (event in spec.events) {
+            val began = at(event.starts).toLocalDate()
+            val ends = event.ends
+            val over = if (ends != null) ends <= now else began.isBefore(today)
+            if (over) continue
+            val day = if (began.isBefore(today)) today else began
+            if (!day.isAfter(last)) byDay.getOrPut(day) { ArrayList() } += event
+        }
+        return byDay.map { (day, events) ->
+            val label = when (day) {
+                today -> TODAY
+                today.plusDays(1) -> TOMORROW
+                else -> day.format(TimeFormats.dayFormat(locale))
+            }
+            AgendaDay(
+                label,
+                // A stable sort: events at the same moment stay in the script's order.
+                events.sortedWith(compareBy({ !it.allDay }, { it.starts })).map { e ->
+                    val time = when {
+                        e.allDay -> "all day"
+                        e.ends != null && e.starts <= now -> "now"
+                        else -> at(e.starts).format(clock)
+                    }
+                    AgendaLine(time, e)
+                },
+            )
+        }
+    }
+
+    /**
+     * How many of an agenda's events to draw in [heightDp]. [perDay] is the number of events of each
+     * day. A day's heading is [headDp] tall and an event [rowDp].
+     * - A heading is never drawn without an event under it.
+     * - When events are left out, [moreDp] is kept free for the "+3 more" line.
+     * - With any event at all, the first one is drawn, however low the box.
+     */
+    fun agendaShown(perDay: List<Int>, heightDp: Int, headDp: Int, rowDp: Int, moreDp: Int): Int {
+        val total = perDay.sum()
+        var used = 0
+        var shown = 0
+        for (count in perDay) {
+            for (i in 0 until count) {
+                val cost = rowDp + if (i == 0) headDp else 0
+                val after = if (shown + 1 < total) moreDp else 0
+                if (used + cost + after > heightDp) return maxOf(shown, 1)
+                used += cost
+                shown++
+            }
+        }
+        return shown
     }
 
     /** The words a media card's three buttons hand to `onTap`, as a tap's `args`. */
@@ -480,7 +570,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Buttons -> ButtonsBody(spec, onTap)
         is WidgetSpec.Toggles -> TogglesBody(spec, box, onTap, stamp)
         is WidgetSpec.Clock -> ClockBody(spec, box)
-        is WidgetSpec.Agenda -> AgendaBody(spec, box, onTap)
+        is WidgetSpec.Agenda -> AgendaBody(spec, onTap)
         is WidgetSpec.Media -> MediaBody(spec, box, onTap)
     }
 }
