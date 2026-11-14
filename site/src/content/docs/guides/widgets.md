@@ -193,7 +193,7 @@ two cities, a countdown to two days.
 
 1. Place the script's widget as usual. Its row in the picker then says
    **Added · tap to add another**.
-2. Tap that row. One more widget is added, and its **Options** sheet opens.
+2. Tap that row. One more widget is added. If the script has options, its **Options** sheet opens.
 3. Set what this widget should show: its city, its day. These are the script's
    [options](/scripting/overview/#options).
 
@@ -201,18 +201,23 @@ To change a widget's options later:
 
 1. Open **Settings → Widgets → Arrange widgets**.
 2. Select the script's card: long-press it, or tap the edit button and then the card.
-3. Tap **Options** in the toolbar at the bottom.
+3. Tap **Options** in the toolbar at the bottom. It shows only for a script with options.
 
 What to know:
 
-- A script can have 6 widgets at most.
+- A script can have 6 widgets at most. Then its row in the picker says **Added · 6 of 6**.
 - A further widget follows the script's own options until you set one for that widget. After
   that it keeps its own value for that option.
 - The first widget has no options of its own. Its **Options** are the script's, the same as in the
-  script's sheet and `script set`.
+  script's sheet and `script set`. A change in the first widget's **Options** sheet also runs the
+  further widgets that follow it.
 - The script's timer fills the first widget only. A further widget runs the script for itself:
   when you place it, when you look at it and its content is old, when you tap it, and when you
-  change its options. So more widgets don't run anything more in the background.
+  change an option in its **Options** sheet. So more widgets don't run anything more in the
+  background. A change made in the script's sheet on the Scripts screen, or with `script set`,
+  runs no widget.
+- If you removed the first widget and a further one is still placed, a tap on the row brings the
+  first widget back. The timer fills only the first.
 - Removing a widget deletes what it showed and its own options. The script and its other widgets
   stay.
 - Kolahal's own widgets and a script's status card are placed once.

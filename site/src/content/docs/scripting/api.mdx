@@ -1294,7 +1294,7 @@ Which widget a run fills:
   an event, a run you type, a pinned line's refresh.
 - So a further widget is not filled by the script's timer. It gets a quiet run of its own when
   you place it, when it is in view with old content, on its `refresh`, on a tap, and after you
-  change one of its options. Nothing more runs in the background.
+  change one of its options in its **Options** sheet. Nothing more runs in the background.
 - One script's runs go one after another, also for two of its widgets.
 
 How a script tells its widgets apart:
@@ -1302,7 +1302,8 @@ How a script tells its widgets apart:
 - [`event.instance`](#event) is the widget's number, as text: `"2"`, `"3"` and so on for the
   further widgets. For the first widget it is nil (undefined in JavaScript).
 - A widget keeps its number while it is placed. When you remove a widget, its number is free, and
-  the next widget you place takes the smallest free one.
+  the next further widget you place takes the smallest free one. If the first widget was removed,
+  the picker brings it back before it adds a further one.
 - It is there only in a run for one widget: a `"widget"` run, or a tap on a card.
 - `event.widget` is `true` in a tap's run, as for one widget.
 - Kolahal sets it. A script can't choose which widget it fills.
