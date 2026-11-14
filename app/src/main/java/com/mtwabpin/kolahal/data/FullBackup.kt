@@ -45,6 +45,8 @@ object FullBackup {
 
 
     fun export(context: Context): Map<String, Any?> {
+        // A mark set just before (a hide) may still wait to be written. The backup must have it.
+        LogRepository.get(context).marks.flush()
         // Rows too big for a cursor would make the whole export fail. They come from old versions; the
         // first start after an update repairs them (KvStore.repairOversized), and nothing writes them now.
         val scriptNames = ScriptRepository.get(context).all().associate { ScriptRepository.scopeOf(it.id) to it.name }
