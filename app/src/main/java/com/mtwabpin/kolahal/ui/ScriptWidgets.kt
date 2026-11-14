@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -48,6 +50,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.status.DeviceStatus
@@ -146,6 +149,8 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?, ownWidget: Boolean
  *   items of their own inside it.
  * - [onClick] is a tap on the card and [onLongClick] a long-press. [onTap] gets the own action of a
  *   row, a button, a switch or an event. With all three null the card takes no touches (the Widgets screen).
+ * - [badge] is a drawable for the badge of a large card: a built-in card has one. Without it the
+ *   badge is the content's icon, or the first letter of [title].
  * - [stamp] is a number that changes when the content was filled again, also with the same
  *   description: a script's card gives the time of its last run. A switch that waits for its script
  *   watches it ([KindBody]).
@@ -165,6 +170,7 @@ internal fun WidgetCard(
     onLongClick: (() -> Unit)? = null,
     onTap: ((WidgetTap) -> Unit)? = null,
     stamp: Long = 0,
+    badge: Int? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
@@ -191,8 +197,8 @@ internal fun WidgetCard(
             Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
                 CompositionLocalProvider(LocalCardLongPress provides onLongClick) {
                     // A card with a note draws no content, so its frame is the usual one.
-                    val frame = WidgetWords.wideFrame(spec.takeIf { note == null }, widthDp, heightDp)
-                    CardLayout(title, spec, note, failure, footer, box, frame, onTap, stamp)
+                    val frame = WidgetWords.wideFrame(spec.takeIf { note == null }, widthDp, heightDp, footer = footer != null)
+                    CardLayout(title, spec, note, failure, footer, box, frame, onTap, stamp, badge)
                 }
             }
         }
@@ -202,6 +208,9 @@ internal fun WidgetCard(
 /**
  * The title, the badge, the content and the footer, placed for [box]. [frame] says which of the
  * title line and the badge a wide box has ([WidgetWords.wideFrame]).
+ * - A large card always has a badge: [badge] (a drawable), or the content's icon, or the first
+ *   letter of the title ([WidgetWords.badgeLetter]). It is 24 dp, in the title's line.
+ * - A wide card has the badge only for an icon of the content, as a column at its start.
  */
 @Composable
 private fun CardLayout(
@@ -214,6 +223,7 @@ private fun CardLayout(
     frame: WidgetWords.Frame,
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
+    badge: Int?,
 ) {
     val type = MaterialTheme.typography
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -222,8 +232,10 @@ private fun CardLayout(
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) {
-                    IconBadge(icon, colour, badgeShape(spec), 32.dp)
+                val letter = if (badge == null && icon == null) WidgetWords.badgeLetter(title) else null
+                if (badge != null || icon != null || letter != null) {
+                    // A letter only says the title again, so a screen reader skips it.
+                    Badge(icon ?: letter, badge, colour, badgeShape(spec), 24.dp, quiet = icon == null)
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(title, style = type.titleSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -234,7 +246,7 @@ private fun CardLayout(
         }
         WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (icon != null && frame.badge) {
-                IconBadge(icon, colour, badgeShape(spec), 40.dp)
+                Badge(icon, null, colour, badgeShape(spec), 40.dp)
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -288,38 +300,52 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
     }
 }
 
-/** The widget's icon (an emoji or a letter) on a shape in its role's colour. */
+/**
+ * The badge: [drawable] in its role's [colour], or else [text] (an emoji or a letter), on a shape
+ * tinted with that colour. A [quiet] badge is no part of what a screen reader hears.
+ */
 @Composable
-private fun IconBadge(icon: String, colour: Color, shape: Shape, size: Dp) {
-    Box(Modifier.size(size).clip(shape).background(colour.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
-        Text(
-            icon,
-            style = if (size >= 40.dp) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
-            color = colour,
-            maxLines = 1,
-            softWrap = false,
-        )
+private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, size: Dp, quiet: Boolean = false) {
+    val said = if (quiet) Modifier.clearAndSetSemantics {} else Modifier
+    Box(Modifier.size(size).clip(shape).background(colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
+        when {
+            drawable != null -> Icon(painterResource(drawable), contentDescription = null, tint = colour, modifier = Modifier.size(size * 2 / 3))
+            text != null -> Text(
+                text,
+                style = when {
+                    size >= 40.dp -> MaterialTheme.typography.titleMedium
+                    size >= 32.dp -> MaterialTheme.typography.titleSmall
+                    else -> MaterialTheme.typography.labelLarge
+                },
+                color = colour,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
     }
 }
 
-/** One shape for each kind: a cookie for a number, a pill for a list, and so on. */
+/** One shape for each kind: a cookie for a number, a round pill for a list, and so on. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
-    is WidgetSpec.Stat -> MaterialShapes.Cookie9Sided
-    is WidgetSpec.Text -> MaterialShapes.Square
-    is WidgetSpec.Rows -> MaterialShapes.Pill
-    is WidgetSpec.Progress -> MaterialShapes.Circle
-    is WidgetSpec.Chart -> MaterialShapes.Gem
-    is WidgetSpec.Countdown -> MaterialShapes.Sunny
-    is WidgetSpec.Buttons -> MaterialShapes.Clover4Leaf
-    is WidgetSpec.Toggles -> MaterialShapes.Slanted
-    is WidgetSpec.Clock -> MaterialShapes.Cookie12Sided
-    is WidgetSpec.Agenda -> MaterialShapes.Arch
-    is WidgetSpec.Image -> MaterialShapes.Cookie4Sided
-    is WidgetSpec.Media -> MaterialShapes.Flower
-    null -> MaterialShapes.Circle
-}.toShape()
+    // Material's own pill is slanted. A list's badge is a plain round one.
+    is WidgetSpec.Rows -> RoundedCornerShape(50)
+    else -> when (spec) {
+        is WidgetSpec.Stat -> MaterialShapes.Cookie9Sided
+        is WidgetSpec.Text -> MaterialShapes.Square
+        is WidgetSpec.Progress -> MaterialShapes.Circle
+        is WidgetSpec.Chart -> MaterialShapes.Gem
+        is WidgetSpec.Countdown -> MaterialShapes.Sunny
+        is WidgetSpec.Buttons -> MaterialShapes.Clover4Leaf
+        is WidgetSpec.Toggles -> MaterialShapes.Slanted
+        is WidgetSpec.Clock -> MaterialShapes.Cookie12Sided
+        is WidgetSpec.Agenda -> MaterialShapes.Arch
+        is WidgetSpec.Image -> MaterialShapes.Cookie4Sided
+        is WidgetSpec.Media -> MaterialShapes.Flower
+        is WidgetSpec.Rows, null -> MaterialShapes.Circle
+    }.toShape()
+}
 
 /** A tap on a card whose description has no action: the view model reads it as "refresh". */
 private val NO_TAP = WidgetTap()
@@ -784,6 +810,7 @@ private fun BatteryWidget(height: Dp, actions: WidgetCardActions?) {
         modifier = Modifier.testTag("widget:${WidgetSource.builtin(WidgetSource.BATTERY)}"),
         onClick = onClick,
         onClickLabel = "battery settings",
+        badge = builtinBadge(WidgetSource.BATTERY),
         onLongClick = onLongClick,
     )
 }

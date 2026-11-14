@@ -266,11 +266,12 @@ class ScriptWidgetCardTest {
         val reached = kept("countdown-reached", WidgetSpec.Countdown(WidgetBase(title = "Launch"), to = now - 1, reached = "Lift-off"))
         val past = kept("countdown-past", WidgetSpec.Countdown(WidgetBase(title = "Since"), to = now - 5 * day - 3_600, label = "the move"))
         show(trip, reached, past)
-        draws(trip, "Trip", "3 days", "to Goa")
+        // The number and its unit are two texts: the number big, the unit small.
+        draws(trip, "Trip", "3", "days", "to Goa")
         says(trip, "Trip: 3 days, to Goa")
         draws(reached, "Launch", "Lift-off")
         says(reached, "Launch: Lift-off")
-        draws(past, "Since", "5 days ago", "the move")
+        draws(past, "Since", "5", "days ago", "the move")
         says(past, "Since: 5 days ago, the move")
     }
 
@@ -288,7 +289,8 @@ class ScriptWidgetCardTest {
         draws(ran, ran, "Nothing to show")
         says(ran, "$ran: Nothing to show")
         says(new, "$new: loading")
-        assertEquals(listOf(new), texts(new))
+        // The title, and its first letter in the badge: no other text while it loads.
+        assertEquals(listOf("W", new), texts(new))
     }
 
     /** Content that can't be read, and a built-in widget this version doesn't know, say "widget unavailable". */
@@ -324,7 +326,8 @@ class ScriptWidgetCardTest {
         says(quick, "Score: 136/8. Updated 5 minutes ago")
         draws(current, "Weather", "24")
         says(current, "Weather: 24")
-        assertEquals(listOf("Weather", "24"), texts(current))
+        // The badge's letter, the title and the value: no age.
+        assertEquals(listOf("W", "Weather", "24"), texts(current))
     }
 
     /** After a run that failed, the footer says when. What the widget showed stays; with nothing kept, the card has the error's first line. */

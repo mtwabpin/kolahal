@@ -657,10 +657,10 @@ can't run it.
 | Where                    | What                                                                                                   |
 |--------------------------+--------------------------------------------------------------------------------------------------------|
 | The card                 | A =Surface= with large round corners (28 dp; 24 dp for 1×1).                                           |
-| The icon badge           | Clipped to a =MaterialShapes= shape with =toShape()=: a cookie for a number, a pill for a list. One shape for each kind. |
+| The icon badge           | Clipped to a =MaterialShapes= shape with =toShape()=: a cookie for a number, a round pill for a list. One shape for each kind. Every large card has one: a built-in card has its own icon, and a card with no =icon= has the first letter of its title. |
 | List rows                | =SegmentedListItem= with =segShapes=, as Settings has.                                                 |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
-| Toggles                  | =ToggleButton=: round when off, squarer when on.                                                       |
+| Toggles                  | =ToggleButton=: round when off, squarer and filled when on. Off is a light tint of the text colour. A tall one says "On" or "Off" under its label. |
 | Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match. A countdown's bar is still. |
 | A level that stands      | A plain track or ring: a battery, an air quality figure. A wave would say "working".                   |
 | Loading                  | =LoadingIndicator=.                                                                                    |

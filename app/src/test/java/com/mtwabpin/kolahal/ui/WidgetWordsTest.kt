@@ -86,23 +86,23 @@ class WidgetWordsTest {
     @Test fun aCountdownCountsDaysWhileFarAndIsAClockWhenNear() {
         val to = at(day = 20, hour = 0)
         // 12 days and an hour before.
-        assertEquals(WidgetWords.Count("12 days", ticks = false), WidgetWords.countdown(to, to - 12 * 86_400L - 3600, null, null, utc))
+        assertEquals(WidgetWords.Count("12", "days", ticks = false), WidgetWords.countdown(to, to - 12 * 86_400L - 3600, null, null, utc))
         // Just over 48 hours: still days.
-        assertEquals(WidgetWords.Count("2 days", ticks = false), WidgetWords.countdown(to, to - 48 * 3600L - 1, null, null, utc))
+        assertEquals(WidgetWords.Count("2", "days", ticks = false), WidgetWords.countdown(to, to - 48 * 3600L - 1, null, null, utc))
         // 48 hours and less: a clock, which needs a tick every second.
-        assertEquals(WidgetWords.Count("48:00:00", ticks = true), WidgetWords.countdown(to, to - 48 * 3600L, null, null, utc))
-        assertEquals(WidgetWords.Count("03:25:10", ticks = true), WidgetWords.countdown(to, to - (3 * 3600L + 25 * 60 + 10), null, null, utc))
+        assertEquals(WidgetWords.Count("48:00:00", null, ticks = true), WidgetWords.countdown(to, to - 48 * 3600L, null, null, utc))
+        assertEquals(WidgetWords.Count("03:25:10", null, ticks = true), WidgetWords.countdown(to, to - (3 * 3600L + 25 * 60 + 10), null, null, utc))
     }
 
     @Test fun aCountdownFollowsItsStyle() {
         val to = at(day = 20, hour = 0)
-        assertEquals("days, even when near", WidgetWords.Count("5 hours", ticks = false), WidgetWords.countdown(to, to - 5 * 3600L, "days", null, utc))
-        assertEquals("a clock, even when far", WidgetWords.Count("12d 00:00:10", ticks = true), WidgetWords.countdown(to, to - 12 * 86_400L - 10, "clock", null, utc))
+        assertEquals("days, even when near", WidgetWords.Count("5", "hours", ticks = false), WidgetWords.countdown(to, to - 5 * 3600L, "days", null, utc))
+        assertEquals("a clock, even when far", WidgetWords.Count("12d 00:00:10", null, ticks = true), WidgetWords.countdown(to, to - 12 * 86_400L - 10, "clock", null, utc))
     }
 
     @Test fun afterTheMomentItSaysTodayAndThenTheTimeSince() {
         val to = at(day = 20, hour = 10)
-        assertEquals(WidgetWords.Count("today", ticks = false), WidgetWords.countdown(to, to, null, null, utc))
+        assertEquals(WidgetWords.Count("today", null, ticks = false), WidgetWords.countdown(to, to, null, null, utc))
         assertEquals("today", WidgetWords.countdown(to, to + 3600, null, null, utc).text)
         assertEquals("the script's own words", "Happy birthday", WidgetWords.countdown(to, to + 3600, null, "Happy birthday", utc).text)
         assertEquals("3 days ago", WidgetWords.countdown(to, to + 3 * 86_400L + 5, null, null, utc).text)
@@ -110,6 +110,17 @@ class WidgetWordsTest {
         // Ten seconds before midnight, seen twenty seconds later: another day.
         val late = at(day = 20, hour = 23, minute = 59, second = 50)
         assertEquals("under a minute ago", WidgetWords.countdown(late, late + 20, null, null, utc).text)
+    }
+
+    /** A card draws a countdown's number big and its unit small. A text with no number is all value. */
+    @Test fun aCountdownGivesItsNumberAndItsUnitApart() {
+        val to = at(day = 20, hour = 10)
+        assertEquals(WidgetWords.Count("1", "day", ticks = false), WidgetWords.countdown(to, to - 86_400L, "days", null, utc))
+        assertEquals(WidgetWords.Count("12", "min", ticks = false), WidgetWords.countdown(to, to - 12 * 60L, "days", null, utc))
+        assertEquals(WidgetWords.Count("3", "days ago", ticks = false), WidgetWords.countdown(to, to + 3 * 86_400L + 5, null, null, utc))
+        assertEquals(WidgetWords.Count("under a minute", null, ticks = false), WidgetWords.countdown(to, to - 30, "days", null, utc))
+        val late = at(day = 20, hour = 23, minute = 59, second = 50)
+        assertEquals(WidgetWords.Count("under a minute ago", null, ticks = false), WidgetWords.countdown(late, late + 20, null, null, utc))
     }
 
     @Test fun theDayIsThePhonesDay() {
@@ -328,6 +339,12 @@ class WidgetWordsTest {
         assertEquals(2, WidgetWords.mediaButtons(136, besideText = false))
         assertEquals(1, WidgetWords.mediaButtons(64, besideText = false))
         assertEquals(1, WidgetWords.mediaButtons(0, besideText = true))
+        // Play or pause is 16 dp wider where there is room, a little wider where there is a little.
+        assertEquals(64, WidgetWords.mediaPlayDp(312, besideText = true, count = 3))
+        assertEquals(52, WidgetWords.mediaPlayDp(260, besideText = true, count = 3))
+        assertEquals(64, WidgetWords.mediaPlayDp(76, besideText = false, count = 1))
+        assertEquals(48, WidgetWords.mediaPlayDp(48, besideText = false, count = 1))
+        assertEquals(48, WidgetWords.mediaPlayDp(0, besideText = true, count = 1))
         // The words the buttons hand over are the ones the Now playing widget reads.
         assertEquals(listOf("prev", "toggle", "next"), listOf(WidgetWords.MEDIA_PREV, WidgetWords.MEDIA_TOGGLE, WidgetWords.MEDIA_NEXT))
     }
@@ -541,7 +558,9 @@ class WidgetWordsTest {
     @Test fun aWideCardOfButtonsLeavesOutWhatHasNoRoom() {
         val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))
         val toggles = WidgetSpec.Toggles(base, items = listOf(WidgetSpec.Toggle("A", on = true, tap = go)))
-        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(buttons, 340, 88))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(buttons, 340, 96))
+        // A card of one row (92 dp) gives the title's line to its buttons.
+        assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(buttons, 340, 92))
         assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(buttons, 340, 72))
         assertEquals(WidgetWords.Frame(title = true, badge = false), WidgetWords.wideFrame(buttons, 165, 96))
         assertEquals(WidgetWords.Frame(title = false, badge = false), WidgetWords.wideFrame(toggles, 165, 80))
@@ -551,6 +570,25 @@ class WidgetWordsTest {
         // Any other kind, and a card with no content, has both.
         assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(WidgetSpec.Stat(base, value = "1"), 165, 72))
         assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(null, 165, 72))
+    }
+
+    /** A text and named bars give the title's line to their content when they need it, but never while there is a footer to show. */
+    @Test fun aWideCardLeavesOutItsTitleWhenItsContentNeedsTheLine() {
+        val text = WidgetSpec.Text(base, text = "Carry an umbrella")
+        assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(text, 340, 92))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(text, 340, 96))
+        fun bars(n: Int) = WidgetSpec.Progress(base, value = 0f, items = List(n) { WidgetSpec.Bar(label = "Disk $it", value = 1f, max = 1f, text = null, color = null) })
+        // Two named bars need 60 dp: 92 dp less padding and title leaves 52.
+        assertEquals(WidgetWords.Frame(title = false, badge = true), WidgetWords.wideFrame(bars(2), 193, 92))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(bars(1), 193, 92))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(bars(2), 193, 100))
+        // One bar alone, or a ring: the title stays.
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(WidgetSpec.Progress(base, value = 1f), 193, 72))
+        // "Failed 10:42" is in the title line, so a card with a footer keeps it.
+        val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(buttons, 340, 92, footer = true))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(text, 340, 92, footer = true))
+        assertEquals(WidgetWords.Frame(title = true, badge = true), WidgetWords.wideFrame(bars(2), 193, 92, footer = true))
     }
 
     @Test fun anAgeIsShortOnTheCardAndInWholeWordsForAScreenReader() {
@@ -627,5 +665,15 @@ class WidgetWordsTest {
         // Less than one row's room: still one row.
         assertEquals(1, WidgetWords.rowsShown(5, 30, 48, 20))
         assertEquals(0, WidgetWords.rowsShown(0, 152, 48, 20))
+    }
+
+    /** A large card with no icon has the first letter of its title as its badge. */
+    @Test fun aBadgeLetterIsTheTitlesFirstLetterAsACapital() {
+        assertEquals("P", WidgetWords.badgeLetter("pune weather"))
+        assertEquals("H", WidgetWords.badgeLetter("  #hn top"))
+        assertEquals("2", WidgetWords.badgeLetter("2fa codes"))
+        assertEquals("É", WidgetWords.badgeLetter("été"))
+        assertNull(WidgetWords.badgeLetter("☀ · ·"))
+        assertNull(WidgetWords.badgeLetter(""))
     }
 }

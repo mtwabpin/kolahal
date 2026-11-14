@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import android.media.session.PlaybackState
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.takeWhole
@@ -355,6 +356,7 @@ private fun OwnCard(
         onClickLabel = cardTapLabel,
         onLongClick = onLongClick,
         onTap = onTap,
+        badge = builtinBadge(id),
     )
 }
 
@@ -510,4 +512,16 @@ private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
     val spec: WidgetSpec? = remember(list, count) { list?.let { OwnCards.notes(it, count) ?: OwnCards.quiet(WidgetSource.NOTES, "No notes yet") } }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Notes" }
     OwnCard(WidgetSource.NOTES, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open notes")
+}
+
+/** The drawable of the badge of the built-in widget [id] ([WidgetCard]), or null for one that has none. */
+internal fun builtinBadge(id: String): Int? = when (id) {
+    WidgetSource.TODOS -> R.drawable.ic_check
+    WidgetSource.REMINDERS -> R.drawable.ic_notifications
+    WidgetSource.NOTES -> R.drawable.ic_edit
+    WidgetSource.SHORTCUTS -> R.drawable.ic_touch
+    WidgetSource.MEDIA -> R.drawable.ic_music_note
+    WidgetSource.AGENDA -> R.drawable.ic_calendar
+    WidgetSource.BATTERY -> R.drawable.ic_battery
+    else -> null
 }

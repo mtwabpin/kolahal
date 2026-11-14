@@ -64,6 +64,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -203,29 +204,54 @@ private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: I
  * - Any other cell: the icon alone. A screen reader still hears the label.
  * The label gets smaller, down to 10 sp, before it is cut with "…".
  *
+ * A switch's [state] ("On" or "Off") is under its label in a tall cell, when the label is alone or
+ * beside the icon. A screen reader hears the state from the switch itself, so not from these words.
+ *
  * With [working], a sign that something is going on takes the icon's place ([WorkingSign]). A
  * switch shows it while it waits for its script.
  */
 @Composable
-private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp, working: Boolean = false) {
+private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp, state: String? = null, working: Boolean = false) {
     val lead: (@Composable () -> Unit)? = when {
         working -> { { WorkingSign() } }
         icon != null -> { { Text(icon, style = MaterialTheme.typography.titleMedium, maxLines = 1, softWrap = false) } }
         else -> null
     }
+    val tall = height >= TWO_LINES
+    val shownState = state.takeIf { tall }
     when {
-        lead == null -> ControlLabel(label, lines = if (height >= TWO_LINES) 2 else 1)
+        lead == null && shownState != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            ControlLabel(label, lines = 1)
+            StateWord(shownState)
+        }
+        lead == null -> ControlLabel(label, lines = if (tall) 2 else 1)
         width >= SIDE_BY_SIDE -> Row(verticalAlignment = Alignment.CenterVertically) {
             lead()
             Spacer(Modifier.width(6.dp))
-            ControlLabel(label, lines = 1, Modifier.weight(1f, fill = false))
+            Column(Modifier.weight(1f, fill = false), horizontalAlignment = if (shownState != null) Alignment.Start else Alignment.CenterHorizontally) {
+                ControlLabel(label, lines = 1, textAlign = if (shownState != null) TextAlign.Start else TextAlign.Center)
+                if (shownState != null) StateWord(shownState)
+            }
         }
-        height >= TWO_LINES -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        tall -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
             lead()
             ControlLabel(label, lines = 1)
         }
         else -> Box(Modifier.semantics { contentDescription = label }) { lead() }
     }
+}
+
+/** A switch's state under its label: "On" or "Off", small and a little dim. */
+@Composable
+private fun StateWord(state: String) {
+    Text(
+        state,
+        style = MaterialTheme.typography.labelSmall,
+        color = LocalContentColor.current.copy(alpha = 0.8f),
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier.clearAndSetSemantics {},
+    )
 }
 
 /**
@@ -246,18 +272,21 @@ private fun WorkingSign() {
 private val LABEL_SIZE = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp, stepSize = 1.sp)
 
 @Composable
-private fun ControlLabel(label: String, lines: Int, modifier: Modifier = Modifier) {
+private fun ControlLabel(label: String, lines: Int, modifier: Modifier = Modifier, textAlign: TextAlign = TextAlign.Center) {
     Text(
         label,
         modifier = modifier,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
         autoSize = LABEL_SIZE,
         maxLines = lines,
         softWrap = lines > 1,
         overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center,
+        textAlign = textAlign,
     )
 }
+
+/** How much of the text colour an off switch has as its fill: a little lighter than the card. */
+private const val OFF_TINT = 0.10f
 
 /** Less padding than a Material button has: a cell can be as narrow as 48 dp. */
 private val CONTROL_PADDING = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
@@ -268,7 +297,7 @@ private val CONTROL_PADDING = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
  * `buttons`: a grid of buttons, each with a label and an icon.
  * - 2 fit in a card of 2×1, 4 in 2×2 and in 4×1, 8 in 4×2. A button is never under 48 dp, so a
  *   smaller card shows the first ones only.
- * - A button's own colour wins over the card's. With neither, it has the theme's tonal colours.
+ * - A button's own colour wins over the card's. With neither, it is tinted with the accent.
  * - A tap hands the button's action to [onTap]. A long-press is the card's long-press.
  */
 @Composable
@@ -289,8 +318,9 @@ private fun CardButton(button: WidgetSpec.Button, colour: Color?, width: Dp, hei
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val tonal = ButtonDefaults.filledTonalButtonColors()
-    val container = colour?.copy(alpha = 0.2f) ?: tonal.containerColor
-    val content = colour ?: tonal.contentColor
+    // With no colour of its own, a button is tinted with the accent, and its text keeps the text colour.
+    val container = (colour ?: roleColour(null)).copy(alpha = 0.2f)
+    val content = colour ?: MaterialTheme.colorScheme.onSurface
     FilledTonalButton(
         onClick = { press.click { onTap?.invoke(button.tap) } },
         shapes = ButtonDefaults.shapes(),
@@ -356,7 +386,8 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
 }
 
 /**
- * One switch: a Material toggle button, filled while on.
+ * One switch: a Material toggle button, filled while on. Off, it is a light tint of the text colour.
+ * A tall one says "On" or "Off" under its label ([ControlContent]).
  * - With [working] the loading shape takes its icon's place, and a screen reader hears "working".
  * - With a null [onClick] it takes no tap, and looks as it does on the page.
  * - A long-press is the card's long-press.
@@ -366,11 +397,16 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
 private fun CardToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, height: Dp, onClick: (() -> Unit)?) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
+    val off = MaterialTheme.colorScheme.onSurface
     val colors = ToggleButtonDefaults.colors().let {
-        // A switch that takes no tap keeps the colours of its state.
+        // Off is a light tint of the text colour: Material's own is darker than the card.
+        val offContainer = off.copy(alpha = OFF_TINT)
         it.copy(
-            disabledContainerColor = if (toggle.on) it.checkedContainerColor else it.containerColor,
-            disabledContentColor = if (toggle.on) it.checkedContentColor else it.contentColor,
+            containerColor = offContainer,
+            contentColor = off,
+            // A switch that takes no tap keeps the colours of its state.
+            disabledContainerColor = if (toggle.on) it.checkedContainerColor else offContainer,
+            disabledContentColor = if (toggle.on) it.checkedContentColor else off,
         )
     }
     ToggleButton(
@@ -385,7 +421,7 @@ private fun CardToggle(toggle: WidgetSpec.Toggle, working: Boolean, width: Dp, h
         contentPadding = CONTROL_PADDING,
         interactionSource = source,
     ) {
-        ControlContent(toggle.icon, toggle.label, width, height, working)
+        ControlContent(toggle.icon, toggle.label, width, height, state = if (toggle.on) "On" else "Off", working = working)
     }
 }
 
@@ -474,15 +510,15 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
 }
 
 /**
- * A clock's time, with digits [sizeDp] tall whatever the phone's font size is: the size was made
- * to fit the box. The digits are all one width where the font can do that, so the text does not
- * shake as it ticks.
+ * A clock's time, as a value ([asValue]), with digits [sizeDp] tall whatever the phone's font
+ * size is: the size was made to fit the box. The digits are all one width where the font can do
+ * that, so the text does not shake as it ticks.
  */
 @Composable
 private fun ClockTime(time: String, sizeDp: Int) {
     val size = with(LocalDensity.current) { sizeDp.dp.toSp() }
     val base = MaterialTheme.typography.titleLarge
-    val style = remember(base, size) { base.copy(fontSize = size, lineHeight = size * 1.25f, fontFeatureSettings = "tnum") }
+    val style = remember(base, size) { base.copy(fontSize = size, lineHeight = size * 1.25f).asValue() }
     Text(time, style = style, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
 }
 
@@ -660,8 +696,9 @@ private val MEDIA_TIMES_FROM = 122.dp
 /**
  * `media`: what is playing, with its controls. Only Kolahal makes this kind.
  * - Small: play or pause alone.
- * - Wide: the title, the artist and the app, with a bar for the position under them, and the
+ * - Wide: the title in bold, the artist and the app, with a bar for the position under them, and the
  *   buttons at the end. A narrow box has fewer buttons, never smaller ones ([WidgetWords.mediaButtons]).
+ *   Play or pause is wider than the others where there is room.
  * - Large: the same in rows, with the position and the length under the bar.
  * - The three buttons hand `prev`, `toggle` and `next` to [onTap]. A tap elsewhere is the card's.
  * - The position moves every second only while something plays, its length is known and the page
@@ -670,7 +707,9 @@ private val MEDIA_TIMES_FROM = 122.dp
 @Composable
 internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     if (box == WidgetSizes.Box.SMALL) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { MediaButtons(1, spec.playing, onTap) }
+        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            MediaButtons(1, WidgetWords.mediaPlayDp(maxWidth.value.toInt(), besideText = false, count = 1), spec.playing, onTap)
+        }
         return
     }
     val type = MaterialTheme.typography
@@ -687,17 +726,18 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
             // The buttons are measured first, so the texts get what is left and are cut, not the buttons.
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = type.bodyMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (fraction != null && tall >= TWO_LINES) LevelBar(fraction, moving = false, colour, Modifier.padding(top = 4.dp))
                 }
                 Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
-                MediaButtons(WidgetWords.mediaButtons(width, besideText = true), spec.playing, onTap)
+                val count = WidgetWords.mediaButtons(width, besideText = true)
+                MediaButtons(count, WidgetWords.mediaPlayDp(width, besideText = true, count), spec.playing, onTap)
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 Column(Modifier.weight(1f).fillMaxWidth()) {
-                    Text(title, style = type.titleMedium, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(title, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (fraction != null && tall >= MEDIA_BAR_FROM) {
                         Spacer(Modifier.weight(1f))
@@ -710,40 +750,54 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                     }
                 }
                 Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
-                    MediaButtons(WidgetWords.mediaButtons(width, besideText = false), spec.playing, onTap)
+                    val count = WidgetWords.mediaButtons(width, besideText = false)
+                    MediaButtons(count, WidgetWords.mediaPlayDp(width, besideText = false, count), spec.playing, onTap)
                 }
             }
         }
     }
 }
 
-/** [count] of the three buttons, in a row: play or pause alone, then with next, then with previous too. */
+/**
+ * [count] of the three buttons, in a row: play or pause alone, then with next, then with previous
+ * too. Play or pause is [playDp] wide ([WidgetWords.mediaPlayDp]).
+ */
 @Composable
-private fun MediaButtons(count: Int, playing: Boolean, onTap: ((WidgetTap) -> Unit)?) {
+private fun MediaButtons(count: Int, playDp: Int, playing: Boolean, onTap: ((WidgetTap) -> Unit)?) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (count >= 3) MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, mirrored = true)
-        MediaButton(TOGGLE, if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Play", onTap, strong = true)
+        MediaButton(TOGGLE, if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Play", onTap, widthDp = playDp, strong = true)
         if (count >= 2) MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap)
     }
 }
 
 /**
- * One of the media buttons, 48 dp across. [said] is its name for a screen reader.
- * - [strong]: the filled button, for play or pause. The others are tonal.
+ * One of the media buttons, 48 dp tall and [widthDp] wide. [said] is its name for a screen reader.
+ * - [strong]: the filled button, for play or pause. Its corners are squarer: a wide one is not a pill.
+ *   The others are tonal and round.
  * - [mirrored]: the icon is turned to point back. "Previous" is the "next" icon, mirrored.
  * - With a null [onTap] it takes no tap, and looks as it does on the page.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun MediaButton(tap: WidgetTap, icon: Int, said: String, onTap: ((WidgetTap) -> Unit)?, strong: Boolean = false, mirrored: Boolean = false) {
+private fun MediaButton(
+    tap: WidgetTap,
+    icon: Int,
+    said: String,
+    onTap: ((WidgetTap) -> Unit)?,
+    widthDp: Int = WidgetWords.CONTROL_DP,
+    strong: Boolean = false,
+    mirrored: Boolean = false,
+) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val onClick = { press.click { onTap?.invoke(tap) } }
-    val modifier = Modifier.size(WidgetWords.CONTROL_DP.dp)
+    val modifier = Modifier.size(width = widthDp.dp, height = WidgetWords.CONTROL_DP.dp)
     val drawn: @Composable () -> Unit = { Icon(painterResource(icon), said, if (mirrored) Modifier.scale(scaleX = -1f, scaleY = 1f) else Modifier) }
     if (strong) {
         val colors = IconButtonDefaults.filledIconButtonColors().let { it.copy(disabledContainerColor = it.containerColor, disabledContentColor = it.contentColor) }
-        FilledIconButton(onClick = onClick, shapes = IconButtonDefaults.shapes(), modifier = modifier, enabled = onTap != null, colors = colors, interactionSource = source, content = drawn)
+        val shapes = IconButtonDefaults.shapes(shape = IconButtonDefaults.mediumSquareShape)
+        FilledIconButton(onClick = onClick, shapes = shapes, modifier = modifier, enabled = onTap != null, colors = colors, interactionSource = source, content = drawn)
     } else {
         val colors = IconButtonDefaults.filledTonalIconButtonColors().let { it.copy(disabledContainerColor = it.containerColor, disabledContentColor = it.contentColor) }
         FilledTonalIconButton(onClick = onClick, shapes = IconButtonDefaults.shapes(), modifier = modifier, enabled = onTap != null, colors = colors, interactionSource = source, content = drawn)

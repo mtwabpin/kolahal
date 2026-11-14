@@ -699,11 +699,16 @@ Every kind takes these fields. All are optional.
 | --- | --- | --- |
 | `kind` | a kind's name | The card to draw. Without it: the kind on the `@widget` line. |
 | `title` | text, up to 40 characters | The card's small heading. Without it: the script's `@title`, or its name. |
-| `icon` | text, up to 4 characters | An emoji or a letter, drawn in a badge. |
+| `icon` | text, up to 4 characters | An emoji or a letter, drawn in a badge. Without it, a large card's badge is the first letter of the title. |
 | `color` | a role | The colour of the badge, the bar, the ring or the chart: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is in view. |
+
+A wide card under 96dp tall gives its title line to its content when the content needs the room:
+buttons, switches, a `text`, and bars with their names. A card one row high (`2x1`, `4x1`) is
+under 96dp on most phones. The age and "Failed 10:42" are on the title line, so a card with one of
+them to show keeps the line. A screen reader always says the title.
 
 ### Kinds and their fields
 
@@ -856,10 +861,9 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
 
 - A small card shows fewer buttons, never smaller ones. So put the important ones first.
-- A button is at least 48dp tall. A wide card under 88dp tall leaves out its title line to keep
-  that room. The age and "Failed 10:42" are on that line, so such a card doesn't show them: a
-  screen reader still says them. The same goes for `toggles`. A card that starts at `4x1` is
-  88dp tall or more.
+- A button is at least 48dp tall. A wide card under 96dp tall leaves out its title line to keep
+  that room, unless it has an age or "Failed 10:42" to show (see above). The same goes for
+  `toggles`.
 - A button can't run a terminal command. In a run that a button starts, the script can use
   [`launcher.run`](#launcherruncommand), under its rules.
 
@@ -877,6 +881,8 @@ Each switch is `{ label, icon, on, tap }`. `label`, `on` and `tap` are needed.
 | `icon` | text, up to 4 | An emoji or a letter in front of the text. |
 | `on` | true or false | Needed. The state now. |
 | `tap` | `{ args }` | Needed. The arguments that switch it. A link is an error: a switch always runs this script again. |
+
+A switch is filled while it is on. Where there is room, it says "On" or "Off" under its label.
 
 How a switch works:
 

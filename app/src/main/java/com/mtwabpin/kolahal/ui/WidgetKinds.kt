@@ -56,10 +56,12 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -148,19 +150,29 @@ internal object WidgetWords {
         else -> "${points.size} values, from ${num(points.min())} to ${num(points.max())}, the latest ${num(points.last())}"
     }
 
-    /** A countdown's text. [ticks] is true when the text shows seconds, so it must be drawn again every second. */
-    data class Count(val text: String, val ticks: Boolean)
+    /**
+     * A countdown's text in two parts: the [value] ("12") and its [unit] ("days"), or null for a
+     * text with no number ("today", "03:25:10"). A card draws the value big and the unit small.
+     * [ticks] is true when the text shows seconds, so it must be drawn again every second.
+     */
+    data class Count(val value: String, val unit: String?, val ticks: Boolean) {
+        /** The whole text: "12 days". */
+        val text: String get() = if (unit == null) value else "$value $unit"
+    }
 
     private const val HOUR = 3600L
     private const val DAY = 86_400L
 
-    /** A length of time by its largest unit: "12 days", "1 hour", "5 min". */
-    fun span(seconds: Long): String = when {
-        seconds >= DAY -> (seconds / DAY).let { if (it == 1L) "1 day" else "$it days" }
-        seconds >= HOUR -> (seconds / HOUR).let { if (it == 1L) "1 hour" else "$it hours" }
-        seconds >= 60 -> "${seconds / 60} min"
-        else -> "under a minute"
+    /** A length of time by its largest unit, as a number and its unit: "12" and "days". "under a minute" has no number. */
+    private fun spanParts(seconds: Long): Pair<String, String?> = when {
+        seconds >= DAY -> (seconds / DAY).let { "$it" to if (it == 1L) "day" else "days" }
+        seconds >= HOUR -> (seconds / HOUR).let { "$it" to if (it == 1L) "hour" else "hours" }
+        seconds >= 60 -> "${seconds / 60}" to "min"
+        else -> "under a minute" to null
     }
+
+    /** A length of time by its largest unit: "12 days", "1 hour", "5 min". */
+    fun span(seconds: Long): String = spanParts(seconds).let { (n, unit) -> if (unit == null) n else "$n $unit" }
 
     /** A length of time as a clock: "03:25:10". Past two days, the days come first: "12d 03:25:10". */
     fun clock(seconds: Long): String {
@@ -182,10 +194,15 @@ internal object WidgetWords {
         val left = to - now
         if (left > 0) {
             val clock = style == "clock" || (style != "days" && left <= 48 * HOUR)
-            return if (clock) Count(clock(left), ticks = true) else Count(span(left), ticks = false)
+            if (clock) return Count(clock(left), null, ticks = true)
+            val (n, unit) = spanParts(left)
+            return Count(n, unit, ticks = false)
         }
         fun day(t: Long) = Instant.ofEpochSecond(t).atZone(zone).toLocalDate()
-        return if (day(to) == day(now)) Count(reached ?: "today", ticks = false) else Count(span(-left) + " ago", ticks = false)
+        if (day(to) == day(now)) return Count(reached ?: "today", null, ticks = false)
+        val (n, unit) = spanParts(-left)
+        // "under a minute ago" has no number: all of it is the value.
+        return if (unit == null) Count("$n ago", null, ticks = false) else Count(n, "$unit ago", ticks = false)
     }
 
     /** How far a countdown that started at [from] has come, from 0 to 1. Null without a start, or with one after the moment. */
@@ -557,9 +574,21 @@ internal object WidgetWords {
      * next), 2 (play or pause, next) or 1 (play or pause). A button is 48 dp, with 4 dp between two.
      * With [besideText] the texts are in the same row and keep [MEDIA_TEXT_DP].
      */
-    fun mediaButtons(widthDp: Int, besideText: Boolean): Int {
-        val room = widthDp - if (besideText) MEDIA_TEXT_DP + CONTROL_GAP_DP else 0
-        return ((room + 4) / (CONTROL_DP + 4)).coerceIn(1, 3)
+    fun mediaButtons(widthDp: Int, besideText: Boolean): Int = ((mediaRoom(widthDp, besideText) + 4) / (CONTROL_DP + 4)).coerceIn(1, 3)
+
+    /** The width the buttons of a media card [widthDp] wide have, in dp. */
+    private fun mediaRoom(widthDp: Int, besideText: Boolean) = widthDp - if (besideText) MEDIA_TEXT_DP + CONTROL_GAP_DP else 0
+
+    /** The play or pause button is up to this much wider than the others, in dp, where there is room. */
+    private const val PLAY_EXTRA_DP = 16
+
+    /**
+     * How wide the play or pause button is, in dp, beside [count] - 1 others ([mediaButtons]): 48 dp
+     * like the others, and up to [PLAY_EXTRA_DP] more with the room that is left. It is the main one.
+     */
+    fun mediaPlayDp(widthDp: Int, besideText: Boolean, count: Int): Int {
+        val buttons = count * CONTROL_DP + (count - 1) * 4
+        return CONTROL_DP + (mediaRoom(widthDp, besideText) - buttons).coerceIn(0, PLAY_EXTRA_DP)
     }
 
     /** How long a switch shows "working" after a tap, with no answer from its script, in milliseconds. */
@@ -578,24 +607,36 @@ internal object WidgetWords {
     /** What a wide card draws around its content: the [title] line over it, and the icon's [badge] at its start. */
     data class Frame(val title: Boolean, val badge: Boolean)
 
-    /** A wide card this tall has room for its title line over a row of buttons, in dp: a button is 48 dp. */
-    const val TITLED_BUTTONS_DP = 88
+    /**
+     * A wide card this tall has room for its title line over a row of buttons (a button is 48 dp),
+     * or over two lines of text and a caption, in dp. A card of one row (92 dp) is lower.
+     */
+    const val TITLED_DP = 96
+
+    /** What a wide card takes from its height for its padding (24 dp) and its title line (16 dp), in dp. */
+    private const val WIDE_CHROME_DP = 40
 
     /** A wide card this wide has room for its badge beside its buttons, in dp. A card of two cells is narrower. */
     const val BADGED_BUTTONS_DP = 250
 
     /**
-     * What a wide card, [widthDp] by [heightDp], draws around [spec]'s content.
+     * What a wide card, [widthDp] by [heightDp], draws around [spec]'s content. A card with a
+     * [footer] ("Failed 10:42", "2 h ago") always has the title line: the footer is at its end, and
+     * a card has no other place for it. A screen reader hears the title either way.
      * - A kind made of buttons needs 48 dp for each of them. A card too low for the title line and
      *   a button leaves the title out, and a card too narrow for the badge and two buttons leaves
      *   the badge out.
+     * - A text leaves the title out when the title line would leave it one line ([TITLED_DP]).
+     * - Bars with their names leave the title out when the title line would cost them their names.
      * - A media card never has the title line. Its own first line is the track's title, and
      *   "Now playing" over that says nothing new.
-     * - Any other kind has both. A screen reader hears the title either way.
+     * - Any other kind has both.
      */
-    fun wideFrame(spec: WidgetSpec?, widthDp: Int, heightDp: Int): Frame = when (spec) {
-        is WidgetSpec.Buttons, is WidgetSpec.Toggles -> Frame(title = heightDp >= TITLED_BUTTONS_DP, badge = widthDp >= BADGED_BUTTONS_DP)
+    fun wideFrame(spec: WidgetSpec?, widthDp: Int, heightDp: Int, footer: Boolean = false): Frame = when (spec) {
+        is WidgetSpec.Buttons, is WidgetSpec.Toggles -> Frame(title = footer || heightDp >= TITLED_DP, badge = widthDp >= BADGED_BUTTONS_DP)
         is WidgetSpec.Media -> Frame(title = false, badge = widthDp >= BADGED_BUTTONS_DP)
+        is WidgetSpec.Text -> Frame(title = footer || heightDp >= TITLED_DP, badge = true)
+        is WidgetSpec.Progress -> Frame(title = footer || heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size, badge = true)
         else -> Frame(title = true, badge = true)
     }
 
@@ -639,6 +680,12 @@ internal object WidgetWords {
     /** The first line of an error with something on it, for a card with nothing else to show. */
     fun firstLine(error: String?): String? = error?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotEmpty() }
 
+    /**
+     * The badge of a large card whose content has no icon: the first letter or digit of [title], as
+     * a capital. Null for a title with none.
+     */
+    fun badgeLetter(title: String): String? = title.firstOrNull { it.isLetterOrDigit() }?.uppercase()
+
     /** The end of a failed run's log line: a tap on that line opens the editor at the line. */
     private val EDIT_TAIL = Regex("""\s*\(tap to edit line (\d+)\)$""")
 
@@ -678,6 +725,9 @@ internal fun roleColour(base: WidgetBase?): Color = colourOf(base?.color ?: Styl
 
 /** Height of the "+3 more" line under a list, in dp. */
 private const val MORE_DP = 20
+
+/** The thickness of a bar's line ([LevelBar]). */
+private val BAR_LINE = 6.dp
 
 /** A wave of no height: a bar or ring that stands still. A wave would say "working". */
 private val STILL: (Float) -> Float = { 0f }
@@ -746,11 +796,17 @@ internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier:
     val target = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
     val shown by animateFloatAsState(target, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "level")
     val wave = moving && LocalWidgetsShown.current
+    // A bar of 6 dp, not Material's 4: a card is seen from afar. The container stays 10 dp tall.
+    val stroke = with(LocalDensity.current) { Stroke(width = BAR_LINE.toPx(), cap = StrokeCap.Round) }
     LinearWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
         modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
         color = colour,
         trackColor = colour.copy(alpha = 0.24f),
+        stroke = stroke,
+        trackStroke = stroke,
+        // No dot at the track's end: the bar's end says where it stops.
+        stopSize = 0.dp,
         amplitude = if (wave) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
         wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength,
         waveSpeed = if (wave) WavyProgressIndicatorDefaults.LinearDeterminateWavelength else 0.dp,
@@ -765,22 +821,33 @@ private fun valueStyle(box: WidgetSizes.Box) = when (box) {
     WidgetSizes.Box.LARGE -> MaterialTheme.typography.headlineLarge
 }
 
-/** A kind's big text, on one line. A text too long for its room gets smaller, down to 12 sp, before it is cut with "…". */
+/**
+ * [style] for a value: extra bold and a little tighter, with digits of one width. A number that
+ * ticks does not shake, and a value stands out from the words around it.
+ */
+internal fun TextStyle.asValue(): TextStyle = copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
+
+/**
+ * A kind's big text, on one line, as a value ([asValue]). A text too long for its room gets
+ * smaller, down to 12 sp, before it is cut with "…".
+ */
 @Composable
 private fun BigText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
     val size = remember(style.fontSize) {
         val largest = style.fontSize.value.let { if (it.isNaN()) 22f else maxOf(it, 12f) }
         TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = largest.sp, stepSize = 1.sp)
     }
-    Text(text, modifier = modifier, color = color, autoSize = size, style = style, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+    val value = remember(style) { style.asValue() }
+    Text(text, modifier = modifier, color = color, autoSize = size, style = value, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
 }
 
 /**
  * `stat`: one big value with its label.
  * - Small: the value and the label, centred.
- * - Wide: the change beside the value, and as many of the smaller values as fit beside them. A bar
- *   takes the label's place: one row has no room for both.
- * - Large: everything, with the smaller values in a row below.
+ * - Wide: the value with its change at the start, and a column at the end: the label over the
+ *   first smaller value. The others go between them, as many as fit. A box under 150 dp has no
+ *   room for that column: the label goes under the value, and a bar takes the label's place.
+ * - Large: the value and its label at the top. The smaller values and the bar are at the bottom.
  */
 @Composable
 private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
@@ -796,42 +863,73 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val colour = roleColour(spec.base)
     val large = box == WidgetSizes.Box.LARGE
     val change = listOfNotNull(WidgetWords.arrow(spec.trend), spec.delta).joinToString(" ")
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // A smaller value beside the big one needs about 64 dp, after 112 dp for the big one.
-        val beside = if (large) 0 else ((maxWidth - 112.dp) / 64.dp).toInt().coerceIn(0, spec.more.size)
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Row {
-                        BigText(spec.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
-                        spec.unit?.let {
-                            Text(it, style = type.titleMedium, color = scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 2.dp).alignByBaseline())
-                        }
-                        if (change.isNotEmpty()) {
-                            Text(change, style = type.labelLarge, color = colour, maxLines = 1, modifier = Modifier.padding(start = 8.dp).alignByBaseline())
-                        }
-                    }
-                    if (large || spec.progress == null) spec.label?.let {
-                        Text(cardText(it), style = if (large) type.bodyMedium else type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                spec.more.take(beside).forEach { SmallValue(it, Modifier.padding(start = 12.dp).widthIn(max = 72.dp)) }
+    val value: @Composable (Modifier) -> Unit = { modifier ->
+        Row(modifier) {
+            BigText(spec.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+            spec.unit?.let {
+                Text(it, style = type.titleMedium, color = scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 2.dp).alignByBaseline())
             }
-            if (large && spec.more.isNotEmpty()) {
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (change.isNotEmpty()) {
+                Text(change, style = type.labelLarge, color = colour, maxLines = 1, modifier = Modifier.padding(start = 8.dp).alignByBaseline())
+            }
+        }
+    }
+    if (large) {
+        Column(Modifier.fillMaxSize()) {
+            value(Modifier)
+            spec.label?.let { Text(cardText(it), style = type.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            Spacer(Modifier.weight(1f))
+            if (spec.more.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     spec.more.forEach { SmallValue(it, Modifier.weight(1f, fill = false)) }
                 }
             }
-            spec.progress?.let { LevelBar(it, spec.moving, colour, Modifier.padding(top = if (large) 8.dp else 4.dp)) }
+            spec.progress?.let { LevelBar(it, spec.moving, colour, Modifier.padding(top = 8.dp)) }
+        }
+        return
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val side = maxWidth >= STAT_SIDE_FROM
+        val first = spec.more.firstOrNull()
+        // A smaller value between the big one and the end column needs about 64 dp, after 112 dp
+        // for the big one and 96 dp for the column.
+        val column = if (side && (spec.label != null || first != null)) 96.dp else 0.dp
+        val between = if (side) spec.more.drop(1) else spec.more
+        val half = maxWidth / 2
+        val beside = ((maxWidth - 112.dp - column) / 64.dp).toInt().coerceIn(0, between.size)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    value(Modifier)
+                    if (!side && spec.progress == null) spec.label?.let {
+                        Text(cardText(it), style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                between.take(beside).forEach { SmallValue(it, Modifier.padding(start = 12.dp).widthIn(max = 72.dp)) }
+                if (column > 0.dp) {
+                    Column(Modifier.padding(start = 12.dp).widthIn(max = half), horizontalAlignment = Alignment.End) {
+                        spec.label?.let {
+                            Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        first?.let {
+                            Text(WidgetWords.joined(it.value, it.label), style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+            spec.progress?.let { LevelBar(it, spec.moving, colour, Modifier.padding(top = 4.dp)) }
         }
     }
 }
+
+/** From this width, a wide stat has a column at its end for its label and its first smaller value. */
+private val STAT_SIDE_FROM = 150.dp
 
 /** One of a stat's smaller values, over its label. */
 @Composable
 private fun SmallValue(small: WidgetSpec.Small, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(small.value, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(small.value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
         small.label?.let {
             Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -975,8 +1073,8 @@ private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
 @Composable
 private fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
     val shown by animateFloatAsState(fraction, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "ring")
-    // A bigger ring gets a thicker line.
-    val stroke = with(LocalDensity.current) { Stroke(width = (side / 12).coerceIn(4.dp, 10.dp).toPx(), cap = StrokeCap.Round) }
+    // A bigger ring gets a thicker line: an eighth of its side.
+    val stroke = with(LocalDensity.current) { Stroke(width = (side / 8).coerceIn(4.dp, 14.dp).toPx(), cap = StrokeCap.Round) }
     val wave = moving && LocalWidgetsShown.current
     CircularWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
@@ -1019,8 +1117,8 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(side), contentAlignment = Alignment.Center) {
                     Ring(fraction, spec.moving, colour, side)
-                    // The text stays clear of the ring's line.
-                    BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 6))
+                    // The text stays clear of the ring's line, which is an eighth of the side.
+                    BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 5))
                 }
                 if (label != null) {
                     Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(labelRoom).wrapContentHeight())
@@ -1030,10 +1128,14 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
     }
 }
 
-/** One bar under its text. The label is beside the text. */
+/**
+ * One bar under its text. The label is beside the text. A large box has the text at its top and
+ * the bar at its bottom; the others have both in the middle.
+ */
 @Composable
 private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+    val large = box == WidgetSizes.Box.LARGE
+    Column(Modifier.fillMaxSize(), verticalArrangement = if (large) Arrangement.SpaceBetween else Arrangement.Center) {
         Row {
             BigText(spec.text ?: WidgetWords.percent(spec.value, spec.max), valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
             if (box != WidgetSizes.Box.SMALL) spec.label?.let {
@@ -1089,8 +1191,10 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
  * moment once, and no run is needed as time passes.
  * - The time moves by the minute, with the header's clock ([rememberNow]).
  * - It moves by the second only while the text shows seconds and the page is in view.
+ * - The number is big and its unit small: "36 days" ([WidgetWords.Count]).
  * - With a start (`from`), a bar runs from the start to the moment. In a wide box the bar takes the
- *   label's place. A small box has no bar.
+ *   label's place. A small box has no bar. A large box has the time at its top and the bar at its
+ *   bottom.
  * - The bar stands still. A countdown that waits is not at work, and a wave is drawn again on every
  *   frame, for days.
  * - The bar moves in steps ([WidgetWords.barStep]), so a clock that ticks does not draw it again
@@ -1119,17 +1223,29 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
         }
     }
     val small = box == WidgetSizes.Box.SMALL
+    val large = box == WidgetSizes.Box.LARGE
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val bar = if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now)?.let(WidgetWords::barStep)
     Column(
         Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = if (large) Arrangement.Top else Arrangement.Center,
         horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start,
     ) {
-        BigText(count.text, valueStyle(box))
-        if (bar == null || box == WidgetSizes.Box.LARGE) spec.label?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // The number big, its unit small: "36 days".
+        Row {
+            BigText(count.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+            count.unit?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium, color = muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())
+            }
         }
-        if (bar != null) LevelBar(bar, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp))
+        if (bar == null || large) spec.label?.let {
+            Text(it, style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (bar != null) {
+            // A large box has the bar at its bottom.
+            if (large) Spacer(Modifier.weight(1f))
+            LevelBar(bar, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp))
+        }
     }
 }
 
@@ -1186,9 +1302,10 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
 
 /**
  * The plot of a chart, on a Canvas, in [colour]. There is no chart library.
- * - A line is 2 dp, with a light wash under it. A dot marks the latest point. The dot has a ring in
+ * - A line is 2 dp, with a wash under it. A dot marks the latest point. The dot has a ring in
  *   the card's colour, so it stays clear of the line.
- * - A bar is at most 24 dp thick, with 2 dp between bars. It is round at its top and square at the
+ * - A bar is at most 24 dp thick, with 4 dp between bars (less when there are many). The latest
+ *   bar is in full colour, the others lighter. A bar is round at its top and square at the
  *   baseline, which is a hairline.
  * - The scale is [min] to [max], or what the data gives ([WidgetWords.scale]). A value outside the
  *   scale is drawn at its edge.
@@ -1205,18 +1322,22 @@ private fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, c
         // How high a value sits, from 0 at the bottom of the scale to 1 at its top.
         fun level(v: Float) = WidgetWords.fraction(v - low, high - low)
         if (bars) {
-            val gap = 2.dp.toPx()
+            // 4 dp between bars, less when there are many: a bar keeps two thirds of its slot.
             val slot = size.width / points.size
+            val gap = minOf(4.dp.toPx(), slot / 3)
             val thick = (slot - gap).coerceIn(1f, 24.dp.toPx())
-            val round = CornerRadius(minOf(4.dp.toPx(), thick / 2))
-            val path = Path()
+            val round = CornerRadius(minOf(5.dp.toPx(), thick / 2))
+            // The latest bar is in full colour, the others lighter: the latest value is the news.
+            val before = Path()
+            val latest = Path()
             points.forEachIndexed { i, v ->
                 val x = i * slot + (slot - thick) / 2
                 // A value at the bottom of the scale still shows as a sliver.
                 val top = (size.height * (1f - level(v))).coerceAtMost(size.height - line)
-                path.addRoundRect(RoundRect(Rect(x, top, x + thick, size.height), topLeft = round, topRight = round))
+                (if (i == points.lastIndex) latest else before).addRoundRect(RoundRect(Rect(x, top, x + thick, size.height), topLeft = round, topRight = round))
             }
-            drawPath(path, colour)
+            drawPath(before, colour.copy(alpha = 0.4f))
+            drawPath(latest, colour)
             drawLine(hairline, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
         } else {
             val dot = 4.dp.toPx()
@@ -1237,7 +1358,7 @@ private fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, c
                 }
                 wash.lineTo(right, size.height)
                 wash.close()
-                drawPath(wash, colour.copy(alpha = 0.1f))
+                drawPath(wash, colour.copy(alpha = 0.2f))
                 drawPath(path, colour, style = Stroke(width = line, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
             val end = Offset(x(points.lastIndex), y(points.last()))
