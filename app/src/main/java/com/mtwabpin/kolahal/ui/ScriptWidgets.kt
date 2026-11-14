@@ -49,12 +49,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.mtwabpin.kolahal.data.LogRepository
-import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StatusLines
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.WidgetAge
@@ -311,7 +308,7 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
         if (name != null) {
             ScriptWidget(name, height, actions, feed)
         } else if (status != null) {
-            StatusWidget(status, height, actions)
+            StatusWidget(status, height, actions, feed)
         } else if (WidgetSource.builtinId(w.source) == WidgetSource.BATTERY) {
             BatteryWidget(height, actions)
         } else {
@@ -505,8 +502,18 @@ internal object StatusCards {
     }
 }
 
-/** What a Status card has read: its script's title, and the line. A null line means the script has set none. */
-private data class StatusRead(val title: String, val line: StatusLine?)
+/**
+ * [name]'s status line as [feed] has it, or null when the script has set none. The view model reads
+ * the lines once for the pinned header, the Scripts screen and every card. A card is drawn again
+ * only when its own line changes.
+ */
+@Composable
+private fun statusLine(feed: WidgetFeed?, name: String): StatusLine? {
+    if (feed == null) return null
+    val changes = remember(feed, name) { feed.lines.map { all -> all.firstOrNull { it.name == name } }.distinctUntilChanged() }
+    val line by changes.collectAsStateWithLifecycle(initialValue = remember(feed, name) { feed.lines.value.firstOrNull { it.name == name } })
+    return line
+}
 
 /**
  * When each Status card's script last ran again for its line's `refresh`, by script name, in
@@ -521,43 +528,18 @@ private val statusRuns = HashMap<String, Long>()
  * - It needs no run and no access item. The line is stored whether or not a card shows it.
  * - A tap runs the script, as a tap on its pinned line does.
  * - The line's own `refresh` counts while the card is in view, as it does for a pinned line.
+ * - The card itself reads nothing from the database. Its line and its script's title come from the
+ *   view model ([feed]), which reads them for the pinned header anyway. So a new log line costs a
+ *   card nothing, in view or not. A card with no feed stays empty.
  */
 @Composable
-private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?) {
-    val context = LocalContext.current.applicationContext
+private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    // Null until the first read. The card stays empty for that moment, and does not say "no status line".
-    var read by remember(name) { mutableStateOf<StatusRead?>(null) }
-    LaunchedEffect(name, lifecycle) {
-        val logs = LogRepository.get(context)
-        val scripts = ScriptRepository.get(context)
-        var print: String? = null
-        var title = name
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            // A changed status line moves the log's counter (LogRepository.onStatusChanged), which the
-            // pinned header follows too. Every new log line moves it as well. A read that takes long
-            // gets only the newest count after it.
-            logs.version.collect {
-                val next = withContext(Dispatchers.IO) {
-                    runCatching {
-                        // The title is read again only after a script changed.
-                        val now = scripts.fingerprint()
-                        if (now != print) {
-                            title = scripts.byName(name)?.let { ScriptMeta.title(it.code) } ?: name
-                            print = now
-                        }
-                        StatusRead(title, StatusLines.all(context).firstOrNull { it.name == name })
-                    }.getOrNull()
-                }
-                // An equal read keeps the one in use, so the card is not drawn again.
-                if (next != null && next != read) read = next
-            }
-        }
-    }
+    val known = knownScript(feed, name)
+    val line = statusLine(feed, name)
 
-    val r = read
     // `refresh` in the line's options: run again that often, only while in view.
-    val every = r?.line?.refresh
+    val every = line?.refresh
     if (actions != null && every != null && LocalWidgetsShown.current) LaunchedEffect(name, actions, lifecycle, every) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
@@ -572,10 +554,11 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         }
     }
 
-    val title = r?.title ?: name
-    val spec = remember(r) { r?.let { StatusCards.spec(it.title, it.line) } }
+    val title = known.script?.title ?: name
+    val spec = remember(title, line) { StatusCards.spec(title, line) }
     val note = when {
-        r == null -> CardNote.WAITING
+        // Until the view model has read the scripts and the lines, the card stays empty. It does not say "no status line".
+        !known.read -> CardNote.WAITING
         spec == null -> CardNote.NO_STATUS
         else -> null
     }
