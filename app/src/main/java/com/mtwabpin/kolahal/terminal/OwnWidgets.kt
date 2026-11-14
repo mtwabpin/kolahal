@@ -212,6 +212,8 @@ internal object AgendaTurns {
  * - A list is read while a card collects it, and again when its store counts a write
  *   ([TodoStore.changes]) or the card asks ([shown]). When no card has collected it for
  *   [STOP_AFTER_MS], it is read no more, and the next card to collect it reads it again.
+ * - The calendar is read when the Agenda card asks ([shown]), at most once in a minute
+ *   ([AgendaTurns]), and once for the card's first reader. Nothing reads it for a widget that is not placed.
  */
 internal class OwnData(context: Context, private val scope: CoroutineScope) {
     private val context = context.applicationContext
@@ -336,6 +338,17 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
             val read = withContext(taps) { runCatching { Shortcuts.read(context) }.getOrDefault(emptyList()) }
             // A list saved in the meantime is newer than what was read.
             shortcuts.compareAndSet(null, read)
+        }
+        // A card can be drawn before it is in view: beside the log, or on the Widgets screen, where
+        // it never asks. So the first reader of the access and of the calendar starts one look, once.
+        // The card is then right when it is first seen. Every later look comes from [shown].
+        scope.launch {
+            mediaAllowed.subscriptionCount.first { it > 0 }
+            shown(WidgetSource.MEDIA)
+        }
+        scope.launch {
+            agenda.subscriptionCount.first { it > 0 }
+            shown(WidgetSource.AGENDA)
         }
     }
 
