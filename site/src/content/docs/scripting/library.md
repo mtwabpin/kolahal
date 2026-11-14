@@ -1,9 +1,9 @@
 ---
 title: Script library
-description: The 36 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 37 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
-Kolahal includes 36 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 37 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -59,7 +59,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Twelve scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Thirteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
 
 None of the network scripts need an API key.
 
@@ -87,6 +87,7 @@ None of the network scripts need an API key.
 | [football](#football) | JS | yes | every 15m | |
 | [charge-reminder](#charge-reminder) | Lua | | on charger and unplug | yes |
 | [unlock-chart](#unlock-chart) | Lua | | on unlock | |
+| [habit](#habit) | Lua | yes | daily 00:01 | |
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
 | [night-work](#night-work) | Lua | | daily 23:00 and 07:00 | |
 | [template-command](#templates) | Lua | yes | | |
@@ -104,7 +105,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Twelve scripts have a [widget](/scripting/overview/#widgets): a card on the
+Thirteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -124,6 +125,7 @@ Twelve scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
+| [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
 | [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
 
 - A script fills its widget on its own timer. The widgets page also runs it when you place the
@@ -418,6 +420,26 @@ doesn't use the network.
 - While its widget isn't on the widgets page, a run for an unlock does nothing. To stop these runs
   too, switch its `unlock` event off in the script's sheet.
 - It isn't named `unlocks`, because a script can't have a built-in command's name.
+
+## habit
+
+**Habit streak**: a [widget](#widgets) for one thing you do every day. It shows your streak large:
+the days in a row that you did it. Under it is a bar for each of the last 7 days, the oldest first.
+It doesn't use the network, and it needs no access.
+
+```sh
+habit                        # the streak and the last 7 days
+habit done                   # mark today done
+habit undo                   # take today's mark away
+```
+
+- A tap on the card marks today done. The card then turns to the theme's good colour.
+- A tap by mistake: type `habit undo`.
+- While today is still open, the streak counts up to yesterday. A missed day starts it again at 0.
+- Its `name` option is the card's title: what you count (`script set habit name Read`).
+- It runs at 00:01, so the card starts the new day with an open bar.
+- It counts one habit. For a second one, rename your copy (`script mv habit read`) and install
+  habit again. Each copy has its own days and its own widget.
 
 ## night-dnd
 

@@ -73,6 +73,7 @@ forecast.js e2877222519432a7
 forecast.js e3628f4961e6fceb
 forecast.js e8c59a32d5867cd9
 forecast.js f3abc8b522ad3687
+habit.lua 68c427244de980fe
 headlines.js a632e4f4ab80e6c6
 hn.lua 022db4083bfb71fd
 hn.lua 07f1fc775735591e

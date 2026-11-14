@@ -46,9 +46,51 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "headlines.js", "hn.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js"),
+            listOf("aqi.js", "countdown.lua", "crypto.js", "exchange.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js"),
             withWidget,
         )
+    }
+
+    /**
+     * The streak over seven bars: 1 for a day that is done, 0 for any other, on a scale from 0 to 1.
+     * Once today is done the card is in the good colour; before that it gives no colour.
+     */
+    @Test fun habit() {
+        fun week(streak: Double, vararg days: Double, label: String, summary: String, color: String?) = fromLua(
+            "habit.lua",
+            luaTable(
+                "title" to "Exercise", "value" to streak, "label" to label, "points" to luaList(*days.toTypedArray()), "style" to "bars",
+                "min" to 0.0, "max" to 1.0, "labels" to luaList("Sun", "Today"), "summary" to summary, "color" to color,
+                "tap" to luaTable("args" to "done", "label" to "Done today"),
+            ),
+        )
+        val tap = WidgetTap(args = "done", label = "Done today")
+        val open = "Sun done, Mon missed, Tue done, Wed done, Thu done, Fri done, Today not yet"
+        assertEquals(
+            WidgetSpec.Chart(
+                WidgetBase(title = "Exercise", tap = tap),
+                points = listOf(1f, 0f, 1f, 1f, 1f, 1f, 0f), style = "bars", min = 0f, max = 1f,
+                value = "4", label = "days in a row", labels = listOf("Sun", "Today"), summary = open,
+            ),
+            week(4.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, label = "days in a row", summary = open, color = null),
+        )
+        val done = week(5.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, label = "days in a row", summary = open.replace("not yet", "done"), color = "good") as WidgetSpec.Chart
+        assertEquals(listOf("5", StyledText.Colour.GOOD, 1f), listOf(done.value, done.base.color, done.points.last()))
+        // No day is done yet: every bar is at the bottom of the scale.
+        val none = "Sun missed, Mon missed, Tue missed, Wed missed, Thu missed, Fri missed, Today not yet"
+        val new = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, label = "days in a row", summary = none, color = null) as WidgetSpec.Chart
+        assertEquals(listOf("0", List(7) { 0f }, 0f, 1f), listOf(new.value, new.points, new.min, new.max))
+    }
+
+    /**
+     * habit asks for nothing: its days are in its own store. A word such as `url` or `status`
+     * anywhere in its text, even in a comment, would give it a switch.
+     */
+    @Test fun habitAsksForNoAccess() {
+        val code = sourceFile("src/main/assets/library/habit.lua").readText()
+        assertEquals(emptyList<String>(), ScriptAccess.asksFor(code))
+        assertEquals(listOf(ScriptAccess.WIDGET), ScriptAccess.items(code))
+        assertEquals(false, ScriptMeta.postsNotifications(code))
     }
 
     /**
