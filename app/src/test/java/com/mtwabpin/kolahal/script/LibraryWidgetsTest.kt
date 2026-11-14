@@ -381,13 +381,13 @@ class LibraryWidgetsTest {
             "countdown.lua",
             luaTable(
                 "title" to "Wedding anniversary · 26th", "label" to "15 Jun 2027", "style" to "days", "reached" to "Today",
-                "to" to 1_812_997_800.0, "tap" to luaToLog,
+                "to" to 1_812_997_800.0, "from" to 1_781_461_800.0, "tap" to luaToLog,
             ),
         )
         assertEquals(
             WidgetSpec.Countdown(
                 WidgetBase(title = "Wedding anniversary · 26th", tap = toLog),
-                to = 1_812_997_800, label = "15 Jun 2027", style = "days", reached = "Today",
+                to = 1_812_997_800, from = 1_781_461_800, label = "15 Jun 2027", style = "days", reached = "Today",
             ),
             spec,
         )

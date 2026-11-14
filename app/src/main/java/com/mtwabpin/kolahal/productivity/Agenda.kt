@@ -10,16 +10,35 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-data class AgendaEvent(val id: Long, val title: String, val begin: Long, val end: Long, val allDay: Boolean)
+/** A calendar instance as [Agenda.query] reads it. [where] is its place, and [calendar] the id of its calendar. */
+data class AgendaEvent(
+    val id: Long,
+    val title: String,
+    val begin: Long,
+    val end: Long,
+    val allDay: Boolean,
+    val where: String? = null,
+    val calendar: Long = 0,
+)
 
 /**
  * A calendar event as a card or a script shows it ([Agenda.shown]).
  * - [starts] and [ends] are in seconds since 1970, as a widget takes them. An all-day event starts
  *   and ends at midnights on the phone.
+ * - [where] and [calendar] come from [AgendaEvent]. A script's `calendar.events` has neither.
  * - [begin] is the start as the calendar keeps it, in milliseconds. A tap opens the event at that
  *   time, so the right day of a repeating event opens.
  */
-data class ShownEvent(val id: Long, val title: String, val starts: Long, val ends: Long, val allDay: Boolean, val begin: Long)
+data class ShownEvent(
+    val id: Long,
+    val title: String,
+    val starts: Long,
+    val ends: Long,
+    val allDay: Boolean,
+    val begin: Long,
+    val where: String? = null,
+    val calendar: Long = 0,
+)
 
 /** `agenda`: upcoming calendar instances. Needs READ_CALENDAR. */
 object Agenda {
@@ -45,6 +64,8 @@ object Agenda {
             CalendarContract.Instances.BEGIN,
             CalendarContract.Instances.END,
             CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.EVENT_LOCATION,
+            CalendarContract.Instances.CALENDAR_ID,
         )
         val selection = "${CalendarContract.Instances.VISIBLE} = 1 AND " +
             "${CalendarContract.Instances.SELF_ATTENDEE_STATUS} != ${CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED}"
@@ -57,6 +78,8 @@ object Agenda {
                     begin = c.getLong(2),
                     end = c.getLong(3),
                     allDay = c.getInt(4) != 0,
+                    where = c.getString(5)?.trim()?.takeIf { it.isNotEmpty() },
+                    calendar = c.getLong(6),
                 )
             }
         }
@@ -121,9 +144,11 @@ object Agenda {
                     ends = after.atStartOfDay(zone).toEpochSecond(),
                     allDay = true,
                     begin = e.begin,
+                    where = e.where,
+                    calendar = e.calendar,
                 )
             } else {
-                ShownEvent(e.id, e.title, starts = e.begin / 1000, ends = maxOf(e.begin, e.end) / 1000, allDay = false, begin = e.begin)
+                ShownEvent(e.id, e.title, starts = e.begin / 1000, ends = maxOf(e.begin, e.end) / 1000, allDay = false, begin = e.begin, where = e.where, calendar = e.calendar)
             }
         }
     }

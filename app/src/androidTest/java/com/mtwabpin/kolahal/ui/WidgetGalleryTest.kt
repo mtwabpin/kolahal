@@ -306,10 +306,10 @@ class WidgetGalleryTest {
         val ago = listOf("6 days ago", "today")
         val todos = listOf("Pay electricity bill", "Book train tickets", "Call the plumber", "Renew the passport", "Water the plants")
         val calendar = listOf(
-            AgendaEvent(1, "Team call", at(0, 10, 0) * 1000, at(0, 10, 30) * 1000, allDay = false),
-            AgendaEvent(2, "Dentist", at(0, 15, 30) * 1000, at(0, 16, 15) * 1000, allDay = false),
+            AgendaEvent(1, "Team call", at(0, 10, 0) * 1000, at(0, 10, 30) * 1000, allDay = false, where = "Meet", calendar = 1),
+            AgendaEvent(2, "Dentist", at(0, 15, 30) * 1000, at(0, 16, 15) * 1000, allDay = false, where = "MG Road", calendar = 2),
             // The calendar keeps an all-day event at midnight UTC.
-            AgendaEvent(3, "Mum's birthday", today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), today.plusDays(2).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), allDay = true),
+            AgendaEvent(3, "Mum's birthday", today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), today.plusDays(2).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), allDay = true, calendar = 3),
         )
         // As read at the start of the day. Without the ends, no event drops out or says "now" at the hour of the run.
         val agenda = OwnCards.agenda(calendar, zone, today.atStartOfDay(zone).toInstant().toEpochMilli(), OwnData.AGENDA_DAYS).let { a -> a.copy(events = a.events.map { it.copy(ends = null) }) }

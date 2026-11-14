@@ -17,6 +17,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import android.media.session.PlaybackState
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.control.NowPlaying
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.productivity.Agenda
@@ -146,6 +147,17 @@ internal object OwnCards {
     /** What the Agenda card says without the calendar permission. A tap on the card asks for it. */
     const val ALLOW_CALENDAR = "Allow calendar access"
     private const val MAX_EVENT_TITLE = 80
+    private const val MAX_EVENT_WHERE = 60
+
+    /**
+     * The colours of calendars on the Agenda card, by calendar id. A card's colours are roles of
+     * the theme, so a calendar's own colour can't be sent. These three say nothing good or bad:
+     * "good", "warn" and "bad" on a birthday would read as a status.
+     */
+    private val CALENDAR_COLOURS = listOf(StyledText.Colour.ACCENT, StyledText.Colour.INFO, StyledText.Colour.LINK)
+
+    /** The colour of the calendar [id] on the Agenda card: the same for every event of that calendar. */
+    fun calendarColour(id: Long): StyledText.Colour = CALENDAR_COLOURS[Math.floorMod(id, CALENDAR_COLOURS.size.toLong()).toInt()]
 
     /**
      * The Agenda card for the calendar's [events], as [Agenda.query] gave them at [now] (in
@@ -156,6 +168,7 @@ internal object OwnCards {
      *   has come ([WidgetWords.agenda]). So an all-day event starts and ends at midnights on the
      *   phone, and every event has its end, also one with no length. Without an end it would stay
      *   all day on the card, and go at the next read of the calendar.
+     * - An event has its place, and a colour for its calendar ([calendarColour]).
      * - An event's tap holds its id and its start (`event 41 1800000000000`), so the right time of
      *   a repeating event opens.
      */
@@ -168,6 +181,8 @@ internal object OwnCards {
                     starts = e.starts,
                     ends = e.ends,
                     allDay = e.allDay,
+                    where = e.where?.let { cut(it.trim(), MAX_EVENT_WHERE) }?.takeIf { it.isNotEmpty() },
+                    color = calendarColour(e.calendar),
                     tap = WidgetTap(args = OwnTaps.event(e.id, e.begin), label = "open event"),
                 )
             },
@@ -259,17 +274,21 @@ internal object OwnCards {
      * The Notes card for [list], which is newest first. Null with no notes: the card then says so ([quiet]).
      * - With [count] 1 it is the newest note, with its line breaks.
      * - With more, it is the newest [count] notes, each on one line of its own.
-     * - The caption counts the notes that are not shown.
+     * - The caption is when the newest note was written, then a count of the notes that are not
+     *   shown: "Fri 13 Nov 18:05 · +2 more". The date is always written out, never "today", so the
+     *   caption is still right after midnight with no new read.
      */
-    fun notes(list: List<Note>, count: Int = 1): WidgetSpec.Text? {
+    fun notes(list: List<Note>, count: Int = 1, zone: ZoneId = ZoneId.systemDefault(), clock24: Boolean = true, locale: Locale = Locale.getDefault()): WidgetSpec.Text? {
         if (list.isEmpty()) return null
         val shown = list.take(count.coerceIn(1, MAX_NOTES))
         val text = if (shown.size == 1) cut(shown[0].text.trim(), MAX_NOTE) else shown.joinToString("\n") { "• " + cut(it.text.trim().replace(BREAKS, " "), MAX_NOTE_LINE) }
         val more = list.size - shown.size
+        val written = Instant.ofEpochMilli(list[0].created).atZone(zone)
+        val at = written.format(TimeFormats.dayFormat(locale)) + " " + TimeFormats.clockFormat(clock24, locale).format(written)
         return WidgetSpec.Text(
             base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.NOTES)),
             text = text,
-            caption = if (more > 0) "+$more more" else null,
+            caption = if (more > 0) "$at · +$more more" else at,
         )
     }
 }
@@ -509,7 +528,8 @@ private fun RemindersWidget(height: Dp, actions: WidgetCardActions?, own: OwnFee
 private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.notes ?: NOT_READ).collectAsStateWithLifecycle()
     val count = if (height >= LARGE) OwnCards.MAX_NOTES else 1
-    val spec: WidgetSpec? = remember(list, count) { list?.let { OwnCards.notes(it, count) ?: OwnCards.quiet(WidgetSource.NOTES, "No notes yet") } }
+    val clock24 = rememberClock24()
+    val spec: WidgetSpec? = remember(list, count, clock24) { list?.let { OwnCards.notes(it, count, clock24 = clock24) ?: OwnCards.quiet(WidgetSource.NOTES, "No notes yet") } }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Notes" }
     OwnCard(WidgetSource.NOTES, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open notes")
 }

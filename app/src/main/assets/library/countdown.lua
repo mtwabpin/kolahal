@@ -160,13 +160,34 @@ local function dateText(item, date)
   return "every " .. date.day .. " " .. os.date("%b", noon(2000, date.month, date.day))
 end
 
+-- Midnight at the start of the day of [t].
+local function dayStart(t)
+  local d = os.date("*t", t)
+  return os.time({ year = d.year, month = d.month, day = d.day, hour = 0 })
+end
+
+-- Where the wait for [item] started, for the bar under its widget: a yearly one's last day (a
+-- year before its next), a one-time one's day it was saved. Nil when that isn't known (saved
+-- before this was kept) or isn't before [to]: then the widget has no bar.
+local function waitStart(item, date, yearly, t, to)
+  local from
+  if yearly then
+    local d = os.date("*t", t)
+    from = dayStart(noon(d.year - 1, date.month, date.day))
+  elseif item.added then
+    from = dayStart(item.added)
+  end
+  if from and from < to then return from end
+  return nil
+end
+
 -- Its widget counts to the nearest saved date that is still to come. Kolahal counts the days
 -- itself, to the start of that day, so this script only runs again to move on to the next date.
 -- With no date to come, the widget is emptied. A tap runs countdown and turns home to the log,
 -- for the whole list.
 local function fillWidget(list)
   if not widget then return end
-  local nearestTime, nearestName
+  local nearestTime, nearestName, nearestItem, nearestDate, nearestYearly
   for _, item in ipairs(list) do
     local date = parseDate(item.date)
     if date then
@@ -174,14 +195,15 @@ local function fillWidget(list)
       local t = nextTime(date, yearly)
       if daysUntil(t) >= 0 and (nearestTime == nil or t < nearestTime) then
         nearestTime, nearestName = t, title(item.label, date, yearly, t)
+        nearestItem, nearestDate, nearestYearly = item, date, yearly
       end
     end
   end
   if not nearestTime then return widget.clear() end
-  local day = os.date("*t", nearestTime)
+  local to = dayStart(nearestTime)
   widget.show{
     title = nearestName, label = dayMonth(nearestTime), style = "days", reached = "Today",
-    to = os.time({ year = day.year, month = day.month, day = day.day, hour = 0 }),
+    to = to, from = waitStart(nearestItem, nearestDate, nearestYearly, nearestTime, to),
     tap = { args = "", page = "log" },
   }
 end
@@ -199,7 +221,7 @@ if cmd == "add" then
   if not parsed.year then yearly = true end
   if label == nil or label == "" then label = date end
   local list = load()
-  list[#list + 1] = { date = date, label = label, yearly = yearly or nil }
+  list[#list + 1] = { date = date, label = label, yearly = yearly or nil, added = os.time() }
   save(sorted(list))
   fillWidget(list)
   local t = nextTime(parsed, yearly)

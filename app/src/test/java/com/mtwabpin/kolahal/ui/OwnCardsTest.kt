@@ -486,20 +486,22 @@ class OwnCardsTest {
         assertEquals(spec.items.map { it.detail }, later.items.map { it.detail })
     }
 
-    private val notes = listOf(Note(5, "Buy stamps\nand envelopes", 5_000), Note(4, "Wi-Fi: blue-heron-42", 4_000), Note(3, "Book: The Dispossessed", 3_000), Note(1, "Old", 1_000))
+    private val notes = listOf(Note(5, "Buy stamps\nand envelopes", at(13, 18, 5)), Note(4, "Wi-Fi: blue-heron-42", at(12, 9)), Note(3, "Book: The Dispossessed", at(10, 9)), Note(1, "Old", at(1, 9)))
 
     @Test fun notesShowsTheNewest() {
-        val one = OwnCards.notes(notes)!!
+        val one = OwnCards.notes(notes, zone = zone, locale = Locale.US)!!
         assertEquals("Notes", one.base.title)
         assertEquals("Buy stamps\nand envelopes", one.text)
-        assertEquals("+3 more", one.caption)
+        // When the newest note was written, with its date always written out.
+        assertEquals("Fri 13 Nov 18:05 · +3 more", one.caption)
         // A large card has the newest three, each on one line.
-        val three = OwnCards.notes(notes, count = 3)!!
+        val three = OwnCards.notes(notes, count = 3, zone = zone, locale = Locale.US)!!
         assertEquals("• Buy stamps and envelopes\n• Wi-Fi: blue-heron-42\n• Book: The Dispossessed", three.text)
-        assertEquals("+1 more", three.caption)
+        assertEquals("Fri 13 Nov 18:05 · +1 more", three.caption)
+        assertEquals("Fri 13 Nov 6:05 PM · +1 more", OwnCards.notes(notes, count = 3, zone = zone, clock24 = false, locale = Locale.US)!!.caption)
         // Never more than three, and no caption when all are shown.
-        assertEquals(three, OwnCards.notes(notes, count = 9))
-        assertNull(OwnCards.notes(notes.take(2), count = 3)!!.caption)
+        assertEquals(three, OwnCards.notes(notes, count = 9, zone = zone, locale = Locale.US))
+        assertEquals("all shown: the time alone", "Fri 13 Nov 18:05", OwnCards.notes(notes.take(2), count = 3, zone = zone, locale = Locale.US)!!.caption)
         // One note in a large card is shown whole, as in a small one.
         assertEquals("Buy stamps\nand envelopes", OwnCards.notes(notes.take(1), count = 3)!!.text)
     }
