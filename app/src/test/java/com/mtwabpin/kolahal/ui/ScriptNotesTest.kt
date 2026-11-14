@@ -14,20 +14,32 @@ class ScriptNotesTest {
     private val weather = WidgetScript("weather", "Weather", enabled = true, widget = stat, setsStatus = false)
 
     @Test fun aScriptThatIsThereAndOnHasNoNote() {
-        assertNull(scriptNote(read = true, script = weather))
+        assertNull(scriptNote(read = true, script = weather, ownWidget = true))
+        assertNull(scriptNote(read = true, script = weather, ownWidget = false))
     }
 
     @Test fun aScriptThatIsGoneSaysRemoved() {
-        assertEquals(CardNote.REMOVED, scriptNote(read = true, script = null))
+        assertEquals(CardNote.REMOVED, scriptNote(read = true, script = null, ownWidget = true))
+        assertEquals(CardNote.REMOVED, scriptNote(read = true, script = null, ownWidget = false))
     }
 
     @Test fun aScriptThatIsOffSaysOff() {
-        assertEquals(CardNote.OFF, scriptNote(read = true, script = weather.copy(enabled = false)))
+        assertEquals(CardNote.OFF, scriptNote(read = true, script = weather.copy(enabled = false), ownWidget = true))
+        assertEquals(CardNote.OFF, scriptNote(read = true, script = weather.copy(enabled = false), ownWidget = false))
+        // Off is said first: switching it on comes before its `@widget` line matters.
+        assertEquals(CardNote.OFF, scriptNote(read = true, script = weather.copy(enabled = false, widget = null), ownWidget = true))
+    }
+
+    /** The script's own widget needs the `@widget` line. A Status card does not. */
+    @Test fun aScriptThatLostItsWidgetLineSaysSo() {
+        assertEquals(CardNote.NO_WIDGET, scriptNote(read = true, script = weather.copy(widget = null), ownWidget = true))
+        assertNull(scriptNote(read = true, script = weather.copy(widget = null), ownWidget = false))
     }
 
     /** At the start the script list is empty for a moment. That must not read as "removed". */
     @Test fun nothingIsSaidBeforeTheScriptsAreRead() {
-        assertNull(scriptNote(read = false, script = null))
-        assertNull(scriptNote(read = false, script = weather.copy(enabled = false)))
+        assertNull(scriptNote(read = false, script = null, ownWidget = true))
+        assertNull(scriptNote(read = false, script = weather.copy(enabled = false), ownWidget = true))
+        assertNull(scriptNote(read = false, script = weather.copy(widget = null), ownWidget = true))
     }
 }

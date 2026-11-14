@@ -111,6 +111,9 @@ internal enum class CardNote {
 
     /** The card's script is switched off. */
     OFF,
+
+    /** The script's code has no `@widget` line any more, so `widget.show` stores nothing. */
+    NO_WIDGET,
 }
 
 /**
@@ -118,12 +121,15 @@ internal enum class CardNote {
  * - [read] is false while the view model has not read the scripts yet. Nothing is known then, and
  *   the card says nothing about its script.
  * - A null [script] means that no script has the name.
+ * - [ownWidget] is true for the card of the script's own widget, which needs the `@widget` line.
+ *   A Status card needs none.
  * Such a card asks for no runs: they would do nothing. A tap on it opens the Scripts screen.
  */
-internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when {
+internal fun scriptNote(read: Boolean, script: WidgetScript?, ownWidget: Boolean): CardNote? = when {
     !read -> null
     script == null -> CardNote.REMOVED
     !script.enabled -> CardNote.OFF
+    ownWidget && script.widget == null -> CardNote.NO_WIDGET
     else -> null
 }
 
@@ -262,6 +268,7 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
         note == CardNote.NO_STATUS -> QuietLine(StatusCards.NO_LINE, small)
         note == CardNote.REMOVED -> QuietLine(WidgetWords.REMOVED, small)
         note == CardNote.OFF -> QuietLine(WidgetWords.OFF, small)
+        note == CardNote.NO_WIDGET -> QuietLine(WidgetWords.NO_WIDGET, small)
         note == null && spec != null -> KindBody(spec, box, onTap)
     }
 }
@@ -296,7 +303,7 @@ private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
 /** A tap on a card whose description has no action: the view model reads it as "refresh". */
 private val NO_TAP = WidgetTap()
 
-/** What a screen reader says a tap does on a card whose script is gone or off. */
+/** What a screen reader says a tap does on a card whose script can't fill it ([scriptNote]). */
 private const val OPEN_SCRIPTS = "open scripts"
 
 /** How long a card with nothing stored shows the loading shape. After that it says "Nothing to show": no spinner turns for ever. */
@@ -373,7 +380,13 @@ private fun knownScript(feed: WidgetFeed?, name: String): Known {
     return known
 }
 
-/** The card of the script [name]'s own widget. */
+/**
+ * The card of the script [name]'s own widget.
+ * - It draws what the script stored with `widget.show`, and reads that again only when it changes.
+ * - While in view, it asks for a quiet run when its content is old, or as often as its `refresh` says.
+ * - A card whose script is gone, off or without its `@widget` line says so ([scriptNote]). It asks
+ *   for no runs, and a tap on it opens the Scripts screen.
+ */
 @Composable
 private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
     val context = LocalContext.current.applicationContext
@@ -396,8 +409,9 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     }
     // The script's @title, for a description without a title of its own. The view model has read it.
     val known = knownScript(feed, name)
-    // The script is gone or off: the card says so, and asks for no runs.
-    val missing = scriptNote(known.read, known.script)
+    // The script is gone or off, or its code has lost the `@widget` line: the card says so, and asks
+    // for no runs. Without the line a run stores nothing, so the card would ask again at every view.
+    val missing = scriptNote(known.read, known.script, ownWidget = true)
     // With a feed, a run is asked for only once the scripts are read and the script can run. A card
     // with no feed knows nothing of its script, and asks as if it were there.
     val runnable = feed == null || (known.read && missing == null)
@@ -483,6 +497,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
             note == CardNote.UNAVAILABLE -> "$title: ${WidgetWords.UNAVAILABLE}"
             note == CardNote.REMOVED -> "$title: ${WidgetWords.REMOVED}"
             note == CardNote.OFF -> "$title: ${WidgetWords.OFF}"
+            note == CardNote.NO_WIDGET -> "$title: ${WidgetWords.NO_WIDGET}"
             else -> title
         }
         if (footer == null) content else "$content. ${footer.said}"
@@ -571,7 +586,7 @@ private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val known = knownScript(feed, name)
     // The script is gone or off: the card says so, and asks for no runs.
-    val missing = scriptNote(known.read, known.script)
+    val missing = scriptNote(known.read, known.script, ownWidget = false)
     // The line counts once the scripts are read, and only for a script that can set it.
     val line = statusLine(feed, name).takeIf { known.read && missing == null }
 

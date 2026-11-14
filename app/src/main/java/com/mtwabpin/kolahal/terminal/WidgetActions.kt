@@ -87,8 +87,8 @@ interface WidgetCardActions {
     fun openBattery()
 
     /**
-     * A tap on a card whose script can't fill it: the script is gone or switched off. Opens the
-     * Scripts screen, where it is switched on or added again.
+     * A tap on a card whose script can't fill it: the script is gone, switched off, or has lost its
+     * `@widget` line. Opens the Scripts screen, where it is switched on, added again or edited.
      */
     fun openScripts()
 
@@ -190,7 +190,8 @@ class WidgetActions(
     private val logs = LogRepository.get(context)
 
     override fun refresh(script: String) = host.io {
-        scripts.byName(script)?.takeIf { it.enabled }?.let { ScriptScheduler.refreshWidget(context, it) }
+        // Without its `@widget` line a run stores nothing for the card, so there is nothing to run for.
+        scripts.byName(script)?.takeIf { it.enabled && ScriptMeta.widget(it.code) != null }?.let { ScriptScheduler.refreshWidget(context, it) }
     }
 
     override fun tap(script: String, tap: WidgetTap) {
