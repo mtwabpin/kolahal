@@ -4,6 +4,10 @@ import android.content.ContentValues
 import android.content.Context
 import com.mtwabpin.kolahal.data.Db
 import com.mtwabpin.kolahal.data.Singleton
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 data class Todo(val id: Long, val text: String, val done: Boolean)
 data class Note(val id: Long, val text: String, val created: Long)
@@ -25,9 +29,26 @@ fun <T> pickRef(ref: String?, list: List<T>, id: (T) -> Long): T? {
     return r.toIntOrNull()?.let { list.getOrNull(it - 1) }
 }
 
+/**
+ * Counts the writes of one store, so that whoever shows its items knows when to read them again.
+ * - It counts in this process only. Only the main process writes these stores.
+ * - A write that goes past the store (a backup that is restored) does not count.
+ */
+private class Changes {
+    private val count = MutableStateFlow(0)
+    val flow: StateFlow<Int> = count.asStateFlow()
+
+    /** Counts one write, and hands [result] back: what the write returned. */
+    fun <T> after(result: T): T = result.also { count.update { it + 1 } }
+}
+
 /** To-do items: open items oldest first, then done items, most recently finished first. */
 class TodoStore private constructor(context: Context) {
     private val db = Db.get(context)
+    private val written = Changes()
+
+    /** Rises on every write, in this process. The Todos widget reads the list again when it does. */
+    val changes: StateFlow<Int> get() = written.flow
 
     fun all(): List<Todo> {
         val out = ArrayList<Todo>()
@@ -44,26 +65,26 @@ class TodoStore private constructor(context: Context) {
 
     fun open(): List<Todo> = all().filter { !it.done }
 
-    fun add(text: String): Long = db.writableDatabase.insert("todos", null, ContentValues().apply {
+    fun add(text: String): Long = written.after(db.writableDatabase.insert("todos", null, ContentValues().apply {
         put("text", text)
         put("created", System.currentTimeMillis())
-    })
+    }))
 
     fun setDone(id: Long, done: Boolean) {
-        db.writableDatabase.update("todos", ContentValues().apply {
+        written.after(db.writableDatabase.update("todos", ContentValues().apply {
             put("done", if (done) 1 else 0)
             if (done) put("done_at", System.currentTimeMillis()) else putNull("done_at")
-        }, "id = ?", arrayOf(id.toString()))
+        }, "id = ?", arrayOf(id.toString())))
     }
 
     fun edit(id: Long, text: String) {
-        db.writableDatabase.update("todos", ContentValues().apply { put("text", text) }, "id = ?", arrayOf(id.toString()))
+        written.after(db.writableDatabase.update("todos", ContentValues().apply { put("text", text) }, "id = ?", arrayOf(id.toString())))
     }
 
-    fun remove(id: Long) = db.writableDatabase.delete("todos", "id = ?", arrayOf(id.toString()))
+    fun remove(id: Long): Int = written.after(db.writableDatabase.delete("todos", "id = ?", arrayOf(id.toString())))
 
     /** Deletes finished items and returns how many it deleted. */
-    fun clearDone(): Int = db.writableDatabase.delete("todos", "done = 1", null)
+    fun clearDone(): Int = written.after(db.writableDatabase.delete("todos", "done = 1", null))
 
     companion object : Singleton<TodoStore>(::TodoStore)
 }
@@ -71,6 +92,10 @@ class TodoStore private constructor(context: Context) {
 /** Quick notes, newest first. */
 class NoteStore private constructor(context: Context) {
     private val db = Db.get(context)
+    private val written = Changes()
+
+    /** Rises on every write, in this process. The Notes widget reads the notes again when it does. */
+    val changes: StateFlow<Int> get() = written.flow
 
     fun all(): List<Note> {
         val out = ArrayList<Note>()
@@ -80,12 +105,12 @@ class NoteStore private constructor(context: Context) {
         return out
     }
 
-    fun add(text: String): Long = db.writableDatabase.insert("notes", null, ContentValues().apply {
+    fun add(text: String): Long = written.after(db.writableDatabase.insert("notes", null, ContentValues().apply {
         put("text", text)
         put("created", System.currentTimeMillis())
-    })
+    }))
 
-    fun remove(id: Long) = db.writableDatabase.delete("notes", "id = ?", arrayOf(id.toString()))
+    fun remove(id: Long): Int = written.after(db.writableDatabase.delete("notes", "id = ?", arrayOf(id.toString())))
 
     companion object : Singleton<NoteStore>(::NoteStore)
 }
@@ -96,6 +121,13 @@ class NoteStore private constructor(context: Context) {
  */
 class ReminderStore private constructor(context: Context) {
     private val db = Db.get(context)
+    private val written = Changes()
+
+    /**
+     * Rises on every write, in this process: a reminder that is set, cancelled or snoozed, and one
+     * that fires. The Reminders widget reads the list again when it does.
+     */
+    val changes: StateFlow<Int> get() = written.flow
 
     fun all(): List<Reminder> {
         val out = ArrayList<Reminder>()
@@ -108,13 +140,13 @@ class ReminderStore private constructor(context: Context) {
     fun byId(id: Long): Reminder? = all().firstOrNull { it.id == id }
 
     fun add(at: Long, text: String, repeat: String? = null, time: String? = null): Reminder {
-        val id = db.writableDatabase.insertOrThrow("reminders", null, ContentValues().apply {
+        val id = written.after(db.writableDatabase.insertOrThrow("reminders", null, ContentValues().apply {
             put("at", at)
             put("text", text)
             put("created", System.currentTimeMillis())
             put("repeat_rule", repeat)
             put("repeat_time", time)
-        })
+        }))
         return Reminder(id, at, text, repeat, time)
     }
 
@@ -124,10 +156,10 @@ class ReminderStore private constructor(context: Context) {
             put("at", at)
             if (time != null) put("repeat_time", time)
         }
-        db.writableDatabase.update("reminders", values, "id = ?", arrayOf(id.toString()))
+        written.after(db.writableDatabase.update("reminders", values, "id = ?", arrayOf(id.toString())))
     }
 
-    fun remove(id: Long) = db.writableDatabase.delete("reminders", "id = ?", arrayOf(id.toString()))
+    fun remove(id: Long): Int = written.after(db.writableDatabase.delete("reminders", "id = ?", arrayOf(id.toString())))
 
     companion object : Singleton<ReminderStore>(::ReminderStore)
 }
