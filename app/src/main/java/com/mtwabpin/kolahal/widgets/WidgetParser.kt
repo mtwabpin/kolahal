@@ -107,7 +107,11 @@ object WidgetParser {
     private val CLOCK = listOf("zones", "seconds")
     private val ZONE = listOf("zone", "label")
     private val AGENDA = listOf("events", "days", "empty")
-    private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap")
+    /**
+     * An event may carry `id`. It is taken and not kept: `calendar.events()` gives its rows one, and
+     * those rows go straight into `events`.
+     */
+    private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap", "id")
     private val IMAGE = listOf("image", "alt", "caption", "fit")
 
     private val TRENDS = listOf("up", "down", "flat")

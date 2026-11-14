@@ -276,6 +276,32 @@ class WidgetParserTest {
         assertEquals("w".repeat(59) + "…", long.where)
     }
 
+    /**
+     * The rows of `calendar.events()` go straight in. Each has an `id`, which is taken and not kept:
+     * the event that comes out, and its stored form, have none.
+     */
+    @Test fun anAgendaTakesTheCalendarsRowsAndDropsTheirId() {
+        val rows = listOf(
+            mapOf("id" to 4012L, "title" to "Standup", "starts" to 1_800_000_000L, "ends" to 1_800_001_800L, "allDay" to false),
+            mapOf("id" to 4013.0, "title" to "Holiday", "starts" to 1_800_050_000L, "ends" to 1_800_136_400L, "allDay" to true),
+            mapOf("id" to "a-guid", "title" to "Launch", "starts" to 1_800_100_000L),
+        )
+        val spec = agenda("events" to rows)
+        assertEquals(
+            listOf(
+                WidgetSpec.Event("Standup", starts = 1_800_000_000L, ends = 1_800_001_800L),
+                WidgetSpec.Event("Holiday", starts = 1_800_050_000L, ends = 1_800_136_400L, allDay = true),
+                WidgetSpec.Event("Launch", starts = 1_800_100_000L),
+            ),
+            spec.events,
+        )
+        assertEquals(false, WidgetJson.encode(spec).contains("\"id\""))
+        assertEquals(spec, WidgetJson.decode(WidgetJson.encode(spec)))
+        // Only an event has it. Anywhere else it is an unknown field, as before.
+        assertEquals("widget: an agenda widget has no field 'id'; use kind, title, icon, color, tap, staleAfter, refresh, events, days, empty", refused(mapOf("id" to 1, "events" to rows), WidgetKind.AGENDA))
+        assertEquals("widget: item 1 of items: no field 'id'; use title, detail, trailing, icon, color, tap, done", refused(mapOf("items" to listOf(mapOf("id" to 1, "title" to "a"))), WidgetKind.LIST))
+    }
+
     /** `days` is held between 1 and 7. */
     @Test fun anAgendasDaysAreOneToSeven() {
         fun days(v: Any?) = agenda("events" to emptyList<Any>(), "days" to v).days
@@ -292,8 +318,8 @@ class WidgetParserTest {
     @Test fun anAgendaRefusesWhatItCantRead() {
         fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.AGENDA)
         fun event(vararg fields: Pair<String, Any?>) = no("events" to listOf(mapOf(*fields)))
-        assertEquals("widget: events is needed: a list of events, each { title, starts, ends, allDay, where, color, tap }", no())
-        assertEquals("widget: events must be a list of { title, starts, ends, allDay, where, color, tap }, not 'x'", no("events" to "x"))
+        assertEquals("widget: events is needed: a list of events, each { title, starts, ends, allDay, where, color, tap, id }", no())
+        assertEquals("widget: events must be a list of { title, starts, ends, allDay, where, color, tap, id }, not 'x'", no("events" to "x"))
         assertEquals("widget: item 1 of events: title is needed: the event's name", event("starts" to 1))
         assertTrue(event("title" to "a")!!.startsWith("widget: item 1 of events: starts is needed: when it starts, as a time in seconds"))
         assertEquals("widget: item 1 of events: starts must be a time in seconds, not 'noon'", event("title" to "a", "starts" to "noon"))
@@ -302,7 +328,7 @@ class WidgetParserTest {
         assertEquals("widget: item 1 of events: ends must be a time in seconds, not in milliseconds: divide it by 1000", event("title" to "a", "starts" to 1, "ends" to 1_800_000_000_000_000))
         assertEquals("widget: item 1 of events: ends must not be before starts", event("title" to "a", "starts" to 100, "ends" to 99))
         assertEquals("widget: item 1 of events: allDay must be true or false, not 'yes'", event("title" to "a", "starts" to 1, "allDay" to "yes"))
-        assertEquals("widget: item 1 of events: no field 'location'; use title, starts, ends, allDay, where, color, tap", event("title" to "a", "starts" to 1, "location" to "x"))
+        assertEquals("widget: item 1 of events: no field 'location'; use title, starts, ends, allDay, where, color, tap, id", event("title" to "a", "starts" to 1, "location" to "x"))
     }
 
     // ---- image ----------------------------------------------------------------------------
@@ -835,7 +861,7 @@ class WidgetParserTest {
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "args", "url", "label", "page", "value", "more", "text", "caption", "items", "empty", "detail", "trailing")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("max", "style", "moving", "points", "min", "labels", "summary", "to", "from", "reached")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("done", "on", "zones", "zone", "seconds", "events", "starts", "ends", "allDay", "where", "days")))
-        assertTrue(WidgetParser.FIELDS.containsAll(listOf("image", "alt", "fit")))
+        assertTrue(WidgetParser.FIELDS.containsAll(listOf("image", "alt", "fit", "id")))
         assertTrue(WidgetParser.FIELDS.all { Regex("[a-z][A-Za-z]*").matches(it) })
     }
 
