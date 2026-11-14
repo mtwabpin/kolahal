@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
+import android.media.session.PlaybackState
+import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Todo
@@ -29,7 +31,7 @@ class OwnCardsTest {
     private val todos = listOf(Todo(1, "Buy milk", false), Todo(4, "Call the bank", false), Todo(6, "Water the plants", false), Todo(3, "Pay rent", true), Todo(2, "Post letter", true))
 
     @Test fun theCardsOwnWidgetDraws() {
-        assertTrue(listOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS).all(OwnCards::draws))
+        assertTrue(listOf(WidgetSource.TODOS, WidgetSource.REMINDERS, WidgetSource.NOTES, WidgetSource.SHORTCUTS, WidgetSource.MEDIA).all(OwnCards::draws))
         // Battery and network has its own card, and an id from a newer version has none.
         assertFalse(OwnCards.draws(WidgetSource.BATTERY))
         assertFalse(OwnCards.draws("comic"))
@@ -84,6 +86,62 @@ class OwnCardsTest {
         assertEquals(emptyList<String>(), ShortcutPicks.matching("todo buy", commands))
         assertEquals(emptyList<String>(), ShortcutPicks.matching("zz", commands))
         assertEquals(ShortcutPicks.MAX, ShortcutPicks.matching("c", (1..20).map { "c$it" }).size)
+    }
+
+    private fun session(state: Int, title: String? = "So What", artist: String? = "Miles Davis", position: Long = 61_000, duration: Long = 562_000, speed: Float = 1f) =
+        NowPlaying(pkg = "com.example.player", app = "Player", title = title, artist = artist, state = state, position = position, positionAt = 1_800_000_000_000L, speed = speed, duration = duration, idleSince = 1_799_999_000_000L)
+
+    @Test fun nowPlayingShowsTheSession() {
+        val spec = OwnCards.media(session(PlaybackState.STATE_PLAYING))
+        assertEquals("Now playing", spec.base.title)
+        assertEquals("So What", spec.title)
+        assertEquals("Miles Davis", spec.artist)
+        assertEquals("Player", spec.app)
+        assertTrue(spec.playing)
+        assertEquals(61_000L, spec.position)
+        assertEquals(1_800_000_000_000L, spec.positionAt)
+        assertEquals(1f, spec.speed)
+        assertEquals(562_000L, spec.duration)
+        // Paused: the same track, standing still.
+        val paused = OwnCards.media(session(PlaybackState.STATE_PAUSED))
+        assertFalse(paused.playing)
+        assertEquals(0f, paused.speed)
+        assertEquals(61_000L, paused.position)
+    }
+
+    /** While a track buffers, the button says "pause", and the position does not move by itself. */
+    @Test fun aBufferingTrackStandsStill() {
+        val spec = OwnCards.media(session(PlaybackState.STATE_BUFFERING, speed = 1.5f))
+        assertTrue(spec.playing)
+        assertEquals(0f, spec.speed)
+        assertEquals(1.5f, OwnCards.media(session(PlaybackState.STATE_PLAYING, speed = 1.5f)).speed)
+    }
+
+    /** A player may give no title, no position and no length. */
+    @Test fun whatAPlayerDoesNotSayIsLeftOut() {
+        val spec = OwnCards.media(session(PlaybackState.STATE_PLAYING, title = " ", artist = null, position = -1, duration = -1))
+        assertNull(spec.title)
+        assertNull(spec.artist)
+        assertEquals("Player", spec.app)
+        assertEquals(0L, spec.position)
+        assertEquals(0L, spec.duration)
+    }
+
+    /** The card keeps a paused session, however old. One with no state or in an error has nothing to control. */
+    @Test fun nowPlayingShowsASessionThatCanBeControlled() {
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_PLAYING)))
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_PAUSED)))
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_STOPPED)))
+        assertTrue(OwnCards.shows(session(PlaybackState.STATE_BUFFERING)))
+        assertFalse(OwnCards.shows(session(PlaybackState.STATE_NONE)))
+        assertFalse(OwnCards.shows(session(PlaybackState.STATE_ERROR)))
+        assertFalse(OwnCards.shows(null))
+        assertEquals("Nothing playing", OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING).empty)
+        assertEquals("Allow notification access", OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS).empty)
+        // The card's own taps: its three buttons, the player, and the access.
+        val words = listOf(OwnTaps.PREV, OwnTaps.TOGGLE, OwnTaps.NEXT, OwnTaps.OPEN, OwnTaps.ALLOW)
+        assertEquals(listOf("prev", "toggle", "next", "open", "allow"), words)
+        assertTrue(words.all { OwnTaps.parse(WidgetSource.MEDIA, it) != null })
     }
 
     @Test fun todosShowsTheOpenOnes() {
