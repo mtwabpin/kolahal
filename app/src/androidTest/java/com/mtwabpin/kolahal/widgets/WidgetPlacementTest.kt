@@ -279,4 +279,37 @@ class WidgetPlacementTest {
             assertTrue(now(s).code.endsWith("value = $round }"))
         }
     }
+
+    /**
+     * A script with a widget and a pinned line has two kinds of refresh runs. They share one queue:
+     * at most one of each kind waits or runs, and the second starts when the first has ended. Each
+     * keeps its own event.
+     */
+    @Test fun aWidgetsRunAndAPinnedLinesRefreshShareOneQueue() {
+        val scheduler = com.mtwabpin.kolahal.script.ScriptScheduler
+        // Slow enough that the first run is still there when the others are asked for.
+        val s = t.create("-q", "-- @widget stat 2x1\nsleep(1500)\nlog('ran for ' .. event.name)")
+        val work = androidx.work.WorkManager.getInstance(context)
+        fun unfinished() = work.getWorkInfosForUniqueWork(scheduler.refreshQueue(s.id)).get().filter { !it.state.isFinished }
+
+        scheduler.refreshPinned(context, s)
+        scheduler.refreshWidget(context, s)
+        // One of each kind is there already: these are dropped.
+        scheduler.refreshWidget(context, s)
+        scheduler.refreshPinned(context, s)
+        val queued = unfinished()
+        assertEquals(queued.toString(), 2, queued.size)
+        // The widget's run waits for the pinned line's to end. It did not start beside it.
+        assertEquals(queued.toString(), 1, queued.count { it.state == androidx.work.WorkInfo.State.BLOCKED })
+
+        assertTrue("the two runs didn't end", t.runEnded(s.id, queued = true))
+        val ran = com.mtwabpin.kolahal.data.LogRepository.get(context).recent(400, afterId = logLines.start)
+            .filter { it.text.contains("ran for ") }.sortedBy { it.id }.map { it.text.substringAfter("ran for ") }
+        assertEquals(listOf(scheduler.REFRESH, scheduler.WIDGET), ran)
+
+        // The queue is empty again: a new request starts it, and one run is there.
+        scheduler.refreshWidget(context, s)
+        assertEquals(1, unfinished().size)
+        assertTrue(t.runEnded(s.id, queued = true))
+    }
 }

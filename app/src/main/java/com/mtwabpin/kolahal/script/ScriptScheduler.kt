@@ -173,23 +173,9 @@ object ScriptScheduler {
     /**
      * Runs a pinned status line's script again (`status(text, { refresh = s })`). Home asks for this
      * while it shows the line. There are never two at once: while one waits (for a network, say) or
-     * runs, the next one is dropped.
+     * runs, the next one is dropped. It shares one queue with the widget's runs ([refresh]).
      */
-    fun refreshPinned(context: Context, script: Script) {
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "script-${script.id}-refresh",
-            androidx.work.ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<ScriptWorker>()
-                .apply { if (ScriptMeta.goesOnline(script.code)) setConstraints(online()) }
-                .setInputData(remoteData(context) {
-                    putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
-                    putBoolean(ScriptWorker.KEY_SCHEDULED, true)
-                    putString(ScriptWorker.KEY_EVENT, Json.stringify(mapOf("name" to REFRESH)))
-                })
-                .addTag("script")
-                .build(),
-        )
-    }
+    fun refreshPinned(context: Context, script: Script) = refresh(context, script, REFRESH)
 
     /** The `event` of a run the widgets page asks for: its widget was just placed, its content is old, or it set a `refresh`. */
     const val WIDGET = "widget"
@@ -197,22 +183,86 @@ object ScriptScheduler {
     /**
      * Runs a placed widget's script again, so it calls `widget.show`. Like [refreshPinned], there are
      * never two at once: while one waits (for a network, say) or runs, the next one is dropped. The
-     * run is not interactive, and its `event.name` is [WIDGET].
+     * run is not interactive, and its `event.name` is [WIDGET]. It shares one queue with the pinned
+     * line's refreshes ([refresh]).
      */
-    fun refreshWidget(context: Context, script: Script) {
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "script-${script.id}-widget",
-            androidx.work.ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<ScriptWorker>()
-                .apply { if (ScriptMeta.goesOnline(script.code)) setConstraints(online()) }
-                .setInputData(remoteData(context) {
-                    putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
-                    putBoolean(ScriptWorker.KEY_SCHEDULED, true)
-                    putString(ScriptWorker.KEY_EVENT, Json.stringify(mapOf("name" to WIDGET)))
-                })
-                .addTag("script")
-                .build(),
-        )
+    fun refreshWidget(context: Context, script: Script) = refresh(context, script, WIDGET)
+
+    /**
+     * The name of the one queue of a script's refresh runs (WorkManager's unique work): its pinned
+     * line's ([REFRESH]) and its widget's ([WIDGET]).
+     */
+    internal fun refreshQueue(scriptId: Long) = "script-$scriptId-refresh"
+
+    /** Where a request for a refresh run goes ([queued]). */
+    internal enum class Queued { DROPPED, AFTER, ALONE }
+
+    /**
+     * Where a request for a refresh run of [kind] goes. [waiting] has the kinds of the runs in the
+     * script's queue that wait or run now.
+     * - One of its kind is there: the request is dropped. Home and the widgets page ask again and
+     *   again while they show, and one run of a kind answers them all.
+     * - Only the other kind is there: the run goes after it, not beside it. It is not dropped,
+     *   because each kind has its own `event.name` and a script may do other things for each. Also a
+     *   widget's card asks once for each state, so a dropped request would leave it waiting.
+     * - Nothing is there: the run starts the queue.
+     */
+    internal fun queued(kind: String, waiting: Collection<String>): Queued = when {
+        kind in waiting -> Queued.DROPPED
+        waiting.isEmpty() -> Queued.ALONE
+        else -> Queued.AFTER
+    }
+
+    /** The tag that tells a queued refresh run's kind. */
+    private fun kindTag(kind: String) = "refresh:$kind"
+
+    /** The kind of a queued refresh run, from its tags. One queued before runs had this tag is a pinned line's. */
+    private fun kindOf(tags: Set<String>) = if (kindTag(WIDGET) in tags) WIDGET else REFRESH
+
+    /** One request at a time reads a refresh queue and adds to it ([refresh]). */
+    private val refreshLock = Any()
+
+    /** The longest [refresh] waits for WorkManager to read a queue, in seconds. */
+    private const val QUEUE_READ_S = 5L
+
+    /**
+     * Queues a quiet run of [script] with the event [kind]: [REFRESH] or [WIDGET].
+     *
+     * A script can have a pinned line and a widget, and both can ask for runs while home shows them.
+     * The two kinds were separate unique work, so both started at once: one ran and the other
+     * waited inside the `:script` process for it ([ScriptRun]'s lock). Now they share one queue
+     * ([refreshQueue]), and the second starts when the first has ended ([queued]). Each run keeps
+     * what it is for: its own `event.name`, and a widget's run notes its end for the card.
+     *
+     * Call it off the main thread: it waits for WorkManager to read the queue.
+     */
+    private fun refresh(context: Context, script: Script, kind: String) {
+        val wm = WorkManager.getInstance(context)
+        val queue = refreshQueue(script.id)
+        val request = OneTimeWorkRequestBuilder<ScriptWorker>()
+            .apply { if (ScriptMeta.goesOnline(script.code)) setConstraints(online()) }
+            .setInputData(remoteData(context) {
+                putLong(ScriptWorker.KEY_SCRIPT_ID, script.id)
+                putBoolean(ScriptWorker.KEY_SCHEDULED, true)
+                putString(ScriptWorker.KEY_EVENT, Json.stringify(mapOf("name" to kind)))
+            })
+            .addTag("script")
+            .addTag(kindTag(kind))
+            .build()
+        // Reading the queue and adding to it are two steps. Under one lock, and because WorkManager
+        // does what it is asked in order, the next request sees this one in the queue.
+        synchronized(refreshLock) {
+            val waiting = runCatching { wm.getWorkInfosForUniqueWork(queue).get(QUEUE_READ_S, TimeUnit.SECONDS) }.getOrNull()
+                ?.filter { !it.state.isFinished }?.map { kindOf(it.tags) }
+            val policy = when (if (waiting == null) Queued.ALONE else queued(kind, waiting)) {
+                Queued.DROPPED -> return
+                Queued.AFTER -> androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE
+                // KEEP never stops a run. If the queue couldn't be read and a run is there, this request is dropped.
+                // With nothing waiting, it also clears the queue's finished runs.
+                Queued.ALONE -> androidx.work.ExistingWorkPolicy.KEEP
+            }
+            wm.enqueueUniqueWork(queue, policy, request)
+        }
     }
 
     /**

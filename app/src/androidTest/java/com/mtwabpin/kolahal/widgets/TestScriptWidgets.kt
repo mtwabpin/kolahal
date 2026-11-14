@@ -74,9 +74,10 @@ class TestScriptWidgets(private val prefix: String) {
     /**
      * Waits for the run that placing queued for script [id] to end; one that doesn't end in time is
      * cancelled. Whether it ended by itself. With [queued], a run must be there to begin with.
+     * A widget's runs and a pinned line's refreshes share the queue, so this waits for both kinds.
      */
     fun runEnded(id: Long, queued: Boolean = false): Boolean {
-        val unique = "script-$id-widget"
+        val unique = ScriptScheduler.refreshQueue(id)
         val ended = eventually(30_000) {
             val runs = work.getWorkInfosForUniqueWork(unique).get()
             (runs.isNotEmpty() || !queued) && runs.all { it.state.isFinished }
