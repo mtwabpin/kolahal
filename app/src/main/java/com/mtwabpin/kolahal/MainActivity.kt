@@ -377,18 +377,20 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
         scope.launch { pager.animateScrollToPage(homePage) }
     }
     // A widget's tap whose run prints in the log turns home to the log.
+    // Each turn runs in its own coroutine, as Back's does. A swipe during the turn cancels it, and
+    // that must not end this collector: later taps must still turn the page.
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
-        vm.logTurns.collect { pager.animateScrollToPage(terminalPage) }
+        vm.logTurns.collect { launch { pager.animateScrollToPage(terminalPage) } }
     }
     if (widgetsFirst) {
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { page -> vm.onHomePageShown(log = page == terminalPage) }
         }
         // The prompt keeps the focus on the widgets page, so a key typed there goes into the prompt.
-        // Then the log page comes in to show it.
+        // Then the log page comes in to show it. This turn has its own coroutine too, for the same reason.
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { vm.input.text.isNotEmpty() }.collect { typed ->
-                if (typed && pager.currentPage != terminalPage) pager.animateScrollToPage(terminalPage)
+                if (typed && pager.currentPage != terminalPage) launch { pager.animateScrollToPage(terminalPage) }
             }
         }
     } else {
