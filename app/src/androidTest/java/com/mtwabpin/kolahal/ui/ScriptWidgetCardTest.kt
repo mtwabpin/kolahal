@@ -31,16 +31,23 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.KvStore
+import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
+import com.mtwabpin.kolahal.terminal.WidgetFeed
+import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetStates
 import com.mtwabpin.kolahal.widgets.WidgetTap
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -86,17 +93,18 @@ class ScriptWidgetCardTest {
      * The cards of these scripts' widgets, one under the other, each [width] wide and [height] tall.
      * - Without [actions] they are as the Widgets screen draws them.
      * - With [inView], the widgets page is the page in view.
+     * - Without a [feed] the cards know nothing of their scripts, and draw what is kept under the name.
      */
-    private fun show(vararg names: String, width: Dp = 320.dp, height: Dp = 200.dp, actions: WidgetCardActions? = null, inView: Boolean = false) =
-        showSources(*names.map(WidgetSource::script).toTypedArray(), width = width, height = height, actions = actions, inView = inView)
+    private fun show(vararg names: String, width: Dp = 320.dp, height: Dp = 200.dp, actions: WidgetCardActions? = null, inView: Boolean = false, feed: WidgetFeed? = null) =
+        showSources(*names.map(WidgetSource::script).toTypedArray(), width = width, height = height, actions = actions, inView = inView, feed = feed)
 
-    private fun showSources(vararg sources: String, width: Dp = 320.dp, height: Dp = 200.dp, actions: WidgetCardActions? = null, inView: Boolean = false) {
+    private fun showSources(vararg sources: String, width: Dp = 320.dp, height: Dp = 200.dp, actions: WidgetCardActions? = null, inView: Boolean = false, feed: WidgetFeed? = null) {
         compose.setContent {
             KolahalTheme {
                 CompositionLocalProvider(LocalWidgetsShown provides inView) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         sources.forEachIndexed { i, source ->
-                            Box(Modifier.width(width)) { SourceWidget(PlacedWidget(null, source, 0L, height.value.toInt(), i), height, actions) }
+                            Box(Modifier.width(width)) { SourceWidget(PlacedWidget(null, source, 0L, height.value.toInt(), i), height, actions, feed) }
                         }
                     }
                 }
@@ -381,5 +389,71 @@ class ScriptWidgetCardTest {
         compose.waitForIdle()
         assertEquals(listOf("refresh $old"), asked.all.toList())
         assertFalse(asked.all.any { it.endsWith(current) })
+    }
+
+    /** What the view model knows of these scripts, and their status lines, as the cards get them. */
+    private fun feed(vararg scripts: WidgetScript, lines: MutableStateFlow<List<StatusLine>> = MutableStateFlow(emptyList())) =
+        WidgetFeed(MutableStateFlow(scripts.associateBy { it.name }), lines)
+
+    /**
+     * A card that knows its script from the view model says when the script can't fill it: it is
+     * gone, it is off, or its code has no `@widget` line any more. Such a card asks for no run, also
+     * in view, and a tap on it opens the Scripts screen.
+     */
+    @Test fun aCardSaysWhenItsScriptCantFillIt() {
+        val asked = Asked()
+        val stat = ScriptMeta.Widget(WidgetKind.STAT, WidgetSize.S2X1)
+        val gone = name("gone")
+        val off = name("off")
+        val bare = name("bare")
+        val there = kept("there", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
+        setAgo(there, 125)
+        val known = feed(
+            WidgetScript(off, "Off one", enabled = false, widget = stat, setsStatus = false),
+            WidgetScript(bare, null, enabled = true, widget = null, setsStatus = false),
+            WidgetScript(there, "There", enabled = true, widget = stat, setsStatus = false),
+        )
+        show(gone, off, bare, there, actions = asked, inView = true, feed = known)
+        draws(gone, gone, "Script removed")
+        // Without content the card has the script's title.
+        draws(off, "Off one", "Script is off")
+        draws(bare, bare, "Script has no widget now")
+        val scripts = hasClickLabel("open scripts")
+        compose.onNode(inCard(gone) and scripts).assert(hasContentDescription("$gone: Script removed"))
+        compose.onNode(inCard(off) and scripts).assert(hasContentDescription("Off one: Script is off"))
+        compose.onNode(inCard(bare) and scripts).assert(hasContentDescription("$bare: Script has no widget now"))
+
+        // Only the card whose script can run asks, for its old content.
+        draws(there, "Weather", "24", "2 h ago")
+        compose.waitFor("the card with a script asked for no run") { asked.all.isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(listOf("refresh $there"), asked.all.toList())
+
+        compose.onNode(inCard(off) and scripts).performClick()
+        compose.runOnIdle { assertEquals(listOf("refresh $there", "scripts"), asked.all.toList()) }
+    }
+
+    /**
+     * A Status card draws its script's line as the view model has it, under the script's title, and
+     * follows a new line. A script with no line yet says so. The card reads nothing itself.
+     */
+    @Test fun aStatusCardDrawsTheLineTheViewModelHas() {
+        val set = name("line")
+        val none = name("no-line")
+        val lines = MutableStateFlow(listOf(StatusLine(set, "NZ 136/8", progress = 0.6f)))
+        val known = feed(
+            WidgetScript(set, "Cricket", enabled = true, widget = null, setsStatus = true),
+            WidgetScript(none, null, enabled = true, widget = null, setsStatus = true),
+            lines = lines,
+        )
+        showSources(WidgetSource.STATUS + set, WidgetSource.STATUS + none, feed = known)
+        draws("status:$set", "Cricket", "NZ 136/8")
+        says("status:$set", "Cricket: NZ 136/8, 60%")
+        draws("status:$none", none, "No status line yet")
+        says("status:$none", "$none: No status line yet")
+
+        lines.value = listOf(StatusLine(set, "NZ 140/8"))
+        draws("status:$set", "Cricket", "NZ 140/8")
+        says("status:$set", "Cricket: NZ 140/8")
     }
 }
