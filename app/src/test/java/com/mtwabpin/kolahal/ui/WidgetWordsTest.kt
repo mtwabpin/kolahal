@@ -123,6 +123,21 @@ class WidgetWordsTest {
         assertEquals(1f, WidgetWords.countdownFraction(0, 100, 250)!!, 0f)
     }
 
+    /** The bar of a countdown that ticks gets a new value only when it has moved a step: not every second. */
+    @Test fun aCountdownsBarMovesInSteps() {
+        assertEquals(0.25f, WidgetWords.barStep(0.25f), 0f)
+        assertEquals(0.333f, WidgetWords.barStep(1f / 3), 0f)
+        assertEquals(0f, WidgetWords.barStep(0.0004f), 0f)
+        assertEquals(1f, WidgetWords.barStep(0.9996f), 0f)
+        assertEquals(0f, WidgetWords.barStep(Float.NaN), 0f)
+        // Two days of seconds: the next second is the same step, so the bar is left alone.
+        val day = 86_400L
+        val steps = (0L..600L).map { WidgetWords.barStep(WidgetWords.countdownFraction(0, 2 * day, day + it)!!) }.distinct()
+        assertEquals("ten minutes of a two-day countdown move the bar a few times, not 600", true, steps.size in 2..5)
+        // A countdown of two minutes still moves at every second.
+        assertEquals(121, (0L..120L).map { WidgetWords.barStep(WidgetWords.countdownFraction(0, 120, it)!!) }.distinct().size)
+    }
+
     @Test fun aChartsScaleComesFromTheDataUnlessTheScriptGivesIt() {
         val points = listOf(3f, 12f, 9f)
         assertEquals("a line: from its lowest to its highest", 3f to 12f, WidgetWords.scale(points, null, null, bars = false))

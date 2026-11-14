@@ -169,6 +169,13 @@ internal object WidgetWords {
         if (from == null || to <= from) null else ((now - from).toFloat() / (to - from)).coerceIn(0f, 1f)
 
     /**
+     * [fraction] in steps of a thousandth: about one pixel of a bar. A countdown's fraction changes
+     * a little every second. Its bar gets the same value until it has moved a step, so it is not
+     * drawn again, and does not start its spring again, every second.
+     */
+    fun barStep(fraction: Float): Float = if (fraction.isNaN()) 0f else (fraction.coerceIn(0f, 1f) * 1000).roundToInt() / 1000f
+
+    /**
      * The scale of a chart: its lowest and its highest value. [min] and [max] win. Without them the
      * data decides.
      * - Bars stand on zero when no value is below it, so their heights can be compared.
@@ -688,8 +695,12 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
  * moment once, and no run is needed as time passes.
  * - The time moves by the minute, with the header's clock ([rememberNow]).
  * - It moves by the second only while the text shows seconds and the page is in view.
- * - With a start (`from`), a bar runs from the start to the moment, as a wave until the moment
- *   comes. In a wide box the bar takes the label's place. A small box has no bar.
+ * - With a start (`from`), a bar runs from the start to the moment. In a wide box the bar takes the
+ *   label's place. A small box has no bar.
+ * - The bar stands still. A countdown that waits is not at work, and a wave is drawn again on every
+ *   frame, for days.
+ * - The bar moves in steps ([WidgetWords.barStep]), so a clock that ticks does not draw it again
+ *   every second.
  */
 @Composable
 private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
@@ -714,7 +725,7 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
         }
     }
     val small = box == WidgetSizes.Box.SMALL
-    val bar = if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now)
+    val bar = if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now)?.let(WidgetWords::barStep)
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -724,7 +735,7 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
         if (bar == null || box == WidgetSizes.Box.LARGE) spec.label?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (bar != null) LevelBar(bar, moving = now < spec.to, roleColour(spec.base), Modifier.padding(top = 4.dp))
+        if (bar != null) LevelBar(bar, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp))
     }
 }
 
