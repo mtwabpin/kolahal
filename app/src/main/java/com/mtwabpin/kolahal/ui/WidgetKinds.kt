@@ -278,6 +278,32 @@ internal object WidgetWords {
      */
     fun timed(spec: WidgetSpec?): Boolean = spec is WidgetSpec.Countdown || spec is WidgetSpec.Clock || spec is WidgetSpec.Agenda
 
+    /** A grid of buttons or switches: [columns] across and [rows] down, with the first [shown] of them in it. */
+    data class Grid(val columns: Int, val rows: Int, val shown: Int)
+
+    /** A button or a switch is at least this wide and this tall, in dp: the least a finger hits well. */
+    const val CONTROL_DP = 48
+
+    /** The room between two buttons or switches, in dp. */
+    const val CONTROL_GAP_DP = 8
+
+    /**
+     * The grid for [count] buttons or switches in a box of [widthDp] by [heightDp].
+     * - A cell is at least [CONTROL_DP] wide and tall. A box too small for all shows fewer of them,
+     *   never smaller ones. The first ones are kept.
+     * - There are at most [maxColumns] in a row, and at most two rows.
+     * - With two rows they are spread evenly: five are three over two.
+     */
+    fun grid(count: Int, widthDp: Int, heightDp: Int, maxColumns: Int): Grid {
+        if (count <= 0) return Grid(0, 0, 0)
+        val cell = CONTROL_DP + CONTROL_GAP_DP
+        val across = ((widthDp + CONTROL_GAP_DP) / cell).coerceIn(1, maxOf(1, maxColumns))
+        val down = ((heightDp + CONTROL_GAP_DP) / cell).coerceIn(1, 2)
+        val shown = minOf(count, across * down)
+        val rows = if (shown <= across) 1 else down
+        return Grid(columns = (shown + rows - 1) / rows, rows = rows, shown = shown)
+    }
+
     /** What a wide card draws around its content: the [title] line over it, and the icon's [badge] at its start. */
     data class Frame(val title: Boolean, val badge: Boolean)
 
@@ -401,7 +427,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Progress -> ProgressBody(spec, box)
         is WidgetSpec.Chart -> ChartBody(spec, box)
         is WidgetSpec.Countdown -> CountdownBody(spec, box)
-        is WidgetSpec.Buttons -> ButtonsBody(spec, box, onTap)
+        is WidgetSpec.Buttons -> ButtonsBody(spec, onTap)
         is WidgetSpec.Toggles -> TogglesBody(spec, box, onTap, stamp)
         is WidgetSpec.Clock -> ClockBody(spec, box)
         is WidgetSpec.Agenda -> AgendaBody(spec, box, onTap)

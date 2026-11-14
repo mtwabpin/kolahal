@@ -212,6 +212,41 @@ class WidgetWordsTest {
         assertEquals("Now playing: Player, paused", WidgetWords.description("Now playing", media.copy(title = null, artist = null, playing = false), now, utc))
     }
 
+    /** The design's numbers: 2 buttons at 2×1, 4 at 2×2 and at 4×1, 8 at 4×2. The boxes are those of a page 344 dp wide. */
+    @Test fun aGridShowsFewerButtonsNeverSmallerOnes() {
+        // 2×1: the body is 136 by 48 dp.
+        assertEquals(WidgetWords.Grid(columns = 2, rows = 1, shown = 2), WidgetWords.grid(8, 136, 48, 4))
+        // 2×2: 136 by 124 dp.
+        assertEquals(WidgetWords.Grid(columns = 2, rows = 2, shown = 4), WidgetWords.grid(8, 136, 124, 4))
+        // 4×1: 312 by 48 dp. Five would fit across, but a row has four at most.
+        assertEquals(WidgetWords.Grid(columns = 4, rows = 1, shown = 4), WidgetWords.grid(8, 312, 48, 4))
+        // 4×2: 312 by 124 dp.
+        assertEquals(WidgetWords.Grid(columns = 4, rows = 2, shown = 8), WidgetWords.grid(8, 312, 124, 4))
+        // 1×1: one button.
+        assertEquals(WidgetWords.Grid(columns = 1, rows = 1, shown = 1), WidgetWords.grid(8, 64, 72, 4))
+        // Every cell is at least 48 dp wide, with 8 dp between cells.
+        for (width in 1..400) {
+            val grid = WidgetWords.grid(8, width, 48, 6)
+            if (grid.columns > 1) assertTrue("$width: $grid", (width - 8 * (grid.columns - 1)) / grid.columns >= 48)
+        }
+    }
+
+    /** Few buttons get wide cells, and two rows are spread evenly. */
+    @Test fun aGridSpreadsItsButtonsEvenly() {
+        assertEquals(WidgetWords.Grid(columns = 3, rows = 1, shown = 3), WidgetWords.grid(3, 312, 124, 4))
+        assertEquals(WidgetWords.Grid(columns = 3, rows = 2, shown = 5), WidgetWords.grid(5, 312, 124, 4))
+        assertEquals(WidgetWords.Grid(columns = 3, rows = 2, shown = 6), WidgetWords.grid(6, 312, 124, 4))
+        assertEquals(WidgetWords.Grid(columns = 4, rows = 2, shown = 7), WidgetWords.grid(7, 312, 124, 4))
+        assertEquals(WidgetWords.Grid(columns = 1, rows = 1, shown = 1), WidgetWords.grid(1, 312, 124, 4))
+        // Switches: up to six in a row when the box is wide enough.
+        assertEquals(WidgetWords.Grid(columns = 5, rows = 1, shown = 5), WidgetWords.grid(6, 312, 48, 6))
+        assertEquals(WidgetWords.Grid(columns = 6, rows = 1, shown = 6), WidgetWords.grid(6, 328, 48, 6))
+        assertEquals(WidgetWords.Grid(columns = 3, rows = 2, shown = 6), WidgetWords.grid(6, 312, 124, 6))
+        // A box too small for one still gets one: a button is never left out altogether.
+        assertEquals(WidgetWords.Grid(columns = 1, rows = 1, shown = 1), WidgetWords.grid(4, 20, 20, 4))
+        assertEquals(WidgetWords.Grid(0, 0, 0), WidgetWords.grid(0, 312, 124, 4))
+    }
+
     /** A countdown, a clock and an agenda say the time, so their words are made again as it passes. No other kind's are. */
     @Test fun onlyAKindThatTellsTheTimeIsSaidAgainAsTimePasses() {
         assertTrue(WidgetWords.timed(WidgetSpec.Countdown(base, to = 5)))
