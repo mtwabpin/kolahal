@@ -259,7 +259,11 @@ internal object WidgetWords {
                 // Each button and each switch is an item of its own for a screen reader. The card names them.
                 is WidgetSpec.Buttons -> spec.items.forEach { add(it.label) }
                 is WidgetSpec.Toggles -> spec.items.forEach { add(words(it.label, if (it.on) "on" else "off")) }
-                is WidgetSpec.Clock -> spec.zones.forEach { add(it.label ?: it.zone) }
+                is WidgetSpec.Clock -> {
+                    // Without seconds: the words are made again by the minute.
+                    val format = DateTimeFormatter.ofPattern(clockPattern(clock24, seconds = false), locale)
+                    zoneTimes(spec.zones, now * 1000, zone, format).forEach { add(words(it.label, it.time, it.day)) }
+                }
                 is WidgetSpec.Agenda -> {
                     // What the card shows at this moment: an event that has ended is not said either.
                     val days = agenda(spec, now, zone, clock24, locale)
@@ -312,6 +316,74 @@ internal object WidgetWords {
         val rows = if (shown <= across) 1 else down
         return Grid(columns = (shown + rows - 1) / rows, rows = rows, shown = shown)
     }
+
+    /**
+     * One place of a clock as its card writes it. [day] is "tomorrow" or "yesterday" when the day
+     * there is not the day here, and [dayShort] the same in little room: "+1" or "-1".
+     */
+    data class ZoneTime(val label: String, val time: String, val day: String?, val dayShort: String?)
+
+    /** A place's name. Without a label it is the last part of the zone's name: "Asia/Kolkata" is "Kolkata". */
+    fun zoneLabel(zone: WidgetSpec.Zone): String = zone.label ?: zone.zone.substringAfterLast('/').replace('_', ' ')
+
+    /** The pattern of a clock's time: "14:30" or "2:30 PM", and "14:30:05" or "2:30:05 PM" with [seconds]. */
+    fun clockPattern(clock24: Boolean, seconds: Boolean): String = when {
+        !seconds -> TimeFormats.clock(clock24)
+        clock24 -> "HH:mm:ss"
+        else -> "h:mm:ss a"
+    }
+
+    /** The most characters a time in [clockPattern] has: "22:30" is 5, "10:30:05 PM" is 11. */
+    fun clockChars(clock24: Boolean, seconds: Boolean): Int = (if (clock24) 5 else 8) + (if (seconds) 3 else 0)
+
+    /**
+     * The time at each of [zones] at the moment [now] (milliseconds), written with [format], and
+     * its day as seen from [here]. A zone the phone does not know is left out: the parser has
+     * refused such a zone already, so this is only a guard.
+     */
+    fun zoneTimes(zones: List<WidgetSpec.Zone>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> {
+        val moment = Instant.ofEpochMilli(now)
+        val today = moment.atZone(here).toLocalDate()
+        return zones.mapNotNull { zone ->
+            val id = runCatching { ZoneId.of(zone.zone) }.getOrNull() ?: return@mapNotNull null
+            val there = moment.atZone(id)
+            val day = there.toLocalDate()
+            when {
+                day.isAfter(today) -> ZoneTime(zoneLabel(zone), there.format(format), "tomorrow", "+1")
+                day.isBefore(today) -> ZoneTime(zoneLabel(zone), there.format(format), "yesterday", "-1")
+                else -> ZoneTime(zoneLabel(zone), there.format(format), null, null)
+            }
+        }
+    }
+
+    /** A digit is about this much of its font size wide. */
+    private const val DIGIT_WIDTH = 0.62f
+
+    /** The smallest font size of a clock's time, in dp. */
+    private const val CLOCK_MIN_DP = 12
+
+    /**
+     * The font size, in dp, at which a time of [chars] characters fills [widthDp]: never under 12,
+     * and never over [maxDp]. The size comes from the room and not from the text, so it does not
+     * change as the digits do.
+     */
+    fun clockTextDp(widthDp: Int, chars: Int, maxDp: Int): Int =
+        (widthDp / (chars.coerceAtLeast(1) * DIGIT_WIDTH)).toInt().coerceIn(CLOCK_MIN_DP, maxOf(CLOCK_MIN_DP, maxDp))
+
+    /**
+     * How many of [count] places a wide box [widthDp] wide shows side by side. Each needs room for
+     * its time at the smallest size, and at least 48 dp. The first places are kept.
+     */
+    fun clockColumns(count: Int, widthDp: Int, chars: Int): Int {
+        val cell = maxOf(CONTROL_DP, Math.round(chars * DIGIT_WIDTH * CLOCK_MIN_DP + 0.5f))
+        return ((widthDp + CONTROL_GAP_DP) / (cell + CONTROL_GAP_DP)).coerceIn(1, maxOf(1, count))
+    }
+
+    /** A row of a clock in a large box is at least this tall, in dp. */
+    const val CLOCK_ROW_DP = 28
+
+    /** How many of [count] places a large box [heightDp] tall shows as rows. */
+    fun clockRows(count: Int, heightDp: Int): Int = (heightDp / CLOCK_ROW_DP).coerceIn(1, maxOf(1, count))
 
     /** What an agenda says with no event to show, when its description has no `empty` text. */
     const val NO_EVENTS = "No events"

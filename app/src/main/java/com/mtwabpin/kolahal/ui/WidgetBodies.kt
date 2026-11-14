@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
@@ -53,6 +54,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -71,6 +73,8 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /*
  * The content of the kinds with parts of their own to tap or to tick: buttons, toggles, clock,
@@ -263,10 +267,115 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, box: WidgetSizes.Box, onTap: 
     QuietLine(WidgetWords.UNAVAILABLE, small = box == WidgetSizes.Box.SMALL)
 }
 
-/** `clock`: the time in several places. Not drawn yet. */
+// ---- clock ----------------------------------------------------------------------------------
+
+/** The room under a clock's time for its place, in dp. */
+private const val PLACE_DP = 16
+
+/** From this width, a place has "tomorrow" beside its name. A narrower one has "+1". */
+private val LONG_DAY = 120.dp
+
+/**
+ * `clock`: the time in up to four places. Kolahal does the ticking: the script gave the places
+ * once, and no run is needed as time passes.
+ * - Small, or one place: that place's time, large, over its name.
+ * - Wide: the places side by side, as many as fit ([WidgetWords.clockColumns]).
+ * - Large: one row for each place, its name at the start and its time at the end.
+ * - A place whose day is not the day here says so: "tomorrow" or "yesterday", or "+1" and "-1"
+ *   in little room.
+ * - The time follows Kolahal's 24-hour setting. It moves by the minute, with the header's clock.
+ *   With `seconds` it moves by the second, but only while the widgets page is in view.
+ * - The size of the digits comes from the room, never from the text: a clock that ticks does not
+ *   change its size, and no text is measured twice.
+ */
 @Composable
 internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
-    QuietLine(WidgetWords.UNAVAILABLE, small = box == WidgetSizes.Box.SMALL)
+    val (_, zoneChanges) = rememberNow()
+    val here = remember(zoneChanges) { ZoneId.systemDefault() }
+    val clock24 = rememberClock24()
+    val format = remember(clock24, spec.seconds) { DateTimeFormatter.ofPattern(WidgetWords.clockPattern(clock24, spec.seconds), Locale.getDefault()) }
+    val now = rememberMillis(seconds = spec.seconds)
+    val times = WidgetWords.zoneTimes(spec.zones, now, here, format)
+    if (times.isEmpty()) {
+        QuietLine(WidgetWords.NOTHING, small = box == WidgetSizes.Box.SMALL)
+        return
+    }
+    val chars = WidgetWords.clockChars(clock24, spec.seconds)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val width = maxWidth.value.toInt()
+        val height = maxHeight.value.toInt()
+        // The digits are as tall as the box allows over the place's name: a line is about 1.25 of its font size.
+        val fits = (height - PLACE_DP) * 4 / 5
+        when {
+            box == WidgetSizes.Box.SMALL || times.size == 1 -> Column(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.CenterHorizontally else Alignment.Start,
+            ) {
+                ClockTime(times[0].time, WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
+                PlaceLabel(times[0], long = width.dp >= LONG_DAY)
+            }
+            box == WidgetSizes.Box.WIDE -> {
+                val columns = WidgetWords.clockColumns(times.size, width, chars)
+                val gap = WidgetWords.CONTROL_GAP_DP
+                val cell = (width - gap * (columns - 1)) / columns
+                val size = WidgetWords.clockTextDp(cell, chars, minOf(fits, 28))
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap.dp), verticalAlignment = Alignment.CenterVertically) {
+                    times.take(columns).forEachIndexed { i, time ->
+                        key(i) {
+                            Column(Modifier.weight(1f)) {
+                                ClockTime(time.time, size)
+                                PlaceLabel(time, long = cell.dp >= LONG_DAY)
+                            }
+                        }
+                    }
+                }
+            }
+            else -> {
+                val rows = WidgetWords.clockRows(times.size, height)
+                val row = (height / rows).coerceIn(WidgetWords.CLOCK_ROW_DP, 48)
+                // The time gets up to half the width. The place's name has the rest.
+                val size = WidgetWords.clockTextDp(width / 2, chars, minOf(row * 3 / 5, 24))
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                    times.take(rows).forEachIndexed { i, time ->
+                        key(i) {
+                            Row(Modifier.fillMaxWidth().height(row.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.weight(1f).padding(end = 8.dp)) { PlaceLabel(time, long = width >= 200, style = MaterialTheme.typography.bodyMedium) }
+                                ClockTime(time.time, size)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A clock's time, with digits [sizeDp] tall whatever the phone's font size is: the size was made
+ * to fit the box. The digits are all one width where the font can do that, so the text does not
+ * shake as it ticks.
+ */
+@Composable
+private fun ClockTime(time: String, sizeDp: Int) {
+    val size = with(LocalDensity.current) { sizeDp.dp.toSp() }
+    val base = MaterialTheme.typography.titleLarge
+    val style = remember(base, size) { base.copy(fontSize = size, lineHeight = size * 1.25f, fontFeatureSettings = "tnum") }
+    Text(time, style = style, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
+}
+
+/**
+ * A place's name, and its day when that is not the day here. The name is cut with "…" before the
+ * day is: the day says more.
+ */
+@Composable
+private fun PlaceLabel(time: WidgetWords.ZoneTime, long: Boolean, style: TextStyle = MaterialTheme.typography.labelSmall) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val day = if (long) time.day?.let { " · $it" } else time.dayShort?.let { " $it" }
+    Row {
+        Text(time.label, style = style, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        if (day != null) Text(day, style = style, color = muted, maxLines = 1, softWrap = false)
+    }
 }
 
 // ---- agenda ---------------------------------------------------------------------------------

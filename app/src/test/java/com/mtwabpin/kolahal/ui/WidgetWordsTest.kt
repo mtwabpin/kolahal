@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** What a widget's card says, and what a screen reader hears. */
@@ -391,6 +392,77 @@ class WidgetWordsTest {
         // With nothing left to show, it says the script's words, or its own.
         assertEquals("Agenda: Nothing planned", WidgetWords.description("Agenda", spec.copy(empty = "Nothing planned"), at(23, 0), utc))
         assertEquals("Agenda: No events", WidgetWords.description("Agenda", spec, at(23, 0), utc))
+    }
+
+    private fun clockFormat(clock24: Boolean, seconds: Boolean = false) = DateTimeFormatter.ofPattern(WidgetWords.clockPattern(clock24, seconds), Locale.US)
+
+    private val places = listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("America/New_York"), WidgetSpec.Zone("UTC"), WidgetSpec.Zone("+05:45"))
+
+    /** At 20:30:05 UTC on the 20th it is 02:00 on the 21st in Kolkata, and 15:30 on the 20th in New York. */
+    @Test fun aClockSaysTheTimeInEachPlaceAndItsDay() {
+        val now = at(20, 20, 30, 5) * 1000
+        assertEquals(
+            listOf(
+                WidgetWords.ZoneTime("Pune", "02:00", "tomorrow", "+1"),
+                WidgetWords.ZoneTime("New York", "15:30", null, null),
+                WidgetWords.ZoneTime("UTC", "20:30", null, null),
+                WidgetWords.ZoneTime("+05:45", "02:15", "tomorrow", "+1"),
+            ),
+            WidgetWords.zoneTimes(places, now, utc, clockFormat(true)),
+        )
+        // Seen from Tokyo it is the 21st already, so New York and UTC are a day behind.
+        val tokyo = WidgetWords.zoneTimes(places, now, ZoneId.of("Asia/Tokyo"), clockFormat(true))
+        assertEquals(listOf(null, "yesterday", "yesterday", null), tokyo.map { it.day })
+        assertEquals(listOf(null, "-1", "-1", null), tokyo.map { it.dayShort })
+        // The form of the time is the setting's, and seconds show only when asked for.
+        assertEquals(listOf("2:00 AM", "3:30 PM", "8:30 PM", "2:15 AM"), WidgetWords.zoneTimes(places, now, utc, clockFormat(false)).map { it.time })
+        assertEquals(listOf("02:00:05", "15:30:05", "20:30:05", "02:15:05"), WidgetWords.zoneTimes(places, now, utc, clockFormat(true, seconds = true)).map { it.time })
+        assertEquals("2:00:05 AM", WidgetWords.zoneTimes(places, now, utc, clockFormat(false, seconds = true))[0].time)
+        // A zone the phone does not know is left out. The parser has refused it already.
+        assertEquals(listOf("UTC"), WidgetWords.zoneTimes(listOf(WidgetSpec.Zone("Not/AZone"), WidgetSpec.Zone("UTC")), now, utc, clockFormat(true)).map { it.label })
+    }
+
+    @Test fun aPlaceWithoutALabelIsNamedByItsZone() {
+        assertEquals("Kolkata", WidgetWords.zoneLabel(WidgetSpec.Zone("Asia/Kolkata")))
+        assertEquals("New York", WidgetWords.zoneLabel(WidgetSpec.Zone("America/New_York")))
+        assertEquals("Buenos Aires", WidgetWords.zoneLabel(WidgetSpec.Zone("America/Argentina/Buenos_Aires")))
+        assertEquals("UTC", WidgetWords.zoneLabel(WidgetSpec.Zone("UTC")))
+        assertEquals("Home", WidgetWords.zoneLabel(WidgetSpec.Zone("Asia/Kolkata", "Home")))
+    }
+
+    /** The size of the digits comes from the room and the form of the time, never from the digits themselves. */
+    @Test fun aClocksDigitsFillTheirRoom() {
+        assertEquals(listOf("HH:mm", "h:mm a", "HH:mm:ss", "h:mm:ss a"), listOf(WidgetWords.clockPattern(true, false), WidgetWords.clockPattern(false, false), WidgetWords.clockPattern(true, true), WidgetWords.clockPattern(false, true)))
+        assertEquals(listOf(5, 8, 8, 11), listOf(WidgetWords.clockChars(true, false), WidgetWords.clockChars(false, false), WidgetWords.clockChars(true, true), WidgetWords.clockChars(false, true)))
+        assertEquals(20, WidgetWords.clockTextDp(64, 5, 28))
+        assertEquals("never over the height's limit", 28, WidgetWords.clockTextDp(300, 5, 28))
+        assertEquals("never under 12", 12, WidgetWords.clockTextDp(40, 11, 28))
+        assertEquals(12, WidgetWords.clockTextDp(300, 5, 4))
+    }
+
+    /** The boxes are those of a page 344 dp wide: 136 dp for 2×1 and 2×2, 312 dp for 4×1. */
+    @Test fun aClockShowsAsManyPlacesAsFit() {
+        assertEquals(2, WidgetWords.clockColumns(4, 136, 5))
+        assertEquals(2, WidgetWords.clockColumns(4, 136, 8))
+        assertEquals("12-hour time with seconds is long", 1, WidgetWords.clockColumns(4, 136, 11))
+        assertEquals(4, WidgetWords.clockColumns(4, 312, 5))
+        assertEquals(4, WidgetWords.clockColumns(4, 312, 8))
+        assertEquals(3, WidgetWords.clockColumns(4, 312, 11))
+        assertEquals("no more columns than places", 2, WidgetWords.clockColumns(2, 312, 5))
+        assertEquals(1, WidgetWords.clockColumns(3, 10, 5))
+        // A large box has a row for each place, 28 dp at least.
+        assertEquals(4, WidgetWords.clockRows(4, 124))
+        assertEquals(3, WidgetWords.clockRows(4, 90))
+        assertEquals(2, WidgetWords.clockRows(2, 124))
+        assertEquals(1, WidgetWords.clockRows(4, 10))
+    }
+
+    /** A screen reader hears each place with its time, without seconds, and its day when that differs. */
+    @Test fun aClockIsSaidWithItsPlacesAndTheirDays() {
+        val now = at(20, 20, 30, 5)
+        val clock = WidgetSpec.Clock(base, zones = places.take(2), seconds = true)
+        assertEquals("World: Pune 02:00 tomorrow, New York 15:30", WidgetWords.description("World", clock, now, utc, clock24 = true, locale = Locale.US))
+        assertEquals("World: Pune 2:00 AM tomorrow, New York 3:30 PM", WidgetWords.description("World", clock, now, utc, clock24 = false, locale = Locale.US))
     }
 
     /** A countdown, a clock and an agenda say the time, so their words are made again as it passes. No other kind's are. */
