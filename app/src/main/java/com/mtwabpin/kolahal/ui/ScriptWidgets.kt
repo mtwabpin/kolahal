@@ -522,9 +522,11 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, 
     }
     // Only the words of a kind that tells the time change with it: a countdown, a clock, an agenda.
     val now = if (WidgetWords.timed(spec)) minute.time / 1000 else 0L
-    val description = remember(title, spec, note, failure, footer, now, zone) {
+    // A clock and an agenda say a time of day. A screen reader hears it in the form the card writes it.
+    val clock24 = rememberClock24()
+    val description = remember(title, spec, note, failure, footer, now, zone, clock24) {
         val content = when {
-            spec != null -> WidgetWords.description(title, spec, now, zone)
+            spec != null -> WidgetWords.description(title, spec, now, zone, clock24)
             note == CardNote.LOADING -> "$title: loading"
             note == CardNote.FAILED -> "$title: $failure"
             note == CardNote.NOTHING -> "$title: ${WidgetWords.NOTHING}"

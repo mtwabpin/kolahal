@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -17,8 +16,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import android.media.session.PlaybackState
 import com.mtwabpin.kolahal.control.NowPlaying
-import com.mtwabpin.kolahal.data.Config
-import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.takeWhole
 import com.mtwabpin.kolahal.productivity.Agenda
@@ -79,6 +76,16 @@ internal object OwnCards {
     /** A card that only says [words], in the middle: "No notes yet". */
     fun quiet(id: String, words: String): WidgetSpec.Rows =
         WidgetSpec.Rows(base = WidgetBase(title = WidgetSource.builtinTitle(id)), items = emptyList(), empty = words)
+
+    /**
+     * A built-in card for a screen reader, in one sentence ([WidgetWords.description]).
+     * - A card that tells the time ([WidgetWords.timed]: the agenda) is said as it is at [nowMs],
+     *   in milliseconds: an event that has ended is not said, and one that goes on is "now". Its
+     *   times of day are written as [clock24] says, as the card draws them.
+     * - For any other card the moment and the clock's form are not read, so they can be left out.
+     */
+    fun said(spec: WidgetSpec, nowMs: Long = 0L, zone: ZoneId = ZoneId.systemDefault(), clock24: Boolean = false, locale: Locale = Locale.getDefault()): String =
+        WidgetWords.description(spec.base.title, spec, if (WidgetWords.timed(spec)) nowMs / 1000 else 0L, zone, clock24, locale)
 
     // ---- shortcuts --------------------------------------------------------------------------
 
@@ -378,7 +385,7 @@ private fun OwnCard(
 private fun ShortcutsWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.shortcuts ?: NOT_READ).collectAsStateWithLifecycle()
     val spec: WidgetSpec? = remember(list) { list?.let { OwnCards.shortcuts(it) ?: OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS) } }
-    val description = remember(spec) { spec?.let { WidgetWords.description(it.base.title, it, 0L, ZoneId.systemDefault()) } ?: "Shortcuts" }
+    val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Shortcuts" }
     OwnCard(WidgetSource.SHORTCUTS, height, spec, description, actions, cardTap = OwnTaps.EDIT, cardTapLabel = "edit shortcuts")
 }
 
@@ -409,7 +416,7 @@ private fun MediaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
             else -> OwnCards.media(session)
         }
     }
-    val description = remember(spec) { WidgetWords.description(spec.base.title, spec, 0L, ZoneId.systemDefault()) }
+    val description = remember(spec) { OwnCards.said(spec) }
     OwnCard(
         id = WidgetSource.MEDIA,
         height = height,
@@ -441,7 +448,10 @@ private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?)
     val read by (own?.agenda ?: NO_AGENDA).collectAsStateWithLifecycle()
     // Nothing is read yet: the card stays empty, and does not say "allow" before it knows.
     val known = read.at != 0L
-    val zone = remember(read) { ZoneId.systemDefault() }
+    // The minute's tick, from the header's clock, and the phone's zone. In a new zone the days are other days.
+    val (minute, zoneChanges) = rememberNow()
+    val zone = remember(zoneChanges) { ZoneId.systemDefault() }
+    val clock24 = rememberClock24()
     val spec: WidgetSpec? = remember(read, zone) {
         when {
             !known -> null
@@ -449,7 +459,10 @@ private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?)
             else -> OwnCards.agenda(read.events, zone, read.at, OwnData.AGENDA_DAYS)
         }
     }
-    val description = remember(spec) { spec?.let { WidgetWords.description(it.base.title, it, read.at / 1000, zone) } ?: "Agenda" }
+    // The agenda's words tell the time, so they are made again by the minute, as its body is drawn:
+    // an event that has ended is not said. The times are in the form the card writes them.
+    val now = if (WidgetWords.timed(spec)) minute.time else 0L
+    val description = remember(spec, now, zone, clock24) { spec?.let { OwnCards.said(it, now, zone, clock24) } ?: "Agenda" }
     val ask = known && !read.allowed
     OwnCard(
         id = WidgetSource.AGENDA,
@@ -494,14 +507,12 @@ private fun TodosWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
 @Composable
 private fun RemindersWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.reminders ?: NOT_READ).collectAsStateWithLifecycle()
-    val context = LocalContext.current.applicationContext
-    val config = remember(context) { Config.get(context) }
-    val version by config.version.collectAsStateWithLifecycle()
-    val clock24 = remember(version) { config[Keys.CLOCK_24H] }
+    val clock24 = rememberClock24()
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
+    // The rows hold their times as words, in the clock's form, so the description says them as they are drawn.
     val spec = remember(list, minute, zone, clock24) { list?.let { OwnCards.reminders(it, minute.time, zone, clock24) } }
-    val description = remember(spec) { spec?.let { WidgetWords.description(it.base.title, it, 0L, zone) } ?: "Reminders" }
+    val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Reminders" }
     OwnCard(WidgetSource.REMINDERS, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open reminders")
 }
 
@@ -514,6 +525,6 @@ private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
     val list by (own?.notes ?: NOT_READ).collectAsStateWithLifecycle()
     val count = if (height >= LARGE) OwnCards.MAX_NOTES else 1
     val spec: WidgetSpec? = remember(list, count) { list?.let { OwnCards.notes(it, count) ?: OwnCards.quiet(WidgetSource.NOTES, "No notes yet") } }
-    val description = remember(spec) { spec?.let { WidgetWords.description(it.base.title, it, 0L, ZoneId.systemDefault()) } ?: "Notes" }
+    val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Notes" }
     OwnCard(WidgetSource.NOTES, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open notes")
 }

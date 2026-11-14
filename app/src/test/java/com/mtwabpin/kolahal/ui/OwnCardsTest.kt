@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import android.media.session.PlaybackState
 import com.mtwabpin.kolahal.control.NowPlaying
+import com.mtwabpin.kolahal.sourceFile
 import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
@@ -257,6 +258,64 @@ class OwnCardsTest {
         // Between two reads of the calendar the body drops it by itself: the card of 16:59 is drawn at 17:01.
         val before = OwnCards.agenda(ping, zone, at(14, 16, 59), days = 3)
         assertTrue(WidgetWords.agenda(before, at(14, 17, 1) / 1000, zone, clock24 = true, locale = Locale.US).isEmpty())
+    }
+
+    /** A screen reader hears the agenda as the card draws it at that moment, with its times in the clock's form. */
+    @Test fun theAgendaIsSaidAsItIsDrawn() {
+        val events = listOf(
+            allDay(4, "Birthday", 14, 14),
+            timed(3, "Workshop", at(14, 15), at(14, 18)),
+            timed(1, "Standup", at(14, 17), at(14, 17, 30)),
+            timed(7, "Ping", at(15, 9), at(15, 9, 30)),
+        )
+        val spec = OwnCards.agenda(events, zone, at(14, 16, 5), days = 3)
+        val in24 = OwnCards.said(spec, at(14, 16, 5), zone, clock24 = true, locale = Locale.US)
+        assertTrue(in24, in24.startsWith("Agenda: "))
+        assertTrue(in24, listOf("Birthday", "now Workshop", "17:00 Standup", "09:00 Ping").all(in24::contains))
+        val in12 = OwnCards.said(spec, at(14, 16, 5), zone, clock24 = false, locale = Locale.US)
+        assertTrue(in12, listOf("5:00 PM Standup", "9:00 AM Ping").all(in12::contains))
+        assertFalse(in12, in12.contains("17:00"))
+        // Two hours later, from the same read of the calendar: what has ended is not said.
+        val later = OwnCards.said(spec, at(14, 18, 30), zone, clock24 = true, locale = Locale.US)
+        assertFalse(later, later.contains("Workshop") || later.contains("Standup"))
+        assertTrue(later, later.contains("Birthday") && later.contains("09:00 Ping"))
+        // With nothing left, the card's own words.
+        val none = OwnCards.said(OwnCards.agenda(emptyList(), zone, at(14, 16, 5), days = 3), at(14, 16, 5), zone, clock24 = true, locale = Locale.US)
+        assertEquals("Agenda: No events in the next 3 days", none)
+    }
+
+    /** A card that does not tell the time is said the same at any moment, in any form of the clock. */
+    @Test fun otherCardsAreSaidWithoutTheTime() {
+        val now = at(14, 16, 5)
+        val cards = listOf(
+            OwnCards.todos(todos),
+            OwnCards.reminders(listOf(Reminder(7, at(14, 16, 30), "Tea")), now, zone, clock24 = true, locale = Locale.US),
+            OwnCards.notes(notes)!!,
+            OwnCards.shortcuts(shortcuts)!!,
+            OwnCards.media(session(PlaybackState.STATE_PLAYING)),
+            OwnCards.quiet(WidgetSource.AGENDA, OwnCards.ALLOW_CALENDAR),
+        )
+        cards.forEach { spec ->
+            assertFalse(WidgetWords.timed(spec))
+            assertEquals(OwnCards.said(spec), OwnCards.said(spec, nowMs = now, zone = ZoneId.of("America/Los_Angeles"), clock24 = true))
+        }
+        // The Reminders rows hold their times as words, in the clock's form, so they are said as they are drawn.
+        assertEquals("Reminders: Tea, 16:30, in 25m", OwnCards.said(cards[1]))
+        assertEquals("Agenda: Allow calendar access", OwnCards.said(cards[5]))
+        assertTrue(WidgetWords.timed(OwnCards.agenda(emptyList(), zone, now, days = 3)))
+    }
+
+    /** A script's card gives its description the clock's form too, and makes it again when the setting changes. */
+    @Test fun cardsGiveTheirDescriptionTheClocksForm() {
+        val script = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/ScriptWidgets.kt").readLines()
+        val call = script.single { "WidgetWords.description(title, spec, now" in it }
+        assertTrue(call, call.contains("WidgetWords.description(title, spec, now, zone, clock24)"))
+        assertTrue(script.any { "val clock24 = rememberClock24()" in it })
+        assertTrue(script.any { "remember(title, spec, note, failure, footer, now, zone, clock24)" in it })
+        // The built-in cards make their words in one place, which takes the moment and the clock's form.
+        val own = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/OwnWidgets.kt").readText()
+        assertEquals(1, Regex("""WidgetWords\.description\(""").findAll(own).count())
+        assertTrue(own.contains("OwnCards.said(it, now, zone, clock24)"))
     }
 
     @Test fun theAgendaSaysWhenThereIsNothing() {
