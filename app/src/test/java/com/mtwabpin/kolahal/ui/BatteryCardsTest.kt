@@ -115,7 +115,7 @@ class BatteryCardsTest {
 
     /** The picker's Kolahal section lists it first, as a built-in widget that starts 2×1. */
     @Test fun thePickerListsTheBuiltInWidget() {
-        val row = pickerBuiltinRows.single()
+        val row = pickerBuiltinRows.first()
         assertEquals("battery", row.id)
         assertEquals("builtin:battery", row.source)
         assertEquals(WidgetSource.builtin(WidgetSource.BATTERY), row.source)

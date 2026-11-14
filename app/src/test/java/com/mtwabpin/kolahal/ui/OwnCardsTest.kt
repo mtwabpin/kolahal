@@ -45,6 +45,27 @@ class OwnCardsTest {
             spec.items.map { OwnTaps.parse(WidgetSource.TODOS, it.tap!!.args!!) },
         )
         assertTrue(spec.items.all { it.tap?.url == null && it.tap?.label == "mark as done" })
+        // Each row has a checkbox, not ticked.
+        assertEquals(listOf(false, false, false), spec.items.map { it.done })
+    }
+
+    /** The picker lists a built-in widget only when its card is drawn, under the widget's one name. */
+    @Test fun thePickerListsTheBuiltInWidgetsThatAreDrawn() {
+        assertEquals(WidgetSource.BATTERY, pickerBuiltinRows.first().id)
+        assertEquals(pickerBuiltinRows.size, pickerBuiltinRows.map { it.id }.toSet().size)
+        pickerBuiltinRows.forEach { row ->
+            assertTrue(row.id, row.id == WidgetSource.BATTERY || OwnCards.draws(row.id))
+            assertEquals(WidgetSource.builtinTitle(row.id), row.title)
+            assertEquals("Built-in", row.what)
+            assertTrue(WidgetSource.isSource(row.source))
+            // The search is in lowercase, as the query is, and finds the widget by its name.
+            assertEquals(row.search.lowercase(), row.search)
+            assertTrue(row.search.contains(row.title.lowercase()))
+        }
+        // Every card that is drawn can be added.
+        val listed = pickerBuiltinRows.map { it.id }.toSet()
+        val ids = listOf(WidgetSource.SHORTCUTS, WidgetSource.MEDIA, WidgetSource.TODOS, WidgetSource.AGENDA, WidgetSource.REMINDERS, WidgetSource.NOTES)
+        assertEquals(ids.filter(OwnCards::draws).toSet(), listed - WidgetSource.BATTERY)
     }
 
     /** A todo ticked on the card keeps its place until the page is turned away, and a tap opens it again. */
@@ -53,6 +74,7 @@ class OwnCardsTest {
         val spec = OwnCards.todos(ticked, kept = setOf(4))
         assertEquals(listOf("Buy milk", "Call the bank", "Water the plants"), spec.items.map { it.title })
         assertEquals(listOf("done #1", "undo #4", "done #6"), spec.items.map { it.tap?.args })
+        assertEquals(listOf(false, true, false), spec.items.map { it.done })
         assertEquals("mark as not done", spec.items[1].tap?.label)
         // Todos that were done before are not on the card, and nor is this one after the page was left.
         assertEquals(listOf("Buy milk", "Water the plants"), OwnCards.todos(ticked).items.map { it.title })

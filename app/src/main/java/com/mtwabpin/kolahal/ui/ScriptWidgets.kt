@@ -350,6 +350,8 @@ private const val MIN_REFRESH_S = 10
  *   process never waits for a script: the card comes from stored state, and a run fills it later.
  * - A Status card draws its script's status line ([StatusLine]).
  * - The built-in Battery and network widget draws the device's status, live ([DeviceStatus]).
+ * - Every other built-in widget this version knows draws Kolahal's own data, live ([OwnWidget]):
+ *   todos, reminders, notes. It reads them from [feed] ([WidgetFeed.own]).
  * - Any other source says "widget unavailable": a built-in widget that this version does not have,
  *   from a newer Kolahal's backup.
  * - [actions] takes taps, the long-press and refresh requests. With null the card takes no touches
@@ -363,15 +365,18 @@ private const val MIN_REFRESH_S = 10
 internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed? = null) {
     val name = WidgetSource.scriptName(w.source)
     val status = WidgetSource.statusName(w.source)
+    val builtin = WidgetSource.builtinId(w.source)
     GuiTheme {
         if (name != null) {
             ScriptWidget(name, height, actions, feed)
         } else if (status != null) {
             StatusWidget(status, height, actions, feed)
-        } else if (WidgetSource.builtinId(w.source) == WidgetSource.BATTERY) {
+        } else if (builtin == WidgetSource.BATTERY) {
             BatteryWidget(height, actions)
+        } else if (builtin != null && OwnCards.draws(builtin)) {
+            OwnWidget(builtin, height, actions, feed?.own)
         } else {
-            val what = w.source.orEmpty().substringAfter(':')
+            val what = w.source?.let(WidgetSource::label).orEmpty()
             // Nothing to tap here, so a tap opens the screen where the widget can be removed.
             val arrange: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
             WidgetCard(

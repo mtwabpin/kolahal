@@ -416,6 +416,34 @@ class WidgetModelTest {
         assertEquals(listOf(battery.copy(span = 3)), fromJson)
     }
 
+    /** A placed Todos widget survives a backup: it comes back placed, with its size and its place, and needs no "Add again". */
+    @Test fun aPlacedTodosWidgetSurvivesExportAndImport() {
+        val todos = PlacedWidget(null, WidgetSource.builtin(WidgetSource.TODOS), 0L, 184, 1, span = 12)
+        assertEquals("builtin:todos", todos.provider)
+        val all = listOf(battery.copy(order = 0), todos, script("weather", order = 2))
+        // As it is stored on the phone.
+        assertTrue(WidgetCodec.encode(all).lines().contains("-|builtin:todos|0|184|1|panel|12"))
+        assertEquals(all, WidgetCodec.decode(WidgetCodec.encode(all)))
+        // As a backup carries it.
+        val exported = WidgetCodec.export(all)
+        assertEquals(listOf("builtin:battery", "builtin:todos", "script:weather"), exported.map { it["provider"] })
+        val imported = WidgetCodec.fromExport(exported)
+        assertEquals(todos, imported[1])
+        assertFalse(imported[1].pending)
+        assertEquals("s:builtin:todos", imported[1].key)
+        // Onto an empty page it is placed as it comes. Onto a page that has it, the one there stays.
+        val restored = WidgetCodec.mergePending(emptyList(), WidgetOrder.onePage(imported))
+        assertEquals(all, restored)
+        assertEquals(restored, WidgetCodec.mergePending(restored, WidgetOrder.onePage(imported)))
+        val mine = todos.copy(heightDp = 368, order = 0)
+        assertEquals(mine, WidgetCodec.mergePending(listOf(mine), imported).single { it.source == "builtin:todos" })
+        // Numbers as a JSON reader gives them.
+        val fromJson = WidgetCodec.fromExport(listOf(mapOf("provider" to "builtin:todos", "height" to 184.0, "order" to 1.0, "span" to 12.0)))
+        assertEquals(listOf(todos), fromJson)
+        // It is named for the Widgets screen and `widgets ls`.
+        assertEquals("Todos", WidgetSource.label(restored[1].provider))
+    }
+
     /** A script named like a built-in widget is another thing: renaming it leaves the built-in widget alone. */
     @Test fun aScriptNamedLikeABuiltInWidgetDoesNotMoveIt() {
         val all = listOf(battery, script("battery", order = 2), PlacedWidget(null, "status:battery", 0L, 88, 3, span = 6))

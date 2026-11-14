@@ -80,17 +80,17 @@ internal object OwnCards {
     fun todosShown(list: List<Todo>, kept: Set<Long>): List<Todo> = list.filter { !it.done || it.id in kept }.sortedBy { it.id }
 
     /**
-     * The Todos card: a row for each of [todosShown], at most [MAX_TODOS]. A tap on a row marks its
-     * todo done, and a tap on a done row opens it again. The row names the todo by its id, which
-     * stays the same when the list changes.
+     * The Todos card: a row for each of [todosShown], at most [MAX_TODOS], with its checkbox. A tap
+     * on a row marks its todo done, and a tap on a done row opens it again. The row names the todo
+     * by its id, which stays the same when the list changes.
      */
     fun todos(list: List<Todo>, kept: Set<Long> = emptySet()): WidgetSpec.Rows = WidgetSpec.Rows(
         base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.TODOS)),
         items = todosShown(list, kept).take(MAX_TODOS).map { t ->
             WidgetSpec.Row(
                 title = t.text,
-                icon = if (t.done) "☑" else "☐",
                 tap = if (t.done) WidgetTap(args = OwnTaps.undo(t.id), label = "mark as not done") else WidgetTap(args = OwnTaps.done(t.id), label = "mark as done"),
+                done = t.done,
             )
         },
         empty = if (list.isEmpty()) "No todos yet" else "Nothing open",

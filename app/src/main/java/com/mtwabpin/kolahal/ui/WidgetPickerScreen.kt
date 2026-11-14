@@ -157,9 +157,25 @@ internal class PickerBuiltinRow(val id: String, val title: String, val what: Str
     val source: String get() = WidgetSource.builtin(id)
 }
 
-/** The built-in widgets, in the order the picker lists them. They come before your scripts' widgets. */
+/**
+ * The picker's row for the built-in widget [id], which starts at [size]. Its title is the widget's
+ * one name ([WidgetSource.builtinTitle]). [words] are more words to find it by, in lowercase.
+ */
+private fun builtinRow(id: String, size: WidgetSize, words: String): PickerBuiltinRow {
+    val title = WidgetSource.builtinTitle(id) ?: id
+    return PickerBuiltinRow(id, title, "Built-in", size, "${title.lowercase()} built-in $words")
+}
+
+/**
+ * The built-in widgets, in the order the picker lists them. They come before your scripts' widgets.
+ * Only a widget whose card is drawn is listed here ([OwnCards.draws]; Battery and network has a
+ * card of its own).
+ */
 internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
-    PickerBuiltinRow(WidgetSource.BATTERY, "Battery and network", "Built-in", WidgetSize.S2X1, "battery and network built-in charging wi-fi"),
+    builtinRow(WidgetSource.BATTERY, WidgetSize.S2X1, "charging wi-fi"),
+    builtinRow(WidgetSource.TODOS, WidgetSize.S4X2, "todo to-do tasks checklist"),
+    builtinRow(WidgetSource.REMINDERS, WidgetSize.S2X2, "remind alarm"),
+    builtinRow(WidgetSource.NOTES, WidgetSize.S2X2, "note"),
 )
 
 /** The header of the picker's first section: Kolahal's own widgets. Some are built in, and your scripts fill the others. */
