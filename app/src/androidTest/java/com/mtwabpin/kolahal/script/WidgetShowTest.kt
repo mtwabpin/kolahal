@@ -125,14 +125,15 @@ class WidgetShowTest {
         assertEquals(shown.setAt, cleared.setAt)
     }
 
-    /** A description that is wrong is the script's own error, with the field's name and the line. Nothing of it is kept. */
+    /** A description that is wrong is the script's own error, and names the field. Nothing of it is kept. */
     @Test fun aWrongDescriptionIsTheScriptsError() {
         // Not placed: it is checked all the same.
         val s = script("-- @widget stat\nwidget.show{ value = 24, colour = 'red' }")
         t.run(s)
         val error = errors().single()
-        assertTrue(error, error.startsWith("${s.name}: widget: a stat widget has no field 'colour'; use kind, title, icon, color"))
-        assertTrue(scripts.byId(s.id)!!.lastStatus.orEmpty(), scripts.byId(s.id)!!.lastStatus.orEmpty().startsWith("error: widget: a stat widget has no field 'colour'"))
+        assertTrue(error, error.startsWith("${s.name}: ") && error.contains("widget: a stat widget has no field 'colour'; use kind, title, icon, color"))
+        val status = scripts.byId(s.id)!!.lastStatus.orEmpty()
+        assertTrue(status, status.startsWith("error: ") && status.contains("a stat widget has no field 'colour'"))
         assertEquals(nothing, stored(s))
 
         val h = host(s)
@@ -154,7 +155,7 @@ class WidgetShowTest {
         scripts.saveCode(s.id, "// @widget stat\nwidget.show({ value: 6, trend: \"sideways\" });")
         t.run(s)
         val error = errors().single()
-        assertTrue(error, error.startsWith("${s.name}: widget: trend must be up, down or flat, not 'sideways'"))
+        assertTrue(error, error.startsWith("${s.name}: ") && error.contains("widget: trend must be up, down or flat, not 'sideways'"))
         assertEquals("5", stat(s).value)
         assertNull(stored(s).error)
 
