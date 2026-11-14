@@ -1,10 +1,12 @@
 ---
 title: Widgets
-description: Host Android home-screen widgets on a widgets page beside the terminal.
+description: Host Android home-screen widgets on a widgets page beside the terminal, with Kolahal's own widgets and your scripts' widgets.
 ---
 
 Kolahal can show the same home-screen widgets as any other launcher: clocks, weather, calendar,
 music, notes. The widgets are on a separate **widgets page** beside the terminal, so they take no space from it.
+The page also has [Kolahal's own widgets](#kolahals-own-widgets), such as your todos and what is
+playing, and [widgets that scripts fill](#widgets-from-scripts).
 
 ## The widgets page
 
@@ -56,13 +58,124 @@ The picker lists every installed widget, grouped by app. It shows each widget's 
 2. Some widgets have a setup screen, for example to pick a city, a calendar or a note. It opens next.
    If you leave it before you finish, the widget isn't added.
 
+## Kolahal's own widgets
+
+Kolahal has seven widgets of its own. They show what Kolahal knows itself: your todos, your
+reminders, what is playing. Kolahal draws them as cards, in the theme's colours.
+
+- The picker lists them first, in the **Kolahal** group.
+- They are live. A card changes when its data changes. No script runs for them, and they have no
+  setup screen.
+- Each is placed once. After that its row in the picker says **Added**.
+- A long-press on a card opens **Arrange widgets**. There you arrange and resize it like any other
+  widget.
+
+| Widget | It shows | A tap |
+| --- | --- | --- |
+| **Battery and network** | the battery's level in a ring, and the network | opens Android's battery screen |
+| **Shortcuts** | up to 8 buttons, for commands you pick | on a button: runs its command |
+| **Now playing** | the track, the artist and the app, with previous, play or pause, and next | on a button: does that. On the card: opens the player |
+| **Todos** | your open todos, each with a checkbox | on a row: marks the todo done. On the card: runs `todo` |
+| **Agenda** | your calendar's events for today and the next days | on an event: opens it in your calendar app. On the card: runs `agenda` |
+| **Reminders** | the next reminder and the two after it, with the time to each | runs `reminders` |
+| **Notes** | your newest note, or the newest three in a taller card | runs `notes` |
+
+When a tap runs a command, it runs as if you had typed it. Home turns to the log, where the
+answer is.
+
+### Todos
+
+The card lists your open [todos](/guides/productivity/#todos), the oldest first.
+
+- Tap a row to mark its todo done. The row stays where it is, ticked, until you leave the widgets
+  page. So a tap by mistake is easy to undo: tap the row again.
+- A todo that you add with `todo buy milk` shows on the card at once.
+- A card with more todos than fit says how many more there are. Tap the card for the whole list.
+
+### Reminders and Notes
+
+- **Reminders** shows your next three [reminders](/guides/productivity/#reminders). Each row has
+  the text, when it is due, how it repeats, and the time to it ("in 25m"). The time counts down
+  by the minute.
+- **Notes** shows your newest [note](/guides/productivity/#notes). A taller card shows the newest
+  three, each on one line.
+
+### Shortcuts
+
+**Shortcuts** is a card of buttons for commands that you choose: `torch`, `dnd`, `todo`, `weather`,
+`open maps`. A tap on a button runs its command, as if you had typed it and pressed Enter.
+
+A new Shortcuts card has no buttons. It says "No shortcuts yet. Tap to add commands."
+
+To edit your shortcuts:
+
+1. Open the **Shortcuts** sheet in one of two ways:
+   - Tap the card beside its buttons. While the card has no buttons, tap it anywhere.
+   - Or open **Settings → Widgets → Arrange widgets**, select the Shortcuts widget, and tap
+     **Edit shortcuts** in the toolbar at the bottom.
+2. Tap **Add shortcut**, and fill in the boxes:
+   - **Command**: what you would type in the terminal, such as `torch`. While you type its first
+     word, the commands that start so are offered under the box. Tap one to take it.
+   - **Label**: what the button says. If you leave it empty, the button says the command.
+   - **Icon**: an emoji or a letter, if you like.
+3. Tap **Add**.
+
+In the sheet, each shortcut has its own row:
+
+- Tap a row to change that shortcut.
+- The up and down arrows move it earlier or later. The buttons on the card are in this order.
+- The bin removes it.
+
+Each change is saved at once, and the card follows.
+
+- A command can be up to 200 characters, a label up to 24, and an icon up to 4.
+- The card has up to 8 buttons. A small card shows the first ones only, and never makes a button
+  smaller. So put the important ones first.
+- The command can be any command, also one such as `torch` or `dnd` that a
+  [script](/scripting/overview/) may not run. You chose it yourself.
+- A script can't change your shortcuts.
+- Your shortcuts are in a [backup](/guides/backup/).
+
+### Now playing
+
+The card shows what plays in your music or podcast app: the title, the artist and the app, and a
+bar for the position.
+
+- The three buttons are previous, play or pause, and next. A narrow card has fewer buttons: play
+  or pause is always there.
+- A tap elsewhere on the card opens the app that plays.
+- While something is paused, the card keeps it, however long ago you paused it. So you can start
+  it again from here. With nothing to show, the card says "Nothing playing".
+- It needs [notification access](/guides/media-and-controls/#media), as the header's line for
+  what is playing does. Without it, the card says "Allow notification access", and a tap asks
+  for it.
+
+### Agenda
+
+The card shows the events of your phone's calendar for today and the next two days, under
+"Today", "Tomorrow" and the date. The [`agenda`](/guides/productivity/#agenda) command reads the
+same calendar.
+
+- Each event has its time in front. An all-day event says "all day" and comes first in its day.
+  One that goes on says "now".
+- A tap on an event opens it in your calendar app. A tap elsewhere runs `agenda`.
+- An event that has ended leaves the card by itself.
+- With no event in these days, the card says "No events in the next 3 days".
+- It needs the calendar permission. Without it, the card says "Allow calendar access", and a tap
+  asks for it.
+- Kolahal reads the calendar when the widgets page comes into view, and every 15 minutes while you
+  stay there.
+
 ## Widgets from scripts
 
 A [script](/scripting/overview/#widgets) can have a widget too: a card that Kolahal draws from what the
 script tells it. For example the weather, a feed's headlines, or your unlocks of the last 7 days.
 
-- The picker lists these in the **Kolahal** group: a row for each of your scripts that has a widget, with
-  its kind and the size it starts with. Fifteen [library scripts](/scripting/library/#widgets) have one.
+- The picker lists these in the **Kolahal** group, after Kolahal's own: a row for each of your scripts
+  that has a widget, with its kind and the size it starts with. Fifteen
+  [library scripts](/scripting/library/#widgets) have one.
+- A script that keeps a [status line](/scripting/overview/#status-lines) has a second row, its
+  **Status card**: the line as a card, with no change to the script.
 - A script's widget is placed once. After that its row in the picker says **Added**.
 - The card is drawn in the theme's colours.
 - A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.
@@ -99,13 +212,20 @@ from the page.
 
 ## Backups
 
-A [backup](/guides/backup/) records which widgets you placed, with their size and order. But the widgets
-themselves can't move between installs. So after an import:
+A [backup](/guides/backup/) records which widgets you placed, with their size and order. But other apps'
+widgets themselves can't move between installs. So after an import:
 
 1. Open **Settings → Widgets → Arrange widgets**. The widgets are listed under **Restored from backup**.
 2. Tap **Add again** on each widget to add it back. Run its setup if it has one.
 
 Each widget keeps its size and position.
+
+Kolahal's own widgets and your scripts' widgets need no **Add again**. They are back on the page after
+the import.
+
+- A backup holds where a card is, not what it showed. Each card fills again by itself.
+- An imported script arrives switched off. Its card says "Script is off" until you turn the script on.
+- Your shortcuts come back with the Shortcuts widget.
 
 The same happens when Android restores Kolahal on a new phone from Android's own backup. A line in the log says
 how many widgets you need to add again. Tap it to open that page.

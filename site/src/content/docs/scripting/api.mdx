@@ -890,9 +890,12 @@ Each place is `{ zone, label }`. `zone` is needed.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `zone` | a time zone's name | Needed: `Asia/Kolkata`, `Europe/London`, `America/New_York`, `UTC`. A name that Kolahal doesn't know is an error that names it. |
-| `label` | text, up to 24 | What to call the place. Without it: the zone's name. |
+| `label` | text, up to 24 | What to call the place. Without it: the last part of the zone's name, "New York" for `America/New_York`. |
 
-- The times follow the phone's 12-hour or 24-hour setting.
+- A place whose day isn't your day says so: "tomorrow" or "yesterday".
+- Kolahal writes each time in 12-hour or 24-hour form, as the header does
+  ([`clock.24h`](/reference/config/)).
+- A small card shows the first place only. A wide one shows as many as fit, side by side.
 - A clock never gets old. Give it a long `staleAfter`, such as a week (604800), so the widgets
   page doesn't run the script each hour for nothing.
 
@@ -913,14 +916,18 @@ needed.
 | `title` | text, up to 80 | The event's name. |
 | `starts` | a time in seconds | Needed. When it starts: `os.time{…}` in Lua, `Date.now() / 1000` in JavaScript. |
 | `ends` | a time in seconds, not before `starts` | When it ends. |
-| `allDay` | true or false | The event takes the whole day, and shows no time. |
-| `where` | text, up to 60 | The place. |
-| `color` | a role | The colour of the event's mark. |
+| `allDay` | true or false | The event takes the whole day. It says "all day" where the others have their time, and comes first in its day. |
+| `where` | text, up to 60 | The place, under the title when the card has room. |
+| `color` | a role | The colour of the event's time. |
 | `tap` | an action | What a tap on the event does ([Taps](#taps)). |
 
-- Kolahal writes each time in the phone's 12-hour or 24-hour form, and puts the events under
-  their day.
-- An event that has ended is left out, with no run.
+- The events are under their day: "Today", "Tomorrow", then the date. The card shows as many as
+  fit, then "+3 more".
+- Kolahal writes each time in 12-hour or 24-hour form, as the header does
+  ([`clock.24h`](/reference/config/)).
+- An event that has ended is left out, with no run. An event with no `ends` is over when its day
+  is. One that goes on says "now".
+- An event that began on an earlier day and still goes on is under Today.
 - A time in milliseconds is an error that says to divide it by 1000.
 
 <Tabs syncKey="lang">

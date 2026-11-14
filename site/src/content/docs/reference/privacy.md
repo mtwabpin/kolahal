@@ -86,7 +86,7 @@ Permissions declared in the manifest:
 | `READ_CONTACTS` | `call`, `sms` and `contacts` find people by name. Kolahal asks the first time you use them. Optional. Not in the Play build |
 | `READ_CALL_LOG` | calls in the log, and `calls`. Kolahal asks the first time you use them. Optional. Not in the Play build |
 | `REQUEST_INSTALL_PACKAGES` | `update install` passes the new version to Android's installer. Android asks you to allow it the first time, and the installer asks before it installs. Optional. Not in the Play build |
-| `READ_CALENDAR` | `agenda` lists upcoming events. Kolahal asks the first time you use it. Optional. Nothing leaves the device |
+| `READ_CALENDAR` | `agenda` lists upcoming events, and the Agenda widget shows them. Kolahal asks the first time you use `agenda`, or when you tap the widget. Optional. Nothing leaves the device |
 | `SET_ALARM` | `timer` and `alarm` pass the timer or alarm to your clock app |
 | `SCHEDULE_EXACT_ALARM` | `remind` and scripts' daily times run on time. Android 12 and newer lets you turn it off. Then they can be up to an hour late |
 | `RECEIVE_BOOT_COMPLETED` | pending reminders and scripts' daily times are set again after a restart |

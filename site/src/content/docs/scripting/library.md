@@ -461,7 +461,10 @@ script set world-clocks zones "Asia/Kolkata=Pune Asia/Dubai=Head_office UTC"
 - A place's name on the card is the last part of its zone: "New York" for `America/New_York`.
 - To pick the name yourself, write it after the zone: `Asia/Kolkata=Pune`. Write a space in a name
   as `_`.
-- The times follow the phone's 12-hour or 24-hour setting.
+- A place whose day isn't your day says so: "tomorrow" or "yesterday".
+- The times are in 12-hour or 24-hour form, as the header's clock is (`clock.24h`).
+- A small card shows the first place only, and a wide one as many as fit. So list the important
+  place first.
 - A zone that Kolahal doesn't know makes the run fail. The card then says "Failed", and the log
   names the zone.
 - It has no timer. It runs when you place the widget and when you tap the card. So after you
