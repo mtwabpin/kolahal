@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.script
 import com.mtwabpin.kolahal.data.Stores
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.work.workDataOf
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogRepository
@@ -10,6 +11,10 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.shownText
 import com.mtwabpin.kolahal.shell
+import com.mtwabpin.kolahal.widgets.TestScriptWidgets
+import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -690,6 +695,43 @@ class LibraryScriptsTest {
             Triple("World clocks", "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: tap + Add on the widgets page", null),
             only(),
         )
+    }
+
+    /**
+     * Placed on the widgets page, the new scripts that need no access fill their widget as it is
+     * done for real: the run that placing asks for, in the `:script` process, stores what it shows.
+     * A tap's run on Habit streak then marks today done.
+     */
+    @Test fun placedTheNewScriptsFillTheirWidgets() {
+        val t = TestScriptWidgets("libw")
+        fun code(file: String) = library.code(library.entries.single { it.file == file })
+        try {
+            val clocks = t.place(t.create("clocks", code("world-clocks.lua")))
+            assertNull(t.stored(clocks.name).error)
+            assertEquals(
+                WidgetSpec.Clock(
+                    WidgetBase(staleAfter = 604_800),
+                    listOf(WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("Europe/London", "London"), WidgetSpec.Zone("America/New_York", "New York")),
+                ),
+                t.stored(clocks.name).spec,
+            )
+
+            val habit = t.place(t.create("habit", code("habit.lua")))
+            fun chart() = t.stored(habit.name).spec as WidgetSpec.Chart
+            assertNull(t.stored(habit.name).error)
+            assertEquals(listOf("Exercise", "0", "days in a row", null), chart().let { listOf(it.base.title, it.value, it.label, it.base.color) })
+            assertEquals(WidgetTap(args = "done", label = "Done today"), chart().base.tap)
+            // A tap on the card, as the widgets page starts it.
+            val tap = workDataOf(
+                ScriptWorker.KEY_SCRIPT_ID to habit.id, ScriptWorker.KEY_INTERACTIVE to true,
+                ScriptWorker.KEY_ARGS to arrayOf("done"), ScriptWorker.KEY_EVENT to "{\"name\":\"action\",\"label\":\"Done today\",\"widget\":true}",
+            )
+            runBlocking { ScriptRun.run(context, tap) }
+            assertNull(t.stored(habit.name).error)
+            assertEquals(listOf("1", "day in a row", StyledText.Colour.GOOD, 1f), chart().let { listOf(it.value, it.label, it.base.color, it.points.last()) })
+        } finally {
+            t.close()
+        }
     }
 
     @Test fun chargeReminderSumsUpASession() {
