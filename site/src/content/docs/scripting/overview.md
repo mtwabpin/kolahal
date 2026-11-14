@@ -360,8 +360,8 @@ Scripts run in a separate `:script` process. If an engine crashes, the home scre
 ## What a script may use
 
 Some things need permission. A script can use your notifications, the clipboard, the list of your
-apps, running commands, Do Not Disturb and the work profile only if it asks for them with a `@uses`
-line at the top:
+apps, running commands, Do Not Disturb, the work profile and your own lists (todos, notes,
+reminders, the calendar, feeds) only if it asks for them with a `@uses` line at the top:
 
 ```lua
 -- @uses notifications, clipboard
@@ -375,9 +375,17 @@ line at the top:
 | `commands` | [`launcher.run`](/scripting/api/#launcherruncommand): terminal commands, and other scripts by name, when you start the script from the prompt |
 | `dnd` | [`device.dnd` and `device.setDnd`](/scripting/api/#devicednd--devicesetdndmode): reading and setting Do Not Disturb |
 | `work` | [`device.work` and `device.setWork`](/scripting/api/#devicework--devicesetworkon): reading, pausing and resuming the work profile |
+| `todos` | [`todos.list`](/scripting/api/#todoslist) and [`todos.setDone`](/scripting/api/#todossetdoneid-done): reading your todos, and marking one done or open again |
+| `notes` | [`notes.list`](/scripting/api/#noteslistn): reading your notes |
+| `reminders` | [`reminders.list`](/scripting/api/#reminderslist): reading the reminders that are set |
+| `calendar` | [`calendar.events`](/scripting/api/#calendareventsdays): reading the events of the next days from the phone's calendar. Kolahal also needs Android's calendar permission |
+| `feeds` | [`feeds.unread`](/scripting/api/#feedsunreadn): reading the unread items of the feeds you follow |
 
 - If a script calls one of these without its `@uses` line, it stops with an error. The error says
   what to add.
+- Each item is separate. A script with `@uses notes` can't read your todos or your calendar.
+- `todos` is the only list a script can change, and only in one way: it can mark a todo done or
+  open again. It can't add, change or delete one.
 - Code you type at the prompt (`lua`, `js`, `=`) may use everything.
 - Internet access has no `@uses` line, and it covers every address. A script with internet access
   can also reach this phone and your local network ([HTTP](/scripting/api/#http)).
@@ -408,7 +416,7 @@ When a switch is off, a call returns nothing if that is a valid result. Otherwis
 | Internet | stops at its first `http` or `rss` call, with a line you can tap to allow it again. Its lines have no links or pictures. |
 | Pinned at the top | is off until you pin it. Its `status()` line shows only on its card and in `status`, not at the top of home. |
 | Post notifications | runs as before. `notify()` returns false. |
-| An `@uses` item | gets nothing. `apps.list()` and `notifications.recent()` return empty lists, `clipboard.get()` returns nil, `clipboard.set()` does nothing, and `launcher.run` returns false. |
+| An `@uses` item | gets nothing. `apps.list()`, `notifications.recent()` and the calls for [your lists](/scripting/api/#your-lists) return empty lists, `clipboard.get()` returns nil, `clipboard.set()` does nothing, and `launcher.run` and `todos.setDone` return false. |
 | An `@on` event | doesn't run on that event. |
 
 - A script's [widget](#widgets) has no switch. Placing the widget on the widgets page turns it on,

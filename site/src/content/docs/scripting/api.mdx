@@ -50,6 +50,12 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`device.dnd()` / `device.setDnd(mode)`](#devicednd--devicesetdndmode) | Do Not Disturb |
 | [`apps.list()`](#appslist) | `[{ label, pkg, profile }]` |
 | [`notifications.recent(n?)`](#notificationsrecentn) | `[{ pkg, app, title, text, time }]` |
+| [`todos.list()`](#todoslist) | `[{ id, text, done }]` |
+| [`todos.setDone(id, done)`](#todossetdoneid-done) | `true` if that todo changed |
+| [`notes.list(n?)`](#noteslistn) | `[{ id, text, created }]` |
+| [`reminders.list()`](#reminderslist) | `[{ id, text, at, repeats }]` |
+| [`calendar.events(days?)`](#calendareventsdays) | `[{ id, title, starts, ends, allDay }]` |
+| [`feeds.unread(n?)`](#feedsunreadn) | `[{ id, feed, title, link, date, summary }]` |
 | [`launcher.run(command)`](#launcherruncommand) | `true` if sent |
 | [`sleep(ms)`](#sleepms) | nothing |
 | [`args`, `argline`](#args-and-argline) | arguments of a command run |
@@ -539,8 +545,9 @@ status(null);
 
 Returns whether this script may use `what`. `what` is one of:
 
-- `"internet"`, `"header"`, `"widget"`, `"notifications"`, `"apps"`, `"clipboard"`, `"commands"`,
-  `"dnd"`, `"work"`,
+- `"internet"`, `"header"`, `"widget"`,
+- an `@uses` item: `"notifications"`, `"clipboard"`, `"apps"`, `"commands"`, `"dnd"`, `"work"`,
+  `"todos"`, `"notes"`, `"reminders"`, `"calendar"`, `"feeds"`,
 - an `@on` event, such as `"unlock"`.
 
 You switch these on and off for each script
@@ -1518,6 +1525,225 @@ Returns the most recent notifications, newest first: `[{ pkg, app, title, text, 
 for _, n in ipairs(notifications.recent(5)) do
   log(n.app .. ": " .. (n.title or "") .. " " .. (n.text or ""))
 end
+```
+
+## Your lists
+
+A script can read the lists you keep in Kolahal: your todos, notes and reminders, the phone's
+calendar, and the unread items of your feeds. Its [widget](#widgets) can then show them your way.
+
+| Call | Needs | Returns |
+| --- | --- | --- |
+| [`todos.list()`](#todoslist) | `@uses todos` | `[{ id, text, done }]` |
+| [`todos.setDone(id, done)`](#todossetdoneid-done) | `@uses todos` | `true` if that todo changed |
+| [`notes.list(n?)`](#noteslistn) | `@uses notes` | `[{ id, text, created }]` |
+| [`reminders.list()`](#reminderslist) | `@uses reminders` | `[{ id, text, at, repeats }]` |
+| [`calendar.events(days?)`](#calendareventsdays) | `@uses calendar` | `[{ id, title, starts, ends, allDay }]` |
+| [`feeds.unread(n?)`](#feedsunreadn) | `@uses feeds` | `[{ id, feed, title, link, date, summary }]` |
+
+What is true for all of them:
+
+- Each list has its own [`@uses` item](/scripting/overview/#what-a-script-may-use), with a switch
+  of its own. A script that may read your notes can't read your calendar.
+- Without its `@uses` line, a call is an error that names the line.
+- With the line and its switch off, a call returns an empty list.
+  [`allowed("todos")`](#allowedwhat) tells a script which it is.
+- They only read what is on the phone. No call makes a request, so none needs internet access.
+- One call changes something: [`todos.setDone`](#todossetdoneid-done).
+- They don't wait. In JavaScript they need no `await`.
+- Every time is in seconds since 1970, as a widget takes it. `os.time()` gives the same in Lua, and
+  `Date.now() / 1000` in JavaScript.
+- Every text is plain: it has no styles. A text over 4,000 characters is cut, with "…" at its end.
+- A number that sets how many rows come back (`n`, `days`) is held between 1 and its maximum, and
+  a fraction is dropped. Anything that isn't a number is an error.
+- They need Kolahal 0.5.8 or newer.
+
+A script that reads a list could send it somewhere, if it also has internet access. So read the
+code of a script from someone else before you allow it a list
+([switching access off](/scripting/overview/#switching-access-off)).
+
+### todos.list()
+
+Needs `@uses todos`. Returns your [todos](/guides/productivity/#todos): `[{ id, text, done }]`.
+
+- The open todos come first, the oldest first. Then the done ones, the last one done first. This
+  is the order of the `todo` command.
+- `id` is a number. It stays the same when the list changes, so
+  [`todos.setDone`](#todossetdoneid-done) takes it.
+- `done` is `true` or `false`.
+- It returns 200 todos at most.
+
+```lua
+-- @uses todos
+local open = 0
+for _, t in ipairs(todos.list()) do
+  if not t.done then open = open + 1 end
+end
+return open .. " open"
+```
+
+### todos.setDone(id, done)
+
+Needs `@uses todos`, the same item as reading. A script that may read your todos may tick them.
+
+Marks a todo done with `true`, or open again with `false`.
+
+- `id` is the `id` of a row of `todos.list()`. It can be the number, or the same as text (`"12"`):
+  a [tap](#taps) gives its `args` back as text.
+- It returns `true` when that todo changed.
+- It returns `false` when no todo has the id, when the todo is so already, and when the `todos`
+  switch is off.
+- It works in every run: a timer, an event, a tap on a widget.
+- A run can call it 20 times. Later calls change nothing, and the first of them logs an error.
+- Any other `id`, and a `done` that isn't `true` or `false`, is an error. Nothing is ticked then.
+- It can't add, change or delete a todo.
+- The [Todos widget](/guides/widgets/#todos) and the `todo` list show the change.
+
+This widget lists your open todos. A tap on a row ticks its todo.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @title Open todos
+-- @uses todos
+-- @widget list
+
+-- A tap on a row runs the script again, with the row's args.
+if event and event.name == "action" and args[1] == "tick" then
+  todos.setDone(args[2], true)
+end
+
+local rows = {}
+for _, t in ipairs(todos.list()) do
+  if not t.done then
+    rows[#rows + 1] = { title = t.text, done = false, tap = { args = "tick " .. t.id, label = "mark as done" } }
+  end
+end
+widget.show{ items = rows, empty = "Nothing open" }
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @title Open todos
+// @uses todos
+// @widget list
+
+// A tap on a row runs the script again, with the row's args.
+if (event && event.name === "action" && args[0] === "tick") {
+  todos.setDone(args[1], true);
+}
+
+const rows = todos.list().filter(t => !t.done).map(t => (
+  { title: t.text, done: false, tap: { args: `tick ${t.id}`, label: "mark as done" } }
+));
+widget.show({ items: rows, empty: "Nothing open" });
+```
+</TabItem>
+</Tabs>
+
+### notes.list(n?)
+
+Needs `@uses notes`. Returns your newest [notes](/guides/productivity/#notes), the newest first:
+`[{ id, text, created }]`.
+
+- `text` keeps its line breaks.
+- `created` is when you wrote the note, in seconds.
+- `n` is how many: 10 without it, 50 at most.
+
+```lua
+-- @uses notes
+-- @widget text
+local newest = notes.list(1)[1]
+widget.show{ text = newest and newest.text or "No notes yet" }
+```
+
+### reminders.list()
+
+Needs `@uses reminders`. Returns the [reminders](/guides/productivity/#reminders) that are set,
+the soonest first: `[{ id, text, at, repeats }]`.
+
+- `at` is when the reminder is next due, in seconds.
+- `repeats` is there only for a reminder that repeats. It says how, in words: `"every day"`,
+  `"every Mon and Thu"`, `"on the 15th of every month"`.
+- A reminder that fired and doesn't repeat is no longer in the list.
+- It returns 200 reminders at most.
+
+```js
+// @uses reminders
+// @widget countdown
+const next = reminders.list()[0];
+if (next) widget.show({ to: next.at, label: next.text, style: "clock" });
+else widget.clear();
+```
+
+### calendar.events(days?)
+
+Needs `@uses calendar`. Returns the events of the next days from the phone's calendar, as the
+[Agenda widget](/guides/widgets/#agenda) shows them: `[{ id, title, starts, ends, allDay }]`.
+
+- `days` is how many days from today: 3 without it, 30 at most. `1` is today only.
+- The events are in the order of the days. In one day, all-day events come first.
+- An event that has ended is left out. Events from hidden calendars and events you declined are
+  left out too.
+- `starts` and `ends` are in seconds. Every event has both. An event with no length ends when it
+  starts.
+- An all-day event starts and ends at midnights on the phone. One that began before today starts
+  today. One of several days is in the list once.
+- `id` is the calendar's number for the event. Every day of a repeating event has the same one.
+- It returns 100 events at most.
+- Kolahal also needs Android's calendar permission. Without it, the list is empty. A script can't
+  ask for the permission: run [`agenda`](/guides/productivity/#agenda) once, or tap the Agenda
+  widget.
+
+The list is what an [`agenda` widget](#kinds-and-their-fields) takes as its `events`, as it is:
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @title This week
+-- @uses calendar
+-- @widget agenda
+
+widget.show{ events = calendar.events(7), days = 7, empty = "A free week" }
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @title This week
+// @uses calendar
+// @widget agenda
+
+widget.show({ events: calendar.events(7), days: 7, empty: "A free week" });
+```
+</TabItem>
+</Tabs>
+
+An `agenda` widget keeps the first 20 events and shows 7 days at most
+([Limits](#limits)).
+
+### feeds.unread(n?)
+
+Needs `@uses feeds`. Returns the newest unread items of the [feeds](/guides/feeds/) you follow,
+the newest first: `[{ id, feed, title, link, date, summary }]`.
+
+- It reads the items Kolahal has fetched already. It makes no request and marks nothing as read.
+- `feed` is the name of the item's feed: its title, or else its site.
+- `id`, `title`, `link`, `date` and `summary` are as in an item of [`rss.fetch`](#rssfetchurl).
+  `id` is the item's guid. `date` is text, as the feed wrote it, so it is not a time in seconds.
+- `link`, `date` and `summary` are nil (null in JavaScript) when the feed gave none.
+- `n` is how many: 10 without it, 50 at most.
+- A row's `tap` with a `url`, like any link, needs the script's internet access.
+
+```lua
+-- @title Unread
+-- @uses feeds
+-- @widget list
+
+local rows = {}
+for _, item in ipairs(feeds.unread(12)) do
+  rows[#rows + 1] = { title = item.title, detail = item.feed }
+end
+widget.show{ items = rows, empty = "Nothing unread" }
 ```
 
 ## Launcher

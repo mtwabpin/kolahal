@@ -20,6 +20,8 @@ Kolahal is young, and its code is still being reviewed. Treat it as beta softwar
 - **A script gets only what you allow.**
   - It can use your notifications, clipboard, apps, terminal commands, Do Not Disturb and work profile only if it has an
     `@uses` line and you approve it.
+  - It can read your todos, notes, reminders, calendar and feeds only in the same way: an `@uses` line for each list,
+    and your approval for each. The only thing it can change there is whether a todo is done.
   - It gets internet access only if its code uses the internet.
   - It gets a place at the top of home only when you pin it.
   - Each of these has a switch for each script ([switching access off](/scripting/overview/#switching-access-off)).

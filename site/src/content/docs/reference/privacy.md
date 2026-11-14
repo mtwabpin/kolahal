@@ -86,7 +86,7 @@ Permissions declared in the manifest:
 | `READ_CONTACTS` | `call`, `sms` and `contacts` find people by name. Kolahal asks the first time you use them. Optional. Not in the Play build |
 | `READ_CALL_LOG` | calls in the log, and `calls`. Kolahal asks the first time you use them. Optional. Not in the Play build |
 | `REQUEST_INSTALL_PACKAGES` | `update install` passes the new version to Android's installer. Android asks you to allow it the first time, and the installer asks before it installs. Optional. Not in the Play build |
-| `READ_CALENDAR` | `agenda` lists upcoming events, and the Agenda widget shows them. Kolahal asks the first time you use `agenda`, or when you tap the widget. Optional. Nothing leaves the device |
+| `READ_CALENDAR` | `agenda` lists upcoming events, and the Agenda widget shows them. A script with `@uses calendar` that you allow can read the events of the next days. Kolahal asks the first time you use `agenda`, or when you tap the widget. A script can't ask. Optional. Kolahal itself sends nothing of it anywhere |
 | `SET_ALARM` | `timer` and `alarm` pass the timer or alarm to your clock app |
 | `SCHEDULE_EXACT_ALARM` | `remind` and scripts' daily times run on time. Android 12 and newer lets you turn it off. Then they can be up to an hour late |
 | `RECEIVE_BOOT_COMPLETED` | pending reminders and scripts' daily times are set again after a restart |
@@ -137,6 +137,11 @@ Notification text that Kolahal reads stays on the device:
 A script could send what it reads somewhere else. So install only scripts you trust, and read the code of scripts you get from
 other people. For this reason, scripts imported from a file or a backup start switched off. Each script's access switches can
 take away what it may read.
+
+**Your lists.** A script can read your todos, notes, reminders, calendar events and unread feed items
+([your lists](/scripting/api/#your-lists)). It can read a list only if it asks for that list with an `@uses` line and you
+allow it. Each list has a switch of its own, and each is off until you allow it. The same care applies: a script that also
+has internet access could send what it reads.
 
 **Secrets.** API keys you set for scripts ([secrets](/scripting/overview/#api-keys-and-other-secrets)) are
 encrypted with a key kept in Android's Keystore. They leave the phone only in requests to the sites that their `@secret` line
