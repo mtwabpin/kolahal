@@ -256,7 +256,7 @@ private fun WidgetPanelContent(
                     // Give the flow exactly one child per widget, whatever HostedWidget shows.
                     Box {
                         // A script's widget is a card that Kolahal draws. Its taps go to the view model.
-                        if (w.source != null) SourceWidget(w, w.heightDp.dp, vm.widgetActions)
+                        if (w.source != null) SourceWidget(w, w.heightDp.dp, vm.widgetActions, vm.widgetFeed)
                         else HostedWidget(
                             w = w,
                             height = w.heightDp.dp,

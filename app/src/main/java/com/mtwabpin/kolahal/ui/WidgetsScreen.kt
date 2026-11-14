@@ -70,6 +70,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import com.mtwabpin.kolahal.terminal.WidgetFeed
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
@@ -273,6 +274,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                                 selected = selected == w.key,
                                 editing = editing,
                                 pausedKind = profiles.pausedKind(w.profileSerial),
+                                feed = vm.widgetFeed,
                                 onSelect = {
                                     selected = if (selected == w.key) null else w.key
                                     editing = true
@@ -314,7 +316,10 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     }
 }
 
-/** One widget as it shows on the widgets page. While [editing], a tap selects it instead of going to the widget. */
+/**
+ * One widget as it shows on the widgets page. While [editing], a tap selects it instead of going to the widget.
+ * A card Kolahal draws reads its script from [feed], as it does on the widgets page.
+ */
 @Composable
 private fun WidgetCard(
     w: PlacedWidget,
@@ -322,6 +327,7 @@ private fun WidgetCard(
     selected: Boolean,
     editing: Boolean,
     pausedKind: ProfileKind?,
+    feed: WidgetFeed,
     onSelect: () -> Unit,
 ) {
     Surface(
@@ -335,7 +341,7 @@ private fun WidgetCard(
             // anywhere on it selects it, as on an app's widget.
             if (w.source != null) {
                 Box(Modifier.fillMaxWidth().height(w.heightDp.dp)) {
-                    SourceWidget(w, w.heightDp.dp, actions = null)
+                    SourceWidget(w, w.heightDp.dp, actions = null, feed = feed)
                     Box(Modifier.matchParentSize().clickable(onClickLabel = "change $label", onClick = onSelect))
                 }
             }

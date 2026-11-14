@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -215,6 +216,26 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val shown = list.filter { it.name in named && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
         lines.filter { it.name in shown }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** False until [refreshCaches] has read the scripts and the status lines for the first time. */
+    private val scriptsRead = MutableStateFlow(false)
+
+    /** Only [widgetScripts] uses it. */
+    private val widgetReader = WidgetScriptReader()
+
+    /**
+     * The scripts as the widget screens see them ([WidgetScript]), by name. Null until the scripts
+     * are read: an empty [scriptList] alone does not say whether there are no scripts.
+     * - It follows [scriptList], and is made off the main thread.
+     * - It changes only with a script's title, switch, `@widget` line or status call. [scriptList]
+     *   changes at every run, and this does not: a card or a picker row is not drawn again then.
+     */
+    val widgetScripts: StateFlow<Map<String, WidgetScript>?> = combine(scriptList, scriptsRead) { list, read -> if (read) widgetReader.read(list) else null }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** What the cards of the widgets page read from here, and not from the database ([WidgetFeed]). */
+    val widgetFeed = WidgetFeed(widgetScripts, _lines.asStateFlow())
 
     /** When each pinned line last ran again, by script name, in [SystemClock.elapsedRealtime] time. */
     private val pinRuns = HashMap<String, Long>()
@@ -416,6 +437,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             scriptsPrint = print
         }
         _lines.value = StatusLines.all(context)
+        // After the lines: a Status card takes this as the sign that the scripts and the lines are both read.
+        scriptsRead.value = true
         if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()
         // A typed command's own line puts it first in the history. Read the history again only when a
         // command may be gone: after a trim, or when a removed line was a command or is not on this page.

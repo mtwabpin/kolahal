@@ -59,6 +59,8 @@ import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.WidgetAge
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
+import com.mtwabpin.kolahal.terminal.WidgetFeed
+import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSizes
@@ -70,6 +72,8 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
 
@@ -294,15 +298,18 @@ private const val MIN_REFRESH_S = 10
  *   from a newer Kolahal's backup.
  * - [actions] takes taps, the long-press and refresh requests. With null the card takes no touches
  *   and asks for no runs: this is the Widgets screen.
+ * - [feed] is what the view model knows of the scripts. A card reads its script from there, and
+ *   never from the database. With null the card knows nothing of its script, and draws what is
+ *   stored under the script's name: a card drawn without a view model, in a test.
  * It brings its own [GuiTheme], because the widgets page is drawn in the terminal's styles.
  */
 @Composable
-internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?) {
+internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed? = null) {
     val name = WidgetSource.scriptName(w.source)
     val status = WidgetSource.statusName(w.source)
     GuiTheme {
         if (name != null) {
-            ScriptWidget(name, height, actions)
+            ScriptWidget(name, height, actions, feed)
         } else if (status != null) {
             StatusWidget(status, height, actions)
         } else if (WidgetSource.builtinId(w.source) == WidgetSource.BATTERY) {
@@ -325,26 +332,52 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
     }
 }
 
+/**
+ * What a card knows of its script, from the view model's [WidgetFeed].
+ * - [read] is false until the view model has read the scripts, and for a card with no feed.
+ * - With [read], a null [script] means that no script has the name.
+ */
+private data class Known(val read: Boolean, val script: WidgetScript?)
+
+private val UNREAD = Known(read = false, script = null)
+
+/**
+ * [name]'s script as [feed] has it. The feed changes when any script's title, switch or `@widget`
+ * line changes. A card is drawn again only when what it knows of its own script changes.
+ */
+@Composable
+private fun knownScript(feed: WidgetFeed?, name: String): Known {
+    if (feed == null) return UNREAD
+    val changes = remember(feed, name) { feed.scripts.map { all -> Known(all != null, all?.get(name)) }.distinctUntilChanged() }
+    val known by changes.collectAsStateWithLifecycle(initialValue = remember(feed, name) { feed.scripts.value.let { Known(it != null, it?.get(name)) } })
+    return known
+}
+
 /** The card of the script [name]'s own widget. */
 @Composable
-private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) {
+private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
     val context = LocalContext.current.applicationContext
-    // The counter moves when any widget's state changes. It is collected only while home is on screen.
-    val version by WidgetStates.version.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     var state by remember(name) { mutableStateOf<WidgetState?>(null) }
-    // The script's @title, for a description without a title of its own.
-    var scriptTitle by remember(name) { mutableStateOf<String?>(null) }
-    LaunchedEffect(name, version) {
-        val (read, titled) = withContext(Dispatchers.IO) {
-            WidgetStates.read(context, name) to ScriptRepository.get(context).byName(name)?.let { ScriptMeta.title(it.code) }
+    // The state is read once, and again when this widget's own number moves ([WidgetStates.versionOf]):
+    // another widget's change reads nothing here. Only while home is on screen, and off the main thread.
+    LaunchedEffect(name, lifecycle) {
+        var seen: Int? = null
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            WidgetStates.versionOf(name).collectLatest { version ->
+                // Home came back and the number did not move: the state in use is still right.
+                if (version == seen) return@collectLatest
+                val read = withContext(Dispatchers.IO) { WidgetStates.read(context, name) }
+                seen = version
+                // An equal state keeps the one in use, so the card is not drawn again.
+                if (read != state) state = read
+            }
         }
-        // An equal state keeps the one in use, so the card is not drawn again.
-        if (read != state) state = read
-        if (titled != scriptTitle) scriptTitle = titled
     }
+    // The script's @title, for a description without a title of its own. The view model has read it.
+    val known = knownScript(feed, name)
     val shown = LocalWidgetsShown.current
     if (actions != null && shown) {
-        val lifecycle = LocalLifecycleOwner.current.lifecycle
         // The page came into view, or home came back with the page in view: run the script once if
         // it never filled the widget, or if its content is old.
         LaunchedEffect(name, actions, lifecycle) {
@@ -399,7 +432,7 @@ private fun ScriptWidget(name: String, height: Dp, actions: WidgetCardActions?) 
         fresh && !gaveUp -> CardNote.LOADING
         else -> CardNote.NOTHING
     }
-    val title = spec?.base?.title ?: scriptTitle ?: name
+    val title = spec?.base?.title ?: known.script?.title ?: name
     // The minute's tick, from the header's clock: content grows old, and a countdown's words change.
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }

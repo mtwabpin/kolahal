@@ -5,9 +5,57 @@ import android.content.Intent
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
+import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.StatusLine
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.widgets.WidgetTap
+import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * A script as the widget screens see it: the cards, and the picker's rows. It is read from the
+ * script's code off the main thread ([WidgetScriptReader]), so nothing reads code while it is drawn.
+ * - [title]: its `@title`, or null.
+ * - [enabled]: the script is on.
+ * - [widget]: its `@widget` line, or null when it has none.
+ * - [setsStatus]: its code sets a status line.
+ */
+data class WidgetScript(val name: String, val title: String?, val enabled: Boolean, val widget: ScriptMeta.Widget?, val setsStatus: Boolean)
+
+/**
+ * Makes [WidgetScript]s from the script list. The list changes at every run of a script, but code
+ * changes rarely. So the reader keeps what it read: a script whose code did not change is not read
+ * again. One thread at a time uses it.
+ */
+internal class WidgetScriptReader {
+    private var codes: Map<String, String> = emptyMap()
+    private var known: Map<String, WidgetScript> = emptyMap()
+
+    /** [scripts] by name. A script that did not change keeps the object it had, so an equal list gives an equal map. */
+    fun read(scripts: List<Script>): Map<String, WidgetScript> {
+        val next = scripts.associate { s ->
+            val before = known[s.name]?.takeIf { codes[s.name] == s.code }
+            s.name to when {
+                before == null -> WidgetScript(s.name, ScriptMeta.title(s.code), s.enabled, ScriptMeta.widget(s.code), ScriptMeta.setsStatus(s.code))
+                before.enabled != s.enabled -> before.copy(enabled = s.enabled)
+                else -> before
+            }
+        }
+        codes = scripts.associate { it.name to it.code }
+        known = next
+        return next
+    }
+}
+
+/**
+ * What a card reads from the view model, so that no card reads the database for it.
+ * - [scripts]: each script as the widget screens see it, by name. Null until the scripts are read.
+ *   After that, a name that is not in it has no script.
+ * - [lines]: every stored status line, as the pinned header gets them. They are read before
+ *   [scripts] gets its first value.
+ */
+class WidgetFeed(val scripts: StateFlow<Map<String, WidgetScript>?>, val lines: StateFlow<List<StatusLine>>)
 
 /**
  * What a card on the widgets page can ask for. The card calls these, and the view model answers with
