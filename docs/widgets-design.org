@@ -214,7 +214,7 @@ Why not home-screen widgets (Glance or RemoteViews) now:
 - It needs a new dependency (=androidx.glance=) and a new receiver.
 
 The description is data, not code. So a second renderer can be added later without changing any
-script: it would read the same stored state. This is phase 4, and only if someone asks.
+script: it would read the same stored state. We decided not to build it (14 Nov 2026).
 
 One small bridge to the pinned header comes free: a *Status card*. Any script that calls
 =status()= today can be placed as a card that shows its line, its bar and its colour. No script
@@ -1536,19 +1536,20 @@ Not started. About 15 working days.
 - Several widgets from one script, each with its own options.
 - Styled text in widgets (=fmt.bold=, =fmt.color=).
 
-** Phase 4: only if asked
+** Phase 4: dropped
 
-Not started.
+Not planned. On 14 Nov 2026 we decided not to build widgets for other launchers. Widgets show only
+on Kolahal's widgets page.
 
-- Home-screen widgets for other launchers, with Glance: a second renderer for =stat=, =list= and
-  =text= that reads the same stored state. About 10 to 15 working days.
+- (Was: home-screen widgets for other launchers, with Glance: a second renderer for =stat=, =list= and
+  =text= that reads the same stored state.)
 
 * Open questions
 
 Each has a recommended answer. The plan above assumes those answers.
 
 1. *Where do widgets show in the first build?*
-   Recommended: only on Kolahal's widgets page. Other launchers' home screens wait for phase 4.
+   Decided: only on Kolahal's widgets page. Widgets for other launchers are not planned.
 
 2. *May a script put a terminal command behind a tap?*
    Recommended: no. A tap runs the same script again, and that run may use =launcher.run= under
