@@ -252,7 +252,8 @@ class BuiltInCommandsTest {
         val days = listOf(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()).format(today.minusDays(2)), "Yesterday", "Today")
         val row = Regex("^(\\S.*?)\\s+(\\d+) (unlocks?)$")
         fun check(rows: List<String>) {
-            val parsed = rows.map { row.find(it) ?: throw AssertionError("not a row: '$it'") }
+            // A table pads its last column to "unlocks", so "1 unlock" ends in a space: no part of the row.
+            val parsed = rows.map { row.find(it.trimEnd()) ?: throw AssertionError("not a row: '$it'") }
             assertEquals(days, parsed.map { it.groupValues[1] })
             parsed.forEach { assertEquals(it.value, it.groupValues[2] == "1", it.groupValues[3] == "unlock") }
             assertEquals(rows.toString(), 1, rows.map { it.substringBeforeLast(' ').length }.distinct().size)
