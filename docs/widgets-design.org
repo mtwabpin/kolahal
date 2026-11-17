@@ -857,7 +857,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 
 - Shows :: Rows, as many as fit, then "+3 more". Each row has a title and can have a second line,
   a text at its end, an icon and a colour. When every row fits, the rows grow to share the card's
-  height evenly, up to 56 dp: three days of a forecast fill a 2×2 card.
+  height evenly, up to 56 dp: three days of a forecast fill a 2×2 card. Rows under a =lead= keep
+  their height.
 - Fields :: =items= (needed; the first 12 are kept): each ~{ title, detail, trailing, icon, color,
   tap }~, with only =title= needed. =empty=: what to say with no rows ("Nothing new"). =lead= ~{
   value, unit, label }~: a big line over the rows (the Reminders card's next reminder). A small or
@@ -942,7 +943,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Layout :: A day's heading is at the top of its first event's row. That row is 44 dp: the
   heading's 16 and the event's line of 28. So every event keeps its 44 dp tap, and a 4×2 card
   shows two events of today and one of tomorrow, as the mockup has them. With nothing left out,
-  the title line ends with today's date ("Tue 17 Nov") instead of "+3 more".
+  the title line of a card 200 dp wide or more (4×2) ends with today's date ("Tue 17 Nov")
+  instead of "+3 more".
 - Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
   color, tap }~, with =title= and =starts= (a time in seconds) needed. =days=: how many days to
   show (3 by default). =empty=: what to say with no events.

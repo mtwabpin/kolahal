@@ -603,9 +603,9 @@ private val AGENDA_PLACES = 200.dp
  *   row is as tall as a tap row needs, or as the heading and the event's line need, whichever is
  *   more: 44 dp. So a 4x2 card has two events of today and one of tomorrow, as the mockup has
  *   them, and every event keeps a 44 dp tap. A tap on the heading is a tap on that event.
- * - "+3 more" is at the end of the card's title line ([ReportMore]). When nothing is left out,
- *   today's date is there ("Sat 14 Nov"). A card without a title line has "+3 more" under the
- *   events.
+ * - "+3 more" is at the end of the card's title line ([ReportMore]). When nothing is left out, a
+ *   card 200 dp wide or more has today's date there ("Sat 14 Nov"). A card without a title line
+ *   has "+3 more" under the events.
  * - With nothing to show it says the description's `empty` text.
  */
 @Composable
@@ -632,7 +632,8 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
         val total = days.sumOf { it.lines.size }
         val moreDp = if (inTitle) 0 else AGENDA_MORE_DP
         val shown = WidgetWords.agendaShown(days.map { it.lines.size }, heightDp, headedDp - rowDp, rowDp, moreDp)
-        ReportMore(if (shown < total) "+${total - shown} more" else date)
+        // Today's date only on a wide card (4x2): on a narrower one it would take the title's room.
+        ReportMore(if (shown < total) "+${total - shown} more" else date.takeIf { places })
         // The time column is as wide as the longest time in this form, so the titles line up.
         val timeWidth = if (clock24) 48.dp else 68.dp
         Column(Modifier.fillMaxSize()) {

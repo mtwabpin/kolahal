@@ -1046,7 +1046,8 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
  *   is a little under the 48 dp of a button: a list is read more than it is tapped, and a 4x2 card
  *   then shows three rows.
  * - When every row fits, the rows grow to share the height evenly, up to 56 dp
- *   ([WidgetWords.rowHeight]). Three days of a forecast then fill a 2x2 card.
+ *   ([WidgetWords.rowHeight]). Three days of a forecast then fill a 2x2 card. Rows under a lead
+ *   keep their height, as the mockup's Reminders card has them.
  * - A narrow list (under 200 dp) leaves the second lines out.
  * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
  *   line under the rows.
@@ -1069,7 +1070,8 @@ private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
             LeadLine(lead, MaterialTheme.typography.headlineMedium, centred = false)
             if (spec.items.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.weight(1f).fillMaxWidth()) { RowList(spec.items, onTap) }
+                // Under a lead the rows keep their height, as the mockup's Reminders card has them.
+                Box(Modifier.weight(1f).fillMaxWidth()) { RowList(spec.items, onTap, fill = false) }
             }
         }
     }
@@ -1089,9 +1091,9 @@ private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) 
     }
 }
 
-/** A list's rows, as many as fit the box, then "+3 more" ([RowsBody]). */
+/** A list's rows, as many as fit the box, then "+3 more" ([RowsBody]). With [fill], rows that all fit share the box's height. */
 @Composable
-private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?) {
+private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, fill: Boolean = true) {
     val inTitle = LocalMoreNote.current != null
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val details = maxWidth >= 200.dp && items.any { it.detail != null }
@@ -1105,7 +1107,7 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?) 
         val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, moreDp, ROW_GAP_DP)
         val more = items.size - shown
         // All rows drawn: they share the height, so a short list fills the card.
-        val rowHeight = WidgetWords.rowHeight(items.size, shown, maxHeight.value, rowDp, ROW_GAP_DP).dp
+        val rowHeight = if (fill) WidgetWords.rowHeight(items.size, shown, maxHeight.value, rowDp, ROW_GAP_DP).dp else rowDp.dp
         ReportMore(if (more > 0) "+$more more" else null)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
             items.take(shown).forEachIndexed { i, row ->
