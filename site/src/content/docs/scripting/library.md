@@ -190,6 +190,9 @@ discussion; a post that links to another site ends with a link to it.
 - `reddit` shows the subreddit in its `subreddit` option (r/android by default).
 - `reddit linux` shows r/linux.
 - The `posts` option shows up to 25 posts.
+- A post with a picture shows it under its line, about 640 pixels wide: an image post, the first
+  picture of a gallery, or the still of a video. NSFW and spoiler posts never show one. Set the
+  `images` option to `off` to save data. The RSS feed has no pictures.
 
 ## headlines
 

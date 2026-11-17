@@ -370,6 +370,45 @@ class LibraryScriptsTest {
     }
 
     /**
+     * Reddit: a post with a picture shows it under its line, at about 640 pixels wide. A gallery
+     * shows its first picture. NSFW and spoiler posts, and text posts, have none. The images
+     * option turns pictures off.
+     */
+    @Test fun redditShowsPicturesUnderPosts() {
+        fun size(u: String, x: Int) = mapOf("u" to u, "url" to u, "x" to x, "width" to x)
+        fun post(title: String, extra: Map<String, Any?>) = mapOf(
+            "kind" to "t3",
+            "data" to mapOf("title" to title, "permalink" to "/r/pics/comments/$title/", "score" to 10, "num_comments" to 2, "is_self" to true, "url" to "") + extra,
+        )
+        val preview = mapOf("images" to listOf(mapOf(
+            "source" to size("https://preview.redd.it/a-full.jpg", 3000),
+            "resolutions" to listOf(size("https://preview.redd.it/a-320.jpg", 320), size("https://preview.redd.it/a-640.jpg", 640), size("https://preview.redd.it/a-960.jpg", 960)),
+        )))
+        val gallery = mapOf(
+            "is_gallery" to true,
+            "gallery_data" to mapOf("items" to listOf(mapOf("media_id" to "m1"), mapOf("media_id" to "m2"))),
+            "media_metadata" to mapOf(
+                "m1" to mapOf("status" to "valid", "p" to listOf(size("https://preview.redd.it/g1-640.jpg", 640)), "s" to size("https://i.redd.it/g1.jpg", 2000)),
+                "m2" to mapOf("status" to "valid", "p" to listOf(size("https://preview.redd.it/g2-640.jpg", 640))),
+            ),
+        )
+        val body = com.mtwabpin.kolahal.script.Json.stringify(mapOf("data" to mapOf("children" to listOf(
+            post("photo", mapOf("post_hint" to "image", "preview" to preview)),
+            post("album", gallery),
+            post("nsfw", mapOf("over_18" to true, "preview" to preview)),
+            post("spoiler", mapOf("spoiler" to true, "preview" to preview)),
+            post("words", emptyMap()),
+        ))))
+        run("reddit.js", argline = "pics", before = standIns(body))
+        assertEquals(
+            listOf("https://preview.redd.it/a-640.jpg", "https://preview.redd.it/g1-640.jpg", null, null, null),
+            lines().map { it.ctx.image },
+        )
+        run("reddit.js", argline = "pics", options = mapOf("images" to "off"), before = standIns(body))
+        assertEquals(List(5) { null }, lines().map { it.ctx.image })
+    }
+
+    /**
      * Exchange's widget: one unit of its from option in each of its to options. A run for the
      * widget logs nothing. A run with arguments leaves the widget alone.
      */
