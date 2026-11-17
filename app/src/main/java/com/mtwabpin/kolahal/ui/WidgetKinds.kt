@@ -213,6 +213,25 @@ internal object WidgetWords {
         if (from == null || to <= from) null else ((now - from).toFloat() / (to - from)).coerceIn(0f, 1f)
 
     /**
+     * The words under the two ends of a countdown's bar: its start [from] and its moment [to], at
+     * [now], in the time zone [zone]. All three are in seconds.
+     * - Each is its day: "1 Oct" and "20 Dec". A day in another year than now's has its year:
+     *   "20 Dec 2027".
+     * - When both are on one day, they are times of day in the form [clock24] says: "14:00" and "17:25".
+     */
+    fun countdownEnds(from: Long, to: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): Pair<String, String> {
+        val start = Instant.ofEpochSecond(from).atZone(zone)
+        val end = Instant.ofEpochSecond(to).atZone(zone)
+        if (start.toLocalDate() == end.toLocalDate()) {
+            val clock = TimeFormats.clockFormat(clock24, locale)
+            return start.format(clock) to end.format(clock)
+        }
+        val year = Instant.ofEpochSecond(now).atZone(zone).year
+        fun day(t: java.time.ZonedDateTime) = t.format(DateTimeFormatter.ofPattern(if (t.year == year) "d MMM" else "d MMM yyyy", locale))
+        return day(start) to day(end)
+    }
+
+    /**
      * [fraction] in steps of a thousandth: about one pixel of a bar. A countdown's fraction changes
      * a little every second. Its bar gets the same value until it has moved a step, so it is not
      * drawn again, and does not start its spring again, every second.
@@ -751,8 +770,14 @@ internal fun roleColour(base: WidgetBase?): Color = colourOf(base?.color ?: Styl
 /** Height of the "+3 more" line under a list, in dp. */
 private const val MORE_DP = 20
 
-/** The thickness of a bar's line ([LevelBar]). */
+/** The thickness of a flat bar's line ([LevelBar]). */
 private val BAR_LINE = 6.dp
+
+/** The thickness of a wave's line ([LevelBar]): Material's own. */
+private val WAVE_LINE = 4.dp
+
+/** The length of one wave of a bar ([LevelBar]), as the mockup draws it. A moving wave moves one length a second. */
+private val WAVELENGTH = 20.dp
 
 /** A wave of no height: a bar or ring that stands still. A wave would say "working". */
 private val STILL: (Float) -> Float = { 0f }
@@ -809,20 +834,27 @@ internal fun QuietLine(text: String, small: Boolean = false) {
 }
 
 /**
- * A bar from 0 to 1 in [colour]. It moves to a new value on the theme's spring. With [moving], and
- * while the widgets page is in view, it is a wave: something is in progress.
- * - A bar that stands still has a wave speed of 0. With any other speed the indicator asks for
- *   every frame, also while its wave has no height.
+ * A bar from 0 to 1 in [colour]. It moves to a new value on the theme's spring.
+ * - With [moving], and while the widgets page is in view, it is a wave that moves: something is
+ *   in progress.
+ * - With [wavy] it is a wave that stands still, as the mockup draws a countdown. Its wave speed is
+ *   0, so it costs nothing per frame: the indicator moves its wave only with a speed above 0. Its
+ *   height changes once, on the theme's spring, when the bar passes 10% or 95%.
+ * - Any other bar is flat, also with a wave speed of 0. With any other speed the indicator asks
+ *   for every frame, also while its wave has no height.
+ * - A flat bar's line is 6 dp, not Material's 4: a card is seen from afar. A wave keeps Material's
+ *   4 dp, so it has room to wave in the 10 dp container.
  * - It is not an item for a screen reader: the card's description says the value.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier) {
+internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier, wavy: Boolean = false) {
     val target = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
     val shown by animateFloatAsState(target, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "level")
-    val wave = moving && LocalWidgetsShown.current
-    // A bar of 6 dp, not Material's 4: a card is seen from afar. The container stays 10 dp tall.
-    val stroke = with(LocalDensity.current) { Stroke(width = BAR_LINE.toPx(), cap = StrokeCap.Round) }
+    val runs = moving && LocalWidgetsShown.current
+    val waves = runs || wavy
+    val line = if (moving || wavy) WAVE_LINE else BAR_LINE
+    val stroke = with(LocalDensity.current) { Stroke(width = line.toPx(), cap = StrokeCap.Round) }
     LinearWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
         modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
@@ -832,9 +864,10 @@ internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier:
         trackStroke = stroke,
         // No dot at the track's end: the bar's end says where it stops.
         stopSize = 0.dp,
-        amplitude = if (wave) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
-        wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength,
-        waveSpeed = if (wave) WavyProgressIndicatorDefaults.LinearDeterminateWavelength else 0.dp,
+        // Both lambdas are the same objects every time, so a new frame of the card does not throw the indicator's drawing away.
+        amplitude = if (waves) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
+        wavelength = WAVELENGTH,
+        waveSpeed = if (runs) WAVELENGTH else 0.dp,
     )
 }
 
@@ -1347,9 +1380,10 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
  * - The number is big and its unit small: "36 days" ([WidgetWords.Count]).
  * - With a start (`from`), a bar runs from the start to the moment. In a wide box the bar takes the
  *   label's place. A small box has no bar. A large box has the time at its top and the bar at its
- *   bottom.
- * - The bar stands still. A countdown that waits is not at work, and a wave is drawn again on every
- *   frame, for days.
+ *   bottom, with the start and the moment under its ends: "1 Oct" and "20 Dec"
+ *   ([WidgetWords.countdownEnds]).
+ * - The bar is a wave that stands still ([LevelBar] with `wavy`). A countdown that waits is not at
+ *   work. A wave that moves is drawn again on every frame, for days; a still one costs nothing.
  * - The bar moves in steps ([WidgetWords.barStep]), so a clock that ticks does not draw it again
  *   every second.
  */
@@ -1377,27 +1411,44 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     }
     val small = box == WidgetSizes.Box.SMALL
     val large = box == WidgetSizes.Box.LARGE
+    val type = MaterialTheme.typography
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val bar = if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now)?.let(WidgetWords::barStep)
+    val clock24 = rememberClock24()
+    // A large box writes the start and the moment under the bar's ends. They change at most once a day.
+    val from = spec.from
+    val ends = if (large && bar != null && from != null) {
+        remember(from, spec.to, zone, clock24, now / 86_400) { WidgetWords.countdownEnds(from, spec.to, now, zone, clock24) }
+    } else {
+        null
+    }
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = if (large) Arrangement.Top else Arrangement.Center,
         horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start,
     ) {
-        // The number big, its unit small: "36 days".
+        // The number big, its unit small: "36 days". A large box has both larger, as the mockup has them.
         Row {
-            BigText(count.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+            BigText(count.value, if (large) type.displayMedium else valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
             count.unit?.let {
-                Text(it, style = MaterialTheme.typography.titleMedium, color = muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())
+                val unitStyle = if (large) type.titleLarge.copy(fontWeight = FontWeight.Bold) else type.titleMedium
+                Text(it, style = unitStyle, color = muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())
             }
         }
         if (bar == null || large) spec.label?.let {
-            Text(it, style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // A small box has room for two short lines: "to 20 / December".
+            Text(it, style = if (large) type.bodyMedium else type.bodySmall, color = muted, maxLines = if (small) 2 else 1, overflow = TextOverflow.Ellipsis, textAlign = if (small) TextAlign.Center else TextAlign.Start)
         }
         if (bar != null) {
             // A large box has the bar at its bottom.
             if (large) Spacer(Modifier.weight(1f))
-            LevelBar(bar, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp))
+            // A wave that stands still: a countdown waits, it is not at work.
+            LevelBar(bar, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp), wavy = true)
+            if (ends != null) Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Text(ends.first, style = type.bodySmall, color = muted, maxLines = 1)
+                Spacer(Modifier.weight(1f))
+                Text(ends.second, style = type.bodySmall, color = muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+            }
         }
     }
 }

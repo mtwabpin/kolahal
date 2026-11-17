@@ -294,7 +294,12 @@ class WidgetGalleryTest {
             more = listOf(WidgetSpec.Small("62%", "humidity"), WidgetSpec.Small("9 km/h", "wind")),
         )
         val aqi = WidgetSpec.Progress(base("US AQI · Pune", "wind", Colour.WARN), value = 118f, max = 500f, text = "118", label = "Unhealthy for some")
-        val goa = WidgetSpec.Countdown(base("Goa trip", "calendar", Colour.LINK), to = now + 36 * 86_400 + 43_200, label = "20 Dec", style = "days", reached = "Today")
+        // Its label as countdown.lua writes it: "to 20 December".
+        val goaDay = today.plusDays(37)
+        val goa = WidgetSpec.Countdown(
+            base("Goa trip", "calendar", Colour.LINK), to = goaDay.atStartOfDay(zone).toEpochSecond(),
+            label = "to ${goaDay.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", java.util.Locale.ENGLISH))}", style = "days", reached = "Today",
+        )
         val headlines = listOf(
             "Show HN: A terminal launcher for Android" to "412", "SQLite as a document database" to "368",
             "The unreasonable effectiveness of plain text" to "301", "Why your battery percentage lies" to "274",

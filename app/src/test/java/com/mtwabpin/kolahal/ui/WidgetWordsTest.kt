@@ -138,6 +138,20 @@ class WidgetWordsTest {
         assertEquals(1f, WidgetWords.countdownFraction(0, 100, 250)!!, 0f)
     }
 
+    /** A large countdown writes its start and its moment under the bar's ends: days, or times on one day. */
+    @Test fun aCountdownsBarHasItsDaysAtItsEnds() {
+        fun at(text: String) = ZonedDateTime.parse(text).toEpochSecond()
+        val now = at("2026-11-14T10:00:00Z")
+        assertEquals("1 Oct" to "20 Dec", WidgetWords.countdownEnds(at("2026-10-01T00:00:00Z"), at("2026-12-20T00:00:00Z"), now, utc, clock24 = true, Locale.ENGLISH))
+        // Another year than now's has its year.
+        assertEquals("15 Jun" to "15 Jun 2027", WidgetWords.countdownEnds(at("2026-06-15T00:00:00Z"), at("2027-06-15T00:00:00Z"), now, utc, clock24 = true, Locale.ENGLISH))
+        // On one day: the times, in the form the setting says.
+        assertEquals("09:30" to "17:25", WidgetWords.countdownEnds(at("2026-11-14T09:30:00Z"), at("2026-11-14T17:25:00Z"), now, utc, clock24 = true, Locale.ENGLISH))
+        assertEquals("9:30 AM" to "5:25 PM", WidgetWords.countdownEnds(at("2026-11-14T09:30:00Z"), at("2026-11-14T17:25:00Z"), now, utc, clock24 = false, Locale.ENGLISH))
+        // The day is the phone's: 20 Dec at 01:00 in Kolkata is still 19 Dec in UTC.
+        assertEquals("20 Dec", WidgetWords.countdownEnds(at("2026-10-01T00:00:00Z"), at("2026-12-19T19:30:00Z"), now, ZoneId.of("Asia/Kolkata"), clock24 = true, Locale.ENGLISH).second)
+    }
+
     /** The bar of a countdown that ticks gets a new value only when it has moved a step: not every second. */
     @Test fun aCountdownsBarMovesInSteps() {
         assertEquals(0.25f, WidgetWords.barStep(0.25f), 0f)

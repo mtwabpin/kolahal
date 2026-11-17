@@ -105,6 +105,13 @@ local function dayMonth(t)
   return text
 end
 
+-- The date in words, for the widget: "to 20 December", with the year when it isn't this one.
+local function toDay(t)
+  local text = "to " .. tonumber(os.date("%d", t)) .. " " .. os.date("%B", t)
+  if os.date("%Y", t) ~= os.date("%Y") then text = text .. " " .. os.date("%Y", t) end
+  return text
+end
+
 -- Big numbers (Kolahal 0.4.16's fmt.stats): the days, large and coloured by how near they are,
 -- with what they count under them ([what]: "to go" by default, or "to Christmas"), then the date
 -- with its weekday, smaller.
@@ -202,7 +209,7 @@ local function fillWidget(list)
   if not nearestTime then return widget.clear() end
   local to = dayStart(nearestTime)
   widget.show{
-    title = nearestName, icon = "calendar", label = dayMonth(nearestTime), style = "days", reached = "Today",
+    title = nearestName, icon = "calendar", label = toDay(nearestTime), style = "days", reached = "Today",
     to = to, from = waitStart(nearestItem, nearestDate, nearestYearly, nearestTime, to),
     tap = { args = "", page = "log" },
   }
