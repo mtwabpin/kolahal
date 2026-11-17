@@ -441,9 +441,11 @@ private val LONG_DAY = 120.dp
  * once, and no run is needed as time passes.
  * - Small, or one place: that place's time, large, over its name.
  * - Wide: the places side by side, as many as fit ([WidgetWords.clockColumns]).
- * - Large: one row for each place, its name at the start and its time at the end.
- * - A place whose day is not the day here says so: "tomorrow" or "yesterday", or "+1" and "-1"
- *   in little room.
+ * - Large: one row for each place, its name at the start and its time at the end. A row of 40 dp
+ *   or more (three places or fewer, on most phones) has the place's day under its name: "today",
+ *   "tomorrow" or "yesterday".
+ * - Elsewhere, a place whose day is not the day here says so: "tomorrow" or "yesterday", or "+1"
+ *   and "-1" in little room.
  * - The time follows Kolahal's 24-hour setting. It moves by the minute, with the header's clock.
  *   With `seconds` it moves by the second, but only while the widgets page is in view.
  * - The size of the digits comes from the room, never from the text: a clock that ticks does not
@@ -498,6 +500,8 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                 val row = ((height + gap) / rows - gap).coerceIn(WidgetWords.CLOCK_ROW_DP, 48)
                 // The time gets up to half the width inside the row's padding. The place's name has the rest.
                 val size = WidgetWords.clockTextDp((width - 24) / 2, chars, minOf(row * 3 / 5, 24))
+                // A tall row has the place's day on a second line, also when it is today, as the mockup has it.
+                val dayLine = row >= DAY_LINE_DP
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap.dp)) {
                     times.take(rows).forEachIndexed { i, time ->
                         key(i) {
@@ -505,7 +509,10 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                                 Modifier.fillMaxWidth().height(row.dp).clip(segmentShape(i, rows)).background(segmentColour()).padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Box(Modifier.weight(1f).padding(end = 8.dp)) { PlaceLabel(time, long = width >= 200, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), colour = MaterialTheme.colorScheme.onSurface) }
+                                Box(Modifier.weight(1f).padding(end = 8.dp)) {
+                                    if (dayLine) PlaceAndDay(time)
+                                    else PlaceLabel(time, long = width >= 200, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), colour = MaterialTheme.colorScheme.onSurface)
+                                }
                                 ClockTime(time.time, size)
                             }
                         }
@@ -527,6 +534,19 @@ private fun ClockTime(time: String, sizeDp: Int) {
     val base = MaterialTheme.typography.titleLarge
     val style = remember(base, size) { base.copy(fontSize = size, lineHeight = size * 1.25f).asValue() }
     Text(time, style = style, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
+}
+
+/** From this height a large clock's row has the place's day on a line of its own ([PlaceAndDay]), in dp. */
+private const val DAY_LINE_DP = 40
+
+/** A place's name in bold, over its day in dim words: "today", "tomorrow" or "yesterday", as seen from here. */
+@Composable
+private fun PlaceAndDay(time: WidgetWords.ZoneTime) {
+    val type = MaterialTheme.typography
+    Column {
+        Text(time.label, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(time.day ?: WidgetWords.SAME_DAY, style = type.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
 
 /**

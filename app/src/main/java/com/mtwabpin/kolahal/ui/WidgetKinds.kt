@@ -393,6 +393,12 @@ internal object WidgetWords {
      */
     data class ZoneTime(val label: String, val time: String, val day: String?, val dayShort: String?)
 
+    /**
+     * The day of a place whose day is the day here, where a large clock gives every place its day.
+     * Elsewhere such a place says nothing about its day ([ZoneTime.day] is null).
+     */
+    const val SAME_DAY = "today"
+
     /** A place's name. Without a label it is the last part of the zone's name: "Asia/Kolkata" is "Kolkata". */
     fun zoneLabel(zone: WidgetSpec.Zone): String = zone.label ?: zone.zone.substringAfterLast('/').replace('_', ' ')
 
