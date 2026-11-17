@@ -162,16 +162,17 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
      */
     private fun notes(doc: TextDocument, opened: TextDocument.Opened.Ready): EditorMessage? {
         val readOnly = !doc.writable
+        // The message has two lines: what a tap does comes first, so it is not cut off.
         val notes = listOfNotNull(
-            when {
-                opened.changedSince -> "Your unsaved changes are back. The file has changed since: saving asks first"
-                opened.restored -> "Your unsaved changes are back"
-                else -> null
-            },
             when {
                 !readOnly -> null
                 reopenHelps -> "${Documents.source(getApplication()).readOnlyReason(Uri.parse(doc.uri))} · tap to open it from its folder"
                 else -> "Kolahal can't write this file: use Save as"
+            },
+            when {
+                opened.changedSince -> "Your unsaved changes are back. The file has changed since: saving asks first"
+                opened.restored -> "Your unsaved changes are back"
+                else -> null
             },
             "Mixed line endings: saving writes them all as ${doc.format.lineEnding.name}".takeIf { doc.format.mixed },
             "A big file: typing is slow".takeIf { opened.text.length >= TextFiles.SLOW_FROM },
@@ -362,14 +363,20 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
      * - Unsaved text moves with it, as [to]'s draft ([TextDocument.moveDraftTo]). If [to] is not the
      *   same file, saving there asks first.
      * - This address leaves the recent list: the file is listed by its new address.
+     * - [openElsewhere]: [to] is open in another editor window already. That window would not show
+     *   the moved text, and its own typing would write over it. So nothing moves, and the editor says so.
      */
-    fun reopened(to: Uri?) {
+    fun reopened(to: Uri?, openElsewhere: Boolean = false) {
         val doc = document ?: return
         val state = editing ?: return
         val from = uri ?: return
         if (to == null) return
         if (to == from) {
             state.message = EditorMessage("That is the same read-only file. Open the file inside its folder", EditorMessage.Kind.NOTE)
+            return
+        }
+        if (openElsewhere) {
+            state.message = EditorMessage("That file is open in another window. Close it there, then try again", EditorMessage.Kind.NOTE)
             return
         }
         val text = state.value.text

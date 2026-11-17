@@ -91,8 +91,12 @@ is safe: it is kept as a draft as usual. To save it in place:
 
 Or use **Save as…** to write the text to another file.
 
-A file picked under Recent usually saves in place, with no message: from Android 10, Kolahal writes
-it through Android's media store when the picker's address refuses.
+A file picked under Recent saves in place where Android allows it. From Android 10, when the picker's
+address refuses a save, Kolahal tries Android's media store too. Only if both refuse do you need
+**Open from its folder…**.
+
+If the file you pick in its folder is already open in another editor window, nothing moves: close
+that window first, then try again.
 
 When you come back to the editor and the file has changed meanwhile:
 

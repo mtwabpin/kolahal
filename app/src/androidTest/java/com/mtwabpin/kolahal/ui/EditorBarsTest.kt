@@ -225,7 +225,7 @@ class EditorBarsTest {
         assertEquals("apple pie\n-- @command\nbanana apple\nApple cider", text())
     }
 
-    /** A symbol goes in at the cursor and marks the script changed; ↶ takes it out again. */
+    /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */
     @Test fun theSymbolBarInsertsAndUndoes() {
         show()
         cursorAt(5)

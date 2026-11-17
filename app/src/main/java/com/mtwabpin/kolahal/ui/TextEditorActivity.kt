@@ -56,7 +56,7 @@ class TextEditorActivity : ComponentActivity() {
     private val openFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> open(this, uri) } }
     private val newFile = registerForActivityResult(CreateTextFile) { it?.let { uri -> open(this, uri) } }
     private val saveAs = registerForActivityResult(CreateTextFile) { vm.saveAs(it) }
-    private val fromFolder = registerForActivityResult(OpenFileIn) { vm.reopened(it) }
+    private val fromFolder = registerForActivityResult(OpenFileIn) { vm.reopened(it, openElsewhere = it != null && openInAnotherWindow(it)) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -146,6 +146,17 @@ class TextEditorActivity : ComponentActivity() {
             else ActivityManager.TaskDescription(label),
         )
     }
+
+    /**
+     * Whether another editor window has the file at [uri]: Android's Recents has a task for it.
+     * That window may have the file open with text of its own, and it doesn't read drafts again.
+     */
+    private fun openInAnotherWindow(uri: Uri): Boolean = runCatching {
+        getSystemService(ActivityManager::class.java).appTasks.any { task ->
+            // This window's task is for another address, so it never matches.
+            runCatching { task.taskInfo?.baseIntent?.data == uri }.getOrDefault(false)
+        }
+    }.getOrDefault(false)
 
     /** A phone without a file picker (a rare stripped-down one) says so instead of stopping. */
     private fun launchPicker(launch: () -> Unit) {
