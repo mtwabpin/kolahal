@@ -116,23 +116,23 @@ internal class LineTokens(lang: ScriptLang) {
  * - flashes one line (after a jump to an error);
  * - marks find matches.
  *
+ * With no language (null), the text is plain: only the flash and the matches show.
+ *
  * If [window] is set, only those lines (counted from 0) are coloured. It is used for the lines
  * around the visible part of a big script, because the colours cost several times the text itself
  * to lay out at every key. The flash and the matches show wherever they are.
  */
 internal class SyntaxHighlighter(
-    lang: ScriptLang,
+    lang: ScriptLang?,
     private val flashLine: Int?,
     private val matches: MatchHighlights?,
-    private val tokens: LineTokens = LineTokens(lang),
+    private val tokens: LineTokens? = lang?.let(::LineTokens),
     private val window: IntRange? = null,
 ) : VisualTransformation {
-    private val keywords = tokens.keywords
+    private val keywords = tokens?.keywords ?: emptySet()
     // The theme this was made for. A text field colours again only when the new highlighter is not equal to the last one.
     private val palette = Term.palette
     private val js = lang == ScriptLang.JS
-
-    private fun tokensOf(line: String): IntArray = tokens.of(line)
 
     // The text field asks again for the same text when only the cursor or selection moves, twice
     // per change. Return the last result in that case.
@@ -168,11 +168,11 @@ internal class SyntaxHighlighter(
             // Start and end of the window's lines in the text. Used for the template strings.
             var from = if (window == null) 0 else -1
             var to = src.length
-            while (lineStart <= src.length) {
+            while (tokens != null && lineStart <= src.length) {
                 val lineEnd = src.indexOf('\n', lineStart).let { if (it < 0) src.length else it }
                 if (window == null || line in window) {
                     if (from < 0) from = lineStart
-                    val t = tokensOf(src.substring(lineStart, lineEnd))
+                    val t = tokens.of(src.substring(lineStart, lineEnd))
                     for (i in t.indices step 3) addStyle(styles[t[i + 2]], lineStart + t[i], lineStart + t[i + 1])
                     to = lineEnd
                 } else if (line > window.last) {

@@ -51,6 +51,26 @@ class EditorStateTest {
         assertNull(s.redo())
     }
 
+    /** With a limit, a change that makes the text too long or gives it too many lines isn't made, and the message says why. */
+    @Test fun aChangePastTheLimitIsRefused() {
+        val s = EditorState("ab\ncd", TextFieldValue("ab\ncd", TextRange(5)), limit = EditorLimit(maxChars = 8, maxLines = 3))
+        s.insert("efg")
+        assertEquals("ab\ncdefg", s.value.text)
+        s.insert("h")
+        assertEquals("ab\ncdefg", s.value.text)
+        assertEquals("The editor takes up to 8 characters", s.message?.text)
+        // Shorter is always fine, also when the text is already past the limit.
+        s.edit(TextFieldValue("ab\nc\n", TextRange(5)))
+        assertEquals("ab\nc\n", s.value.text)
+        s.insert("\n")
+        assertEquals("ab\nc\n", s.value.text)
+        assertEquals("The editor takes up to 3 lines", s.message?.text)
+        // What was refused is not an undo step.
+        val full = EditorState("12345678", TextFieldValue("12345678", TextRange(8)), limit = EditorLimit(maxChars = 8, maxLines = 3))
+        full.insert("9")
+        assertFalse(full.history.canUndo)
+    }
+
     /** Back from the background: the text as typed, the saved copy, and the find bar as it was. */
     @Test fun whatWasTypedComesBack() {
         val s = state("return 1")

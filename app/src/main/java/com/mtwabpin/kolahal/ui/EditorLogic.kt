@@ -4,7 +4,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDoc
 import com.mtwabpin.kolahal.script.ApiDocs
 
-/** Pure helpers for the script editor, with no Compose code: find, completion, inline docs and lines. */
+/** Pure helpers for the editors, with no Compose code: find, completion, inline docs and lines. */
 object EditorLogic {
 
     /** Start offsets of all non-overlapping matches of a query, up to [MAX_MATCHES]. */
@@ -288,6 +288,34 @@ object EditorLogic {
             widest = maxOf(widest, measure(text.substring(starts[line], end)))
         }
         return widest
+    }
+
+    /** The line (from 0) that the character at [offset] is on. */
+    fun lineOf(text: String, offset: Int): Int {
+        var line = 0
+        for (i in 0 until offset.coerceIn(0, text.length)) if (text[i] == '\n') line++
+        return line
+    }
+
+    /** Whether a line of [text] has more than [max] characters. It stops at the first one. */
+    fun hasLineLongerThan(text: String, max: Int): Boolean {
+        var start = 0
+        while (true) {
+            val end = text.indexOf('\n', start)
+            if ((if (end < 0) text.length else end) - start > max) return true
+            if (end < 0) return false
+            start = end + 1
+        }
+    }
+
+    /**
+     * The language whose colours a file gets, from the ending of its [name]. Null: plain text.
+     * JSON gets JavaScript's colours: its strings, numbers, `true`, `false` and `null` are the same.
+     */
+    fun syntaxFor(name: String): ScriptLang? = when (name.substringAfterLast('.', "").lowercase()) {
+        "lua" -> ScriptLang.LUA
+        "js", "mjs", "cjs", "json" -> ScriptLang.JS
+        else -> null
     }
 
     /** A finished run as the editor shows it: what happened, whether it failed, and the line that failed. */

@@ -10,9 +10,27 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 
-/** One line of feedback above the symbol bar. With [line], tapping it jumps to that line. */
-internal class EditorMessage(val text: String, val kind: Kind, val line: Int? = null) {
+/**
+ * One line of feedback above the symbol bar. A tap on it:
+ * - runs [action], if it has one ("… · tap to save as");
+ * - otherwise jumps to [line], if it has one;
+ * - otherwise dismisses it.
+ */
+internal class EditorMessage(val text: String, val kind: Kind, val line: Int? = null, val action: (() -> Unit)? = null) {
     enum class Kind { INFO, OK, BUSY, ERROR }
+}
+
+/**
+ * The most text an editor takes. A change that makes the text longer than [maxChars], or gives it
+ * more than [maxLines] lines, is refused.
+ */
+internal class EditorLimit(val maxChars: Int, val maxLines: Int) {
+    /** Why [text] is too much, or null. */
+    fun over(text: String): String? = when {
+        text.length > maxChars -> "The editor takes up to ${"%,d".format(java.util.Locale.ROOT, maxChars)} characters"
+        text.count { it == '\n' } >= maxLines -> "The editor takes up to ${"%,d".format(java.util.Locale.ROOT, maxLines)} lines"
+        else -> null
+    }
 }
 
 /**
@@ -24,9 +42,16 @@ internal class EditorMessage(val text: String, val kind: Kind, val line: Int? = 
  * - [flashLine]: a line to highlight for a moment (1-based), after a jump to it.
  * - The find bar: whether it is open, what it looks for, and the matches found.
  * - [message]: what the last button did.
+ * - [limit]: the most text it takes, or null for no limit. The script editor has none.
  */
 @Stable
-internal class EditorState(initial: String, value: TextFieldValue, saved: String = initial, flashLine: Int? = null) {
+internal class EditorState(
+    initial: String,
+    value: TextFieldValue,
+    saved: String = initial,
+    flashLine: Int? = null,
+    private val limit: EditorLimit? = null,
+) {
     var value by mutableStateOf(value)
     var saved by mutableStateOf(saved)
     val dirty get() = value.text != saved
@@ -50,9 +75,19 @@ internal class EditorState(initial: String, value: TextFieldValue, saved: String
     var gotoOpen by mutableStateOf(false)
     var message by mutableStateOf<EditorMessage?>(null)
 
-    /** Sets the text and cursor after a change by the user. A changed text becomes an undo step. */
+    /**
+     * Sets the text and cursor after a change by the user. A changed text becomes an undo step.
+     * A change that makes the text grow past the [limit] is not made, and the message line says why.
+     */
     fun edit(new: TextFieldValue) {
-        if (new.text != value.text) history.record(new.text)
+        if (new.text != value.text) {
+            val why = limit?.takeIf { new.text.length > value.text.length }?.over(new.text)
+            if (why != null) {
+                message = EditorMessage(why, EditorMessage.Kind.ERROR)
+                return
+            }
+            history.record(new.text)
+        }
         value = new
     }
 

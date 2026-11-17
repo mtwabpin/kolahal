@@ -54,6 +54,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalCursorBlinkEnabled
 import androidx.compose.ui.platform.LocalDensity
@@ -69,7 +70,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.ScriptLang
@@ -100,12 +103,26 @@ private const val TAB_PX = 20f
 private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
 
 /**
+ * The widest the code field gets, in pixels. A longer line wraps inside it.
+ * Compose can't lay out a fixed width of 262,143 pixels or more (it keeps a size in 18 bits), and
+ * one very long line (minified JSON, a data file) would be wider than that.
+ */
+private const val MAX_FIELD_PX = 250_000f
+
+/**
+ * A text with a line longer than this gets the widest field ([MAX_FIELD_PX]) without being measured:
+ * such a line is about that wide or wider, and measuring it costs as much as laying it out.
+ */
+private const val LONG_LINE = 10_000
+
+/**
  * The editor that the script editor and the text editor share: a monospace text field with line
  * numbers, light syntax colouring, undo/redo, find/replace, Go to line and a symbol bar. It draws
  * [state] and changes it.
  *
  * What the screen around it adds:
  * - [title]: the name at the top. A `*` after it marks unsaved changes.
+ * - [lang]: the language whose colours the text gets. Null: plain text.
  * - [buttons]: the buttons after Find, at the top right (save, close, …).
  * - [belowCode]: what shows under the code, at most as tall as it is told (a run's lines).
  * - [hint]: one line above the symbol bar, shown while there is no message (inline docs).
@@ -113,6 +130,10 @@ private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "
  * - [onKey]: the screen's own key shortcuts. It gets each key press first. True: the key is used.
  * - [onTab]: Tab in the code, with whether Shift is held. True: the screen used it. Otherwise it types two spaces.
  * - [onEscape]: Esc while the find bar is closed.
+ * - [wrap]: long lines wrap at the screen's edge, and there are no line numbers. Otherwise each
+ *   line stays one line, and the code scrolls sideways. (A line too long for the widest field
+ *   wraps even then, and such a text has no line numbers either.)
+ * - [focusOnOpen]: the code gets the focus, and the keyboard shows, as soon as the editor opens.
  *
  * When opened at [startLine], that line is scrolled into view.
  *
@@ -127,7 +148,7 @@ private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "
 internal fun CodeEditor(
     state: EditorState,
     title: String,
-    lang: ScriptLang,
+    lang: ScriptLang?,
     startLine: Int?,
     onKey: (KeyEvent) -> Boolean,
     onTab: (shift: Boolean) -> Boolean,
@@ -136,6 +157,8 @@ internal fun CodeEditor(
     belowCode: @Composable ColumnScope.(maxHeight: Dp) -> Unit = {},
     hint: @Composable ColumnScope.() -> Unit = {},
     aboveSymbols: @Composable ColumnScope.() -> Unit = {},
+    wrap: Boolean = false,
+    focusOnOpen: Boolean = true,
 ) {
     val value = state.value
     val findFocus = remember { FocusRequester() }
@@ -174,6 +197,8 @@ internal fun CodeEditor(
         if (top < vScroll.value || bottom > vScroll.value + viewportHeight) {
             scope.launch { vScroll.animateScrollTo((top - viewportHeight / 3).coerceAtLeast(0)) }
         }
+        // Wrapped lines are all in view sideways.
+        if (wrap) return
         val x = l.getHorizontalPosition(o, true).toInt()
         val margin = with(density) { 48.dp.roundToPx() }
         if (x < hScroll.value || x > hScroll.value + viewportWidth - margin) {
@@ -292,7 +317,7 @@ internal fun CodeEditor(
     }
 
     BackHandler(enabled = state.findOpen) { closeFind() }
-    LaunchedEffect(state) { runCatching { state.focus.requestFocus() } }
+    LaunchedEffect(state) { if (focusOnOpen) runCatching { state.focus.requestFocus() } }
     LaunchedEffect(state.flashLine) {
         if (state.flashLine != null) {
             delay(3_000.milliseconds)
@@ -314,6 +339,24 @@ internal fun CodeEditor(
     val highlights = remember(state.findOpen, state.matches, state.current) {
         if (state.findOpen) EditorLogic.highlights(state.matches, state.current) else null
     }
+    // The field's width, computed here from its widest line. Inside the horizontal scroll the field
+    // would measure all of the text to find it before layout: a second pass over the text at every key.
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer(cacheSize = 16)
+    val bold = Term.code.copy(fontWeight = FontWeight.Bold)
+    val cellPx = remember(bold, density) { listOf("W", "M", "@").maxOf { measurer.measure(it, bold).size.width }.toFloat() }
+    val textWidth = remember(value.text, bold, density, wrap) {
+        when {
+            // The field is as wide as the screen, so there is nothing to measure.
+            wrap -> 0f
+            EditorLogic.hasLineLongerThan(value.text, LONG_LINE) -> MAX_FIELD_PX
+            // Measured in bold, the widest style a line uses, so a bold keyword doesn't wrap its line.
+            else -> EditorLogic.widestLine(value.text, cellPx, maxOf(TAB_PX, cellPx)) { line -> measurer.measure(line, bold).size.width.toFloat() }
+        }
+    }
+    val widest = with(density) { MAX_FIELD_PX.toDp() }
+    val fieldWidth = with(density) { minOf(maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp), widest) }
+    // Whether a line of the text can take more than one line on screen.
+    val wraps by androidx.compose.runtime.rememberUpdatedState(wrap || fieldWidth >= widest)
     // In a big text, only the lines around the view are coloured: colouring costs several times
     // the plain text's layout at every key. The coloured range follows the view after scrolling
     // stops, so a fling doesn't cause new layouts along the way.
@@ -325,8 +368,12 @@ internal fun CodeEditor(
         val padTop = with(density) { 12.dp.toPx() }
         androidx.compose.runtime.snapshotFlow { Triple(vScroll.isScrollInProgress, vScroll.value, layout) }.collect { (scrolling, y, l) ->
             if (scrolling || l == null || l.lineCount == 0) return@collect
-            val first = l.getLineForVerticalPosition((y - padTop).coerceAtLeast(0f))
-            val last = l.getLineForVerticalPosition(y - padTop + viewportHeight)
+            // The window counts the text's own lines. Where lines wrap, a line on screen is not one of those.
+            fun lineAt(y: Float): Int = l.getLineForVerticalPosition(y).let { shown ->
+                if (wraps) EditorLogic.lineOf(l.layoutInput.text.text, l.getLineStart(shown)) else shown
+            }
+            val first = lineAt((y - padTop).coerceAtLeast(0f))
+            val last = lineAt(y - padTop + viewportHeight)
             val w = window
             val nearTop = w.first > 0 && first < w.first + WINDOW_MARGIN
             val nearBottom = w.last < l.lineCount - 1 && last > w.last - WINDOW_MARGIN
@@ -334,22 +381,14 @@ internal fun CodeEditor(
         }
     }
     // The tokens of each line are kept across highlighters, because find matches and a flashed line create new highlighters.
-    val lineTokens = remember(lang) { LineTokens(lang) }
-    val coloured = if (big) window else null
+    val lineTokens = remember(lang) { lang?.let(::LineTokens) }
+    // Plain text has no colours to leave out.
+    val coloured = if (big && lang != null) window else null
     val flashLine = state.flashLine
     val highlighter = remember(lang, flashLine, Term.palette, highlights, coloured) { SyntaxHighlighter(lang, flashLine, highlights, lineTokens, coloured) }
-    // The field's width, computed here from its widest line. Inside the horizontal scroll the field
-    // would measure all of the text to find it before layout: a second pass over the text at every key.
-    val measurer = androidx.compose.ui.text.rememberTextMeasurer(cacheSize = 16)
-    val bold = Term.code.copy(fontWeight = FontWeight.Bold)
-    val cellPx = remember(bold, density) { listOf("W", "M", "@").maxOf { measurer.measure(it, bold).size.width }.toFloat() }
-    val textWidth = remember(value.text, bold, density) {
-        // Measured in bold, the widest style a line uses, so a bold keyword doesn't wrap its line.
-        EditorLogic.widestLine(value.text, cellPx, maxOf(TAB_PX, cellPx)) { line -> measurer.measure(line, bold).size.width.toFloat() }
-    }
-    val fieldWidth = with(density) { maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp) }
     val lineCount = value.text.count { it == '\n' } + 1
-    val numbers = remember(lineCount) { (1..lineCount).joinToString("\n") }
+    // Where lines wrap there are no line numbers: a number would stand beside the wrong line.
+    val numbers = remember(lineCount, wraps) { if (wraps) null else (1..lineCount).joinToString("\n") }
 
     Column(
         Modifier
@@ -435,16 +474,19 @@ internal fun CodeEditor(
         ) {
             Row {
                 // Line numbers share the field's style, so they stay aligned while scrolling.
-                Text(
-                    numbers,
-                    style = Term.code.copy(color = Term.dim, textAlign = TextAlign.End),
-                    modifier = Modifier.widthIn(min = 28.dp).padding(start = 6.dp, end = 10.dp),
-                )
+                if (numbers != null) {
+                    Text(
+                        numbers,
+                        style = Term.code.copy(color = Term.dim, textAlign = TextAlign.End),
+                        modifier = Modifier.widthIn(min = 28.dp).padding(start = 6.dp, end = 10.dp),
+                    )
+                }
                 Box(
                     Modifier
                         .weight(1f)
                         .onSizeChanged { viewportWidth = it.width }
-                        .horizontalScroll(hScroll)
+                        .then(if (numbers == null) Modifier.padding(start = 12.dp) else Modifier)
+                        .then(if (wrap) Modifier else Modifier.horizontalScroll(hScroll))
                 ) {
                     BasicTextField(
                         value = value,
@@ -459,7 +501,7 @@ internal fun CodeEditor(
                             // The field keeps its minimum width, as it would without a box around it.
                             Box(propagateMinConstraints = true) {
                                 field()
-                                EditorCaret(value, { layout }, state.focused, Term.prompt, Modifier.matchParentSize())
+                                EditorCaret(value, { layout }, state.focused, Term.prompt)
                             }
                         },
                         keyboardOptions = KeyboardOptions(
@@ -468,8 +510,7 @@ internal fun CodeEditor(
                             // Plain text (not password), so non-Latin layouts and voice input work in code.
                             keyboardType = KeyboardType.Text,
                         ),
-                        modifier = Modifier
-                            .width(fieldWidth)
+                        modifier = (if (wrap) Modifier.fillMaxWidth() else Modifier.width(fieldWidth))
                             .padding(end = 12.dp)
                             .focusRequester(state.focus)
                             .onFocusChanged { state.focused = it.isFocused }
@@ -502,8 +543,15 @@ internal fun CodeEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Term.surface)
-                    // Tap a message with a failing line to go there. Tap any other message to dismiss it.
-                    .clickable { if (shown.line != null) gotoLine(shown.line) else state.message = null }
+                    // Tap a message with an action to do it, or one with a failing line to go there.
+                    // Tap any other message to dismiss it.
+                    .clickable {
+                        when {
+                            shown.action != null -> shown.action.invoke()
+                            shown.line != null -> gotoLine(shown.line)
+                            else -> state.message = null
+                        }
+                    }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .testTag("message"),
             )
@@ -552,9 +600,15 @@ internal fun CodeEditor(
  * - 2 dp wide, at the cursor;
  * - shown at once after a change, then blinking every 500 ms;
  * - visible only while the editor and its window have focus and nothing is selected.
+ *
+ * The layer is as big as the text, and takes its size from the text's [layout]. It must not be
+ * given that size as a fixed one (`matchParentSize`). Compose keeps a fixed width and height
+ * together in 31 bits, so it can't hold:
+ * - a text that is both wide and long (on a usual phone, a line of 400 characters in a file of 1,500 lines);
+ * - any text taller than 262,142 pixels (there, about 5,000 lines).
  */
 @Composable
-private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, focused: Boolean, color: Color, modifier: Modifier) {
+private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, focused: Boolean, color: Color) {
     val blinks = LocalCursorBlinkEnabled.current
     val show = LocalWindowInfo.current.isWindowFocused && focused && value.selection.collapsed
     var alpha by remember { mutableFloatStateOf(0f) }
@@ -575,18 +629,26 @@ private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, 
         }
     }
     Box(
-        modifier.graphicsLayer().drawBehind {
-            val a = alpha
-            if (!show || a == 0f) return@drawBehind
-            val result = layout() ?: return@drawBehind
-            val rect = result.getCursorRect(value.selection.start.coerceIn(0, result.layoutInput.text.length))
-            val width = floor(2.dp.toPx()).coerceAtLeast(1f)
-            val x = (rect.left + width / 2)
-                .coerceAtMost(size.width - width / 2)
-                .coerceAtLeast(width / 2)
-                // Draw an odd width at the middle of a pixel, so it isn't blurred.
-                .let { if (width.toInt() % 2 == 1) floor(it) + 0.5f else round(it) }
-            drawLine(color, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = width, alpha = a)
-        },
+        Modifier
+            .graphicsLayer()
+            .drawBehind {
+                val a = alpha
+                if (!show || a == 0f) return@drawBehind
+                val result = layout() ?: return@drawBehind
+                val rect = result.getCursorRect(value.selection.start.coerceIn(0, result.layoutInput.text.length))
+                val width = floor(2.dp.toPx()).coerceAtLeast(1f)
+                val x = (rect.left + width / 2)
+                    .coerceAtMost(size.width - width / 2)
+                    .coerceAtLeast(width / 2)
+                    // Draw an odd width at the middle of a pixel, so it isn't blurred.
+                    .let { if (width.toInt() % 2 == 1) floor(it) + 0.5f else round(it) }
+                drawLine(color, Offset(x, rect.top), Offset(x, rect.bottom), strokeWidth = width, alpha = a)
+            }
+            // The text is measured before this, in the same pass, so its layout is the current one.
+            .layout { measurable, _ ->
+                val text = layout()?.size ?: IntSize.Zero
+                val placeable = measurable.measure(Constraints.fixed(0, 0))
+                layout(text.width, text.height) { placeable.place(0, 0) }
+            },
     )
 }

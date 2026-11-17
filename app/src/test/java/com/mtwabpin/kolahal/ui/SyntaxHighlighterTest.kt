@@ -113,4 +113,15 @@ class SyntaxHighlighterTest {
         )
         assertNotEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 1))
     }
+
+    /** Plain text has no language: nothing is coloured, but a find match and the flashed line still show. */
+    @Test fun plainTextShowsOnlyMatchesAndTheFlash() {
+        assertEquals(emptyList<Any>(), SyntaxHighlighter(null, null, null).filter(AnnotatedString(lua)).text.spanStyles)
+        val marked = SyntaxHighlighter(null, 2, MatchHighlights(intArrayOf(3), 5, 3)).filter(AnnotatedString(lua)).text.spanStyles
+        assertEquals(listOf(lua.indexOf("local") to lua.indexOf("\nfor"), 3 to 8), marked.map { it.start to it.end })
+        assertTrue(marked.all { it.item.background.isSpecified })
+        // It is not the same as a language's, and the same as another plain one.
+        assertNotEquals(SyntaxHighlighter(null, null, null), SyntaxHighlighter(ScriptLang.LUA, null, null))
+        assertEquals(SyntaxHighlighter(null, 2, null), SyntaxHighlighter(null, 2, null))
+    }
 }

@@ -297,4 +297,29 @@ class EditorLogicTest {
         assertEquals(width("abc"), EditorLogic.widestLine("abc\n", 10f, 12f, ::width), 0f)
         assertEquals(0f, EditorLogic.widestLine("\n\n", 10f, 12f, ::width), 0f)
     }
+
+    /** A line too long to measure is found wherever it is: first, in the middle, or last with no line break after it. */
+    @Test fun aVeryLongLineIsFound() {
+        val long = "x".repeat(11)
+        assertFalse(EditorLogic.hasLineLongerThan("", 10))
+        assertFalse(EditorLogic.hasLineLongerThan("0123456789\n0123456789\n", 10))
+        assertTrue(EditorLogic.hasLineLongerThan("$long\nab", 10))
+        assertTrue(EditorLogic.hasLineLongerThan("ab\n$long\nab", 10))
+        assertTrue(EditorLogic.hasLineLongerThan("ab\n$long", 10))
+    }
+
+    /** The line a character is on, from 0: a line break belongs to the line it ends. */
+    @Test fun theLineOfACharacter() {
+        val text = "ab\n\ncd"
+        assertEquals(listOf(0, 0, 0, 1, 2, 2, 2), (0..text.length).map { EditorLogic.lineOf(text, it) })
+        assertEquals(2, EditorLogic.lineOf(text, 99))
+    }
+
+    /** A file's colours come from the ending of its name; any other file is plain text. */
+    @Test fun aFilesColoursComeFromItsName() {
+        assertEquals(ScriptLang.LUA, EditorLogic.syntaxFor("weather.lua"))
+        assertEquals(ScriptLang.JS, EditorLogic.syntaxFor("Feeds.JS"))
+        assertEquals(ScriptLang.JS, EditorLogic.syntaxFor("kolahal-backup.json"))
+        for (plain in listOf("notes.txt", "README.md", "Makefile", "lua", ".js.bak", "")) assertNull(plain, EditorLogic.syntaxFor(plain))
+    }
 }
