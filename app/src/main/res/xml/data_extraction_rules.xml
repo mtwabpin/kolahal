@@ -34,6 +34,9 @@
         <!-- Crash reports belong to this phone. -->
         <exclude domain="file" path="crash/" />
         <exclude domain="sharedpref" path="crash.xml" />
+        <!-- The text editor: unsaved text of your files, and the names of the files you opened. -->
+        <exclude domain="file" path="editor-drafts/" />
+        <exclude domain="sharedpref" path="editor.xml" />
     </cloud-backup>
     <device-transfer>
         <!-- The scripts' work queue: a waiting @on notification run holds that notification's text. -->
@@ -46,5 +49,8 @@
         <!-- Crash reports belong to this phone. -->
         <exclude domain="file" path="crash/" />
         <exclude domain="sharedpref" path="crash.xml" />
+        <!-- The text editor's recent files: their storage permissions don't move. Its drafts do:
+             unsaved text comes along, and can be saved as a new file there. -->
+        <exclude domain="sharedpref" path="editor.xml" />
     </device-transfer>
 </data-extraction-rules>

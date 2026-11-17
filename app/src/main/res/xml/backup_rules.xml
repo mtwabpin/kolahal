@@ -25,4 +25,7 @@
     <!-- Crash reports belong to this phone. -->
     <exclude domain="file" path="crash/" />
     <exclude domain="sharedpref" path="crash.xml" />
+    <!-- The text editor: unsaved text of your files, and the names of the files you opened. -->
+    <exclude domain="file" path="editor-drafts/" />
+    <exclude domain="sharedpref" path="editor.xml" />
 </full-backup-content>

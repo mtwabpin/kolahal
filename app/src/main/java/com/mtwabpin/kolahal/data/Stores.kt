@@ -61,11 +61,16 @@ object Stores {
     val SCRIPTS_PAGE = Prefs("scripts_page", inBackup = false)
     val AUTO_BACKUP = Prefs("auto_backup", inBackup = false)
     val REMINDERS = Prefs("reminders", inBackup = false)
+    /**
+     * The text editor's recent files: their addresses, with storage permissions that don't move.
+     * The names say what you work on, so they stay on this phone.
+     */
+    val EDITOR = Prefs("editor", inBackup = false, toCloud = false, toNewPhone = false)
 
     val PREFS = listOf(
         CONFIG, ALIASES, APPS, APP_USAGE, NOTIF_PREFS, SCRIPT_LIBRARY, SCRIPT_CATALOG, OLD_UNLOCKS, LAUNCHER, OLD_LOGS,
         PICKED_CONTACTS, WALLPAPER_MATCH, CRASH, TRIGGERS, DAILY_SCHEDULE, SCRIPT_FOLDER, LIBRARY_UPDATES, WIDGETS,
-        TIPS, SCRIPTS_PAGE, AUTO_BACKUP, REMINDERS,
+        TIPS, SCRIPTS_PAGE, AUTO_BACKUP, REMINDERS, EDITOR,
     )
 
     // Key-value scopes ([KvStore]), all in kolahal.db. The database stays out of the cloud and goes to a new phone.
