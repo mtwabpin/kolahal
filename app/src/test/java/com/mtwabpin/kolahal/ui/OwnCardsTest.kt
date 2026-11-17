@@ -13,6 +13,7 @@ import com.mtwabpin.kolahal.terminal.OwnTaps
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.Shortcuts
 import com.mtwabpin.kolahal.widgets.WidgetSource
+import com.mtwabpin.kolahal.widgets.WidgetSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -333,7 +334,7 @@ class OwnCardsTest {
             assertEquals(OwnCards.said(spec), OwnCards.said(spec, nowMs = now, zone = ZoneId.of("America/Los_Angeles"), clock24 = true))
         }
         // The Reminders rows hold their times as words, in the clock's form, so they are said as they are drawn.
-        assertEquals("Reminders: Tea, 16:30, in 25m", OwnCards.said(cards[1]))
+        assertEquals("Reminders: 25 min, Tea · 16:30", OwnCards.said(cards[1]))
         assertEquals("Agenda: Allow calendar access", OwnCards.said(cards[5]))
         assertTrue(WidgetWords.timed(OwnCards.agenda(emptyList(), zone, now, days = 3)))
     }
@@ -458,32 +459,45 @@ class OwnCardsTest {
         assertEquals("now", OwnCards.until(now - 90_000L, now))
     }
 
-    @Test fun remindersShowsTheNextThree() {
+    /** The next reminder is the card's lead, the time to it big. The next three are rows with their time. */
+    @Test fun remindersLeadWithTheNextOne() {
         val now = at(14, 16, 5)
         val list = listOf(
             Reminder(7, at(14, 16, 30), "Tea"),
             Reminder(2, at(15, 9), "Call mom"),
             Reminder(9, at(16, 19), "Bins", repeat = "mon", time = "19:00"),
             Reminder(4, at(20, 8), "Standup"),
+            Reminder(5, at(21, 8), "Later"),
         )
         val spec = OwnCards.reminders(list, now, zone, clock24 = true, locale = Locale.US)
         assertEquals("Reminders", spec.base.title)
-        assertEquals(listOf("Tea", "Call mom", "Bins"), spec.items.map { it.title })
-        assertEquals(listOf("in 25m", "in 16h 55m", "in 2d 2h"), spec.items.map { it.trailing })
-        assertEquals("16:30", spec.items[0].detail)
-        assertEquals("Tomorrow 09:00", spec.items[1].detail)
-        // A reminder that repeats says how.
-        assertEquals("Mon 16 Nov 19:00 · every Mon", spec.items[2].detail)
+        assertEquals(WidgetSpec.Lead("25", "min", "Tea · 16:30"), spec.lead)
+        assertEquals(listOf("Call mom", "Bins", "Standup"), spec.items.map { it.title })
+        // Short, so the text keeps its room: the weekday within a week, the date after.
+        assertEquals(listOf("Sun", "Mon", "Fri"), spec.items.map { it.trailing })
+        assertEquals("21 Nov", OwnCards.shortWhen(at(21, 8), at(14, 7), zone, clock24 = true, locale = Locale.US))
+        assertEquals("18:30", OwnCards.shortWhen(at(14, 18, 30), now, zone, clock24 = true, locale = Locale.US))
+        // One line each, and no tap of their own: a tap anywhere opens the list.
+        assertTrue(spec.items.all { it.detail == null && it.tap == null })
+        // A reminder that repeats says how, in the lead.
+        assertEquals("Bins · Mon 16 Nov 19:00 · every Mon", OwnCards.reminders(list.drop(2), now, zone, clock24 = true, locale = Locale.US).lead!!.label)
         // A stored rule that can't be read has no words, and the card is still drawn.
         val odd = OwnCards.reminders(listOf(Reminder(1, at(14, 18, 30), "Odd", repeat = "month:x")), now, zone, clock24 = true, locale = Locale.US)
-        assertEquals("18:30", odd.items.single().detail)
-        // The rows have no tap of their own: a tap anywhere opens the list.
-        assertTrue(spec.items.all { it.tap == null })
-        assertEquals("No reminders", OwnCards.reminders(emptyList(), now, zone, clock24 = true).empty)
-        // A minute later the first row says so, and nothing else changed.
-        val later = OwnCards.reminders(list, now + 60_000L, zone, clock24 = true, locale = Locale.US)
-        assertEquals("in 24m", later.items[0].trailing)
-        assertEquals(spec.items.map { it.detail }, later.items.map { it.detail })
+        assertEquals("Odd · 18:30", odd.lead!!.label)
+        assertEquals(emptyList<WidgetSpec.Row>(), odd.items)
+        val none = OwnCards.reminders(emptyList(), now, zone, clock24 = true)
+        assertEquals("No reminders", none.empty)
+        assertNull(none.lead)
+        // A minute later the lead says so.
+        assertEquals("24", OwnCards.reminders(list, now + 60_000L, zone, clock24 = true, locale = Locale.US).lead!!.value)
+    }
+
+    @Test fun theTimeToAReminderIsANumberAndAUnit() {
+        val now = at(14, 16, 5)
+        assertEquals("42" to "min", OwnCards.untilParts(now + 41 * 60_000L + 1, now))
+        assertEquals("13" to "h", OwnCards.untilParts(now + (13 * 60 + 10) * 60_000L, now))
+        assertEquals("2" to "days", OwnCards.untilParts(now + 50 * 3_600_000L, now))
+        assertEquals("now" to null, OwnCards.untilParts(now, now))
     }
 
     private val notes = listOf(Note(5, "Buy stamps\nand envelopes", at(13, 18, 5)), Note(4, "Wi-Fi: blue-heron-42", at(12, 9)), Note(3, "Book: The Dispossessed", at(10, 9)), Note(1, "Old", at(1, 9)))

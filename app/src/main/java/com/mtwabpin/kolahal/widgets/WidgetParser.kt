@@ -98,7 +98,8 @@ object WidgetParser {
     private val STAT = listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving")
     private val SMALL = listOf("value", "label")
     private val TEXT = listOf("text", "caption")
-    private val LIST = listOf("items", "empty")
+    private val LIST = listOf("items", "empty", "lead")
+    private val LEAD = listOf("value", "unit", "label")
     private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap", "done")
     private val PROGRESS = listOf("value", "max", "text", "label", "style", "items", "moving")
     private val BAR = listOf("label", "value", "max", "text", "color")
@@ -248,6 +249,13 @@ object WidgetParser {
                 )
             },
             empty = t.text("empty", MAX_LABEL),
+            lead = t.table("lead", "{ value, unit, label }", LEAD)?.let { l ->
+                WidgetSpec.Lead(
+                    value = l.need("value", MAX_SHORT, "the big value, as text or a number"),
+                    unit = l.text("unit", MAX_UNIT),
+                    label = l.text("label", MAX_LABEL),
+                )
+            },
         )
     }
 
@@ -550,6 +558,13 @@ object WidgetParser {
          * A list of tables: its first [keep] items, each with the fields [known]. [shape] shows one
          * item, in an error. An empty Lua table is an empty list: it has no keys to tell.
          */
+
+        /** The object [key] as a table of its own, with the fields [known]. Null when it is not there. */
+        fun table(key: String, shape: String, known: List<String>): Table? {
+            val v = values[key] ?: return null
+            val map = v as? Map<*, *> ?: fail("$key must be $shape, not ${shown(v)}")
+            return Table(map, "$at$key: ", "no field", known, clean, link)
+        }
         fun items(key: String, keep: Int, shape: String, known: List<String>): List<Table> {
             val v = values[key] ?: return emptyList()
             val all = Json.listOrNull(v) ?: fail("$key must be a list of $shape, not ${shown(v)}")

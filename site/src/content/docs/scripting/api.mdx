@@ -754,6 +754,7 @@ A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's
 | --- | --- | --- |
 | `items` | a list of rows | Needed. The first 12 are kept. It can be empty. |
 | `empty` | text, up to 60 | What the card says with no rows: `Nothing new`. |
+| `lead` | `{ value, unit, label }` | A big line over the rows: `value` (needed, up to 24) big, its `unit` (up to 12) small, and `label` (up to 60) under them: the next reminder, or the total of the rows. A small or a wide card shows the lead alone, and counts the rows as "+3 more". |
 
 Each row is `{ title, detail, trailing, icon, color, tap, done }`. Only `title` is needed.
 

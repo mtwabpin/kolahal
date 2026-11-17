@@ -258,7 +258,8 @@ internal object WidgetWords {
                     add(spec.caption)
                 }
                 is WidgetSpec.Rows -> {
-                    if (spec.items.isEmpty()) add(spec.empty ?: NOTHING)
+                    spec.lead?.let { add(listOfNotNull(joined(it.value, it.unit), it.label).joinToString(", ")) }
+                    if (spec.items.isEmpty() && spec.lead == null) add(spec.empty ?: NOTHING)
                     spec.items.forEach { r -> add(listOfNotNull(r.title, r.detail, r.trailing, doneWord(r.done)).joinToString(", ")) }
                 }
                 is WidgetSpec.Progress -> {
@@ -744,7 +745,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
     when (spec) {
         is WidgetSpec.Stat -> StatBody(spec, box)
         is WidgetSpec.Text -> TextBody(spec, box)
-        is WidgetSpec.Rows -> RowsBody(spec, onTap)
+        is WidgetSpec.Rows -> RowsBody(spec, box, onTap)
         is WidgetSpec.Progress -> ProgressBody(spec, box)
         is WidgetSpec.Chart -> ChartBody(spec, box)
         is WidgetSpec.Countdown -> CountdownBody(spec, box)
@@ -954,7 +955,7 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
 }
 
 /**
- * `list`: as many rows as fit, then "+3 more".
+ * `list`: as many rows as fit, then "+3 more", with its [WidgetSpec.Lead] over them when it has one.
  * - Each row is in a lightly tinted container: large corners at the ends of the list, small ones
  *   between rows, and [ROW_GAP_DP] between two ([segmentShape]).
  * - A row is 44 dp tall when it can be tapped or has a second line, and 32 dp otherwise. A tap row
@@ -963,31 +964,66 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
  * - A narrow list (under 200 dp) leaves the second lines out.
  * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
  *   line under the rows.
+ * - The lead: in a large box, the big value and its label over the rows. A small or a wide box
+ *   has room for the lead alone, and counts the rows as "+3 more".
  */
 @Composable
-private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
-    if (spec.items.isEmpty()) {
-        QuietLine(spec.empty ?: WidgetWords.NOTHING)
-        return
+private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
+    val lead = spec.lead
+    when {
+        lead == null && spec.items.isEmpty() -> QuietLine(spec.empty ?: WidgetWords.NOTHING)
+        lead == null -> RowList(spec.items, onTap)
+        box != WidgetSizes.Box.LARGE -> {
+            ReportMore(if (spec.items.isNotEmpty()) "+${spec.items.size} more" else null)
+            Box(Modifier.fillMaxSize(), contentAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.Center else Alignment.CenterStart) {
+                LeadLine(lead, valueStyle(box), centred = box == WidgetSizes.Box.SMALL)
+            }
+        }
+        else -> Column(Modifier.fillMaxSize()) {
+            LeadLine(lead, MaterialTheme.typography.headlineMedium, centred = false)
+            if (spec.items.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.weight(1f).fillMaxWidth()) { RowList(spec.items, onTap) }
+            }
+        }
     }
+}
+
+/** A list's lead: the value big, its unit small, and the label under them. */
+@Composable
+private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) {
+    val type = MaterialTheme.typography
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start) {
+        Row {
+            BigText(lead.value, style, Modifier.weight(1f, fill = false).alignByBaseline())
+            lead.unit?.let { Text(it, style = type.titleMedium, color = muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline()) }
+        }
+        lead.label?.let { Text(it, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    }
+}
+
+/** A list's rows, as many as fit the box, then "+3 more" ([RowsBody]). */
+@Composable
+private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?) {
     val inTitle = LocalMoreNote.current != null
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val details = maxWidth >= 200.dp && spec.items.any { it.detail != null }
+        val details = maxWidth >= 200.dp && items.any { it.detail != null }
         val rowDp = when {
-            spec.items.any { it.tap != null } -> TAP_ROW_DP
+            items.any { it.tap != null } -> TAP_ROW_DP
             details -> TAP_ROW_DP
             else -> 32
         }
         val heightDp = maxHeight.value.toInt()
         val moreDp = if (inTitle) 0 else MORE_DP
-        val shown = WidgetWords.rowsShown(spec.items.size, heightDp, rowDp, moreDp, ROW_GAP_DP)
-        val more = spec.items.size - shown
+        val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, moreDp, ROW_GAP_DP)
+        val more = items.size - shown
         ReportMore(if (more > 0) "+$more more" else null)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
-            spec.items.take(shown).forEachIndexed { i, row ->
+            items.take(shown).forEachIndexed { i, row ->
                 key(i) { ListRow(row, rowDp.dp, details, segmentShape(i, shown), onTap) }
             }
-            if (!inTitle && WidgetWords.showsMore(spec.items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
+            if (!inTitle && WidgetWords.showsMore(items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
                 Text(
                     "+$more more",
                     style = MaterialTheme.typography.labelMedium,

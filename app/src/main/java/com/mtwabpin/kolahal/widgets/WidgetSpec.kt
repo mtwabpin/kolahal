@@ -123,8 +123,14 @@ sealed interface WidgetSpec {
         val done: Boolean? = null,
     )
 
-    /** Kind `list`: rows. [empty] is what to say with no rows. */
-    data class Rows(override val base: WidgetBase, val items: List<Row>, val empty: String? = null) : WidgetSpec
+    /**
+     * The big line over a list's rows: a [value] with a small [unit] and a [label] under it, such as
+     * the next reminder ("42 min", "Call the bank · 22:22").
+     */
+    data class Lead(val value: String, val unit: String? = null, val label: String? = null)
+
+    /** Kind `list`: rows, and perhaps a [lead] over them. [empty] is what to say with no rows. */
+    data class Rows(override val base: WidgetBase, val items: List<Row>, val empty: String? = null, val lead: Lead? = null) : WidgetSpec
 
     /** One bar of a [Progress] with several. */
     data class Bar(val label: String?, val value: Float, val max: Float, val text: String?, val color: StyledText.Colour?)
@@ -382,6 +388,7 @@ object WidgetJson {
                     )
                 },
                 "empty" to spec.empty,
+                "lead" to spec.lead?.let { fields("value" to it.value, "unit" to it.unit, "label" to it.label) },
             )
             is WidgetSpec.Progress -> fields(
                 "value" to number(spec.value),
@@ -556,6 +563,7 @@ object WidgetJson {
                     WidgetSpec.Row(r.needStyled("title"), r.styled("detail"), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
                 },
                 empty = m.text("empty"),
+                lead = m["lead"]?.let(::obj)?.let { WidgetSpec.Lead(it.needText("value"), it.text("unit"), it.text("label")) },
             )
             WidgetKind.PROGRESS -> WidgetSpec.Progress(
                 base,

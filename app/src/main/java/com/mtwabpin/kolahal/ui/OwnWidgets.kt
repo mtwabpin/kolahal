@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -65,6 +66,9 @@ internal object OwnCards {
     const val MAX_TODOS = 50
     /** The Reminders card shows the next reminder and the two after it. */
     const val MAX_REMINDERS = 3
+
+    /** A reminder's text in the lead's label, which is at most 60 characters with its time. */
+    private const val MAX_LEAD_TEXT = 36
     /** A large Notes card shows the newest three notes. */
     const val MAX_NOTES = 3
     private const val MAX_NOTE = 500
@@ -251,22 +255,59 @@ internal object OwnCards {
     }
 
     /**
-     * The Reminders card: the next [MAX_REMINDERS] reminders of [list], which is soonest first. Each
-     * row has the text, when it is due and how it repeats, and the time to it at its end. The card
-     * is made again each minute, so the time to it counts down with no run.
+     * When a reminder is due, short, for the end of a row: "18:30" today, "Mon" in the next six
+     * days, else "20 Nov". [at] and [now] are in milliseconds.
      */
-    fun reminders(list: List<Reminder>, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): WidgetSpec.Rows = WidgetSpec.Rows(
-        base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.REMINDERS)),
-        items = list.take(MAX_REMINDERS).map { r ->
-            WidgetSpec.Row(
-                title = r.text,
+    fun shortWhen(at: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): String {
+        val t = Instant.ofEpochMilli(at).atZone(zone)
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val day = t.toLocalDate()
+        return when {
+            !day.isAfter(today) -> TimeFormats.clockFormat(clock24, locale).format(t)
+            day.isBefore(today.plusDays(7)) -> t.format(DateTimeFormatter.ofPattern("EEE", locale))
+            else -> t.format(DateTimeFormatter.ofPattern("d MMM", locale))
+        }
+    }
+
+    /**
+     * The time from [now] to [at] as a number and its unit, for a lead: "42" "min", "13" "h",
+     * "2" "days". Minutes are rounded up, as [until] does. A time that has come is "now".
+     */
+    fun untilParts(at: Long, now: Long): Pair<String, String?> {
+        val left = at - now
+        if (left <= 0) return "now" to null
+        val minutes = (left + 59_999) / 60_000
+        return when {
+            minutes < 60 -> "$minutes" to "min"
+            minutes < 48 * 60 -> "${minutes / 60}" to "h"
+            else -> (minutes / (24 * 60)).let { "$it" to if (it == 1L) "day" else "days" }
+        }
+    }
+
+    /**
+     * The Reminders card for [list], which is soonest first.
+     * - The next reminder is the card's lead: the time to it big ("42 min"), and under it its text,
+     *   when it is due and how it repeats ("Call the bank · 22:22 · every Mon").
+     * - The next [MAX_REMINDERS] after it are rows: the text, and when it is due at the end, short
+     *   ([shortWhen]), so the text keeps its room.
+     * - The card is made again each minute, so the time counts down with no run.
+     */
+    fun reminders(list: List<Reminder>, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): WidgetSpec.Rows {
+        val next = list.firstOrNull()
+        return WidgetSpec.Rows(
+            base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.REMINDERS)),
+            items = list.drop(1).take(MAX_REMINDERS).map { r ->
+                WidgetSpec.Row(title = r.text, trailing = shortWhen(r.at, now, zone, clock24, locale))
+            },
+            empty = "No reminders",
+            lead = next?.let { r ->
+                val (value, unit) = untilParts(r.at, now)
                 // A rule that can't be read has no words. It must not end the card: such a reminder fires once.
-                detail = whenLabel(r.at, now, zone, clock24, locale) + r.repeat?.let { rule -> runCatching { " · ${Repeat.label(rule)}" }.getOrNull() }.orEmpty(),
-                trailing = until(r.at, now),
-            )
-        },
-        empty = "No reminders",
-    )
+                val repeat = r.repeat?.let { rule -> runCatching { " · ${Repeat.label(rule)}" }.getOrNull() }.orEmpty()
+                WidgetSpec.Lead(value, unit, cut(r.text.trim(), MAX_LEAD_TEXT) + " · " + whenLabel(r.at, now, zone, clock24, locale) + repeat)
+            },
+        )
+    }
 
     // ---- notes ------------------------------------------------------------------------------
 

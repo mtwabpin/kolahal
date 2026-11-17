@@ -856,7 +856,9 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Shows :: Rows, as many as fit, then "+3 more". Each row has a title and can have a second line,
   a text at its end, an icon and a colour.
 - Fields :: =items= (needed; the first 12 are kept): each ~{ title, detail, trailing, icon, color,
-  tap }~, with only =title= needed. =empty=: what to say with no rows ("Nothing new").
+  tap }~, with only =title= needed. =empty=: what to say with no rows ("Nothing new"). =lead= ~{
+  value, unit, label }~: a big line over the rows (the Reminders card's next reminder). A small or
+  a wide card shows the lead alone.
 - Phase 2 adds :: =done= (true or false) on an item draws a checkbox, for todos and habits.
 - When small :: 2×2 shows 3 rows without their second line.
 - Data :: Any script. Built-in: Todos, Reminders (phase 2).
