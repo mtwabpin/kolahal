@@ -5,6 +5,7 @@ import com.mtwabpin.kolahal.data.FontFiles
 import android.app.Application
 import android.app.Instrumentation
 import android.content.Intent
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -20,7 +21,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -62,7 +63,8 @@ private const val TEST_THEME = "tb-test"
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
-    @get:Rule val compose = createComposeRule()
+    // With its activity, so a test can press Back.
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val config = Config.get(app)
     private lateinit var vm: TerminalViewModel
@@ -140,6 +142,50 @@ class SettingsScreenTest {
         list.performScrollToKey("command:history")
         compose.onNodeWithTag("command help").assertDoesNotExist()
         compose.onNodeWithTag("command config").assertDoesNotExist()
+    }
+
+    /**
+     * Settings → Commands: the search field keeps the commands it finds, under their sections.
+     * The × button shows them all again, and so does Back, before it closes the page.
+     */
+    @Test fun theCommandsPageSearchFindsCommands() {
+        show(COMMANDS_CATEGORY)
+        val field = compose.onNode(hasSetTextAction())
+        compose.onNodeWithText("Apps").assertExists()
+        // By another name, in any case: `youtube` is `yt`, in the Web section.
+        field.performTextInput(" YouTube")
+        val yt = compose.onNodeWithTag("command yt")
+        yt.assertIsDisplayed()
+        compose.onNodeWithText("Web").assertIsDisplayed()
+        compose.onNodeWithText("Apps").assertDoesNotExist()
+        compose.onNodeWithTag("command wiki").assertDoesNotExist()
+        // A command found still switches.
+        yt.performClick()
+        compose.waitUntil(5_000) { config[Keys.COMMANDS_OFF] == "yt" }
+        yt.assertIsOff()
+
+        field.performTextReplacement("zzzz")
+        compose.onNodeWithText("No command matches “zzzz”").assertIsDisplayed()
+        yt.assertDoesNotExist()
+        compose.onNodeWithContentDescription("Clear").performClick()
+        compose.onNodeWithText("Apps").assertExists()
+        compose.onNodeWithTag("command open").assertExists()
+
+        // The page opens without the last search.
+        field.performTextInput("wiki")
+        compose.onNodeWithText("Apps").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.runOnIdle { vm.settingsCategory.value = COMMANDS_CATEGORY }
+        compose.onNodeWithText("Apps").assertExists()
+
+        // Back empties the search first, then closes the page.
+        field.performTextInput("wiki")
+        compose.onNodeWithText("Apps").assertDoesNotExist()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Apps").assertExists()
+        assertEquals(COMMANDS_CATEGORY, vm.settingsCategory.value)
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Search settings").assertExists()
     }
 
     @Test fun aTapOnTheEyeSaysToHold() {

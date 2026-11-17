@@ -251,6 +251,12 @@ You can turn off the commands you don't use: **Settings → Commands** has a swi
 This helps when a command has the name of an app you open often. With `maps` off, typing `maps`
 opens Maps.
 
+The list is long, so the page has a search field at the top. Type a few letters to find a command:
+
+- by its name: `wiki`;
+- by what it does: `screen time` finds `usage`;
+- by another name for it: `youtube` finds `yt`.
+
 A command that is off:
 
 - isn't suggested, and `help` doesn't list it (`help` names the commands that are off at the end);

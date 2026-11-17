@@ -1,8 +1,10 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Switch
@@ -15,6 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandSpec
@@ -40,18 +44,62 @@ internal fun commandSections(): List<Pair<String, List<CommandSpec>>> {
 }
 
 /**
+ * [sections] with only the commands that [query] finds, for the page's search field.
+ * - A command is found when its row shows every word of [query] ([shows]).
+ * - A section with no command found is left out. The others keep their order.
+ * - A blank [query] finds every command.
+ */
+internal fun commandsFound(sections: List<Pair<String, List<CommandSpec>>>, query: String): List<Pair<String, List<CommandSpec>>> {
+    val words = query.split(SPACES).filter { it.isNotEmpty() }
+    if (words.isEmpty()) return sections
+    return sections.mapNotNull { (section, specs) ->
+        val found = specs.filter { spec -> words.all(spec::shows) }
+        if (found.isEmpty()) null else section to found
+    }
+}
+
+/** What splits a search into words: spaces, and any other blank characters. */
+private val SPACES = Regex("\\s+")
+
+/**
+ * Whether the command's row shows [word]: in its name, in what it does ([CommandSpec.short]) or in
+ * one of its other names. Upper and lower case are the same.
+ */
+private fun CommandSpec.shows(word: String): Boolean =
+    name.contains(word, ignoreCase = true) || short.contains(word, ignoreCase = true) || aka.any { it.contains(word, ignoreCase = true) }
+
+/**
  * Settings → Commands: a switch for each built-in command, in `help`'s sections. A command
  * switched off isn't suggested or listed in help, and its name opens the app it matches.
+ *
+ * The search field at the top keeps only the commands that [query] finds ([commandsFound]).
+ * A row's shape comes from its place among the rows shown, so the first and the last row of a
+ * section keep their round corners.
  */
-internal fun LazyListScope.commandsPage(vm: TerminalViewModel, version: State<Int>) {
-    item(key = "commands:hint") {
-        PageHint(
-            "Turn off the commands you don't use. A command that is off isn't suggested or listed in help, " +
-                "and typing its name opens the app it matches: with maps off, maps opens Maps. " +
-                "help, config and settings stay on.",
+internal fun LazyListScope.commandsPage(vm: TerminalViewModel, version: State<Int>, query: String, onQuery: (String) -> Unit) {
+    item(key = "commands:search") {
+        SearchField(
+            query,
+            onQuery,
+            "Search commands",
+            Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+            clear = "Clear",
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         )
     }
-    for ((section, specs) in commandSections()) {
+    val sections = commandsFound(commandSections(), query)
+    // During a search, the commands found come right under the field: the keyboard leaves little room.
+    if (query.isBlank()) {
+        item(key = "commands:hint") {
+            PageHint(
+                "Turn off the commands you don't use. A command that is off isn't suggested or listed in help, " +
+                    "and typing its name opens the app it matches: with maps off, maps opens Maps. " +
+                    "help, config and settings stay on.",
+            )
+        }
+    }
+    if (sections.isEmpty()) item(key = "commands:none") { NoMatchNote("No command matches “${query.trim()}”") }
+    for ((section, specs) in sections) {
         item(key = "commands:h:$section") { GroupHeader(section) }
         specs.forEachIndexed { index, spec ->
             item(key = "command:${spec.name}") { CommandSwitch(vm, spec, version, index, specs.size) }

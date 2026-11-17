@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -94,6 +93,9 @@ fun SettingsScreen(vm: TerminalViewModel) {
     var openId by vm.settingsCategory
     var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     val open = allCategories().firstOrNull { it.id == openId }
+    // The Commands page's search. It is empty again each time that page opens.
+    val commandsOpen = open?.id == COMMANDS_CATEGORY
+    var commandQuery by androidx.compose.runtime.saveable.rememberSaveable(commandsOpen) { mutableStateOf("") }
     val crashPage = openId == CRASHES_PAGE
     val aboutPage = openId == ABOUT_PAGE
     // Crash reports open from About, so Back returns to About.
@@ -130,9 +132,10 @@ fun SettingsScreen(vm: TerminalViewModel) {
     )
     val tapScope = rememberCoroutineScope()
     val importTheme = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), vm::importTheme)
-    // Back closes, in order: an open category page, then the search, then Settings.
+    // Back closes, in order: the Commands page's search, an open category page, then the search, then Settings.
     BackHandler {
         when {
+            commandsOpen && commandQuery.isNotEmpty() -> commandQuery = ""
             open != null || aboutPage || crashPage -> closePage()
             query.isNotEmpty() -> query = ""
             else -> vm.closeScreen()
@@ -208,7 +211,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                         )
                     }
                 }
-                if (open.id == COMMANDS_CATEGORY) commandsPage(vm, version)
+                if (commandsOpen) commandsPage(vm, version, commandQuery) { commandQuery = it }
                 if (open.id == "look") {
                     item(key = "h:own-themes") { PeekFade(peek) { GroupHeader("Your themes") } }
                     item(key = "own-themes") {
@@ -264,15 +267,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
 
             if (query.isNotBlank()) {
                 val hits = allCategories().flatMap { c -> c.keys.filter { it in applicableKeys && matches(it, query.trim()) }.map { c to it } }
-                if (hits.isEmpty()) {
-                    item(key = "nohits") {
-                        Text(
-                            "No setting matches “${query.trim()}”",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-                }
+                if (hits.isEmpty()) item(key = "nohits") { NoMatchNote("No setting matches “${query.trim()}”") }
                 hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
                     item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
                     keys.forEachIndexed { index, key ->

@@ -321,6 +321,15 @@ internal fun EmptyNote(text: String, modifier: Modifier = Modifier, top: Dp = 32
     )
 }
 
+/**
+ * The line a page's search shows when it finds nothing. It starts where the rows' text starts, under
+ * the search field. A page with nothing to list uses [EmptyNote].
+ */
+@Composable
+internal fun NoMatchNote(text: String) {
+    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+}
+
 /** Small text under a page's rows. It explains how they work and names the terminal commands that do the same. */
 @Composable
 internal fun PageHint(text: String, modifier: Modifier = Modifier, top: Dp = 16.dp) {
