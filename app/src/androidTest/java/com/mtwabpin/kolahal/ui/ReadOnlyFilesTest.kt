@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
@@ -19,6 +20,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.mtwabpin.kolahal.documents.ContentDocuments
@@ -33,6 +36,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
@@ -91,6 +95,26 @@ class ReadOnlyFilesTest {
 
     private fun read(uri: Uri) = resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
 
+    /**
+     * Taps what [selector] finds on Android's screens, once it shows; fails with [what] after 10
+     * seconds. The picker redraws its lists as they load, so a found item can be gone at the tap:
+     * then it is found again.
+     */
+    private fun tap(what: String, selector: BySelector) {
+        val until = SystemClock.uptimeMillis() + 10_000
+        while (SystemClock.uptimeMillis() < until) {
+            try {
+                device.wait(Until.findObject(selector), 1_000)?.let {
+                    it.click()
+                    return
+                }
+            } catch (_: StaleObjectException) {
+                // Redrawn between finding and tapping: look again.
+            }
+        }
+        fail(what)
+    }
+
     /** Picks the file [name] under Recent in Android's file picker, and returns the address the picker gives. */
     private fun pickInRecent(name: String): Uri {
         val picked = ArrayBlockingQueue<Uri>(1)
@@ -99,9 +123,9 @@ class ReadOnlyFilesTest {
                 activity.activityResultRegistry.register("pick", ActivityResultContracts.OpenDocument()) { picked.put(it ?: Uri.EMPTY) }
                     .launch(arrayOf("text/plain"))
             }
-            assertNotNull("the picker shows its roots", device.wait(Until.findObject(By.desc("Show roots")), 10_000)?.also { it.click() })
-            assertNotNull("the picker has Recent", device.wait(Until.findObject(By.text("Recent")), 5_000)?.also { it.click() })
-            assertNotNull("Recent lists $name", device.wait(Until.findObject(By.text(name)), 10_000)?.also { it.click() })
+            tap("the picker shows its roots", By.desc("Show roots"))
+            tap("the picker has Recent", By.text("Recent"))
+            tap("Recent lists $name", By.text(name))
             val uri = picked.poll(10, TimeUnit.SECONDS).also { assertNotNull("the picker gave an address", it) }!!
             addresses += uri.toString()
             // As `edit` does: the permission ends with this window unless it is kept.
@@ -178,7 +202,7 @@ class ReadOnlyFilesTest {
 
         // A tap on the message opens the picker in the file's folder. The file is picked there.
         compose.onNodeWithTag("message").performClick()
-        assertNotNull("the picker starts in Download", device.wait(Until.findObject(By.text(name)), 10_000)?.also { it.click() })
+        tap("the picker starts in Download, with $name", By.text(name))
         compose.waitFor("the file opened again, with the unsaved text", 10_000) {
             editors() == 1 && message() == "Your unsaved changes are back" && text() == "mine"
         }
