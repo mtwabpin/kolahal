@@ -79,7 +79,13 @@ class MaterialYouTest {
 
             wallpaperSet = true
             wallpapers.setBitmap(Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }, null, true, WallpaperManager.FLAG_SYSTEM)
-            // Android takes a few seconds to work out a wallpaper's colours and hand them to apps.
+            // Android holds back the colours of a wallpaper that a background app set (as this test
+            // does) until the screen goes off: "keep deferring color events". One you pick yourself
+            // applies at once. So the screen goes off and on, and Android works the colours out.
+            shell("input keyevent KEYCODE_SLEEP")
+            Thread.sleep(2_000)
+            shell("input keyevent KEYCODE_WAKEUP")
+            shell("wm dismiss-keyguard")
             waitUntil("new colours on home", 30_000) { Term.palette != before }
             waitUntil("the new wallpaper's colours") { Term.palette == fromPhone(dark = true) }
             assertEquals("a wallpaper's colour never changes what good means", before.good, Term.palette.good)
