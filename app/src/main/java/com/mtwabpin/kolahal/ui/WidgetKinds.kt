@@ -1406,7 +1406,8 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
  * `chart`: numbers over time as a line or as bars, with a headline.
  * - Small: the headline over a small plot.
  * - Wide: the headline with a small plot beside it.
- * - Large: the headline, the plot, and under it the labels of the first and the last point.
+ * - Large: the value big, its label under it (as a stat has them), the plot, and under the plot
+ *   the labels of the first and the last point.
  * The plot has no words of its own. The card's description says the chart for a screen reader.
  */
 @Composable
@@ -1419,19 +1420,9 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
     val label = spec.label
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            if (value != null || label != null) Row {
-                if (value != null) BigText(value, type.headlineSmall, Modifier.weight(1f, fill = false).alignByBaseline())
-                if (label != null) {
-                    Text(
-                        label,
-                        style = type.bodySmall,
-                        color = muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = if (value != null) 8.dp else 0.dp).widthIn(max = 120.dp).alignByBaseline(),
-                    )
-                }
-            }
+            // The value on its own line with its label under it, as a stat has them.
+            if (value != null) BigText(value, valueStyle(box))
+            if (label != null) Text(label, style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp))
             if (spec.labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
                 Text(spec.labels.first(), style = type.labelSmall, color = muted, maxLines = 1)
