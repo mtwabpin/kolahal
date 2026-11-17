@@ -960,14 +960,17 @@ private fun SmallValue(small: WidgetSpec.Small, modifier: Modifier = Modifier) {
     }
 }
 
-/** `text`: a few lines, cut with "…" where the box ends, and a caption under them. A small box has no caption. */
+/**
+ * `text`: a few lines, cut with "…" where the box ends, and a caption under them. A small box has no
+ * caption. A large box has the text in bold, as the mockup has it: there it is the card's main thing.
+ */
 @Composable
 private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
     val style = when (box) {
         WidgetSizes.Box.SMALL -> type.bodySmall
         WidgetSizes.Box.WIDE -> type.bodyMedium
-        WidgetSizes.Box.LARGE -> type.bodyLarge
+        WidgetSizes.Box.LARGE -> type.titleMedium.copy(fontWeight = FontWeight.Bold)
     }
     Column(Modifier.fillMaxSize()) {
         // The text gets the height that is left, and its last line that fits ends in "…".

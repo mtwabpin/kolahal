@@ -511,8 +511,8 @@ class LibraryWidgetsTest {
     }
 
     @Test fun quote() {
-        val spec = parse("quote.js", mapOf("text" to "“Be kind”", "caption" to "Someone"))
-        assertEquals(WidgetSpec.Text(WidgetBase(), text = "“Be kind”", caption = "Someone"), spec)
+        val spec = parse("quote.js", mapOf("text" to "Be kind", "caption" to "Someone"))
+        assertEquals(WidgetSpec.Text(WidgetBase(), text = "Be kind", caption = "Someone"), spec)
     }
 
     @Test fun crypto() {

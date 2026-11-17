@@ -343,7 +343,7 @@ class WidgetGalleryTest {
             Shot("feed", WidgetSize.S2X2, "My feed", WidgetSpec.Rows(base("My feed", "feed", Colour.LINK), feed.mapIndexed { i, title -> WidgetSpec.Row(title, tap = link(i)) })),
             Shot(
                 "quote", WidgetSize.S2X2, "Quote of the day",
-                WidgetSpec.Text(base("Quote of the day", "quote"), "“Simplicity is prerequisite for reliability.”", "Edsger W. Dijkstra"),
+                WidgetSpec.Text(base("Quote of the day", "quote"), "Simplicity is prerequisite for reliability.", "Edsger W. Dijkstra"),
             ),
             Shot("battery", WidgetSize.S2X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
             Shot("battery", WidgetSize.S1X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
