@@ -80,6 +80,41 @@
             </intent-filter>
         </activity>
 
+        <!-- The text editor, for any text file on the phone. It is not a screen of the launcher's
+             task, which is cleared on Home and kept out of Recents: a file open there would be lost.
+             - taskAffinity: a task of its own.
+             - documentLaunchMode: each file is its own task, named after the file in Recents.
+               Opening a file that is open already brings its task back as it was (intoExisting).
+             - Other apps reach it through "Open with", for a text file they share as a content: address.
+             It needs no storage permission: it reads and writes only the file that the file picker
+             or the sharing app gave it. -->
+        <activity
+            android:name=".ui.TextEditorActivity"
+            android:exported="true"
+            android:label="@string/editor_name"
+            android:taskAffinity="${applicationId}.editor"
+            android:documentLaunchMode="intoExisting"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|assetsPaths"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/xml" />
+                <data android:mimeType="application/javascript" />
+                <data android:mimeType="application/x-javascript" />
+                <data android:mimeType="application/x-lua" />
+                <data android:mimeType="application/x-sh" />
+                <data android:mimeType="application/x-yaml" />
+                <data android:mimeType="application/yaml" />
+                <data android:mimeType="application/toml" />
+                <data android:mimeType="application/sql" />
+            </intent-filter>
+        </activity>
+
         <!-- Scripts (Lua / QuickJS) run here so a native crash can never take down the home screen. -->
         <service
             android:name="androidx.work.multiprocess.RemoteWorkerService"

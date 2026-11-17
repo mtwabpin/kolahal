@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
+import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
@@ -26,7 +28,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
+import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.MaterialYou
 
 data class Palette(
@@ -331,6 +335,43 @@ object Term {
         }
     }
 }
+
+/**
+ * Copies the settings that decide how text looks into [Term]: the theme's colours, the font and
+ * its size, and how log lines are laid out.
+ *
+ * [Term] is one for the whole app. So each of Kolahal's windows (home, the text editor) calls this
+ * when it starts and when a setting changes, and they all look the same.
+ * - [dark]: use the theme's dark version, not its light one ([darkTheme]).
+ * - [theme], [fontSize] and [font] are the settings' values unless given. Settings gives others to
+ *   show a value before it is kept.
+ *
+ * Returns false when [font] can't be loaded. The phone's monospace font is used then.
+ */
+fun applyTermSettings(
+    context: Context,
+    config: Config,
+    dark: Boolean,
+    theme: String = config[Keys.THEME],
+    fontSize: Int = config[Keys.FONT_SIZE],
+    font: String = config[Keys.FONT],
+): Boolean {
+    Term.palette = Palettes.named(theme, dark)
+    Term.fontSize = fontSize
+    val family = TermFonts.family(context, font)
+    Term.fontFamily = family ?: FontFamily.Monospace
+    Term.sans = Term.Sans.of(config[Keys.FONT_SANS])
+    Term.lineHeight = config[Keys.LOG_LINE_HEIGHT]
+    Term.tallerTaps = config[Keys.LOG_TALLER_TAPS]
+    Term.boxedTables = config[Keys.LOG_TABLES] == "boxed"
+    Term.foldLines = config[Keys.LOG_FOLD]
+    Term.chipHeight = config[Keys.CHIP_HEIGHT]
+    return family != null
+}
+
+/** True when the phone is in dark mode or `theme.always-dark` is on. Then a theme's dark version shows. */
+fun darkTheme(config: Config, phone: Configuration): Boolean =
+    config[Keys.THEME_ALWAYS_DARK] || (phone.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
 @Composable
 fun KolahalTheme(content: @Composable () -> Unit) {

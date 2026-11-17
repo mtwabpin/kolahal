@@ -44,4 +44,10 @@ interface TerminalUi {
      * If [thenBackUp] is true, writes a backup once the folder is picked (used by `backup` when no folder is set yet).
      */
     fun askBackupFolder(thenBackUp: Boolean)
+    /** For `edit`: opens Android's file picker, and then the picked file in the text editor. */
+    fun pickTextFile()
+    /** For `edit new`: asks where to make a file called [name], and then opens it in the text editor. */
+    fun newTextFile(name: String)
+    /** For `edit <file>`: opens the file at [uri], a `content:` address, in the text editor. */
+    fun openTextFile(uri: String)
 }

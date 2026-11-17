@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Kolahal debug</string>
+    <string name="editor_name">Kolahal Editor debug</string>
 </resources>

@@ -202,7 +202,8 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 // MainActivity handles these, so they work from every page (setup, script manager).
                 UiEvent.RequestNotificationPermission, UiEvent.RequestContactsPermission, UiEvent.PickContact, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
                 UiEvent.PickFont, UiEvent.PickBackupFolder, UiEvent.PickScriptFolder,
-                UiEvent.ExportBackup, UiEvent.ImportBackup, UiEvent.ImportScripts, is UiEvent.ExportScript -> Unit
+                UiEvent.ExportBackup, UiEvent.ImportBackup, UiEvent.ImportScripts, is UiEvent.ExportScript,
+                UiEvent.PickTextFile, is UiEvent.NewTextFile, is UiEvent.OpenTextFile -> Unit
                 UiEvent.ShowQuick -> Unit // opened by the collector below, where the menu lives
                 UiEvent.FocusPrompt -> focusPrompt(show = !currentHasHardwareKeyboard)
                 UiEvent.HideKeyboard -> currentKeyboard?.hide()

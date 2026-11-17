@@ -64,6 +64,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val people = PeopleCommands(context, ui)
     private val appCommands = AppCommands(context, ::background)
     private val feedCommands = FeedCommands(context, appCommands, ui)
+    private val editCommands = EditCommands(context, ui)
 
     /** Runs [block] outside the command's thread. What it prints still counts as the command's output. */
     private fun background(label: String, block: () -> Unit) {
@@ -147,6 +148,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "history" -> history()
                 "scripts" -> if (args.isEmpty()) ui.openScreen(Screen.SCRIPTS) else scriptCommands.script(args)
                 "script" -> scriptCommands.script(args)
+                "edit" -> editCommands.run(args)
                 "lua" -> eval(ScriptLang.LUA, rest)
                 "js" -> eval(ScriptLang.JS, rest)
                 // Created only behind the build switch, so R8 removes the updater from the Play build.

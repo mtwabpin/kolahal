@@ -27,6 +27,7 @@ import kotlinx.coroutines.withContext
  * - pickers: a contact, the script folder, a font, and a theme file to import or export;
  * - the file pickers of the GUI pages: a backup to export or import, script files to import, and
  *   where to save a script. The activity opens them and gives the answer to [BackupActions] or [ScriptActions].
+ * - the text editor (`edit`): a file to pick or make, and the editor's window for it.
  *
  * The view model holds one as `requests`. Its [TerminalUi] calls and result handlers hand over to it.
  */
@@ -127,6 +128,21 @@ class RequestActions(private val context: Context, private val host: Host) {
 
     fun requestScriptExport(script: Script) {
         host.emit(UiEvent.ExportScript(script))
+    }
+
+    // ---- the text editor ------------------------------------------------------------------
+    // The activity opens the picker and then the editor's own window: the editor reads the file.
+
+    fun pickTextFile() {
+        host.emit(UiEvent.PickTextFile)
+    }
+
+    fun newTextFile(name: String) {
+        host.emit(UiEvent.NewTextFile(name))
+    }
+
+    fun openTextFile(uri: String) {
+        host.emit(UiEvent.OpenTextFile(uri))
     }
 
     // ---- fonts and themes -----------------------------------------------------------------

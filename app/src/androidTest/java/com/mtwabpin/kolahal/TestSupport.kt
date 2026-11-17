@@ -100,6 +100,9 @@ open class TerminalUiStub : TerminalUi {
     override fun filterLog(filter: com.mtwabpin.kolahal.commands.LogFilter?) = Unit
     override fun logWidthPx(): Int? = null
     override fun askBackupFolder(thenBackUp: Boolean) = Unit
+    override fun pickTextFile() = Unit
+    override fun newTextFile(name: String) = Unit
+    override fun openTextFile(uri: String) = Unit
 }
 
 /** Runs command lines as typed at the prompt, through a [CommandProcessor] on [ui], and reads back what each printed. */

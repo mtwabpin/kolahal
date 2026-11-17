@@ -445,6 +445,7 @@ class Completer(private val context: Context, private val data: Data) {
                     .map { Suggestion.Completion(it, if (it == "sans") "$head sans " else "$head $it") }
             }
             "call", "sms", "contacts" -> contactSuggestions(cmd, head, parts)
+            "edit" -> editSuggestions(head, arg)
             in CommandCatalog.PRODUCTIVITY -> productivitySuggestions(cmd, head, parts)
             // `log only …`: offer the kinds, then the sources of the log's lines.
             "log" -> if (parts.size == 3 && parts[1] == "only") {
@@ -478,6 +479,32 @@ class Completer(private val context: Context, private val data: Data) {
      */
     private fun appCompletions(head: String, arg: String, includeHidden: Boolean = false, only: ((AppEntry) -> Boolean)? = null): List<Suggestion> =
         appRows(head, appsRepo.search(arg.replace(FLAGS, "").trim(), includeHidden = includeHidden).filter { only == null || only(it) }.take(cap))
+
+    /**
+     * The text editor's recent files and those with unsaved text, and when they were read. The
+     * editor is another window and changes them, so they are read again at most every 5 seconds
+     * while you type.
+     */
+    @Volatile private var editFiles: Pair<Long, List<com.mtwabpin.kolahal.documents.Documents.Listed>>? = null
+
+    /**
+     * `edit `: the recent files by name, then `new` and `recent`; typing narrows them. A name that
+     * two files share is offered once: `edit <name>` opens the newest.
+     */
+    private fun editSuggestions(head: String, arg: String): List<Suggestion> {
+        val known = editFiles
+        if (known == null || System.currentTimeMillis() - known.first >= 5_000) {
+            loadSoon("edit-files") { editFiles = System.currentTimeMillis() to com.mtwabpin.kolahal.documents.Documents.listed(context) }
+        }
+        val files = known?.second.orEmpty().distinctBy { it.name }
+            // A file called `new` or `recent` would be the same row as that word: `edit recent` lists it.
+            .filter { it.name.contains(arg, ignoreCase = true) && !it.name.equals(arg, ignoreCase = true) && it.name.lowercase() !in setOf("new", "recent") }
+            .take(cap)
+            .map { Suggestion.Completion(it.name, "$head ${it.name}", icon = R.drawable.ic_edit, help = if (it.unsaved) "unsaved changes" else null) }
+        val words = listOf("new" to "make a new file", "recent" to "the files opened lately").filter { it.first.starts(arg) }
+            .map { (word, help) -> Suggestion.Completion(word, "$head $word", help = help) }
+        return files + words
+    }
 
     /**
      * The apps that have launcher shortcuts, and when they were asked. Null inside when Kolahal may

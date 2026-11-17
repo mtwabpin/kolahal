@@ -17,7 +17,13 @@ import androidx.compose.ui.text.input.TextFieldValue
  * - otherwise dismisses it.
  */
 internal class EditorMessage(val text: String, val kind: Kind, val line: Int? = null, val action: (() -> Unit)? = null) {
-    enum class Kind { INFO, OK, BUSY, ERROR }
+    /**
+     * - [INFO] and [OK] go away after a few seconds.
+     * - [ERROR] and [NOTE] stay until the next message or a tap: something to read and act on.
+     *   A note is not a failure (unsaved text came back, the file changed on disk).
+     * - [BUSY] stays until the work it names is done. The screen that set it ends it.
+     */
+    enum class Kind { INFO, OK, BUSY, ERROR, NOTE }
 }
 
 /**

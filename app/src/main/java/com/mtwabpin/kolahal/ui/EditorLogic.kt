@@ -318,6 +318,14 @@ object EditorLogic {
         else -> null
     }
 
+    private val PROSE = setOf("txt", "text", "md", "markdown", "org", "rst", "adoc", "tex")
+
+    /**
+     * Whether a file's lines wrap when it opens, from its [name]: writing does (notes, Markdown, a
+     * file with no ending such as README), and code and data don't, as each of their lines means one thing.
+     */
+    fun wrapsByDefault(name: String): Boolean = name.substringAfterLast('.', "").lowercase().let { it.isEmpty() || it in PROSE }
+
     /** A finished run as the editor shows it: what happened, whether it failed, and the line that failed. */
     data class RunResult(val text: String, val failed: Boolean, val line: Int? = null)
 

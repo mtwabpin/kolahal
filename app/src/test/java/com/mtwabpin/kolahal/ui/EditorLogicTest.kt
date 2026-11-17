@@ -322,4 +322,10 @@ class EditorLogicTest {
         assertEquals(ScriptLang.JS, EditorLogic.syntaxFor("kolahal-backup.json"))
         for (plain in listOf("notes.txt", "README.md", "Makefile", "lua", ".js.bak", "")) assertNull(plain, EditorLogic.syntaxFor(plain))
     }
+
+    /** Writing opens with its lines wrapped; code and data open with each line on one line. */
+    @Test fun writingWrapsAndCodeDoesNot() {
+        for (writing in listOf("notes.txt", "README.md", "TODO.ORG", "README", "LICENSE")) assertTrue(writing, EditorLogic.wrapsByDefault(writing))
+        for (code in listOf("weather.lua", "data.json", "table.csv", "app.log", ".gitignore", "build.gradle.kts")) assertFalse(code, EditorLogic.wrapsByDefault(code))
+    }
 }

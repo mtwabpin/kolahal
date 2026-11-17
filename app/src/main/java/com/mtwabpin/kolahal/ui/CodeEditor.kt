@@ -167,11 +167,11 @@ internal fun CodeEditor(
     LaunchedEffect(state.message) {
         val m = state.message ?: return@LaunchedEffect
         when (m.kind) {
-            // Errors stay until the next message, because the user reads them while fixing the text.
-            EditorMessage.Kind.ERROR -> Unit
+            // Errors and notes stay until the next message, because the user reads them while fixing the text.
+            EditorMessage.Kind.ERROR, EditorMessage.Kind.NOTE -> Unit
             // The screen that set it ends it: it knows what it waits for.
             EditorMessage.Kind.BUSY -> Unit
-            else -> {
+            EditorMessage.Kind.INFO, EditorMessage.Kind.OK -> {
                 delay(3_000.milliseconds)
                 if (state.message === m) state.message = null
             }
@@ -536,6 +536,7 @@ internal fun CodeEditor(
                         EditorMessage.Kind.ERROR -> Term.error
                         EditorMessage.Kind.BUSY -> Term.fg
                         EditorMessage.Kind.INFO -> Term.dim
+                        EditorMessage.Kind.NOTE -> Term.info
                     },
                 ),
                 maxLines = 2,

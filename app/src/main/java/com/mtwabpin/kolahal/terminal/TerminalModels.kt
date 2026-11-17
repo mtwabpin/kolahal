@@ -29,6 +29,12 @@ sealed interface UiEvent {
     data object ImportScripts : UiEvent
     /** Export, for one script: asks where to save [script]. */
     data class ExportScript(val script: Script) : UiEvent
+    /** `edit`: asks for a file, to open in the text editor. */
+    data object PickTextFile : UiEvent
+    /** `edit new`: asks where to make a file called [name], to open in the text editor. */
+    data class NewTextFile(val name: String) : UiEvent
+    /** `edit <file>`: opens the file at [uri] in the text editor. */
+    data class OpenTextFile(val uri: String) : UiEvent
 }
 
 /** Something the user can tap in the suggestion strip. Immutable, as each kind of it is. */

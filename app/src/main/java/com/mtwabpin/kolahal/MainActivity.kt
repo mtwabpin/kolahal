@@ -20,7 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontFamily
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -33,14 +32,15 @@ import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.ui.FeedsScreen
 import com.mtwabpin.kolahal.ui.KolahalTheme
 import com.mtwabpin.kolahal.ui.MaterialYouPalettes
-import com.mtwabpin.kolahal.ui.Palettes
 import com.mtwabpin.kolahal.ui.ScriptEditor
 import com.mtwabpin.kolahal.ui.ScriptsScreen
 import com.mtwabpin.kolahal.ui.SettingsOverHome
 import com.mtwabpin.kolahal.ui.SetupScreen
 import com.mtwabpin.kolahal.ui.Term
-import com.mtwabpin.kolahal.ui.TermFonts
 import com.mtwabpin.kolahal.ui.TerminalScreen
+import com.mtwabpin.kolahal.ui.TextEditorActivity
+import com.mtwabpin.kolahal.ui.applyTermSettings
+import com.mtwabpin.kolahal.ui.darkTheme
 import com.mtwabpin.kolahal.ui.WidgetPickerScreen
 import com.mtwabpin.kolahal.ui.WidgetsScreen
 import com.mtwabpin.kolahal.widgets.WidgetBinder
@@ -90,6 +90,14 @@ class MainActivity : ComponentActivity() {
 
     private val exportScript =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { vm.scriptActions.finishExportScript(it) }
+
+    // `edit`: the picked or new file opens in the text editor, which is a window of its own
+    // ([TextEditorActivity]). Any file may be picked: the editor refuses what isn't text.
+    private val pickTextFile =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> TextEditorActivity.open(this, uri) } }
+
+    private val newTextFile =
+        registerForActivityResult(com.mtwabpin.kolahal.ui.CreateTextFile) { it?.let { uri -> TextEditorActivity.open(this, uri) } }
 
     /** Asks where to save [s], then saves it there ([com.mtwabpin.kolahal.terminal.ScriptActions.finishExportScript]). */
     private fun exportScriptFile(s: com.mtwabpin.kolahal.data.Script) {
@@ -169,6 +177,9 @@ class MainActivity : ComponentActivity() {
                     UiEvent.ImportBackup -> importBackup.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
                     UiEvent.ImportScripts -> importScripts.launch(arrayOf("*/*"))
                     is UiEvent.ExportScript -> exportScriptFile(it.script)
+                    UiEvent.PickTextFile -> pickTextFile.launch(arrayOf("*/*"))
+                    is UiEvent.NewTextFile -> newTextFile.launch(it.name)
+                    is UiEvent.OpenTextFile -> TextEditorActivity.open(this@MainActivity, android.net.Uri.parse(it.uri))
                     // The terminal screen handles these: they are about its log, prompt and menu.
                     UiEvent.ScrollToBottom, UiEvent.FocusPrompt, UiEvent.HideKeyboard, UiEvent.ShowQuick -> Unit
                 }
@@ -294,10 +305,6 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) vm.onWindowFocused()
     }
 
-    /** True when the phone is in dark mode or `theme.always-dark` is on. Then the theme's dark version shows. */
-    private fun darkTheme(): Boolean = vm.config[Keys.THEME_ALWAYS_DARK] ||
-        (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-
     // uiMode and assetsPaths are in configChanges. So a dark mode change, or a new wallpaper's
     // colours, calls this instead of restarting the activity.
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -316,26 +323,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyTheme() {
+        // A value that Settings shows before it is kept takes the setting's place.
         val live = vm.previewed
         val theme = live?.theme ?: vm.config[Keys.THEME]
-        Term.palette = Palettes.named(theme, darkTheme())
+        val font = live?.font ?: vm.config[Keys.FONT]
+        val loaded = applyTermSettings(
+            this, vm.config, darkTheme(vm.config, resources.configuration), theme, live?.fontSize ?: vm.config[Keys.FONT_SIZE], font,
+        )
+        if (!loaded) vm.onFontUnavailable(font)
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
         // - The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
         // - material-you took its colours from the wallpaper, so the wallpaper doesn't follow that theme.
         if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(
             this, Term.bg.copy(alpha = 1f).toArgb(), fromWallpaper = theme == MaterialYou.NAME && MaterialYou.supported,
         )
-        Term.fontSize = live?.fontSize ?: vm.config[Keys.FONT_SIZE]
-        val font = live?.font ?: vm.config[Keys.FONT]
-        val family = TermFonts.family(this, font)
-        if (family == null) vm.onFontUnavailable(font)
-        Term.fontFamily = family ?: FontFamily.Monospace
-        Term.sans = Term.Sans.of(vm.config[Keys.FONT_SANS])
-        Term.lineHeight = vm.config[Keys.LOG_LINE_HEIGHT]
-        Term.tallerTaps = vm.config[Keys.LOG_TALLER_TAPS]
-        Term.boxedTables = vm.config[Keys.LOG_TABLES] == "boxed"
-        Term.foldLines = vm.config[Keys.LOG_FOLD]
-        Term.chipHeight = vm.config[Keys.CHIP_HEIGHT]
         // log.wallpaper, widgets.wallpaper: the window shows the phone's wallpaper, and each home page
         // draws its colour over it, as faintly as its setting says (Modifier.page).
         val wallpaper = vm.config[Keys.LOG_WALLPAPER] > 0 ||
