@@ -680,6 +680,19 @@ class WidgetWordsTest {
         assertEquals(3, WidgetWords.clockRows(4, 117, gapDp = 2))
     }
 
+    /** A short list fills its card: its rows share the height, up to 56 dp. A list with rows left out keeps its rows' height. */
+    @Test fun rowsThatAllFitShareTheHeight() {
+        // Three rows of a forecast in a 2x2 card's 138 dp: each gets a third, less the gaps.
+        assertEquals(44.67f, WidgetWords.rowHeight(3, 3, 138f, 32, gapDp = 2), 0.01f)
+        // Never more than 56 dp: one row in a tall card.
+        assertEquals(56f, WidgetWords.rowHeight(1, 1, 300f, 32, gapDp = 2), 0f)
+        // Rows left out: the room is for "+3 more", and each row stays as it is.
+        assertEquals(44f, WidgetWords.rowHeight(8, 3, 138f, 44, gapDp = 2), 0f)
+        // Never under the least height, as for a tap row in too little room.
+        assertEquals(44f, WidgetWords.rowHeight(1, 1, 30f, 44), 0f)
+        assertEquals(32f, WidgetWords.rowHeight(0, 0, 138f, 32), 0f)
+    }
+
     /** A large card with no icon has the first letter of its title as its badge. */
     @Test fun aBadgeLetterIsTheTitlesFirstLetterAsACapital() {
         assertEquals("P", WidgetWords.badgeLetter("pune weather"))

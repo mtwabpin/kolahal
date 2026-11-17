@@ -723,6 +723,23 @@ internal object WidgetWords {
         return if (aboveMore >= 1) aboveMore else ((heightDp + gapDp) / step).coerceIn(1, count)
     }
 
+    /** A list's rows grow to share a box's height up to this height, in dp ([rowHeight]). */
+    const val ROW_MAX_DP = 56
+
+    /**
+     * The height of each of a list's rows, in dp. [shown] of [count] rows are drawn ([rowsShown]),
+     * each at least [rowDp] tall, with [gapDp] between two, in a box [heightDp] tall.
+     * - When all of them are drawn, they grow to share the box's height evenly, up to [ROW_MAX_DP].
+     *   A short list then fills its card, as the mockup has it.
+     * - When some are left out, each is [rowDp]: the room is kept for "+3 more", and a row never
+     *   gets smaller than [rowDp].
+     */
+    fun rowHeight(count: Int, shown: Int, heightDp: Float, rowDp: Int, gapDp: Int = 0): Float {
+        if (shown <= 0 || shown < count) return rowDp.toFloat()
+        val share = (heightDp + gapDp) / shown - gapDp
+        return share.coerceIn(rowDp.toFloat(), maxOf(rowDp, ROW_MAX_DP).toFloat())
+    }
+
     /** Whether the "+3 more" line fits under [shown] rows ([rowsShown]). */
     fun showsMore(count: Int, shown: Int, heightDp: Int, rowDp: Int, moreDp: Int, gapDp: Int = 0): Boolean =
         shown < count && shown * (rowDp + gapDp) - gapDp + moreDp <= heightDp
@@ -994,6 +1011,8 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
  * - A row is 44 dp tall when it can be tapped or has a second line, and 32 dp otherwise. A tap row
  *   is a little under the 48 dp of a button: a list is read more than it is tapped, and a 4x2 card
  *   then shows three rows.
+ * - When every row fits, the rows grow to share the height evenly, up to 56 dp
+ *   ([WidgetWords.rowHeight]). Three days of a forecast then fill a 2x2 card.
  * - A narrow list (under 200 dp) leaves the second lines out.
  * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
  *   line under the rows.
@@ -1051,10 +1070,12 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?) 
         val moreDp = if (inTitle) 0 else MORE_DP
         val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, moreDp, ROW_GAP_DP)
         val more = items.size - shown
+        // All rows drawn: they share the height, so a short list fills the card.
+        val rowHeight = WidgetWords.rowHeight(items.size, shown, maxHeight.value, rowDp, ROW_GAP_DP).dp
         ReportMore(if (more > 0) "+$more more" else null)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
             items.take(shown).forEachIndexed { i, row ->
-                key(i) { ListRow(row, rowDp.dp, details, segmentShape(i, shown), onTap) }
+                key(i) { ListRow(row, rowHeight, details, segmentShape(i, shown), onTap) }
             }
             if (!inTitle && WidgetWords.showsMore(items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
                 Text(
