@@ -268,9 +268,11 @@ private fun CardLayout(
     var more by remember { mutableStateOf<String?>(null) }
     val setMore: (String?) -> Unit = remember { { more = it } }
     when (box) {
-        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
             TitleLine(title, spec, badge, 24.dp, type.titleSmall) { MoreNote(more) }
-            Spacer(Modifier.height(6.dp))
+            // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
+            // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
+            Spacer(Modifier.height(12.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalMoreNote provides setMore) { CardBody(spec, note, failure, box, onTap, stamp) }
             }

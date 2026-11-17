@@ -435,11 +435,11 @@ class WidgetWordsTest {
         assertEquals(4, WidgetWords.agendaShown(listOf(2, 1, 1), 400, 20, 32, 20))
         assertEquals("one event, however low the box", 1, WidgetWords.agendaShown(listOf(3), 40, 20, 32, 20))
         assertEquals(0, WidgetWords.agendaShown(emptyList(), 124, 20, 32, 20))
-        // A 4x2 card's 138 dp, with each heading inside its day's first 44 dp tap row (no height of
+        // A 4x2 card's 136 dp, with each heading inside its day's first 44 dp tap row (no height of
         // its own): two events of today and one of tomorrow, as in the mockup. A heading of 16 dp
         // of its own would leave room for two.
-        assertEquals(3, WidgetWords.agendaShown(listOf(2, 1), 138, 0, 44, 0))
-        assertEquals(2, WidgetWords.agendaShown(listOf(2, 1), 138, 16, 44, 0))
+        assertEquals(3, WidgetWords.agendaShown(listOf(2, 1), 136, 0, 44, 0))
+        assertEquals(2, WidgetWords.agendaShown(listOf(2, 1), 136, 16, 44, 0))
     }
 
     @Test fun anAgendaIsSaidByDay() {
@@ -686,14 +686,14 @@ class WidgetWordsTest {
 
     /** Segmented rows have 2 dp between two. A card with a title line says "+3 more" there, so it keeps no room for it. */
     @Test fun rowsWithGapsCountTheGapsOnlyBetweenRows() {
-        // A 2x2 card's content is 138 dp: three rows of 44 dp with two gaps of 2 take 136.
-        assertEquals(3, WidgetWords.rowsShown(3, 138, 44, 0, gapDp = 2))
-        assertEquals(3, WidgetWords.rowsShown(5, 138, 44, 0, gapDp = 2))
+        // A 2x2 card's content is 136 dp: three rows of 44 dp with two gaps of 2 take all of it.
+        assertEquals(3, WidgetWords.rowsShown(3, 136, 44, 0, gapDp = 2))
+        assertEquals(3, WidgetWords.rowsShown(5, 136, 44, 0, gapDp = 2))
         assertEquals("one dp short", 2, WidgetWords.rowsShown(5, 135, 44, 0, gapDp = 2))
         // With a "+ more" line in the body.
-        assertEquals(2, WidgetWords.rowsShown(5, 138, 44, 20, gapDp = 2))
-        assertTrue(WidgetWords.showsMore(5, 2, 138, 44, 20, gapDp = 2))
-        assertFalse(WidgetWords.showsMore(3, 3, 138, 44, 20, gapDp = 2))
+        assertEquals(2, WidgetWords.rowsShown(5, 136, 44, 20, gapDp = 2))
+        assertTrue(WidgetWords.showsMore(5, 2, 136, 44, 20, gapDp = 2))
+        assertFalse(WidgetWords.showsMore(3, 3, 136, 44, 20, gapDp = 2))
         // Large clock rows, 28 dp each, with gaps of 2: four take 118.
         assertEquals(4, WidgetWords.clockRows(4, 118, gapDp = 2))
         assertEquals(3, WidgetWords.clockRows(4, 117, gapDp = 2))
@@ -701,8 +701,8 @@ class WidgetWordsTest {
 
     /** A short list fills its card: its rows share the height, up to 56 dp. A list with rows left out keeps its rows' height. */
     @Test fun rowsThatAllFitShareTheHeight() {
-        // Three rows of a forecast in a 2x2 card's 138 dp: each gets a third, less the gaps.
-        assertEquals(44.67f, WidgetWords.rowHeight(3, 3, 138f, 32, gapDp = 2), 0.01f)
+        // Three rows of a forecast in a 2x2 card's 136 dp: each gets a third, less the gaps.
+        assertEquals(44f, WidgetWords.rowHeight(3, 3, 136f, 32, gapDp = 2), 0.01f)
         // Never more than 56 dp: one row in a tall card.
         assertEquals(56f, WidgetWords.rowHeight(1, 1, 300f, 32, gapDp = 2), 0f)
         // Rows left out: the room is for "+3 more", and each row stays as it is.
