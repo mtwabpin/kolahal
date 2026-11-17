@@ -10,8 +10,8 @@
 --
 -- Runs well on a timer (every 30-60 min). Each run logs the front-page stories it hasn't shown
 -- before: the title (tap the line to open the story, or the discussion for a text post), its tags,
--- its score and a link to its comments. It notifies about the top new one, and keeps no status
--- line: a list of stories has nothing to pin at the top of home. A story under the score option
+-- its score and a link to its comments. It notifies about the top new one, and pins no line at
+-- the top of home: a list of stories has nothing to pin there. A story under the score option
 -- shows once it gets there.
 
 local MIN_SCORE = math.floor(tonumber(options.score) or 5)

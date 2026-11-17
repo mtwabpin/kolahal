@@ -597,4 +597,19 @@ class LibraryWidgetsTest {
             assertEquals(symbol, row.icon)
         }
     }
+
+    /**
+     * A library script that never calls `status(…)` doesn't say the word at all. Any mention counts
+     * as setting a status line ([ScriptMeta.setsStatus]), so a comment such as "keeps no status line"
+     * offered a Status card for Hacker News that showed an old line.
+     */
+    @Test fun aScriptWithoutAStatusLineNeverNamesIt() {
+        val call = Regex("""(?<![.:\w])status\s*\(""")
+        val library = sourceFile("src/main/assets/library").listFiles()!!.filter { it.extension == "lua" || it.extension == "js" }
+        for (f in library) {
+            val code = f.readText()
+            if (!call.containsMatchIn(code)) assertEquals(f.name, false, ScriptMeta.setsStatus(code))
+        }
+        assertEquals(false, ScriptMeta.setsStatus(sourceFile("src/main/assets/library/hn.lua").readText()))
+    }
 }

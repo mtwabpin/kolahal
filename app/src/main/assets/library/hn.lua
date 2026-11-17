@@ -9,7 +9,7 @@
 --
 -- Runs well on a timer (every 30-60 min). Each run logs the new front-page stories, each followed
 -- by its points and a link to its comments (tap the line to open the story). It notifies about the
--- top new one, and keeps no status line: a list of stories has nothing to pin at the top of home.
+-- top new one. It pins no line at the top of home: a list of stories has nothing to pin there.
 -- Its widget, once you placed it on the widgets page, lists the front page as it is now.
 
 local POINTS = math.floor(tonumber(options.points) or 50)
