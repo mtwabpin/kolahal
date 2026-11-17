@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModelProvider
@@ -55,7 +56,7 @@ class HomePagesTest {
             }
             waitFor(shown = true)
             // As the first page it has no title row.
-            compose.onNodeWithText("+ Add").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Add a widget").assertDoesNotExist()
             // The app selector on both pages, the same: as far down, and as high. Where each starts and how
             // high it is, not its bounds: the log page is off screen, and those are cut to the screen.
             fun strips() = compose.onAllNodesWithTag("app-selector-strip", useUnmergedTree = true).fetchSemanticsNodes().map { it.positionInRoot.y to it.size.height }
@@ -82,7 +83,7 @@ class HomePagesTest {
             // Off again: home is the log, and the widgets page has its title row back.
             config.reset(Keys.WIDGETS_START)
             waitFor(shown = false)
-            compose.onNodeWithText("+ Add").assertExists()
+            compose.onNodeWithContentDescription("Add a widget").assertExists()
         }
     }
 }

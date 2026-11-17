@@ -261,7 +261,7 @@ class SettingsScreenTest {
         compose.waitForIdle()
         assertEquals(TerminalViewModel.Peek(Keys.WIDGETS_WALLPAPER.key, typing = false), vm.peek.value)
         assertEquals(100, config[Keys.WIDGETS_WALLPAPER])
-        compose.onNodeWithText("+ Add").assertExists()
+        compose.onNodeWithContentDescription("Add a widget").assertExists()
         home.assertDoesNotExist()
         widgets.performTouchInput { up() }
         compose.waitForIdle()

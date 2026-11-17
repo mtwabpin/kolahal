@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +33,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
@@ -204,34 +209,22 @@ private fun WidgetPanelContent(
     ) {
         if (titleRow) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             Text("Widgets", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
-            Text(
-                "+ Add",
-                style = Term.text.copy(color = Term.prompt),
-                modifier = Modifier
-                    .clickable { vm.openScreen(Screen.WIDGET_PICKER) }
-                    .heightIn(min = 48.dp)
-                    .wrapContentHeight()
-                    .padding(horizontal = 12.dp),
-            )
-            Text(
-                "Edit",
-                style = Term.text.copy(color = Term.dim),
-                modifier = Modifier
-                    .clickable { vm.openScreen(Screen.WIDGETS) }
-                    .heightIn(min = 48.dp)
-                    .wrapContentHeight()
-                    .padding(start = 12.dp),
-            )
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.openScreen(Screen.WIDGET_PICKER) }) {
+                Icon(painterResource(R.drawable.ic_add), "Add a widget", tint = Term.prompt)
+            }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.openScreen(Screen.WIDGETS) }) {
+                Icon(painterResource(R.drawable.ic_edit), "Edit widgets", tint = Term.fg)
+            }
         }
         if (panel.isEmpty()) {
             if (titleRow) {
                 Text(
-                    "No widgets here yet · tap + Add",
+                    "No widgets here yet · tap + to add one",
                     style = Term.text.copy(color = Term.dim),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
                 )
             } else {
-                // There is no + Add button above, so tapping this line adds a widget.
+                // There is no + button above, so tapping this line adds a widget.
                 Text(
                     "No widgets here yet · tap to add one",
                     style = Term.text.copy(color = Term.dim),

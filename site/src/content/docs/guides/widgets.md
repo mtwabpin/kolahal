@@ -13,11 +13,11 @@ playing, and [widgets that scripts fill](#widgets-from-scripts).
 To open the widgets page, swipe sideways on the home screen. Start the swipe on the header, on empty space or on the prompt.
 A swipe that starts on a log line copies or deletes that line instead.
 
-- **+ Add** and **Edit** are at the top of the page.
+- **+** (add a widget) and **✎** (edit your widgets) are at the top of the page.
 - Back or Home takes you back to the terminal.
 - `widgets.page` sets the side of the page: `left` (the default) or `right`. `off` turns the page off.
 
-![The widgets page with a clock widget, + Add and Edit at the top](../../../assets/parts/widgets-page.png)
+![The widgets page with a clock widget, the add and edit buttons at the top](../../../assets/parts/widgets-page.png)
 
 The page can show your phone's wallpaper (the one you set in Android) behind the widgets.
 **Settings → Widgets → Transparency** (`widgets.wallpaper`) sets how much of it shows:
@@ -40,13 +40,13 @@ first: there it is your way to open apps. Turn it on in **Settings → App selec
 - If you turn the app selector off, home opens on the log again. Turn the selector back on and home opens on the widgets page again.
 - If you type on a hardware keyboard, Kolahal switches to the log and puts the text in the prompt.
 - **Open the keyboard on Home** opens the keyboard when you reach the log.
-- The page has no **+ Add** and **Edit** row. Long-press a widget to arrange widgets, or use `widget add`.
+- The page has no add and edit buttons. Long-press a widget to arrange widgets, or use `widget add`.
 
 ## Add a widget
 
 You can add a widget in three ways:
 
-- Tap **+ Add** on the widgets page.
+- Tap **+** at the top of the widgets page.
 - Open **Settings → Widgets → Arrange widgets** (or run `widgets`) and tap **Add widget**.
 - Run `widget add` to go straight to the picker.
 
