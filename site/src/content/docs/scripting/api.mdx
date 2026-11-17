@@ -749,6 +749,7 @@ A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's
 | `caption` | text, up to 60 | A line under it: an author, a source. |
 
 **`list`**: rows. The card shows as many rows as fit, and says "+3 more" at the end of its title line.
+When every row fits, the rows grow to fill the card.
 
 | Field | Value | What it is |
 | --- | --- | --- |
@@ -805,7 +806,7 @@ run is needed as time passes.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `to` | a time in seconds | Needed. The moment: `os.time{…}` in Lua, `Date.now() / 1000` in JavaScript. |
-| `from` | a time in seconds, before `to` | Where the wait started. With it, the card has a bar from the start to the moment. |
+| `from` | a time in seconds, before `to` | Where the wait started. With it, the card has a bar from the start to the moment. A large card writes both dates under the bar. |
 | `label` | text, up to 60 | What the moment is. |
 | `style` | `days` or `clock` | `days` says "12 days", `clock` says "03:25:10". Without it: days while the moment is more than 48 hours away, a clock after that. |
 | `reached` | text, up to 60 | What the card says on the day, once the moment has passed. Without it: "today". |
@@ -941,6 +942,8 @@ Each place is `{ zone, label }`. `zone` is needed.
 - Kolahal writes each time in 12-hour or 24-hour form, as the header does
   ([`clock.24h`](/reference/config/)).
 - A small card shows the first place only. A wide one shows as many as fit, side by side.
+- A large card has a row for each place. With up to three places, each row has the place's day
+  under its name: "today", "tomorrow" or "yesterday".
 - A clock never gets old. Give it a long `staleAfter`, such as a week (604800), so the widgets
   page doesn't run the script each hour for nothing.
 

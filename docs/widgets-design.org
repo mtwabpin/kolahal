@@ -661,7 +661,8 @@ can't run it.
 | List rows                | Each row in a lightly tinted container: 16 dp corners at the ends of the list, 4 dp between rows, 2 dp apart. A plain =Row=, so a row can be as low as 32 dp. A clock's rows in a large card too. |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
 | Toggles                  | =ToggleButton=: round when off, squarer and filled when on. Off is a light tint of the text colour. A tall one says "On" or "Off" under its label. |
-| Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match. A countdown's bar is still. |
+| Progress that moves      | =LinearWavyProgressIndicator= and =CircularWavyProgressIndicator=: a live match. A wave has Material's 4 dp line and waves of 20 dp. |
+| A countdown's bar        | A wave that stands still: wave speed 0, so it costs nothing per frame. Its height changes once, at 10% and at 95%. |
 | A level that stands      | A plain track or ring: a battery, an air quality figure. A wave would say "working".                   |
 | Loading                  | =LoadingIndicator=.                                                                                    |
 | A value that changes     | The new value slides up over the old one (=AnimatedContent=), as the pinned header's lines do.         |
@@ -847,6 +848,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Shows :: Text of up to 500 characters, with its line breaks, and a caption under it (an
   author, a source).
 - Fields :: =text= (needed). =caption= (up to 60).
+- When large :: The text is bold, as the mockup has it: there it is the card's main thing.
 - When small :: Fewer lines, cut with "…".
 - Data :: Any script. Built-in: Notes (phase 2).
 - Taps :: The card.
@@ -854,7 +856,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 3. =list=: rows                                              :first:built:
 
 - Shows :: Rows, as many as fit, then "+3 more". Each row has a title and can have a second line,
-  a text at its end, an icon and a colour.
+  a text at its end, an icon and a colour. When every row fits, the rows grow to share the card's
+  height evenly, up to 56 dp: three days of a forecast fill a 2×2 card.
 - Fields :: =items= (needed; the first 12 are kept): each ~{ title, detail, trailing, icon, color,
   tap }~, with only =title= needed. =empty=: what to say with no rows ("Nothing new"). =lead= ~{
   value, unit, label }~: a big line over the rows (the Reminders card's next reminder). A small or
@@ -871,6 +874,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Fields :: =value= (number, needed) and =max= (1 by default). =text= (what the middle says: "68%").
   =label=. =style=: =ring= or =bar=; without it the box decides. Or =items=: up to 4 of ~{ label,
   value, max, text, color }~ for bars. =moving= (true) draws the wave, for something in progress.
+- When large :: The ring, with its label under it in bold and in the card's colour.
 - When small :: 1×1 is the ring with its text.
 - Data :: Any script. Built-in: Battery and network.
 - Taps :: The card.
@@ -881,6 +885,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Fields :: =points= (numbers, needed; the last 60 are kept). =style=: =line= or =bars=. =min=,
   =max= (the scale; without them, from the data). =value= and =label= (the headline). =labels=:
   two texts for the first and the last point ("Mon", "Sun"). =summary=: words for a screen reader.
+- When large :: The value on its own line, as big as a stat's, with its label under it. Then the
+  plot.
 - When small :: 2×1 is the headline with a small line beside it.
 - Data :: Any script. The script keeps its own history in =store=.
 - Taps :: The card. Single points can't be tapped.
@@ -888,7 +894,9 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 6. =countdown=: time to a moment                             :first:built:
 
 - Shows :: "12 days", or "03:25:10" when it is near. After the moment: "today", then the time
-  since. With =from=, a bar from the start to the moment.
+  since. With =from=, a bar from the start to the moment: a wave that stands still. A large card
+  writes the start and the moment under the bar's ends ("1 Oct", "20 Dec"), and has the number
+  larger.
 - Fields :: =to= (a time in seconds, as =os.time()= and =Date.now() / 1000= give it; needed).
   =from= (a time, for the bar). =label=. =style=: =days= or =clock=; without it, =days= when more
   than 48 hours away. =reached=: what to say on the day.
@@ -919,6 +927,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 9. =clock=: the time in several places                       :phase2:built:
 
 - Shows :: Up to 4 places, each with its time, and "tomorrow" or "yesterday" when the day differs.
+  A large card with rows of 40 dp or more (3 places or fewer) has each place's day on a line under
+  its name: "today", "tomorrow" or "yesterday".
 - Fields :: =zones= (needed): each ~{ zone, label }~. =zone= is a time zone name such as
   =Asia/Kolkata=; an unknown one is an error. =seconds= (true) shows seconds.
 - Kolahal ticks :: The script gives the places once. The time is in 12-hour or 24-hour form, as
@@ -929,6 +939,10 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 10. =agenda=: events by day                                  :phase2:built:
 
 - Shows :: Events under "Today", "Tomorrow" and dates. Each has its time and title.
+- Layout :: A day's heading is at the top of its first event's row. That row is 44 dp: the
+  heading's 16 and the event's line of 28. So every event keeps its 44 dp tap, and a 4×2 card
+  shows two events of today and one of tomorrow, as the mockup has them. With nothing left out,
+  the title line ends with today's date ("Tue 17 Nov") instead of "+3 more".
 - Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
   color, tap }~, with =title= and =starts= (a time in seconds) needed. =days=: how many days to
   show (3 by default). =empty=: what to say with no events.
@@ -1061,7 +1075,8 @@ Twenty-five. Twelve are in the first build.
 
 *** 5. Countdown to a date                                       :first:built:
 
-- Shows :: The days to the nearest date you saved, with its name. Kolahal ticks.
+- Shows :: The days to the nearest date you saved, with its name, and "to 20 December" under them.
+  Kolahal ticks. A bar runs from the day you saved it (a yearly date: from its last day).
 - Sizes :: 1×1, 2×1, 2×2.
 - Data :: =countdown.lua=, changed. Its saved dates are in =store=. No access.
 - Refresh :: =@at 00:05=, as today, to move on to the next date.
@@ -1102,7 +1117,7 @@ Twenty-five. Twelve are in the first build.
 
 *** 8. Quote of the day                                          :first:built:
 
-- Shows :: A quote and who said it.
+- Shows :: A quote and who said it. No quotation marks: the badge's icon says it is a quote.
 - Sizes :: 2×1, 2×2, 4×1.
 - Data :: =quote.js=, changed. Internet.
 - Refresh :: =@at 08:00=, as today.
@@ -1114,7 +1129,8 @@ Twenty-five. Twelve are in the first build.
 
 *** 9. Battery and network                                       :first:built:
 
-- Shows :: The battery in a ring, "charging" when it is, and the network: Wi-Fi, mobile, offline.
+- Shows :: The battery in a ring, "charging" when it is, and the network: Wi-Fi, mobile, offline,
+  with the network's icon before its name, as the header has it.
 - Sizes :: 1×1, 2×1.
 - Data :: Built-in. =DeviceStatus.status=, the flow the header reads. No access.
 - Refresh :: Live. No runs.
@@ -1264,6 +1280,9 @@ Twenty-five. Twelve are in the first build.
 - Taps :: The card marks today done.
 - Note :: It needs only first-build parts (=chart=, a tap with =args=, =store=). So it can move to
   the first build if you want one widget there that you tap to change.
+- Not built :: The mockup's "Done today" at the end of the title line. A chart has no field for a
+  note there. The tap's =label= says "Done today", but it is for a screen reader, and it is the
+  same whether today is done or not.
 - Sketch ::
   #+begin_src lua
   -- @title Habit
