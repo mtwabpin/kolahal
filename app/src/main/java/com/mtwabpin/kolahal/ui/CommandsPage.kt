@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandSpec
 import com.mtwabpin.kolahal.commands.CommandsOff
@@ -45,28 +46,21 @@ internal fun commandSections(): List<Pair<String, List<CommandSpec>>> {
 
 /**
  * [sections] with only the commands that [query] finds, for the page's search field.
- * - A command is found when its row shows every word of [query] ([shows]).
+ * - A command is found when its row shows every word of [query] ([shown], [SearchWords]).
  * - A section with no command found is left out. The others keep their order.
  * - A blank [query] finds every command.
  */
 internal fun commandsFound(sections: List<Pair<String, List<CommandSpec>>>, query: String): List<Pair<String, List<CommandSpec>>> {
-    val words = query.split(SPACES).filter { it.isNotEmpty() }
+    val words = SearchWords.of(query)
     if (words.isEmpty()) return sections
     return sections.mapNotNull { (section, specs) ->
-        val found = specs.filter { spec -> words.all(spec::shows) }
+        val found = specs.filter { SearchWords.allIn(words, it.shown()) }
         if (found.isEmpty()) null else section to found
     }
 }
 
-/** What splits a search into words: spaces, and any other blank characters. */
-private val SPACES = Regex("\\s+")
-
-/**
- * Whether the command's row shows [word]: in its name, in what it does ([CommandSpec.short]) or in
- * one of its other names. Upper and lower case are the same.
- */
-private fun CommandSpec.shows(word: String): Boolean =
-    name.contains(word, ignoreCase = true) || short.contains(word, ignoreCase = true) || aka.any { it.contains(word, ignoreCase = true) }
+/** The texts the command's row shows, which the search looks in: its name, what it does ([CommandSpec.short]) and its other names. */
+private fun CommandSpec.shown(): List<String> = listOf(name, short) + aka
 
 /**
  * Settings → Commands: a switch for each built-in command, in `help`'s sections. A command

@@ -7,6 +7,7 @@ import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
+import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.data.sha256Hex
 import okhttp3.Request
 import java.io.File
@@ -211,5 +212,14 @@ class ScriptCatalog(private val context: Context) {
         /** The repository's check allows 64 KB per script. */
         private const val MAX_SCRIPT = 64L * 1024
         private val SHA = Regex("^[0-9a-f]{64}$")
+
+        /**
+         * The scripts of [entries] that the search finds: each word of [query] is in the name, the
+         * title, the description, the author or a tag ([SearchWords]). A blank [query] finds them all.
+         */
+        fun found(entries: List<Entry>, query: String): List<Entry> {
+            val words = SearchWords.of(query)
+            return entries.filter { e -> SearchWords.allIn(words, listOf(e.name, e.title, e.desc, e.author) + e.tags) }
+        }
     }
 }

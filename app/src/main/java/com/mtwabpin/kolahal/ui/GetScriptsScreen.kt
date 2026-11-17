@@ -64,13 +64,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
     val states by produceState(emptyMap(), shared.entries, scripts) {
         value = withContext(Dispatchers.IO) { shared.entries.associate { it.name to vm.scriptActions.scriptCatalog.state(it, scripts) } }
     }
-    val shown = remember(shared.entries, query) {
-        val words = query.lowercase().split(' ').filter { it.isNotBlank() }
-        shared.entries.filter { e ->
-            val text = listOf(e.name, e.title, e.desc, e.author, e.tags.joinToString(" ")).joinToString(" ").lowercase()
-            words.all { it in text }
-        }
-    }
+    val shown = remember(shared.entries, query) { ScriptCatalog.found(shared.entries, query) }
 
     GuiTheme {
         val snackbar = rememberNoticeSnackbar(vm)

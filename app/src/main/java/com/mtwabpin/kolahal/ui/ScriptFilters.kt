@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -140,9 +141,8 @@ object ScriptFilters {
     fun matches(f: ScriptFacts, selected: Set<String>): Boolean =
         selected.mapNotNull(byId::get).groupBy { it.group }.values.all { chips -> chips.any { it.keeps(f) } }
 
-    /** Whether [f] has every word of [query] in its name, title, description, author or tags. */
-    fun found(f: ScriptFacts, query: String): Boolean =
-        query.lowercase().split(' ').filter { it.isNotBlank() }.all { it in f.text }
+    /** Whether [f] has every word of [query] in its name, title, description, author or tags ([SearchWords]). */
+    fun found(f: ScriptFacts, query: String): Boolean = SearchWords.allIn(SearchWords.of(query), listOf(f.text))
 
     /** The scripts to show: found by [query], passing [selected], in [sort] order. */
     fun shown(all: List<ScriptFacts>, selected: Set<String>, query: String, sort: ScriptSort): List<ScriptFacts> =
