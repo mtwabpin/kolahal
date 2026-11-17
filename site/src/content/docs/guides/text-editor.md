@@ -26,6 +26,11 @@ You can also open a file from another app. In a file manager, choose **Open with
 **Kolahal Editor**. It is offered for text files: plain text, Markdown, JSON, XML, YAML and similar.
 If it isn't offered for a file, open the file with `edit`.
 
+- Some apps share a file with **Open with** to read only. Then Kolahal can't save it in place: see
+  [files Android gives read-only](#files-android-gives-read-only).
+- Where a file manager has **Edit** or **Edit with**, Kolahal Editor is offered there too. That
+  usually lets Kolahal save the file.
+
 Kolahal asks for no storage permission. It reads and writes only the file you pick, or the file
 another app hands to it.
 
@@ -39,7 +44,8 @@ from the home screen.
 - To come back, pick the window in Recents, or open the same file again (`edit todo.md`). The same
   window comes to the front.
 - Back and `Esc` leave the editor like Home does. The file stays open.
-- **[close]** closes the file. If you have unsaved changes, it asks: **Save**, **Discard** or **Cancel**.
+- **Close** (× at the top right) closes the file. If you have unsaved changes, it asks: **Save**,
+  **Discard** or **Cancel**.
 - You can have several files open. Each is its own entry in Recents.
 
 ## Your text is not lost
@@ -58,15 +64,35 @@ stop typing, and again when you leave the editor.
 
 ## Saving
 
-**[save]** writes your text to the file itself.
+**Save** (the disk icon at the top) writes your text to the file itself. A `*` after the file's
+name means there are unsaved changes.
 
 - The file keeps its line endings (LF or CRLF), and its line break at the end if it had one.
 - Text is read and written as UTF-8.
 - If another app changed the file after you opened it, Kolahal does not overwrite it. It asks:
   **Overwrite**, **Save as…** or **Cancel**.
-- If the file can't be written, the message says why. Tap it to save your text as another file. This
-  happens with a file that another app gave Kolahal only to read.
+- If the file can't be written, the message says why. Tap it to save your text as another file.
 - **Save as…** writes the text to a new file. The editor then moves to that file, in its own window.
+
+### Files Android gives read-only
+
+Sometimes Android lets Kolahal read a file, but not write it:
+
+- a file you picked under **Recent**, **Images**, **Videos** or **Documents** in the file picker,
+  on Android 9 or on some phones;
+- a file another app shares with **Open with** to read only. Samsung's My Files does this.
+
+The editor then says why, for example "Android opened this file read-only (from Recent)". Your text
+is safe: it is kept as a draft as usual. To save it in place:
+
+1. Tap the message, or choose **Open from its folder…** in the menu. The file picker opens in the
+   file's folder when Kolahal knows it.
+2. Pick the same file there. It opens in a new window, with your unsaved text, and **Save** works.
+
+Or use **Save as…** to write the text to another file.
+
+A file picked under Recent usually saves in place, with no message: from Android 10, Kolahal writes
+it through Android's media store when the picker's address refuses.
 
 When you come back to the editor and the file has changed meanwhile:
 
@@ -83,10 +109,11 @@ When you come back to the editor and the file has changed meanwhile:
 
 ## The menu
 
-**[more]** opens the menu. Under the file's name it shows the encoding, the line endings (when they
-are not LF), and how many lines and characters the file has.
+**More** (the three dots at the top) opens the menu. Under the file's name it shows the encoding,
+the line endings (when they are not LF), and how many lines and characters the file has.
 
 - **Save as…**
+- **Open from its folder…** (only for a file Android may give read-only; see above)
 - **Open a file…** and **New file…**: the other file opens in its own window. This one stays open.
 - **Wrap lines** / **Don't wrap lines**
 - **Discard changes** (only when there are unsaved changes)
@@ -103,7 +130,7 @@ are not LF), and how many lines and characters the file has.
 Editing works as in the [script editor](/scripting/editor/):
 
 - the [symbol bar](/scripting/editor/#symbol-bar) above the keyboard, with undo, redo and **Ln** (Go to line);
-- find and replace, from the search icon;
+- [find and replace](/scripting/editor/#find-and-replace), from the magnifier at the top;
 - a message line that says what the last button did. Tap a message to close it.
 
 Lua, JavaScript and JSON files are coloured. In JSON, keys, text and other values each have their own colour. Other files are plain text. The editor uses the

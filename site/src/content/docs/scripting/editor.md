@@ -14,15 +14,16 @@ in the terminal theme. [Parts of the app](/getting-started/parts/#script-editor)
 it, numbered.
 
 - The title shows `name.lua`, with `*` while there are unsaved changes.
-- **[save]**, **[run]** and **[close]** are next to the title. Run saves first.
-- A long press on **[run]** (or `Ctrl+Shift+R`) opens **Run with**. Type words for its
+- Next to the title are icon buttons: **Find** (magnifier), **API reference** (question mark),
+  **Save**, **Run** (play) and **Close** (×). Run saves first. TalkBack reads each button's name.
+- A long press on **Run** (or `Ctrl+Shift+R`) opens **Run with**. Type words for its
   [`args`](/scripting/api/#args-and-argline), as when the script runs as a command. If the script
   has [`@on`](/scripting/overview/#event-triggers) or `@at` lines, you can also pick an event to
   simulate, with sample values (a charger at 64%, a message from Alice).
 - A message line above the symbol bar shows what a button did:
   - **Saved** (or **No changes to save**),
   - **Saved · running…**, then the run's result (`Ran in 812ms · 3 lines below`),
-  - how many replacements **[all]** made.
+  - how many replacements **Replace all** made.
 
   A failed run stays there in red, as `Line 13: attempt to …`. Tap it to go to that line. Tap any
   other message to close it.
@@ -46,12 +47,22 @@ it, numbered.
 Above the keyboard there is a row of keys that on-screen keyboards hide:
 
 ```
-↶  ↷  ⇥  (  )  {  }  [  ]  "  '  =  .  ,  :  ;  #  -  ~  <  >  Ln
+undo  redo  ⇥  (  )  {  }  [  ]  "  '  =  .  ,  :  ;  #  -  ~  <  >  Ln
 ```
 
-- `↶` / `↷` are undo and redo. They are dimmed when there is nothing to undo or redo.
+- **Undo** and **redo** are the two curved arrows. They are dimmed when there is nothing to undo or redo.
 - `⇥` inserts two spaces.
 - `Ln` opens **Go to line**.
+
+## Find and replace
+
+The magnifier at the top opens the find bar. Type to find; the matches are marked in the code.
+
+- **Aa** matches upper and lower case, or not.
+- The up and down arrows go to the previous and next match.
+- The button with two arrows opens a second row to replace: type the new text, then tap
+  **Replace** for this match or **Replace all**.
+- × closes the find bar.
 
 ## Keyboard shortcuts
 
@@ -76,7 +87,7 @@ As you type, the editor suggests [API](/scripting/api/) names such as `http.get`
 description. This is only a quick reminder. The [API reference](/scripting/api/) has the full
 details and examples.
 
-**[?]** in the top bar lists the whole API. It also lists every `@` line a script can start with:
+**API reference** (the question mark in the top bar) lists the whole API. It also lists every `@` line a script can start with:
 [`@command`](/scripting/overview/#command-scripts), `@desc`, `@on`, `@uses`, `@every` and the
 others, as in [describing a script](/scripting/overview/#describing-a-script). Tap an entry to
 insert it at the cursor. An `@` line is inserted as a whole comment line.
