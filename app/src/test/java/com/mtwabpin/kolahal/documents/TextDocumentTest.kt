@@ -191,6 +191,78 @@ class TextDocumentTest {
         assertEquals(Saved.Done("mine\n"), second.save("mine\n"))
     }
 
+    /**
+     * The file read again is not what the text is based on until the editor shows it. If the user
+     * typed while it was read, it isn't shown: a save still asks, and a draft still says it is for
+     * the older file.
+     */
+    @Test fun aFileReadAgainCountsOnlyOnceShown() {
+        files.put(notes, "one\n")
+        val doc = document()
+        doc.open()
+        files.change(notes, "theirs\n")
+        val fresh = (doc.reread() as TextDocument.Reread.Text).fresh
+        assertEquals("theirs\n", fresh.text)
+        // Not shown.
+        assertEquals("one\n", doc.fileText)
+        assertEquals(Saved.Changed, doc.save("one\nmine\n"))
+        assertEquals("theirs\n", files.text(notes))
+        doc.keepDraft("one\nmine\n")
+        assertEquals(Opened.Ready("one\nmine\n", "theirs\n", restored = true, changedSince = true), document().open())
+        // Shown: the text is based on it now, and saves at once.
+        doc.adopt(fresh)
+        assertEquals("theirs\n", doc.fileText)
+        assertEquals(Saved.Done("theirs\nmine\n"), doc.save("theirs\nmine\n"))
+    }
+
+    /** Reading again says when the file can't be read, or is no longer text, and leaves the document as it was. */
+    @Test fun readingAgainSaysWhatIsWrong() {
+        files.put(notes, "one\n")
+        val doc = document()
+        doc.open()
+        files.unreachable = "gone"
+        assertEquals("gone", (doc.reread() as TextDocument.Reread.Unavailable).why)
+        files.unreachable = null
+        files.files.getValue(notes).bytes = byteArrayOf(1, 0, 2)
+        assertEquals("It is not a text file: it holds binary data.", (doc.reread() as TextDocument.Reread.Refused).why)
+        assertEquals("one\n", doc.fileText)
+        assertEquals(Saved.Changed, doc.save("two\n"))
+    }
+
+    /**
+     * A save keeps the text as a draft before it touches the file. Typed and saved at once, with
+     * no draft written yet: a write that fails leaves the text in a draft.
+     */
+    @Test fun aSaveKeepsADraftFirst() {
+        files.put(notes, "one\n")
+        val doc = document()
+        doc.open()
+        files.writeFails = "No space left on device"
+        assertEquals(Saved.Failed("No space left on device"), doc.save("two\n"))
+        assertEquals("two\n", drafts.read(notes)?.text)
+        assertEquals(Opened.Ready("two\n", "one\n", restored = true), document().open())
+        // Save as does the same.
+        drafts.delete(notes)
+        assertEquals(Saved.Failed("No space left on device"), doc.saveCopy("content://files/document/copy.txt", "three\n"))
+        assertEquals("three\n", drafts.read(notes)?.text)
+    }
+
+    /** A text that a save would write as what the file holds needs no draft: only its last line break is missing. */
+    @Test fun aMissingLastLineBreakNeedsNoDraft() {
+        files.put(notes, "one\n")
+        val doc = document()
+        doc.open()
+        doc.keepDraft("one")
+        assertFalse(drafts.has(notes))
+        // A file without one at its end: the text with one is a change.
+        val bare = "content://files/document/bare.txt"
+        files.put(bare, "one")
+        val other = document(bare)
+        other.open()
+        other.keepDraft("one\n")
+        assertTrue(drafts.has(bare))
+    }
+
     /** A write that fails keeps the draft, and says why. */
     @Test fun aFailedSaveKeepsTheDraft() {
         files.put(notes, "one\n")

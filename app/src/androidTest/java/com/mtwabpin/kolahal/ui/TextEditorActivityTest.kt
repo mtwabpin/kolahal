@@ -138,7 +138,8 @@ class TextEditorActivityTest {
             // The editor shows what the file holds now, and nothing is unsaved.
             assertEquals("one\ntwo\nthree\n", text())
             compose.onNodeWithText(name(uri)).assertExists()
-            assertFalse(drafts.has(uri.toString()))
+            // A draft of what was typed may be on its way as the save ends: it goes too.
+            waitUntil("no draft is left") { !drafts.has(uri.toString()) }
         }
     }
 

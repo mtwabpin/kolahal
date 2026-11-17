@@ -5,10 +5,10 @@ import com.mtwabpin.kolahal.data.sha256Hex
 /**
  * One file open in the editor. It reads the file, keeps a draft of unsaved text, and saves.
  * - It has no screen. The editor's view model calls it off the main thread and shows what it returns.
- * - It never loses text: a draft is deleted only after its text is written to a file, or when the
- *   user discards it.
- * - It never overwrites what it has not seen: [save] reads the file again first, and writes only
- *   if it is still the one the text is based on, unless told to overwrite.
+ * - It never loses text: a draft is written before a save touches the file, and is deleted only
+ *   after its text is in a file, or when the user discards it.
+ * - It never overwrites what the editor has not shown: [save] reads the file again first, and
+ *   writes only if it is still the one the text is based on, unless told to overwrite.
  *
  * [uri] is the file's address. [source] is where files are, and [drafts] where drafts are kept.
  */
@@ -18,8 +18,8 @@ class TextDocument(
     private val drafts: Drafts,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    /** The file as it was last read or written: what its app said about it, and the hash of its bytes. */
-    private data class Version(val size: Long?, val modified: Long?, val hash: String)
+    /** The file as it was read or written: what its app said about it, and the hash of its bytes. */
+    internal data class Version(val size: Long?, val modified: Long?, val hash: String)
 
     /** The file's name. Before the file is read, it is the last part of its address. */
     var name: String = nameIn(uri)
@@ -33,10 +33,11 @@ class TextDocument(
     var writable = true
         private set
 
-    /** The text the file holds, as last read or written. Null: the file was never read. */
+    /** The text the file holds, as the editor last got it or wrote it. Null: the file was never read. */
     var fileText: String? = null
         private set
 
+    /** The file as the editor last got it or wrote it. */
     private var version: Version? = null
 
     /**
@@ -76,42 +77,95 @@ class TextDocument(
         base = draft?.base
         version = null
         fileText = null
-        val bytes = try {
-            val info = source.info(uri)
-            name = info.name
-            writable = info.writable
-            source.read(uri, TextFiles.MAX_BYTES).also { version = Version(info.size, info.modified, sha256Hex(it)) }
-        } catch (e: Exception) {
-            return Opened.Unavailable(reason(e), draft?.text)
-        }
-        return when (val decoded = TextFiles.decode(bytes)) {
+        return when (val read = reread()) {
+            is Reread.Unavailable -> {
+                // A file out of reach has no name of its own to give: the draft's is the one it had.
+                if (draft == null) name = read.info.name
+                Opened.Unavailable(read.why, draft?.text)
+            }
             // The file is something else now. The unsaved text was written for what it was, so it is kept.
-            is TextFiles.Decoded.Refused -> if (draft != null) Opened.Unavailable(decoded.why.removeSuffix("."), draft.text) else Opened.Refused(decoded.why)
-            is TextFiles.Decoded.Text -> {
-                format = decoded.format
-                fileText = decoded.text
+            is Reread.Refused -> {
+                name = read.info.name
+                version = read.version
+                if (draft != null) Opened.Unavailable(read.why.removeSuffix("."), draft.text) else Opened.Refused(read.why)
+            }
+            is Reread.Text -> {
+                val fresh = read.fresh
                 // Nothing unsaved is left in a draft that says what the file says.
-                if (draft != null && draft.text == decoded.text) drafts.delete(uri)
-                if (draft == null || draft.text == decoded.text) {
-                    base = version?.hash
-                    Opened.Ready(decoded.text, decoded.text)
+                if (draft != null && draft.text == fresh.text) drafts.delete(uri)
+                if (draft == null || draft.text == fresh.text) {
+                    adopt(fresh)
+                    Opened.Ready(fresh.text, fresh.text)
                 } else {
-                    Opened.Ready(draft.text, decoded.text, restored = true, changedSince = base != version?.hash)
+                    // The editor shows the draft: the file is what it is saved over, but not what it is based on.
+                    val wasBasedOn = base
+                    adopt(fresh)
+                    base = wasBasedOn
+                    Opened.Ready(draft.text, fresh.text, restored = true, changedSince = wasBasedOn != fresh.version.hash)
                 }
             }
         }
     }
 
-    /** Keeps [text] as the draft, or deletes the draft when [text] is what the file holds. */
-    fun keepDraft(text: String) {
-        if (text == fileText) drafts.delete(uri) else drafts.write(Drafts.Draft(uri, name, text, base, clock()))
+    /** The file as [reread] found it. Until [adopt], the editor's text is not based on it. */
+    class Fresh internal constructor(
+        val text: String,
+        internal val info: DocumentInfo,
+        internal val format: TextFormat,
+        internal val version: Version,
+    )
+
+    sealed interface Reread {
+        class Text internal constructor(val fresh: Fresh) : Reread
+
+        /** The file is not text now, or is too big. [why] is a sentence for the user. */
+        class Refused internal constructor(val why: String, internal val info: DocumentInfo, internal val version: Version) : Reread
+
+        /** The file can't be read now. [why] says so, without a full stop. */
+        class Unavailable internal constructor(val why: String, internal val info: DocumentInfo) : Reread
     }
 
-    /** Deletes the draft: the user chose to lose the unsaved text. What the editor shows next is based on the file as it is. */
-    fun discardDraft() {
-        drafts.delete(uri)
-        base = version?.hash
+    /**
+     * Reads the file again, and changes nothing: the editor's text is still based on the file as it
+     * was. Call [adopt] once the editor shows what this read. If the editor can't show it (the user
+     * typed meanwhile), don't: then [save] still finds that the file changed, and asks.
+     */
+    fun reread(): Reread {
+        val info = source.info(uri)
+        val bytes = try {
+            source.read(uri, TextFiles.MAX_BYTES)
+        } catch (e: Exception) {
+            return Reread.Unavailable(reason(e), info)
+        }
+        val version = Version(info.size, info.modified, sha256Hex(bytes))
+        return when (val decoded = TextFiles.decode(bytes)) {
+            is TextFiles.Decoded.Refused -> Reread.Refused(decoded.why, info, version)
+            is TextFiles.Decoded.Text -> Reread.Text(Fresh(decoded.text, info, decoded.format, version))
+        }
     }
+
+    /** The editor now shows [fresh]: it is the file that the text is based on, and that a save compares with. */
+    fun adopt(fresh: Fresh) {
+        name = fresh.info.name
+        writable = fresh.info.writable
+        format = fresh.format
+        fileText = fresh.text
+        version = fresh.version
+        base = fresh.version.hash
+    }
+
+    /**
+     * Keeps [text] as the draft. A text that a save would write as what the file already holds
+     * needs none, and the draft is deleted.
+     */
+    fun keepDraft(text: String) {
+        if (format.complete(text) == fileText) drafts.delete(uri) else writeDraft(text)
+    }
+
+    private fun writeDraft(text: String) = drafts.write(Drafts.Draft(uri, name, text, base, clock()))
+
+    /** Deletes the draft: the user chose to lose the unsaved text. */
+    fun discardDraft() = drafts.delete(uri)
 
     sealed interface Saved {
         /** Written. [text] is what the file now holds: a line break may have been added at the end. */
@@ -128,6 +182,8 @@ class TextDocument(
      * Writes [text] to the file, in the file's own format.
      * - If the file is not the one the text is based on, nothing is written and the answer is
      *   [Saved.Changed], unless [overwrite] is set.
+     * - The text is kept as a draft first. A write that stops half way (no space, the app killed)
+     *   can leave the file cut short, and the draft is then the only whole copy.
      * - The draft is deleted only after the file is written.
      */
     fun save(text: String, overwrite: Boolean = false): Saved {
@@ -136,6 +192,7 @@ class TextDocument(
         val complete = format.complete(text)
         val bytes = format.encode(complete)
         try {
+            writeDraft(text)
             source.write(uri, bytes)
         } catch (e: Exception) {
             return Saved.Failed(reason(e))
@@ -148,12 +205,14 @@ class TextDocument(
     }
 
     /**
-     * Writes [text] to another file, [to], in this file's format. This file stays as it is. Its
-     * draft is deleted once the text is in the other file: the changes now live there.
+     * Writes [text] to another file, [to], in this file's format. This file stays as it is. The
+     * text is kept as this file's draft first, and the draft is deleted once the text is in the
+     * other file: the changes now live there.
      */
     fun saveCopy(to: String, text: String): Saved {
         val complete = format.complete(text)
         try {
+            writeDraft(text)
             source.write(to, format.encode(complete))
         } catch (e: Exception) {
             return Saved.Failed(reason(e))
@@ -163,8 +222,8 @@ class TextDocument(
     }
 
     /**
-     * Whether the file is no longer what was read or written last. The file is read again and its
-     * bytes are compared, so the answer doesn't depend on what the file's app says about it.
+     * Whether the file is no longer what the editor last got or wrote. The file is read again and
+     * its bytes are compared, so the answer doesn't depend on what the file's app says about it.
      * - With [quick], a file whose app gives the same size and time as before counts as unchanged,
      *   and is not read. Use it to look often (each time the editor comes back on screen). It can
      *   miss a change: some apps update the size and time a moment after the file. [save] never

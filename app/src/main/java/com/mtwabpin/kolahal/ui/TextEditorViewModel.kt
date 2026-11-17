@@ -213,30 +213,37 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         viewModelScope.launch {
             // A quick look, as this runs each time the window comes back. Saving looks properly.
             if (!withContext(io) { runCatching { doc.changedOnDisk(quick = true) }.getOrDefault(false) }) return@launch
-            if (state.dirty) {
-                state.message = EditorMessage("This file changed on disk. Saving asks before it overwrites", EditorMessage.Kind.NOTE)
-            } else {
-                reload(doc, state, "The file changed on disk: this is how it is now")
-            }
+            val changed = EditorMessage("This file changed on disk. Saving asks before it overwrites", EditorMessage.Kind.NOTE)
+            if (state.dirty) state.message = changed else reload(doc, state, "The file changed on disk: this is how it is now", ifTyped = changed)
         }
     }
 
-    /** Reads the file again and shows it, as one undo step. It does nothing if the user typed meanwhile. */
-    private suspend fun reload(doc: TextDocument, state: EditorState, said: String) {
+    /**
+     * Reads the file again and shows it, as one undo step, with [said] on the message line.
+     *
+     * The document moves on to the new file only once the editor shows it ([TextDocument.adopt]).
+     * If the user typed while the file was read, the editor keeps their text and says [ifTyped].
+     * The document then still knows the file as it was, so a save finds the change and asks.
+     */
+    private suspend fun reload(doc: TextDocument, state: EditorState, said: String, ifTyped: EditorMessage?) {
         val before = state.value.text
-        val opened = withContext(io) { doc.open() }
-        if (state.value.text != before) return
-        when (opened) {
-            is TextDocument.Opened.Ready -> {
+        when (val read = withContext(io) { doc.reread() }) {
+            is TextDocument.Reread.Text -> {
+                if (state.value.text != before) {
+                    ifTyped?.let { state.message = it }
+                    return
+                }
+                val fresh = read.fresh
                 state.history.checkpoint()
-                state.edit(TextFieldValue(opened.text, TextRange(state.value.selection.start.coerceAtMost(opened.text.length))))
+                state.edit(TextFieldValue(fresh.text, TextRange(state.value.selection.start.coerceAtMost(fresh.text.length))))
                 state.history.checkpoint()
-                state.saved = opened.saved
+                state.saved = fresh.text
+                withContext(io) { doc.adopt(fresh) }
                 name = doc.name
                 state.message = EditorMessage(said, EditorMessage.Kind.OK)
             }
-            is TextDocument.Opened.Refused -> state.message = EditorMessage("This file changed on disk, and can't be edited now. ${opened.why}", EditorMessage.Kind.NOTE)
-            is TextDocument.Opened.Unavailable -> state.message = EditorMessage("${opened.why}. What you see is the text from before", EditorMessage.Kind.NOTE)
+            is TextDocument.Reread.Refused -> state.message = EditorMessage("This file changed on disk, and can't be edited now. ${read.why}", EditorMessage.Kind.NOTE)
+            is TextDocument.Reread.Unavailable -> state.message = EditorMessage("${read.why}. What you see is the text from before", EditorMessage.Kind.NOTE)
         }
     }
 
@@ -323,7 +330,8 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                 doc.discardDraft()
                 drafted = typed
             }
-            reload(doc, state, "Changes discarded. Undo brings them back")
+            // If the user types on meanwhile, their text stays, and a new draft follows it.
+            reload(doc, state, "Changes discarded. Undo brings them back", ifTyped = null)
         }
     }
 

@@ -489,10 +489,11 @@ lost when you leave. So the text editor is a second activity, with its own three
   the save check. =TextEditorScreen= adds save, Save as, wrap and the questions about files.
 - *Never lose text.* The file's text is never in the saved instance state (it must stay under about
   1 MB). The ViewModel keeps it through a rotation; =Drafts= keeps unsaved text in
-  =files/editor-drafts= while you type and when the window is hidden. After Android closed the
-  editor, the text comes back from the file and its draft.
+  =files/editor-drafts= while you type, when the window is hidden, and before a save touches the
+  file. After Android closed the editor, the text comes back from the file and its draft.
 - *Never overwrite unseen text.* =TextDocument.save= reads the file again and compares its bytes
-  with what was read before. If they differ, it writes nothing and the screen asks.
+  with what the editor's text is based on. If they differ, it writes nothing and the screen asks.
+  A file read again (=reread=) counts only once the editor shows it (=adopt=).
 - *The theme.* =Term= is one for the app, and the editor can be the first window in a new process
   ("Open with"). Both activities call [[src:ui/Theme.kt::fun applyTermSettings][applyTermSettings]].
 - *From the prompt.* =EditCommands= (in =terminal/=) can't name the activity, as =terminal/= never
