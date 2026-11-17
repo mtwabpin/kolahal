@@ -56,6 +56,7 @@ class TextEditorActivity : ComponentActivity() {
     private val openFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> open(this, uri) } }
     private val newFile = registerForActivityResult(CreateTextFile) { it?.let { uri -> open(this, uri) } }
     private val saveAs = registerForActivityResult(CreateTextFile) { vm.saveAs(it) }
+    private val fromFolder = registerForActivityResult(OpenFileIn) { vm.reopened(it) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -78,6 +79,7 @@ class TextEditorActivity : ComponentActivity() {
                 when (event) {
                     Event.Close -> finishAndRemoveTask()
                     Event.AskSaveAs -> launchPicker { saveAs.launch(vm.name) }
+                    is Event.AskFromFolder -> launchPicker { fromFolder.launch(event.folder) }
                     // A window stands for one file. So the other file opens in its own, and this one closes.
                     is Event.Moved -> {
                         open(this@TextEditorActivity, event.uri)
@@ -192,6 +194,21 @@ object CreateTextFile : ActivityResultContract<String, Uri?>() {
             .setType(type ?: "application/octet-stream")
             .putExtra(Intent.EXTRA_TITLE, input)
     }
+
+    override fun parseResult(resultCode: Int, intent: Intent?): Uri? = intent?.data?.takeIf { resultCode == android.app.Activity.RESULT_OK }
+}
+
+/**
+ * Asks for a file, with the picker starting in a folder when one is given: to open the same file
+ * again from its folder. A file picked there comes from the phone's storage, which Kolahal may
+ * write, and not from Recent, which Android may give read-only.
+ */
+object OpenFileIn : ActivityResultContract<Uri?, Uri?>() {
+    override fun createIntent(context: Context, input: Uri?): Intent =
+        Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("*/*")
+            .apply { if (input != null) putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, input) }
 
     override fun parseResult(resultCode: Int, intent: Intent?): Uri? = intent?.data?.takeIf { resultCode == android.app.Activity.RESULT_OK }
 }

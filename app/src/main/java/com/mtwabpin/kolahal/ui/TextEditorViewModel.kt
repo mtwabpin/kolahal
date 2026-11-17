@@ -61,6 +61,9 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
 
         /** The text now lives in [uri]. Open that file, and close this window. */
         data class Moved(val uri: Uri) : Event
+
+        /** Ask for the same file again, from its folder. The picker starts in [folder] when it is known. */
+        data class AskFromFolder(val folder: Uri?) : Event
     }
 
     var phase by mutableStateOf<Phase>(Phase.Loading)
@@ -80,6 +83,14 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
 
     /** True while the editor asks what to do with unsaved changes before it closes. */
     var askClose by mutableStateOf(false)
+        private set
+
+    /**
+     * True when Android may have given the file read-only, and opening it again from its folder can
+     * help: a file from the picker's Recent, or one another app shared to read only. The menu then
+     * offers "Open from its folder…".
+     */
+    var reopenHelps by mutableStateOf(false)
         private set
 
     private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 4)
@@ -108,10 +119,12 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         this.uri = uri
         val app = getApplication<Application>()
         name = TextDocument.nameIn(uri.toString())
-        Documents.source(app).refusal(uri)?.let {
+        val source = Documents.source(app)
+        source.refusal(uri)?.let {
             phase = Phase.Failed("Can't open this", "$it.")
             return
         }
+        reopenHelps = source.reopenHelps(uri)
         viewModelScope.launch {
             val doc = Documents.open(app, uri)
             val opened = withContext(io) {
@@ -142,19 +155,29 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         }
     }
 
-    /** What to say when a file opens, or null: unsaved text came back, it can't be written, or it will be slow. */
+    /**
+     * What to say when a file opens, or null: unsaved text came back, it can't be written, or it
+     * will be slow. When the file was opened read-only and opening it from its folder can help, a
+     * tap on the message does that.
+     */
     private fun notes(doc: TextDocument, opened: TextDocument.Opened.Ready): EditorMessage? {
+        val readOnly = !doc.writable
         val notes = listOfNotNull(
             when {
                 opened.changedSince -> "Your unsaved changes are back. The file has changed since: saving asks first"
                 opened.restored -> "Your unsaved changes are back"
                 else -> null
             },
-            "Kolahal can't write this file: use Save as".takeIf { !doc.writable },
+            when {
+                !readOnly -> null
+                reopenHelps -> "${Documents.source(getApplication()).readOnlyReason(Uri.parse(doc.uri))} · tap to open it from its folder"
+                else -> "Kolahal can't write this file: use Save as"
+            },
             "Mixed line endings: saving writes them all as ${doc.format.lineEnding.name}".takeIf { doc.format.mixed },
             "A big file: typing is slow".takeIf { opened.text.length >= TextFiles.SLOW_FROM },
         )
-        return if (notes.isEmpty()) null else EditorMessage(notes.joinToString(" · "), EditorMessage.Kind.NOTE)
+        if (notes.isEmpty()) return null
+        return EditorMessage(notes.joinToString(" · "), EditorMessage.Kind.NOTE, action = if (readOnly && reopenHelps) ::askFromFolder else null)
     }
 
     private fun show(text: String, savedText: String, message: EditorMessage?) {
@@ -271,7 +294,11 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                     then()
                 }
                 TextDocument.Saved.Changed -> askOverwrite = true
-                is TextDocument.Saved.Failed -> state.message = EditorMessage(
+                // Android may let Kolahal write the same file from its folder. Save as is in the menu too.
+                is TextDocument.Saved.Failed -> state.message = if (reopenHelps) EditorMessage(
+                    "Not saved: ${result.why} · tap to open it from its folder",
+                    EditorMessage.Kind.ERROR, action = ::askFromFolder,
+                ) else EditorMessage(
                     "Couldn't save: ${result.why} · tap to save as another file",
                     EditorMessage.Kind.ERROR, action = { _events.tryEmit(Event.AskSaveAs) },
                 )
@@ -315,6 +342,55 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                 }
                 is TextDocument.Saved.Failed -> state.message = EditorMessage("Couldn't save: ${result.why}", EditorMessage.Kind.ERROR)
                 TextDocument.Saved.Changed -> Unit
+            }
+        }
+    }
+
+    /** Asks the activity for the same file again, picked in its folder. The picker starts there when the folder is known. */
+    fun askFromFolder() {
+        val uri = uri ?: return
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            val folder = withContext(io) { runCatching { Documents.source(app).folderOf(uri) }.getOrNull() }
+            _events.emit(Event.AskFromFolder(folder))
+        }
+    }
+
+    /**
+     * The picker's answer to "Open from its folder": the same file at [to], an address where Kolahal
+     * may write. The editor moves there, in a window of its own, as after Save as.
+     * - Unsaved text moves with it, as [to]'s draft ([TextDocument.moveDraftTo]). If [to] is not the
+     *   same file, saving there asks first.
+     * - This address leaves the recent list: the file is listed by its new address.
+     */
+    fun reopened(to: Uri?) {
+        val doc = document ?: return
+        val state = editing ?: return
+        val from = uri ?: return
+        if (to == null) return
+        if (to == from) {
+            state.message = EditorMessage("That is the same read-only file. Open the file inside its folder", EditorMessage.Kind.NOTE)
+            return
+        }
+        val text = state.value.text
+        val dirty = state.dirty
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            val moved = withContext(io) {
+                // From now on no draft is written for this address: the text lives at the new one.
+                done = true
+                runCatching { !dirty || doc.moveDraftTo(to.toString(), text) }.also { if (it.getOrNull() != true) done = false }
+            }
+            when {
+                moved.isFailure -> state.message = EditorMessage("Couldn't move your changes: ${moved.exceptionOrNull()?.message}", EditorMessage.Kind.ERROR)
+                moved.getOrThrow() == false -> state.message = EditorMessage(
+                    "That file has unsaved changes of its own. Save or discard them there first",
+                    EditorMessage.Kind.ERROR,
+                )
+                else -> {
+                    withContext(io) { Documents.forget(app, from.toString()) }
+                    _events.emit(Event.Moved(to))
+                }
             }
         }
     }

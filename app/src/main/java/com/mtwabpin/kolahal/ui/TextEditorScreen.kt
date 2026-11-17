@@ -96,6 +96,7 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
                 title = vm.name,
                 actions = listOfNotNull(
                     LogAction("Save as…") { vm.askSaveAs() },
+                    LogAction("Open from its folder…") { vm.askFromFolder() }.takeIf { vm.reopenHelps },
                     LogAction("Open a file…") { onOpen() },
                     LogAction("New file…") { onNew() },
                     LogAction(if (vm.wrap) "Don't wrap lines" else "Wrap lines") { vm.toggleWrap() },
