@@ -160,6 +160,8 @@ dependencies {
     testImplementation(libs.json)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    // Android's own screens in device tests: the file picker.
+    androidTestImplementation(libs.androidx.uiautomator)
     // Compose UI tests of the home screen (the test activity comes with ui-test-manifest, debug only).
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
