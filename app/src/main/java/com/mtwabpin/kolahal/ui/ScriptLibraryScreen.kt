@@ -1,12 +1,17 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -15,6 +20,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,12 +29,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.data.SearchWords
+import com.mtwabpin.kolahal.script.LibraryTag
+import com.mtwabpin.kolahal.script.LibraryTags
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.Screen
@@ -36,6 +47,10 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
 /**
  * Scripts → Add script → From the library: the ready-made scripts that come with Kolahal.
+ * - At the top: a search field, and a chip for each kind of script ([LibraryTag]): Template, Widget…
+ *   - The search keeps the scripts that have every word typed, in their name, title or description.
+ *   - Each chip that is on adds its scripts. A chip shows how many scripts it keeps.
+ *   - Both together: the scripts the search finds among those the chips keep.
  * - Your copies that differ (edited, or with a newer version) come first, under "Your copy differs",
  *   with Compare and Update or Reset.
  * - Then every other library script, with Install or its state.
@@ -43,8 +58,17 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 @Composable
 fun ScriptLibraryScreen(vm: TerminalViewModel) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
-    BackHandler { vm.closeScreen() }
+    // The search, and the chips that are on ([LibraryTag.id]). They survive rotation.
+    var query by rememberSaveable { mutableStateOf("") }
+    var chips by rememberSaveable { mutableStateOf(listOf<String>()) }
+    // Back empties the search first, as in the Scripts tab and in Settings. Then it closes the page.
+    BackHandler { if (query.isNotEmpty()) query = "" else vm.closeScreen() }
     val library by rememberLibraryRows(vm, scripts)
+    // What the search and the chips keep is worked out in LibraryTags (plain functions, with JVM tests).
+    val words = remember(query) { SearchWords.of(query) }
+    val chosen = remember(chips) { LibraryTags.known(chips) }
+    val counts = remember(library, words) { LibraryTags.counts(library.orEmpty().map { it.entry }, words) }
+    val shown = remember(library, words, chosen) { library?.filter { LibraryTags.shows(it.entry, words, chosen) } }
     // The library script whose copy shows a dialog, and which one: the question before Update or Reset, or Compare.
     var copyDialog by remember { mutableStateOf<Pair<String, CopyDialog>?>(null) }
     // Your copy of a library script: the same name and language.
@@ -71,7 +95,28 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
             item(key = "top") { Spacer(Modifier.height(1.dp)) }
             // Show nothing else until the rows are loaded. If "Get more scripts" shows alone first, it
             // keeps its place while the rows appear above it, so the list opens scrolled to the end.
-            val rows = library ?: return@GuiListPage
+            val rows = shown ?: return@GuiListPage
+            item(key = "search") {
+                SearchField(
+                    query,
+                    { query = it },
+                    "Search the library",
+                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    clear = "Clear",
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                )
+            }
+            if (counts.isNotEmpty()) {
+                item(key = "tags") {
+                    TagChips(counts, chosen) { tag -> chips = if (tag.id in chips) chips - tag.id else chips + tag.id }
+                }
+            }
+            if (rows.isEmpty() && (words.isNotEmpty() || chosen.isNotEmpty())) {
+                item(key = "none") {
+                    // With chips on, the × of the search field is not enough to show everything again.
+                    NoLibraryMatch(libraryNoMatch(query, chosen), onShowAll = if (chosen.isEmpty()) null else ({ chips = emptyList(); query = "" }))
+                }
+            }
             val differ = rows.filter { it.state.differs() && mine(it) != null }
             val rest = rows.filter { it !in differ }
             if (differ.isNotEmpty()) {
@@ -79,7 +124,8 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                 itemsIndexed(differ, key = { _, r -> "differs:" + r.entry.name }) { i, r ->
                     DiffersRow(r, i, differ.size, onCompare = { copyDialog = r.entry.name to CopyDialog.COMPARE }) { restore(r) }
                 }
-                item(key = "all") { GroupHeader("All scripts") }
+                // The search or the chips can leave only copies that differ: then nothing comes under this title.
+                if (rest.isNotEmpty()) item(key = "all") { GroupHeader("All scripts") }
             }
             itemsIndexed(rest, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
                 LibraryRow(r, i, rest.size, nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null) {
@@ -106,6 +152,47 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                 CopyDialogs(vm, s, ScriptCopy.of(r), dialog, onShow = { copyDialog = it?.let { d -> name to d } }, onExport = { vm.requestScriptExport(s) })
             }
         }
+    }
+}
+
+/**
+ * The chips under the search field, one for each tag that a library script has, in one row. The
+ * row scrolls sideways when the chips are wider than the page.
+ * - [counts]: the chips, each with the number of scripts it keeps ([LibraryTags.counts]).
+ * - [chosen]: the chips that are on.
+ */
+@Composable
+private fun TagChips(counts: Map<LibraryTag, Int>, chosen: Set<LibraryTag>, onToggle: (LibraryTag) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    ) {
+        for ((tag, count) in counts) {
+            CountChip(tag.label, count, on = tag in chosen, modifier = Modifier.testTag("tag:${tag.id}")) { onToggle(tag) }
+        }
+    }
+}
+
+/**
+ * What the page says when the search and the chips keep no script.
+ * - The search alone: No script matches “piano”.
+ * - With chips on, it names them, as each chip adds its scripts: No Template or Event script matches “piano”.
+ * - Without a search (a chip for a tag that no script has): No Event script in the library.
+ */
+internal fun libraryNoMatch(query: String, chosen: Collection<LibraryTag>): String {
+    val labels = chosen.map { it.label }
+    val kinds = if (labels.size < 2) labels.joinToString() else labels.dropLast(1).joinToString() + " or " + labels.last()
+    val scripts = if (kinds.isEmpty()) "No script" else "No $kinds script"
+    return if (query.isBlank()) "$scripts in the library" else "$scripts matches “${query.trim()}”"
+}
+
+/** The line for no match ([libraryNoMatch]). With [onShowAll], a button under it empties the search and turns the chips off. */
+@Composable
+private fun NoLibraryMatch(text: String, onShowAll: (() -> Unit)?) {
+    Column {
+        NoMatchNote(text)
+        // The button's own padding puts its label where the line above starts.
+        if (onShowAll != null) TextButton(shapes = ButtonDefaults.shapes(), onClick = onShowAll, modifier = Modifier.padding(start = 4.dp)) { Text("Show all") }
     }
 }
 

@@ -35,6 +35,8 @@ import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalToggleButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -77,9 +79,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -454,6 +459,31 @@ internal fun SearchField(
             { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), clear) } }
         } else null,
         keyboardOptions = keyboardOptions,
+        modifier = modifier,
+    )
+}
+
+/**
+ * A filter chip with the number of rows it keeps after its name: "Widget 18".
+ * - [on]: the chip is chosen. It is then filled. It has no check mark: the fill already shows it.
+ * - A chip that keeps no row (0) is greyed while it is off. A tap on it still works.
+ */
+@Composable
+internal fun CountChip(label: String, count: Int, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val muted = count == 0 && !on
+    FilterChip(
+        selected = on,
+        onClick = onClick,
+        label = {
+            Text(buildAnnotatedString {
+                append(label)
+                append(" ")
+                withStyle(SpanStyle(color = if (muted) colors.outline else colors.onSurfaceVariant)) { append("$count") }
+            })
+        },
+        colors = FilterChipDefaults.filterChipColors(labelColor = if (muted) colors.outline else colors.onSurfaceVariant),
+        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = on, borderColor = if (muted) colors.outlineVariant else colors.outline),
         modifier = modifier,
     )
 }

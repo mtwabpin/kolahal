@@ -11,6 +11,34 @@ script lib                 # list them, with a tag on the installed ones
 script install weather     # install (or update) one
 ```
 
+**Finding a script**
+
+**Add script → From the library** has a search field at the top, and a row of chips under it.
+
+- **Search**: type a few letters. The list keeps the scripts that have every word you type, in
+  their name, their title or their description. `clock` finds World clocks; `live score` finds
+  Live cricket and Live football. Upper and lower case are the same.
+- **Chips**: each chip shows one kind of script. Its number is how many scripts it shows.
+
+  | Chip | Shows the scripts that |
+  | --- | --- |
+  | Template | you start your own script from: the [templates](#templates) |
+  | Widget | have a [widget](#widgets) for the widgets page |
+  | Command | you run by typing their name |
+  | Timer | suggest a timer: every hour, or daily at a set time |
+  | Event | run when something happens on the phone, such as plugging in the charger |
+  | Internet | use the internet. Once installed, they have the **Internet** switch |
+  | Offline | never use the internet |
+
+- With several chips on, the list shows the scripts of any of them: **Widget** and **Template**
+  show every widget and every template. Swipe the row sideways to see all the chips.
+- The search and the chips work together: the list shows the scripts that the search finds among
+  those the chips show. With a search, a chip's number counts only the scripts found.
+- To see every script again, tap × in the search field and tap the chips that are on. Back empties
+  the search too.
+- You don't set these kinds: Kolahal reads them from each script, from its `@widget`, `@command`,
+  `@every`, `@at` and `@on` lines and from what its code uses.
+
 People who use Kolahal share more scripts. Find them in **Scripts → Add script → Get more scripts**
 or with `script get` ([getting scripts from others](/scripting/overview/#getting-scripts-from-others)).
 

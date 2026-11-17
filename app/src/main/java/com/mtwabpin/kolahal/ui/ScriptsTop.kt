@@ -25,7 +25,6 @@ import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -50,9 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 
@@ -265,25 +261,13 @@ private fun ColumnScope.FilterGroups(groups: List<Pair<FilterGroup, List<ScriptF
             Text(group.title, style = MaterialTheme.typography.labelLarge, color = colors.primary, modifier = Modifier.padding(top = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (chip in chips) {
-                    val on = chip.id in chosen
-                    val count = counts[chip.id] ?: 0
-                    // Greyed at 0, as nothing more would show; it still works, as in a group it may add nothing yet keep the others.
-                    val muted = count == 0 && !on
-                    FilterChip(
-                        selected = on,
-                        onClick = { onToggle(chip.id) },
-                        label = {
-                            Text(buildAnnotatedString {
-                                append(chip.label)
-                                append(" ")
-                                withStyle(SpanStyle(color = if (muted) colors.outline else colors.onSurfaceVariant)) { append("$count") }
-                            })
-                        },
-                        // No check mark: the filled chip already shows it is on.
-                        colors = FilterChipDefaults.filterChipColors(labelColor = if (muted) colors.outline else colors.onSurfaceVariant),
-                        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = on, borderColor = if (muted) colors.outlineVariant else colors.outline),
+                    // A chip at 0 is greyed, as nothing more would show. It still works: in a group it may add nothing yet keep the others.
+                    CountChip(
+                        chip.label,
+                        counts[chip.id] ?: 0,
+                        on = chip.id in chosen,
                         modifier = Modifier.height(FilterChipDefaults.Height).testTag("filter:${chip.id}"),
-                    )
+                    ) { onToggle(chip.id) }
                 }
             }
         }

@@ -19,7 +19,26 @@ class ScriptLibrary(private val context: Context) {
         val description: String,
         val command: Boolean,
         val suggestedEvery: Int,
-    )
+        /** What it is and how it runs ([LibraryTags.of]). The library page has a filter chip for each. */
+        val tags: Set<LibraryTag> = emptySet(),
+    ) {
+        companion object {
+            /** The entry of the library file [file], a [lang] script with [code]: what its name and its directives say. */
+            fun of(file: String, lang: ScriptLang, code: String): Entry {
+                val name = file.substringBeforeLast('.')
+                return Entry(
+                    file = file,
+                    name = name,
+                    lang = lang,
+                    title = ScriptMeta.title(code) ?: name,
+                    description = ScriptMeta.description(code).orEmpty(),
+                    command = ScriptMeta.isCommand(code),
+                    suggestedEvery = ScriptMeta.every(code) ?: 0,
+                    tags = LibraryTags.of(name, code),
+                )
+            }
+        }
+    }
 
     enum class State { NOT_INSTALLED, INSTALLED, MODIFIED, UPDATE_AVAILABLE }
 
@@ -27,17 +46,7 @@ class ScriptLibrary(private val context: Context) {
     val entries: List<Entry> by lazy {
         context.assets.list("library").orEmpty().sorted().mapNotNull { file ->
             val lang = ScriptLang.of(file.substringAfterLast('.', "")) ?: return@mapNotNull null
-            val code = read(file)
-            val name = file.substringBeforeLast('.')
-            Entry(
-                file = file,
-                name = name,
-                lang = lang,
-                title = ScriptMeta.title(code) ?: name,
-                description = ScriptMeta.description(code).orEmpty(),
-                command = ScriptMeta.isCommand(code),
-                suggestedEvery = ScriptMeta.every(code) ?: 0,
-            )
+            Entry.of(file, lang, read(file))
         }
     }
 
