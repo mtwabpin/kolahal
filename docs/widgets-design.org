@@ -14,7 +14,7 @@ Where this document and the code disagree, the code wins.
 - [[*What is built][What is built]] marks what is in the code now, and where the code went another way.
 - [[*Summary][Summary]] is the whole idea on one page.
 - [[*Decisions][Decisions]] answers the eight design questions, each with its reasons.
-- [[*The catalog][The catalog]] lists what to choose from: 12 widget kinds and 25 ready-made widgets.
+- [[*The catalog][The catalog]] lists what to choose from: 12 widget kinds and 24 ready-made widgets.
 - [[*What changes in the code][What changes in the code]] names the files.
 - [[*Phased plan][Phased plan]] says what to build first.
 - [[*Open questions][Open questions]] are for the owner. Each has a recommended answer.
@@ -136,7 +136,7 @@ Phases 3 and 4 are not started.
   itself. Everything else uses the access a script already has (=@uses=, internet, secrets).
 - *Two feeders, one renderer.* The same cards can also be filled by Kolahal itself, for data that
   must be live or that scripts may not touch (now playing, battery, todos, your own commands).
-- *First build.* 6 kinds and 12 ready-made widgets. 7 of the 12 are library scripts that exist
+- *First build.* 6 kinds and 11 ready-made widgets. 7 of the 11 are library scripts that exist
   today and gain one =widget.show= call.
 
 * Words used here
