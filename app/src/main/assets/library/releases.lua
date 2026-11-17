@@ -132,7 +132,7 @@ if widget and (quiet or allowed("widget")) then
     if quiet then error("Couldn't read the releases: " .. why, 0) end
   else
     -- It runs every 3 hours: content counts as old only after 6, so the card shows no age between runs.
-    widget.show{ items = rows, empty = "No repos: releases add owner/repo", staleAfter = 6 * 3600 }
+    widget.show{ icon = "code", items = rows, empty = "No repos: releases add owner/repo", staleAfter = 6 * 3600 }
   end
 end
 -- A run for the widget stops here. It must not check for new releases: they would count as seen

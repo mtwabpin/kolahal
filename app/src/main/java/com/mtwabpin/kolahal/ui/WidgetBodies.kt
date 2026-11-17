@@ -217,7 +217,7 @@ private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: I
 private fun ControlContent(icon: String?, label: String, width: Dp, height: Dp, state: String? = null, working: Boolean = false) {
     val lead: (@Composable () -> Unit)? = when {
         working -> { { WorkingSign() } }
-        icon != null -> { { Text(icon, style = MaterialTheme.typography.titleMedium, maxLines = 1, softWrap = false) } }
+        icon != null -> { { WidgetIconText(icon, MaterialTheme.typography.titleMedium) } }
         else -> null
     }
     val tall = height >= TWO_LINES
@@ -573,7 +573,7 @@ private val AGENDA_PLACES = 200.dp
  *   That happens on the minute's tick ([rememberNow]), with no run of the script and no tick of
  *   its own.
  * - An event is one line: its time, a dot in its colour if it has one, its title, and its place at its end in a
- *   box that has room. An event that can be tapped is 48 dp tall, others 32 dp.
+ *   box that has room. An event that can be tapped is 44 dp tall ([TAP_ROW_DP]), others 32 dp.
  * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
  *   line under the events.
  * - With nothing to show it says the description's `empty` text.
@@ -594,7 +594,7 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < AGENDA_NARROW
         val places = maxWidth >= AGENDA_PLACES
-        val rowDp = if (days.any { day -> day.lines.any { it.event.tap != null } }) 48 else 32
+        val rowDp = if (days.any { day -> day.lines.any { it.event.tap != null } }) TAP_ROW_DP else 32
         val heightDp = maxHeight.value.toInt()
         val total = days.sumOf { it.lines.size }
         val moreDp = if (inTitle) 0 else AGENDA_MORE_DP

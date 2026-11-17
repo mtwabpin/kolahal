@@ -138,7 +138,7 @@ private fun ShortcutRow(shortcut: Shortcut, index: Int, count: Int, onEdit: () -
         colors = segColors(),
         onClick = onEdit,
         shapes = segShapes(index, count),
-        leadingContent = shortcut.icon?.let { icon -> { Text(icon, style = MaterialTheme.typography.titleMedium, maxLines = 1) } },
+        leadingContent = shortcut.icon?.let { icon -> { WidgetIconText(icon, MaterialTheme.typography.titleMedium) } },
         supportingContent = {
             Text(shortcut.command, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
@@ -214,9 +214,10 @@ private fun ShortcutDialog(initial: Shortcut?, commands: List<String>, onDismiss
                     shape = TextFieldDefaults.roundedShape,
                     colors = fieldColors(),
                     value = icon,
-                    onValueChange = { icon = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_ICON) },
+                    // Room for an icon name ("torch"). Saving cuts any other text to an emoji or a few letters.
+                    onValueChange = { icon = it.replace('\n', ' ').takeWhole(Shortcuts.MAX_ICON_TYPED) },
                     label = { Text("Icon") },
-                    placeholder = { Text("An emoji, if you like") },
+                    placeholder = { Text("A name such as torch, or an emoji") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     modifier = Modifier.fillMaxWidth().testTag("shortcut-icon"),

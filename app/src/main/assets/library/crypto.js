@@ -93,6 +93,7 @@ const moves = (r) => (r.change != null ? fmt.color(r.change >= 0 ? "good" : "bad
 if (typeof widget !== "undefined" && words.length === 0) {
   widget.show({
     title: `Prices in ${vs.toUpperCase()}`,
+    icon: "chart",
     items: rows.map((r) => {
       const item = { title: r.sym, trailing: r.price };
       if (r.change != null) {

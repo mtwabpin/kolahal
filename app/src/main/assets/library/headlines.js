@@ -64,4 +64,4 @@ const items = (feed.items || []).slice(0, 12).map((it) => {
 });
 
 // Its timer fills it every hour. It counts as old after two hours: after a run that was missed.
-widget.show({ title: (feed.title || "").trim() || "Headlines", items, empty: "No items", staleAfter: 2 * 3600 });
+widget.show({ title: (feed.title || "").trim() || "Headlines", icon: "feed", items, empty: "No items", staleAfter: 2 * 3600 });

@@ -39,7 +39,7 @@ if (!q || !q.q) return fail("No quote", "ZenQuotes sent an empty answer");
 const author = q.a || "Unknown";
 const text = `“${q.q.trim()}” — ${author}`;
 // Its widget: the quote, and who said it under it.
-if (typeof widget !== "undefined") widget.show({ text: `“${q.q.trim()}”`, caption: author });
+if (typeof widget !== "undefined") widget.show({ icon: "chat", text: `“${q.q.trim()}”`, caption: author });
 if (quiet) return;
 log(fmt.italic(`“${q.q.trim()}”`), `— ${author}`, { copy: text });
 

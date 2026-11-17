@@ -90,6 +90,7 @@ for (const to of targets) {
 if (typeof widget !== "undefined" && bare) {
   widget.show({
     title: `1 ${from}`,
+    icon: "money",
     items: rows.map((r) => ({ title: r.to, trailing: r.rate })),
     empty: "No rates",
     tap: { args: "", page: "log" },

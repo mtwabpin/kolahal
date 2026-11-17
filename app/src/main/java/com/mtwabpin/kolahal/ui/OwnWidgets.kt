@@ -536,12 +536,12 @@ private fun NotesWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
 
 /** The drawable of the badge of the built-in widget [id] ([WidgetCard]), or null for one that has none. */
 internal fun builtinBadge(id: String): Int? = when (id) {
-    WidgetSource.TODOS -> R.drawable.ic_check
-    WidgetSource.REMINDERS -> R.drawable.ic_notifications
+    WidgetSource.TODOS -> R.drawable.wi_check
+    WidgetSource.REMINDERS -> R.drawable.wi_bell
     WidgetSource.NOTES -> R.drawable.ic_edit
     WidgetSource.SHORTCUTS -> R.drawable.ic_touch
-    WidgetSource.MEDIA -> R.drawable.ic_music_note
-    WidgetSource.AGENDA -> R.drawable.ic_calendar
-    WidgetSource.BATTERY -> R.drawable.ic_battery
+    WidgetSource.MEDIA -> R.drawable.wi_music
+    WidgetSource.AGENDA -> R.drawable.wi_calendar
+    WidgetSource.BATTERY -> R.drawable.wi_battery
     else -> null
 }

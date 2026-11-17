@@ -33,6 +33,9 @@ object Shortcuts {
     const val MAX_COMMAND = 200
     const val MAX_ICON = 4
 
+    /** What the editor lets you type for an icon: room for a name ([WidgetIcons]). */
+    const val MAX_ICON_TYPED = 16
+
     /** Only this file names the key. */
     private const val KEY = "widget.shortcuts"
 
@@ -47,13 +50,14 @@ object Shortcuts {
      * - A command is one line, at most [MAX_COMMAND] characters. The cut adds no "…": that would be
      *   part of what runs.
      * - A label is one line, cut at [MAX_LABEL] with "…". Without a label, the command is the label.
-     * - An icon is at most [MAX_ICON] characters, and never ends in half an emoji. An empty one is null.
+     * - An icon is a name ([WidgetIcons]), or else at most [MAX_ICON] characters, never ending in half
+     *   an emoji. An empty one is null.
      */
     fun clean(list: List<Shortcut>): List<Shortcut> = list.mapNotNull { s ->
         val command = oneLine(s.command).takeWhole(MAX_COMMAND).trim()
         if (command.isEmpty()) return@mapNotNull null
         val label = oneLine(s.label).ifEmpty { command }.let { if (it.length <= MAX_LABEL) it else it.takeWhole(MAX_LABEL - 1).trimEnd() + "…" }
-        val icon = s.icon?.let(::oneLine)?.takeWhole(MAX_ICON)?.takeIf { it.isNotEmpty() }
+        val icon = s.icon?.let(::oneLine)?.let { if (WidgetIcons.isName(it)) it else it.takeWhole(MAX_ICON) }?.takeIf { it.isNotEmpty() }
         Shortcut(label, command, icon)
     }.take(MAX)
 

@@ -75,9 +75,9 @@ local work = device.work()
 -- Its widget: a switch for each, with its state as it is now. Kolahal never guesses a new state:
 -- this is where it comes from, also after a change that didn't work.
 if widget then
-  local items = { { label = "Do Not Disturb", icon = "🌙", on = dnd, tap = { args = "dnd" } } }
+  local items = { { label = "Do Not Disturb", icon = "moon", on = dnd, tap = { args = "dnd" } } }
   if work then
-    items[2] = { label = "Work profile", icon = "💼", on = work == "on", tap = { args = "work" } }
+    items[2] = { label = "Work profile", icon = "work", on = work == "on", tap = { args = "work" } }
   end
   widget.show{ items = items, staleAfter = 60 }
 end

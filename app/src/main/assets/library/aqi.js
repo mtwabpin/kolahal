@@ -282,6 +282,7 @@ if (!line) status(text, newer ? { progress: Math.min(1, aqi / GOOD_TOP), color: 
 if (typeof widget !== "undefined" && !line) {
   widget.show({
     title: `${name} · ${place.name}`,
+    icon: "wind",
     value: aqi,
     max: worst,
     text: String(aqi),

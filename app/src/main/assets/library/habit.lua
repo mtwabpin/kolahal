@@ -86,7 +86,7 @@ if widget then
     said[i] = d[1] .. (d[2] and " done" or (i == #week and " not yet" or " missed"))
   end
   widget.show{
-    title = name,
+    title = name, icon = "fire",
     value = streak,
     label = label,
     points = points,

@@ -25,6 +25,9 @@ import com.mtwabpin.kolahal.script.Json
 object WidgetParser {
     const val MAX_TITLE = 40
     const val MAX_ICON = 4
+
+    /** The longest text read for an icon: room for a name ([WidgetIcons]). */
+    private const val MAX_ICON_NAME = 24
     const val MAX_TEXT = 500
     const val MAX_CAPTION = 60
     const val MAX_TAP_LABEL = 24
@@ -174,7 +177,7 @@ object WidgetParser {
         val t = Table(raw, "", "$a ${kind.id} widget has no field", COMMON + own(kind), text, link)
         val base = WidgetBase(
             title = t.text("title", MAX_TITLE),
-            icon = t.text("icon", MAX_ICON),
+            icon = t.icon(),
             color = t.colour(),
             tap = t.tap(),
             staleAfter = t.seconds("staleAfter", MIN_STALE, MAX_STALE),
@@ -238,7 +241,7 @@ object WidgetParser {
                     title = r.need("title", MAX_ROW_TITLE, "the row's text", styled = true),
                     detail = r.text("detail", MAX_DETAIL, styled = true),
                     trailing = r.text("trailing", MAX_SHORT, styled = true),
-                    icon = r.text("icon", MAX_ICON),
+                    icon = r.icon(),
                     color = r.colour(),
                     tap = r.tap(),
                     done = r.flagOrNull("done"),
@@ -269,7 +272,7 @@ object WidgetParser {
                 WidgetSpec.Button(
                     label = b.need("label", MAX_SHORT, "the button's text"),
                     tap = b.tap() ?: b.fail("tap is needed: what the button does, { args } or { url }"),
-                    icon = b.text("icon", MAX_ICON),
+                    icon = b.icon(),
                     color = b.colour(),
                 )
             },
@@ -291,7 +294,7 @@ object WidgetParser {
                 val on = s.flagOrNull("on") ?: s.fail("on is needed: true or false, the state now")
                 val tap = s.tap() ?: s.fail("tap is needed: { args }, the arguments that switch it")
                 if (tap.args == null) s.fail("tap must be { args }, not { url }: a switch runs this script again")
-                WidgetSpec.Toggle(label, on, tap, icon = s.text("icon", MAX_ICON))
+                WidgetSpec.Toggle(label, on, tap, icon = s.icon())
             },
         )
     }
@@ -422,6 +425,18 @@ object WidgetParser {
          */
         fun text(key: String, max: Int, lines: Boolean = false, styled: Boolean = false): String? =
             textOrEmpty(key, max, lines, styled)?.takeIf { it.isNotEmpty() }
+
+        /**
+         * The `icon` field: a name from [WidgetIcons] ("sun"), or a text cut to [MAX_ICON]
+         * characters (an emoji or a letter). A lower-case word over 4 letters that is no name is an
+         * error: most likely a typo, such as "sunn".
+         */
+        fun icon(): String? {
+            val given = text("icon", MAX_ICON_NAME) ?: return null
+            if (WidgetIcons.isName(given)) return given
+            if (WidgetIcons.looksLikeName(given)) fail("icon \"$given\" is no icon name: the scripting guide lists them, or give an emoji")
+            return StyledText.take(given, MAX_ICON).ifEmpty { null }
+        }
 
         /** A text field that must be there. [what] says what it is for, in the error. It may be empty. */
         fun need(key: String, max: Int, what: String, lines: Boolean = false, styled: Boolean = false): String =

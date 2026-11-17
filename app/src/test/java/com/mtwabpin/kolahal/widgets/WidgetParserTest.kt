@@ -643,9 +643,9 @@ class WidgetParserTest {
 
     @Test fun textIsCutAtItsLimit() {
         val long = "x".repeat(600)
-        val spec = stat("title" to long, "icon" to "abcdef", "tap" to mapOf("args" to long, "label" to long))
+        val spec = stat("title" to long, "icon" to "Abcdef", "tap" to mapOf("args" to long, "label" to long))
         assertEquals("x".repeat(39) + "…", spec.base.title)
-        assertEquals("abc…", spec.base.icon)
+        assertEquals("Abc…", spec.base.icon)
         assertEquals("x".repeat(23) + "…", spec.base.tap!!.label)
         assertEquals("x".repeat(199) + "…", spec.base.tap!!.args)
         val text = parse(mapOf("text" to long, "caption" to long), WidgetKind.TEXT) as WidgetSpec.Text

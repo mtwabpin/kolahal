@@ -101,7 +101,7 @@ function card(event, live, p, every) {
     : type.shortDetail === "HT" ? ["HT", "half time"]
     : [(event.status && event.status.displayClock) || "", "minute"];
   const d = {
-    icon: "⚽",
+    icon: "ball",
     value: `${abbr(home)} ${home.score ?? ""}–${away.score ?? ""} ${abbr(away)}`,
     label: event.name || "",
     tap: TAP,
@@ -131,7 +131,7 @@ function showMatch(event) {
 // No match to follow: no status line, and its widget says so.
 function showNone() {
   status(null);
-  if (hasWidget) widget.show({ icon: "⚽", value: "–", label: `No live match in ${league}`, tap: TAP, staleAfter: 900 });
+  if (hasWidget) widget.show({ icon: "ball", value: "–", label: `No live match in ${league}`, tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }).

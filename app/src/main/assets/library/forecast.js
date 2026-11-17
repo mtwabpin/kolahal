@@ -104,6 +104,18 @@ function icon(code) {
   return "⛈️";
 }
 
+// WMO weather codes -> the name of the widget's icon, which the card draws in its colour.
+function skyIcon(code) {
+  if (code === 0) return "sun";
+  if (code <= 3) return "cloud";
+  if (code <= 48) return "fog";
+  if (code <= 67) return "rain";
+  if (code <= 77) return "snow";
+  if (code <= 82) return "rain";
+  if (code <= 86) return "snow";
+  return "storm";
+}
+
 // One bar a day, from its low to its high, all on one scale, so the days compare at a glance: the
 // day and its sky, the low, the bar, the high, and a chance of rain from 30% (in the warning colour
 // from 60%).
@@ -124,7 +136,8 @@ if (!line) status(todayLine);
 if (typeof widget !== "undefined" && !line) {
   widget.show({
     title: where,
-    items: rows.map((r) => ({ title: r.label, icon: icon(r.code), detail: describe(r.code), trailing: `${r.lo}–${r.hi}°` })),
+    icon: rows.length ? skyIcon(rows[0].code) : "cloud",
+    items: rows.map((r) => ({ title: r.label, icon: skyIcon(r.code), detail: describe(r.code), trailing: `${r.lo}–${r.hi}°` })),
     tap: { args: "", page: "log" },
   });
 }

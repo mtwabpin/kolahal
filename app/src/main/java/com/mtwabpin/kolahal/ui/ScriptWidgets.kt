@@ -372,7 +372,7 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
 }
 
 /**
- * The badge: [drawable] in its role's [colour], or else [text] (an emoji or a letter), on a shape
+ * The badge: [drawable] in its role's [colour], or else [text] (an icon name, an emoji or a letter), on a shape
  * tinted with that colour. A [quiet] badge is no part of what a screen reader hears.
  */
 @Composable
@@ -381,16 +381,15 @@ private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, si
     Box(Modifier.size(size).clip(shape).background(colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
         when {
             drawable != null -> Icon(painterResource(drawable), contentDescription = null, tint = colour, modifier = Modifier.size(size * 2 / 3))
-            text != null -> Text(
+            text != null -> WidgetIconText(
                 text,
-                style = when {
+                when {
                     size >= 40.dp -> MaterialTheme.typography.titleMedium
                     size >= 32.dp -> MaterialTheme.typography.titleSmall
                     else -> MaterialTheme.typography.labelLarge
                 },
-                color = colour,
-                maxLines = 1,
-                softWrap = false,
+                colour,
+                size = size * 2 / 3,
             )
         }
     }

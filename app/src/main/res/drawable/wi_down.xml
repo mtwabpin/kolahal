@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Rounded "trending_down" (Apache License 2.0), as the widget icon "down". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="960" android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M780-300 539-541 414-416q-16.93 17-41.97 17Q347-399 330-416L102-644q-9-9-9-21.5t9-21.5q9-9 21.5-9t21.5 9l226 227 125-125q16.93-17 41.97-17Q563-602 580-585l241 241v-94q0-12.33 9-20.66 9-8.34 21.23-8.34t20.5 8.34Q880-450.33 880-438v168q0 12.75-8.62 21.37Q862.75-240 850-240H683q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h97Z" />
+    </group>
+</vector>

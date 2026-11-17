@@ -48,7 +48,7 @@ if widget then
   local said = {}
   for i, row in ipairs(rows) do said[i] = row[1] .. " " .. row[2] end
   widget.show{
-    title = "Unlocks",
+    title = "Unlocks", icon = "unlock",
     value = today,
     label = today == 1 and "unlock today" or "unlocks today",
     points = days,

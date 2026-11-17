@@ -699,7 +699,7 @@ Every kind takes these fields. All are optional.
 | --- | --- | --- |
 | `kind` | a kind's name | The card to draw. Without it: the kind on the `@widget` line. |
 | `title` | text, up to 40 characters | The card's small heading. Without it: the script's `@title`, or its name. |
-| `icon` | text, up to 4 characters | An emoji or a letter, drawn in a badge. Without it, a large card's badge is the first letter of the title. |
+| `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's colour; or an emoji or a letter. Without it, a large card's badge is the first letter of the title. |
 | `color` | a role | The colour of the badge, the bar, the ring or the chart: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
@@ -709,6 +709,22 @@ A wide card under 100dp tall gives its title line to its content when the conten
 buttons, switches, a `text`, and bars with their names. A card one row high (`2x1`, `4x1`) is
 under 100dp on most phones. The age and "Failed 10:42" are on the title line, so a card with one of
 them to show keeps the line. A screen reader always says the title.
+
+### Icons
+
+A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's colour, so it follows the theme, where an emoji keeps its own colours. Names are lower case. Any other text of up to 4 characters is drawn as it is: an emoji or a letter. A lower-case word longer than 4 letters that is no name is an error, so a typo such as `"sunny"` doesn't pass unseen. The icons are [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0).
+
+| Group | Names |
+| --- | --- |
+| Weather | `sun`, `moon`, `cloud`, `rain`, `snow`, `storm`, `wind`, `fog`, `temp`, `drop` |
+| Time | `alarm`, `timer`, `clock`, `calendar`, `bell` |
+| Home and device | `home`, `work`, `lock`, `unlock`, `wifi`, `battery`, `bolt`, `torch`, `phone`, `dnd` |
+| People and talk | `person`, `people`, `mail`, `chat` |
+| Media | `music`, `play`, `pause`, `news`, `book`, `feed` |
+| Signs | `heart`, `star`, `check`, `flag`, `fire`, `leaf`, `trophy`, `ball`, `cricket` |
+| Money and charts | `money`, `cart`, `chart`, `up`, `down`, `parcel`, `gift` |
+| Going places | `car`, `bus`, `train`, `plane`, `walk`, `pin`, `globe`, `coffee` |
+| Work | `code`, `bug`, `link` |
 
 ### Kinds and their fields
 
@@ -746,7 +762,7 @@ Each row is `{ title, detail, trailing, icon, color, tap, done }`. Only `title` 
 | `title` | text, up to 80 | The row's text. |
 | `detail` | text, up to 120 | A second line. |
 | `trailing` | text, up to 24 | A short text at the row's end: a price, a count. |
-| `icon` | text, up to 4 | An emoji or a letter in front. |
+| `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front, in the row's colour. |
 | `color` | a role | The colour of its icon, or of a dot in front when it has no icon. The `trailing` text stays dim. |
 | `tap` | an action | What a tap on the row does ([Taps](#taps)). |
 | `done` | true or false | The row has a checkbox in front: ticked with `true`, empty with `false`. Without it, the row has none. |
@@ -856,7 +872,7 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `label` | text, up to 24 | The button's text. |
-| `icon` | text, up to 4 | An emoji or a letter in front of the text. |
+| `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front of the text. |
 | `color` | a role | The button's colour. |
 | `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
 
@@ -878,7 +894,7 @@ Each switch is `{ label, icon, on, tap }`. `label`, `on` and `tap` are needed.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `label` | text, up to 24 | The switch's text. |
-| `icon` | text, up to 4 | An emoji or a letter in front of the text. |
+| `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front of the text. |
 | `on` | true or false | Needed. The state now. |
 | `tap` | `{ args }` | Needed. The arguments that switch it. A link is an error: a switch always runs this script again. |
 
@@ -967,8 +983,8 @@ needed.
 ```lua
 -- buttons: each one runs this script again with its own arguments
 widget.show{ kind = "buttons", items = {
-  { label = "Start", icon = "▶", tap = { args = "start" } },
-  { label = "Stop", icon = "■", color = "bad", tap = { args = "stop" } },
+  { label = "Start", icon = "play", tap = { args = "start" } },
+  { label = "Stop", icon = "pause", color = "bad", tap = { args = "stop" } },
   { label = "Help", tap = { url = "https://example.com/help" } },
 } }
 
@@ -1000,8 +1016,8 @@ widget.show{ kind = "agenda", days = 3, empty = "Nothing planned", events = {
 ```js
 // buttons: each one runs this script again with its own arguments
 widget.show({ kind: "buttons", items: [
-  { label: "Start", icon: "▶", tap: { args: "start" } },
-  { label: "Stop", icon: "■", color: "bad", tap: { args: "stop" } },
+  { label: "Start", icon: "play", tap: { args: "start" } },
+  { label: "Stop", icon: "pause", color: "bad", tap: { args: "stop" } },
   { label: "Help", tap: { url: "https://example.com/help" } },
 ] });
 

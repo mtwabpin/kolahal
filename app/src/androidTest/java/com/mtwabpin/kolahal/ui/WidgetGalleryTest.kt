@@ -208,7 +208,7 @@ class WidgetGalleryTest {
         Shot(
             "kind-stat", WidgetSize.S2X2, "Site visits",
             WidgetSpec.Stat(
-                base("Site visits", "📈"), value = "1,284", label = "today", delta = "+2.4%", trend = "up",
+                base("Site visits", "up"), value = "1,284", label = "today", delta = "+2.4%", trend = "up",
                 more = listOf(WidgetSpec.Small("312", "new"), WidgetSpec.Small("4.1", "minutes"), WidgetSpec.Small("38%", "mobile")),
             ),
         ),
@@ -220,7 +220,7 @@ class WidgetGalleryTest {
         Shot(
             "kind-list", WidgetSize.S4X2, "Parcels",
             WidgetSpec.Rows(
-                base("Parcels", "P"),
+                base("Parcels", "parcel"),
                 listOf(
                     WidgetSpec.Row("Keyboard", "Out for delivery", "Today", color = Colour.GOOD),
                     WidgetSpec.Row("Books", "In transit · Nagpur", "Mon", color = Colour.INFO),
@@ -241,13 +241,13 @@ class WidgetGalleryTest {
         ),
         Shot(
             "kind-chart", WidgetSize.S2X2, "Room",
-            WidgetSpec.Chart(base("Room", "📈", Colour.INFO), room, value = "24.6°", label = "now", labels = listOf("24 h ago", "now")),
+            WidgetSpec.Chart(base("Room", "temp", Colour.INFO), room, value = "24.6°", label = "now", labels = listOf("24 h ago", "now")),
         ),
         Shot("kind-chart", WidgetSize.S2X1, "Sensor", WidgetSpec.Chart(base("Sensor", colour = Colour.INFO), room, value = "24.6°", label = "Room")),
         Shot(
             "kind-countdown", WidgetSize.S2X1, "Match starts",
             // 3:25:10 to go, and 72% of the wait is over.
-            WidgetSpec.Countdown(base("Match starts", "🔔", Colour.WARN), to = now + 12_310, from = now - 31_654, style = "clock"),
+            WidgetSpec.Countdown(base("Match starts", "bell", Colour.WARN), to = now + 12_310, from = now - 31_654, style = "clock"),
         ),
         Shot(
             "kind-countdown", WidgetSize.S1X1, "Exam",
@@ -275,7 +275,7 @@ class WidgetGalleryTest {
             "kind-agenda", WidgetSize.S2X2, "Matches",
             // No ends: the events stay for the whole day, at whatever hour the test runs.
             WidgetSpec.Agenda(
-                base("Matches", "M", Colour.INFO),
+                base("Matches", "trophy", Colour.INFO),
                 listOf(WidgetSpec.Event("IND v NZ", at(0, 19, 30)), WidgetSpec.Event("AUS v ENG", at(1, 14, 0)), WidgetSpec.Event("SA v PAK", at(1, 19, 30))),
             ),
         ),
@@ -290,11 +290,11 @@ class WidgetGalleryTest {
     /** The ready-made widgets of the mockup: the library scripts' cards, and Kolahal's own. */
     private fun readyMade(): List<Shot> {
         val weather = WidgetSpec.Stat(
-            base("Pune", "☀️"), value = "27°", label = "Sunny",
+            base("Pune", "sun"), value = "27°", label = "Sunny",
             more = listOf(WidgetSpec.Small("62%", "humidity"), WidgetSpec.Small("9 km/h", "wind")),
         )
-        val aqi = WidgetSpec.Progress(base("US AQI · Pune", "A", Colour.WARN), value = 118f, max = 500f, text = "118", label = "Unhealthy for some")
-        val goa = WidgetSpec.Countdown(base("Goa trip", "📅", Colour.LINK), to = now + 36 * 86_400 + 43_200, label = "20 Dec", style = "days", reached = "Today")
+        val aqi = WidgetSpec.Progress(base("US AQI · Pune", "wind", Colour.WARN), value = 118f, max = 500f, text = "118", label = "Unhealthy for some")
+        val goa = WidgetSpec.Countdown(base("Goa trip", "calendar", Colour.LINK), to = now + 36 * 86_400 + 43_200, label = "20 Dec", style = "days", reached = "Today")
         val headlines = listOf(
             "Show HN: A terminal launcher for Android" to "412", "SQLite as a document database" to "368",
             "The unreasonable effectiveness of plain text" to "301", "Why your battery percentage lies" to "274",
@@ -314,7 +314,7 @@ class WidgetGalleryTest {
         // As read at the start of the day. Without the ends, no event drops out or says "now" at the hour of the run.
         val agenda = OwnCards.agenda(calendar, zone, today.atStartOfDay(zone).toInstant().toEpochMilli(), OwnData.AGENDA_DAYS).let { a -> a.copy(events = a.events.map { it.copy(ends = null) }) }
         val reminders = listOf(Reminder(1, nowMs + 42 * 60_000, "Call the bank"), Reminder(2, at(1, 7, 0) * 1000, "Water plants"), Reminder(3, at(3, 9, 0) * 1000, "Pay rent"))
-        val shortcuts = listOf(Shortcut("torch", "torch", "🔦"), Shortcut("dnd", "dnd", "🌙"), Shortcut("todo", "todo", "✅"), Shortcut("maps", "maps", "📍"))
+        val shortcuts = listOf(Shortcut("torch", "torch", "torch"), Shortcut("dnd", "dnd", "moon"), Shortcut("todo", "todo", "check"), Shortcut("maps", "maps", "pin"))
         return listOf(
             Shot("status", WidgetSize.S4X1, "Live cricket", checkNotNull(StatusCards.spec("Live cricket", StatusLine("cricket", "NZ 136/8 · 31.2 overs", progress = 0.6f)))),
             Shot("weather", WidgetSize.S2X1, "Pune", weather),
@@ -324,11 +324,11 @@ class WidgetGalleryTest {
             Shot(
                 "forecast", WidgetSize.S2X2, "Pune",
                 WidgetSpec.Rows(
-                    base("Pune", "3", Colour.INFO),
+                    base("Pune", "sun", Colour.INFO),
                     listOf(
-                        WidgetSpec.Row("Sat", trailing = "22–31°", icon = "☀️"),
-                        WidgetSpec.Row("Sun", trailing = "21–30°", icon = "☁️"),
-                        WidgetSpec.Row("Mon", trailing = "20–27°", icon = "🌧️"),
+                        WidgetSpec.Row("Sat", trailing = "22–31°", icon = "sun"),
+                        WidgetSpec.Row("Sun", trailing = "21–30°", icon = "cloud"),
+                        WidgetSpec.Row("Mon", trailing = "20–27°", icon = "rain"),
                     ),
                 ),
             ),
@@ -338,28 +338,28 @@ class WidgetGalleryTest {
             Shot("countdown-date", WidgetSize.S1X1, "Goa trip", goa),
             Shot(
                 "hn", WidgetSize.S4X2, "Hacker News",
-                WidgetSpec.Rows(base("Hacker News", "Y", Colour.WARN), headlines.mapIndexed { i, (title, points) -> WidgetSpec.Row(title, trailing = points, tap = link(i)) }),
+                WidgetSpec.Rows(base("Hacker News", "news", Colour.WARN), headlines.mapIndexed { i, (title, points) -> WidgetSpec.Row(title, trailing = points, tap = link(i)) }),
             ),
-            Shot("feed", WidgetSize.S2X2, "My feed", WidgetSpec.Rows(base("My feed", "F", Colour.LINK), feed.mapIndexed { i, title -> WidgetSpec.Row(title, tap = link(i)) })),
+            Shot("feed", WidgetSize.S2X2, "My feed", WidgetSpec.Rows(base("My feed", "feed", Colour.LINK), feed.mapIndexed { i, title -> WidgetSpec.Row(title, tap = link(i)) })),
             Shot(
                 "quote", WidgetSize.S2X2, "Quote of the day",
-                WidgetSpec.Text(base("Quote of the day", "“"), "“Simplicity is prerequisite for reliability.”", "Edsger W. Dijkstra"),
+                WidgetSpec.Text(base("Quote of the day", "chat"), "“Simplicity is prerequisite for reliability.”", "Edsger W. Dijkstra"),
             ),
             Shot("battery", WidgetSize.S2X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
             Shot("battery", WidgetSize.S1X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
             Shot(
                 "unlocks", WidgetSize.S2X2, "Unlocks",
-                WidgetSpec.Chart(base("Unlocks", "🔒", Colour.INFO), week, style = "bars", min = 0f, max = 71f, value = "46", label = "unlocks today", labels = ago),
+                WidgetSpec.Chart(base("Unlocks", "unlock", Colour.INFO), week, style = "bars", min = 0f, max = 71f, value = "46", label = "unlocks today", labels = ago),
             ),
             Shot(
                 "webnumber", WidgetSize.S2X1, "Living room",
-                WidgetSpec.Stat(base("Living room", "#", Colour.INFO), value = "21.4", unit = "°C", label = "sensor at home"),
+                WidgetSpec.Stat(base("Living room", "bolt", Colour.INFO), value = "21.4", unit = "°C", label = "sensor at home"),
             ),
-            Shot("webnumber", WidgetSize.S1X1, "Stars", WidgetSpec.Stat(base("Stars", "#", Colour.INFO), value = "847", label = "stars")),
+            Shot("webnumber", WidgetSize.S1X1, "Stars", WidgetSpec.Stat(base("Stars", "bolt", Colour.INFO), value = "847", label = "stars")),
             Shot(
                 "crypto", WidgetSize.S4X2, "Crypto",
                 WidgetSpec.Rows(
-                    base("Crypto", "C"),
+                    base("Crypto", "chart"),
                     listOf(
                         WidgetSpec.Row("Bitcoin", "+1.8% today", "$97,420", color = Colour.GOOD),
                         WidgetSpec.Row("Ethereum", "−0.6% today", "$3,310", color = Colour.BAD),
@@ -376,39 +376,39 @@ class WidgetGalleryTest {
             Shot(
                 "worldclocks", WidgetSize.S2X2, "World clocks",
                 WidgetSpec.Clock(
-                    base("World clocks", "W", Colour.LINK),
+                    base("World clocks", "globe", Colour.LINK),
                     listOf(WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("Europe/London", "London"), WidgetSpec.Zone("America/New_York", "New York")),
                 ),
             ),
             Shot(
                 "habit", WidgetSize.S2X2, "Exercise",
-                WidgetSpec.Chart(base("Exercise", "✅", Colour.GOOD), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
+                WidgetSpec.Chart(base("Exercise", "fire", Colour.GOOD), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
             ),
             Shot(
                 "quicktoggles", WidgetSize.S4X1, "Quick toggles",
                 WidgetSpec.Toggles(
                     base("Quick toggles"),
                     listOf(
-                        WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd"), icon = "🌙"),
-                        WidgetSpec.Toggle("Work profile", on = false, tap = WidgetTap(args = "work"), icon = "💼"),
+                        WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd"), icon = "moon"),
+                        WidgetSpec.Toggle("Work profile", on = false, tap = WidgetTap(args = "work"), icon = "work"),
                     ),
                 ),
             ),
             Shot(
                 "currency", WidgetSize.S2X2, "1 USD",
-                WidgetSpec.Rows(base("1 USD", "$", Colour.INFO), listOf("INR" to "84.40", "EUR" to "0.92", "GBP" to "0.79").map { (to, rate) -> WidgetSpec.Row(to, trailing = rate) }),
+                WidgetSpec.Rows(base("1 USD", "money", Colour.INFO), listOf("INR" to "84.40", "EUR" to "0.92", "GBP" to "0.79").map { (to, rate) -> WidgetSpec.Row(to, trailing = rate) }),
             ),
             Shot(
                 "releases", WidgetSize.S4X2, "Releases",
                 WidgetSpec.Rows(
-                    base("Releases", "R", Colour.LINK),
+                    base("Releases", "code", Colour.LINK),
                     listOf(Triple("neovim/neovim", "3 days ago", "v0.11.4"), Triple("junegunn/fzf", "1 week ago", "v0.65"), Triple("lua/lua", "2 weeks ago", "v5.4.8"))
                         .mapIndexed { i, (repo, age, tag) -> WidgetSpec.Row(repo, age, tag, tap = link(i)) },
                 ),
             ),
             Shot(
                 "livescore", WidgetSize.S4X1, "NZ v IND · live",
-                WidgetSpec.Stat(base("NZ v IND · live", "🏏", Colour.BAD), value = "NZ 136/8", label = "31.2 of 50 overs", progress = 0.62f, moving = true),
+                WidgetSpec.Stat(base("NZ v IND · live", "cricket", Colour.BAD), value = "NZ 136/8", label = "31.2 of 50 overs", progress = 0.62f, moving = true),
                 inView = true,
             ),
             Shot(

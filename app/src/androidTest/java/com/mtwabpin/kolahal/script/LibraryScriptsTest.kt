@@ -377,7 +377,7 @@ class LibraryScriptsTest {
         val rates = standIns("""{"result":"success","rates":{"USD":1,"EUR":0.92,"GBP":0.79,"INR":83.42,"JPY":149.5}}""") + jsKeepsShown
         fun row(code: String, rate: String) = mapOf("title" to code, "trailing" to rate)
         fun card(title: String, vararg rows: Map<String, String>) = mapOf(
-            "title" to title, "items" to rows.toList(), "empty" to "No rates",
+            "title" to title, "icon" to "money", "items" to rows.toList(), "empty" to "No rates",
             "tap" to mapOf("args" to "", "page" to "log"), "staleAfter" to 43_200.0,
         )
         run("exchange.js", event = forWidget, before = rates)
@@ -553,7 +553,7 @@ class LibraryScriptsTest {
                     mapOf("title" to "neovim/neovim", "detail" to "no releases yet"),
                     mapOf("title" to "termux/termux-app", "detail" to "couldn't read its releases", "color" to "bad"),
                 ),
-                "empty" to empty, "staleAfter" to 21_600.0,
+                "empty" to empty, "icon" to "code", "staleAfter" to 21_600.0,
             ),
             shown(),
         )
@@ -621,7 +621,7 @@ class LibraryScriptsTest {
         val first = today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
         assertEquals(
             mapOf(
-                "title" to "Exercise", "value" to 2.0, "label" to "days in a row",
+                "title" to "Exercise", "icon" to "fire", "value" to 2.0, "label" to "days in a row",
                 "points" to listOf(0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0), "style" to "bars", "min" to 0.0, "max" to 1.0,
                 "labels" to listOf(first, "Today"),
                 "summary" to (6 downTo 0).joinToString(", ") { back ->
@@ -678,7 +678,7 @@ class LibraryScriptsTest {
         run("world-clocks.lua", event = forWidget, before = luaKeepsShown)
         assertEquals(emptyList<LogEntry>(), lines())
         // The clocks never get old: the content counts as current for a week.
-        assertEquals(mapOf("zones" to start, "staleAfter" to 604_800.0), shown())
+        assertEquals(mapOf("icon" to "globe", "zones" to start, "staleAfter" to 604_800.0), shown())
 
         // A label of its own, with "_" for a space. Commas work between zones too.
         run("world-clocks.lua", event = forWidget, options = mapOf("zones" to "Asia/Dubai=Head_office, UTC"), before = luaKeepsShown)
@@ -711,7 +711,7 @@ class LibraryScriptsTest {
             assertNull(t.stored(clocks.name).error)
             assertEquals(
                 WidgetSpec.Clock(
-                    WidgetBase(staleAfter = 604_800),
+                    WidgetBase(icon = "globe", staleAfter = 604_800),
                     listOf(WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("Europe/London", "London"), WidgetSpec.Zone("America/New_York", "New York")),
                 ),
                 t.stored(clocks.name).spec,
@@ -924,7 +924,7 @@ class LibraryScriptsTest {
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(
             mapOf(
-                "items" to listOf(mapOf("label" to "Do Not Disturb", "icon" to "🌙", "on" to false, "tap" to mapOf("args" to "dnd"))),
+                "items" to listOf(mapOf("label" to "Do Not Disturb", "icon" to "moon", "on" to false, "tap" to mapOf("args" to "dnd"))),
                 "staleAfter" to 60.0,
             ),
             shown(),

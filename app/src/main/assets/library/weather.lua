@@ -70,13 +70,26 @@ wind = wind:gsub("^(%D*)(%d+)%s*(.*)$", function(dir, n, unit)
   return (dir ~= "" and (dir .. " ") or "") .. n .. (unit ~= "" and (" " .. unit) or "")
 end)
 
+-- The widget's icon for wttr.in's sky symbol: a name the card draws in its colour. Nil for a
+-- symbol it doesn't know: the card then has the title's first letter.
+local function skyIcon(symbol)
+  local function has(s) return symbol:find(s, 1, true) ~= nil end
+  if has("⛈") or has("🌩") then return "storm" end
+  if has("🌨") or has("❄") then return "snow" end
+  if has("🌧") or has("🌦") then return "rain" end
+  if has("🌫") then return "fog" end
+  if has("☁") or has("⛅") then return "cloud" end
+  if has("☀") then return "sun" end
+  return nil
+end
+
 -- Only background runs (no arguments) update the status line: "Pune: ☀️ 25°C".
 if line == "" then status(place .. ": " .. icon .. " " .. temp) end
 -- Its widget, in the same runs: the temperature big, the sky under it, humidity and wind smaller.
 -- A tap runs weather again and turns home to the log, for the full report.
 if widget and line == "" then
   widget.show{
-    title = place, icon = icon, value = temp, label = sky,
+    title = place, icon = skyIcon(icon), value = temp, label = sky,
     more = { { value = humidity, label = "humidity" }, { value = wind, label = "wind" } },
     tap = { args = "", page = "log" },
     -- It runs every hour: content counts as old only after two, so the card shows no age between runs.

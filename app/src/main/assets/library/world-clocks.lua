@@ -41,7 +41,7 @@ if #zones == 0 then zones = places("Asia/Kolkata Europe/London America/New_York"
 -- Its widget: a clock for each place. A zone that Kolahal doesn't know is an error that names it.
 -- The clocks never get old, so the content counts as current for a week: the longest there is.
 if widget then
-  widget.show{ zones = zones, staleAfter = 7 * 86400 }
+  widget.show{ icon = "globe", zones = zones, staleAfter = 7 * 86400 }
 end
 
 -- A run by hand: the places, and how to see their time. A run for the widgets page logs nothing.

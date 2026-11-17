@@ -265,7 +265,7 @@ Every kind takes these fields. All are optional.
 |--------------+----------------------+-----------------------------------------------------------------------------------------------|
 | =kind=       | a kind's name        | Which card to draw. Default: the =@widget= line's kind.                                       |
 | =title=      | text, up to 40       | The small heading. Default: the script's =@title=.                                            |
-| =icon=       | text, up to 4        | An emoji or a letter. Kolahal draws it in a shaped badge.                                     |
+| =icon=       | a name, or text up to 4 | An icon name (=WidgetIcons=, Material Symbols drawn in the card's colour), or an emoji or a letter. Kolahal draws it in a shaped badge. |
 | =color=      | a role               | The colour of the badge, bar or chart. Default: =accent=.                                     |
 | =tap=        | an action            | What a tap on the card does. Default: refresh. See [[*4. Interaction][Interaction]].         |
 | =staleAfter= | seconds, 60 to 604800 | How long the content counts as current. Default: see [[*3. Data flow and refresh][Refresh]]. |
@@ -676,8 +676,9 @@ When the phone's animations are off, values change without motion. To verify on 
 
 - Each card is one item for a screen reader: "Weather, Pune: 24 degrees, Sunny. Updated 5 minutes
   ago." Items with their own tap are separate items inside it.
-- Every tap target is at least 48 dp. A kind shows fewer buttons in a small box and never smaller
-  ones.
+- Every button and switch is at least 48 dp. A row of a list or an agenda that takes a tap is 44 dp:
+  a list is read more than tapped, and a 4×2 card then shows three rows. A kind shows fewer buttons
+  in a small box and never smaller ones.
 - A chart has words. The script can give =summary=. Without one, Kolahal says "7 values, from 3 to
   12, the latest 9".
 - A picture needs =alt= text.

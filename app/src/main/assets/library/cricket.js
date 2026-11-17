@@ -148,7 +148,7 @@ function card(event, live, p, every) {
   const runs = (c) => (c.score || "").split(" (")[0].trim();
   const said = (event.status && event.status.summary) || "";
   const d = {
-    icon: "🏏",
+    icon: "cricket",
     value: teams(event).map((c) => `${abbr(c)} ${runs(c)}`.trim()).join(" · ") || "–",
     label: said,
     tap: TAP,
@@ -184,7 +184,7 @@ function showMatch(event) {
 // No match to follow: no status line, and its widget says so.
 function showNone() {
   status(null);
-  if (hasWidget) widget.show({ icon: "🏏", value: "–", label: "No live match", tap: TAP, staleAfter: 900 });
+  if (hasWidget) widget.show({ icon: "cricket", value: "–", label: "No live match", tap: TAP, staleAfter: 900 });
 }
 
 // The followed match ({ league, id, ended }) and what it shows now.

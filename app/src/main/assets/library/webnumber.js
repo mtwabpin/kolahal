@@ -54,7 +54,7 @@ const TITLE = "Web number";
 // Not set up yet. This is no failure, so the card says what to set. It has no tap of its own, so
 // a tap on it runs this again.
 if (url === "") {
-  widget.show({ title: TITLE, value: "–", label: "Set its url option, then tap here" });
+  widget.show({ title: TITLE, icon: "bolt", value: "–", label: "Set its url option, then tap here" });
   return;
 }
 if (!/^https?:\/\/\S+$/i.test(url)) return fail("No number", "Its url option must be a web address (https://…)");
@@ -88,7 +88,7 @@ for (const key of keys) {
 if (typeof found !== "number" && typeof found !== "string") {
   // The whole document, and it isn't a number: the path isn't set yet.
   if (keys.length === 0) {
-    widget.show({ title: TITLE, value: "–", label: "Set its path option, then tap here" });
+    widget.show({ title: TITLE, icon: "bolt", value: "–", label: "Set its path option, then tap here" });
     return;
   }
   // What is there instead, for the failure's line.
@@ -120,4 +120,4 @@ const last = keys.slice().reverse().find((k) => !/^\d+$/.test(k)) || "";
 
 // A tap opens the address. Its timer fills it every hour, and it counts as old after two hours:
 // after a run that was missed.
-widget.show({ title: TITLE, value, label: named || last, tap: { url, label: "Open the address" }, staleAfter: 2 * 3600 });
+widget.show({ title: TITLE, icon: "bolt", value, label: named || last, tap: { url, label: "Open the address" }, staleAfter: 2 * 3600 });

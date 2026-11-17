@@ -202,7 +202,7 @@ local function fillWidget(list)
   if not nearestTime then return widget.clear() end
   local to = dayStart(nearestTime)
   widget.show{
-    title = nearestName, label = dayMonth(nearestTime), style = "days", reached = "Today",
+    title = nearestName, icon = "calendar", label = dayMonth(nearestTime), style = "days", reached = "Today",
     to = to, from = waitStart(nearestItem, nearestDate, nearestYearly, nearestTime, to),
     tap = { args = "", page = "log" },
   }

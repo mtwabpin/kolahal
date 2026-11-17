@@ -957,7 +957,9 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
  * `list`: as many rows as fit, then "+3 more".
  * - Each row is in a lightly tinted container: large corners at the ends of the list, small ones
  *   between rows, and [ROW_GAP_DP] between two ([segmentShape]).
- * - A row that can be tapped is 48 dp tall. A row with a second line is 44 dp. Other rows are 32 dp.
+ * - A row is 44 dp tall when it can be tapped or has a second line, and 32 dp otherwise. A tap row
+ *   is a little under the 48 dp of a button: a list is read more than it is tapped, and a 4x2 card
+ *   then shows three rows.
  * - A narrow list (under 200 dp) leaves the second lines out.
  * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
  *   line under the rows.
@@ -972,8 +974,8 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val details = maxWidth >= 200.dp && spec.items.any { it.detail != null }
         val rowDp = when {
-            spec.items.any { it.tap != null } -> 48
-            details -> 44
+            spec.items.any { it.tap != null } -> TAP_ROW_DP
+            details -> TAP_ROW_DP
             else -> 32
         }
         val heightDp = maxHeight.value.toInt()
@@ -997,6 +999,9 @@ private fun RowsBody(spec: WidgetSpec.Rows, onTap: ((WidgetTap) -> Unit)?) {
         }
     }
 }
+
+/** The height of a list's or an agenda's row that can be tapped, or that has two lines, in dp. */
+internal const val TAP_ROW_DP = 44
 
 /** The room between two rows of a list or of a clock, in dp. */
 internal const val ROW_GAP_DP = 2
@@ -1066,7 +1071,7 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, shape: Sh
             )
         }
         if (icon != null) {
-            Text(icon, style = type.titleMedium, color = colour ?: scheme.onSurface, maxLines = 1, modifier = Modifier.padding(end = 10.dp))
+            WidgetIconText(icon, type.titleMedium, colour ?: scheme.onSurface, modifier = Modifier.padding(end = 10.dp))
         } else if (done == null && colour != null) {
             Box(Modifier.padding(end = 10.dp).size(8.dp).clip(CircleShape).background(colour))
         }

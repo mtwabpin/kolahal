@@ -117,7 +117,7 @@ To edit your shortcuts:
    - **Command**: what you would type in the terminal, such as `torch`. While you type its first
      word, the commands that start so are offered under the box. Tap one to take it.
    - **Label**: what the button says. If you leave it empty, the button says the command.
-   - **Icon**: an emoji or a letter, if you like.
+   - **Icon**: if you like, an icon name such as `torch` or `pin` (the [scripting guide](/scripting/api/#icons) lists them), or an emoji.
 3. Tap **Add**.
 
 In the sheet, each shortcut has its own row:
@@ -128,7 +128,7 @@ In the sheet, each shortcut has its own row:
 
 Each change is saved at once, and the card follows.
 
-- A command can be up to 200 characters, a label up to 24, and an icon up to 4.
+- A command can be up to 200 characters, a label up to 24, and an icon is a name or up to 4 characters.
 - The card has up to 8 buttons. A small card shows the first ones only, and never makes a button
   smaller. So put the important ones first.
 - The command can be any command, also one such as `torch` or `dnd` that a

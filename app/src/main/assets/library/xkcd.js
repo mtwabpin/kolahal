@@ -58,6 +58,7 @@ const name = c.safe_title || c.title || "xkcd";
 // reader says.
 if (typeof widget !== "undefined" && arg === "" && c.img) {
   widget.show({
+    icon: "book",
     image: String(c.img).replace(/^http:/, "https:"),
     alt: c.alt || name,
     caption: `#${c.num} ${name}`,
