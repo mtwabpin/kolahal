@@ -164,6 +164,22 @@ class TextDocument(
 
     private fun writeDraft(text: String) = drafts.write(Drafts.Draft(uri, name, text, base, clock()))
 
+    /**
+     * The same file was opened again at another address, [to]: from its folder, where Kolahal may
+     * write it. The unsaved [text] moves there:
+     * - It is written as [to]'s draft first, based on the same version of the file as now. Then this
+     *   address's draft is deleted.
+     * - When [to] opens, the text comes back. If [to] is not the file the text is based on (another
+     *   file was picked), saving asks first, as for any file that changed.
+     * - Unsaved text that [to] already has is never overwritten: then nothing changes, and the answer is false.
+     */
+    fun moveDraftTo(to: String, text: String): Boolean {
+        drafts.read(to)?.let { if (it.text != text) return false }
+        drafts.write(Drafts.Draft(to, name, text, base, clock()))
+        drafts.delete(uri)
+        return true
+    }
+
     /** Deletes the draft: the user chose to lose the unsaved text. */
     fun discardDraft() = drafts.delete(uri)
 

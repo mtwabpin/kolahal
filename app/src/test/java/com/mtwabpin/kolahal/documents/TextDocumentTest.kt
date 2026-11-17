@@ -293,6 +293,61 @@ class TextDocumentTest {
         assertEquals(Opened.Unavailable("Kolahal has no permission to read this file", null), document("content://files/document/other.txt").open())
     }
 
+    /**
+     * The same file, opened again at an address Kolahal may write (from its folder): the unsaved
+     * text moves there, and saves at once. Nothing is left at the old address.
+     */
+    @Test fun unsavedTextMovesToTheSameFileAtAnotherAddress() {
+        val folder = "content://files/document/folder/notes.txt"
+        files.put(notes, "one\n", writable = false)
+        files.files[folder] = files.files.getValue(notes)
+        val doc = document()
+        doc.open()
+        doc.keepDraft("two\n")
+        assertTrue(doc.moveDraftTo(folder, "two\n"))
+        assertFalse(drafts.has(notes))
+        val moved = document(folder)
+        assertEquals(Opened.Ready("two\n", "one\n", restored = true), moved.open())
+        assertEquals(Saved.Done("two\n"), moved.save("two\n"))
+        assertEquals("two\n", files.text(folder))
+    }
+
+    /** Another file was picked: its unsaved text is never overwritten, and a different file asks before a save. */
+    @Test fun movedTextNeverReplacesOtherUnsavedText() {
+        val other = "content://files/document/other.txt"
+        files.put(notes, "one\n")
+        files.put(other, "theirs\n")
+        document(other).apply { open(); keepDraft("their draft\n") }
+        val doc = document()
+        doc.open()
+        doc.keepDraft("two\n")
+        assertFalse(doc.moveDraftTo(other, "two\n"))
+        assertEquals("their draft\n", drafts.read(other)?.text)
+        assertEquals("two\n", drafts.read(notes)?.text)
+        // Without a draft there, the text moves, and the other file asks before it is overwritten.
+        document(other).discardDraft()
+        assertTrue(doc.moveDraftTo(other, "two\n"))
+        val moved = document(other)
+        assertEquals(Opened.Ready("two\n", "theirs\n", restored = true, changedSince = true), moved.open())
+        assertEquals(Saved.Changed, moved.save("two\n"))
+    }
+
+    /** The second way to write a file is tried only when the first can't open it, and a failure says the first one's reason. */
+    @Test fun aSecondWayToWriteIsTriedOnlyAfterTheFirstFails() {
+        val tried = mutableListOf<String>()
+        fun way(name: String, fails: Boolean): () -> String = {
+            tried += name
+            if (fails) throw DocumentUnavailable("$name refused") else name
+        }
+        assertEquals("own", firstOpen(sequenceOf(way("own", false), way("media", false))))
+        assertEquals(listOf("own"), tried)
+        tried.clear()
+        assertEquals("media", firstOpen(sequenceOf(way("own", true), way("media", false))))
+        assertEquals(listOf("own", "media"), tried)
+        val failed = runCatching { firstOpen(sequenceOf(way("own", true), way("media", true))) }.exceptionOrNull()
+        assertEquals("own refused", failed?.message)
+    }
+
     /** Save as: the text goes to another file, in this file's format, and the draft goes once it is there. */
     @Test fun saveAsWritesAnotherFile() {
         files.put(notes, "one\r\n")

@@ -30,3 +30,20 @@ data class DocumentInfo(val name: String, val size: Long? = null, val modified: 
 
 /** The file can't be read or written. The message is a sentence for the user, without a full stop. */
 class DocumentUnavailable(message: String, cause: Throwable? = null) : IOException(message, cause)
+
+/**
+ * Tries each way to open a file in [routes], in order, and returns what the first one opens. A
+ * later way is tried only when the ones before it threw, so nothing was written yet. When none
+ * opens, it throws what the first one threw: that is the file's own answer.
+ */
+internal fun <T> firstOpen(routes: Sequence<() -> T>): T {
+    var first: Exception? = null
+    for (open in routes) {
+        try {
+            return open()
+        } catch (e: Exception) {
+            if (first == null) first = e
+        }
+    }
+    throw first ?: IllegalArgumentException("no way to open the file")
+}
