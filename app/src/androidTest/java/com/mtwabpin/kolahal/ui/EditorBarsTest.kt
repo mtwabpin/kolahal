@@ -80,7 +80,7 @@ class EditorBarsTest {
     }
 
     private fun openReplace(with: String) {
-        compose.onNodeWithText("⇄").performClick()
+        compose.onNodeWithContentDescription("Replace").performClick()
         compose.onNodeWithTag("replace").performTextInput(with)
     }
 
@@ -90,16 +90,16 @@ class EditorBarsTest {
         find("apple", "1/3")
         assertEquals(TextRange(0, 5), selection())
         assertEquals(listOf(0, 17, 23) to 0, marks())
-        compose.onNodeWithText("↓").performClick()
+        compose.onNodeWithContentDescription("Next match").performClick()
         compose.waitForText("2/3")
         assertEquals(TextRange(17, 22), selection())
         assertEquals(listOf(0, 17, 23) to 17, marks())
         compose.onNodeWithTag("find").performImeAction()
         compose.waitForText("3/3")
         assertEquals(TextRange(23, 28), selection())
-        compose.onNodeWithText("↓").performClick()
+        compose.onNodeWithContentDescription("Next match").performClick()
         compose.waitForText("1/3")
-        compose.onNodeWithText("↑").performClick()
+        compose.onNodeWithContentDescription("Previous match").performClick()
         compose.waitForText("3/3")
         assertEquals(TextRange(23, 28), selection())
     }
@@ -131,7 +131,7 @@ class EditorBarsTest {
     @Test fun closingFindTakesTheMarksAway() {
         show()
         find("apple", "1/3")
-        compose.onNodeWithText("×").performClick()
+        compose.onNodeWithContentDescription("Close find").performClick()
         compose.onNodeWithTag("findbar").assertDoesNotExist()
         assertEquals(emptyList<Int>() to null, marks())
     }
@@ -141,7 +141,7 @@ class EditorBarsTest {
         show()
         find("apple", "1/3")
         openReplace("pear")
-        compose.onNodeWithText("[all]").performClick()
+        compose.onNodeWithText("Replace all").performClick()
         assertEquals("pear pie\nbanana pear\npear cider", text())
         compose.waitForText("Replaced 3")
         compose.onNodeWithText("edbars.lua *").assertExists()
@@ -153,10 +153,10 @@ class EditorBarsTest {
         show()
         find("apple", "1/3")
         openReplace("pear")
-        compose.onNodeWithText("[replace]").performClick()
+        compose.onNodeWithText("Replace").performClick()
         assertEquals("pear pie\nbanana apple\nApple cider", text())
         assertEquals(TextRange(16, 21), selection())
-        compose.onNodeWithText("[replace]").performClick()
+        compose.onNodeWithText("Replace").performClick()
         assertEquals("pear pie\nbanana pear\nApple cider", text())
         assertEquals(TextRange(21, 26), selection())
         compose.onNodeWithTag("replace").performImeAction()
@@ -168,7 +168,7 @@ class EditorBarsTest {
         show()
         find("plum", "0/0")
         openReplace("pear")
-        compose.onNodeWithText("[all]").performClick()
+        compose.onNodeWithText("Replace all").performClick()
         compose.waitForText("No matches to replace")
         assertEquals(code, text())
         compose.onNodeWithText("edbars.lua").assertExists()
@@ -205,7 +205,7 @@ class EditorBarsTest {
     @Test fun theReferenceInsertsAFunctionAtTheCursor() {
         show()
         cursorAt(10)
-        compose.onNodeWithText("[?]").performClick()
+        compose.onNodeWithContentDescription("API reference").performClick()
         compose.waitForText("API reference · Lua")
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("log(title, body?, ctx?) -> line"))
         compose.onNodeWithText("log(title, body?, ctx?) -> line").performClick()
@@ -218,7 +218,7 @@ class EditorBarsTest {
         show()
         // Inside the second line.
         cursorAt(13)
-        compose.onNodeWithText("[?]").performClick()
+        compose.onNodeWithContentDescription("API reference").performClick()
         compose.waitForText("API reference · Lua")
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("-- @command"))
         compose.onNodeWithText("-- @command").performClick()
@@ -232,7 +232,7 @@ class EditorBarsTest {
         compose.onNodeWithText("(").performClick()
         assertEquals("apple( pie\nbanana apple\nApple cider", text())
         compose.onNodeWithText("edbars.lua *").assertExists()
-        compose.onNodeWithText("↶").performClick()
+        compose.onNodeWithContentDescription("Undo").performClick()
         assertEquals(code, text())
         compose.onNodeWithText("edbars.lua").assertExists()
     }

@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = script == null) { }
                 if (script != null) {
                     val jumpLine by vm.editLine.collectAsStateWithLifecycle()
-                    // The stored copy has the last run's time and result, for the editor's [run] feedback.
+                    // The stored copy has the last run's time and result, for the editor's run feedback.
                     val scriptList by vm.scriptList.collectAsStateWithLifecycle()
                     val stored = scriptList.firstOrNull { it.id == script.id }
                     // When the window shows the phone's wallpaper (log.wallpaper, widgets.wallpaper),

@@ -1,8 +1,10 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -27,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +40,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -41,27 +48,85 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDoc
 import com.mtwabpin.kolahal.script.ApiDocs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
+/**
+ * A button on the editors' bars: a Material icon button, in the terminal's colours.
+ * - [description] is what TalkBack says, and how tests find the button.
+ * - Not [enabled]: it is dimmed and does nothing (undo with nothing to undo).
+ * - [onLongClick]: a long press does something else (run's Run with). [longClickLabel] names it for TalkBack.
+ *
+ * Material's icon button has no long press. So a press that lasts the long-press time does
+ * [onLongClick], and the click at its end is ignored.
+ */
 @Composable
-internal fun EditorButton(label: String, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
-    Text(
-        "[$label]",
-        style = Term.code.copy(color = Term.fg),
-        modifier = Modifier
-            .then(if (onLongClick == null) Modifier.clickable(onClick = onClick) else Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick))
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-    )
+internal fun EditorIconButton(
+    @DrawableRes icon: Int,
+    description: String,
+    tint: Color = Term.fg,
+    enabled: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
+    longClickLabel: String? = null,
+    onClick: () -> Unit,
+) {
+    val interactions = remember { MutableInteractionSource() }
+    var longPressed by remember { mutableStateOf(false) }
+    val longClick by rememberUpdatedState(onLongClick)
+    val haptics = LocalHapticFeedback.current
+    val longPressTime = LocalViewConfiguration.current.longPressTimeoutMillis
+    if (onLongClick != null) {
+        LaunchedEffect(interactions) {
+            // A release or a cancel comes as the next interaction, and stops the wait.
+            interactions.interactions.collectLatest { i ->
+                if (i !is PressInteraction.Press) return@collectLatest
+                longPressed = false
+                delay(longPressTime)
+                longPressed = true
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                longClick?.invoke()
+            }
+        }
+    }
+    IconButton(
+        shapes = IconButtonDefaults.shapes(),
+        onClick = { if (longPressed) longPressed = false else onClick() },
+        enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors(contentColor = tint),
+        interactionSource = interactions,
+        modifier = if (onLongClick == null) Modifier else Modifier.semantics {
+            this.onLongClick(label = longClickLabel) {
+                longClick?.invoke()
+                true
+            }
+        },
+    ) {
+        Icon(painterResource(icon), description, tint = if (enabled) tint else Term.dim)
+    }
+}
+
+/** A button with a word on it, for an action that no icon shows clearly. It uses the system font, as Material buttons do. */
+@Composable
+internal fun EditorTextButton(label: String, onClick: () -> Unit) {
+    TextButton(shapes = ButtonDefaults.shapes(), onClick = onClick, colors = ButtonDefaults.textButtonColors(contentColor = Term.prompt)) {
+        Text(label)
+    }
 }
 
 /**
@@ -208,10 +273,10 @@ internal fun FindBar(
                 modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("find"),
             )
             Text(count, style = Term.code.copy(color = if (noMatch) Term.error else Term.dim), modifier = Modifier.padding(horizontal = 4.dp))
-            BarButton("↑", description = "Previous match", onClick = onPrev)
-            BarButton("↓", description = "Next match", onClick = onNext)
-            BarButton("⇄", if (replaceOpen) Term.prompt else Term.fg, "Replace", onToggleReplace)
-            BarButton("×", description = "Close find", onClick = onClose)
+            EditorIconButton(R.drawable.ic_arrow_up, "Previous match", onClick = onPrev)
+            EditorIconButton(R.drawable.ic_arrow_down, "Next match", onClick = onNext)
+            EditorIconButton(R.drawable.ic_find_replace, "Replace", tint = if (replaceOpen) Term.prompt else Term.fg, onClick = onToggleReplace)
+            EditorIconButton(R.drawable.ic_close, "Close find", onClick = onClose)
         }
         if (replaceOpen) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -229,8 +294,9 @@ internal fun FindBar(
                     },
                     modifier = Modifier.weight(1f).padding(start = 12.dp).testTag("replace"),
                 )
-                EditorButton("replace", onClick = onReplace)
-                EditorButton("all", onClick = onReplaceAll)
+                // No icon says "replace all" clearly, so these two are words.
+                EditorTextButton("Replace", onClick = onReplace)
+                EditorTextButton("Replace all", onClick = onReplaceAll)
             }
         }
     }

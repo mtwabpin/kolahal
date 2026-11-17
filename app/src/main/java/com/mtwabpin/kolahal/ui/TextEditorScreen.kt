@@ -25,6 +25,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.terminal.LogAction
 import com.mtwabpin.kolahal.ui.TextEditorViewModel.Phase
 
@@ -53,8 +54,8 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
         when (val phase = vm.phase) {
             Phase.Loading -> EditorNotice("Opening ${vm.name}…", null) {}
             is Phase.Failed -> EditorNotice(phase.title, phase.why) {
-                EditorButton("open another") { onOpen() }
-                EditorButton("close") { vm.close() }
+                EditorTextButton("Open another file") { onOpen() }
+                EditorTextButton("Close") { vm.close() }
             }
             is Phase.Editing -> {
                 // Before the editor's own handler, so that Back closes an open find bar first.
@@ -77,9 +78,9 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
                     onTab = { false },
                     onEscape = onLeave,
                     buttons = {
-                        EditorButton("save") { vm.save() }
-                        EditorButton("more") { menuOpen = true }
-                        EditorButton("close") { vm.close() }
+                        EditorIconButton(R.drawable.ic_save, "Save") { vm.save() }
+                        EditorIconButton(R.drawable.ic_more_vert, "More") { menuOpen = true }
+                        EditorIconButton(R.drawable.ic_close, "Close") { vm.close() }
                     },
                     wrap = vm.wrap,
                     // A file opens to be read first: the keyboard would cover half of it.

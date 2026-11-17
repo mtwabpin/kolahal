@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.shownText
 import com.mtwabpin.kolahal.script.ApiDoc
@@ -219,10 +220,10 @@ fun ScriptEditor(
         },
         onEscape = ::close,
         buttons = {
-            EditorButton("?") { referenceOpen = true }
-            EditorButton("save") { save() }
-            EditorButton("run", onLongClick = { runWithOpen = true }) { run() }
-            EditorButton("close") { close() }
+            EditorIconButton(R.drawable.ic_help, "API reference") { referenceOpen = true }
+            EditorIconButton(R.drawable.ic_save, "Save") { save() }
+            EditorIconButton(R.drawable.ic_play, "Run", onLongClick = { runWithOpen = true }, longClickLabel = "Run with…") { run() }
+            EditorIconButton(R.drawable.ic_close, "Close") { close() }
         },
         belowCode = { maxHeight ->
             output?.let { lines -> RunOutput(lines, maxHeight) { output = null } }

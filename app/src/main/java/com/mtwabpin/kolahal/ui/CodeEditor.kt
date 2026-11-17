@@ -98,8 +98,8 @@ private val CARET_BLINK = 500.milliseconds
 /** The most a tab can move the text forward: Android's tab stops are 20 pixels apart. */
 private const val TAB_PX = 20f
 
-/** The keys of the symbol bar under the code. */
-private val SYMBOLS = listOf("↶", "↷", "  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
+/** The keys of the symbol bar under the code, after undo and redo. "Ln" opens Go to line. */
+private val SYMBOLS = listOf("  ", "(", ")", "{", "}", "[", "]", "\"", "'", "=", ".", ",", ":", ";", "#", "-", "~", "<", ">", "Ln")
 
 /**
  * The widest the code field gets, in pixels. A longer line wraps inside it.
@@ -424,13 +424,8 @@ internal fun CodeEditor(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable { if (state.findOpen) closeFind() else openFind(false) },
-            ) {
-                Icon(painterResource(R.drawable.ic_search), "Find", tint = if (state.findOpen) Term.prompt else Term.fg, modifier = Modifier.size(20.dp))
+            EditorIconButton(R.drawable.ic_search, "Find", tint = if (state.findOpen) Term.prompt else Term.fg) {
+                if (state.findOpen) closeFind() else openFind(false)
             }
             buttons()
         }
@@ -559,28 +554,24 @@ internal fun CodeEditor(
             hint()
         }
         aboveSymbols()
-        // Read here, not inside the row's items, so a change updates the dimming of the undo/redo arrows.
+        // Read here, not inside the row's items, so a change updates the undo and redo buttons.
         val canUndo = state.history.canUndo
         val canRedo = state.history.canRedo
         LazyRow(Modifier.fillMaxWidth().background(Term.surface)) {
+            item { EditorIconButton(R.drawable.ic_undo, "Undo", enabled = canUndo) { state.undo() } }
+            item { EditorIconButton(R.drawable.ic_redo, "Redo", enabled = canRedo) { state.redo() } }
             items(SYMBOLS) { s ->
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .heightIn(min = 48.dp)
                         .widthIn(min = 48.dp)
-                        .clickable {
-                            when (s) {
-                                "↶" -> state.undo()
-                                "↷" -> state.redo()
-                                "Ln" -> state.gotoOpen = true
-                                else -> state.insert(s)
-                            }
+                        .clickable(onClickLabel = if (s == "Ln") "Go to line" else null) {
+                            if (s == "Ln") state.gotoOpen = true else state.insert(s)
                         }
                         .padding(horizontal = 12.dp),
                 ) {
-                    val idle = (s == "↶" && !canUndo) || (s == "↷" && !canRedo)
-                    Text(if (s == "  ") "⇥" else s, style = Term.code.copy(color = if (idle) Term.dim else Term.fg, fontWeight = FontWeight.Bold))
+                    Text(if (s == "  ") "⇥" else s, style = Term.code.copy(color = Term.fg, fontWeight = FontWeight.Bold))
                 }
             }
         }

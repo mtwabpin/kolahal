@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -97,7 +98,7 @@ class ScriptEditorTest {
     @Test fun savingSaysWhatItFound() {
         show(changed = "runs every 1h")
         compose.onNodeWithTag("editor").performTextReplacement("-- @every 1h\nlocal r = http.gte('x')")
-        compose.onNodeWithText("[save]").performClick()
+        compose.onNodeWithContentDescription("Save").performClick()
         fun shown() = runCatching {
             compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
         }.getOrDefault("")
@@ -108,7 +109,7 @@ class ScriptEditorTest {
 
     @Test fun aRunsLinesShowUnderTheCode() {
         show()
-        compose.onNodeWithText("[run]").performClick()
+        compose.onNodeWithContentDescription("Run").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("output · 2 lines").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("first").assertExists()
         compose.onNodeWithText("edtest: oops").assertExists()
@@ -121,7 +122,7 @@ class ScriptEditorTest {
     @Test fun aRunWhoseSaveFailedTakesNoLaterRun() {
         show(saveFails = java.io.IOException("disk full"))
         fun shown() = compose.onNodeWithTag("message").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
-        compose.onNodeWithText("[run]").performClick()
+        compose.onNodeWithContentDescription("Run").performClick()
         compose.waitForIdle()
         assertEquals("Couldn't save: disk full", shown())
         compose.runOnIdle { lastRun = System.currentTimeMillis() + 1_000 }
@@ -133,7 +134,7 @@ class ScriptEditorTest {
     /** A long press on run: words for args, and one of its events with made-up values. */
     @Test fun runWithArgsAndAnEvent() {
         show(code = "-- @on charger\nlog(argline)")
-        compose.onNodeWithText("[run]").performTouchInput { longClick() }
+        compose.onNodeWithContentDescription("Run").performTouchInput { longClick() }
         compose.onNodeWithTag("run-args").performTextInput("one \"two three\"")
         compose.onNodeWithText("○ charger").performClick()
         compose.onNodeWithText("run").performClick()

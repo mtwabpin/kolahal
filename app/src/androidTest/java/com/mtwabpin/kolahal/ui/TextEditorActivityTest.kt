@@ -11,6 +11,7 @@ import android.provider.OpenableColumns
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -132,7 +133,7 @@ class TextEditorActivityTest {
         edit(uri).use {
             assertEquals("one\ntwo\n", text())
             type("one\ntwo\nthree")
-            compose.onNodeWithText("[save]").performClick()
+            compose.onNodeWithContentDescription("Save").performClick()
             compose.waitFor("saved") { message() == "Saved" }
             assertEquals("one\r\ntwo\r\nthree\r\n", onDisk(uri))
             // The editor shows what the file holds now, and nothing is unsaved.
@@ -166,7 +167,7 @@ class TextEditorActivityTest {
             scenario.recreate()
             compose.waitFor("the editor is back") { compose.onAllNodesWithTag("editor").fetchSemanticsNodes().isNotEmpty() }
             assertEquals("one\ntwo", text())
-            compose.onNodeWithText("↶").performClick()
+            compose.onNodeWithContentDescription("Undo").performClick()
             assertEquals("one\n", text())
         }
     }
@@ -177,12 +178,12 @@ class TextEditorActivityTest {
         edit(uri).use {
             type("mine")
             change(uri, "theirs, and longer\n")
-            compose.onNodeWithText("[save]").performClick()
+            compose.onNodeWithContentDescription("Save").performClick()
             compose.waitForText("The file has changed")
             assertEquals("theirs, and longer\n", onDisk(uri))
             compose.onNodeWithText("Cancel").performClick()
             assertEquals("theirs, and longer\n", onDisk(uri))
-            compose.onNodeWithText("[save]").performClick()
+            compose.onNodeWithContentDescription("Save").performClick()
             compose.waitForText("The file has changed")
             compose.onNodeWithText("Overwrite").performClick()
             compose.waitFor("saved") { message() == "Saved" }
@@ -195,11 +196,11 @@ class TextEditorActivityTest {
         val uri = file("one\n")
         edit(uri).use { scenario ->
             type("thrown away")
-            compose.onNodeWithText("[close]").performClick()
+            compose.onNodeWithContentDescription("Close").performClick()
             compose.waitForText("Save changes?")
             compose.onNodeWithText("Cancel").performClick()
             assertEquals("thrown away", text())
-            compose.onNodeWithText("[close]").performClick()
+            compose.onNodeWithContentDescription("Close").performClick()
             compose.waitForText("Save changes?")
             compose.onNodeWithText("Discard").performClick()
             waitUntil("the window closed") { scenario.state == Lifecycle.State.DESTROYED }
