@@ -106,7 +106,7 @@ Editing works as in the [script editor](/scripting/editor/):
 - find and replace, from the search icon;
 - a message line that says what the last button did. Tap a message to close it.
 
-Lua, JavaScript and JSON files are coloured. Other files are plain text. The editor uses the
+Lua, JavaScript and JSON files are coloured. In JSON, keys, text and other values each have their own colour. Other files are plain text. The editor uses the
 [theme and font](/guides/themes-and-settings/) of the terminal.
 
 ## Keyboard shortcuts

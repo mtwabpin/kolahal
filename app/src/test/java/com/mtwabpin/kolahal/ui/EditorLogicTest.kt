@@ -317,9 +317,9 @@ class EditorLogicTest {
 
     /** A file's colours come from the ending of its name; any other file is plain text. */
     @Test fun aFilesColoursComeFromItsName() {
-        assertEquals(ScriptLang.LUA, EditorLogic.syntaxFor("weather.lua"))
-        assertEquals(ScriptLang.JS, EditorLogic.syntaxFor("Feeds.JS"))
-        assertEquals(ScriptLang.JS, EditorLogic.syntaxFor("kolahal-backup.json"))
+        assertEquals(Syntax.LUA, EditorLogic.syntaxFor("weather.lua"))
+        assertEquals(Syntax.JS, EditorLogic.syntaxFor("Feeds.JS"))
+        assertEquals(Syntax.JSON, EditorLogic.syntaxFor("kolahal-backup.json"))
         for (plain in listOf("notes.txt", "README.md", "Makefile", "lua", ".js.bak", "")) assertNull(plain, EditorLogic.syntaxFor(plain))
     }
 

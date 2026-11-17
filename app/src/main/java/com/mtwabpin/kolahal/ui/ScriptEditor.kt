@@ -203,7 +203,7 @@ fun ScriptEditor(
     CodeEditor(
         state = state,
         title = "${script.name}.${script.lang.ext}",
-        lang = script.lang,
+        lang = Syntax.of(script.lang),
         startLine = jumpToLine,
         onKey = { e ->
             when {

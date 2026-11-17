@@ -75,7 +75,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.ScriptLang
 import kotlin.math.floor
 import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
@@ -148,7 +147,7 @@ private const val LONG_LINE = 10_000
 internal fun CodeEditor(
     state: EditorState,
     title: String,
-    lang: ScriptLang?,
+    lang: Syntax?,
     startLine: Int?,
     onKey: (KeyEvent) -> Boolean,
     onTab: (shift: Boolean) -> Boolean,

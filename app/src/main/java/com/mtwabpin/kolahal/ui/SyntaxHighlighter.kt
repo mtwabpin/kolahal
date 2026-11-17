@@ -23,18 +23,39 @@ internal class MatchHighlights(val starts: IntArray, val length: Int, val curren
 }
 
 /**
+ * The colours a text gets in the editor: a script language's, or JSON's.
+ * - [script]: the script language whose keywords it uses. JSON has none.
+ */
+enum class Syntax(val script: ScriptLang?) {
+    LUA(ScriptLang.LUA),
+    JS(ScriptLang.JS),
+    JSON(null);
+
+    companion object {
+        fun of(lang: ScriptLang): Syntax = when (lang) {
+            ScriptLang.LUA -> LUA
+            ScriptLang.JS -> JS
+        }
+    }
+}
+
+/**
  * A cache of tokens per line, keyed by the line's text. When the user types, only the edited line
  * is matched again, not the whole script.
  * - Each token is (start, end, kind), with offsets inside its line.
  * - The editor keeps one per language, so a new [SyntaxHighlighter] (for a find match or a
  *   flashed line) starts with the tokens already found.
  */
-internal class LineTokens(lang: ScriptLang) {
-    val keywords = ApiDocs.keywords(lang).toSet()
+internal class LineTokens(private val syntax: Syntax) {
+    val keywords = syntax.script?.let { ApiDocs.keywords(it).toSet() } ?: emptySet()
     // Every token here is on one line. JS template strings (`…`) can span lines, so they are found separately.
     private val token = Regex(
-        (if (lang == ScriptLang.LUA) "--[^\n]*" else "//[^\n]*") +
-            "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        when (syntax) {
+            // A key is a string followed by a colon (group 1). A value is a string, a number, true, false or null.
+            Syntax.JSON -> "\"(?:\\\\.|[^\"\\\\\n])*\"(\\s*:)?|-?\\b\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b|\\b(?:true|false|null)\\b"
+            else -> (if (syntax == Syntax.LUA) "--[^\n]*" else "//[^\n]*") +
+                "|\"(?:\\\\.|[^\"\\\\\n])*\"|'(?:\\\\.|[^'\\\\\n])*'|\\b\\d+(?:\\.\\d+)?\\b|\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
     )
 
     /**
@@ -80,7 +101,32 @@ internal class LineTokens(lang: ScriptLang) {
         }
     }
 
-    private fun tokenize(line: String): IntArray {
+    private fun tokenize(line: String): IntArray = if (syntax == Syntax.JSON) tokenizeJson(line) else tokenizeScript(line)
+
+    /**
+     * JSON has no keywords or comments, so its kinds mean other things:
+     * - a key takes the keyword colour, so the shape of the data stands out;
+     * - a string value takes the string colour;
+     * - a number, true, false and null take the number colour: they are all plain values.
+     * The colon after a key is not coloured.
+     */
+    private fun tokenizeJson(line: String): IntArray {
+        val out = ArrayList<Int>()
+        for (m in token.findAll(line)) {
+            val t = m.value
+            val colon = m.groups[1]
+            val end = colon?.range?.first ?: (m.range.last + 1)
+            val kind = when {
+                colon != null -> KEYWORD
+                t.startsWith("\"") -> STRING
+                else -> NUMBER
+            }
+            out += m.range.first; out += end; out += kind
+        }
+        return out.toIntArray()
+    }
+
+    private fun tokenizeScript(line: String): IntArray {
         val out = ArrayList<Int>()
         for (m in token.findAll(line)) {
             val t = m.value
@@ -123,7 +169,7 @@ internal class LineTokens(lang: ScriptLang) {
  * to lay out at every key. The flash and the matches show wherever they are.
  */
 internal class SyntaxHighlighter(
-    lang: ScriptLang?,
+    lang: Syntax?,
     private val flashLine: Int?,
     private val matches: MatchHighlights?,
     private val tokens: LineTokens? = lang?.let(::LineTokens),
@@ -132,7 +178,7 @@ internal class SyntaxHighlighter(
     private val keywords = tokens?.keywords ?: emptySet()
     // The theme this was made for. A text field colours again only when the new highlighter is not equal to the last one.
     private val palette = Term.palette
-    private val js = lang == ScriptLang.JS
+    private val js = lang == Syntax.JS
 
     // The text field asks again for the same text when only the cursor or selection moves, twice
     // per change. Return the last result in that case.

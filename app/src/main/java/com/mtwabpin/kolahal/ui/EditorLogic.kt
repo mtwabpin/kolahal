@@ -310,11 +310,11 @@ object EditorLogic {
 
     /**
      * The language whose colours a file gets, from the ending of its [name]. Null: plain text.
-     * JSON gets JavaScript's colours: its strings, numbers, `true`, `false` and `null` are the same.
      */
-    fun syntaxFor(name: String): ScriptLang? = when (name.substringAfterLast('.', "").lowercase()) {
-        "lua" -> ScriptLang.LUA
-        "js", "mjs", "cjs", "json" -> ScriptLang.JS
+    fun syntaxFor(name: String): Syntax? = when (name.substringAfterLast('.', "").lowercase()) {
+        "lua" -> Syntax.LUA
+        "js", "mjs", "cjs" -> Syntax.JS
+        "json" -> Syntax.JSON
         else -> null
     }
 
