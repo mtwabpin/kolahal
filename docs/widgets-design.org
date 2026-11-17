@@ -34,13 +34,15 @@ This is the state on 14 November 2026, on the =0.5.8= branch.
   stored state, placement, the card with its states, taps, backups, and the first 6 kinds.
 - *Phase 2*: the 5 kinds, checkboxes in =list=, the 6 built-in widgets, and the 5 library widgets.
 - *Kinds*: 11 of 12. Only =image= waits, for phase 3.
-- *Ready-made widgets*: 23 of 25. Live score and Comic of the day wait, for phase 3.
+- *Ready-made widgets*: 22 of 24. Live score and Comic of the day wait, for phase 3.
+- *Status cards are gone* (0.5.9). A Status card showed a script's status line as a one-line card.
+  It looked plain, and the line shows at the top of home anyway. A placed one is removed once, at
+  start ([[src:widgets/WidgetModel.kt::fun start][WidgetCodec.start]]), and the log says so.
 
 Where each ready-made widget is in the code:
 
 | Widget              | In the code                  |
 |---------------------+------------------------------|
-| Status card         | the source =status:<name>=   |
 | Battery and network | the source =builtin:battery= |
 | Shortcuts           | =builtin:shortcuts=          |
 | Now playing         | =builtin:media=              |
@@ -215,10 +217,6 @@ Why not home-screen widgets (Glance or RemoteViews) now:
 
 The description is data, not code. So a second renderer can be added later without changing any
 script: it would read the same stored state. We decided not to build it (14 Nov 2026).
-
-One small bridge to the pinned header comes free: a *Status card*. Any script that calls
-=status()= today can be placed as a card that shows its line, its bar and its colour. No script
-changes. See [[*Ready-made widgets][the catalog]].
 
 ** 2. How a script defines a widget
 
@@ -602,7 +600,6 @@ know from home screens. One cell is 3 columns.
   | Source          | What it is                                   |
   |-----------------+----------------------------------------------|
   | =script:<name>= | the widget a script fills with =widget.show= |
-  | =status:<name>= | the Status card of a script's status line    |
   | =builtin:<id>=  | a built-in widget, such as =builtin:battery= |
 
 - Script names are =a-z=, =0-9=, =-= and =_= only ([[src:script/ScriptNames.kt::val NAME][ScriptNames.NAME]]), so the line's
@@ -610,8 +607,6 @@ know from home screens. One cell is 3 columns.
   refuses such a provider from a backup today.
 - An older Kolahal skips a line whose provider has no =/=. So going back to an older version
   drops these widgets and breaks nothing.
-- One script can have both cards placed: its own widget and its Status card. They are two entries.
-  Weather, for example, will have a =@widget= line and still call =status()=.
 - A widget is placed once. The picker shows a placed one as "Added".
 
 *** Placed, and the =widget= access item
@@ -624,17 +619,16 @@ know from home screens. One cell is 3 columns.
   process sets =widget= on for each placed =script:<name>= entry and off for every other script.
   This matters after a restore: a backup carries only the access you switched /off/, so without
   this step a restored widget would stay empty for ever.
-- The item covers only =widget.show=. A Status card needs no item: a status line is stored whether
-  or not anything shows it, as today. Being placed is all a Status card needs.
+- The item covers only =widget.show=.
 - A rename moves everything with the script, as it moves the status line today
-  ([[src:data/ScriptRepository.kt::fun rename][ScriptRepository.rename]]): the state, and the placed =script:= and =status:= entries.
+  ([[src:data/ScriptRepository.kt::fun rename][ScriptRepository.rename]]): the state, and the placed =script:= entries.
 
 *** The picker
 
 The widget picker gets a first section, *Kolahal*, above the apps:
 
 1. Built-in widgets.
-2. Your scripts that have a =@widget= line, and scripts with a status line (as a Status card).
+2. Your scripts that have a =@widget= line.
 3. Library scripts with a widget that you haven't added. Each entry says what the script uses
    (the internet, a key). Picking one adds the script, as =script install= does, and places the
    widget.
@@ -840,7 +834,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   =trend= (=up=, =down= or =flat=). =more=: up to 3 of ~{ value, label }~. =progress= (0 to 1),
   with =moving= (true) to draw it as a wave, for something in progress.
 - When small :: 1×1 shows the value and the label. The smaller values and the title are left out.
-- Data :: Any script. Built-in: the Status card.
+- Data :: Any script.
 - Refresh :: The usual. =refresh= suits a live score.
 - Taps :: The card.
 
@@ -977,7 +971,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 
 ** Ready-made widgets
 
-Twenty-five. Twelve are in the first build.
+Twenty-four. Eleven are in the first build. A twenty-fifth, the Status card, was built and then
+removed in 0.5.9.
 
 - *Script* means a library script in =app/src/main/assets/library/=. "Changed" ones exist today
   and gain a =widget.show= call. "New" ones are written for this.
@@ -988,48 +983,32 @@ Twenty-five. Twelve are in the first build.
 
 | #  | Widget                 | Kind              | From            | Access                 | Build   | Built |
 |----+------------------------+-------------------+-----------------+------------------------+---------+-------|
-| 1  | Status card            | =stat=            | built-in        | none                   | First   | yes   |
-| 2  | Weather                | =stat=            | script, changed | internet               | First   | yes   |
-| 3  | Air quality            | =progress=        | script, changed | internet               | First   | yes   |
-| 4  | 3-day forecast         | =list=            | script, changed | internet               | First   | yes   |
-| 5  | Countdown to a date    | =countdown=       | script, changed | none                   | First   | yes   |
-| 6  | Hacker News            | =list=            | script, changed | internet               | First   | yes   |
-| 7  | Feed headlines         | =list=            | script, new     | internet               | First   | yes   |
-| 8  | Quote of the day       | =text=            | script, changed | internet               | First   | yes   |
-| 9  | Battery and network    | =progress=        | built-in        | none                   | First   | yes   |
-| 10 | Unlocks                | =chart=           | script, new     | none                   | First   | yes   |
-| 11 | Web number             | =stat=            | script, new     | internet               | First   | yes   |
-| 12 | Crypto prices          | =list=            | script, changed | internet               | First   | yes   |
-| 13 | Shortcuts              | =buttons=         | built-in        | none                   | Phase 2 | yes   |
-| 14 | Now playing            | =media=           | built-in        | notification access    | Phase 2 | yes   |
-| 15 | Todos                  | =list=            | built-in        | none                   | Phase 2 | yes   |
-| 16 | Agenda                 | =agenda=          | built-in        | the calendar permission | Phase 2 | yes   |
-| 17 | Reminders              | =list=            | built-in        | none                   | Phase 2 | yes   |
-| 18 | Notes                  | =text=            | built-in        | none                   | Phase 2 | yes   |
-| 19 | World clocks           | =clock=           | script, new     | none                   | Phase 2 | yes   |
-| 20 | Habit streak           | =chart=           | script, new     | none                   | Phase 2 | yes   |
-| 21 | Quick toggles          | =toggles=         | script, new     | =@uses dnd, work=      | Phase 2 | yes   |
-| 22 | Currency rates         | =list=            | script, changed | internet               | Phase 2 | yes   |
-| 23 | GitHub releases        | =list=            | script, changed | internet               | Phase 2 | yes   |
-| 24 | Live score             | =stat=            | script, changed | internet               | Phase 3 | no    |
-| 25 | Comic of the day       | =image=           | script, changed | internet               | Phase 3 | no    |
+| 1  | Weather                | =stat=            | script, changed | internet               | First   | yes   |
+| 2  | Air quality            | =progress=        | script, changed | internet               | First   | yes   |
+| 3  | 3-day forecast         | =list=            | script, changed | internet               | First   | yes   |
+| 4  | Countdown to a date    | =countdown=       | script, changed | none                   | First   | yes   |
+| 5  | Hacker News            | =list=            | script, changed | internet               | First   | yes   |
+| 6  | Feed headlines         | =list=            | script, new     | internet               | First   | yes   |
+| 7  | Quote of the day       | =text=            | script, changed | internet               | First   | yes   |
+| 8  | Battery and network    | =progress=        | built-in        | none                   | First   | yes   |
+| 9  | Unlocks                | =chart=           | script, new     | none                   | First   | yes   |
+| 10 | Web number             | =stat=            | script, new     | internet               | First   | yes   |
+| 11 | Crypto prices          | =list=            | script, changed | internet               | First   | yes   |
+| 12 | Shortcuts              | =buttons=         | built-in        | none                   | Phase 2 | yes   |
+| 13 | Now playing            | =media=           | built-in        | notification access    | Phase 2 | yes   |
+| 14 | Todos                  | =list=            | built-in        | none                   | Phase 2 | yes   |
+| 15 | Agenda                 | =agenda=          | built-in        | the calendar permission | Phase 2 | yes   |
+| 16 | Reminders              | =list=            | built-in        | none                   | Phase 2 | yes   |
+| 17 | Notes                  | =text=            | built-in        | none                   | Phase 2 | yes   |
+| 18 | World clocks           | =clock=           | script, new     | none                   | Phase 2 | yes   |
+| 19 | Habit streak           | =chart=           | script, new     | none                   | Phase 2 | yes   |
+| 20 | Quick toggles          | =toggles=         | script, new     | =@uses dnd, work=      | Phase 2 | yes   |
+| 21 | Currency rates         | =list=            | script, changed | internet               | Phase 2 | yes   |
+| 22 | GitHub releases        | =list=            | script, changed | internet               | Phase 2 | yes   |
+| 23 | Live score             | =stat=            | script, changed | internet               | Phase 3 | no    |
+| 24 | Comic of the day       | =image=           | script, changed | internet               | Phase 3 | no    |
 
-*** 1. Status card                                               :first:built:
-
-- Shows :: A script's status line as a card: its text, its bar and its colour. This is the
-  "script output" widget. Every script that calls =status()= today gets a widget with no change:
-  cricket, football, crypto, your own.
-- Sizes :: 2×1, 4×1.
-- Kind :: It draws with the =stat= card. The line is the value, in a smaller size when it is long.
-- Data :: Built-in. It reads the stored line ([[src:data/StatusLines.kt::object StatusLines][StatusLines]]). It is stored as =status:<name>=, and
-  it needs no access item: being placed is enough. A script with its own widget can have this
-  card too.
-- Refresh :: When the line changes. =status='s own =refresh= option counts while the card is in
-  view, as it does for a pinned line.
-- Taps :: Runs the script, as a tap on a pinned line does.
-- Sketch :: None needed. An existing script already does: ~status("NZ 136/8", { progress = 0.6 })~
-
-*** 2. Weather                                                   :first:built:
+*** 1. Weather                                                   :first:built:
 
 - Shows :: The temperature, large. The sky under it. Humidity and wind, smaller.
 - Sizes :: 1×1, 2×1, 4×1.
@@ -1047,7 +1026,7 @@ Twenty-five. Twelve are in the first build.
   if not quiet then log(place, fmt.stats({ … })) end
   #+end_src
 
-*** 3. Air quality                                               :first:built:
+*** 2. Air quality                                               :first:built:
 
 - Shows :: The index in a ring, in its band's colour (good, warn, bad), with the band's name.
 - Sizes :: 1×1, 2×1, 2×2.
@@ -1063,7 +1042,7 @@ Twenty-five. Twelve are in the first build.
   });
   #+end_src
 
-*** 4. 3-day forecast                                            :first:built:
+*** 3. 3-day forecast                                            :first:built:
 
 - Shows :: Three rows: the day, the sky, the low and the high.
 - Sizes :: 2×2, 4×2.
@@ -1076,7 +1055,7 @@ Twenty-five. Twelve are in the first build.
     title: d.name, icon: d.icon, trailing: `${d.low}–${d.high}°` })) });
   #+end_src
 
-*** 5. Countdown to a date                                       :first:built:
+*** 4. Countdown to a date                                       :first:built:
 
 - Shows :: The days to the nearest date you saved, with its name, and "to 20 December" under them.
   Kolahal ticks. A bar runs from the day you saved it (a yearly date: from its last day).
@@ -1092,7 +1071,7 @@ Twenty-five. Twelve are in the first build.
   end
   #+end_src
 
-*** 6. Hacker News                                               :first:built:
+*** 5. Hacker News                                               :first:built:
 
 - Shows :: The top stories, each with its points. Lobsters gets the same widget.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1108,7 +1087,7 @@ Twenty-five. Twelve are in the first build.
   if widget then widget.show{ title = "Hacker News", items = rows } end
   #+end_src
 
-*** 7. Feed headlines                                            :first:built:
+*** 6. Feed headlines                                            :first:built:
 
 - Shows :: The newest items of one feed you choose.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1118,7 +1097,7 @@ Twenty-five. Twelve are in the first build.
 - Taps :: A row opens its item.
 - Sketch :: The JavaScript example in [[*Example in JavaScript: a list][section 2]] is this script.
 
-*** 8. Quote of the day                                          :first:built:
+*** 7. Quote of the day                                          :first:built:
 
 - Shows :: A quote and who said it. No quotation marks: the badge's icon says it is a quote.
 - Sizes :: 2×1, 2×2, 4×1.
@@ -1130,7 +1109,7 @@ Twenty-five. Twelve are in the first build.
   widget.show({ kind: "text", text: quote.text, caption: quote.author });
   #+end_src
 
-*** 9. Battery and network                                       :first:built:
+*** 8. Battery and network                                       :first:built:
 
 - Shows :: The battery in a ring, "charging" when it is, and the network: Wi-Fi, mobile, offline,
   with the network's icon before its name, as the header has it.
@@ -1142,7 +1121,7 @@ Twenty-five. Twelve are in the first build.
   page shows. A script version is still possible for someone who wants their own
   (=device.battery()= with =@on charger, unplug=).
 
-*** 10. Unlocks                                                  :first:built:
+*** 9. Unlocks                                                   :first:built:
 
 - Shows :: Today's unlocks, large, over bars for the last 7 days.
 - Sizes :: 1×1, 2×1, 2×2.
@@ -1162,7 +1141,7 @@ Twenty-five. Twelve are in the first build.
   if args[1] == "week" then log("Unlocks this week", fmt.bars(rowsOf(days))) end
   #+end_src
 
-*** 11. Web number                                               :first:built:
+*** 10. Web number                                               :first:built:
 
 - Shows :: One number from any JSON address: a price, a count, a sensor at home.
 - Sizes :: 1×1, 2×1.
@@ -1185,7 +1164,7 @@ Twenty-five. Twelve are in the first build.
   widget.show({ value: String(value), label: options.label, tap: { url: options.url } });
   #+end_src
 
-*** 12. Crypto prices                                            :first:built:
+*** 11. Crypto prices                                            :first:built:
 
 - Shows :: Each coin with its price and its change today, green or red.
 - Sizes :: 2×2, 4×2.
@@ -1198,7 +1177,7 @@ Twenty-five. Twelve are in the first build.
     title: c.name, trailing: c.price, detail: c.change, color: c.up ? "good" : "bad" })) });
   #+end_src
 
-*** 13. Shortcuts                                                :phase2:built:
+*** 12. Shortcuts                                                :phase2:built:
 
 - Shows :: A grid of buttons for commands you pick: =torch=, =dnd=, =todo=, =weather=, =open maps=.
   This is the quick-command grid.
@@ -1214,7 +1193,7 @@ Twenty-five. Twelve are in the first build.
   - After a backup is imported, its commands are listed under "worth a look", as gestures and
     aliases are.
 
-*** 14. Now playing                                              :phase2:built:
+*** 13. Now playing                                              :phase2:built:
 
 - Shows :: The track, the artist, the position, and three buttons.
 - Sizes :: 2×1, 4×1, 4×2.
@@ -1223,7 +1202,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live.
 - Taps :: Previous, play or pause, next. The card opens the player.
 
-*** 15. Todos                                                    :phase2:built:
+*** 14. Todos                                                    :phase2:built:
 
 - Shows :: Your open todos, each with a checkbox, and "+2 more".
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1231,7 +1210,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live.
 - Taps :: A checkbox marks the todo done, with Undo. The card runs =todo= and turns to the log.
 
-*** 16. Agenda                                                   :phase2:built:
+*** 15. Agenda                                                   :phase2:built:
 
 - Shows :: Today's and the next days' calendar events.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1241,7 +1220,7 @@ Twenty-five. Twelve are in the first build.
   themselves.
 - Taps :: An event opens in the calendar app. The card runs =agenda= and turns to the log.
 
-*** 17. Reminders                                                :phase2:built:
+*** 16. Reminders                                                :phase2:built:
 
 - Shows :: The next reminder with the time to it, and the two after it.
 - Sizes :: 2×1, 2×2, 4×2.
@@ -1249,7 +1228,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live. Kolahal ticks the time.
 - Taps :: The card runs =reminders= and turns to the log.
 
-*** 18. Notes                                                    :phase2:built:
+*** 17. Notes                                                    :phase2:built:
 
 - Shows :: Your newest note, or the newest three in a larger box.
 - Sizes :: 2×1, 2×2, 4×2.
@@ -1257,7 +1236,7 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: Live.
 - Taps :: The card runs =notes= and turns to the log.
 
-*** 19. World clocks                                             :phase2:built:
+*** 18. World clocks                                             :phase2:built:
 
 - Shows :: The time in the places you list.
 - Sizes :: 2×1, 2×2, 4×1.
@@ -1274,7 +1253,7 @@ Twenty-five. Twelve are in the first build.
   widget.show{ zones = zones }
   #+end_src
 
-*** 20. Habit streak                                             :phase2:built:
+*** 19. Habit streak                                             :phase2:built:
 
 - Shows :: Your streak in days, bars for the last 7 days, and a "Done today" button.
 - Sizes :: 2×1, 2×2.
@@ -1303,7 +1282,7 @@ Twenty-five. Twelve are in the first build.
     style = "bars", tap = { args = "done", label = "Done today" } }
   #+end_src
 
-*** 21. Quick toggles                                            :phase2:built:
+*** 20. Quick toggles                                            :phase2:built:
 
 - Shows :: Switches for Do Not Disturb and the work profile.
 - Sizes :: 2×1, 4×1.
@@ -1329,7 +1308,7 @@ Twenty-five. Twelve are in the first build.
   widget.show{ items = items, staleAfter = 60 }
   #+end_src
 
-*** 22. Currency rates                                           :phase2:built:
+*** 21. Currency rates                                           :phase2:built:
 
 - Shows :: One unit of your currency in the others you chose.
 - Sizes :: 2×2, 4×2.
@@ -1342,7 +1321,7 @@ Twenty-five. Twelve are in the first build.
     items: to.map((c) => ({ title: c, trailing: rate(c) })) });
   #+end_src
 
-*** 23. GitHub releases                                          :phase2:built:
+*** 22. GitHub releases                                          :phase2:built:
 
 - Shows :: The newest release of each repository you watch, and how old it is.
 - Sizes :: 2×2, 4×2.
@@ -1355,7 +1334,7 @@ Twenty-five. Twelve are in the first build.
   -- each row: { title = repo, trailing = tag, detail = age, tap = { url = link } }
   #+end_src
 
-*** 24. Live score                                               :phase3:
+*** 23. Live score                                               :phase3:
 
 - Shows :: The live match of your team: the score, the teams, a bar for how far along it is.
 - Sizes :: 2×1, 4×1.
@@ -1363,15 +1342,15 @@ Twenty-five. Twelve are in the first build.
 - Refresh :: =@every 15m=, and =refresh= from its option (30 seconds) while the match is live and
   the widget is in view.
 - Taps :: Runs =cricket live= and turns to the log.
-- Note :: The Status card already shows these scripts' lines in the first build. This entry adds
-  the larger layout.
+- Note :: These scripts' status lines already show at the top of home, when pinned. This entry
+  adds a widget.
 - Sketch ::
   #+begin_src js
   widget.show({ value: score, label: teams, progress: overs / 50, moving: true,
     refresh: Number(options.refresh) });
   #+end_src
 
-*** 25. Comic of the day                                         :phase3:
+*** 24. Comic of the day                                         :phase3:
 
 - Shows :: Today's xkcd, with its title.
 - Sizes :: 2×2, 4×2, 4×4.
@@ -1487,7 +1466,7 @@ Changed files:
 ** Backups
 
 - *Placement travels.* The backup's ="widgets"= list gets an entry for each new widget: its
-  source (=script:weather=, =status:cricket=, =builtin:battery=), a built-in's settings, the
+  source (=script:weather=, =builtin:battery=), a built-in's settings, the
   height, the order and the width.
 - *They come back by themselves.* App widgets need "Add again", because their ids belong to one
   phone. A script widget needs only its script. =Backup.import= reads scripts before widgets, so
@@ -1510,7 +1489,7 @@ Nothing was measured; treat the totals as a guide to what is big and what is sma
 
 *Built.* [[*What is built][What is built]] names the few parts that wait.
 
-The smallest set that is useful on its own: 6 kinds, 12 widgets.
+The smallest set that is useful on its own: 6 kinds, 11 widgets.
 
 | Part                                                                                             | Size |
 |--------------------------------------------------------------------------------------------------+------|
@@ -1520,7 +1499,7 @@ The smallest set that is useful on its own: 6 kinds, 12 widgets.
 | Placement: the model, the stored line, the host, the picker's section, the Widgets screen, commands | M  |
 | The card: frame, states, footer, menu, taps, refresh while in view                               | M    |
 | Six kinds with their Compose tests: =stat=, =text=, =list=, =progress=, =chart=, =countdown=     | L    |
-| Built-in: Status card, Battery and network                                                       | S    |
+| Built-in: Battery and network                                                                    | S    |
 | Library: 7 changed scripts, 3 new ones (Feed headlines, Unlocks, Web number)                     | M    |
 | Backups                                                                                          | S    |
 | The guide and the maintainer's docs                                                              | M    |
@@ -1528,13 +1507,12 @@ The smallest set that is useful on its own: 6 kinds, 12 widgets.
 Added up: about 25 to 30 working days.
 
 - About two thirds of that is the foundation: the first five rows, backups and the guide. It
-  costs the same for 3 widgets or for 12.
+  costs the same for 3 widgets or for 11.
 - After it, one more kind is about a day, and one more library widget about half a day.
 - So a smaller first build saves little, and a larger one costs little.
 
 To see something on a phone early, build in this order: the description and the API, the state
-store, placement, the card, then =stat= and =list= with the Status card, Weather and Feed
-headlines. That is a working slice after about half the time. The other kinds and widgets then
+store, placement, the card, then =stat= and =list= with Weather and Feed headlines. That is a working slice after about half the time. The other kinds and widgets then
 each add a little.
 
 ** Phase 2: taps that change things, and live data

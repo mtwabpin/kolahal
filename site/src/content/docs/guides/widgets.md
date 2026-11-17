@@ -175,10 +175,9 @@ script tells it. For example the weather, a feed's headlines, or your unlocks of
 - The picker lists these in the **Kolahal** group, after Kolahal's own: a row for each of your scripts
   that has a widget, with its kind and the size it starts with. Eighteen
   [library scripts](/scripting/library/#widgets) have one.
-- A script that keeps a [status line](/scripting/overview/#status-lines) has a second row, its
-  **Status card**: the line as a card, with no change to the script.
-- You can place a script's widget more than once ([below](#the-same-widget-more-than-once)). A
-  status card is placed once.
+- A script's [status line](/scripting/overview/#status-lines) is not a widget. It shows at the top
+  of home.
+- You can place a script's widget more than once ([below](#the-same-widget-more-than-once)).
 - The card is drawn in the theme's colours.
 - A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.
 - A long-press opens **Arrange widgets**. There you arrange and resize the card like any other widget.
@@ -220,7 +219,7 @@ What to know:
   first widget back. The timer fills only the first.
 - Removing a widget deletes what it showed and its own options. The script and its other widgets
   stay.
-- Kolahal's own widgets and a script's status card are placed once.
+- Kolahal's own widgets are placed once.
 
 ## Arrange and resize
 
