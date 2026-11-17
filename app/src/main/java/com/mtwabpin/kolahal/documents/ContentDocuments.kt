@@ -42,10 +42,18 @@ class ContentDocuments(context: Context) : DocumentSource {
                 flags = column(DocumentsContract.Document.COLUMN_FLAGS)?.let(c::getInt)
             }
         }
-        val granted = context.checkUriPermission(address, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION) ==
-            PackageManager.PERMISSION_GRANTED
         val supported = flags?.let { it and DocumentsContract.Document.FLAG_SUPPORTS_WRITE != 0 } ?: true
-        return DocumentInfo(name?.takeIf { it.isNotBlank() } ?: TextDocument.nameIn(uri), size, modified?.takeIf { it > 0 }, granted && supported)
+        return DocumentInfo(name?.takeIf { it.isNotBlank() } ?: TextDocument.nameIn(uri), size, modified?.takeIf { it > 0 }, !readOnlyGrant(address) && supported)
+    }
+
+    /**
+     * True when Kolahal was given this file to read, but not to write: what "Open with" from another
+     * app often gives. Android answers only for permissions given for this one address. A file that
+     * Kolahal can reach without one (its own file in the media store) has neither, and is not read-only.
+     */
+    private fun readOnlyGrant(address: Uri): Boolean {
+        fun given(mode: Int) = context.checkUriPermission(address, Process.myPid(), Process.myUid(), mode) == PackageManager.PERMISSION_GRANTED
+        return given(Intent.FLAG_GRANT_READ_URI_PERMISSION) && !given(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
 
     override fun read(uri: String, max: Int): ByteArray {

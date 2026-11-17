@@ -7,8 +7,8 @@ import com.mtwabpin.kolahal.data.sha256Hex
  * - It has no screen. The editor's view model calls it off the main thread and shows what it returns.
  * - It never loses text: a draft is deleted only after its text is written to a file, or when the
  *   user discards it.
- * - It never overwrites what it has not seen: [save] writes only if the file is still the one the
- *   text is based on, unless told to overwrite.
+ * - It never overwrites what it has not seen: [save] reads the file again first, and writes only
+ *   if it is still the one the text is based on, unless told to overwrite.
  *
  * [uri] is the file's address. [source] is where files are, and [drafts] where drafts are kept.
  */
@@ -163,22 +163,24 @@ class TextDocument(
     }
 
     /**
-     * Whether the file is no longer what was read or written last.
-     * - When the file's app gives its size and time, and both are the same, it has not changed.
-     * - Otherwise the file is read again and its bytes are compared. So an app that gives no time,
-     *   or changes it late, doesn't cause a false alarm.
+     * Whether the file is no longer what was read or written last. The file is read again and its
+     * bytes are compared, so the answer doesn't depend on what the file's app says about it.
+     * - With [quick], a file whose app gives the same size and time as before counts as unchanged,
+     *   and is not read. Use it to look often (each time the editor comes back on screen). It can
+     *   miss a change: some apps update the size and time a moment after the file. [save] never
+     *   looks this way.
      * - A file that can't be read now counts as unchanged: there is nothing to lose there, and a
      *   write will say what is wrong.
      * - A file that was never read counts as changed if it holds anything.
      */
-    fun changedOnDisk(): Boolean {
+    fun changedOnDisk(quick: Boolean = false): Boolean {
         val last = version
         val info = source.info(uri)
-        if (last != null && last.modified != null && info.modified == last.modified && info.size == last.size) return false
+        if (quick && last != null && last.modified != null && info.modified == last.modified && info.size == last.size) return false
         val bytes = runCatching { source.read(uri, TextFiles.MAX_BYTES) }.getOrNull() ?: return false
         if (last == null) return bytes.isNotEmpty()
         val same = sha256Hex(bytes) == last.hash
-        // Remember the new size and time, so the next check doesn't read the file again.
+        // Remember the new size and time, so the next quick look doesn't read the file again.
         if (same) version = last.copy(size = info.size, modified = info.modified)
         return !same
     }

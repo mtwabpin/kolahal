@@ -104,25 +104,42 @@ class TextDocumentTest {
         assertFalse(doc.changedOnDisk())
     }
 
-    /** A file whose app says its size and time is checked without reading it again. */
-    @Test fun anUnchangedFileIsntReadAgain() {
+    /** A quick look trusts a file whose app gives the same size and time, and doesn't read it. Saving always reads it. */
+    @Test fun aQuickLookDoesntReadAnUnchangedFile() {
         files.put(notes, "one\n")
         val doc = document()
         doc.open()
         val reads = files.reads
-        assertFalse(doc.changedOnDisk())
-        assertEquals(Saved.Done("two\n"), doc.save("two\n"))
+        assertFalse(doc.changedOnDisk(quick = true))
         assertEquals(reads, files.reads)
+        assertEquals(Saved.Done("two\n"), doc.save("two\n"))
+        assertEquals(reads + 1, files.reads)
     }
 
-    /** A file whose app gives no time: the change is found by reading it, also when the size is the same. */
+    /**
+     * A file's app may still say the old size and time a moment after a change (the media store
+     * does). A quick look misses that change. A save doesn't, as it reads the file.
+     */
+    @Test fun aChangeTheAppHasntReportedIsFoundAtSave() {
+        val file = files.put(notes, "one\n")
+        val doc = document()
+        doc.open()
+        // The same size, and the time not moved on.
+        file.bytes = "two\n".toByteArray()
+        assertFalse(doc.changedOnDisk(quick = true))
+        assertTrue(doc.changedOnDisk())
+        assertEquals(Saved.Changed, doc.save("mine\n"))
+        assertEquals("two\n", files.text(notes))
+    }
+
+    /** A file whose app gives no time: even a quick look reads it, and finds a change of the same size. */
     @Test fun aChangeIsFoundWithoutATime() {
         files.put(notes, "one\n", timed = false)
         val doc = document()
         doc.open()
-        assertFalse(doc.changedOnDisk())
+        assertFalse(doc.changedOnDisk(quick = true))
         files.change(notes, "two\n")
-        assertTrue(doc.changedOnDisk())
+        assertTrue(doc.changedOnDisk(quick = true))
         assertEquals(Saved.Changed, doc.save("mine\n"))
         // Neither size nor time.
         files.files.getValue(notes).sized = false
@@ -135,9 +152,9 @@ class TextDocumentTest {
         val doc = document()
         doc.open()
         file.modified = file.modified!! + 60_000
-        assertFalse(doc.changedOnDisk())
+        assertFalse(doc.changedOnDisk(quick = true))
         val reads = files.reads
-        assertFalse(doc.changedOnDisk())
+        assertFalse(doc.changedOnDisk(quick = true))
         assertEquals(reads, files.reads)
         assertEquals(Saved.Done("two\n"), doc.save("two\n"))
     }

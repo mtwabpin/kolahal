@@ -209,7 +209,8 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val state = editing ?: return
         if (done) return
         viewModelScope.launch {
-            if (!withContext(io) { runCatching { doc.changedOnDisk() }.getOrDefault(false) }) return@launch
+            // A quick look, as this runs each time the window comes back. Saving looks properly.
+            if (!withContext(io) { runCatching { doc.changedOnDisk(quick = true) }.getOrDefault(false) }) return@launch
             if (state.dirty) {
                 state.message = EditorMessage("This file changed on disk. Saving asks before it overwrites", EditorMessage.Kind.NOTE)
             } else {
