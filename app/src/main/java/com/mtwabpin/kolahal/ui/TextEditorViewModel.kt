@@ -115,7 +115,9 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         viewModelScope.launch {
             val doc = Documents.open(app, uri)
             val opened = withContext(io) {
-                doc.open().also { if (it is TextDocument.Opened.Ready) Documents.remember(app, uri, doc.name) }
+                // Whatever goes wrong, the window says so instead of stopping.
+                runCatching { doc.open() }.getOrElse { TextDocument.Opened.Unavailable(it.message ?: it.javaClass.simpleName, null) }
+                    .also { if (it is TextDocument.Opened.Ready) runCatching { Documents.remember(app, uri, doc.name) } }
             }
             document = doc
             name = doc.name
