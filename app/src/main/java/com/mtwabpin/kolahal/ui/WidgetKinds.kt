@@ -1184,7 +1184,8 @@ private fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
 
 /**
  * The ring.
- * - Small and large: as big as the box allows, with its text inside. Large has the label under it.
+ * - Small and large: as big as the box allows, with its text inside. Large has the label under it,
+ *   in bold and in the card's colour.
  * - Wide: the ring at the start. With no title line ([LocalUntitled]), as the mockup has it: the
  *   text inside the ring, and the title in bold beside it over the label. With a title line: the
  *   text and the label beside the ring.
@@ -1208,13 +1209,13 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
                     }
                     Column(Modifier.padding(start = 12.dp).weight(1f)) {
                         Text(cardText(untitled), style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        spec.label?.let { Text(it, style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        spec.label?.let { RingLabel(it, spec.labelIcon, type.bodyMedium, muted) }
                     }
                 } else {
                     Ring(fraction, spec.moving, colour, side)
                     Column(Modifier.padding(start = 12.dp).weight(1f)) {
                         BigText(text, type.titleLarge)
-                        spec.label?.let { Text(it, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        spec.label?.let { RingLabel(it, spec.labelIcon, type.bodySmall, muted) }
                     }
                 }
             }
@@ -1228,11 +1229,25 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
                     // The text stays clear of the ring's line, which is an eighth of the side.
                     BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 5))
                 }
+                // The label in bold and in the card's colour, as the mockup has it: it says what the number means.
                 if (label != null) {
-                    Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(labelRoom).wrapContentHeight())
+                    RingLabel(label, spec.labelIcon, type.titleSmall.copy(fontWeight = FontWeight.Bold), colour, Modifier.height(labelRoom).wrapContentHeight())
                 }
             }
         }
+    }
+}
+
+/** A ring's label in [style] and [colour], after its [icon] (a drawable) when it has one: the Battery card's network. */
+@Composable
+private fun RingLabel(label: String, icon: Int?, style: TextStyle, colour: Color, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            // As tall as the text's font size, in the text's colour.
+            val side = with(LocalDensity.current) { style.fontSize.toDp() }
+            Icon(painterResource(icon), contentDescription = null, tint = colour, modifier = Modifier.padding(end = 6.dp).size(side))
+        }
+        Text(label, style = style, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

@@ -135,7 +135,11 @@ sealed interface WidgetSpec {
     /** One bar of a [Progress] with several. */
     data class Bar(val label: String?, val value: Float, val max: Float, val text: String?, val color: StyledText.Colour?)
 
-    /** Kind `progress`: a ring or bars. [style] is `ring` or `bar`; without it the box decides. */
+    /**
+     * Kind `progress`: a ring or bars. [style] is `ring` or `bar`; without it the box decides.
+     * [labelIcon] is a drawable before the ring's label: the Battery card's network. Only Kolahal's
+     * own cards set it. A script can't, and it is never stored ([WidgetJson]).
+     */
     data class Progress(
         override val base: WidgetBase,
         val value: Float,
@@ -145,6 +149,7 @@ sealed interface WidgetSpec {
         val style: String? = null,
         val items: List<Bar> = emptyList(),
         val moving: Boolean = false,
+        val labelIcon: Int? = null,
     ) : WidgetSpec
 
     /** Kind `chart`: numbers over time. [style] is `line` or `bars`. [labels] name the first and the last point. */

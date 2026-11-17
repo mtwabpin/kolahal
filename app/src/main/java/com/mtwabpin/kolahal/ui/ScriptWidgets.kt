@@ -832,7 +832,7 @@ internal object BatteryCards {
     }
 
     /**
-     * The card: the level as a ring with the percent, and the network as its label.
+     * The card: the level as a ring with the percent, and the network as its label, with its icon.
      * - The ring stands still, also while charging. A wave would say "working".
      * - The colour says what a 1×1 card has no words for: good while on power, bad when low.
      */
@@ -850,6 +850,8 @@ internal object BatteryCards {
             max = 100f,
             text = level?.let { "$it%" } ?: "–",
             label = network(status.network, short = true),
+            // The network's icon before its name, as the header has it. A network with no internet keeps its icon.
+            labelIcon = networkIcon(status.network.trim().lowercase().removeSuffix("?")),
             // A ring in every box. Without this a wide box draws a bar.
             style = "ring",
         )

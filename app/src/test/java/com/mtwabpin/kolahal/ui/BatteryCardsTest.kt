@@ -28,6 +28,15 @@ class BatteryCardsTest {
         assertEquals(0.82f, WidgetWords.fraction(spec.value, spec.max), 0.001f)
     }
 
+    /** The network's icon is before its name, as in the header. A network without the internet keeps its icon. */
+    @Test fun theNetworkHasItsIcon() {
+        assertEquals(networkIcon("wifi"), BatteryCards.spec(status(82)).labelIcon)
+        assertEquals(networkIcon("wifi"), BatteryCards.spec(status(82, network = "wifi?")).labelIcon)
+        assertEquals(networkIcon("cell"), BatteryCards.spec(status(82, network = "cell")).labelIcon)
+        assertEquals(networkIcon("offline"), BatteryCards.spec(status(82, network = "offline")).labelIcon)
+        assertNull(BatteryCards.spec(status(82, network = "vpn")).labelIcon)
+    }
+
     /** A battery is a level that stands. A wave would say "working". */
     @Test fun theRingNeverWaves() {
         assertFalse(BatteryCards.spec(status(82)).moving)

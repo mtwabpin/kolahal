@@ -397,7 +397,8 @@ internal fun Header(
     }
 }
 
-private fun networkIcon(network: String): Int? = when (network) {
+/** The icon of a network, as [com.mtwabpin.kolahal.status.Status.network] names it, or null for one with none. The Battery card uses it too. */
+internal fun networkIcon(network: String): Int? = when (network) {
     "wifi" -> R.drawable.ic_wifi
     "cell" -> R.drawable.ic_signal
     "offline" -> R.drawable.ic_cloud_off
