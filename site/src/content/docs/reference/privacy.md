@@ -9,6 +9,10 @@ Kolahal has no account, no analytics, no ads and no crash reporting service. A
 Kolahal uses these libraries: AndroidX, Jetpack Compose, WorkManager, OkHttp and the two script engines (LuaJava and quickjs-kt).
 Your log, settings, scripts, feeds and notifications are stored in the app's private storage on the phone.
 
+The [text editor](/guides/text-editor/) opens only the files you pick, or that another app hands to it. Kolahal has no
+storage permission. The editor keeps your unsaved text, and the names of the files you opened lately, in the same
+private storage. Android's cloud backup leaves both out.
+
 ## What leaves the device
 
 Kolahal itself makes network requests in exactly five cases:

@@ -114,7 +114,7 @@ See [Media and device controls](/guides/media-and-controls/).
 
 ## Productivity
 
-See [Productivity](/guides/productivity/). `<n>` is the number shown in the list.
+See [Productivity](/guides/productivity/), and [Text editor](/guides/text-editor/) for `edit`. `<n>` is the number shown in the list.
 
 | Usage | Aliases | Description |
 | --- | --- | --- |
@@ -124,6 +124,10 @@ See [Productivity](/guides/productivity/). `<n>` is the number shown in the list
 | `todo all` / `todo clear` | | show finished items too / delete finished items |
 | `note <text>` | | save a quick note |
 | `notes [grep <text>\|rm <n>]` | | show notes, newest first (tap one to copy it) |
+| `edit` | | pick any file with Android's file picker, and open it in the text editor: a window of its own, which stays open when you go home |
+| `edit new [<name>]` | | make a new file (the picker asks where), and open it |
+| `edit recent` | | list the files opened lately, and those with unsaved text; tap one to open it |
+| `edit <file>` | | open one of those by its name, or by the start of its name |
 | `remind <when> <text>` | | set a reminder: `10m`, `2h`, `1h30m`, `18:30`, `6pm`, `tomorrow 9:00`, `fri 8am`, `dec 3 10:00`. Repeating: `every day 8:00`, `every weekday`, `every mon,thu 19:00`, `every month 1st`, `every year mar 14`. A time before 6 AM asks you to confirm; `remind --yes <when> <text>` doesn't ask |
 | `reminders` / `remind rm <n>` | | list pending reminders / cancel one |
 | `remind exact` | | allow exact alarms, so reminders go off on time |

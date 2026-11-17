@@ -97,6 +97,7 @@ export default defineConfig({
 						{ slug: 'guides/feeds' },
 						{ slug: 'guides/people' },
 						{ slug: 'guides/productivity' },
+						{ slug: 'guides/text-editor' },
 						{ slug: 'guides/web-and-calculator' },
 						{ slug: 'guides/widgets' },
 						{ slug: 'guides/gestures' },

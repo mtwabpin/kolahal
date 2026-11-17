@@ -77,11 +77,11 @@ MVVM (Model, View, ViewModel) separates the three.
 | Role      | Its job                                                                                                                                 | It knows about   | In Kolahal                                                               |
 |-----------+-----------------------------------------------------------------------------------------------------------------------------------------+------------------+--------------------------------------------------------------------------|
 | Model     | The data and the rules. Reads and writes storage, talks to Android services.                                                            | Nothing above it | Repositories and stores: =LogRepository=, =Config=, =AppRepository=, ... |
-| ViewModel | Holds the screen's state and exposes it as observable streams. Receives user actions as function calls and turns them into Model calls. | The Model        | =TerminalViewModel= (one, shared by every screen)                        |
+| ViewModel | Holds the screen's state and exposes it as observable streams. Receives user actions as function calls and turns them into Model calls. | The Model        | =TerminalViewModel= (one for every screen of home)                       |
 | View      | Draws the current state. Forwards user actions to the ViewModel.                                                                        | The ViewModel    | Compose functions in =ui/= and the =MainActivity= that hosts them        |
 
 The dependency arrows only point *down*: the View knows the ViewModel, the ViewModel knows the
-Model, and nothing points back up. Three things to know:
+Model, and nothing points back up. Four things to know:
 - The command facts live in =commands/=, which is part of the Model: the catalog (=CommandCatalog=,
   =CommandSpec=, the device controls' =ControlSpecs=), =InstantRun=, =CommandsOff=, =LogFilter=,
   =CommandParsing=, =Pipes= and =UsageLine=. They are plain objects, so the Model may read them
@@ -98,6 +98,9 @@ Model, and nothing points back up. Three things to know:
 - The root files other than =MainActivity= (=LauncherApp=, =CrashReports=, =Links=) sit with the
   Model. The screen's caches (log pictures, app icons) add themselves to =LauncherApp=
   (=keepsInMemory=), which lets them go when home is away a while or memory is short.
+- The text editor's window is the screen's, so its activity and its small ViewModel are in =ui/=
+  (=TextEditorActivity=, =TextEditorViewModel=). What it does with files is in the Model
+  (=documents/=).
 =LayersTest= checks these rules, and that every package says which layer it is in.
 
 The Model never calls the View. So how does the screen find
@@ -352,9 +355,10 @@ prompt, its suggestions, and backups all work from that one list (=Keys.ALL=).
 
 ** ViewModel layer: =TerminalViewModel=
 
-[[src:terminal/TerminalViewModel.kt::class TerminalViewModel][terminal/TerminalViewModel.kt]] (about 1800 lines) is the only ViewModel. =MainActivity=
+[[src:terminal/TerminalViewModel.kt::class TerminalViewModel][terminal/TerminalViewModel.kt]] (about 1800 lines) is home's only ViewModel. =MainActivity=
 creates it with =private val vm: TerminalViewModel by viewModels()= and passes it to every
-screen.
+screen. (The text editor is a window of its own, with its own small ViewModel: see
+[[*The text editor: a second window][The text editor]] below.)
 
 *** What it exposes
 
@@ -441,7 +445,8 @@ all. That is the payoff of depending on an interface rather than on the ViewMode
 2. re-applies the theme whenever =vm.config.version= changes;
 3. collects =vm.events= for the requests only an Activity can carry out: permissions, and the file
    pickers (a font, a script folder, a backup to export or import, scripts to import, a script to
-   export). A screen never gets a callback for these: it asks the ViewModel, which emits the event;
+   export, a text file for =edit=). A screen never gets a callback for these: it asks the ViewModel,
+   which emits the event;
 4. calls =setContent { ... }=, which picks what to show: the script editor if =vm.editing= is
    set, otherwise the page named by =vm.screen=.
 
@@ -460,7 +465,39 @@ and a Home press while already home (=onNewIntent=) → =vm.onHomePressed()=.
 | app selector on an edge   | [[src:ui/AppSelector.kt::fun AppSelector(][ui/AppSelector.kt]]                                                                 | =AppSelector=; pure maths split out and unit-tested (=SelectorMathTest=) |
 | Settings                  | [[src:ui/SettingsScreen.kt::fun SettingsScreen][ui/SettingsScreen.kt]]                                                            | pages come from [[src:ui/SettingsCatalog.kt::private val CATEGORIES][ui/SettingsCatalog.kt]]                                    |
 | Script manager and editor | [[src:ui/ScriptsScreen.kt::fun ScriptsScreen][ui/ScriptsScreen.kt]], [[src:ui/ScriptEditor.kt::fun ScriptEditor][ui/ScriptEditor.kt]]                                         | editor logic in =EditorLogic.kt= (unit-tested)                           |
+| Text editor               | [[src:ui/TextEditorActivity.kt::class TextEditorActivity][ui/TextEditorActivity.kt]], [[src:ui/TextEditorScreen.kt::fun TextEditorScreen][ui/TextEditorScreen.kt]]                              | a window of its own; shares =CodeEditor= with the script editor          |
 | Feeds, widgets, setup     | =FeedsScreen.kt=, =WidgetsScreen.kt=, =WidgetPickerScreen.kt=, =SetupScreen.kt= |                                                                          |
+
+*** The text editor: a second window
+
+=edit= opens any text file in an editor that stays open when you go home. It can't be a page of
+=MainActivity=: home is one task, cleared on Home and kept out of Recents, so a page inside it is
+lost when you leave. So the text editor is a second activity, with its own three layers:
+
+| Layer     | Class                                                                  | Its job                                                                                         |
+|-----------+------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------|
+| View      | [[src:ui/TextEditorActivity.kt::class TextEditorActivity][TextEditorActivity]], [[src:ui/TextEditorScreen.kt::fun TextEditorScreen][TextEditorScreen]]                                   | the window, its file pickers, the buttons, menu and questions around =CodeEditor=               |
+| ViewModel | [[src:ui/TextEditorViewModel.kt::class TextEditorViewModel][TextEditorViewModel]]                                                    | holds the =EditorState=; calls the Model off the main thread, one call at a time                |
+| Model     | [[src:documents/TextDocument.kt::class TextDocument][documents/]]: =TextDocument=, =TextFiles=, =Drafts=, =RecentFiles= | reads, saves, keeps drafts; pure, with JVM tests on files in memory (=DocumentSource=)          |
+
+- *One task per file.* The manifest gives the activity its own =taskAffinity= and
+  =documentLaunchMode="intoExisting"=. Each file is a task named after the file in Recents, and
+  opening a file that is open brings its task back. Recents is the list of open files, so there are
+  no tabs to build or restore. =TextEditorManifestTest= keeps these attributes in place.
+- *Shared editing.* [[src:ui/CodeEditor.kt::internal fun CodeEditor][CodeEditor]] is the text field with line numbers, undo, find and replace, Go
+  to line and the symbol bar, drawing an [[src:ui/EditorState.kt::internal class EditorState][EditorState]]. =ScriptEditor= adds run, completion, docs and
+  the save check. =TextEditorScreen= adds save, Save as, wrap and the questions about files.
+- *Never lose text.* The file's text is never in the saved instance state (it must stay under about
+  1 MB). The ViewModel keeps it through a rotation; =Drafts= keeps unsaved text in
+  =files/editor-drafts= while you type and when the window is hidden. After Android closed the
+  editor, the text comes back from the file and its draft.
+- *Never overwrite unseen text.* =TextDocument.save= reads the file again and compares its bytes
+  with what was read before. If they differ, it writes nothing and the screen asks.
+- *The theme.* =Term= is one for the app, and the editor can be the first window in a new process
+  ("Open with"). Both activities call [[src:ui/Theme.kt::fun applyTermSettings][applyTermSettings]].
+- *From the prompt.* =EditCommands= (in =terminal/=) can't name the activity, as =terminal/= never
+  reads =ui/=. It asks through =TerminalUi=, the ViewModel emits a =UiEvent=, and =MainActivity=
+  opens the picker or the editor.
 
 *** How =TerminalScreen= consumes the ViewModel
 
@@ -482,8 +519,9 @@ Things specific to this screen:
 *** Theme
 
 [[src:ui/Theme.kt::object Term][Term]] in =ui/Theme.kt= is a global object whose fields are Compose state: palette, font,
-font size, line height. =MainActivity.applyTheme()= copies the settings into it, and everything
-that reads =Term.x= recomposes. This is a pragmatic shortcut (see Part 6).
+font size, line height. =applyTermSettings= copies the settings into it (=MainActivity.applyTheme()=
+calls it, and so does the text editor's window), and everything that reads =Term.x= recomposes.
+This is a pragmatic shortcut (see Part 6).
 
 A theme is a pair of palettes, dark and light, and =Palettes.named= returns the one for the phone's
 mode. Most pairs are fixed values. The =material-you= theme is different: =MaterialYouPalettes=
@@ -512,6 +550,8 @@ mode. Most pairs are fixed values. The =material-you= theme is different: =Mater
 - Each page installs a =BackHandler= that calls =vm.closeScreen()=. On the terminal, Back
   does nothing: a launcher never "goes back" off home.
 - The script editor isn't a =Screen=: it's an overlay shown whenever =vm.editing= is non-null.
+- The text editor isn't a page of home at all: it is another activity, in a task of its own
+  (see [[*The text editor: a second window][The text editor]]).
 - =HomePager= (bottom of =MainActivity.kt=) puts the optional widgets page beside the terminal.
 
 ** Two processes
@@ -666,7 +706,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 |-----------------------+------------------------------------------------------------------------------------+--------------------------------|
 | (root)                | =LauncherApp= (process start-up), =MainActivity= (host and router), =CrashReports= | [[src:LauncherApp.kt::class LauncherApp][LauncherApp.kt]]                 |
 | =terminal/=           | the ViewModel, command parsing and dispatch, suggestions, log row building         | [[src:terminal/TerminalViewModel.kt::class TerminalViewModel][TerminalViewModel.kt]]           |
-| =ui/=                 | every Compose screen and widget, theme, fonts                                      | [[src:ui/TerminalScreen.kt::fun TerminalScreen][TerminalScreen.kt]]              |
+| =ui/=                 | every Compose screen and widget, theme, fonts; the text editor's window            | [[src:ui/TerminalScreen.kt::fun TerminalScreen][TerminalScreen.kt]]              |
 | =data/=               | the database, the log, settings, scripts table, key/value store, backups           | [[src:data/LogRepository.kt::class LogRepository][LogRepository.kt]]               |
 | =apps/=               | installed apps across profiles, search ranking, per-app prefs, install events      | [[src:apps/AppRepository.kt::class AppRepository][AppRepository.kt]]               |
 | =script/=             | Lua and JS engines, =HostApi=, scheduling, the worker, =@on= triggers, the library | [[src:script/ScriptWorker.kt::class ScriptWorker][ScriptWorker.kt]]                |
@@ -676,6 +716,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =commands/=           | the command facts: the catalog, sensitivity, =log only=, pipes, usage lines         | [[src:commands/CommandCatalog.kt::object CommandCatalog][CommandCatalog.kt]]              |
 | =control/=            | media playback and the wallpaper; the device commands' handler is in =terminal/=   | [[src:control/MediaRepository.kt::class MediaRepository][MediaRepository.kt]]             |
 | =productivity/=       | todo, notes, reminders, agenda, time parsing                                       | [[src:productivity/TimeSpec.kt][TimeSpec.kt]] (pure, tested)     |
+| =documents/=          | text files for the text editor: reading, saving, drafts, the recent list           | [[src:documents/TextDocument.kt::class TextDocument][TextDocument.kt]] (pure, tested) |
 | =status/=             | battery, network and alarm state for the header                                    | [[src:status/DeviceStatus.kt::class DeviceStatus][DeviceStatus.kt]]                |
 | =unlock/=             | the unlock counter                                                                 | [[src:unlock/UnlockCounter.kt::class UnlockCounter][UnlockCounter.kt]]               |
 | =contacts/=, =calls/= | contacts for =call= / =sms=, calls in the log                                      |                                |
@@ -704,6 +745,8 @@ from "fixing" deliberate choices, and from copying shortcuts where they don't fi
    terminal, Settings, Scripts and Feeds pages share =TerminalViewModel=. The upside is that
    shared state (config, scripts, the notice line, the back stack) needs no plumbing; the cost
    is an 1800-line file. The helpers with narrow interfaces (Part 3) are how it stays readable.
+   The text editor is the one screen with its own (=TextEditorViewModel=): it is another
+   activity, and shares nothing with home but the settings.
 
 2. *Some screens reach the Model directly.* [[src:ui/FeedsScreen.kt::val repo = remember { FeedRepository.get(context) }][FeedsScreen]] uses =FeedRepository= itself and
    loads its lists with =produceState=; =TerminalScreen= calls =config.set(...)= directly for
@@ -722,8 +765,8 @@ from "fixing" deliberate choices, and from copying shortcuts where they don't fi
    not an accident. When you add a command, print with =logs.add(...)= / =out(...)= like the
    others do.
 
-5. *A global theme object.* =Term= is set by =MainActivity= rather than flowing from the
-   ViewModel. It keeps every composable from having to take a theme parameter.
+5. *A global theme object.* =Term= is set by each activity (=applyTermSettings=) rather than
+   flowing from the ViewModel. It keeps every composable from having to take a theme parameter.
 
 When you add code, follow the conventions of the file you're in.
 
