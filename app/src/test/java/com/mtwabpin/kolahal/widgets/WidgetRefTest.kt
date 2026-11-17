@@ -66,7 +66,7 @@ class WidgetRefTest {
     /** The ids by script name, from the placed list. Only a script's own widgets count. */
     @Test fun thePlacedListSaysWhichWidgetsAScriptHas() {
         val all = listOf(
-            placed("script:weather"), placed("script:weather#2"), placed("status:weather"), placed("script:hn#3"),
+            placed("script:weather"), placed("script:weather#2"), placed("script:hn#3"),
             placed("builtin:todos"), placed("script:bad#No"), PlacedWidget(7, "com.a/.W", 0L, 96, 1),
         )
         assertEquals(mapOf("weather" to setOf("", "2"), "hn" to setOf("3")), PlacedIds.of(all))

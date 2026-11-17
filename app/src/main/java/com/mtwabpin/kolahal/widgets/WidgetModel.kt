@@ -23,12 +23,18 @@ object WidgetSource {
      * an id after the name: `script:<name>#2` ([WidgetRef]).
      */
     const val SCRIPT = "script:"
-    /** `status:<name>`: the Status card of a script's status line. */
-    const val STATUS = "status:"
     /** `builtin:<id>`: a built-in widget, such as `builtin:battery`. */
     const val BUILTIN = "builtin:"
 
-    private val PREFIXES = listOf(SCRIPT, STATUS, BUILTIN)
+    /**
+     * `status:<name>`: a Status card, a script's status line as a card, up to 0.5.8.
+     * - Status cards are gone. The status line still shows at the top of home.
+     * - So this is no source. A stored entry or a backup's entry with it is dropped
+     *   ([WidgetCodec.start], [WidgetCodec.fromExport]).
+     */
+    const val OLD_STATUS = "status:"
+
+    private val PREFIXES = listOf(SCRIPT, BUILTIN)
 
     /**
      * Whether [provider] names a source: one of the prefixes, then something. A flattened
@@ -48,19 +54,13 @@ object WidgetSource {
 
     /**
      * Which widget of which script [source] is, when it is a script's own widget. Null for anything
-     * else, a Status card included, and for a source whose id can't be one ([WidgetRef.parse]).
+     * else, and for a source whose id can't be one ([WidgetRef.parse]).
      */
     fun scriptRef(source: String?): WidgetRef? =
         source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)?.let(WidgetRef::parse)
 
-    /** The script's name when [source] is one of a script's own widgets. Null for anything else, a Status card included. */
+    /** The script's name when [source] is one of a script's own widgets. Null for anything else. */
     fun scriptName(source: String?): String? = scriptRef(source)?.script
-
-    /** The source of the Status card of the script [name]. */
-    fun status(name: String): String = STATUS + name
-
-    /** The script's name when [source] is a Status card. Null for anything else, the script's own widget included. */
-    fun statusName(source: String?): String? = source?.takeIf { it.startsWith(STATUS) && isSource(it) }?.removePrefix(STATUS)
 
     /** The id of the built-in Battery and network widget. Its source is `builtin:battery`. */
     const val BATTERY = "battery"
@@ -110,17 +110,12 @@ object WidgetSource {
     fun label(source: String): String =
         builtinId(source)?.let(::builtinTitle) ?: scriptRef(source)?.let { it.titled(it.script) } ?: source.substringAfter(':')
 
-    /** Whether [source] belongs to the script [name]: one of its own widgets, or its Status card. */
-    fun isOf(source: String?, name: String): Boolean = scriptName(source) == name || statusName(source) == name
-
     /**
-     * [source] under the name [to], when it belongs to the script [from] ([isOf]): `script:weather#2`
+     * [source] under the name [to], when it is one of the script [from]'s widgets: `script:weather#2`
      * becomes `script:sky#2`. Null for any other source.
      */
-    private fun moved(source: String?, from: String, to: String): String? {
-        scriptRef(source)?.takeIf { it.script == from }?.let { return script(it.copy(script = to)) }
-        return statusName(source)?.takeIf { it == from }?.let { status(to) }
-    }
+    private fun moved(source: String?, from: String, to: String): String? =
+        scriptRef(source)?.takeIf { it.script == from }?.let { script(it.copy(script = to)) }
 
     /**
      * [all] after the script [from] was renamed to [to]: every one of its widgets keeps its place,
@@ -130,7 +125,6 @@ object WidgetSource {
      */
     fun renamed(all: List<PlacedWidget>, from: String, to: String): List<PlacedWidget> {
         if (from == to || !isSource(script(to))) return all
-        // Only the entries that are placed move. A Status card that moves must not remove a waiting `script:` widget.
         val moved = all.mapNotNull { w -> moved(w.source, from, to)?.let { w.provider to it } }.toMap()
         if (moved.isEmpty()) return all
         return all.filterNot { it.provider in moved.values }.map { w -> moved[w.provider]?.let { w.copy(provider = it) } ?: w }
@@ -321,6 +315,32 @@ object WidgetCodec {
         )
     }.toList()
 
+    /**
+     * The placed list as [WidgetHost] reads it at start, from the stored [text] ([decode]). It makes
+     * the one-time changes for older versions:
+     * - Widgets placed on home before 0.3.1 move onto the page ([WidgetOrder.onePage]).
+     * - Status cards ([WidgetSource.OLD_STATUS], up to 0.5.8) are dropped: [decode] can't read them.
+     *
+     * When [Start.changed], the list is saved again at once. So each change happens once, and so
+     * does its [Start.note].
+     */
+    fun start(text: String?): Start {
+        val saved = decode(text)
+        val widgets = WidgetOrder.onePage(saved)
+        val statusCards = text.orEmpty().lineSequence().count { it.split('|').getOrNull(1)?.startsWith(WidgetSource.OLD_STATUS) == true }
+        return Start(widgets, changed = widgets != saved || statusCards > 0, statusCards = statusCards)
+    }
+
+    /**
+     * What [start] read: the [widgets], and whether they must be saved again ([changed]).
+     * [statusCards] is how many Status cards it dropped.
+     */
+    data class Start(val widgets: List<PlacedWidget>, val changed: Boolean, val statusCards: Int) {
+        /** What the log says once about the Status cards that were dropped. Null when there were none. */
+        val note: String?
+            get() = if (statusCards > 0) "Status cards are gone: $statusCards removed from the widgets page. Status lines still show at the top of home." else null
+    }
+
     /** The backup form. Ids are device-specific, so they are left out. */
     fun export(all: List<PlacedWidget>): List<Map<String, Any?>> = WidgetOrder.sorted(all).map {
         mapOf(
@@ -336,7 +356,7 @@ object WidgetCodec {
     /**
      * Parses backup maps. An app's widget becomes a pending entry. A widget with a source
      * (`"provider": "script:weather"`) needs no id, so it is placed as it comes. Numbers may come as
-     * Int, Long, Double or String.
+     * Int, Long, Double or String. A Status card from an older backup is dropped ([WidgetSource.OLD_STATUS]).
      */
     fun fromExport(list: List<Map<String, Any?>>): List<PlacedWidget> = list.mapNotNull { m ->
         val provider = m["provider"]?.toString()

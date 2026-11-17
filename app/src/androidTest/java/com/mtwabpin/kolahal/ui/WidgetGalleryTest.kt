@@ -31,7 +31,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StyledText.Colour
 import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
@@ -67,8 +66,8 @@ import java.time.ZoneOffset
  *
  * - The cards have the example content of the widgets mockup (docs/widgets-design.org), as far as
  *   a card's description can carry it.
- * - A built-in card is made by the code that makes it on the page ([OwnCards], [BatteryCards],
- *   [StatusCards]), so it has what the real card has, and no more.
+ * - A built-in card is made by the code that makes it on the page ([OwnCards], [BatteryCards]),
+ *   so it has what the real card has, and no more.
  * - Each card has the size the widgets page gives it on this screen ([WidgetSizes], [WidgetLayout]),
  *   in the Gruvbox Material dark theme, with 24-hour times.
  * - A clock shows the time of the run. Countdowns and events are set from the time of the run.
@@ -321,7 +320,6 @@ class WidgetGalleryTest {
         val reminders = listOf(Reminder(1, nowMs + 42 * 60_000, "Call the bank"), Reminder(2, at(1, 7, 0) * 1000, "Water plants"), Reminder(3, at(3, 9, 0) * 1000, "Pay rent"))
         val shortcuts = listOf(Shortcut("torch", "torch", "torch"), Shortcut("dnd", "dnd", "moon"), Shortcut("todo", "todo", "check"), Shortcut("maps", "maps", "pin"))
         return listOf(
-            Shot("status", WidgetSize.S4X1, "Live cricket", checkNotNull(StatusCards.spec("Live cricket", StatusLine("cricket", "NZ 136/8 · 31.2 overs", progress = 0.6f)))),
             Shot("weather", WidgetSize.S2X1, "Pune", weather),
             Shot("weather", WidgetSize.S1X1, "Pune", weather),
             Shot("aqi", WidgetSize.S2X2, "US AQI · Pune", aqi),

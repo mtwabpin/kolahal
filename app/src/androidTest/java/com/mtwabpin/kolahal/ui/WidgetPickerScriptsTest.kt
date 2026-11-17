@@ -95,10 +95,12 @@ class WidgetPickerScriptsTest {
     }
 
     /**
-     * The picker's first section has a row for a script with a `@widget` line, and a Status card
-     * for one that sets a status line. A tap places the widget at once and hands over to the
-     * Widgets screen. From then on the row says "Added". A second tap on the script's own widget
-     * places another one; a Status card is placed once.
+     * The picker's first section has a row for a script with a `@widget` line. A tap places the
+     * widget at once and hands over to the Widgets screen. From then on the row says "Added", and
+     * a second tap places another one.
+     *
+     * A script that only sets a status line has no row: the line shows at the top of home, and
+     * there are no Status cards since 0.5.9.
      */
     @Test fun thePickerListsAScriptsWidgetAndSaysWhenItIsAdded() {
         val s = t.create("-weather", code)
@@ -109,18 +111,21 @@ class WidgetPickerScriptsTest {
 
         // Its title, its kind and the size of its `@widget` line.
         val row = hasText(title) and hasText("Stat") and hasText("2×1") and hasClickAction()
-        val status = hasText("Wpick Line") and hasText("Status card") and hasClickAction()
         scrollTo(row)
         compose.onNodeWithText("Kolahal").assertExists()
         compose.onAllNodes(row and hasText("Added", substring = true)).assertCountEquals(0)
-        scrollTo(status)
         compose.onAllNodesWithText("Wpick Plain").assertCountEquals(0)
 
         // The search finds it by its script's name too, and leaves the others out.
         search(s.name)
         compose.waitForNode(row)
-        compose.onAllNodes(status).assertCountEquals(0)
         compose.onAllNodesWithText("Nothing matches “${s.name}”.").assertCountEquals(0)
+        // The script with a status line has no row, and no row is a Status card.
+        for (q in listOf(line.name, "Wpick Line", "status card")) {
+            search(q)
+            compose.waitForText("Nothing matches “$q”.")
+        }
+        compose.onAllNodesWithText("Status card", substring = true).assertCountEquals(0)
         search("")
         scrollTo(row)
 
@@ -135,8 +140,6 @@ class WidgetPickerScriptsTest {
         scrollTo(row)
         // A script's own widget can be placed again, and the row says so.
         compose.waitForNode(row and hasText("Added · tap to add another"))
-        // The Status card is a widget of its own, and is not placed.
-        compose.onAllNodes(status and hasText("Added", substring = true)).assertCountEquals(0)
 
         // A second tap places a further widget of the script, with a run of its own.
         compose.onNode(row).performClick()
@@ -147,14 +150,8 @@ class WidgetPickerScriptsTest {
         compose.waitForText("Added $title 2", ms = 15_000)
         // This script declares no option, so there is nothing to open on the Widgets screen.
         compose.runOnIdle { assertNull(vm.widgetOptionsAsked.value) }
-
-        // A Status card is placed once: its row says "Added", and a second tap places nothing.
-        scrollTo(status)
-        compose.onNode(status).performClick()
-        compose.waitForNode(status and hasText("Added"))
-        compose.onNode(status).performClick()
-        compose.waitForText("Wpick Line status is already on the widgets page", ms = 20_000)
-        assertEquals(1, t.host.widgets.value.count { it.source == "status:${line.name}" })
+        // The script with a status line has nothing on the page.
+        assertTrue(t.host.widgets.value.none { it.provider.contains(line.name) })
     }
 
     /**

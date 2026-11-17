@@ -122,40 +122,32 @@ private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Pro
 }
 
 /**
- * One of a saved script's widgets, for the picker's Kolahal section.
+ * A saved script's widget, for the picker's Kolahal section.
  * - [script] is the script's name.
- * - [source] says which: the script's own widget (`script:<name>`), or the Status card of its status line (`status:<name>`).
- * - [what] is the row's second line: the kind, or "Status card".
+ * - [what] is the row's second line: the kind.
  * - [search] is its title, name and kind in lowercase.
  */
-internal class PickerScriptRow(val script: String, val title: String, val source: String, val what: String, val size: WidgetSize, val search: String) {
-    val isStatus: Boolean get() = source.startsWith(WidgetSource.STATUS)
-    /** What a message calls it: "Weather", "Weather status". */
-    val name: String get() = if (isStatus) "$title status" else title
+internal class PickerScriptRow(val script: String, val title: String, val what: String, val size: WidgetSize, val search: String) {
+    /** The source of the script's first widget: `script:<name>`. */
+    val source: String get() = WidgetSource.script(script)
 }
 
 /**
- * The widgets your scripts have, by title: one for a script with a `@widget` line, and a Status card
- * for a script that sets a status line. A script with both has two rows, its own widget first.
+ * The widgets your scripts have, by title: one for each script with a `@widget` line.
  *
  * [scripts] are the scripts as the view model has read them ([WidgetScript]). No code is read here,
  * so this is cheap enough for the main thread.
  */
-internal fun pickerScriptRows(scripts: Collection<WidgetScript>): List<PickerScriptRow> = scripts.flatMap { s ->
+internal fun pickerScriptRows(scripts: Collection<WidgetScript>): List<PickerScriptRow> = scripts.mapNotNull { s ->
     val title = s.title ?: s.name
-    listOfNotNull(
-        s.widget?.let { w ->
-            PickerScriptRow(s.name, title, WidgetSource.script(s.name), w.kind.id.replaceFirstChar { it.uppercase() }, w.size, "$title ${s.name} ${w.kind.id}".lowercase())
-        },
-        if (s.setsStatus) PickerScriptRow(s.name, title, WidgetSource.STATUS + s.name, "Status card", WidgetSize.S2X1, "$title ${s.name} status card".lowercase()) else null,
-    )
+    s.widget?.let { w -> PickerScriptRow(s.name, title, w.kind.id.replaceFirstChar { it.uppercase() }, w.size, "$title ${s.name} ${w.kind.id}".lowercase()) }
 }.sortedBy { it.title.lowercase() }
 
 /**
  * What a row of the picker's Kolahal section says about the widgets of its kind that are on the
  * page already. Null when none is: the row then says nothing.
  * - [placed]: how many are on the page. [most]: how many there may be.
- * - A built-in widget and a Status card are placed once: "Added".
+ * - A built-in widget is placed once: "Added".
  * - A script's own widget may be placed again, each with its own options, up to
  *   [WidgetRef.MAX_PER_SCRIPT]: "Added · tap to add another". At the most, the row counts them.
  */
@@ -206,10 +198,9 @@ private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, empty
 /**
  * The widget picker.
  * - First come Kolahal's own widgets: the built-in ones, then each saved script with a `@widget`
- *   line, and a Status card for each script that sets a status line. Picking one places it at once
- *   ([WidgetHost.placeBuiltin], [WidgetHost.placeScript], [WidgetHost.placeStatus]) and goes to the
- *   Widgets screen, as an app's widget does once it is bound.
- * - A built-in widget and a Status card are placed once. A script's own widget can be placed
+ *   line. Picking one places it at once ([WidgetHost.placeBuiltin], [WidgetHost.placeScript]) and
+ *   goes to the Widgets screen, as an app's widget does once it is bound.
+ * - A built-in widget is placed once. A script's widget can be placed
  *   again: a tap on a row that says "Added" places a further widget of the script
  *   ([WidgetHost.placeAnother]), and the Widgets screen then shows that widget's options, so you
  *   can set what differs from the first one. When the script's first widget was removed and a
@@ -222,7 +213,7 @@ private val kolahalGroup = ProviderGroup("kolahal", "Kolahal", null, null, empty
 fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
-    // The view model reads each script's title, `@widget` line and status call from its code, off the
+    // The view model reads each script's title, `@widget` line and `@option` lines from its code, off the
     // main thread, and again only when the code changes. Its answer changes only when one of these
     // does. The script list itself changes at every run, and no row is made again for that.
     val scripts by vm.widgetScripts.collectAsStateWithLifecycle()
@@ -310,19 +301,17 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                     }
                 }
                 items(ownShown, key = { "s:${it.source}" }) { w ->
-                    // A Status card is placed once. A script's own widget can be placed several times.
-                    val says = if (w.isStatus) pickerAdded(if (w.source in added) 1 else 0) else pickerAdded(scriptWidgets[w.script] ?: 0, WidgetRef.MAX_PER_SCRIPT)
-                    KolahalWidgetCard(w.title, w.what, w.size, added = says) {
+                    // A script's widget can be placed several times.
+                    KolahalWidgetCard(w.title, w.what, w.size, added = pickerAdded(scriptWidgets[w.script] ?: 0, WidgetRef.MAX_PER_SCRIPT)) {
                         // The script as it is now. One that was deleted a moment ago places nothing.
                         val script = vm.scriptList.value.firstOrNull { it.name == w.script } ?: return@KolahalWidgetCard
                         val onPage = widgets.placedOf(w.script)
                         val full = "${w.title} has ${WidgetRef.MAX_PER_SCRIPT} widgets already, the most a script may have"
                         when {
-                            w.isStatus -> picked(widgets.placeStatus(script, w.size), w.name)
                             !WidgetRef.roomFor(onPage.map { it.id }) -> widgets.message(full)
                             // Its first widget, when that one is not on the page. A run on the script's
                             // timer fills only the first, so it comes before any further widget.
-                            onPage.none { it.first } -> picked(widgets.placeScript(script, w.size), w.name)
+                            onPage.none { it.first } -> picked(widgets.placeScript(script, w.size), w.title)
                             // It has its first widget: this is a further one, with options of its own.
                             else -> when (val ref = widgets.placeAnother(script, w.size)) {
                                 null -> widgets.message(full)
@@ -368,7 +357,7 @@ private fun AppHeader(g: ProviderGroup) {
 }
 
 /**
- * One of Kolahal's own widgets: its [title], [what] it is (its kind, "Status card" or "Built-in"),
+ * One of Kolahal's own widgets: its [title], [what] it is (its kind, or "Built-in"),
  * and the [size] it starts with. [added] is what it says when one is on the page already
  * ([pickerAdded]): "Added", or for a script's own widget that a tap adds another. Null says
  * nothing. A plain row for now, with no drawn sample of the kind.

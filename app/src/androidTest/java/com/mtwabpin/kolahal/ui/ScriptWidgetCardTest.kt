@@ -37,7 +37,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.KvStore
-import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.Stores
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
@@ -352,8 +351,6 @@ class ScriptWidgetCardTest {
         override fun refresh(widget: String) { all += "refresh $widget" }
         override fun tap(widget: String, tap: WidgetTap) { all += "tap $widget ${tap.args ?: tap.url}" }
         override fun longPress() { all += "arrange" }
-        override fun runStatus(script: String) { all += "run status $script" }
-        override fun refreshStatus(script: String, every: Int): Long { all += "refresh status $script"; return 60_000L }
         override fun openBattery() { all += "battery" }
         override fun openScripts() { all += "scripts" }
     }
@@ -440,9 +437,8 @@ class ScriptWidgetCardTest {
         compose.runOnIdle { assertEquals(listOf("refresh $third", "tap $second go", "tap $first null"), asked.all.toList()) }
     }
 
-    /** What the view model knows of these scripts, and their status lines, as the cards get them. */
-    private fun feed(vararg scripts: WidgetScript, lines: MutableStateFlow<List<StatusLine>> = MutableStateFlow(emptyList())) =
-        WidgetFeed(MutableStateFlow(scripts.associateBy { it.name }), lines)
+    /** What the view model knows of these scripts, as the cards get it. */
+    private fun feed(vararg scripts: WidgetScript) = WidgetFeed(MutableStateFlow(scripts.associateBy { it.name }))
 
     /**
      * A card that knows its script from the view model says when the script can't fill it: it is
@@ -458,9 +454,9 @@ class ScriptWidgetCardTest {
         val there = kept("there", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         setAgo(there, 125)
         val known = feed(
-            WidgetScript(off, "Off one", enabled = false, widget = stat, setsStatus = false),
-            WidgetScript(bare, null, enabled = true, widget = null, setsStatus = false),
-            WidgetScript(there, "There", enabled = true, widget = stat, setsStatus = false),
+            WidgetScript(off, "Off one", enabled = false, widget = stat),
+            WidgetScript(bare, null, enabled = true, widget = null),
+            WidgetScript(there, "There", enabled = true, widget = stat),
         )
         show(gone, off, bare, there, actions = asked, inView = true, feed = known)
         draws(gone, gone, "Script removed")
@@ -483,30 +479,6 @@ class ScriptWidgetCardTest {
         compose.onNode(inCard(off) and scripts).performClick()
         compose.onNode(inCard(gone) and arrange).performClick()
         compose.runOnIdle { assertEquals(listOf("refresh $there", "scripts", "arrange"), asked.all.toList()) }
-    }
-
-    /**
-     * A Status card draws its script's line as the view model has it, under the script's title, and
-     * follows a new line. A script with no line yet says so. The card reads nothing itself.
-     */
-    @Test fun aStatusCardDrawsTheLineTheViewModelHas() {
-        val set = name("line")
-        val none = name("no-line")
-        val lines = MutableStateFlow(listOf(StatusLine(set, "NZ 136/8", progress = 0.6f)))
-        val known = feed(
-            WidgetScript(set, "Cricket", enabled = true, widget = null, setsStatus = true),
-            WidgetScript(none, null, enabled = true, widget = null, setsStatus = true),
-            lines = lines,
-        )
-        showSources(WidgetSource.STATUS + set, WidgetSource.STATUS + none, feed = known)
-        draws("status:$set", "Cricket", "NZ 136/8")
-        says("status:$set", "Cricket: NZ 136/8, 60%")
-        draws("status:$none", none, "No status line yet")
-        says("status:$none", "$none: No status line yet")
-
-        lines.value = listOf(StatusLine(set, "NZ 140/8"))
-        draws("status:$set", "Cricket", "NZ 140/8")
-        says("status:$set", "Cricket: NZ 140/8")
     }
 
     /** The card's own node on the widgets page: the one that takes the card's tap, with [label] for a screen reader. */

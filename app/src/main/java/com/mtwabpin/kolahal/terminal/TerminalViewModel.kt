@@ -220,7 +220,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         lines.filter { it.name in shown }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** False until [refreshCaches] has read the scripts and the status lines for the first time. */
+    /** False until [refreshCaches] has read the scripts for the first time. */
     private val scriptsRead = MutableStateFlow(false)
 
     /** Only [widgetScripts] uses it. */
@@ -230,7 +230,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * The scripts as the widget screens see them ([WidgetScript]), by name. Null until the scripts
      * are read: an empty [scriptList] alone does not say whether there are no scripts.
      * - It follows [scriptList], and is made off the main thread.
-     * - It changes only with a script's title, switch, `@widget` line or status call. [scriptList]
+     * - It changes only with a script's title, switch, `@widget` line or `@option` lines. [scriptList]
      *   changes at every run, and this does not: a card or a picker row is not drawn again then.
      */
     val widgetScripts: StateFlow<Map<String, WidgetScript>?> = combine(scriptList, scriptsRead) { list, read -> if (read) widgetReader.read(list) else null }
@@ -244,7 +244,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val ownData = OwnData(app, viewModelScope)
 
     /** What the cards of the widgets page read from here, and not from the database ([WidgetFeed]). */
-    val widgetFeed = WidgetFeed(widgetScripts, _lines.asStateFlow(), ownData.feed)
+    val widgetFeed = WidgetFeed(widgetScripts, ownData.feed)
 
     /** The Shortcuts widget's list, for its editor on the Widgets screen. Null until it is read. */
     val shortcuts: StateFlow<List<com.mtwabpin.kolahal.widgets.Shortcut>?> get() = ownData.feed.shortcuts
@@ -280,9 +280,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * When each status line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
-     * time. The pinned header and the Status cards of the widgets page share it ([StatusTurns]), so a
-     * script that is pinned and also has a card runs once in each period. Only the main thread uses it.
+     * When each pinned line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
+     * time ([PinnedTurns]). Only the main thread uses it.
      */
     private val pinRuns = HashMap<String, Long>()
 
@@ -483,7 +482,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             scriptsPrint = print
         }
         _lines.value = StatusLines.all(context)
-        // After the lines: a Status card takes this as the sign that the scripts and the lines are both read.
         scriptsRead.value = true
         if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()
         // A typed command's own line puts it first in the history. Read the history again only when a
@@ -1087,11 +1085,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * Taps and refresh requests of the script widgets on the widgets page ([WidgetActions]). A tap
-     * shares the 2-second gate of the header and the log's buttons ([itemTaps]). A Status card's
-     * `refresh` shares the pinned header's table of last runs ([pinRuns]). A tap inside a built-in
+     * shares the 2-second gate of the header and the log's buttons ([itemTaps]). A tap inside a built-in
      * card changes Kolahal's own data ([ownData]), or runs a command as if it was typed ([runTyped]).
      */
-    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, pinRuns, ownData, object : WidgetActions.Host {
+    val widgetActions: WidgetCardActions = WidgetActions(context, itemTaps, ownData, object : WidgetActions.Host {
         override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
         override fun openUrl(url: String) = this@TerminalViewModel.openUrl(url)
         override fun openScreen(screen: Screen) = this@TerminalViewModel.openScreen(screen)

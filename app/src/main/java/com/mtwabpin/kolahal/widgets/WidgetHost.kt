@@ -109,10 +109,19 @@ class WidgetHost private constructor(context: Context) {
         synchronized(views) { views.remove(id) }
     }
 
+    /**
+     * The thread where [prune] runs, on start or when providers change. It makes one call to Android
+     * per widget, and the return to home shouldn't wait for them. It runs one task at a time.
+     */
+    private val checks = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     private val _widgets = MutableStateFlow(
-        WidgetCodec.decode(prefs.getString(KEY, null)).let { saved ->
-            // Widgets placed on home before 0.3.1 move onto the page, once.
-            WidgetOrder.onePage(saved).also { if (it != saved) prefs.edit { putString(KEY, WidgetCodec.encode(it)) } }
+        WidgetCodec.start(prefs.getString(KEY, null)).let { start ->
+            // The changes for older versions are saved at once, so they happen once ([WidgetCodec.start]).
+            if (start.changed) prefs.edit { putString(KEY, WidgetCodec.encode(start.widgets)) }
+            // The log is written on [checks]' thread: this may be the main thread.
+            start.note?.let { note -> checks.execute { runCatching { LogRepository.get(app).add(LogKind.INFO, note) } } }
+            start.widgets
         },
     )
     /** Every placed widget, including pending re-adds. */
@@ -142,12 +151,6 @@ class WidgetHost private constructor(context: Context) {
         _messages.update { taken = it.firstOrNull(); it.drop(1) }
         return taken
     }
-
-    /**
-     * The thread where [prune] runs, on start or when providers change. It makes one call to Android
-     * per widget, and the return to home shouldn't wait for them. It runs one task at a time.
-     */
-    private val checks = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     /** Whether home is showing: from [startListening] to [stopListening]. */
     @Volatile private var shown = false
@@ -268,7 +271,7 @@ class WidgetHost private constructor(context: Context) {
     /** Whether the widget with this [source] is on the page. A widget with a source is placed once. */
     fun isPlaced(source: String): Boolean = _widgets.value.any { it.source == source }
 
-    /** The widgets of the script [script] that are on the page, in page order. A Status card is not one of them. */
+    /** The widgets of the script [script] that are on the page, in page order. */
     fun placedOf(script: String): List<WidgetRef> =
         WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }.filter { it.script == script }
 
@@ -307,21 +310,11 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /**
-     * Places the Status card of [script]'s status line at the end of the page. Returns false when it
-     * is already placed. It needs no access item and no run: the line is stored whether or not a card
-     * shows it. A script can have this card and its own widget, as two entries.
-     */
-    fun placeStatus(script: Script, size: WidgetSize = WidgetSize.S2X1): Boolean = placeSource(WidgetSource.STATUS + script.name, size)
-
-    /**
      * Places the built-in widget [id] ([WidgetSource.BATTERY]) at the end of the page, at [size].
      * Returns false when it is already placed. Kolahal fills it from its own data, so it has no
      * script, no access item and no run.
      */
-    fun placeBuiltin(id: String, size: WidgetSize): Boolean = placeSource(WidgetSource.builtin(id), size)
-
-    /** Adds an entry for [source] at the end of the page, at [size]. False, and no change, when it is placed already or can't be stored. */
-    private fun placeSource(source: String, size: WidgetSize): Boolean = placeNew(size) { source } != null
+    fun placeBuiltin(id: String, size: WidgetSize): Boolean = placeNew(size) { WidgetSource.builtin(id) } != null
 
     /**
      * Adds an entry at the end of the page, at [size]. [pick] chooses its source from the list as
@@ -418,7 +411,7 @@ class WidgetHost private constructor(context: Context) {
      * Either way the database's copies follow the list, for both names ([follow]).
      */
     fun renameScript(from: String, to: String) {
-        val moved = _widgets.value.any { WidgetSource.isOf(it.source, from) }
+        val moved = placedOf(from).isNotEmpty()
         if (moved) {
             update { WidgetSource.renamed(it, from, to) }
             follow(from)

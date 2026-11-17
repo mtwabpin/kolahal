@@ -54,7 +54,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.status.DeviceStatus
 import com.mtwabpin.kolahal.status.Status
@@ -135,9 +134,6 @@ internal enum class CardNote {
     /** The stored content can't be read, or nothing can fill this widget. */
     UNAVAILABLE,
 
-    /** A Status card whose script has set no status line. */
-    NO_STATUS,
-
     /** No script has the card's name any more: it was deleted. The card stays until you remove it. */
     REMOVED,
 
@@ -153,15 +149,14 @@ internal enum class CardNote {
  * - [read] is false while the view model has not read the scripts yet. Nothing is known then, and
  *   the card says nothing about its script.
  * - A null [script] means that no script has the name.
- * - [ownWidget] is true for the card of the script's own widget, which needs the `@widget` line.
- *   A Status card needs none.
+ * - A script without its `@widget` line can't fill a widget.
  * Such a card asks for no runs: they would do nothing. A tap on it leads to where it is put right ([noteTap]).
  */
-internal fun scriptNote(read: Boolean, script: WidgetScript?, ownWidget: Boolean): CardNote? = when {
+internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when {
     !read -> null
     script == null -> CardNote.REMOVED
     !script.enabled -> CardNote.OFF
-    ownWidget && script.widget == null -> CardNote.NO_WIDGET
+    script.widget == null -> CardNote.NO_WIDGET
     else -> null
 }
 
@@ -373,7 +368,6 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
         note == CardNote.FAILED -> QuietLine(failure ?: WidgetWords.NOTHING, small)
         note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)
         note == CardNote.UNAVAILABLE -> QuietLine(WidgetWords.UNAVAILABLE, small)
-        note == CardNote.NO_STATUS -> QuietLine(StatusCards.NO_LINE, small)
         note == CardNote.REMOVED -> QuietLine(WidgetWords.REMOVED, small)
         note == CardNote.OFF -> QuietLine(WidgetWords.OFF, small)
         note == CardNote.NO_WIDGET -> QuietLine(WidgetWords.NO_WIDGET, small)
@@ -460,7 +454,6 @@ private const val MIN_REFRESH_S = 10
  * Draws placed widget [w], which Kolahal draws itself ([PlacedWidget.source]), [height] tall.
  * - A script's widget draws what the script stored with `widget.show` ([WidgetStates]). The main
  *   process never waits for a script: the card comes from stored state, and a run fills it later.
- * - A Status card draws its script's status line ([StatusLine]).
  * - The built-in Battery and network widget draws the device's status, live ([DeviceStatus]).
  * - Every other built-in widget this version knows draws Kolahal's own data, live ([OwnWidget]):
  *   todos, reminders, notes. It reads them from [feed] ([WidgetFeed.own]).
@@ -477,13 +470,10 @@ private const val MIN_REFRESH_S = 10
 internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed? = null) {
     // Which widget of which script: a script can have several on the page ([WidgetRef]).
     val ref = WidgetSource.scriptRef(w.source)
-    val status = WidgetSource.statusName(w.source)
     val builtin = WidgetSource.builtinId(w.source)
     GuiTheme {
         if (ref != null) {
             ScriptWidget(ref, height, actions, feed)
-        } else if (status != null) {
-            StatusWidget(status, height, actions, feed)
         } else if (builtin == WidgetSource.BATTERY) {
             BatteryWidget(height, actions)
         } else if (builtin != null && OwnCards.draws(builtin)) {
@@ -563,7 +553,7 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     val known = knownScript(feed, ref.script)
     // The script is gone or off, or its code has lost the `@widget` line: the card says so, and asks
     // for no runs. Without the line a run stores nothing, so the card would ask again at every view.
-    val missing = scriptNote(known.read, known.script, ownWidget = true)
+    val missing = scriptNote(known.read, known.script)
     // With a feed, a run is asked for only once the scripts are read and the script can run. A card
     // with no feed knows nothing of its script, and asks as if it were there.
     val runnable = feed == null || (known.read && missing == null)
@@ -683,113 +673,6 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
         // The time of the last run that ended, whether it showed something or failed. A switch that
         // waits for its script stops waiting when this moves.
         stamp = s?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L,
-    )
-}
-
-/** The Status card's pure part: what it draws for a status line. */
-internal object StatusCards {
-    /** What the card says while its script has set no status line. */
-    const val NO_LINE = "No status line yet"
-
-    /**
-     * The stat card of [line], under [title]: the line's text is the value, with its bar and its colour.
-     * Null with no line, or with a line that has no text. The card then says [NO_LINE].
-     */
-    fun spec(title: String, line: StatusLine?): WidgetSpec.Stat? {
-        // The value is one line on the card, so a line break becomes a space.
-        val text = line?.text?.lineSequence()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(" ")
-        if (line == null || text.isNullOrEmpty()) return null
-        return WidgetSpec.Stat(
-            base = WidgetBase(title = title, color = line.colour),
-            value = text,
-            progress = line.progress?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
-        )
-    }
-}
-
-/** The shortest time between two questions of a Status card about its line's `refresh`. A guard: the answer is never shorter. */
-private const val MIN_ASK_MS = 1_000L
-
-/**
- * [name]'s status line as [feed] has it, or null when the script has set none. The view model reads
- * the lines once for the pinned header, the Scripts screen and every card. A card is drawn again
- * only when its own line changes.
- */
-@Composable
-private fun statusLine(feed: WidgetFeed?, name: String): StatusLine? {
-    if (feed == null) return null
-    val changes = remember(feed, name) { feed.lines.map { all -> all.firstOrNull { it.name == name } }.distinctUntilChanged() }
-    val line by changes.collectAsStateWithLifecycle(initialValue = remember(feed, name) { feed.lines.value.firstOrNull { it.name == name } })
-    return line
-}
-
-/**
- * The Status card of the script [name]: its status line (`status(text, opts)`) as a stat card.
- * - The text is the value. The line's progress is the bar, in the line's colour.
- * - It needs no run and no access item. The line is stored whether or not a card shows it.
- * - A tap runs the script, as a tap on its pinned line does.
- * - A card whose script is gone or off says so ([scriptNote]). A tap on it opens the Scripts
- *   screen, or the Widgets screen when the script is gone.
- * - The line's own `refresh` counts while the card is in view, as it does for a pinned line. The
- *   view model keeps one time of the last run for both, so a script that is pinned and has a card
- *   runs once in each period. That time outlives the card: turning the page away and back starts
- *   no extra run.
- * - The card itself reads nothing from the database. Its line and its script's title come from the
- *   view model ([feed]), which reads them for the pinned header anyway. So a new log line costs a
- *   card nothing, in view or not. A card with no feed stays empty.
- */
-@Composable
-private fun StatusWidget(name: String, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val known = knownScript(feed, name)
-    // The script is gone or off: the card says so, and asks for no runs.
-    val missing = scriptNote(known.read, known.script, ownWidget = false)
-    // The line counts once the scripts are read, and only for a script that can set it.
-    val line = statusLine(feed, name).takeIf { known.read && missing == null }
-
-    // `refresh` in the line's options: run again that often, only while in view.
-    val every = line?.refresh
-    if (actions != null && every != null && LocalWidgetsShown.current) LaunchedEffect(name, actions, lifecycle, every) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            // The view model runs the script if it is due, and says how long to wait before the next question.
-            while (true) delay(actions.refreshStatus(name, every).coerceAtLeast(MIN_ASK_MS))
-        }
-    }
-
-    val title = known.script?.title ?: name
-    val spec = remember(title, line) { StatusCards.spec(title, line) }
-    val note = when {
-        // Until the view model has read the scripts and the lines, the card stays empty. It does not say "no status line".
-        !known.read -> CardNote.WAITING
-        missing != null -> missing
-        spec == null -> CardNote.NO_STATUS
-        else -> null
-    }
-    val description = remember(title, spec, note) {
-        when {
-            // A stat's words have no time in them, so the moment and the zone don't matter.
-            spec != null -> WidgetWords.description(title, spec, 0L, ZoneId.systemDefault())
-            note == CardNote.NO_STATUS -> "$title: ${StatusCards.NO_LINE}"
-            note == CardNote.REMOVED -> "$title: ${WidgetWords.REMOVED}"
-            note == CardNote.OFF -> "$title: ${WidgetWords.OFF}"
-            else -> title
-        }
-    }
-    val onClick: (() -> Unit)? = remember(actions, name, missing) {
-        // A script that is gone or off can't be run from here.
-        actions?.let { a -> if (missing != null) noteTap(missing, a) else { { a.runStatus(name) } } }
-    }
-    val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
-    WidgetCard(
-        title = title,
-        height = height,
-        spec = spec,
-        note = note,
-        description = description,
-        modifier = Modifier.testTag("widget:status:$name"),
-        onClick = onClick,
-        onClickLabel = if (missing != null) noteTapLabel(missing) else "run",
-        onLongClick = onLongClick,
     )
 }
 

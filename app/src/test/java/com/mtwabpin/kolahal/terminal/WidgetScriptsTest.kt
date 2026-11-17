@@ -22,8 +22,8 @@ class WidgetScriptsTest {
     @Test fun aScriptIsReadFromItsCode() {
         val read = WidgetScriptReader().read(listOf(weather, plain))
         assertEquals(listOf("weather", "plain"), read.keys.toList())
-        assertEquals(WidgetScript("weather", "Weather in Paris", enabled = true, ScriptMeta.Widget(WidgetKind.STAT, WidgetSize.S2X2), setsStatus = true), read["weather"])
-        assertEquals(WidgetScript("plain", null, enabled = false, widget = null, setsStatus = false), read["plain"])
+        assertEquals(WidgetScript("weather", "Weather in Paris", enabled = true, ScriptMeta.Widget(WidgetKind.STAT, WidgetSize.S2X2)), read["weather"])
+        assertEquals(WidgetScript("plain", null, enabled = false, widget = null), read["plain"])
         // A name with no script has no entry: its card says that the script was removed.
         assertNull(read["gone"])
         assertEquals(emptyMap<String, WidgetScript>(), WidgetScriptReader().read(emptyList()))
@@ -59,7 +59,7 @@ class WidgetScriptsTest {
         assertSame(first["plain"], off["plain"])
         // The `@widget` line is gone from the code, and the title changed.
         val edited = reader.read(listOf(weather.copy(code = "-- @title Rain\nstatus('wet')"), plain))
-        assertEquals(WidgetScript("weather", "Rain", enabled = true, widget = null, setsStatus = true), edited["weather"])
+        assertEquals(WidgetScript("weather", "Rain", enabled = true, widget = null), edited["weather"])
         assertNotSame(first["weather"], edited["weather"])
         // A deleted script leaves no entry, and one that takes its name later is read fresh.
         assertEquals(listOf("plain"), reader.read(listOf(plain)).keys.toList())

@@ -601,7 +601,7 @@ class LibraryWidgetsTest {
     /**
      * A library script that never calls `status(…)` doesn't say the word at all. Any mention counts
      * as setting a status line ([ScriptMeta.setsStatus]), so a comment such as "keeps no status line"
-     * offered a Status card for Hacker News that showed an old line.
+     * would let you pin Hacker News to the top of home, for a line it never sets.
      */
     @Test fun aScriptWithoutAStatusLineNeverNamesIt() {
         val call = Regex("""(?<![.:\w])status\s*\(""")
