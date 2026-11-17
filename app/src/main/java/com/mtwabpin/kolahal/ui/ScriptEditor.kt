@@ -37,6 +37,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.withStyle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.shownText
@@ -230,9 +235,15 @@ fun ScriptEditor(
         },
         hint = {
             if (inlineDoc != null) {
+                // The signature is code, so it keeps the code font. The words after it use the phone's font.
+                val small = Term.phoneText.fontSize * 0.85f
                 Text(
-                    "${inlineDoc.signature}  ${inlineDoc.doc}",
-                    style = Term.code.copy(color = Term.dim, fontSize = Term.code.fontSize * 0.85f),
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) { append(inlineDoc.signature) }
+                        append("  ")
+                        append(inlineDoc.doc)
+                    },
+                    style = Term.phoneText.copy(color = Term.dim, fontSize = small),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
@@ -297,6 +308,11 @@ fun ScriptEditor(
                 state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
                 focusEditor()
             },
+            onIcon = { name ->
+                referenceOpen = false
+                state.insert(EditorLogic.iconInsert(state.value.text, state.value.selection.min, name))
+                focusEditor()
+            },
         )
     }
 }
@@ -308,11 +324,11 @@ private fun RunOutput(lines: List<com.mtwabpin.kolahal.data.LogEntry>, maxHeight
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 12.dp)) {
             Text(
                 if (lines.isEmpty()) "output · none" else "output · ${lines.size} line${if (lines.size == 1) "" else "s"}",
-                style = Term.code.copy(color = Term.dim),
+                style = Term.phoneText.copy(color = Term.dim),
                 modifier = Modifier.weight(1f),
             )
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp).clickable(onClick = onClose)) {
-                Text("✕", style = Term.code.copy(color = Term.dim))
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClose) {
+                Icon(painterResource(R.drawable.ic_close), "Close output", tint = Term.dim)
             }
         }
         Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp)) {

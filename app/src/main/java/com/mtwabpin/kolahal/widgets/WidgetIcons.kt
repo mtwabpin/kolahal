@@ -18,6 +18,19 @@ object WidgetIcons {
         "people", "trophy", "ball", "cricket", "parcel", "gift", "coffee", "dnd", "feed", "link",
     )
 
+    /** [NAMES] in groups, as the script editor's reference and the scripting guide show them. Every name is in one group. */
+    val GROUPS: List<Pair<String, List<String>>> = listOf(
+        "Weather" to listOf("sun", "moon", "cloud", "rain", "snow", "storm", "wind", "fog", "temp", "drop"),
+        "Time" to listOf("alarm", "timer", "clock", "calendar", "bell"),
+        "Home and device" to listOf("home", "work", "lock", "unlock", "wifi", "battery", "bolt", "torch", "phone", "dnd"),
+        "People and talk" to listOf("person", "people", "mail", "chat"),
+        "Media" to listOf("music", "play", "pause", "news", "book", "feed"),
+        "Signs" to listOf("heart", "star", "check", "flag", "fire", "leaf", "trophy", "ball", "cricket"),
+        "Money and charts" to listOf("money", "cart", "chart", "up", "down", "parcel", "gift"),
+        "Going places" to listOf("car", "bus", "train", "plane", "walk", "pin", "globe", "coffee"),
+        "Work" to listOf("code", "bug", "link"),
+    )
+
     private val SET = NAMES.toHashSet()
 
     /** Whether [icon] names one of the icons. */

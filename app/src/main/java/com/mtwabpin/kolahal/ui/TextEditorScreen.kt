@@ -134,8 +134,8 @@ internal fun TextEditorScreen(vm: TextEditorViewModel, onOpen: () -> Unit, onNew
 @Composable
 private fun EditorNotice(title: String, why: String?, buttons: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize().cutoutSafePadding().navigationBarsPadding().padding(vertical = 16.dp).testTag("editor-notice")) {
-        Text(title, style = Term.code.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 12.dp))
-        if (why != null) Text(why, style = Term.code, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp))
+        Text(title, style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 12.dp))
+        if (why != null) Text(why, style = Term.phoneText, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp))
         // The buttons bring their own space at the sides, so their text lines up with the text above.
         Row(Modifier.padding(top = 8.dp)) { buttons() }
     }

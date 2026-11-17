@@ -193,7 +193,7 @@ class ReadOnlyFilesTest {
         addresses += shared
         shell("am start -a android.intent.action.VIEW -t text/plain -d $shared --grant-read-uri-permission -n ${context.packageName}/${TextEditorActivity::class.java.name}")
         compose.waitFor("the editor shows the file", 10_000) { editors() == 1 }
-        compose.waitFor("the editor says why it can't save") { message().startsWith("The app that shared this file allows reading only") }
+        compose.waitFor("the editor says why it can't save") { message().startsWith("Read Only - Reopen again to edit") }
 
         compose.onNodeWithTag("editor").performTextReplacement("mine")
         compose.onNodeWithContentDescription("Save").performClick()

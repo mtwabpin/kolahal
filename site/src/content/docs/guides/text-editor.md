@@ -82,7 +82,7 @@ Sometimes Android lets Kolahal read a file, but not write it:
   on Android 9 or on some phones;
 - a file another app shares with **Open with** to read only. Samsung's My Files does this.
 
-The editor then says why, for example "Android opened this file read-only (from Recent)". Your text
+The editor then says "Read Only - Reopen again to edit". Your text
 is safe: it is kept as a draft as usual. To save it in place:
 
 1. Tap the message, or choose **Open from its folder…** in the menu. The file picker opens in the

@@ -55,6 +55,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -145,7 +146,7 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
     var chosen by remember { mutableStateOf<Pair<String, String?>?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Run with", style = Term.code.copy(color = Term.prompt, fontWeight = FontWeight.Bold)) },
+        title = { Text("Run with", style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold)) },
         containerColor = Term.surface,
         text = {
             Column {
@@ -156,13 +157,13 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
                     onValueChange = { words = it },
                     singleLine = true,
                     label = { Text("args") },
-                    placeholder = { Text("words after its name", style = Term.code.copy(color = Term.dim)) },
-                    textStyle = Term.code.copy(color = Term.fg),
+                    placeholder = { Text("words after its name", style = Term.phoneText.copy(color = Term.dim)) },
+                    textStyle = Term.phoneText.copy(color = Term.fg),
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
                     modifier = Modifier.fillMaxWidth().testTag("run-args"),
                 )
                 if (events.isNotEmpty()) {
-                    Text("simulate event", style = Term.code.copy(color = Term.dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                    Text("simulate event", style = Term.phoneText.copy(color = Term.dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                     (listOf<Pair<String, String?>?>(null) + events).forEach { e ->
                         Text(
                             (if (e == chosen) "● " else "○ ") + when {
@@ -170,7 +171,7 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
                                 e.second != null -> "at ${e.second}"
                                 else -> e.first
                             },
-                            style = Term.code.copy(color = if (e == chosen) Term.prompt else Term.fg),
+                            style = Term.phoneText.copy(color = if (e == chosen) Term.prompt else Term.fg),
                             modifier = Modifier.fillMaxWidth().clickable { chosen = e }.heightIn(min = 40.dp).padding(vertical = 8.dp),
                         )
                     }
@@ -181,9 +182,9 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
             TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                 val args = com.mtwabpin.kolahal.commands.CommandParsing.tokenize(words.text)
                 onRun(args, chosen?.let { com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(it.first, it.second) })
-            }) { Text("run", style = Term.code.copy(color = Term.prompt)) }
+            }) { Text("run", style = Term.phoneText.copy(color = Term.prompt)) }
         },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("cancel", style = Term.code.copy(color = Term.fg)) } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("cancel", style = Term.phoneText.copy(color = Term.fg)) } },
     )
 }
 
@@ -197,7 +198,7 @@ private fun BarButton(label: String, color: Color = Term.fg, description: String
             .clickable(onClickLabel = description, onClick = onClick)
             .padding(horizontal = 8.dp),
     ) {
-        Text(label, style = Term.code.copy(color = color, fontWeight = FontWeight.Bold))
+        Text(label, style = Term.phoneText.copy(color = color, fontWeight = FontWeight.Bold))
     }
 }
 
@@ -215,7 +216,7 @@ private fun BarField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        textStyle = Term.code,
+        textStyle = Term.phoneText,
         cursorBrush = SolidColor(Term.prompt),
         keyboardOptions = KeyboardOptions(
             autoCorrectEnabled = false,
@@ -226,7 +227,7 @@ private fun BarField(
         keyboardActions = KeyboardActions(onSearch = { onAction() }, onDone = { onAction() }),
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.heightIn(min = 48.dp)) {
-                if (value.text.isEmpty()) Text(placeholder, style = Term.code.copy(color = Term.dim))
+                if (value.text.isEmpty()) Text(placeholder, style = Term.phoneText.copy(color = Term.dim))
                 inner()
             }
         },
@@ -272,7 +273,7 @@ internal fun FindBar(
                 },
                 modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("find"),
             )
-            Text(count, style = Term.code.copy(color = if (noMatch) Term.error else Term.dim), modifier = Modifier.padding(horizontal = 4.dp))
+            Text(count, style = Term.phoneText.copy(color = if (noMatch) Term.error else Term.dim), modifier = Modifier.padding(horizontal = 4.dp))
             EditorIconButton(R.drawable.ic_arrow_up, "Previous match", onClick = onPrev)
             EditorIconButton(R.drawable.ic_arrow_down, "Next match", onClick = onNext)
             EditorIconButton(R.drawable.ic_find_replace, "Replace", tint = if (replaceOpen) Term.prompt else Term.fg, onClick = onToggleReplace)
@@ -340,19 +341,29 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
 }
 
 /**
- * The full API reference for the script's language, followed by its `@` lines (directives).
- * Tapping an entry inserts it at the cursor. A directive is inserted as a whole comment line
- * ([onDirective]).
+ * The full API reference for the script's language, followed by its `@` lines (directives) and
+ * the icons a widget can name.
+ * - Tapping an entry inserts it at the cursor.
+ * - A directive is inserted as a whole comment line ([onDirective]).
+ * - An icon gives its name to [onIcon].
+ * - Code (signatures, directives, keywords, icon names) is in the code font; the words about it are in the phone's font.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun ApiReferenceSheet(lang: ScriptLang, onDismiss: () -> Unit, onPick: (ApiDoc) -> Unit, onDirective: (String) -> Unit) {
+internal fun ApiReferenceSheet(
+    lang: ScriptLang,
+    onDismiss: () -> Unit,
+    onPick: (ApiDoc) -> Unit,
+    onDirective: (String) -> Unit,
+    onIcon: (String) -> Unit,
+) {
     val docs = remember(lang) { ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD } }
     TermSheet(onDismiss) {
         LazyColumn(Modifier.navigationBarsPadding().padding(vertical = 8.dp).testTag("apiref")) {
             item {
                 Text(
                     "API reference · ${if (lang == ScriptLang.LUA) "Lua" else "JavaScript"}",
-                    style = Term.code.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+                    style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
@@ -365,13 +376,13 @@ internal fun ApiReferenceSheet(lang: ScriptLang, onDismiss: () -> Unit, onPick: 
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text(d.signature, style = Term.code.copy(color = if (d.kind == ApiDoc.Kind.NAMESPACE) Term.info else Term.fg))
-                    Text(d.doc, style = Term.code.copy(color = Term.dim, fontSize = Term.code.fontSize * 0.85f))
+                    Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
                 }
             }
             item {
                 Text(
                     "Directives · comment lines at the top",
-                    style = Term.code.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+                    style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
                 )
             }
@@ -385,13 +396,44 @@ internal fun ApiReferenceSheet(lang: ScriptLang, onDismiss: () -> Unit, onPick: 
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text("$comment @${d.name} ${d.args}".trimEnd(), style = Term.code.copy(color = Term.fg))
-                    Text(d.doc, style = Term.code.copy(color = Term.dim, fontSize = Term.code.fontSize * 0.85f))
+                    Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
                 }
             }
             item {
                 Text(
-                    "Keywords: " + ApiDocs.keywords(lang).joinToString(" "),
-                    style = Term.code.copy(color = Term.dim, fontSize = Term.code.fontSize * 0.85f),
+                    "Icons · for a widget's icon, such as icon = \"sun\"",
+                    style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                )
+            }
+            items(com.mtwabpin.kolahal.widgets.WidgetIcons.GROUPS) { (group, names) ->
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    Text(group, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
+                    androidx.compose.foundation.layout.FlowRow {
+                        names.forEach { name ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .heightIn(min = 48.dp)
+                                    .clickable(onClickLabel = "Insert $name") { onIcon(name) }
+                                    .padding(end = 14.dp)
+                                    .testTag("icon $name"),
+                            ) {
+                                widgetIconDrawable(name)?.let { Icon(painterResource(it), null, tint = Term.fg, modifier = Modifier.padding(end = 6.dp)) }
+                                Text(name, style = Term.code.copy(color = Term.fg))
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                val small = Term.phoneText.fontSize * 0.85f
+                Text(
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        append("Keywords: ")
+                        withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) { append(ApiDocs.keywords(lang).joinToString(" ")) }
+                    },
+                    style = Term.phoneText.copy(color = Term.dim, fontSize = small),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }

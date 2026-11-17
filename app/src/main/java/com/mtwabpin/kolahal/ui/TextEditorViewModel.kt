@@ -166,7 +166,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val notes = listOfNotNull(
             when {
                 !readOnly -> null
-                reopenHelps -> "${Documents.source(getApplication()).readOnlyReason(Uri.parse(doc.uri))} · tap to open it from its folder"
+                reopenHelps -> READ_ONLY_REOPEN
                 else -> "Kolahal can't write this file: use Save as"
             },
             when {
@@ -473,6 +473,9 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         const val KEY_START = "cursor.start"
         const val KEY_END = "cursor.end"
         const val KEY_WRAP = "wrap"
+
+        /** The note on a file Android opened read-only, when opening it again from its folder can help. A tap does that. */
+        const val READ_ONLY_REOPEN = "Read Only - Reopen again to edit"
 
         /** How long after the last key the draft is written. */
         val DRAFT_AFTER = 800.milliseconds

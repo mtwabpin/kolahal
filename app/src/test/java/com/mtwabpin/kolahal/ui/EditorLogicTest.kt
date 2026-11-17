@@ -328,4 +328,12 @@ class EditorLogicTest {
         for (writing in listOf("notes.txt", "README.md", "TODO.ORG", "README", "LICENSE")) assertTrue(writing, EditorLogic.wrapsByDefault(writing))
         for (code in listOf("weather.lua", "data.json", "table.csv", "app.log", ".gitignore", "build.gradle.kts")) assertFalse(code, EditorLogic.wrapsByDefault(code))
     }
+
+    /** An icon from the reference goes in quotes, unless the cursor is already after a quote. */
+    @Test fun anIconNameIsQuotedWhenNeeded() {
+        assertEquals("\"sun\"", EditorLogic.iconInsert("icon = ", 7, "sun"))
+        assertEquals("sun", EditorLogic.iconInsert("icon = \"", 8, "sun"))
+        assertEquals("sun", EditorLogic.iconInsert("icon = '", 8, "sun"))
+        assertEquals("\"sun\"", EditorLogic.iconInsert("", 0, "sun"))
+    }
 }

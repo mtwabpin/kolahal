@@ -419,7 +419,7 @@ internal fun CodeEditor(
         ) {
             Text(
                 title + if (state.dirty) " *" else "",
-                style = Term.code.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
+                style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -524,7 +524,7 @@ internal fun CodeEditor(
         if (shown != null) {
             Text(
                 shown.text,
-                style = Term.code.copy(
+                style = Term.phoneText.copy(
                     color = when (shown.kind) {
                         EditorMessage.Kind.OK -> Term.prompt
                         EditorMessage.Kind.ERROR -> Term.error
@@ -571,7 +571,7 @@ internal fun CodeEditor(
                         }
                         .padding(horizontal = 12.dp),
                 ) {
-                    Text(if (s == "  ") "⇥" else s, style = Term.code.copy(color = Term.fg, fontWeight = FontWeight.Bold))
+                    Text(if (s == "  ") "⇥" else s, style = Term.phoneText.copy(color = Term.fg, fontWeight = FontWeight.Bold))
                 }
             }
         }

@@ -128,9 +128,6 @@ class ContentDocuments(context: Context) : DocumentSource {
      */
     fun reopenHelps(uri: Uri): Boolean = isMediaDocument(uri) || readOnlyGrant(uri)
 
-    /** Why Kolahal can't save [uri] in place, as a short sentence without a full stop. Use it when [reopenHelps]. */
-    fun readOnlyReason(uri: Uri): String = if (isMediaDocument(uri)) MEDIA_READ_ONLY else "The app that shared this file allows reading only"
-
     /**
      * The folder that holds the file, as an address for the file picker to start in, or null when
      * it can't be known. Only files in the phone's shared storage have a known folder: a media

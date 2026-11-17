@@ -309,6 +309,13 @@ object EditorLogic {
     }
 
     /**
+     * The text that inserting the icon [name] at [cursor] adds: the name in quotes, ready for
+     * `icon = "sun"`, or the bare name when the cursor is already after a quote.
+     */
+    fun iconInsert(text: String, cursor: Int, name: String): String =
+        if (cursor > 0 && text.getOrNull(cursor - 1) in setOf('"', '\'')) name else "\"$name\""
+
+    /**
      * The language whose colours a file gets, from the ending of its [name]. Null: plain text.
      */
     fun syntaxFor(name: String): Syntax? = when (name.substringAfterLast('.', "").lowercase()) {

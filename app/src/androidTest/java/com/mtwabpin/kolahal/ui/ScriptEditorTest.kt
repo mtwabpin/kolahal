@@ -114,7 +114,7 @@ class ScriptEditorTest {
         compose.onNodeWithText("first").assertExists()
         compose.onNodeWithText("edtest: oops").assertExists()
         compose.onNodeWithText("Ran in 12ms · 2 lines below").assertExists()
-        compose.onNodeWithText("✕").performClick()
+        compose.onNodeWithContentDescription("Close output").performClick()
         compose.onNodeWithTag("run-output").assertDoesNotExist()
     }
 
