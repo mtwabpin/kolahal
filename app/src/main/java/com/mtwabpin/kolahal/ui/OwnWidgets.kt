@@ -295,7 +295,8 @@ internal object OwnCards {
     fun reminders(list: List<Reminder>, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): WidgetSpec.Rows {
         val next = list.firstOrNull()
         return WidgetSpec.Rows(
-            base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.REMINDERS)),
+            // Orange, as the mockup has it: a reminder is something due.
+            base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.REMINDERS), color = StyledText.Colour.WARN),
             items = list.drop(1).take(MAX_REMINDERS).map { r ->
                 WidgetSpec.Row(title = r.text, trailing = shortWhen(r.at, now, zone, clock24, locale))
             },

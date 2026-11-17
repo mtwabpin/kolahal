@@ -660,7 +660,7 @@ class LibraryScriptsTest {
         val first = today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
         assertEquals(
             mapOf(
-                "title" to "Exercise", "icon" to "fire", "value" to 2.0, "label" to "days in a row",
+                "title" to "Exercise", "icon" to "check", "value" to 2.0, "label" to "days in a row",
                 "points" to listOf(0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0), "style" to "bars", "min" to 0.0, "max" to 1.0,
                 "labels" to listOf(first, "Today"),
                 "summary" to (6 downTo 0).joinToString(", ") { back ->

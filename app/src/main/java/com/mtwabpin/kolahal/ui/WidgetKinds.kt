@@ -19,10 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -44,6 +43,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import com.mtwabpin.kolahal.R
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
@@ -624,6 +626,7 @@ internal object WidgetWords {
      * - Buttons, switches and a text leave the line out under [TITLED_DP]: a button needs 48 dp, and
      *   a text would get one line.
      * - Bars with their names leave it out when it would cost them their names.
+     * - A single ring (`style = "ring"`) leaves it out: it writes the title beside itself.
      * - A media card never has it. Its own first line is the track's title, and "Now playing" over
      *   that says nothing new.
      * - Any other kind has it.
@@ -631,7 +634,8 @@ internal object WidgetWords {
     fun wideTitle(spec: WidgetSpec?, heightDp: Int, footer: Boolean = false): Boolean = when (spec) {
         is WidgetSpec.Buttons, is WidgetSpec.Toggles, is WidgetSpec.Text -> footer || heightDp >= TITLED_DP
         is WidgetSpec.Media -> false
-        is WidgetSpec.Progress -> footer || heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size
+        // A single ring writes the title beside itself, as the mockup has it (RingBody).
+        is WidgetSpec.Progress -> footer || if (spec.items.isEmpty() && spec.style == "ring") false else heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size
         else -> true
     }
 
@@ -860,22 +864,24 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     }
     val colour = roleColour(spec.base)
     val large = box == WidgetSizes.Box.LARGE
-    val change = listOfNotNull(WidgetWords.arrow(spec.trend), spec.delta).joinToString(" ")
+    val hasChange = spec.trend != null || spec.delta != null
     val value: @Composable (Modifier) -> Unit = { modifier ->
         Row(modifier) {
             BigText(spec.value, valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
             spec.unit?.let {
                 Text(it, style = type.titleMedium, color = scheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 2.dp).alignByBaseline())
             }
-            if (change.isNotEmpty()) {
-                Text(change, style = type.labelLarge, color = colour, maxLines = 1, modifier = Modifier.padding(start = 8.dp).alignByBaseline())
-            }
+            // A large card has the change under the value, beside the label, as the mockup has it.
+            if (hasChange && !large) ChangeText(spec.trend, spec.delta, colour, type.labelLarge, Modifier.padding(start = 8.dp).alignByBaseline())
         }
     }
     if (large) {
         Column(Modifier.fillMaxSize()) {
             value(Modifier)
-            spec.label?.let { Text(cardText(it), style = type.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            if (spec.label != null || hasChange) Row(verticalAlignment = Alignment.CenterVertically) {
+                spec.label?.let { Text(cardText(it), style = type.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
+                if (hasChange) ChangeText(spec.trend, spec.delta, colour, type.titleSmall, Modifier.padding(start = if (spec.label != null) 8.dp else 0.dp))
+            }
             Spacer(Modifier.weight(1f))
             if (spec.more.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -924,6 +930,24 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
 
 /** From this width, a wide stat has a column at its end for its label and its first smaller value. */
 private val STAT_SIDE_FROM = 150.dp
+
+/**
+ * A stat's change in [colour]: a drawn arrow for up or down (a text arrow for flat), then the
+ * delta in bold. The arrow is as tall as the text.
+ */
+@Composable
+private fun ChangeText(trend: String?, delta: String?, colour: Color, style: TextStyle, modifier: Modifier = Modifier) {
+    val drawn = when (trend) {
+        "up" -> R.drawable.ic_arrow_up
+        "down" -> R.drawable.ic_arrow_down
+        else -> null
+    }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (drawn != null) Icon(painterResource(drawn), null, tint = colour, modifier = Modifier.size(with(LocalDensity.current) { style.fontSize.toDp() }))
+        else WidgetWords.arrow(trend)?.let { Text(it, style = style, color = colour, maxLines = 1) }
+        delta?.let { Text(it, style = style.copy(fontWeight = FontWeight.Bold), color = colour, maxLines = 1, modifier = Modifier.padding(start = 2.dp)) }
+    }
+}
 
 /** One of a stat's smaller values, over its label. */
 @Composable
@@ -1098,16 +1122,10 @@ private fun ListRow(row: WidgetSpec.Row, height: Dp, details: Boolean, shape: Sh
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val icon = row.icon
-        if (done != null) {
-            Checkbox(
-                checked = done,
-                onCheckedChange = null,
-                colors = if (colour != null) CheckboxDefaults.colors(checkedColor = colour) else CheckboxDefaults.colors(),
-                modifier = Modifier.padding(start = 2.dp, end = 4.dp),
-            )
-        }
+        if (done != null) RowCheck(done, colour ?: scheme.primary, Modifier.padding(start = 8.dp, end = 8.dp))
         if (icon != null) {
-            WidgetIconText(icon, type.titleMedium, colour ?: scheme.onSurface, modifier = Modifier.padding(end = 10.dp))
+            // Small and quiet, as in the mockup: the row's text says what it is, the icon only helps.
+            WidgetIconText(icon, type.titleMedium, colour ?: scheme.onSurfaceVariant, size = 18.dp, modifier = Modifier.padding(end = 10.dp))
         } else if (done == null && colour != null) {
             Box(Modifier.padding(end = 10.dp).size(8.dp).clip(CircleShape).background(colour))
         }
@@ -1167,7 +1185,9 @@ private fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
 /**
  * The ring.
  * - Small and large: as big as the box allows, with its text inside. Large has the label under it.
- * - Wide: the ring at the start, with its text and its label beside it.
+ * - Wide: the ring at the start. With no title line ([LocalUntitled]), as the mockup has it: the
+ *   text inside the ring, and the title in bold beside it over the label. With a title line: the
+ *   text and the label beside the ring.
  */
 @Composable
 private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
@@ -1175,14 +1195,27 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
+    val untitled = LocalUntitled.current
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (box == WidgetSizes.Box.WIDE) {
-            val side = min(maxHeight, maxWidth / 2).coerceAtLeast(24.dp)
+            // Without a title line the title shares the row, so the ring takes less of the width.
+            val side = (if (untitled != null) min(maxHeight, maxWidth * 0.42f) else min(maxHeight, maxWidth / 2)).coerceAtLeast(24.dp)
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                Ring(fraction, spec.moving, colour, side)
-                Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    BigText(text, type.titleLarge)
-                    spec.label?.let { Text(it, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                if (untitled != null) {
+                    Box(Modifier.size(side), contentAlignment = Alignment.Center) {
+                        Ring(fraction, spec.moving, colour, side)
+                        BigText(text, if (side >= 96.dp) type.titleLarge else type.titleSmall, Modifier.padding(horizontal = side / 5))
+                    }
+                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                        Text(cardText(untitled), style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        spec.label?.let { Text(it, style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                } else {
+                    Ring(fraction, spec.moving, colour, side)
+                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                        BigText(text, type.titleLarge)
+                        spec.label?.let { Text(it, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
                 }
             }
         } else {
@@ -1440,5 +1473,22 @@ private fun Plot(points: List<Float>, bars: Boolean, min: Float?, max: Float?, c
             drawCircle(surface, radius = dot + line, center = end)
             drawCircle(colour, radius = dot, center = end)
         }
+    }
+}
+
+/**
+ * A row's checkbox, as the mockup draws it: a rounded square, 18 dp. Open: an outline in the
+ * quiet text colour. Done: filled with [colour], with a check. The row says its state to a screen reader.
+ */
+@Composable
+private fun RowCheck(done: Boolean, colour: Color, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(5.dp)
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier.size(18.dp).clip(shape)
+            .then(if (done) Modifier.background(colour) else Modifier.border(2.dp, scheme.onSurfaceVariant, shape)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) Icon(painterResource(R.drawable.wi_check), contentDescription = null, tint = scheme.surfaceContainerHigh, modifier = Modifier.size(14.dp))
     }
 }

@@ -16,6 +16,7 @@ object WidgetIcons {
         "star", "check", "flag", "fire", "leaf", "cart", "money", "chart", "up", "down", "car",
         "bus", "train", "plane", "walk", "pin", "globe", "news", "book", "code", "bug", "person",
         "people", "trophy", "ball", "cricket", "parcel", "gift", "coffee", "dnd", "feed", "link",
+        "quote",
     )
 
     /** [NAMES] in groups, as the script editor's reference and the scripting guide show them. Every name is in one group. */
@@ -23,7 +24,7 @@ object WidgetIcons {
         "Weather" to listOf("sun", "moon", "cloud", "rain", "snow", "storm", "wind", "fog", "temp", "drop"),
         "Time" to listOf("alarm", "timer", "clock", "calendar", "bell"),
         "Home and device" to listOf("home", "work", "lock", "unlock", "wifi", "battery", "bolt", "torch", "phone", "dnd"),
-        "People and talk" to listOf("person", "people", "mail", "chat"),
+        "People and talk" to listOf("person", "people", "mail", "chat", "quote"),
         "Media" to listOf("music", "play", "pause", "news", "book", "feed"),
         "Signs" to listOf("heart", "star", "check", "flag", "fire", "leaf", "trophy", "ball", "cricket"),
         "Money and charts" to listOf("money", "cart", "chart", "up", "down", "parcel", "gift"),

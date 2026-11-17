@@ -45,6 +45,7 @@ internal fun widgetIconDrawable(name: String): Int? = when (name) {
     "phone" -> R.drawable.wi_phone
     "mail" -> R.drawable.wi_mail
     "chat" -> R.drawable.wi_chat
+    "quote" -> R.drawable.wi_quote
     "music" -> R.drawable.wi_music
     "play" -> R.drawable.wi_play
     "pause" -> R.drawable.wi_pause

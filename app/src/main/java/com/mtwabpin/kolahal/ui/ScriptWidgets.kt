@@ -102,6 +102,12 @@ internal val LocalCardLongPress = compositionLocalOf<(() -> Unit)?> { null }
 internal val LocalMoreNote = compositionLocalOf<((String?) -> Unit)?> { null }
 
 /**
+ * The card's title, given to the content of a wide card that has no title line, so it can show the
+ * title where it fits (a ring card writes it beside the ring). Null when the title line shows it.
+ */
+internal val LocalUntitled = compositionLocalOf<String?> { null }
+
+/**
  * Hands [text] ("+3 more", or null for nothing left out) to the title line ([LocalMoreNote]). It is
  * written after the content is drawn, and taken back when the content leaves the card.
  */
@@ -276,7 +282,9 @@ private fun CardLayout(
                 if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                CompositionLocalProvider(LocalMoreNote provides setMore.takeIf { titled }) { CardBody(spec, note, failure, box, onTap, stamp) }
+                CompositionLocalProvider(LocalMoreNote provides setMore.takeIf { titled }, LocalUntitled provides title.takeIf { !titled }) {
+                    CardBody(spec, note, failure, box, onTap, stamp)
+                }
             }
         }
         // No room for a title or a footer: the content alone. A screen reader still hears both.
@@ -326,7 +334,7 @@ private fun TitleLine(title: String, spec: WidgetSpec?, badge: Int?, size: Dp, s
     val letter = if (badge == null && icon == null) WidgetWords.badgeLetter(title) else null
     Row(Modifier.height(size), verticalAlignment = Alignment.CenterVertically) {
         if (badge != null || icon != null || letter != null) {
-            Badge(icon ?: letter, badge, roleColour(spec?.base), badgeShape(spec), size, quiet = icon == null)
+            Badge(icon ?: letter, badge, roleColour(spec?.base), badgeShape(spec), size, quiet = icon == null, wide = spec is WidgetSpec.Rows && spec.lead == null)
             Spacer(Modifier.width(if (size >= 24.dp) 8.dp else 6.dp))
         }
         Text(title, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -376,9 +384,9 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
  * tinted with that colour. A [quiet] badge is no part of what a screen reader hears.
  */
 @Composable
-private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, size: Dp, quiet: Boolean = false) {
+private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, size: Dp, quiet: Boolean = false, wide: Boolean = false) {
     val said = if (quiet) Modifier.clearAndSetSemantics {} else Modifier
-    Box(Modifier.size(size).clip(shape).background(colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(width = if (wide) size * 1.4f else size, height = size).clip(shape).background(colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
         when {
             drawable != null -> Icon(painterResource(drawable), contentDescription = null, tint = colour, modifier = Modifier.size(size * 2 / 3))
             text != null -> WidgetIconText(
@@ -395,24 +403,28 @@ private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, si
     }
 }
 
-/** One shape for each kind: a cookie for a number, a round pill for a list, and so on. */
+/**
+ * The badge's shape, as the mockup draws it: a cookie for a card about a number (stat, chart,
+ * progress, countdown), a wide round pill for a list, and a rounded square for the others.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
-    // Material's own pill is slanted. A list's badge is a plain round one.
-    is WidgetSpec.Rows -> RoundedCornerShape(50)
+    // Material's own pill is slanted. A list's badge is a plain round pill, 1.4 times as wide as tall (Badge). A list
+    // that starts with a big line (Reminders) gets the cookie of a number, as a stat does.
+    is WidgetSpec.Rows -> if (spec.lead != null) MaterialShapes.Cookie9Sided.toShape() else RoundedCornerShape(50)
     else -> when (spec) {
         is WidgetSpec.Stat -> MaterialShapes.Cookie9Sided
         is WidgetSpec.Text -> MaterialShapes.Square
-        is WidgetSpec.Progress -> MaterialShapes.Circle
-        is WidgetSpec.Chart -> MaterialShapes.Gem
-        is WidgetSpec.Countdown -> MaterialShapes.Sunny
+        is WidgetSpec.Progress -> MaterialShapes.Cookie9Sided
+        is WidgetSpec.Chart -> MaterialShapes.Cookie9Sided
+        is WidgetSpec.Countdown -> MaterialShapes.Cookie9Sided
         is WidgetSpec.Buttons -> MaterialShapes.Clover4Leaf
         is WidgetSpec.Toggles -> MaterialShapes.Slanted
-        is WidgetSpec.Clock -> MaterialShapes.Cookie12Sided
-        is WidgetSpec.Agenda -> MaterialShapes.Arch
-        is WidgetSpec.Image -> MaterialShapes.Cookie4Sided
-        is WidgetSpec.Media -> MaterialShapes.Flower
+        is WidgetSpec.Clock -> MaterialShapes.Square
+        is WidgetSpec.Agenda -> MaterialShapes.Square
+        is WidgetSpec.Image -> MaterialShapes.Square
+        is WidgetSpec.Media -> MaterialShapes.Square
         is WidgetSpec.Rows, null -> MaterialShapes.Circle
     }.toShape()
 }

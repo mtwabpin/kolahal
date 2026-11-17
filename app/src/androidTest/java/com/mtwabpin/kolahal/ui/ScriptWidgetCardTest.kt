@@ -162,7 +162,8 @@ class ScriptWidgetCardTest {
             ),
         )
         show(name)
-        draws(name, "Weather", "☀", "24", "°C", "↑ 2", "Sunny", "68%", "humidity", "12", "km/h")
+        // The arrow before the change is drawn, not written: the description says "up 2".
+        draws(name, "Weather", "☀", "24", "°C", "2", "Sunny", "68%", "humidity", "12", "km/h")
         says(name, "Weather: 24°C, Sunny, up 2, 68% humidity, 12 km/h, 40%")
         // Current content has no footer.
         assertTrue(texts(name).toString(), texts(name).none { it.endsWith("ago") || it.startsWith("Failed") })

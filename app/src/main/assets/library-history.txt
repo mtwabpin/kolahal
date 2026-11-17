@@ -84,6 +84,7 @@ forecast.js e3628f4961e6fceb
 forecast.js e8c59a32d5867cd9
 forecast.js f3abc8b522ad3687
 habit.lua 68c427244de980fe
+habit.lua 7bb2637fed5fc9a3
 habit.lua a8724f60ab4b78ae
 headlines.js 289c4d79253585b4
 headlines.js a632e4f4ab80e6c6
@@ -121,6 +122,7 @@ quick-toggles.lua f0a6c365ed8f7840
 quote.js 00781894f6456c1d
 quote.js 269efab3b7c0a8ca
 quote.js 4c6e605da198e0ee
+quote.js 5ac67592cea22ee3
 quote.js 83d956fbad8e453b
 quote.js 91190c744033953b
 quote.js db29b79188693299

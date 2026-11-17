@@ -343,7 +343,7 @@ class WidgetGalleryTest {
             Shot("feed", WidgetSize.S2X2, "My feed", WidgetSpec.Rows(base("My feed", "feed", Colour.LINK), feed.mapIndexed { i, title -> WidgetSpec.Row(title, tap = link(i)) })),
             Shot(
                 "quote", WidgetSize.S2X2, "Quote of the day",
-                WidgetSpec.Text(base("Quote of the day", "chat"), "“Simplicity is prerequisite for reliability.”", "Edsger W. Dijkstra"),
+                WidgetSpec.Text(base("Quote of the day", "quote"), "“Simplicity is prerequisite for reliability.”", "Edsger W. Dijkstra"),
             ),
             Shot("battery", WidgetSize.S2X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
             Shot("battery", WidgetSize.S1X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
@@ -382,7 +382,7 @@ class WidgetGalleryTest {
             ),
             Shot(
                 "habit", WidgetSize.S2X2, "Exercise",
-                WidgetSpec.Chart(base("Exercise", "fire", Colour.GOOD), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
+                WidgetSpec.Chart(base("Exercise", "check", Colour.GOOD), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
             ),
             Shot(
                 "quicktoggles", WidgetSize.S4X1, "Quick toggles",
