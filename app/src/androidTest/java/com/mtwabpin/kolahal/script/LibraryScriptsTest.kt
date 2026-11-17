@@ -67,6 +67,18 @@ class LibraryScriptsTest {
         status.set(name, null)
     }
 
+    /** The widget counts to the nearest date: its label is "to 20 December", and its bar starts on the day it was saved. */
+    @Test fun countdownsWidgetSaysToTheDay() {
+        val today = LocalDate.now()
+        val trip = today.plusDays(30)
+        run("countdown.lua", "add $trip Trip", before = luaKeepsShown)
+        val shown = shown() as Map<*, *>
+        val day = trip.format(java.time.format.DateTimeFormatter.ofPattern(if (trip.year == today.year) "d MMMM" else "d MMMM yyyy", java.util.Locale.ENGLISH))
+        assertEquals("to $day", shown["label"])
+        assertEquals("Trip", shown["title"])
+        assertEquals(today.atStartOfDay(java.time.ZoneId.systemDefault()).toEpochSecond().toDouble(), shown["from"])
+    }
+
     @Test fun countdownSavesListsAndRemoves() {
         val today = LocalDate.now()
         run("countdown.lua")
