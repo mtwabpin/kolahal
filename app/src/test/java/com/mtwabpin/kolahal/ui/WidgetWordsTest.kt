@@ -435,6 +435,11 @@ class WidgetWordsTest {
         assertEquals(4, WidgetWords.agendaShown(listOf(2, 1, 1), 400, 20, 32, 20))
         assertEquals("one event, however low the box", 1, WidgetWords.agendaShown(listOf(3), 40, 20, 32, 20))
         assertEquals(0, WidgetWords.agendaShown(emptyList(), 124, 20, 32, 20))
+        // A 4x2 card's 138 dp, with each heading inside its day's first 44 dp tap row (no height of
+        // its own): two events of today and one of tomorrow, as in the mockup. A heading of 16 dp
+        // of its own would leave room for two.
+        assertEquals(3, WidgetWords.agendaShown(listOf(2, 1), 138, 0, 44, 0))
+        assertEquals(2, WidgetWords.agendaShown(listOf(2, 1), 138, 16, 44, 0))
     }
 
     @Test fun anAgendaIsSaidByDay() {

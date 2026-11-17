@@ -80,6 +80,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
@@ -581,6 +582,10 @@ internal fun rememberClock24(): Boolean {
 private const val AGENDA_HEAD_DP = 16
 private const val AGENDA_MORE_DP = 20
 
+/** The least height of an event's own line under a heading, in dp: one line of text, or two in a narrow box. */
+private const val AGENDA_LINE_DP = 28
+private const val AGENDA_NARROW_LINE_DP = 32
+
 /** Under this width an event has its time under its title, not beside it. */
 private val AGENDA_NARROW = 120.dp
 
@@ -594,8 +599,13 @@ private val AGENDA_PLACES = 200.dp
  *   its own.
  * - An event is one line: its time, a dot in its colour if it has one, its title, and its place at its end in a
  *   box that has room. An event that can be tapped is 44 dp tall ([TAP_ROW_DP]), others 32 dp.
- * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
- *   line under the events.
+ * - A day's heading ("TODAY") is at the top of its first event's row, in the card's colour. That
+ *   row is as tall as a tap row needs, or as the heading and the event's line need, whichever is
+ *   more: 44 dp. So a 4x2 card has two events of today and one of tomorrow, as the mockup has
+ *   them, and every event keeps a 44 dp tap. A tap on the heading is a tap on that event.
+ * - "+3 more" is at the end of the card's title line ([ReportMore]). When nothing is left out,
+ *   today's date is there ("Sat 14 Nov"). A card without a title line has "+3 more" under the
+ *   events.
  * - With nothing to show it says the description's `empty` text.
  */
 @Composable
@@ -608,18 +618,21 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
         QuietLine(spec.empty ?: WidgetWords.NO_EVENTS)
         return
     }
-    val today = roleColour(spec.base)
+    val colour = roleColour(spec.base)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val inTitle = LocalMoreNote.current != null
+    val date = remember(minute, zone) { java.time.Instant.ofEpochMilli(minute.time).atZone(zone).format(TimeFormats.dayFormat()) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val narrow = maxWidth < AGENDA_NARROW
         val places = maxWidth >= AGENDA_PLACES
         val rowDp = if (days.any { day -> day.lines.any { it.event.tap != null } }) TAP_ROW_DP else 32
+        // A day's first row has its heading at its top.
+        val headedDp = maxOf(rowDp, AGENDA_HEAD_DP + if (narrow) AGENDA_NARROW_LINE_DP else AGENDA_LINE_DP)
         val heightDp = maxHeight.value.toInt()
         val total = days.sumOf { it.lines.size }
         val moreDp = if (inTitle) 0 else AGENDA_MORE_DP
-        val shown = WidgetWords.agendaShown(days.map { it.lines.size }, heightDp, AGENDA_HEAD_DP, rowDp, moreDp)
-        ReportMore(if (shown < total) "+${total - shown} more" else null)
+        val shown = WidgetWords.agendaShown(days.map { it.lines.size }, heightDp, headedDp - rowDp, rowDp, moreDp)
+        ReportMore(if (shown < total) "+${total - shown} more" else date)
         // The time column is as wide as the longest time in this form, so the titles line up.
         val timeWidth = if (clock24) 48.dp else 68.dp
         Column(Modifier.fillMaxSize()) {
@@ -629,16 +642,14 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
                 if (left <= 0) break
                 val lines = day.lines.take(left)
                 left -= lines.size
-                usedDp += AGENDA_HEAD_DP + lines.size * rowDp
+                usedDp += headedDp + (lines.size - 1) * rowDp
                 key(d) {
-                    Text(
-                        day.label.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.08.em),
-                        color = if (day.label == WidgetWords.TODAY) today else muted,
-                        maxLines = 1,
-                        modifier = Modifier.height(AGENDA_HEAD_DP.dp).wrapContentHeight(),
-                    )
-                    lines.forEachIndexed { i, line -> key(i) { AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap) } }
+                    lines.forEachIndexed { i, line ->
+                        key(i) {
+                            if (i == 0) AgendaRow(line, headedDp.dp, places, narrow, timeWidth, onTap) { DayHeading(day.label, colour) }
+                            else AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap)
+                        }
+                    }
                 }
             }
             if (!inTitle && shown < total && usedDp + AGENDA_MORE_DP <= heightDp) {
@@ -648,14 +659,34 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     }
 }
 
+/** A day's heading in an agenda: "TODAY", "TOMORROW", "TUE 20 OCT", in bold capitals in the card's [colour]. */
+@Composable
+private fun DayHeading(label: String, colour: Color) {
+    Text(
+        label.uppercase(),
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.08.em),
+        color = colour,
+        maxLines = 1,
+        modifier = Modifier.height(AGENDA_HEAD_DP.dp).wrapContentHeight(),
+    )
+}
+
 /**
  * One event: its time, a dot in its colour (none without one), its title, and its place at its end
- * when [places].
+ * when [places]. A day's first event has the day's [heading] at its top, inside its row.
  * A [narrow] row has the time under the title and no dot. An event with a tap takes the press
  * before the card does, so it hands a long-press on to the card, as a list's row does.
  */
 @Composable
-private fun AgendaRow(line: WidgetWords.AgendaLine, height: Dp, places: Boolean, narrow: Boolean, timeWidth: Dp, onTap: ((WidgetTap) -> Unit)?) {
+private fun AgendaRow(
+    line: WidgetWords.AgendaLine,
+    height: Dp,
+    places: Boolean,
+    narrow: Boolean,
+    timeWidth: Dp,
+    onTap: ((WidgetTap) -> Unit)?,
+    heading: (@Composable () -> Unit)? = null,
+) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val event = line.event
@@ -673,18 +704,22 @@ private fun AgendaRow(line: WidgetWords.AgendaLine, height: Dp, places: Boolean,
     } else {
         Modifier
     }
-    Row(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(12.dp)).then(press), verticalAlignment = Alignment.CenterVertically) {
-        if (narrow) {
-            Column(Modifier.weight(1f)) {
-                Text(event.title, style = type.bodySmall, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(line.time, style = type.labelSmall, color = colour ?: scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
-            }
-        } else {
-            Text(line.time, style = type.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = timeWidth).padding(end = 8.dp))
-            if (colour != null) Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(colour))
-            Text(event.title, style = type.bodyMedium.copy(fontWeight = FontWeight.Medium), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            if (places) event.where?.let {
-                Text(it, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp).widthIn(max = 120.dp))
+    // Small corners: a larger one would cut the first letter of a heading at the row's top.
+    Column(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(6.dp)).then(press)) {
+        heading?.invoke()
+        Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            if (narrow) {
+                Column(Modifier.weight(1f)) {
+                    Text(event.title, style = type.bodySmall, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(line.time, style = type.labelSmall, color = colour ?: scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                }
+            } else {
+                Text(line.time, style = type.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = timeWidth).padding(end = 8.dp))
+                if (colour != null) Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(colour))
+                Text(event.title, style = type.bodyMedium.copy(fontWeight = FontWeight.Medium), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (places) event.where?.let {
+                    Text(it, style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp).widthIn(max = 120.dp))
+                }
             }
         }
     }

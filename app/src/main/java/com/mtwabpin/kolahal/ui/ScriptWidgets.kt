@@ -97,7 +97,7 @@ internal val LocalCardLongPress = compositionLocalOf<(() -> Unit)?> { null }
  * Where a kind's content says "+3 more" when the card has a title line: the line shows it at its
  * end ([TitleLine]), and the content keeps no room for a line of its own. Null where the card has
  * no title line (a small card, a wide card that gave its line away): there the content draws the
- * line itself. Use it with [ReportMore].
+ * line itself. Use it with [ReportMore]. An agenda with nothing left out puts today's date there.
  */
 internal val LocalMoreNote = compositionLocalOf<((String?) -> Unit)?> { null }
 

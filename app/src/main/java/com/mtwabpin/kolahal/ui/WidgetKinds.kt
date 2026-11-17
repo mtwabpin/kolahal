@@ -540,7 +540,8 @@ internal object WidgetWords {
 
     /**
      * How many of an agenda's events to draw in [heightDp]. [perDay] is the number of events of each
-     * day. A day's heading is [headDp] tall and an event [rowDp].
+     * day. An event is [rowDp] tall, and a day's first event takes [headDp] more for the day's
+     * heading (0 when the heading fits inside that row).
      * - A heading is never drawn without an event under it.
      * - When events are left out, [moreDp] is kept free for the "+3 more" line.
      * - With any event at all, the first one is drawn, however low the box.
