@@ -190,7 +190,7 @@ Script names can use lowercase letters, digits, `-` and `_` (up to 40 characters
 | `alias [name = command]` | | list or define aliases |
 | `unalias <name>` | | remove an alias |
 | `config [ls\|set\|get\|reset] <key> <v>` | `set` | settings (with no arguments, opens the settings screen) |
-| `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark) |
+| `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `material-you`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colours from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
 | `font [<name>\|import\|sans [off\|prompt\|all]]` | | terminal font: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `custom`. With no arguments, lists them (tap one to use it). `import` picks a .ttf/.otf file. `sans prompt` uses the system font for the prompt, and `sans all` for everything (`font.sans`) |
 | `echo <text>` | | print text |
 | `date [<place>...]` | `time` | current date and time. With places, shows the time in each place and how far ahead or behind it is. A place can be a city (`tokyo`, `new york`), a zone (`Asia/Tokyo`), `utc`, or an offset like `+5:30` |
@@ -214,7 +214,7 @@ See [Widgets](/guides/widgets/).
 | `setup [text]` | | setup checklist page (`text`: print it in the log) |
 | `tour` | | a page-by-page tour of how Kolahal works, with a few first settings |
 | `source` | | Kolahal's source code on GitHub |
-| `wallpaper [match]` | | shows whether the home screen wallpaper is Kolahal's or yours. `match` sets it to this theme's colour, so the screen doesn't flash when you swipe home. The wallpaper then follows the theme until you set another one. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change |
+| `wallpaper [match]` | | shows whether the home screen wallpaper is Kolahal's or yours. `match` sets it to this theme's colour, so the screen doesn't flash when you swipe home. The wallpaper then follows the theme until you set another one. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. It doesn't work with the `material-you` theme on Android 12 and newer, which takes its colours from the wallpaper |
 | `unlocks [<days>]` | | unlock counts (1–30 days) |
 | `fetch` | `neofetch`, `fastfetch` | a summary of this phone and Kolahal, in fastfetch style, under `name@device` (`user.name`). It shows Kolahal's icon next to the Android version, device, kernel, uptime, Kolahal's version, apps, scripts, feeds, theme, font, display, CPU, memory, storage, battery, network and today's unlocks, then the theme's colours |
 | `notifications [settings]` | | allow script notifications |

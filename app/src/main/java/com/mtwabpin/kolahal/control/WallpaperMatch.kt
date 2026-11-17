@@ -13,6 +13,9 @@ import androidx.core.graphics.createBitmap
  *   seeing the picture. So if another wallpaper was set since, Kolahal leaves it alone and forgets.
  * - An id is valid only on this phone. The file that holds it is kept out of backups and transfers,
  *   because the same number on another phone may be that person's own wallpaper.
+ * - The `material-you` theme takes its colours from the wallpaper. The wallpaper doesn't follow
+ *   that theme, because each would keep changing the other ([themeFromWallpaper]). It follows
+ *   again when a theme with colours of its own is picked.
  */
 object WallpaperMatch {
     private const val KEY_ID = "id"
@@ -30,6 +33,13 @@ object WallpaperMatch {
      */
     @Volatile var themeColour: Int? = null
         @androidx.annotation.VisibleForTesting internal set
+
+    /**
+     * True when the theme on screen takes its colours from the wallpaper, as the screen last
+     * reported it ([follow]). Then `wallpaper match` refuses, and the wallpaper stays as it is.
+     */
+    @Volatile var themeFromWallpaper = false
+        private set
 
     /** True while the home screen's wallpaper is still the one [set] put there. */
     fun isMatched(context: Context): Boolean {
@@ -51,12 +61,16 @@ object WallpaperMatch {
 
     /**
      * The theme is now [colour]. The wallpaper follows if it is still Kolahal's.
-     * This is called each time a theme applies, so the "nothing to do" case returns quickly.
-     * The real work runs off the main thread.
+     * - With [fromWallpaper], the theme took this colour from the wallpaper. The wallpaper then
+     *   stays as it is.
+     * - This is called each time a theme applies, so the "nothing to do" case returns quickly.
+     *   The real work runs off the main thread.
      */
-    fun follow(context: Context, colour: Int) {
+    fun follow(context: Context, colour: Int, fromWallpaper: Boolean = false) {
         // Kept first: the usual case below returns at once, as the wallpaper isn't Kolahal's.
         themeColour = colour
+        themeFromWallpaper = fromWallpaper
+        if (fromWallpaper) return
         val prefs = prefs(context)
         if (!prefs.contains(KEY_ID) || prefs.getInt(KEY_COLOUR, colour) == colour) return
         wanted = colour

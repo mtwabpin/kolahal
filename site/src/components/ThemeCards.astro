@@ -2,18 +2,23 @@
 /**
  * The built-in themes, each in its dark and light version, with the colours from the app
  * (ui/Theme.kt, Palettes). Each half draws a few log lines in that palette.
+ * - `note` is a word or two after the theme's command.
+ * - material-you takes its colours from the phone's wallpaper. It is drawn here in Material's
+ *   standard colours, which Android 9 to 11 show (ui/MaterialYouPalettes.kt).
  */
 type P = { bg: string; fg: string; dim: string; prompt: string; info: string; link: string };
 const p = (bg: string, fg: string, dim: string, prompt: string, info: string, link: string): P => ({ bg, fg, dim, prompt, info, link });
 
-const THEMES: { name: string; dark: P; light: P }[] = [
-	{ name: 'green', dark: p('#0B0D0B', '#D7DED3', '#7F8A7B', '#8FD18A', '#9DB8A0', '#7FB8F0'), light: p('#F3F7F1', '#1E2A1D', '#5B6957', '#2F7D32', '#4B6B4E', '#1D63A8') },
+const THEMES: { name: string; dark: P; light: P; note?: string }[] = [
+	{ name: 'green', note: 'default', dark: p('#0B0D0B', '#D7DED3', '#7F8A7B', '#8FD18A', '#9DB8A0', '#7FB8F0'), light: p('#F3F7F1', '#1E2A1D', '#5B6957', '#2F7D32', '#4B6B4E', '#1D63A8') },
 	{ name: 'amber', dark: p('#0E0A05', '#FFCC80', '#A08256', '#FFB000', '#D9A25F', '#FFE0A3'), light: p('#FFF7E8', '#3D2A0C', '#7E6136', '#A05F00', '#8A5E22', '#7A4B00') },
 	{ name: 'mono', dark: p('#000000', '#E6E6E6', '#8C8C8C', '#FFFFFF', '#B0B0B0', '#CCCCCC'), light: p('#FFFFFF', '#141414', '#5E5E5E', '#000000', '#4A4A4A', '#2B2B2B') },
 	{ name: 'dracula', dark: p('#282A36', '#F8F8F2', '#8A93C2', '#50FA7B', '#8BE9FD', '#8BE9FD'), light: p('#FFFBEB', '#1F1F1F', '#635D97', '#14710A', '#036A96', '#036A96') },
 	{ name: 'solarized', dark: p('#002B36', '#93A1A1', '#7A9097', '#859900', '#2AA198', '#268BD2'), light: p('#FDF6E3', '#3D525A', '#657B83', '#6F8000', '#1A847C', '#1F76B5') },
 	{ name: 'gruvbox', dark: p('#282828', '#EBDBB2', '#A89984', '#B8BB26', '#8EC07C', '#83A598'), light: p('#FBF1C7', '#3C3836', '#7C6F64', '#79740E', '#427B58', '#076678') },
 	{ name: 'gruvbox-material', dark: p('#292828', '#D4BE98', '#A89984', '#A9B665', '#89B482', '#7DAEA3'), light: p('#FBF1C7', '#654735', '#7C6F64', '#6C782E', '#4C7A5D', '#45707A') },
+	{ name: 'nord', dark: p('#2E3440', '#D8DEE9', '#929AAA', '#88C0D0', '#8FBCBB', '#81A1C1'), light: p('#ECEFF4', '#2E3440', '#616E88', '#357587', '#467473', '#4A7095') },
+	{ name: 'material-you', note: 'your wallpaper\'s colours', dark: p('#141218', '#E6E0E9', '#938F99', '#D0BCFF', '#CCC2DC', '#EFB8C8'), light: p('#FEF7FF', '#1D1B20', '#79747E', '#6750A4', '#625B71', '#7D5260') },
 ];
 const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-prompt:${c.prompt};--t-info:${c.info};--t-link:${c.link}`;
 ---
@@ -30,7 +35,7 @@ const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-promp
 					</div>
 				))}
 			</div>
-			<code>theme {t.name}</code>{t.name === 'green' && <span class="default"> default</span>}
+			<code>theme {t.name}</code>{t.note && <span class="default"> {t.note}</span>}
 		</li>
 	))}
 </ul>

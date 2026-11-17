@@ -508,17 +508,24 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
      *   the theme's colour as home last showed it.
      *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
      *   old one can't be restored.
+     * - The material-you theme takes its colours from the wallpaper. So the wallpaper can't follow
+     *   that theme, and both forms say so.
      */
     private fun wallpaper(args: List<String>) {
         val match = com.mtwabpin.kolahal.control.WallpaperMatch
+        val theme = com.mtwabpin.kolahal.data.MaterialYou.NAME
         when (args.firstOrNull()?.lowercase()) {
             null -> info(
-                if (match.isMatched(context)) "Your home screen wallpaper is in the theme's colour, and follows the theme"
-                else "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's colour)",
+                when {
+                    !match.isMatched(context) -> "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's colour)"
+                    match.themeFromWallpaper -> "Your home screen wallpaper is Kolahal's, but it doesn't follow the $theme theme, which takes its colours from the wallpaper. It follows again when you pick another theme"
+                    else -> "Your home screen wallpaper is in the theme's colour, and follows the theme"
+                },
             )
             "match" -> {
                 val colour = match.themeColour
                 when {
+                    match.themeFromWallpaper -> error("The $theme theme takes its colours from the wallpaper, so the wallpaper can't follow it: pick another theme, then try again")
                     match.isMatched(context) -> info("Your home screen wallpaper already follows the theme")
                     args.getOrNull(1) != "--yes" -> {
                         info("This replaces your home screen wallpaper with this theme's colour, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this colour.")

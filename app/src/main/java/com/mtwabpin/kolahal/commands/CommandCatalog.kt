@@ -232,7 +232,7 @@ object CommandCatalog {
             ),
             aka = listOf("set"), sensitive = true,
         ),
-        CommandSpec("theme", "theme <name>", "Themes: green amber mono dracula solarized gruvbox gruvbox-material", short = "Colours", args = "<name>", sensitive = true),
+        CommandSpec("theme", "theme <name>", "Themes: ${com.mtwabpin.kolahal.data.Keys.BUILT_IN_THEMES.joinToString(" ")}", short = "Colours", args = "<name>", sensitive = true),
         CommandSpec(
             "font", "font [<name>|import|sans [off|prompt|all]]", "Terminal font: system jetbrains-mono fira-code ibm-plex-mono source-code-pro custom (no args: list); sans: the system font for the prompt or everything",
             short = "Terminal font", args = "<name> · import · sans [off|prompt|all]",

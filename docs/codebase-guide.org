@@ -485,6 +485,16 @@ Things specific to this screen:
 font size, line height. =MainActivity.applyTheme()= copies the settings into it, and everything
 that reads =Term.x= recomposes. This is a pragmatic shortcut (see Part 6).
 
+A theme is a pair of palettes, dark and light, and =Palettes.named= returns the one for the phone's
+mode. Most pairs are fixed values. The =material-you= theme is different: =MaterialYouPalettes=
+(=ui/MaterialYouPalettes.kt=) makes its pair from the colours Android takes from the wallpaper.
+
+- =paletteFrom= maps a Material colour scheme to a palette. It is a pure function, so a unit test
+  covers it without a phone.
+- Android reports new wallpaper colours as a configuration change. =MainActivity= then reads the
+  colours again and applies the theme.
+- Android 9 to 11 have no wallpaper colours. There the theme shows Material's standard colours.
+
 *** Performance idioms you'll see
 
 - =remember(configVersion) { config[Keys.X] }=: read a setting once per settings change, not

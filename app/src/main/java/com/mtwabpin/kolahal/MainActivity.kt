@@ -26,11 +26,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.mtwabpin.kolahal.data.Backup
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.MaterialYou
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.ui.FeedsScreen
 import com.mtwabpin.kolahal.ui.KolahalTheme
+import com.mtwabpin.kolahal.ui.MaterialYouPalettes
 import com.mtwabpin.kolahal.ui.Palettes
 import com.mtwabpin.kolahal.ui.ScriptEditor
 import com.mtwabpin.kolahal.ui.ScriptsScreen
@@ -145,7 +147,7 @@ class MainActivity : ComponentActivity() {
         // we tried, the window kept an opaque surface, and the pages' faint colour piled up over old
         // frames.) When no wallpaper shows, the page colour behind everything keeps home looking solid.
         window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
-        applyTheme()
+        applyPhoneColours()
         // The theme follows settings without reading config state in composition. Reading it there
         // would recompose the whole tree on every settings change.
         lifecycleScope.launch { vm.config.version.collect { applyTheme() } }
@@ -296,18 +298,33 @@ class MainActivity : ComponentActivity() {
     private fun darkTheme(): Boolean = vm.config[Keys.THEME_ALWAYS_DARK] ||
         (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
 
-    // uiMode is in configChanges, so a dark mode change calls this instead of restarting the activity.
+    // uiMode and assetsPaths are in configChanges. So a dark mode change, or a new wallpaper's
+    // colours, calls this instead of restarting the activity.
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        applyPhoneColours()
+    }
+
+    /**
+     * Applies the theme when the phone's own colours may have changed: at start and on a
+     * configuration change. The material-you theme takes its colours from the wallpaper, and
+     * Android reports new wallpaper colours as a configuration change.
+     */
+    private fun applyPhoneColours() {
+        MaterialYouPalettes.refresh(this)
         applyTheme()
     }
 
     private fun applyTheme() {
         val live = vm.previewed
-        Term.palette = Palettes.named(live?.theme ?: vm.config[Keys.THEME], darkTheme())
+        val theme = live?.theme ?: vm.config[Keys.THEME]
+        Term.palette = Palettes.named(theme, darkTheme())
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
-        // The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
-        if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(this, Term.bg.copy(alpha = 1f).toArgb())
+        // - The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
+        // - material-you took its colours from the wallpaper, so the wallpaper doesn't follow that theme.
+        if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(
+            this, Term.bg.copy(alpha = 1f).toArgb(), fromWallpaper = theme == MaterialYou.NAME && MaterialYou.supported,
+        )
         Term.fontSize = live?.fontSize ?: vm.config[Keys.FONT_SIZE]
         val font = live?.font ?: vm.config[Keys.FONT]
         val family = TermFonts.family(this, font)

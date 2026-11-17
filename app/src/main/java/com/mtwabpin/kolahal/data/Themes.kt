@@ -1,10 +1,31 @@
 package com.mtwabpin.kolahal.data
 
 import android.content.Context
+import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+
+/**
+ * The built-in theme `material-you`. It takes its colours from the phone's wallpaper.
+ * - Android has wallpaper colours from version 12 ([supported]). There the theme changes when
+ *   the wallpaper does.
+ * - Android 9 to 11 has none. There the theme shows Material's standard colours. The theme's card
+ *   in Settings says so, and so does the `theme` command ([NOTE]).
+ * The screen's code reads the colours ([com.mtwabpin.kolahal.ui.MaterialYouPalettes]).
+ */
+object MaterialYou {
+    const val NAME = "material-you"
+
+    /** True where the phone has wallpaper colours: Android 12 and newer. */
+    @get:ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
+    val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    /** What the `theme` command says after it sets this theme on a phone that isn't [supported]. */
+    const val NOTE = "$NAME takes its colours from the wallpaper on Android 12 and newer. This phone has an older Android, so it shows Material's standard colours"
+}
 
 /**
  * Themes people make in Settings (Look & feel → Your themes).
@@ -63,13 +84,41 @@ object CustomThemes {
 
     private fun dir(context: Context) = File(context.filesDir, DIR)
 
-    /** Reads the saved themes. Called at start, before the theme is applied. */
+    /**
+     * Reads the saved themes. Called at start, before the theme is applied.
+     * - A saved theme may have the name of a built-in theme that came in a later version (`nord`,
+     *   in 0.5.9). The saved theme moves to a free name (`nord-2`, [movedNames]), so both can be picked.
+     * - If `theme.name` named the saved theme, it follows the theme to its new name.
+     */
     fun load(context: Context) {
-        _themes.value = dir(context).listFiles { f -> f.name.endsWith(".json") }.orEmpty().mapNotNull { f ->
-            val name = f.name.removeSuffix(".json")
-            val colors = runCatching { f.readText() }.getOrNull()?.let(::decode)
+        val moved = read(dir(context))
+        if (moved.isEmpty()) return
+        val config = Config.get(context)
+        moved[config[Keys.THEME]]?.let { config.set(Keys.THEME, it) }
+    }
+
+    /**
+     * Reads the theme files in [dir]. Before that, each file with a built-in theme's name moves to
+     * its new name ([movedNames]). Returns the names that moved, old to new.
+     */
+    internal fun read(dir: File): Map<String, String> {
+        val saved = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().map { it.name.removeSuffix(".json") }
+        // A file that can't be moved keeps its name. The built-in theme then hides it, until the builder renames it.
+        val moved = movedNames(saved.toSet()).filter { (from, to) -> File(dir, "$from.json").renameTo(File(dir, "$to.json")) }
+        _themes.value = saved.map { moved[it] ?: it }.mapNotNull { name ->
+            val colors = runCatching { File(dir, "$name.json").readText() }.getOrNull()?.let(::decode)
             if (NAME.matches(name) && colors != null) name to colors else null
         }.toMap()
+        return moved
+    }
+
+    /**
+     * New names for the saved themes in [saved] that have a built-in theme's name, old to new.
+     * Each new name is free ([freeName]): no built-in theme, saved theme or other new name has it.
+     */
+    internal fun movedNames(saved: Set<String>): Map<String, String> {
+        val taken = (Keys.BUILT_IN_THEMES + saved).toMutableSet()
+        return saved.filter { it in Keys.BUILT_IN_THEMES }.sorted().associateWith { name -> freeName(name, taken).also { taken += it } }
     }
 
     fun save(context: Context, name: String, colors: Map<String, Int>) {

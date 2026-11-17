@@ -29,5 +29,7 @@ It sets your home screen's wallpaper to the theme's colour. Then no wallpaper sh
 - **You can still set your own wallpaper.** If you do, Kolahal doesn't change it, and the flash comes back. Run `wallpaper match` again to go back to the plain colour.
 - **The lock screen keeps its own wallpaper.**
 - **The wallpaper behind Kolahal also becomes that colour.** `log.wallpaper` and `widgets.wallpaper` show only the plain colour.
+- **It doesn't work with the `material-you` theme** on Android 12 and newer. That theme takes its colours from the wallpaper, so the wallpaper can't follow it:
+  each would keep changing the other. `wallpaper match` refuses while that theme is on. If the wallpaper was already Kolahal's, it stays as it is, and follows again when you pick another theme.
 
 `wallpaper` with no arguments shows whether the wallpaper is Kolahal's or yours.

@@ -7,8 +7,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -249,7 +251,8 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
         val at = (Keys.BUILT_IN_THEMES + own).indexOf(selected)
         if (at > 0) scroll.scrollTo(at * step - step / 2)
     }
-    Row(Modifier.horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Every card is as tall as the tallest one, because a card can have a note under its name.
+    Row(Modifier.horizontalScroll(scroll).height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         (Keys.BUILT_IN_THEMES + own).forEach { name ->
             val p = Palettes.named(name, dark)
             val on = name == selected
@@ -258,7 +261,7 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = p.bg),
                 border = if (on) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, p.surface),
-                modifier = Modifier.width(112.dp),
+                modifier = Modifier.width(112.dp).fillMaxHeight(),
             ) {
                 Column(Modifier.padding(12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -269,6 +272,9 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
                     Spacer(Modifier.height(10.dp))
                     Text("$ ls", color = p.prompt, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace))
                     Text(ChoiceLabels.theme(name), color = p.fg, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    ChoiceLabels.themeNote(name)?.let {
+                        Text(it, color = p.dim, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }

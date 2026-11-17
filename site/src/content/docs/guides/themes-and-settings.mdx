@@ -17,7 +17,7 @@ When you type a theme's full name, the home screen shows a preview, with a banne
 
 `font <name>` and `config set font.size 18` work the same way.
 
-There are seven themes. Each has a dark and a light version. Each has its own colours for the prompt, links, script output, errors and the
+There are nine themes. Each has a dark and a light version. Eight of them have their own colours for the prompt, links, script output, errors and the
 work and private profile tags:
 
 <div class="palettes">
@@ -28,6 +28,7 @@ work and private profile tags:
 	<div class="pal" style="--bg:#002B36;--fg:#93A1A1;--a:#859900;--b:#268BD2;--c:#CB4B16;--d:#6C71C4;--e:#DC322F"><b>solarized</b></div>
 	<div class="pal" style="--bg:#282828;--fg:#EBDBB2;--a:#B8BB26;--b:#83A598;--c:#FE8019;--d:#D3869B;--e:#FB4934"><b>gruvbox</b></div>
 	<div class="pal" style="--bg:#292828;--fg:#D4BE98;--a:#A9B665;--b:#7DAEA3;--c:#E78A4E;--d:#D3869B;--e:#EA6962"><b>gruvbox-material</b></div>
+	<div class="pal" style="--bg:#2E3440;--fg:#D8DEE9;--a:#88C0D0;--b:#81A1C1;--c:#D08770;--d:#B48EAD;--e:#BF616A"><b>nord</b></div>
 </div>
 
 <div class="palettes">
@@ -38,6 +39,7 @@ work and private profile tags:
 	<div class="pal" style="--bg:#FDF6E3;--fg:#3D525A;--a:#6F8000;--b:#1F76B5;--c:#B54312;--d:#5F64B4;--e:#C42D2A"><b>solarized</b> <span>light</span></div>
 	<div class="pal" style="--bg:#FBF1C7;--fg:#3C3836;--a:#79740E;--b:#076678;--c:#AF3A03;--d:#8F3F71;--e:#9D0006"><b>gruvbox</b> <span>light</span></div>
 	<div class="pal" style="--bg:#FBF1C7;--fg:#654735;--a:#6C782E;--b:#45707A;--c:#AB520A;--d:#945E80;--e:#C14A4A"><b>gruvbox-material</b> <span>light</span></div>
+	<div class="pal" style="--bg:#ECEFF4;--fg:#2E3440;--a:#357587;--b:#4A7095;--c:#AA5338;--d:#8D5D84;--e:#B54954"><b>nord</b> <span>light</span></div>
 </div>
 
 <style>{`
@@ -54,6 +56,10 @@ work and private profile tags:
 The colour strip shows the prompt, link, work, private and error colours. The settings screens also use the
 theme's colours.
 
+The ninth theme, `material-you`, takes its colours from your wallpaper. See [Material You](#material-you) below.
+
+`nord` uses the colours of [Nord](https://www.nordtheme.com/). Its light version has the same hues, but darker, so they are easy to read on a light background.
+
 ### Light and dark
 
 Kolahal follows the phone's dark mode. When dark mode is on, it uses the dark version. When dark mode is off, it uses the light version.
@@ -63,6 +69,30 @@ in **Settings → Look & feel**, or run:
 ```sh
 config set theme.always-dark on
 ```
+
+### Material You
+
+```sh
+theme material-you
+```
+
+This theme has no colours of its own. It uses the colours that Android takes from your wallpaper, the same ones the phone's own screens use.
+
+- **It changes with the wallpaper.** Set another wallpaper, or pick other colours in the phone's wallpaper settings, and Kolahal changes too.
+- **It follows dark mode**, like the other themes.
+- **Three colours do the work.** The wallpaper's main colour is for the prompt and personal apps. The second is for Kolahal's messages and the private space. The third is for links and work apps.
+- **Some colours stay the same.** Errors are red, and the good and warning colours of scripts are green and amber, with every wallpaper. So they keep their meaning.
+- **The theme builder can copy it.** **Start from → Material You** copies the colours as they are now. The copy is a theme of your own, so it doesn't change with the wallpaper.
+- **[`wallpaper match`](/reference/faq/#what-wallpaper-match-does) doesn't work with it.** The theme follows the wallpaper, so the wallpaper can't follow the theme.
+
+**Android 9, 10 and 11** have no wallpaper colours. There the theme shows Material's standard colours, and they don't change:
+
+<div class="palettes">
+	<div class="pal" style="--bg:#141218;--fg:#E6E0E9;--a:#D0BCFF;--b:#EFB8C8;--c:#EFB8C8;--d:#CCC2DC;--e:#F2B8B5"><b>material-you</b></div>
+	<div class="pal" style="--bg:#FEF7FF;--fg:#1D1B20;--a:#6750A4;--b:#7D5260;--c:#7D5260;--d:#625B71;--e:#B3261E"><b>material-you</b> <span>light</span></div>
+</div>
+
+On those phones the theme's card in Settings says **Android 12+**, and `theme material-you` says the same.
 
 ### Your own themes
 
@@ -96,6 +126,9 @@ To save the theme:
 
 The theme then appears with the built-in themes, in the theme strip and in `theme <name>`.
 To change or delete it, tap it under **Your themes**.
+
+A theme of yours can't have a built-in theme's name. If an update brings a built-in theme with the name of one of yours,
+Kolahal adds a number to your theme's name: a `nord` you made before 0.5.9 is now `nord-2`. It keeps its colours, and stays in use if it was.
 
 - A light background works too. The status bar icons turn dark.
 - Your themes are included in [backups](/guides/backup/).

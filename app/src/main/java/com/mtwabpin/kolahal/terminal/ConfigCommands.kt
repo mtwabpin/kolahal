@@ -6,6 +6,7 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.FontFiles
+import com.mtwabpin.kolahal.data.MaterialYou
 
 /** The `config` / `set`, `theme` and `font` commands. Like the other command groups, they live outside [CommandProcessor]. */
 class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGroup(context) {
@@ -100,8 +101,11 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         if (key == Keys.WIDGETS_START && Keys.WIDGETS_START.parse(value) == true && !conf[Keys.SELECTOR_RAIL]) {
             return error("widgets.start needs the app selector first: config set selector.rail on")
         }
-        if (conf.set(key, value)) info("${key.key} = ${conf.display(key)}")
-        else error("Invalid value for ${key.key}: ${hint(key)}")
+        if (conf.set(key, value)) {
+            info("${key.key} = ${conf.display(key)}")
+            // Android 9 to 11 has no wallpaper colours for material-you to take. Say what it shows instead.
+            if (key == Keys.THEME && conf[Keys.THEME] == MaterialYou.NAME && !MaterialYou.supported) info(MaterialYou.NOTE)
+        } else error("Invalid value for ${key.key}: ${hint(key)}")
     }
 
     private fun hint(key: ConfigKey<*>) = when (key) {

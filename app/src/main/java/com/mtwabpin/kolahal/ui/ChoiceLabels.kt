@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.MaterialYou
 
 /**
  * The words Settings shows for a choice's values. Only the screen changes: the value stays what
@@ -22,6 +23,14 @@ internal object ChoiceLabels {
     /** A built-in theme's name with capitals ("Gruvbox Material"). A theme you made keeps its name as you wrote it. */
     fun theme(name: String): String =
         if (name in Keys.BUILT_IN_THEMES) name.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) } else name
+
+    /**
+     * A note under a theme's name on its card, or null for no note.
+     * Material You has one on Android 9 to 11 ([supported] is false there): the phone has no
+     * wallpaper colours, so the card shows Material's standard colours.
+     */
+    fun themeNote(name: String, supported: Boolean = MaterialYou.supported): String? =
+        "Android 12+".takeIf { name == MaterialYou.NAME && !supported }
 
     private fun readable(value: String) = value.replace('-', ' ').replaceFirstChar(Char::uppercase)
 }

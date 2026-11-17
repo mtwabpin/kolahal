@@ -169,6 +169,25 @@ class WallpaperMatchTest {
         assertEquals(first, wallpapers.getWallpaperId(system))
     }
 
+    /**
+     * material-you takes its colours from the wallpaper. If the wallpaper followed it too, each
+     * would keep changing the other. So the wallpaper stays, and follows again with the next theme.
+     */
+    @Test fun aThemeFromTheWallpaperIsNotFollowed() {
+        WallpaperMatch.set(context, Color.RED)
+        val first = wallpapers.getWallpaperId(system)
+        WallpaperMatch.follow(context, Color.BLUE, fromWallpaper = true)
+        assertTrue(WallpaperMatch.themeFromWallpaper)
+        Thread.sleep(800)
+        assertEquals(first, wallpapers.getWallpaperId(system))
+        assertEquals(Color.RED, colourSet())
+        assertTrue("still its own", WallpaperMatch.isMatched(context))
+
+        WallpaperMatch.follow(context, Color.BLUE)
+        assertFalse(WallpaperMatch.themeFromWallpaper)
+        followsTo("blue, a theme's own colour", Color.BLUE)
+    }
+
     /** Themes picked faster than wallpapers are set: it ends on the last one. */
     @Test fun itEndsOnTheLastTheme() {
         WallpaperMatch.set(context, Color.RED)

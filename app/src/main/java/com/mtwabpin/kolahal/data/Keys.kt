@@ -65,11 +65,15 @@ object Keys {
     val KEYBAR_AUTO = ConfigKey.Bool("keybar.auto", true, "Show the key bar only while the on-screen keyboard is up for the prompt (off: always)")
     val KEYBAR_HEIGHT = ConfigKey.Num("keybar.height", 40, 20..64, "Key bar row height (dp); smaller leaves more room for the log")
     val PROMPT_HEIGHT_TYPING = ConfigKey.Num("prompt.height", 40, 20..72, "Prompt line height (dp); it never gets shorter than its text")
-    /** The themes that come with Kolahal. [CustomThemes] holds the ones people make. */
-    val BUILT_IN_THEMES = listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material")
+    /**
+     * The themes that come with Kolahal. [CustomThemes] holds the ones people make.
+     * A name added here can't be a saved theme's name any more: [CustomThemes.load] renames that theme.
+     */
+    val BUILT_IN_THEMES = listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord", MaterialYou.NAME)
     val THEME = ConfigKey.Choice(
         "theme.name", "green", BUILT_IN_THEMES,
-        "Colour theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode",
+        "Colour theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode; " +
+            "${MaterialYou.NAME} takes its colours from your wallpaper (Android 12 and newer)",
         added = { CustomThemes.names },
     )
     val THEME_ALWAYS_DARK = ConfigKey.Bool("theme.always-dark", false, "Always use the theme's dark version, even in light mode")

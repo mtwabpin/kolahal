@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.CustomThemes
+import com.mtwabpin.kolahal.data.MaterialYou
 
 data class Palette(
     val bg: Color,
@@ -144,8 +145,32 @@ object Palettes {
         script = Color(0xFFD8A657), personal = Color(0xFFA9B665), work = Color(0xFFE78A4E), private = Color(0xFFD3869B),
         good = Color(0xFFA9B665), warn = Color(0xFFD8A657),
     )
+    /**
+     * Nord (nordtheme.com): Snow Storm text on Polar Night, with Frost and Aurora accents.
+     * Nord has no muted text colour that is easy to read here. So [Palette.dim] is halfway between nord3 and nord4.
+     */
+    val nord = Palette(
+        bg = Color(0xFF2E3440), surface = Color(0xFF3B4252), fg = Color(0xFFD8DEE9), dim = Color(0xFF929AAA),
+        prompt = Color(0xFF88C0D0), error = Color(0xFFBF616A), info = Color(0xFF8FBCBB), link = Color(0xFF81A1C1),
+        script = Color(0xFFEBCB8B), personal = Color(0xFF88C0D0), work = Color(0xFFD08770), private = Color(0xFFB48EAD),
+        good = Color(0xFFA3BE8C), warn = Color(0xFFEBCB8B),
+    )
+    /**
+     * Light version of nord: Polar Night text on Snow Storm.
+     * - The accents are Nord's own hues, but darker, so they are easy to read on a light background.
+     * - [Palette.dim] is nord3 made brighter, as Nord's Vim port has it for comments.
+     */
+    val nordLight = Palette(
+        bg = Color(0xFFECEFF4), surface = Color(0xFFD8DEE9), fg = Color(0xFF2E3440), dim = Color(0xFF616E88),
+        prompt = Color(0xFF357587), error = Color(0xFFB54954), info = Color(0xFF467473), link = Color(0xFF4A7095),
+        script = Color(0xFF8D6618), personal = Color(0xFF357587), work = Color(0xFFAA5338), private = Color(0xFF8D5D84),
+        good = Color(0xFF597442), warn = Color(0xFF8D6618),
+    )
 
-    /** Built-in themes by name. Each pair is the dark version, then the light version. */
+    /**
+     * Built-in themes by name. Each pair is the dark version, then the light version.
+     * `material-you` is not here: its colours come from the phone ([MaterialYouPalettes]).
+     */
     private val BUILT_IN: Map<String, Pair<Palette, Palette>> by lazy {
         mapOf(
             "green" to (green to greenLight),
@@ -155,16 +180,19 @@ object Palettes {
             "solarized" to (solarized to solarizedLight),
             "gruvbox" to (gruvbox to gruvboxLight),
             "gruvbox-material" to (gruvboxMaterial to gruvboxMaterialLight),
+            "nord" to (nord to nordLight),
         )
     }
 
     /**
      * Returns the [dark] or light version of a theme.
      * - The theme can be built-in or made by the user ([CustomThemes]).
+     * - `material-you` returns the colours of the phone's wallpaper ([MaterialYouPalettes]).
      * - A custom theme without a light version uses the same colours for both.
      * - An unknown name returns green.
      */
     fun named(name: String, dark: Boolean = true): Palette {
+        if (name == MaterialYou.NAME) return MaterialYouPalettes.of(dark)
         BUILT_IN[name]?.let { (d, l) -> return if (dark) d else l }
         val colors = CustomThemes.colors(name) ?: return if (dark) green else greenLight
         return fromColors(if (dark) colors else CustomThemes.light(colors) ?: colors)

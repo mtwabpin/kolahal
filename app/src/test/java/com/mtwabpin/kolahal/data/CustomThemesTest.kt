@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /** The file a theme made in the theme builder is kept in, and the hex codes the builder takes. */
 class CustomThemesTest {
@@ -88,5 +89,44 @@ class CustomThemesTest {
     @Test fun names() {
         for (good in listOf("my-theme", "sepia2", "a")) assertTrue(good, CustomThemes.NAME.matches(good))
         for (bad in listOf("My Theme", "-dash", "a".repeat(25), "dots.no", "")) assertFalse(bad, CustomThemes.NAME.matches(bad))
+    }
+
+    /** A theme saved as `nord` before Kolahal had a Nord of its own gets a free name, and so does each such theme. */
+    @Test fun aSavedThemeWithABuiltInNameGetsAFreeOne() {
+        assertEquals(emptyMap<String, String>(), CustomThemes.movedNames(setOf("dusk", "nord-2")))
+        assertEquals(mapOf("nord" to "nord-2"), CustomThemes.movedNames(setOf("nord", "dusk")))
+        assertEquals(mapOf("nord" to "nord-3"), CustomThemes.movedNames(setOf("nord", "nord-2")))
+        assertEquals(
+            mapOf("material-you" to "material-you-2", "nord" to "nord-2"),
+            CustomThemes.movedNames(setOf("material-you", "nord")),
+        )
+    }
+
+    /** At start: the file moves with the name, the theme keeps its colours, and the built-in name is free. */
+    @Test fun aSavedThemeWithABuiltInNameMovesAtStart() {
+        val dir = java.nio.file.Files.createTempDirectory("themes").toFile()
+        try {
+            val dusk = colors.mapValues { it.value or 0x00010101 }
+            File(dir, "nord.json").writeText(CustomThemes.encode(colors))
+            File(dir, "dusk.json").writeText(CustomThemes.encode(dusk))
+            File(dir, "broken.json").writeText("{ \"background\": \"#000000\" }")
+
+            assertEquals(mapOf("nord" to "nord-2"), CustomThemes.read(dir))
+            assertEquals(listOf("dusk", "nord-2"), CustomThemes.names)
+            assertEquals(colors, CustomThemes.colors("nord-2"))
+            assertEquals(dusk, CustomThemes.colors("dusk"))
+            assertNull(CustomThemes.colors("nord"))
+            assertEquals(listOf("broken.json", "dusk.json", "nord-2.json"), dir.list()!!.sorted())
+            assertTrue("nord-2" in Keys.THEME.choices)
+
+            // The next start finds nothing to move.
+            assertEquals(emptyMap<String, String>(), CustomThemes.read(dir))
+            assertEquals(listOf("dusk", "nord-2"), CustomThemes.names)
+        } finally {
+            dir.deleteRecursively()
+            // Other tests start with no saved themes.
+            CustomThemes.read(dir)
+        }
+        assertEquals(emptyList<String>(), CustomThemes.names)
     }
 }
