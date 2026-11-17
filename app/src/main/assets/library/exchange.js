@@ -13,7 +13,6 @@
 //   exchange usd inr eur       1 USD in INR and EUR
 //   exchange 50 eur            50 EUR in USD
 //   exchange                   its from and to options: USD -> EUR, GBP, INR, JPY to start with
-//                              (good on a timer as a status line)
 //
 // Rates update once a day, so a timer more often than every few hours is wasted.
 // Its widget, once you placed it on the widgets page, lists what one unit of its from option is
@@ -74,7 +73,6 @@ function num(n) {
 const amountText = Number.isInteger(amount) ? num(amount).split(".")[0] : num(amount);
 
 const rows = [];
-const parts = [];
 for (const to of targets) {
   const rate = data.rates[to];
   if (rate == null) {
@@ -83,7 +81,6 @@ for (const to of targets) {
     continue;
   }
   rows.push({ to, value: num(amount * rate), rate: num(rate) });
-  parts.push(`${to} ${num(rate)}`);
 }
 // Its widget, for its own currencies (no arguments): each one with what one unit of the from
 // currency is in it. A tap runs exchange again and turns home to the log.
@@ -110,4 +107,3 @@ if (quiet) {
   }
 }
 
-if (background && parts.length > 0) status(`${from}: ` + parts.join(" · "));

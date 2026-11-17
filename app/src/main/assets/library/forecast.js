@@ -11,8 +11,7 @@
 //   forecast                  forecast for its city option (London if it's empty)
 //   forecast Tokyo            forecast for Tokyo
 //
-// On a timer (no arguments) it sets today's summary as its status line. Its widget, once you
-// placed it on the widgets page, lists the three days.
+// Its widget, once you placed it on the widgets page, lists the three days.
 
 // The widgets page asked for this run: it fills the widget and logs nothing.
 const quiet = !!event && event.name === "widget";
@@ -81,14 +80,12 @@ const where = [place.name, place.country_code].filter(Boolean).join(", ");
 
 // The place is the title; one row per day under it.
 const rows = [];
-let todayLine = "";
 for (let i = 0; i < d.time.length; i++) {
   const label = names[i] || WEEKDAYS[new Date(d.time[i] + "T12:00:00Z").getUTCDay()];
   const hi = Math.round(d.temperature_2m_max[i]);
   const lo = Math.round(d.temperature_2m_min[i]);
   const rain = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
   rows.push({ label, code: d.weather_code[i], lo, hi, rain });
-  if (i === 0) todayLine = `${place.name}: ${describe(d.weather_code[i])} ${lo}–${hi}°C`;
 }
 
 // WMO weather codes -> a symbol for the sky.
@@ -128,8 +125,6 @@ if (!quiet) {
     url: `https://open-meteo.com/en/docs#latitude=${place.latitude}&longitude=${place.longitude}`,
   });
 }
-
-if (!line) status(todayLine);
 
 // Its widget, in the same runs: one row a day, with its sky and its low and high. A tap runs
 // forecast again and turns home to the log, for the bars.

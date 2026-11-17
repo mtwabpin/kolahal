@@ -422,7 +422,8 @@ class LibraryScriptsTest {
         run("exchange.js", event = forWidget, before = rates)
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(card("1 USD", row("EUR", "0.92000"), row("GBP", "0.79000"), row("INR", "83.420"), row("JPY", "149.50")), shown())
-        assertEquals("USD: EUR 0.92000 · GBP 0.79000 · INR 83.420 · JPY 149.50", status.get(name))
+        // It sets no status line: a rate that changes once a day says little at the top of home.
+        assertNull(status.get(name))
 
         // Its options pick the currencies. One that isn't known is left out, and doesn't stop the run.
         run("exchange.js", event = forWidget, options = mapOf("from" to "usd", "to" to "inr, xxx"), before = rates)

@@ -11,7 +11,7 @@
 //   sun 12.97 77.59      save coordinates directly
 //
 // Times are local to the location (timezone=auto), so no device timezone
-// handling is needed. On a timer (e.g. daily at 05:00) it sets its status line.
+// handling is needed.
 
 // A failure: what didn't work, in the theme's bad colour, and why under it.
 const fail = (what, why) => log(fmt.color("bad", what), why);
@@ -88,7 +88,6 @@ try {
     day && first && first[1] !== "of daylight today" && first[1] !== "of daylight" ? `${day} of daylight today` : null,
   ].filter(Boolean);
   log(store.get("place") || `${lat}, ${lng}`, [numbers, ...under].join("\n"));
-  status(`Sun ${rise}–${set}`);
 } catch (e) {
   return fail("No sun times", `${e.message || e}`);
 }

@@ -60,6 +60,7 @@ exchange.js 682e416135d80659
 exchange.js 696a85a3834cc985
 exchange.js 80fa600c68fac8be
 exchange.js a80850174a186602
+exchange.js cb95756e6b153b4d
 exchange.js cfcde40c26aae233
 exchange.js e46d14f1eb642d4f
 football.js 0eae300a9d6af343
@@ -76,6 +77,7 @@ forecast.js 44a71e880ecd9c7d
 forecast.js 4520a4efeda04e5f
 forecast.js 58d33e2e22b2dfaa
 forecast.js 5e86d4d3ba6e0f6c
+forecast.js 5fca0ded0fe7c940
 forecast.js 643f4bbe23ff62aa
 forecast.js 6a03f26e1e015406
 forecast.js b8fac2e78d48fc38
@@ -109,6 +111,7 @@ ip.lua 3d1d99fc9c4dfb1f
 ip.lua 49ca2d7187001995
 ip.lua 85236c6c490cfa7f
 ip.lua 8b6c949f146c145c
+ip.lua 92e1cdd5ebe40776
 ip.lua ae2a7f533e728907
 ip.lua b64b752059221a5f
 lobsters.lua 25a051bc466c6f57
@@ -145,6 +148,7 @@ reddit.js adfeb11661298a53
 reddit.js b08003c51ddf978f
 reddit.js c3991ebd08c90d36
 reddit.js cbe5b0bd40421a89
+releases.lua 358f4d92b8700ed5
 releases.lua 3cc47504336078bd
 releases.lua 789c7a5dda8e22a4
 releases.lua 7afffcb23660bede
@@ -165,6 +169,7 @@ sun.js 4e4622389a7013e8
 sun.js 4ebe69510ea910da
 sun.js 53f86ac076b93bcb
 sun.js 5d6e08beee5e8db1
+sun.js 629f503550f7b558
 sun.js 8a9fe1bcb4e8cef0
 sun.js cecfe519061f5f67
 sun.js d401633910dab11e

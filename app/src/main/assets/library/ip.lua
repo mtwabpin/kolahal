@@ -7,7 +7,7 @@
 -- @notify
 --
 -- As a command it prints your IP. On a timer it notifies when the IP changes
--- (handy for spotting VPN drops) and sets it as its status line.
+-- (handy for spotting VPN drops).
 
 -- A failure: what didn't work, in the theme's bad colour, and why under it.
 local function fail(what, why) log(fmt.color("bad", what), why) end
@@ -31,4 +31,3 @@ if previous ~= nil and previous ~= ip then
 else
   log(ip, { copy = ip })
 end
-status("IP " .. ip)

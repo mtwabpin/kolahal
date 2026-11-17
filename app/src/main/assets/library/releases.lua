@@ -145,7 +145,6 @@ if #repos == 0 then
   return hint("No repos watched: releases add owner/repo")
 end
 
-local total = 0
 -- Repos checked for the first time, noted once the run has got through them all: rss.fresh keeps
 -- what it has seen only when the run ends well, so one cut short checks them for the first time again.
 local firstChecked = {}
@@ -170,16 +169,9 @@ for _, repo in ipairs(repos) do
         -- A small space above each release (gap) keeps them apart when a title wraps.
         log(repo .. " " .. fmt.tag("good", "new") .. " " .. title, { url = item.link, gap = true })
         notify(repo, title, { url = item.link })
-        total = total + 1
       end
     end
   end
 end
 
 for _, key in ipairs(firstChecked) do store.set(key, "1") end
-
-if total > 0 then
-  status("Releases: " .. total .. " new")
-else
-  status(nil)
-end

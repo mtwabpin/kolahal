@@ -254,11 +254,9 @@ script set weather city Pune # the city when you type none
 
 **3-day forecast** from Open-Meteo: a bar for each day from its lowest to its highest temperature,
 all on one scale, with the sky as a symbol and the chance of rain from 30%.
-On a timer, it sets today's summary as its status line.
 
 - `forecast` uses its `city` option (London if the option is empty).
 - `forecast Tokyo` shows Tokyo.
-
 
 ## aqi
 
@@ -321,7 +319,7 @@ timer fills it every 6 hours; the rates change once a day.
 ## ip
 
 **Public IP** from api.ipify.org. Long-press the line to copy it. On a timer, it notifies you when
-the IP changes and sets the IP as its status line. This helps you notice when a VPN drops.
+the IP changes. This helps you notice when a VPN drops.
 
 ## webnumber
 
