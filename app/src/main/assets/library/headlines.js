@@ -2,7 +2,7 @@
 // @title Feed headlines
 // @desc The newest items of one feed, set by its url option: a widget
 // @author Kolahal
-// @version 1.0
+// @version 1.1
 // @widget list 4x2
 // @every 1h
 // @tags news, feed, rss, atom
@@ -35,7 +35,7 @@ if (!placed) {
   // Say once where the widget is, for a run by hand. Later runs say nothing.
   if (!store.get("told")) {
     store.set("told", "1");
-    log(fmt.color("muted", "headlines fills a widget: add it on the widgets page (+ Add)"));
+    log(fmt.color("muted", "headlines fills a widget: add it on the widgets page (+ at the top)"));
   }
   return;
 }

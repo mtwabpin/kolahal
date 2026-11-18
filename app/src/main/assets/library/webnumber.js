@@ -2,7 +2,7 @@
 // @title Web number
 // @desc One number from a JSON address, set by its url and path options: a widget
 // @author Kolahal
-// @version 1.0
+// @version 1.1
 // @widget stat 2x1
 // @every 1h
 // @tags json, number, api, sensor
@@ -39,7 +39,7 @@ if (!placed) {
   // Say once where the widget is, for a run by hand. Later runs say nothing.
   if (!store.get("told")) {
     store.set("told", "1");
-    log(fmt.color("muted", "webnumber fills a widget: add it on the widgets page (+ Add)"));
+    log(fmt.color("muted", "webnumber fills a widget: add it on the widgets page (+ at the top)"));
   }
   return;
 }

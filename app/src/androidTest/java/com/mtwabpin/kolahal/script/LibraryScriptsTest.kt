@@ -337,6 +337,112 @@ class LibraryScriptsTest {
     }
 
     /**
+     * The widget template, in Lua and in JavaScript: for the widgets page, a card with the project's
+     * stars, forks and open issues, and a tap that opens it, and no line in the log. Run by hand,
+     * the numbers as a line, and where to place the card. A failure is a line by hand, an error for
+     * the widget.
+     */
+    @Test fun theWidgetTemplatesShowAProjectsStars() {
+        val answer = """{"name":"kolahal","full_name":"mtwabpin/kolahal","stargazers_count":1234,"forks_count":56,"open_issues_count":7,"html_url":"https://github.com/mtwabpin/kolahal"}"""
+        val missing = mapOf(
+            "template-widget.lua" to "http = { get = function() return { ok = false, status = 404, body = '' } end }\n",
+            "template-widget-js.js" to "const http = { get: async () => ({ ok: false, status: 404, body: '' }) };\n",
+        )
+        for (file in listOf("template-widget.lua", "template-widget-js.js")) {
+            val lua = file.endsWith(".lua")
+            val net = if (lua) luaStandIns(answer) else standIns(answer)
+            val keeps = if (lua) luaKeepsShown else jsKeepsShown
+            run(file, event = forWidget, before = net + keeps)
+            assertEquals(file, emptyList<LogEntry>(), lines())
+            assertEquals(
+                file,
+                mapOf(
+                    "title" to "kolahal", "icon" to "star", "value" to 1234.0, "label" to "stars",
+                    "more" to listOf(mapOf("value" to 56.0, "label" to "forks"), mapOf("value" to 7.0, "label" to "open issues")),
+                    "tap" to mapOf("url" to "https://github.com/mtwabpin/kolahal", "label" to "Open the project"),
+                ),
+                shown(),
+            )
+
+            // By hand: the numbers, then where the card is, as the widget isn't placed here.
+            run(file, before = net + keeps)
+            val (numbers, hint) = lines()
+            assertEquals(file, "mtwabpin/kolahal", numbers.text)
+            assertEquals(file, listOf("1234" to "stars", "56" to "forks", "7" to "open issues"), bigNumbers(numbers.ctx.body!!))
+            assertEquals(file, "https://github.com/mtwabpin/kolahal", numbers.ctx.url)
+            assertTrue(file, StyledText.plain(hint.text).startsWith("To see the card: tap + on the widgets page"))
+            shown()
+
+            // A project that isn't there, and a repo option that is no owner/name.
+            run(file, options = mapOf("repo" to "nobody/nothing"), before = missing.getValue(file))
+            assertEquals(file, Triple("No numbers", "nobody/nothing is no GitHub project", StyledText.Colour.BAD), plainOnly())
+            run(file, options = mapOf("repo" to "kolahal"))
+            assertTrue(file, plainOnly().second!!.startsWith("Set its repo option to owner/name"))
+            val failed = runCatching { run(file, event = forWidget, options = mapOf("repo" to "nobody/nothing"), before = missing.getValue(file)) }
+            assertTrue("$file: $failed", failed.isFailure || lines().isEmpty())
+        }
+    }
+
+    /**
+     * The checklist template, in Lua and in JavaScript: a row with an empty checkbox for each thing;
+     * a tap ticks a row and takes the tick away again; all ticked is the good colour. A new day,
+     * and each further widget, starts with no ticks. Run by hand, it logs the list.
+     */
+    @Test fun theChecklistTemplatesTickARowOnATap() {
+        val today = LocalDate.now().toString()
+        fun row(title: String, n: Int, done: Boolean) = mapOf("title" to title, "done" to done, "tap" to mapOf("args" to "tick $n"))
+        fun card(title: String, vararg done: Boolean, color: String? = null) = listOfNotNull(
+            "title" to title, "icon" to "check", color?.let { "color" to it },
+            "items" to listOf("Water the plants", "Vitamins", "A walk").mapIndexed { i, t -> row(t, i + 1, done[i]) },
+            "empty" to "Set its items option",
+        ).toMap()
+        val tap = mapOf("name" to "action", "widget" to true)
+        for (file in listOf("template-widget-list.lua", "template-widget-list-js.js")) {
+            store.all().keys.forEach { store.set(it, null) }
+            val keeps = if (file.endsWith(".lua")) luaKeepsShown else jsKeepsShown
+            run(file, event = forWidget, before = keeps)
+            assertEquals(file, emptyList<LogEntry>(), lines())
+            assertEquals(file, card("Today · 0 of 3", false, false, false), shown())
+
+            // A tap ticks its row, keeps it for today, and logs nothing.
+            run(file, "tick 2", event = tap, before = keeps)
+            assertEquals(file, emptyList<LogEntry>(), lines())
+            assertEquals(file, card("Today · 1 of 3", false, true, false), shown())
+            assertEquals(file, listOf(today, "Vitamins"), listOf(store.get("day"), store.get("ticked")))
+            run(file, "tick 1", event = tap, before = keeps)
+            run(file, "tick 3", event = tap, before = keeps)
+            assertEquals(file, card("Today · 3 of 3", true, true, true, color = "good"), shown())
+            // A second tap takes the tick away. A row that isn't there changes nothing.
+            run(file, "tick 2", event = tap, before = keeps)
+            assertEquals(file, card("Today · 2 of 3", true, false, true), shown())
+            run(file, "tick 9", event = tap, before = keeps)
+            assertEquals(file, card("Today · 2 of 3", true, false, true), shown())
+
+            // By hand: the list, then where the card is.
+            run(file, before = keeps)
+            val (list, hint) = lines()
+            assertEquals(file, "Today · 2 of 3", list.text)
+            assertEquals(file, "✓ Water the plants\n· Vitamins\n✓ A walk", list.ctx.body)
+            assertTrue(file, StyledText.plain(hint.text).startsWith("To see the card"))
+            shown()
+
+            // A further widget keeps its own ticks.
+            run(file, "tick 3", event = tap + ("instance" to "2"), before = keeps)
+            assertEquals(file, card("Today · 1 of 3", false, false, true), shown())
+            assertEquals(file, listOf("A walk", "Water the plants\nA walk"), listOf(store.get("ticked2"), store.get("ticked")))
+
+            // Yesterday's ticks don't count on a new day.
+            store.set("day", "2000-01-01")
+            run(file, event = mapOf("name" to "at", "time" to "00:01"), before = keeps)
+            assertEquals(file, card("Today · 0 of 3", false, false, false), shown())
+
+            // Its own things, from the items option.
+            run(file, event = forWidget, options = mapOf("items" to " Read ,, Write "), before = keeps)
+            assertEquals(file, listOf(row("Read", 1, false), row("Write", 2, false)), (shown() as Map<*, *>)["items"])
+        }
+    }
+
+    /**
      * Wiktionary: the word in your language, then one line per meaning, its sub-meanings apart and an
      * example under it; with no entry in your language, the languages that have one.
      */
@@ -745,7 +851,7 @@ class LibraryScriptsTest {
 
         run("world-clocks.lua")
         assertEquals(
-            Triple("World clocks", "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: tap + Add on the widgets page", null),
+            Triple("World clocks", "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: tap + on the widgets page", null),
             only(),
         )
     }

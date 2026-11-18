@@ -2,7 +2,7 @@
 -- @title World clocks
 -- @desc The time in up to 4 places you list: a widget
 -- @author Kolahal
--- @version 1.0
+-- @version 1.1
 -- @widget clock 2x2
 -- @tags clock, time, zones
 -- @requires 0.5.8
@@ -51,5 +51,5 @@ if started == nil then
     if i > 4 then break end
     names[i] = place.label .. " (" .. place.zone .. ")"
   end
-  log("World clocks", table.concat(names, "\n") .. "\nTheir time is on its widget: tap + Add on the widgets page")
+  log("World clocks", table.concat(names, "\n") .. "\nTheir time is on its widget: tap + on the widgets page")
 end

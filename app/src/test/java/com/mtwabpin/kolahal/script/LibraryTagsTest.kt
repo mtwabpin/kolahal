@@ -87,7 +87,7 @@ class LibraryTagsTest {
     /** The numbers on the chips when the page opens. A new script changes them: check that its tags are right, then change them here. */
     @Test fun theChipsOfTheLibrary() {
         assertEquals(
-            mapOf(TEMPLATE to 12, WIDGET to 18, COMMAND to 23, TIMER to 24, EVENT to 4, INTERNET to 29, OFFLINE to 10),
+            mapOf(TEMPLATE to 16, WIDGET to 22, COMMAND to 23, TIMER to 26, EVENT to 4, INTERNET to 31, OFFLINE to 12),
             LibraryTags.counts(library, emptyList()),
         )
         // The chips are in the order of LibraryTag.
@@ -106,12 +106,14 @@ class LibraryTagsTest {
         assertEquals(listOf(TEMPLATE, COMMAND, INTERNET), tagsOf("template-js"))
         assertEquals(listOf(TEMPLATE, TIMER, INTERNET), tagsOf("template-timer"))
         assertEquals(listOf(TEMPLATE, EVENT, OFFLINE), tagsOf("template-event-js"))
+        assertEquals(listOf(TEMPLATE, WIDGET, INTERNET), tagsOf("template-widget"))
+        assertEquals(listOf(TEMPLATE, WIDGET, TIMER, OFFLINE), tagsOf("template-widget-list-js"))
     }
 
     /** A template says so in its title too: "Template: timer". */
     @Test fun theTemplatesAreTheScriptsTitledTemplate() {
         assertEquals(library.filter { it.title.startsWith("Template") }.map { it.name }, named(TEMPLATE))
-        assertEquals(12, named(TEMPLATE).size)
+        assertEquals(16, named(TEMPLATE).size)
     }
 
     @Test fun theScriptsThatRunOnAnEvent() {
@@ -125,7 +127,7 @@ class LibraryTagsTest {
     @Test fun theScriptsThatWorkOffline() {
         val offline = listOf(
             "charge-reminder", "countdown", "habit", "night-dnd", "night-work", "quick-toggles",
-            "template-event-js", "template-event", "unlock-chart", "world-clocks",
+            "template-event-js", "template-event", "template-widget-list-js", "template-widget-list", "unlock-chart", "world-clocks",
         )
         assertEquals(offline, named(OFFLINE))
         val saysNoNetwork = files.filter { (f, _) -> "No network" in f.readLines().first() }.map { it.first.nameWithoutExtension }

@@ -46,7 +46,7 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
+            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
             withWidget,
         )
     }
