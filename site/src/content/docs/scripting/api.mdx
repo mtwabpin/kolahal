@@ -92,6 +92,10 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`reminders.list()`](#reminderslist) | `[{ id, text, at, repeats }]` |
 | [`calendar.events(days?)`](#calendareventsdays) | `[{ id, title, starts, ends, allDay }]` |
 | [`feeds.unread(n?)`](#feedsunreadn) | `[{ id, feed, title, link, date, summary }]` |
+| [`usage.today(n?)`](#usagetodayn) | `{ total, apps = [{ app, pkg, minutes }] }` |
+| [`usage.days(n?)`](#usagedaysn) | `[minutes]` |
+| [`usage.data(since?)`](#usagedatasince) | `{ mobile, wifi }` |
+| [`usage.unused(days?)`](#usageunuseddays) | `[{ app, pkg, days, bytes }]` |
 | [`launcher.run(command)`](#launcherruncommand) | `true` if sent |
 | [`sleep(ms)`](#sleepms) | nothing |
 | [`args`, `argline`](#args-and-argline) | arguments of a command run |
@@ -2088,6 +2092,54 @@ for _, item in ipairs(feeds.unread(12)) do
   rows[#rows + 1] = { title = item.title, detail = item.feed }
 end
 widget.show{ items = rows, empty = "Nothing unread" }
+```
+
+## Your app usage
+
+Screen time, data use and the apps you don't open, as `usage`, `data today` and `storage` show
+them. All four need `@uses usage`, and Kolahal needs **Usage access** (`usage-access`): without it,
+each gives nothing (0, an empty list or an empty table). They read only what Android keeps. They
+work in Kolahal 0.5.12 and later.
+
+| Call | Gives |
+| --- | --- |
+| [`usage.today(n?)`](#usagetodayn) | `{ total, apps = [{ app, pkg, minutes }] }` |
+| [`usage.days(n?)`](#usagedaysn) | `[minutes]`, the oldest day first |
+| [`usage.data(since?)`](#usagedatasince) | `{ mobile, wifi }` in bytes |
+| [`usage.unused(days?)`](#usageunuseddays) | `[{ app, pkg, days, bytes }]` |
+
+### usage.today(n?)
+
+Today's screen time since midnight, in minutes (`total`), and the `n` apps you used most
+(`apps`), biggest first: 10 without `n`, 30 at most. Each is `{ app, pkg, minutes }`. Only apps of
+your personal profile, used for a minute or more, are in the list; `total` counts every app.
+
+### usage.days(n?)
+
+The screen time of each of the last `n` days, in minutes, the oldest first: 7 without `n`, 30 at
+most. Today is the last. Only the days Android has data for are there: on a phone that keeps
+about 10 days, `usage.days(30)` has about 10.
+
+### usage.data(since?)
+
+The mobile and Wi-Fi data used since `since`, a time in seconds since 1970 (`os.time()`): by
+default, midnight. `{ mobile, wifi }`, in bytes. `mobile` is nil (null in JavaScript) on Android 9,
+which doesn't tell it.
+
+### usage.unused(days?)
+
+The apps you haven't opened for `days` days or more (30 without it, 7 to 365), up to 50: those
+Android has no use recorded for first, then the longest unused. Each is `{ app, pkg, days, bytes }`:
+`days` is nil for an app with no use recorded, and `bytes` its size (the app and its data), nil
+when Android doesn't tell. An app installed less than `days` ago is not in the list.
+
+```lua
+-- @title Screen time
+-- @uses usage
+-- @widget stat
+
+local today = usage.today(3)
+widget.show{ value = today.total .. " min", label = "screen time today" }
 ```
 
 ## Launcher

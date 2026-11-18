@@ -38,6 +38,35 @@ class StorageUsage(private val context: Context) {
         }.getOrNull()
     }
 
+    /** An app not opened for a while: its package, the days since it was last in front (null: no use recorded), and its size, when known. */
+    data class Unused(val pkg: String, val days: Long?, val bytes: Long?)
+
+    /**
+     * The apps of [packages] not opened for [days] days or more, by the last time Android saw each
+     * in front ([lastUsed]), for `storage` and `usage.unused()`.
+     * - An app with no use recorded comes first, with no day count: it was not used in the time
+     *   Android keeps, or Android doesn't know. Then the longest unused. Ties by [sortName].
+     * - An app installed less than [days] ago is not one. Kolahal itself is left out.
+     * - [sizes]: each app's size in bytes, when known.
+     */
+    fun unused(packages: Collection<String>, days: Long, sizes: Map<String, Long> = emptyMap(), now: Long = System.currentTimeMillis(), sortName: (String) -> String = { it }): List<Unused> {
+        val last = lastUsed(now)
+        val pm = context.packageManager
+        val day = 86_400_000L
+        return packages.mapNotNull { pkg ->
+            if (pkg == context.packageName) return@mapNotNull null
+            @Suppress("DEPRECATION") // the flags-as-int call is the one every Android version has
+            val installed = runCatching { pm.getPackageInfo(pkg, 0).firstInstallTime }.getOrDefault(now)
+            if (now - installed < days * day) return@mapNotNull null
+            val seen = last[pkg]
+            when {
+                seen == null -> Unused(pkg, null, sizes[pkg])
+                now - seen >= days * day -> Unused(pkg, (now - seen) / day, sizes[pkg])
+                else -> null
+            }
+        }.sortedWith(compareByDescending<Unused> { it.days ?: Long.MAX_VALUE }.thenBy { sortName(it.pkg) })
+    }
+
     /**
      * When each app was last in front, by package, as far back as Android keeps its yearly totals
      * (about 2 years). An app with no record there is not in the map: it was not used in that time,

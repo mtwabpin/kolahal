@@ -16,7 +16,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 /** Short names for what scripts use, shown in chips and in a card's pills. */
 internal val USES_SHORT = mapOf(
     "notifications" to "notifications", "clipboard" to "clipboard", "apps" to "apps", "commands" to "commands", "dnd" to "Do Not Disturb", "work" to "work profile",
-    "todos" to "to-dos", "notes" to "notes", "reminders" to "reminders", "calendar" to "calendar", "feeds" to "feeds",
+    "todos" to "to-dos", "notes" to "notes", "reminders" to "reminders", "calendar" to "calendar", "feeds" to "feeds", "usage" to "app usage",
 )
 
 /** Where a script came from. */

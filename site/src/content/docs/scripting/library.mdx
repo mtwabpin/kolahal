@@ -152,6 +152,9 @@ None of the network scripts need an API key.
 | [football](#football) | JS | yes | every 15m | |
 | [charge-reminder](#charge-reminder) | Lua | | on charger and unplug | yes |
 | [unlock-chart](#unlock-chart) | Lua | | on unlock | |
+| [screen-time](#screen-time) | Lua | | | |
+| [data-month](#data-month) | Lua | | | |
+| [unused-apps](#unused-apps) | Lua | | | |
 | [habit](#habit) | Lua | yes | daily 00:01 | |
 | [world-clocks](#world-clocks) | Lua | | | |
 | [quick-toggles](#quick-toggles) | Lua | | | |
@@ -199,6 +202,9 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [cricket](#cricket) | the followed match: both scores, how it stands, and the overs as a bar | runs `cricket live`, and home turns to the log |
 | [football](#football) | the followed match: the score, the minute, and the minutes played as a bar | runs `football live`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
+| [screen-time](#screen-time) | today's screen time, over a bar for each of the last 7 days | logs today's apps, and home turns to the log |
+| [data-month](#data-month) | your mobile data this month, as a bar toward your plan | logs the month, and home turns to the log |
+| [unused-apps](#unused-apps) | the apps you haven't opened for 30 days, with the days and their size | logs the whole list, and home turns to the log |
 | [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
 | [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
 | [quick-toggles](#quick-toggles) | switches for Do Not Disturb and the work profile | on a switch: turns it on or off |
@@ -522,6 +528,43 @@ doesn't use the network.
   when you unplugged.
 - It notifies you when you unplug below 30% (its `low` option).
 - When you run it yourself, it shows the last session.
+
+## screen-time
+
+**Screen time**: a [widget](#widgets) with today's screen time, large, over a bar for each of the
+last 7 days, the oldest first. It doesn't use the network. It needs `@uses usage` ("Your app usage")
+and usage access for Kolahal (`usage-access`).
+
+- The days are the ones Android has usage data for: on a phone that keeps less than a week, there
+  are fewer bars.
+- A tap on the card logs the apps you used most today, each with its bar, and home turns to the
+  log. `script run screen-time` logs them too.
+- The times are the ones the built-in [`usage`](/guides/apps/#screen-time-and-unlocks) command shows.
+
+## data-month
+
+**Data this month**: a [widget](#widgets) with the mobile data used since your plan started again
+this month, as a bar toward your plan. It doesn't use the network. It needs `@uses usage` and
+usage access for Kolahal.
+
+- Set your plan in GB with its `plan` option (`script set data-month plan 75`), and the day it
+  starts again with `start` (1 by default).
+- The bar turns red when the pace for the month goes over your plan. Without a plan, the card
+  shows the data alone, as a number.
+- A tap on the card logs the month: mobile and Wi-Fi, the pace and the days left.
+- On Android 9, which doesn't tell the mobile data, it shows the Wi-Fi data.
+
+## unused-apps
+
+**Unused apps**: a [widget](#widgets) that lists the apps you haven't opened for 30 days or more,
+each with the days since and its size: to tidy up. It doesn't use the network. It needs
+`@uses usage` and usage access for Kolahal.
+
+- An app Android has no use recorded for comes first, and says so, with no day count.
+- Its `days` option sets how long an app is not opened to count (7 to 365).
+- A tap on the card logs the whole list as a table. The built-in
+  [`storage`](/guides/apps/#data-and-storage) command lists them too, where a long-press on one
+  offers its info and uninstall.
 
 ## unlock-chart
 

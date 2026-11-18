@@ -319,24 +319,16 @@ class AppCommands(
         val days = dataDays.size
         val start = dataDays.first().atStartOfDay(zone).toInstant().toEpochMilli()
         // From the usage events, counted from local midnight ([com.mtwabpin.kolahal.usage.AppUsage]).
-        val totals = com.mtwabpin.kolahal.usage.AppUsage(context).totals(start, System.currentTimeMillis())
-            .filter { it.value >= 60_000 && it.key != context.packageName }
-            .entries.sortedByDescending { it.value }
-        if (totals.isEmpty()) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
-        val sum = totals.sumOf { it.value }
+        // Each app by its name in the app list; a package with no name counts toward "Other apps".
+        val byPkg = apps.apps.value.sortedBy { it.profile.kind != ProfileKind.PERSONAL }.associateBy { it.pkg }
+        val times = com.mtwabpin.kolahal.usage.AppUsage(context).times(start, System.currentTimeMillis()) { byPkg[it]?.label }
+        val sum = times.total
+        if (sum < 60_000) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
         // Big numbers: the screen time today; over several days, a day's average and the total.
         val big = if (days == 1) listOf(duration(sum) to "screen time today")
         else listOf(duration(sum / days) to "a day on average", duration(sum) to "in $days days")
         out(com.mtwabpin.kolahal.data.StyledText.stats(big))
-        // Each app by its name. A package with no name Kolahal can read (one without an icon, such as the
-        // phone's in-call screen) counts toward "Other apps" at the end, not as a package name.
-        val pm = context.packageManager
-        val named = totals.mapNotNull { (pkg, ms) ->
-            val app = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
-                ?: apps.apps.value.firstOrNull { it.pkg == pkg }
-            val label = app?.label ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
-            if (label.isNullOrBlank() || label == pkg) null else Triple(label, app, ms)
-        }
+        val named = times.apps.map { Triple(it.label, byPkg[it.pkg], it.ms) }
         val shown = named.take(12)
         val other = sum - shown.sumOf { it.third }
         val max = maxOf(shown.firstOrNull()?.third ?: 0L, other)

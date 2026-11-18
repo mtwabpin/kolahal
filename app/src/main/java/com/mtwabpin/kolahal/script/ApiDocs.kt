@@ -150,6 +150,12 @@ object ApiDocs {
         ApiDoc("feeds", "feeds", "The feeds you follow: unread", kind = NS),
         ApiDoc("feeds.unread", "feeds.unread(n?=10) -> [{ id, feed, title, link, date, summary }]", "The unread items of your feeds, newest first, up to 50, as Kolahal fetched them: no request is made, and nothing is marked read (needs @uses feeds)"),
 
+        ApiDoc("usage", "usage", "Your screen time, data use and unused apps", kind = NS),
+        ApiDoc("usage.today", "usage.today(n?=10) -> { total, apps = [{ app, pkg, minutes }] }", "Today's screen time in minutes since midnight, and the n apps used most, biggest first, up to 30 (needs @uses usage)"),
+        ApiDoc("usage.days", "usage.days(n?=7) -> [minutes]", "The screen time of each of the last n days (1 to 30), oldest first, only the days Android has data for (needs @uses usage)"),
+        ApiDoc("usage.data", "usage.data(since?) -> { mobile, wifi }", "The bytes of mobile and Wi-Fi data used since a time in seconds (by default, midnight); mobile is nil on Android 9 (needs @uses usage)"),
+        ApiDoc("usage.unused", "usage.unused(days?=30) -> [{ app, pkg, days, bytes }]", "The apps not opened for days days or more (7 to 365), up to 50; days is nil when no use is recorded (needs @uses usage)"),
+
         ApiDoc("launcher", "launcher", "Drive the launcher: run", kind = NS),
         ApiDoc("launcher.run", "launcher.run(command) -> bool", "Run a terminal command (needs @uses commands); only when started from the prompt, at most 10 per run"),
 

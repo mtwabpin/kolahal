@@ -56,7 +56,7 @@ object ScriptMeta {
      * - its name in the `allowed` entry of [ApiDocs], and in the site's `@uses` table.
      * ScriptUsesTest checks the first three.
      */
-    val USES = listOf("notifications", "clipboard", "apps", "commands", "dnd", "work", "todos", "notes", "reminders", "calendar", "feeds")
+    val USES = listOf("notifications", "clipboard", "apps", "commands", "dnd", "work", "todos", "notes", "reminders", "calendar", "feeds", "usage")
 
     /** Known names from every `@uses` line. Unknown names are ignored. */
     fun uses(code: String): Set<String> {

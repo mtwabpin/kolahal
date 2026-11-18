@@ -362,7 +362,7 @@ Scripts run in a separate `:script` process. If an engine crashes, the home scre
 
 Some things need permission. A script can use your notifications, the clipboard, the list of your
 apps, running commands, Do Not Disturb, the work profile and your own lists (todos, notes,
-reminders, the calendar, feeds) only if it asks for them with a `@uses` line at the top:
+reminders, the calendar, feeds) and your app usage only if it asks for them with a `@uses` line at the top:
 
 ```lua
 -- @uses notifications, clipboard
@@ -381,6 +381,7 @@ reminders, the calendar, feeds) only if it asks for them with a `@uses` line at 
 | `reminders` | [`reminders.list`](/scripting/api/#reminderslist): reading the reminders that are set |
 | `calendar` | [`calendar.events`](/scripting/api/#calendareventsdays): reading the events of the next days from the phone's calendar. Kolahal also needs Android's calendar permission |
 | `feeds` | [`feeds.unread`](/scripting/api/#feedsunreadn): reading the unread items of the feeds you follow |
+| `usage` | [`usage.today`](/scripting/api/#usagetodayn), [`usage.days`](/scripting/api/#usagedaysn), [`usage.data`](/scripting/api/#usagedatasince), [`usage.unused`](/scripting/api/#usageunuseddays): your screen time, data use and the apps you don't open |
 
 - If a script calls one of these without its `@uses` line, it stops with an error. The error says
   what to add.

@@ -26,7 +26,7 @@ class ScriptUsesTest {
     """.trimIndent()
 
     @Test fun theListsComeAfterTheOlderItems() {
-        assertEquals(listOf("notifications", "clipboard", "apps", "commands", "dnd", "work") + lists, ScriptMeta.USES)
+        assertEquals(listOf("notifications", "clipboard", "apps", "commands", "dnd", "work") + lists + "usage", ScriptMeta.USES)
     }
 
     @Test fun aUsesLineNamesThem() {

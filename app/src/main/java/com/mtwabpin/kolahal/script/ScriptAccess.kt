@@ -75,6 +75,7 @@ object ScriptAccess {
         "reminders" -> "Your reminders"
         "calendar" -> "Your calendar"
         "feeds" -> "Your feeds"
+        "usage" -> "Your app usage"
         else -> "Runs on $item"
     }
 
@@ -93,6 +94,7 @@ object ScriptAccess {
         "reminders" -> "Reads your reminders; when off, it sees none"
         "calendar" -> "Reads the events of the next days from the phone's calendar; when off, it sees none"
         "feeds" -> "Reads the unread items of the feeds you follow; when off, it sees none"
+        "usage" -> "Reads your screen time per app, your data use and the apps you don't open; when off, it sees none"
         else -> "Runs when this happens (@on $item)"
     }
 

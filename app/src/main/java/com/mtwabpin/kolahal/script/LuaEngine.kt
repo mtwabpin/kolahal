@@ -198,6 +198,13 @@ class LuaEngine : ScriptEngine {
         lua.table("reminders", "list" to { l: Lua -> l.pushValue(data.remindersList()); 1 })
         lua.table("calendar", "events" to { l: Lua -> l.pushValue(data.calendarEvents(l.args().firstOrNull())); 1 })
         lua.table("feeds", "unread" to { l: Lua -> l.pushValue(data.feedsUnread(l.args().firstOrNull())); 1 })
+        lua.table(
+            "usage",
+            "today" to { l: Lua -> l.pushValue(data.usageToday(l.args().firstOrNull())); 1 },
+            "days" to { l: Lua -> l.pushValue(data.usageDays(l.args().firstOrNull())); 1 },
+            "data" to { l: Lua -> l.pushValue(data.usageData(l.args().firstOrNull())); 1 },
+            "unused" to { l: Lua -> l.pushValue(data.usageUnused(l.args().firstOrNull())); 1 },
+        )
         lua.global("sleep") { l ->
             host.sleep(l.toInteger(1))
             0

@@ -145,6 +145,12 @@ class JsEngine : ScriptEngine {
         js.define("reminders") { function("list") { toJs(data.remindersList()) } }
         js.define("calendar") { function("events") { args -> toJs(data.calendarEvents(args.getOrNull(0))) } }
         js.define("feeds") { function("unread") { args -> toJs(data.feedsUnread(args.getOrNull(0))) } }
+        js.define("usage") {
+            function("today") { args -> toJs(data.usageToday(args.getOrNull(0))) }
+            function("days") { args -> toJs(data.usageDays(args.getOrNull(0))) }
+            function("data") { args -> toJs(data.usageData(args.getOrNull(0))) }
+            function("unused") { args -> toJs(data.usageUnused(args.getOrNull(0))) }
+        }
         js.asyncFunction("sleep") { args -> host.sleepAsync((args.getOrNull(0) as? Number)?.toLong() ?: 0L) }
         js.define("rss") {
             asyncFunction("fetch") { args -> io { toJs(host.rssFetch(args.req())) } }
@@ -293,7 +299,7 @@ class JsEngine : ScriptEngine {
               const g = globalThis;
               for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set"]) install(g, name, false);
               install(g, "sleep", true);
-              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar", "feeds"];
+              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar", "feeds", "usage"];
               for (const ns of spaces) {
                 const o = g[ns];
                 const ks = names(o);

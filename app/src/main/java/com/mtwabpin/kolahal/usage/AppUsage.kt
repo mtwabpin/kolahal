@@ -30,6 +30,29 @@ class AppUsage(private val context: Context) {
     /** Each app's time in front in [from, until), by package. */
     fun totals(from: Long, until: Long): Map<String, Long> = AppSessions.totals(events(from, until), from, until)
 
+    /** One app's time: its package, the name it shows as, and its milliseconds in front. */
+    data class AppTime(val pkg: String, val label: String, val ms: Long)
+
+    /** Each app's time ([apps], biggest first) and the time of all apps together ([total]). */
+    class Times(val apps: List<AppTime>, val total: Long)
+
+    /**
+     * Each app's time in front in [from, until), biggest first, and the total, for `usage` and
+     * `usage.today()`.
+     * - Only an app with a minute or more counts. Kolahal itself is left out.
+     * - [label] names a package (the app list's name); without one, Android's name for it. A package
+     *   with no name at all (the phone's in-call screen) counts in the total, not in the list.
+     */
+    fun times(from: Long, until: Long, label: (String) -> String?): Times {
+        val counted = totals(from, until).filter { it.value >= 60_000 && it.key != context.packageName }
+        val pm = context.packageManager
+        val named = counted.mapNotNull { (pkg, ms) ->
+            val name = label(pkg) ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+            if (name.isNullOrBlank() || name == pkg) null else AppTime(pkg, name, ms)
+        }.sortedByDescending { it.ms }
+        return Times(named, counted.values.sum())
+    }
+
     /**
      * [pkg]'s time on each of the last [days] days, the oldest first, for the days with data
      * ([UsageHistory]). Today is the last.

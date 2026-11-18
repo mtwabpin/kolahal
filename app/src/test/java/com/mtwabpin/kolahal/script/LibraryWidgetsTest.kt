@@ -46,7 +46,7 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
+            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "data-month.lua", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "screen-time.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "unused-apps.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
             withWidget,
         )
     }
@@ -172,6 +172,58 @@ class LibraryWidgetsTest {
      * Each watched repo with its newest release: the tag at the row's end, and its age under the
      * repo's name. It gives no title, so the card has the script's `@title`.
      */
+    /** Screen time: today large, a bar a day for the days Android has data for, oldest first. */
+    @Test fun screenTime() {
+        val tap = luaTable("args" to "today", "page" to "log", "label" to "Show today's apps")
+        val spec = fromLua(
+            "screen-time.lua",
+            luaTable(
+                "title" to "Screen time", "icon" to "timer", "value" to "4h 12m", "label" to "screen time today",
+                "points" to luaList(252.0, 190.0, 300.0, 252.0), "style" to "bars", "min" to 0.0,
+                "labels" to luaList("Fri", "Today"), "summary" to "Fri 4h 12m, Sat 3h 10m, Sun 5h 0m, Today 4h 12m",
+                "staleAfter" to 900.0, "tap" to tap,
+            ),
+        ) as WidgetSpec.Chart
+        assertEquals("4h 12m", spec.value)
+        assertEquals(listOf(252f, 190f, 300f, 252f), spec.points)
+        assertEquals(WidgetTap(args = "today", label = "Show today's apps", toLog = true), spec.base.tap)
+    }
+
+    /** Data this month: a bar toward the plan, red when the pace is over it; with no plan, or on Android 9, a number. */
+    @Test fun dataMonth() {
+        val tap = luaTable("args" to "month", "page" to "log", "label" to "Show the month")
+        val bar = fromLua(
+            "data-month.lua",
+            luaTable("title" to "Data this month", "icon" to "wifi", "value" to 31.2, "max" to 75.0, "text" to "31.2", "label" to "of 75 GB", "color" to "bad", "staleAfter" to 1800.0, "tap" to tap),
+        ) as WidgetSpec.Progress
+        assertEquals("31.2", bar.text)
+        assertEquals(StyledText.Colour.BAD, bar.base.color)
+        val number = fromLua(
+            "data-month.lua",
+            luaTable("kind" to "stat", "title" to "Data this month", "icon" to "wifi", "value" to "31.2", "unit" to "GB", "label" to "mobile since 1 Nov", "staleAfter" to 1800.0, "tap" to tap),
+        ) as WidgetSpec.Stat
+        assertEquals("31.2", number.value)
+        assertEquals("GB", number.unit)
+    }
+
+    /** Unused apps: a row each, its size under its name and the days at its end; none says so. */
+    @Test fun unusedApps() {
+        val empty = "Every app was opened in the last 30 days"
+        val tap = luaTable("args" to "list", "page" to "log", "label" to "Show the list")
+        val spec = fromLua(
+            "unused-apps.lua",
+            luaTable(
+                "icon" to "moon", "empty" to empty, "staleAfter" to 21_600.0, "tap" to tap,
+                "items" to luaList(
+                    luaTable("title" to "IRCTC Rail Connect", "detail" to "96 MB", "trailing" to "112 days"),
+                    luaTable("title" to "Old Game", "trailing" to "no use recorded"),
+                ),
+            ),
+        ) as WidgetSpec.Rows
+        assertEquals(listOf(WidgetSpec.Row("IRCTC Rail Connect", detail = "96 MB", trailing = "112 days"), WidgetSpec.Row("Old Game", trailing = "no use recorded")), spec.items)
+        assertEquals(empty, (fromLua("unused-apps.lua", luaTable("items" to luaTable(), "empty" to empty)) as WidgetSpec.Rows).empty)
+    }
+
     @Test fun releases() {
         val empty = "No repos: releases add owner/repo"
         val spec = fromLua(

@@ -92,6 +92,8 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val shown = s.apps.groupBy { nameOf(it.uid) }
             .map { (name, list) -> DataUsage.App(list.first().uid, list.sumOf { it.mobile }, list.sumOf { it.wifi }) to name }
             .sortedByDescending { it.first.total }
+            // An app that used less than 1 MB would show "–" twice: it counts toward "Other" instead.
+            .filter { it.first.total >= MB }
             .take(SHOWN)
         val mobileOther = (s.mobile ?: s.apps.sumOf { it.mobile }) - shown.sumOf { it.first.mobile }
         val wifiOther = s.wifi - shown.sumOf { it.first.wifi }
@@ -260,30 +262,15 @@ class UsageCommands(context: Context) : CommandGroup(context) {
             out(StyledText.table(rows, header = true, align = "lrr"))
             info("Size is the app and its data, cache included")
         }
-        // Not opened for a while: by the last time Android saw it in front. An app it has no record of
-        // has no day count: only how long ago it was installed, if that is long enough.
-        val now = System.currentTimeMillis()
-        val last = reader.lastUsed(now)
-        val sizeOf = sizes.associate { it.pkg to it.size }
-        val pm = context.packageManager
-        val unused = launchable.mapNotNull { app ->
-            if (app.pkg == context.packageName) return@mapNotNull null
-            val installed = runCatching { pm.getPackageInfo(app.pkg, 0).firstInstallTime }.getOrDefault(now)
-            if (now - installed < UNUSED_DAYS * DAY) return@mapNotNull null
-            val seen = last[app.pkg]
-            when {
-                seen == null -> Triple(app, null, sizeOf[app.pkg])
-                now - seen >= UNUSED_DAYS * DAY -> Triple(app, (now - seen) / DAY, sizeOf[app.pkg])
-                else -> null
-            }
-        }.sortedWith(compareByDescending<Triple<AppEntry, Long?, Long?>> { it.second ?: Long.MAX_VALUE }.thenBy { it.first.lower })
+        val unused = reader.unused(byPkg.keys, UNUSED_DAYS, sizes.associate { it.pkg to it.size }) { byPkg[it]?.lower ?: it }
         if (unused.isEmpty()) return info("Every app was opened in the last $UNUSED_DAYS days")
         info("Not opened for $UNUSED_DAYS days or more")
-        unused.take(UNUSED_SHOWN).forEach { (app, days, size) ->
-            val words = listOfNotNull(if (days == null) "no use recorded" else "$days days", size?.let(::bytes)).joinToString(" · ")
+        unused.take(UNUSED_SHOWN).forEach { u ->
+            val app = byPkg.getValue(u.pkg)
+            val words = listOfNotNull(if (u.days == null) "no use recorded" else "${u.days} days", u.bytes?.let(::bytes)).joinToString(" · ")
             out(app.label, appContext(app) + mapOf(LogContext.DESC to words))
         }
-        val total = unused.sumOf { it.third ?: 0L }
+        val total = unused.sumOf { it.bytes ?: 0L }
         info("${unused.size} ${if (unused.size == 1) "app" else "apps"}${if (total > 0) ", ${bytes(total)}" else ""} · long-press one for its info or to uninstall")
     }
 
@@ -303,7 +290,6 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
         private const val MB = 1_000_000L
         private const val GB = 1_000_000_000L
-        private const val DAY = 86_400_000L
 
         /** The apps a table shows; the rest are "Other". */
         private const val SHOWN = 8

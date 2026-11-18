@@ -533,5 +533,5 @@ internal val PILL_ICONS = mapOf(
     "wifi" to R.drawable.ic_wifi, "offline" to R.drawable.ic_cloud_off, "notification" to R.drawable.ic_notifications,
     "boot" to R.drawable.ic_restart,
     "todos" to R.drawable.ic_check, "notes" to R.drawable.ic_edit, "reminders" to R.drawable.ic_alarm,
-    "calendar" to R.drawable.ic_calendar, "feeds" to R.drawable.ic_rss,
+    "calendar" to R.drawable.ic_calendar, "feeds" to R.drawable.ic_rss, "usage" to R.drawable.ic_schedule,
 )

@@ -140,7 +140,108 @@ internal class HostData(
         return repo.items(unreadOnly = true, limit = count).map { feedRow(it, names[it.feedId].orEmpty()) }
     }
 
+    // ---- usage (`@uses usage`): screen time, data and unused apps, from Android's usage data ----------
+
+    /** Whether Kolahal has Usage Access: without it, Android tells nothing, and each call gives nothing. */
+    private fun usageAccess() = runCatching { com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).hasUsageAccess() }.getOrDefault(false)
+
+    /** The personal profile's apps by package, with their names: how a script sees an app. */
+    private val appNames by lazy {
+        val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
+        runCatching { la.getActivityList(null, android.os.Process.myUserHandle()) }.getOrDefault(emptyList())
+            .associate { it.componentName.packageName to it.label.toString() }
+    }
+
+    private fun startOfToday(zone: ZoneId = ZoneId.systemDefault()) = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+
+    /**
+     * `usage.today(n?)`: `{ total, apps }`. [total] is today's screen time in minutes, since
+     * midnight; [apps] the [n] apps used most (10 by default, up to [MAX_USAGE_APPS]), each
+     * `{ app, pkg, minutes }`, biggest first: what `usage` shows.
+     */
+    fun usageToday(n: Any?): Map<String, Any?> {
+        val none = mapOf("total" to 0L, "apps" to emptyList<Any>())
+        if (!may(USAGE, "usage.today")) return none
+        val count = listCount("usage.today", "n", n, MAX_USAGE_APPS, DEFAULT_USAGE_APPS)
+        if (!usageAccess()) return none
+        val t = com.mtwabpin.kolahal.usage.AppUsage(context).times(startOfToday(), System.currentTimeMillis()) { appNames[it] }
+        return mapOf(
+            "total" to t.total / 60_000,
+            "apps" to t.apps.take(count).map { mapOf("app" to StyledText.strip(it.label).take(MAX_TEXT), "pkg" to it.pkg, "minutes" to it.ms / 60_000) },
+        )
+    }
+
+    /**
+     * `usage.days(n?)`: the screen time of each of the last [n] days (7 by default, up to 30), in
+     * minutes, the oldest first. Only the days Android has data for ([com.mtwabpin.kolahal.usage.UsageHistory]):
+     * the list can be shorter than [n]. Today is the last.
+     */
+    fun usageDays(n: Any?): List<Long> {
+        if (!may(USAGE, "usage.days")) return emptyList()
+        val count = listCount("usage.days", "n", n, MAX_USAGE_DAYS, DEFAULT_USAGE_DAYS)
+        if (!usageAccess()) return emptyList()
+        val zone = ZoneId.systemDefault()
+        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
+        val now = System.currentTimeMillis()
+        return com.mtwabpin.kolahal.usage.UsageHistory.days(context, count).map { day ->
+            val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
+            val until = minOf(day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), now)
+            reader.times(from, until) { appNames[it] }.total / 60_000
+        }
+    }
+
+    /**
+     * `usage.data(since?)`: `{ mobile, wifi }`, the bytes used since [since] (seconds since 1970;
+     * by default, midnight). [mobile] is nil on Android 9, which doesn't tell it.
+     */
+    fun usageData(since: Any?): Map<String, Any?> {
+        if (!may(USAGE, "usage.data")) return emptyMap()
+        val now = System.currentTimeMillis()
+        val from = when (since) {
+            null -> startOfToday()
+            is Number -> since.toDouble().takeIf { it.isFinite() }?.let { (it * 1000).toLong().coerceIn(0L, now) }
+                ?: throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970")
+            else -> throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970, such as os.time()")
+        }
+        if (!usageAccess()) return emptyMap()
+        val s = com.mtwabpin.kolahal.usage.DataUsage(context).between(from, now)
+        return mapOf("mobile" to s.mobile, "wifi" to s.wifi)
+    }
+
+    /**
+     * `usage.unused(days?)`: the apps not opened for [days] days or more (30 by default, 7 to 365),
+     * each `{ app, pkg, days, bytes }`: what `storage` lists. [days] is nil for an app Android has no
+     * use recorded for; [bytes] is its size, nil when Android doesn't tell. Up to [MAX_UNUSED].
+     */
+    fun usageUnused(days: Any?): List<Map<String, Any?>> {
+        if (!may(USAGE, "usage.unused")) return emptyList()
+        val wanted = when (days) {
+            null -> DEFAULT_UNUSED_DAYS
+            is Number -> days.toDouble().takeIf { it.isFinite() }?.toLong()?.coerceIn(7L, 365L)
+                ?: throw IllegalArgumentException("usage.unused: days must be a number from 7 to 365")
+            else -> throw IllegalArgumentException("usage.unused: days must be a number from 7 to 365")
+        }
+        if (!usageAccess()) return emptyList()
+        val storage = com.mtwabpin.kolahal.usage.StorageUsage(context)
+        val sizes = storage.sizes(appNames.keys).associate { it.pkg to it.size }
+        return storage.unused(appNames.keys, wanted, sizes) { appNames[it]?.lowercase() ?: it }.take(MAX_UNUSED).map { u ->
+            mapOf("app" to StyledText.strip(appNames[u.pkg].orEmpty()).take(MAX_TEXT), "pkg" to u.pkg, "days" to u.days, "bytes" to u.bytes)
+        }
+    }
+
     companion object {
+        /** `@uses usage`: screen time, data use and unused apps. */
+        const val USAGE = "usage"
+        /** `usage.today(n)`: n from 1 to [MAX_USAGE_APPS]; without it, [DEFAULT_USAGE_APPS]. */
+        const val MAX_USAGE_APPS = 30
+        const val DEFAULT_USAGE_APPS = 10
+        /** `usage.days(n)`: n from 1 to [MAX_USAGE_DAYS]; without it, [DEFAULT_USAGE_DAYS]. */
+        const val MAX_USAGE_DAYS = 30
+        const val DEFAULT_USAGE_DAYS = 7
+        /** `usage.unused(days)`: days from 7 to 365; without it, [DEFAULT_UNUSED_DAYS]. Up to [MAX_UNUSED] apps. */
+        const val DEFAULT_UNUSED_DAYS = 30L
+        const val MAX_UNUSED = 50
+
         // The `@uses` items. Each is also the name of its namespace.
         const val TODOS = "todos"
         const val NOTES = "notes"
