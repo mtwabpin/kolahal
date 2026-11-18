@@ -245,6 +245,8 @@ class StyledTextBlocksTest {
         assertEquals(StyledText.COLUMNS_MAX, StyledText.lines(StyledText.columns(List(100) { it.toDouble() }, emptyList(), "x")).single().columns!!.heights.size)
         assertEquals(listOf(0f, 0f), StyledText.lines(StyledText.columns(listOf(0.0, 0.0), emptyList(), "x")).single().columns!!.heights)
         assertEquals("", StyledText.columns(emptyList(), emptyList(), "x"))
+        // Slots past the values stay empty: the hours still to come.
+        assertEquals(listOf(1f, null, null), StyledText.lines(StyledText.columns(listOf(5.0), emptyList(), "x", slots = 3)).single().columns!!.heights)
     }
 
     @Test fun statsAreALineOfBigNumbers() {

@@ -9,9 +9,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * One app's use, from Android's usage data (Usage Access): `usage <app>`.
- * - Its time on a day is Android's own total, as `usage` shows it.
- * - Its opens, sessions and hours today come from Android's events ([AppSessions]).
+ * Apps' use, from Android's usage events (Usage Access): `usage` and `usage <app>`.
+ * - Every time is worked out from the events, counted from local midnight ([AppSessions]): the
+ *   totals, the days, the opens, the sessions and the hours. Android's own daily totals start at
+ *   another hour on many phones (midnight UTC), so a day of theirs mixes two of yours.
  */
 class AppUsage(private val context: Context) {
     private val usage = context.getSystemService(UsageStatsManager::class.java)
@@ -19,11 +20,15 @@ class AppUsage(private val context: Context) {
 
     private fun startOf(day: LocalDate) = day.atStartOfDay(zone).toInstant().toEpochMilli()
 
-    /** Android's total time in front for [pkg] on [day] (up to now for today). */
+    /** [pkg]'s time in front on [day] (up to now for today). */
     fun timeOn(pkg: String, day: LocalDate, now: Long = System.currentTimeMillis()): Long {
+        val from = startOf(day)
         val until = minOf(startOf(day.plusDays(1)), now)
-        return runCatching { usage.queryAndAggregateUsageStats(startOf(day), until)[pkg]?.totalTimeInForeground ?: 0L }.getOrDefault(0L)
+        return AppSessions.totals(events(from, until), from, until)[pkg] ?: 0L
     }
+
+    /** Each app's time in front in [from, until), by package. */
+    fun totals(from: Long, until: Long): Map<String, Long> = AppSessions.totals(events(from, until), from, until)
 
     /**
      * [pkg]'s time on each of the last [days] days, the oldest first, for the days with data
@@ -32,11 +37,10 @@ class AppUsage(private val context: Context) {
     fun days(pkg: String, days: Int, today: LocalDate = LocalDate.now()): List<Pair<LocalDate, Long>> =
         UsageHistory.days(context, days, today).map { it to timeOn(pkg, it) }
 
-    /** [pkg]'s sessions today, from midnight to now ([AppSessions.of]), an hour slot for each hour so far. */
+    /** [pkg]'s sessions today, from midnight to now ([AppSessions.of]), a slot for each hour of the day. */
     fun today(pkg: String, now: Long = System.currentTimeMillis()): AppSessions {
         val from = startOf(LocalDate.now(zone))
-        val hours = ((now - from) / 3_600_000L).toInt() + 1
-        return AppSessions.of(events(from, now), pkg, from, now, hours.coerceIn(1, 25))
+        return AppSessions.of(events(from, now), pkg, from, now, 24)
     }
 
     /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */

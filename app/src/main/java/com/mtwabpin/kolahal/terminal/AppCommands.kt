@@ -318,9 +318,8 @@ class AppCommands(
         val dataDays = com.mtwabpin.kolahal.usage.UsageHistory.days(context, asked)
         val days = dataDays.size
         val start = dataDays.first().atStartOfDay(zone).toInstant().toEpochMilli()
-        val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
-        val totals = usm.queryAndAggregateUsageStats(start, System.currentTimeMillis())
-            .mapValues { it.value.totalTimeInForeground }
+        // From the usage events, counted from local midnight ([com.mtwabpin.kolahal.usage.AppUsage]).
+        val totals = com.mtwabpin.kolahal.usage.AppUsage(context).totals(start, System.currentTimeMillis())
             .filter { it.value >= 60_000 && it.key != context.packageName }
             .entries.sortedByDescending { it.value }
         if (totals.isEmpty()) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
@@ -354,8 +353,8 @@ class AppCommands(
 
     /**
      * `usage <app>`: one app today and in the last days.
-     * - Big numbers: its time today (Android's total, as `usage` shows it), how often it was opened,
-     *   and its longest session.
+     * - Big numbers: its time today, how often it was opened, and its longest session, all from
+     *   Android's usage events since midnight ([com.mtwabpin.kolahal.usage.AppUsage]).
      * - When it was last used, a column for each hour today, then a line for each of the last 7
      *   days with data, with a bar, and the average of those days.
      * - A work or private app has no data here: Android gives Kolahal only its own profile's.
@@ -384,9 +383,11 @@ class AppCommands(
             else -> info("Not used today")
         }
         if (s.total > 0) {
-            val minutes = s.hours.map { it / 60_000.0 }
+            // The hours so far, in a chart of the whole day: the hours still to come keep their places.
+            val hour = java.time.LocalTime.now().hour
+            val minutes = s.hours.take(hour + 1).map { it / 60_000.0 }
             val said = "${app.label} by hour today: " + minutes.withIndex().filter { it.value >= 1 }.joinToString(", ") { "%02d:00 %dm".format(it.index, it.value.toInt()) }
-            out(com.mtwabpin.kolahal.data.StyledText.columns(minutes, listOf("00", "Now"), said))
+            out(com.mtwabpin.kolahal.data.StyledText.columns(minutes, listOf("00", "06", "12", "18", "24"), said, slots = 24))
         }
         if (days.size <= 1) return
         val labels = days.map { (d, _) -> com.mtwabpin.kolahal.data.TimeFormats.dayLabel(d, today, capital = true) }

@@ -86,6 +86,13 @@ class AppSessionsTest {
         assertEquals(0L, s.hours[2])
     }
 
+    /** Every app's time from one pass: one app in front at a time, so the times add up to the time in use. */
+    @Test fun totalsForEveryApp() {
+        val events = listOf(front(app, 10 * min), front(other, 25 * min), Event(AppSessions.SCREEN_OFF, "android", 40 * min), front(app, 50 * min))
+        val totals = AppSessions.totals(events, from, 60 * min)
+        assertEquals(mapOf(app to 25 * min, other to 15 * min), totals)
+    }
+
     @Test fun noSessionsNoTimes() {
         val s = of(front(other, 10 * min), away(other, 20 * min))
         assertEquals(0, s.opens)

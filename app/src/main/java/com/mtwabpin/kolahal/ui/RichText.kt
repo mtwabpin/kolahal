@@ -484,9 +484,12 @@ internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier
             val round = androidx.compose.ui.geometry.CornerRadius(minOf(2.dp.toPx(), w / 2))
             // A value of 0 still shows as a sliver above the baseline, so a quiet hour is not a gap.
             val least = 1.dp.toPx()
+            // The newest column drawn stands out; slots still to come are empty.
+            val newest = columns.heights.indexOfLast { it != null }
             columns.heights.forEachIndexed { i, h ->
+                if (h == null) return@forEachIndexed
                 val tall = (size.height - least) * h + least
-                drawRoundRect(if (i == n - 1) accent else faint, Offset(i * slot + gap / 2, size.height - tall), Size(w, tall), round)
+                drawRoundRect(if (i == newest) accent else faint, Offset(i * slot + gap / 2, size.height - tall), Size(w, tall), round)
             }
             drawLine(base, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
         }

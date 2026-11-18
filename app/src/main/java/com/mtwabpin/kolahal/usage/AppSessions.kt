@@ -3,8 +3,8 @@ package com.mtwabpin.kolahal.usage
 /**
  * One app's sessions in a window of time (a day, so far), worked out from Android's usage events:
  * how often it was opened, its longest session, when it was last used, and its time in each hour.
- * - [total] is the time its sessions add up to. `usage` shows Android's own total for the app,
- *   which can differ a little; `usage <app>` shows Android's total too, and these for the rest.
+ * - Every time `usage` shows comes from these sessions, counted from local midnight. Android's own
+ *   daily totals start at another hour (midnight UTC on many phones), so they mix two days.
  * - [hours] has a slot for each hour from the window's start: the milliseconds the app was in front.
  */
 class AppSessions(
@@ -36,27 +36,32 @@ class AppSessions(
         /** One usage event: its kind ([RESUMED] and the others), the app's package, and its time. */
         data class Event(val type: Int, val pkg: String, val time: Long)
 
+        /** One time an app was in front, from [start] to [end]. [opened]: it was opened then, not already in front at the window's start. */
+        data class Session(val pkg: String, val start: Long, val end: Long, val opened: Boolean)
+
         /**
-         * [pkg]'s sessions in [from, until), from [events] in time order.
+         * Every app's sessions in [from, until), from [events] in time order. One app is in front at
+         * a time.
          * - An app opens when its screen comes to the front after another app's, or after the
          *   screen was off. A second screen of the same app is not an open.
          * - A session ends when another app comes to the front, the screen goes off, the phone locks
          *   or shuts down. It ends when the app's screen went away, if that was first.
          * - An app already in front at [from] (its first event is going away) has a session from
-         *   [from]. One still in front at [until] has one up to [until].
-         * - [hours] has a slot for each hour from [from], [hourCount] in all.
+         *   [from]. One still in front at [until] has one up to [until]: the last session's end is
+         *   [until] then, and [inFrontAtEnd] is that app.
          */
-        fun of(events: List<Event>, pkg: String, from: Long, until: Long, hourCount: Int = 24): AppSessions {
-            val sessions = ArrayList<LongArray>()
+        fun sessions(events: List<Event>, from: Long, until: Long): Pair<List<Session>, String?> {
+            val out = ArrayList<Session>()
             var front: String? = null
             var frontSince = from
+            var opened = false
             // When the app in front went away, while nothing else has come to the front yet.
             var awayAt: Long? = null
             // Whether anything has happened yet: before that, an app that goes away was in front at [from].
             var started = false
-            var opens = 0
             fun close(at: Long) {
-                if (front == pkg && at > frontSince) sessions += longArrayOf(frontSince, at)
+                val app = front
+                if (app != null && at > frontSince) out += Session(app, frontSince, at, opened)
                 front = null
                 awayAt = null
             }
@@ -72,15 +77,16 @@ class AppSessions(
                             close(away ?: e.time)
                             front = e.pkg
                             frontSince = e.time
-                            if (e.pkg == pkg) opens++
+                            opened = true
                         }
                         started = true
                     }
                     PAUSED, STOPPED -> {
-                        if (!started && front == null && e.pkg == pkg) {
+                        if (!started && front == null) {
                             // In front since before [from].
-                            front = pkg
+                            front = e.pkg
                             frontSince = from
+                            opened = false
                         }
                         if (front == e.pkg && awayAt == null) awayAt = e.time
                         started = true
@@ -91,27 +97,37 @@ class AppSessions(
                     }
                 }
             }
-            val inFront = front == pkg && awayAt == null
+            val stillInFront = front.takeIf { awayAt == null }
             close(awayAt ?: until)
+            return out to stillInFront
+        }
+
+        /** Each app's time in front in [from, until), from its sessions ([sessions]), by package. */
+        fun totals(events: List<Event>, from: Long, until: Long): Map<String, Long> =
+            sessions(events, from, until).first.groupingBy { it.pkg }.fold(0L) { sum, s -> sum + (s.end - s.start) }
+
+        /** [pkg]'s sessions in [from, until) ([sessions]), with a slot in [hours] for each hour from [from], [hourCount] in all. */
+        fun of(events: List<Event>, pkg: String, from: Long, until: Long, hourCount: Int = 24): AppSessions {
+            val (all, inFront) = sessions(events, from, until)
+            val mine = all.filter { it.pkg == pkg }
             val hours = LongArray(hourCount)
-            for ((start, end) in sessions.map { it[0] to it[1] }) {
-                var t = start
-                while (t < end) {
+            for (s in mine) {
+                var t = s.start
+                while (t < s.end) {
                     val slot = ((t - from) / HOUR_MS).toInt()
-                    val slotEnd = from + (slot + 1) * HOUR_MS
-                    val upTo = minOf(end, slotEnd)
+                    val upTo = minOf(s.end, from + (slot + 1) * HOUR_MS)
                     if (slot in 0 until hourCount) hours[slot] += upTo - t
                     t = upTo
                 }
             }
-            val longest = sessions.maxByOrNull { it[1] - it[0] }
+            val longest = mine.maxByOrNull { it.end - it.start }
             return AppSessions(
-                opens = opens,
-                total = sessions.sumOf { it[1] - it[0] },
-                longest = longest?.let { it[1] - it[0] } ?: 0L,
-                longestAt = longest?.get(0),
-                lastUsed = sessions.lastOrNull()?.get(1),
-                inFront = inFront,
+                opens = mine.count { it.opened },
+                total = mine.sumOf { it.end - it.start },
+                longest = longest?.let { it.end - it.start } ?: 0L,
+                longestAt = longest?.start,
+                lastUsed = mine.lastOrNull()?.end,
+                inFront = inFront == pkg,
                 hours = hours,
             )
         }
