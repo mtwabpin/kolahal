@@ -176,6 +176,7 @@ internal object ReferenceExamples {
         Widget(
             "toggles", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
             lua = """
+            -- (the script needs @uses dnd)
             if event and event.name == "action" and args[1] == "dnd" then
               device.setDnd(device.dnd() == "off" and "on" or "off")
             end
@@ -184,6 +185,7 @@ internal object ReferenceExamples {
             } }
             """,
             js = """
+            // (the script needs @uses dnd)
             if (event && event.name === "action" && args[0] === "dnd") {
               device.setDnd(device.dnd() === "off" ? "on" : "off");
             }
@@ -348,12 +350,6 @@ internal object ReferenceExamples {
         val heading: String,
         val lua: String,
         val js: String,
-        /**
-         * Code that sets what the example's code uses but doesn't set, such as `item`, in each
-         * language. The [lines] show these values. Tests run it before the code.
-         */
-        val luaGiven: String = "",
-        val jsGiven: String = "",
         val lines: List<Line>,
     ) {
         fun code(lang: ScriptLang): String = (if (lang == ScriptLang.LUA) lua else js).trimIndent()
@@ -381,6 +377,10 @@ internal object ReferenceExamples {
             log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C")
             log("Kolahal on GitHub", { url = "https://github.com/mtwabpin/kolahal" })
             -- A list: each story a title with its points under it, and a small space between the stories.
+            local stories = {
+              { title = "$STORY_1", points = 128, link = "https://example.com/1" },
+              { title = "$STORY_2", points = 342, link = "https://example.com/2" },
+            }
             for _, s in ipairs(stories) do log(s.title, s.points .. " points", { url = s.link, gap = true }) end
             log("Your code is 4821", { copy = "4821" })
             """,
@@ -389,13 +389,13 @@ internal object ReferenceExamples {
             log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C");
             log("Kolahal on GitHub", { url: "https://github.com/mtwabpin/kolahal" });
             // A list: each story a title with its points under it, and a small space between the stories.
+            const stories = [
+              { title: "$STORY_1", points: 128, link: "https://example.com/1" },
+              { title: "$STORY_2", points: 342, link: "https://example.com/2" },
+            ];
             for (const s of stories) log(s.title, `${'$'}{s.points} points`, { url: s.link, gap: true });
             log("Your code is 4821", { copy: "4821" });
             """,
-            luaGiven = "local stories = { { title = \"$STORY_1\", points = 128, link = \"https://example.com/1\" }," +
-                " { title = \"$STORY_2\", points = 342, link = \"https://example.com/2\" } }\n",
-            jsGiven = "const stories = [{ title: \"$STORY_1\", points: 128, link: \"https://example.com/1\" }," +
-                " { title: \"$STORY_2\", points: 342, link: \"https://example.com/2\" }];\n",
             lines = listOf(
                 Line("neovim/neovim", "Nvim 0.11.4", url = "https://github.com/neovim/neovim/releases"),
                 Line("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"),
@@ -420,15 +420,15 @@ internal object ReferenceExamples {
         Log(
             "md", "md.log(title, body?, ctx?)",
             lua = """
+            local item = { title = "Show HN: Kolahal, a launcher", link = "https://example.com/hn" }
             md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")
             md.log("**HN** " .. md.escape(item.title), nil, { url = item.link })
             """,
             js = """
+            const item = { title: "Show HN: Kolahal, a launcher", link: "https://example.com/hn" };
             md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119");
             md.log("**HN** " + md.escape(item.title), null, { url: item.link });
             """,
-            luaGiven = "local item = { title = \"Show HN: Kolahal, a launcher\", link = \"https://example.com/hn\" }\n",
-            jsGiven = "const item = { title: \"Show HN: Kolahal, a launcher\", link: \"https://example.com/hn\" };\n",
             lines = listOf(
                 Line(Markdown.inline("**3** new releases"), Markdown.block("- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")),
                 Line(Markdown.inline("**HN** " + Markdown.escape("Show HN: Kolahal, a launcher")), url = "https://example.com/hn"),
@@ -437,17 +437,17 @@ internal object ReferenceExamples {
         Log(
             "styles", "fmt: styles and colours",
             lua = """
+            local item = { score = 128, title = "$STORY_1", link = "https://example.com/1" }
             log(fmt.bold(item.score) .. " · " .. item.title, nil, { url = item.link })
             log("Today", fmt.list({ "standup " .. fmt.code("10:00"), "review" }, true))
             log("BTC 67,120 USD " .. fmt.color("good", "▲ 1.2%"))
             """,
             js = """
+            const item = { score: 128, title: "$STORY_1", link: "https://example.com/1" };
             log(`${'$'}{fmt.bold(item.score)} · ${'$'}{item.title}`, null, { url: item.link });
             log("Today", fmt.list([`standup ${'$'}{fmt.code("10:00")}`, "review"], true));
             log(`BTC 67,120 USD ${'$'}{fmt.color("good", "▲ 1.2%")}`);
             """,
-            luaGiven = "local item = { score = 128, title = \"$STORY_1\", link = \"https://example.com/1\" }\n",
-            jsGiven = "const item = { score: 128, title: \"$STORY_1\", link: \"https://example.com/1\" };\n",
             lines = listOf(
                 Line(bold("128") + " · " + STORY_1, url = "https://example.com/1"),
                 Line("Today", StyledText.list(listOf("standup " + code("10:00"), "review"), numbered = true)),
@@ -487,15 +487,15 @@ internal object ReferenceExamples {
         Log(
             "links", "fmt.link(text, url)",
             lua = """
+            local item = { title = "$STORY_1", comments = "https://example.com/c", link = "https://example.com/1" }
             log(item.title .. " · " .. fmt.link("138 comments", item.comments), { url = item.link })
             md.log("New in [neovim](https://github.com/neovim/neovim/releases)")
             """,
             js = """
+            const item = { title: "$STORY_1", comments: "https://example.com/c", link: "https://example.com/1" };
             log(`${'$'}{item.title} · ${'$'}{fmt.link("138 comments", item.comments)}`, { url: item.link });
             md.log("New in [neovim](https://github.com/neovim/neovim/releases)");
             """,
-            luaGiven = "local item = { title = \"$STORY_1\", comments = \"https://example.com/c\", link = \"https://example.com/1\" }\n",
-            jsGiven = "const item = { title: \"$STORY_1\", comments: \"https://example.com/c\", link: \"https://example.com/1\" };\n",
             lines = listOf(
                 Line("$STORY_1 · " + StyledText.link("https://example.com/c", "138 comments"), url = "https://example.com/1"),
                 Line(Markdown.inline("New in [neovim](https://github.com/neovim/neovim/releases)")),

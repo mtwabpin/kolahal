@@ -130,6 +130,10 @@ log("neovim/neovim", "Nvim 0.11.4", { url = "https://github.com/neovim/neovim/re
 log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C")
 log("Kolahal on GitHub", { url = "https://github.com/mtwabpin/kolahal" })
 -- A list: each story a title with its points under it, and a small space between the stories.
+local stories = {
+  { title = "A launcher that is a terminal", points = 128, link = "https://example.com/1" },
+  { title = "Lua 5.5 is out", points = 342, link = "https://example.com/2" },
+}
 for _, s in ipairs(stories) do log(s.title, s.points .. " points", { url = s.link, gap = true }) end
 log("Your code is 4821", { copy = "4821" })
 log("xkcd #327", { image = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" })
@@ -142,6 +146,10 @@ log("neovim/neovim", "Nvim 0.11.4", { url: "https://github.com/neovim/neovim/rel
 log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C");
 log("Kolahal on GitHub", { url: "https://github.com/mtwabpin/kolahal" });
 // A list: each story a title with its points under it, and a small space between the stories.
+const stories = [
+  { title: "A launcher that is a terminal", points: 128, link: "https://example.com/1" },
+  { title: "Lua 5.5 is out", points: 342, link: "https://example.com/2" },
+];
 for (const s of stories) log(s.title, `${s.points} points`, { url: s.link, gap: true });
 log("Your code is 4821", { copy: "4821" });
 log("xkcd #327", { image: "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" });
@@ -194,12 +202,14 @@ text from the web inside `md.log`, so that it still shows exactly as written.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
+local item = { title = "Show HN: Kolahal, a launcher", link = "https://example.com/hn" }
 md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")
 md.log("**HN** " .. md.escape(item.title), nil, { url = item.link })
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
+const item = { title: "Show HN: Kolahal, a launcher", link: "https://example.com/hn" };
 md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119");
 md.log("**HN** " + md.escape(item.title), null, { url: item.link });
 ```
@@ -250,6 +260,7 @@ Where styles work:
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
+local item = { score = 128, title = "A launcher that is a terminal", link = "https://example.com/1" }
 log(fmt.bold(item.score) .. " · " .. item.title, nil, { url = item.link })
 log("Today", fmt.list({ "standup " .. fmt.code("10:00"), "review" }, true))
 log("BTC 67,120 USD " .. fmt.color("good", "▲ 1.2%"))
@@ -257,6 +268,7 @@ log("BTC 67,120 USD " .. fmt.color("good", "▲ 1.2%"))
 </TabItem>
 <TabItem label="JavaScript">
 ```js
+const item = { score: 128, title: "A launcher that is a terminal", link: "https://example.com/1" };
 log(`${fmt.bold(item.score)} · ${item.title}`, null, { url: item.link });
 log("Today", fmt.list([`standup ${fmt.code("10:00")}`, "review"], true));
 log(`BTC 67,120 USD ${fmt.color("good", "▲ 1.2%")}`);
@@ -322,12 +334,14 @@ line does what a tap on the line does (opens its `url`, if it has one).
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
+local item = { title = "A launcher that is a terminal", comments = "https://example.com/c", link = "https://example.com/1" }
 log(item.title .. " · " .. fmt.link("138 comments", item.comments), { url = item.link })
 md.log("New in [neovim](https://github.com/neovim/neovim/releases)")
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
+const item = { title: "A launcher that is a terminal", comments: "https://example.com/c", link: "https://example.com/1" };
 log(`${item.title} · ${fmt.link("138 comments", item.comments)}`, { url: item.link });
 md.log("New in [neovim](https://github.com/neovim/neovim/releases)");
 ```

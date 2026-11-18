@@ -92,7 +92,7 @@ object DocsExamples {
      */
     val logs: List<Log> = ReferenceExamples.logs.map { ex ->
         val code = ex.lua.trimIndent() + if (ex.name == "log") "\n" + LOG_REST else ""
-        Log(ex.name, code, before = ex.luaGiven)
+        Log(ex.name, code)
     }
 
     /** Keeps what the code hands to `widget.show` in the script's store, as JSON, and passes it on. */

@@ -16,9 +16,10 @@ import org.junit.runner.RunWith
 
 /**
  * The editor reference draws each log example from lines made in Kotlin
- * ([ReferenceExamples.Log.lines]), not by running the example. Here each example's code runs, in
- * Lua and in JavaScript, as a saved script, and must log those same lines: the same text, and the
- * same context for what a line shows (its body, link, gap, Copy text and buttons).
+ * ([ReferenceExamples.Log.lines]), not by running the example. Here each example's code runs as
+ * the reference inserts it, in Lua and in JavaScript, as a saved script, and must log those same
+ * lines: the same text, and the same context for what a line shows (its body, link, gap, Copy text
+ * and buttons).
  */
 @RunWith(AndroidJUnit4::class)
 class ReferenceLinesTest {
@@ -37,10 +38,9 @@ class ReferenceLinesTest {
     @Test fun eachExampleLogsTheLinesTheReferenceDraws() {
         for (ex in ReferenceExamples.logs) for (lang in ScriptLang.entries) {
             lines().forEach { logs.delete(it.id) }
-            val given = if (lang == ScriptLang.LUA) ex.luaGiven else ex.jsGiven
             // A saved script: only its lines may have buttons.
             val host = HostApi(context, name, scriptId = id, notifyEnabled = false)
-            runBlocking { ScriptEngine.forLang(lang).run(given + ex.code(lang), name, host, 10_000, false, emptyList(), null) }
+            runBlocking { ScriptEngine.forLang(lang).run(ex.code(lang), name, host, 10_000, false, emptyList(), null) }
             host.flush()
             assertEquals(
                 "${ex.name} in $lang",

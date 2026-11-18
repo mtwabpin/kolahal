@@ -16,12 +16,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import java.time.ZoneId
@@ -31,8 +36,9 @@ import java.time.ZoneId
  * widgets page's own code at the size it has there, over its code in the script's language. A tap
  * on an example gives [onExample] its code.
  *
- * The card takes no touch: a layer over it catches each tap. So it runs nothing, opens no link, and
- * fetches nothing ([LocalWidgetsShown] is false, and the picture example isn't here).
+ * The card takes no touch: a layer over it catches each tap, and TalkBack reads it as its
+ * description, with none of its buttons or rows. So it runs nothing, opens no link, and fetches
+ * nothing ([LocalWidgetsShown] is false, and the picture example isn't here).
  */
 internal fun LazyListScope.widgetExamples(lang: ScriptLang, onExample: (String) -> Unit) {
     item(key = "widget-examples") {
@@ -68,13 +74,15 @@ private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, onExam
             Box {
                 GuiTheme {
                     CompositionLocalProvider(LocalWidgetsShown provides false) {
-                        Box(Modifier.width(WidgetLayout.widthDp(pageDp, ex.size.span).dp)) {
+                        // TalkBack reads the card as its description, with none of its buttons or rows.
+                        val description = WidgetWords.description(title, spec, now, zone, clock24)
+                        Box(Modifier.width(WidgetLayout.widthDp(pageDp, ex.size.span).dp).clearAndSetSemantics { contentDescription = description }) {
                             WidgetCard(
                                 title = title,
                                 height = WidgetSizes.heightDp(ex.size, pageDp).dp,
                                 spec = spec,
                                 note = null,
-                                description = WidgetWords.description(title, spec, now, zone, clock24),
+                                description = description,
                             )
                         }
                     }
@@ -92,8 +100,8 @@ private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, onExam
  * log's own line ([LogLine]) on the log's background, over its code in the script's language. A tap
  * on an example gives [onExample] its code.
  *
- * The lines take no touch: a layer over them catches each tap. So a line's link doesn't open, a
- * swipe doesn't copy or delete it, and its buttons run nothing.
+ * The lines take no touch: a layer over them catches each tap, and TalkBack reads them as one text.
+ * So a line's link doesn't open, a swipe doesn't copy or delete it, and its buttons run nothing.
  */
 internal fun LazyListScope.logExamples(lang: ScriptLang, onExample: (String) -> Unit) {
     item(key = "log-examples") {
@@ -104,6 +112,11 @@ internal fun LazyListScope.logExamples(lang: ScriptLang, onExample: (String) -> 
         )
     }
     items(ReferenceExamples.logs, key = { "log-example ${it.name}" }) { ex -> LogExample(ex, lang, onExample) }
+}
+
+/** Opens nothing: the links of an example's lines only show. */
+private object NoLinks : UriHandler {
+    override fun openUri(uri: String) = Unit
 }
 
 @Composable
@@ -118,6 +131,8 @@ private fun LogExample(ex: ReferenceExamples.Log, lang: ScriptLang, onExample: (
     }
     val indents = rememberLineIndents()
     val code = ex.code(lang)
+    // What a screen reader says for the lines: each title and body, as plain text.
+    val spoken = remember(ex) { ex.lines.joinToString("\n") { l -> listOfNotNull(l.text, l.body).joinToString("\n") { StyledText.plain(it) } } }
     Column(
         Modifier
             .fillMaxWidth()
@@ -127,13 +142,23 @@ private fun LogExample(ex: ReferenceExamples.Log, lang: ScriptLang, onExample: (
     ) {
         Text(ex.heading, style = Term.code.copy(color = Term.fg), modifier = Modifier.padding(horizontal = 16.dp))
         Box(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-            Column(Modifier.fillMaxWidth().background(Term.bg).padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)) {
-                for (row in rows) {
-                    LogLine(
-                        row, TimeMode.OFF, times, dim = false, topGap = 0.dp, itemGap = if (row.itemGap) itemGap else 0.dp,
-                        indents = indents, highlighted = false, apps = { emptyList() },
-                        onTap = {}, onLongPress = {}, onAppTap = {}, onAppLongPress = {},
-                    )
+            // A link in a line opens through LocalUriHandler: here it opens nothing, also for TalkBack,
+            // which reads the lines as one text.
+            CompositionLocalProvider(LocalUriHandler provides NoLinks) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Term.bg)
+                        .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)
+                        .clearAndSetSemantics { contentDescription = spoken },
+                ) {
+                    for (row in rows) {
+                        LogLine(
+                            row, TimeMode.OFF, times, dim = false, topGap = 0.dp, itemGap = if (row.itemGap) itemGap else 0.dp,
+                            indents = indents, highlighted = false, apps = { emptyList() },
+                            onTap = {}, onLongPress = {}, onAppTap = {}, onAppLongPress = {},
+                        )
+                    }
                 }
             }
             // Over the lines, so their links, swipes and buttons never get a touch.

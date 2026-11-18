@@ -3,10 +3,12 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
@@ -262,6 +264,22 @@ class EditorBarsTest {
         compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
         val code = ReferenceExamples.logs.single { it.name == "buttons" }.code(ScriptLang.LUA)
         assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
+    }
+
+    /**
+     * Inside an example, only the layer over its card or lines can act. So nothing else can be
+     * tapped, also with TalkBack: not a link in a line, not a button of a card.
+     */
+    @Test fun anExamplesCardAndLinesHaveNoActionsOfTheirOwn() {
+        show()
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        for ((tag, cover) in listOf("widget-example buttons" to "widget-example-cover", "log-example links" to "log-example-cover", "log-example buttons" to "log-example-cover")) {
+            compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag(tag))
+            // The tree that TalkBack reads.
+            val acting = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
+            assertEquals(tag, listOf(cover), acting.map { it.config.getOrNull(SemanticsProperties.TestTag) })
+        }
     }
 
     /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */
