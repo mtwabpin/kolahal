@@ -356,6 +356,8 @@ internal fun ApiReferenceSheet(
     onPick: (ApiDoc) -> Unit,
     onDirective: (String) -> Unit,
     onIcon: (String) -> Unit,
+    /** A tap on a widget example: its code, to insert. */
+    onExample: (String) -> Unit,
 ) {
     val docs = remember(lang) { ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD } }
     TermSheet(onDismiss) {
@@ -399,6 +401,7 @@ internal fun ApiReferenceSheet(
                     Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
                 }
             }
+            widgetExamples(lang, onExample)
             item {
                 Text(
                     "Icons · for a widget's icon, such as icon = \"sun\"",

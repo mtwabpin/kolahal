@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -223,6 +224,26 @@ class EditorBarsTest {
         compose.onNodeWithTag("apiref").performScrollToNode(hasText("-- @command"))
         compose.onNodeWithText("-- @command").performClick()
         assertEquals("apple pie\n-- @command\nbanana apple\nApple cider", text())
+    }
+
+    /**
+     * The reference shows each widget example as its card, over its code. A tap on the card, even on
+     * one of its buttons, runs nothing and opens nothing: the example goes in, on lines of its own.
+     */
+    @Test fun aWidgetExampleShowsItsCardAndGoesInOnATap() {
+        show()
+        // The start of the second line.
+        cursorAt(10)
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example buttons"))
+        fun inExample(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("widget-example buttons")), useUnmergedTree = true)
+        // The card is drawn, with its buttons.
+        inExample("Start").assertExists()
+        inExample("Stop").performClick()
+        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
+        val code = ReferenceExamples.widgets.single { it.name == "buttons" }.code(ScriptLang.LUA)
+        assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
     }
 
     /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */

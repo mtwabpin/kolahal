@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 /**
  * The examples of the scripting guide (site/src/content/docs/scripting/api.mdx) that the website
  * shows as pictures. Each [code] is the guide's Lua code, as it is there: change both together.
+ * The widget examples are the editor reference's ([ReferenceExamples]), and the picture example.
  * [before] is code run first that the guide leaves out, such as a stand-in for the network.
  */
 object DocsExamples {
@@ -39,101 +40,28 @@ object DocsExamples {
     /** The xkcd link of the log example's picture line. The gallery puts a drawing there. */
     const val COMIC = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png"
 
-    val widgets = listOf(
-        Widget(
-            "steps", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
-            """
-            widget.show{
-              value = "6,240",
-              label = "steps today",
-              more = { { value = "4.1 km", label = "walked" } },
-            }
-            """,
-        ),
-        Widget(
-            "text", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
-            """
-            widget.show{ kind = "text", title = "Word of the day",
-              text = "serendipity\nFinding something good without looking for it.",
-              caption = "from Wiktionary" }
-            """,
-        ),
-        Widget(
-            "list", WidgetKind.LIST, WidgetSize.S4X2, "List",
-            """
-            widget.show{
-              title = "Reading list",
-              items = {
-                { title = "Kolahal's guide", trailing = "docs", tap = { url = "https://mtwabpin.github.io/kolahal/" } },
-                { title = "No link here", detail = "A row needs only its title" },
-              },
-              empty = "Nothing to read",
-            }
-            """,
-        ),
-        Widget(
-            "progress", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
-            """
-            widget.show{ kind = "progress", title = "Pune air", value = 168, max = 300, text = "168", label = "Unhealthy", color = "warn" }
-            """,
-        ),
-        Widget(
-            "chart", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
-            """
-            widget.show{ kind = "chart", title = "Unlocks", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
-              value = 8, label = "unlocks today", labels = { "Sun", "Today" } }
-            """,
-        ),
-        Widget(
-            "countdown", WidgetKind.COUNTDOWN, WidgetSize.S2X1, "Countdown",
-            """
-            widget.show{ kind = "countdown", title = "Goa trip", to = os.time{ year = 2026, month = 12, day = 20, hour = 0 } }
-            """,
-        ),
-        Widget(
-            "buttons", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
-            """
-            widget.show{ kind = "buttons", items = {
-              { label = "Start", icon = "play", tap = { args = "start" } },
-              { label = "Stop", icon = "pause", color = "bad", tap = { args = "stop" } },
-              { label = "Help", tap = { url = "https://example.com/help" } },
-            } }
-            """,
-        ),
-        Widget(
-            "toggles", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
-            """
-            if event and event.name == "action" and args[1] == "dnd" then
-              device.setDnd(device.dnd() == "off" and "on" or "off")
-            end
-            widget.show{ kind = "toggles", items = {
-              { label = "Do Not Disturb", on = device.dnd() ~= "off", tap = { args = "dnd" } },
-            } }
-            """,
-            // Do Not Disturb is on: the picture shows a switch that is on.
-            before = "device = { dnd = function() return \"priority\" end }\n",
-        ),
-        Widget(
-            "clock", WidgetKind.CLOCK, WidgetSize.S2X1, "Clock",
-            """
-            widget.show{ kind = "clock", title = "Clocks", staleAfter = 604800, zones = {
-              { zone = "Asia/Kolkata", label = "Pune" },
-              { zone = "America/New_York" },
-            } }
-            """,
-        ),
-        Widget(
-            "agenda", WidgetKind.AGENDA, WidgetSize.S4X2, "Agenda",
-            """
-            local t = os.date("*t")
-            local lunch = os.time{ year = t.year, month = t.month, day = t.day + 1, hour = 13 }
-            local trip = os.time{ year = t.year, month = t.month, day = t.day + 2, hour = 0 }
-            widget.show{ kind = "agenda", title = "Plans", days = 3, empty = "Nothing planned", events = {
-              { title = "Lunch with Asha", starts = lunch, ends = lunch + 3600, where = "Cafe Goodluck" },
-              { title = "Goa trip", starts = trip, allDay = true, color = "good" },
-            } }
-            """,
-        ),
+    /** What an example needs before its code, to run here: Do Not Disturb on, five glasses of water so far. */
+    val luaBefore = mapOf(
+        "toggles" to "device = { dnd = function() return \"priority\" end, setDnd = function() end }\n",
+        "water" to "store.set(os.date(\"%Y-%m-%d\"), \"5\")\n",
+    )
+
+    /** [luaBefore] for the JavaScript code. */
+    val jsBefore = mapOf(
+        "toggles" to "const device = { dnd: () => \"priority\", setDnd: () => {} };\n",
+        "water" to "{ const d0 = new Date(); store.set(d0.getFullYear() + \"-\" + (d0.getMonth() + 1) + \"-\" + d0.getDate(), \"5\"); }\n",
+    )
+
+    /** The options an example's code reads. */
+    val optionsOf = mapOf("water" to mapOf("goal" to "8"))
+
+    /**
+     * The widget examples: the editor reference's ([ReferenceExamples]), with their Lua code, and
+     * the picture example, which the reference leaves out because drawing it fetches.
+     */
+    val widgets: List<Widget> = ReferenceExamples.widgets.map { ex ->
+        Widget(ex.name, ex.kind, ex.size, ex.title, ex.lua, before = luaBefore[ex.name].orEmpty(), options = optionsOf[ex.name].orEmpty())
+    } + listOf(
         Widget(
             "image", WidgetKind.IMAGE, WidgetSize.S4X2, "Picture of the day",
             """
@@ -149,39 +77,6 @@ object DocsExamples {
             before = "http = { cached = function() return { ok = true, status = 200, body = [[" +
                 """{"url":"$PICTURE","description":"Hills at sunrise","title":"Sunrise over the ghats","page":"https://example.com/pictures/1432"}""" +
                 "]] } end }\n",
-        ),
-        Widget(
-            "styles", WidgetKind.LIST, WidgetSize.S4X1, "Styles",
-            """
-            widget.show{ kind = "list", title = "Bills", items = {
-              {
-                title = fmt.bold("Rent") .. " to Asha",
-                detail = "due in " .. fmt.color("warn", "2 days"),
-                trailing = fmt.strike("520") .. " 480",
-              },
-            } }
-            """,
-        ),
-        Widget(
-            "water", WidgetKind.PROGRESS, WidgetSize.S2X1, "Water",
-            """
-            local today = os.date("%Y-%m-%d")
-            local n = tonumber(store.get(today) or "0")
-            if event and event.name == "action" and args[1] == "add" then
-              n = n + 1
-              store.set(today, tostring(n))
-            end
-            local goal = tonumber(options.goal) or 8
-            widget.show{
-              value = n, max = goal,
-              text = n .. " / " .. goal,
-              color = n >= goal and "good" or "accent",
-              tap = { args = "add", label = "Add a glass" },
-            }
-            """,
-            // Five glasses so far today.
-            before = "store.set(os.date(\"%Y-%m-%d\"), \"5\")\n",
-            options = mapOf("goal" to "8"),
         ),
     )
 
@@ -279,20 +174,30 @@ object DocsExamples {
     /** Keeps what the code hands to `widget.show` in the script's store, as JSON, and passes it on. */
     private const val KEEPS_SHOWN = "do local show = widget.show; widget = { show = function(d) store.set('_shown', json.encode(d)); return show(d) end } end\n"
 
+    /** [KEEPS_SHOWN] for JavaScript. */
+    private const val JS_KEEPS_SHOWN = "const widget = { show: (d) => { store.set('_shown', JSON.stringify(d)); return globalThis.widget.show(d); } };\n"
+
     /**
      * Runs [ex]'s code as a script with its @widget line, and returns its card as `widget.show`
      * checks it. The widget isn't placed: nothing is stored but the script's own store, which is
      * emptied after.
      */
-    fun spec(context: Context, ex: Widget): WidgetSpec {
+    fun spec(context: Context, ex: Widget): WidgetSpec = shown(context, ex.name, ex.kind, ex.size, ScriptLang.LUA, ex.before + ex.code.trimIndent(), ex.options)
+
+    /**
+     * Runs [code] in [lang] as a script with a `@widget` line of [kind] and [size], and returns the
+     * card it handed `widget.show`, as `widget.show` checks it.
+     */
+    fun shown(context: Context, name: String, kind: WidgetKind, size: WidgetSize, lang: ScriptLang, code: String, options: Map<String, String> = emptyMap()): WidgetSpec {
         val id = 910_000_000L + System.nanoTime() % 1_000_000
         val store = KvStore(context, ScriptRepository.scopeOf(id))
         try {
-            val host = HostApi(context, "docs-${ex.name}", scriptId = id, notifyEnabled = false, options = ex.options, widget = ScriptMeta.Widget(ex.kind, ex.size))
-            runBlocking { ScriptEngine.forLang(ScriptLang.LUA).run(KEEPS_SHOWN + ex.before + ex.code.trimIndent(), "docs-${ex.name}", host, 10_000, false, emptyList(), null) }
+            val host = HostApi(context, "docs-$name", scriptId = id, notifyEnabled = false, options = options, widget = ScriptMeta.Widget(kind, size))
+            val keeps = if (lang == ScriptLang.LUA) KEEPS_SHOWN else JS_KEEPS_SHOWN
+            runBlocking { ScriptEngine.forLang(lang).run(keeps + code, "docs-$name", host, 10_000, false, emptyList(), null) }
             host.flush()
-            val json = checkNotNull(store.get("_shown")) { "${ex.name}: the code called no widget.show" }
-            return WidgetParser.parse(Json.parse(json) as Map<*, *>, ex.kind, text = { it }, link = { it })
+            val json = checkNotNull(store.get("_shown")) { "$name ($lang): the code called no widget.show" }
+            return WidgetParser.parse(Json.parse(json) as Map<*, *>, kind, text = { it }, link = { it })
         } finally {
             store.all().keys.forEach { store.set(it, null) }
         }

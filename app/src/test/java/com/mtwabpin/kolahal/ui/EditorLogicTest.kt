@@ -336,4 +336,15 @@ class EditorLogicTest {
         assertEquals("sun", EditorLogic.iconInsert("icon = '", 8, "sun"))
         assertEquals("\"sun\"", EditorLogic.iconInsert("", 0, "sun"))
     }
+
+    /** An example goes in on lines of its own, wherever the cursor is, and the cursor goes after it. */
+    @Test fun anExampleGoesOnLinesOfItsOwn() {
+        fun at(text: String, cursor: Int) = EditorLogic.insertBlock(text, cursor, "a()\nb()\n").let { it.text to it.cursor }
+        assertEquals("a()\nb()\n" to 8, at("", 0))
+        assertEquals("x = 1\na()\nb()\n" to 14, at("x = 1", 5))
+        assertEquals("x = 1\na()\nb()\ny = 2" to 14, at("x = 1\ny = 2", 6))
+        assertEquals("x = 1\na()\nb()\n" to 14, at("x = 1\n", 6))
+        // In the middle of a line: the line is split around it.
+        assertEquals("x =\na()\nb()\n 1" to 12, at("x = 1", 3))
+    }
 }

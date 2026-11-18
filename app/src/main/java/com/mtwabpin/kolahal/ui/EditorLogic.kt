@@ -205,6 +205,19 @@ object EditorLogic {
     }
 
     /**
+     * [text] with [block] (an example of several lines) added at [cursor], on lines of its own: a
+     * line break goes before it when the cursor is inside a line, and after it unless a line break
+     * follows. The cursor goes after it.
+     */
+    fun insertBlock(text: String, cursor: Int, block: String): Edited {
+        val at = cursor.coerceIn(0, text.length)
+        val before = if (at > 0 && text[at - 1] != '\n') "\n" else ""
+        val after = if (at < text.length && text[at] == '\n') "" else "\n"
+        val added = before + block.trimEnd('\n') + after
+        return Edited(text.substring(0, at) + added + text.substring(at), at + added.length)
+    }
+
+    /**
      * The API entry to show docs for at [cursor]:
      * - the dotted name under or just before the cursor, if it is known;
      * - otherwise the innermost unclosed call `name(` before the cursor. It scans back at most 1000 chars.

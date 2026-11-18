@@ -313,6 +313,13 @@ fun ScriptEditor(
                 state.insert(EditorLogic.iconInsert(state.value.text, state.value.selection.min, name))
                 focusEditor()
             },
+            onExample = { code ->
+                referenceOpen = false
+                // An example goes in on lines of its own.
+                val done = EditorLogic.insertBlock(state.value.text, state.value.selection.min, code)
+                state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
+                focusEditor()
+            },
         )
     }
 }
