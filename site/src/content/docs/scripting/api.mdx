@@ -781,6 +781,7 @@ Every kind takes these fields. All are optional.
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is in view. |
+| `note` | text, up to 16 characters | A few words at the end of the title line, in the card's colour: `Done today`. A list's "+3 more" and the content's age ("2 h ago", "Failed 10:42") come first: then the note waits. Needs Kolahal 0.5.11. |
 
 A wide card under 100dp tall gives its title line to its content when the content needs the room:
 buttons, switches, a `text`, and bars with their names. A card one row high (`2x1`, `4x1`) is

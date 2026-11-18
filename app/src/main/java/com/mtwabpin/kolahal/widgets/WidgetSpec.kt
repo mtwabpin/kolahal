@@ -67,7 +67,10 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
  */
 data class WidgetTap(val args: String? = null, val url: String? = null, val label: String? = null, val toLog: Boolean = false)
 
-/** The fields every kind has. All are optional. [staleAfter] and [refresh] are in seconds. */
+/**
+ * The fields every kind has. All are optional. [staleAfter] and [refresh] are in seconds.
+ * [note] is a short text at the end of the title line, in the card's colour: "Done today".
+ */
 data class WidgetBase(
     val title: String? = null,
     val icon: String? = null,
@@ -75,6 +78,7 @@ data class WidgetBase(
     val tap: WidgetTap? = null,
     val staleAfter: Int? = null,
     val refresh: Int? = null,
+    val note: String? = null,
 )
 
 /**
@@ -372,6 +376,7 @@ object WidgetJson {
             "tap" to base.tap?.let(::tapMap),
             "staleAfter" to base.staleAfter,
             "refresh" to base.refresh,
+            "note" to base.note,
         )
         val own = when (spec) {
             is WidgetSpec.Stat -> fields(
@@ -547,6 +552,7 @@ object WidgetJson {
             tap = m.tap("tap"),
             staleAfter = m.number("staleAfter")?.toInt()?.coerceIn(MIN_STALE, MAX_STALE),
             refresh = m.number("refresh")?.toInt()?.coerceIn(MIN_REFRESH, MAX_REFRESH),
+            note = m.text("note"),
         )
         return when (kind) {
             WidgetKind.STAT -> WidgetSpec.Stat(

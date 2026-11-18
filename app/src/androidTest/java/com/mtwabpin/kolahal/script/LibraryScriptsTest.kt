@@ -794,7 +794,7 @@ class LibraryScriptsTest {
         // The tap marks today done: the streak is 3, in the good colour, and nothing is logged.
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
         assertEquals(emptyList<LogEntry>(), lines())
-        assertEquals(listOf(3.0, 1.0, "good"), card().let { listOf(it["value"], (it["points"] as List<*>).last(), it["color"]) })
+        assertEquals(listOf(3.0, 1.0, "good", "Done today"), card().let { listOf(it["value"], (it["points"] as List<*>).last(), it["color"], it["note"]) })
         assertEquals(days(4, 2, 1, 0), store.get("days"))
         // A second tap changes nothing.
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
@@ -804,7 +804,7 @@ class LibraryScriptsTest {
         // Typed, it marks and unmarks today too, and logs the streak and the week.
         run("habit.lua", "undo", before = luaKeepsShown)
         assertEquals(Triple("Exercise", "2 days in a row\n${week(4, 2, 1)}", null), plainOnly())
-        assertEquals(listOf(2.0, null), card().let { listOf(it["value"], it["color"]) })
+        assertEquals(listOf(2.0, null, null), card().let { listOf(it["value"], it["color"], it["note"]) })
         assertEquals(days(4, 2, 1), store.get("days"))
         run("habit.lua", "done", options = mapOf("name" to "Read"))
         assertEquals(Triple("Read", "3 days in a row\n${week(4, 2, 1, 0)}", null), plainOnly())

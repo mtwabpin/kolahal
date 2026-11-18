@@ -233,9 +233,11 @@ internal fun WidgetCard(
  *   first letter of the title ([WidgetWords.badgeLetter]). It is 24 dp in a large card and 20 dp
  *   in a wide one. A small card has no title line, so no badge.
  * - Large: the title line, the content, and the footer as the last line. The title line ends with
- *   "+3 more" from a list or an agenda ([LocalMoreNote]).
+ *   "+3 more" from a list or an agenda ([LocalMoreNote]), or else with the script's note
+ *   ([WidgetBase.note]).
  * - A cropped picture, large or wide, covers the whole card ([BleedImageCard]).
- * - Wide: the title line with "+3 more" and the footer at its end, then the content. Without the title line
+ * - Wide: the title line with "+3 more" (or the note, when there is no footer) and the footer at
+ *   its end, then the content. Without the title line
  *   there is no place for the footer. A screen reader still hears both.
  */
 @Composable
@@ -262,7 +264,7 @@ private fun CardLayout(
     val setMore: (String?) -> Unit = remember { { more = it } }
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            TitleLine(title, spec, badge, 24.dp, type.titleSmall) { MoreNote(more) }
+            TitleLine(title, spec, badge, 24.dp, type.titleSmall) { if (more != null) MoreNote(more) else TitleNote(spec?.base) }
             // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
             // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
             Spacer(Modifier.height(12.dp))
@@ -273,7 +275,8 @@ private fun CardLayout(
         }
         WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
             if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium) {
-                MoreNote(more)
+                // The age or "Failed 10:42" says more than the note, and "+3 more" too: then the note waits.
+                if (more != null) MoreNote(more) else if (footer == null) TitleNote(spec?.base)
                 if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -317,6 +320,13 @@ private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: Widget
 @Composable
 private fun MoreNote(text: String?) {
     if (text != null) Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+}
+
+/** The script's note at the end of the title line ([WidgetBase.note]): "Done today", in the card's colour. */
+@Composable
+private fun TitleNote(base: WidgetBase?) {
+    val note = base?.note ?: return
+    Text(note, style = MaterialTheme.typography.labelMedium, color = roleColour(base), maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
 }
 
 /**

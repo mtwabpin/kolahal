@@ -27,6 +27,7 @@ class WidgetRoundTripTest {
         "tap" to mapOf("args" to "now", "label" to "Refresh"),
         "staleAfter" to 7200,
         "refresh" to 600,
+        "note" to "Done today",
     )
 
     @Test fun stat() = roundTrip(

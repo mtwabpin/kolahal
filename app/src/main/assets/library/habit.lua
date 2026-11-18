@@ -4,12 +4,12 @@
 -- @usage [done|undo]
 -- @title Habit streak
 -- @author Kolahal
--- @version 1.0
+-- @version 1.1
 -- @widget chart 2x2
 -- @at 00:01
 -- @option name Exercise What you count
 -- @tags habit, streak, chart
--- @requires 0.5.8
+-- @requires 0.5.11
 --
 -- Usage:
 --   habit                       the streak and the last 7 days
@@ -77,8 +77,9 @@ if name == "" then name = "Habit" end
 local label = streak == 1 and "day in a row" or "days in a row"
 
 -- Its widget: the streak large, over the bars. A day you did it is a full bar, and any other day
--- is an empty one. Once today is done, the widget is in the theme's good colour. The summary is
--- what a screen reader says for the bars. A tap runs this script again with "done".
+-- is an empty one. Once today is done, the widget is in the theme's good colour, and its title
+-- line ends with "Done today". The summary is what a screen reader says for the bars. A tap runs
+-- this script again with "done".
 if widget then
   local points, said = {}, {}
   for i, d in ipairs(week) do
@@ -96,6 +97,7 @@ if widget then
     labels = { week[1][1], "Today" },
     summary = table.concat(said, ", "),
     color = done[day(0)] and "good" or nil,
+    note = done[day(0)] and "Done today" or nil,
     tap = { args = "done", label = "Done today" },
   }
 end

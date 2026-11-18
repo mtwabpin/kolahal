@@ -24,6 +24,9 @@ import com.mtwabpin.kolahal.script.Json
  */
 object WidgetParser {
     const val MAX_TITLE = 40
+
+    /** A note at the end of the title line ([WidgetBase.note]): a few words, such as "Done today". */
+    const val MAX_NOTE = 16
     const val MAX_ICON = 4
 
     /** The longest text read for an icon: room for a name ([WidgetIcons]). */
@@ -93,7 +96,7 @@ object WidgetParser {
     const val MIN_REFRESH = 10
     const val MAX_REFRESH = 3_600
 
-    private val COMMON = listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh")
+    private val COMMON = listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "note")
     private val TAP = listOf("args", "url", "label", "page")
     private val STAT = listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving")
     private val SMALL = listOf("value", "label")
@@ -183,6 +186,7 @@ object WidgetParser {
             tap = t.tap(),
             staleAfter = t.seconds("staleAfter", MIN_STALE, MAX_STALE),
             refresh = t.seconds("refresh", MIN_REFRESH, MAX_REFRESH),
+            note = t.text("note", MAX_NOTE),
         )
         return when (kind) {
             WidgetKind.STAT -> stat(t, base)

@@ -170,6 +170,14 @@ class ScriptWidgetCardTest {
         compose.onAllNodes(inCard(name) and hasClickAction()).assertCountEquals(0)
     }
 
+    /** A note ends the title line, and a screen reader hears it after the title. */
+    @Test fun aNoteEndsTheTitleLine() {
+        val name = kept("note", WidgetSpec.Stat(WidgetBase(title = "Exercise", note = "Done today"), "5", label = "days in a row"))
+        show(name)
+        draws(name, "Exercise", "Done today", "5", "days in a row")
+        says(name, "Exercise, Done today: 5, days in a row")
+    }
+
     /** A card of one cell has room for the value and its label only. A screen reader still hears everything. */
     @Test fun aSmallCardLeavesPartsOutAndStillSaysThem() {
         val name = kept(

@@ -130,12 +130,12 @@ class LibraryWidgetsTest {
      * Once today is done the card is in the good colour; before that it gives no colour.
      */
     @Test fun habit() {
-        fun week(streak: Double, vararg days: Double, label: String, summary: String, color: String?) = fromLua(
+        fun week(streak: Double, vararg days: Double, label: String, summary: String, color: String?, note: String? = null) = fromLua(
             "habit.lua",
             luaTable(
                 "title" to "Exercise", "value" to streak, "label" to label, "points" to luaList(*days.toTypedArray()), "style" to "bars",
                 "min" to 0.0, "max" to 1.0, "labels" to luaList("Sun", "Today"), "summary" to summary, "color" to color,
-                "tap" to luaTable("args" to "done", "label" to "Done today"),
+                "note" to note, "tap" to luaTable("args" to "done", "label" to "Done today"),
             ),
         )
         val tap = WidgetTap(args = "done", label = "Done today")
@@ -148,8 +148,9 @@ class LibraryWidgetsTest {
             ),
             week(4.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, label = "days in a row", summary = open, color = null),
         )
-        val done = week(5.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, label = "days in a row", summary = open.replace("not yet", "done"), color = "good") as WidgetSpec.Chart
-        assertEquals(listOf("5", StyledText.Colour.GOOD, 1f), listOf(done.value, done.base.color, done.points.last()))
+        val done = week(5.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, label = "days in a row", summary = open.replace("not yet", "done"), color = "good", note = "Done today") as WidgetSpec.Chart
+        // Done today: the good colour, and the title line ends with "Done today".
+        assertEquals(listOf("5", StyledText.Colour.GOOD, 1f, "Done today"), listOf(done.value, done.base.color, done.points.last(), done.base.note))
         // No day is done yet: every bar is at the bottom of the scale.
         val none = "Sun missed, Mon missed, Tue missed, Wed missed, Thu missed, Fri missed, Today not yet"
         val new = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, label = "days in a row", summary = none, color = null) as WidgetSpec.Chart

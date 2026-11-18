@@ -47,6 +47,14 @@ class WidgetParserTest {
         assertEquals("widget: value is needed: the big value, as text or a number", refused(mapOf("label" to "unlocks")))
     }
 
+    /** Any card can have a note at the end of its title line: a few words, cut at 16 characters. */
+    @Test fun aNoteIsAFewWordsForTheTitleLine() {
+        assertEquals(WidgetBase(note = "Done today"), parse(mapOf("value" to "5", "note" to "Done today")).base)
+        assertEquals("Waiting since 1…", parse(mapOf("value" to "5", "note" to "Waiting since 10:42")).base.note)
+        assertEquals("3", parse(mapOf("value" to "5", "note" to 3.0)).base.note)
+        assertEquals(null, parse(mapOf("value" to "5", "note" to null)).base.note)
+    }
+
     @Test fun aTextKeepsItsLineBreaks() {
         val spec = parse(mapOf("text" to "  one\r\ntwo  ", "caption" to "a\nb"), WidgetKind.TEXT)
         assertEquals(WidgetSpec.Text(WidgetBase(), text = "one\ntwo", caption = "a b"), spec)
@@ -299,7 +307,7 @@ class WidgetParserTest {
         assertEquals(false, WidgetJson.encode(spec).contains("\"id\""))
         assertEquals(spec, WidgetJson.decode(WidgetJson.encode(spec)))
         // Only an event has it. Anywhere else it is an unknown field, as before.
-        assertEquals("widget: an agenda widget has no field 'id'; use kind, title, icon, color, tap, staleAfter, refresh, events, days, empty", refused(mapOf("id" to 1, "events" to rows), WidgetKind.AGENDA))
+        assertEquals("widget: an agenda widget has no field 'id'; use kind, title, icon, color, tap, staleAfter, refresh, note, events, days, empty", refused(mapOf("id" to 1, "events" to rows), WidgetKind.AGENDA))
         assertEquals("widget: item 1 of items: no field 'id'; use title, detail, trailing, icon, color, tap, done", refused(mapOf("items" to listOf(mapOf("id" to 1, "title" to "a"))), WidgetKind.LIST))
     }
 
@@ -369,7 +377,7 @@ class WidgetParserTest {
         assertEquals("widget: alt is needed: what the picture shows, in words, for a screen reader", noImage("image" to link, "alt" to "  "))
         assertEquals("widget: alt must be text, not a table", noImage("image" to link, "alt" to mapOf("en" to "a")))
         assertEquals("widget: fit must be crop or fit, not 'stretch'", noImage("image" to link, "alt" to "a", "fit" to "stretch"))
-        assertEquals("widget: an image widget has no field 'src'; use kind, title, icon, color, tap, staleAfter, refresh, image, alt, caption, fit", noImage("src" to link, "alt" to "a"))
+        assertEquals("widget: an image widget has no field 'src'; use kind, title, icon, color, tap, staleAfter, refresh, note, image, alt, caption, fit", noImage("src" to link, "alt" to "a"))
     }
 
     /** The picture's link goes through the host, as a tap's link does: what the host returns is checked and stored. */
@@ -614,12 +622,12 @@ class WidgetParserTest {
 
     @Test fun anUnknownFieldListsTheKnownOnes() {
         assertEquals(
-            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, tap, staleAfter, refresh, value, label, unit, delta, trend, more, progress, moving",
+            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, tap, staleAfter, refresh, note, value, label, unit, delta, trend, more, progress, moving",
             refused(mapOf("value" to 1, "colour" to "good")),
         )
         // Another kind's field is unknown too.
         assertEquals(
-            "widget: a text widget has no field 'value'; use kind, title, icon, color, tap, staleAfter, refresh, text, caption",
+            "widget: a text widget has no field 'value'; use kind, title, icon, color, tap, staleAfter, refresh, note, text, caption",
             refused(mapOf("text" to "a", "value" to 1), WidgetKind.TEXT),
         )
         assertEquals(

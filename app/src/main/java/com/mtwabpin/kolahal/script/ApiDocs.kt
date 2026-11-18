@@ -41,7 +41,7 @@ object ApiDocs {
      */
     private val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
         WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
-        "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter, refresh (seconds). " +
+        "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter, refresh (seconds), note (a few words at the end of the title line). " +
         "An unknown field is an error"
 
     /** The fields of a [kind] widget, as the reference lists them. Only the kinds a script can use are asked for. */

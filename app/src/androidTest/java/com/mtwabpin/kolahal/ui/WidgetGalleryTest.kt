@@ -459,7 +459,7 @@ class WidgetGalleryTest {
             ),
             Shot(
                 "habit", WidgetSize.S2X2, "Exercise",
-                WidgetSpec.Chart(base("Exercise", "check", Colour.GOOD), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
+                WidgetSpec.Chart(base("Exercise", "check", Colour.GOOD).copy(note = "Done today"), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
             ),
             Shot(
                 "quicktoggles", WidgetSize.S4X1, "Quick toggles",
