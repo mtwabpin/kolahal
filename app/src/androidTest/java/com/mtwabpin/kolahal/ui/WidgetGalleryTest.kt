@@ -9,6 +9,7 @@ import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
@@ -113,17 +114,90 @@ class WidgetGalleryTest {
      * With [inView] the card is drawn as on the page in view: a wave moves and a picture loads.
      * [badge] is the drawable of a built-in card's badge ([builtinBadge]).
      */
-    private class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null) {
-        val file get() = "real-$name-${size.id}.png"
+    private class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null, val prefix: String = "real") {
+        val file get() = "$prefix-$name-${size.id}.png"
     }
 
     private var shown by mutableStateOf<Shot?>(null)
 
     /** Every card is drawn, one after the other, and each is saved as a picture. */
-    @Test fun everyCardIsDrawnAndSaved() {
-        val out = checkNotNull(context.getExternalFilesDir("gallery")) { "no external files" }
+    @Test fun everyCardIsDrawnAndSaved() = draw(kinds() + readyMade(), "gallery")
+
+    /**
+     * The website's pictures of the scripting guide's widget examples: each example's Lua code runs
+     * as a script ([DocsExamples]), and its card is drawn from what it handed to `widget.show`. They
+     * go to `files/gallery-docs`, as `docs-<name>-<size>.png`, with the ready-made
+     * cards as `real-<name>-<size>.png`: all in Kolahal's default theme (green), as the website's
+     * other screenshots are.
+     */
+    @Test fun theGuidesExamplesAreDrawnAndSaved() {
+        // The website shows Kolahal's default theme, as its other screenshots do.
+        Term.palette = Palettes.green
+        pictureFile(DocsExamples.PICTURE).outputStream().use { hills().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        try {
+            val shots = DocsExamples.widgets.map { ex ->
+                val spec = DocsExamples.spec(context, ex)
+                // Without a title in the code, the card has the script's @title.
+                Shot(ex.name, ex.size, spec.base.title ?: ex.title, spec, inView = ex.kind == com.mtwabpin.kolahal.widgets.WidgetKind.IMAGE, prefix = "docs")
+            }
+            // The ready-made cards too, for the library and widgets pages.
+            draw(shots + readyMade(), "gallery-docs")
+        } finally {
+            pictureFile(DocsExamples.PICTURE).delete()
+        }
+    }
+
+    /**
+     * The website's picture of the widgets page (site/src/assets/parts/widgets-page.png): the page's
+     * title row, and a few ready-made cards laid out as the page lays them out. It goes to
+     * `files/gallery-page/widgets-page.png`.
+     */
+    @Test fun thePageIsDrawnAndSaved() {
+        Term.palette = Palettes.green
+        val out = checkNotNull(context.getExternalFilesDir("gallery-page")) { "no external files" }
         out.listFiles()?.forEach { it.delete() }
-        val all = kinds() + readyMade()
+        val ready = readyMade()
+        val cards = listOf("weather" to WidgetSize.S2X1, "battery" to WidgetSize.S2X1, "todos" to WidgetSize.S2X2, "habit" to WidgetSize.S2X2, "shortcuts" to WidgetSize.S4X1)
+            .map { (name, size) -> ready.single { it.name == name && it.size == size } }
+        compose.setContent {
+            KolahalTheme {
+                GuiTheme {
+                    androidx.compose.foundation.layout.Column(
+                        Modifier.testTag(SHOT).width((pageDp + 2 * WidgetLayout.GAP_DP).dp).background(Term.bg).padding(vertical = 8.dp),
+                    ) {
+                        WidgetsTitleRow(onAdd = {}, onEdit = {})
+                        WidgetFlow(
+                            cards.map { it.size.span },
+                            WidgetLayout.GAP_DP.dp,
+                            Modifier.fillMaxWidth().padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp),
+                        ) {
+                            cards.forEach { shot ->
+                                Box {
+                                    WidgetCard(
+                                        title = shot.title,
+                                        height = WidgetSizes.heightDp(shot.size, pageDp).dp,
+                                        spec = shot.spec,
+                                        note = null,
+                                        badge = shot.badge,
+                                        description = WidgetWords.description(shot.title, shot.spec, now, zone, clock24 = true),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val file = File(out, "widgets-page.png")
+        file.outputStream().use { compose.onNodeWithTag(SHOT).captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertTrue("${file.name} is empty", file.length() > 0)
+    }
+
+    /** Draws each of [all] and saves it in the app's files, in [dir], with a list of them. */
+    private fun draw(all: List<Shot>, dir: String) {
+        val out = checkNotNull(context.getExternalFilesDir(dir)) { "no external files" }
+        out.listFiles()?.forEach { it.delete() }
         assertEquals("two pictures have one name", all.size, all.map { it.file }.toSet().size)
 
         // A wave moves for as long as it is drawn. So the test moves the clock itself.

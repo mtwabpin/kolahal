@@ -207,15 +207,7 @@ private fun WidgetPanelContent(
             .cutoutSafePadding()
             .navigationBarsPadding(),
     ) {
-        if (titleRow) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-            Text("Widgets", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.openScreen(Screen.WIDGET_PICKER) }) {
-                Icon(painterResource(R.drawable.ic_add), "Add a widget", tint = Term.prompt)
-            }
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.openScreen(Screen.WIDGETS) }) {
-                Icon(painterResource(R.drawable.ic_edit), "Edit widgets", tint = Term.fg)
-            }
-        }
+        if (titleRow) WidgetsTitleRow(onAdd = { vm.openScreen(Screen.WIDGET_PICKER) }, onEdit = { vm.openScreen(Screen.WIDGETS) })
         if (panel.isEmpty()) {
             if (titleRow) {
                 Text(
@@ -265,6 +257,20 @@ private fun WidgetPanelContent(
                     }
                 }
             }
+        }
+    }
+}
+
+/** The widgets page's title row: its name, then + ([onAdd]: the picker) and the pencil ([onEdit]: Arrange widgets). */
+@Composable
+internal fun WidgetsTitleRow(onAdd: () -> Unit, onEdit: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Text("Widgets", style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = onAdd) {
+            Icon(painterResource(R.drawable.ic_add), "Add a widget", tint = Term.prompt)
+        }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = onEdit) {
+            Icon(painterResource(R.drawable.ic_edit), "Edit widgets", tint = Term.fg)
         }
     }
 }
