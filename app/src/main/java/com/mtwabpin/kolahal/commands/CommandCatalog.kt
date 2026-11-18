@@ -60,7 +60,7 @@ object CommandCatalog {
             ),
             sensitive = true,
         ),
-        CommandSpec("unlocks", "unlocks [<days>]", "Unlock counts", short = "Unlock counts", args = "<days>"),
+        CommandSpec("unlocks", "unlocks [<days> | week | month]", "Unlock counts; week and month as a chart", short = "Unlock counts", args = "<days> · week · month"),
         CommandSpec("fetch", "fetch", "This phone and Kolahal at a glance, fastfetch style", short = "This phone at a glance", aka = listOf("neofetch", "fastfetch")),
         CommandSpec("source", "source", "Open Kolahal's source code on GitHub", short = "Source code on GitHub", sensitive = true),
         CommandSpec("wallpaper", "wallpaper [match]", "match: set the home screen wallpaper to this theme's colour, following the theme, so it doesn't flash when you swipe home", short = "Wallpaper in theme colour", args = "match", sensitive = true),

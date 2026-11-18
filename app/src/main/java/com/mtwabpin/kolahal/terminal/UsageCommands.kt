@@ -8,6 +8,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.usage.DataUsage
 import com.mtwabpin.kolahal.usage.StorageUsage
@@ -24,6 +25,8 @@ class UsageCommands(context: Context) : CommandGroup(context) {
     private val config = Config.get(context)
 
     fun run(name: String, args: List<String>) {
+        // Unlocks are counted without usage access too: while Kolahal runs.
+        if (name == "unlocks") return unlocks(args)
         if (!unlocks.hasUsageAccess()) return fix("${if (name == "data") "Data use" else "Storage per app"} needs usage access — tap to allow it", "usage-access")
         when (name) {
             "data" -> when (args.firstOrNull()?.lowercase()) {
@@ -118,6 +121,122 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     private fun personal(pkg: String): AppEntry? = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
 
+    // ---- unlocks --------------------------------------------------------------------------
+
+    /** `unlocks [<days>]`: today's count, or a line a day with a bar. `unlocks week` and `unlocks month`: a chart ([unlocksChart]). */
+    private fun unlocks(args: List<String>) {
+        when (args.firstOrNull()?.lowercase()) {
+            "week" -> return unlocksChart(7)
+            "month" -> return unlocksChart(30)
+        }
+        val days = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 30) ?: 1
+        if (!unlocks.hasUsageAccess()) {
+            info("Counting unlocks only while the launcher is running")
+            info("Tap here to allow usage access for accurate counts", LogContext.of(LogContext.RUN to "usage-access"))
+        }
+        val today = java.time.LocalDate.now()
+        // Only the days with a count: a day before Android's usage history begins is left out, and the
+        // average is over the days that are here ([UnlockCounter.countOrNull]).
+        val history = unlocks.history(days)
+        val rows = history.map { (day, count) -> TimeFormats.dayLabel(day, today, capital = true) to count }
+        // Big numbers: today's count; over several days, the average and the total too.
+        val todayCount = history.firstOrNull { it.first == today }?.second ?: 0
+        val big = mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
+        if (rows.size > 1) {
+            val total = rows.sumOf { it.second }
+            big += (total / rows.size).toString() to "a day on average"
+            big += total.toString() to "in ${rows.size} days"
+        }
+        out(com.mtwabpin.kolahal.data.StyledText.stats(big))
+        // One day: the big number says it all. Over several, a line a day with a bar.
+        if (rows.size <= 1) return
+        // Pad the labels so the counts line up. The log uses a monospaced font.
+        val labelWidth = rows.maxOf { it.first.length }
+        val countWidth = rows.maxOf { it.second.toString().length }
+        // A bar after each count, on one scale: the busiest day fills its bar. "unlock" gets a no-break
+        // space, which a line keeps at its end, so its bar starts where the others do.
+        val most = rows.maxOf { it.second }.coerceAtLeast(1)
+        rows.forEach { (label, count) ->
+            out("${label.padEnd(labelWidth)}  ${count.toString().padStart(countWidth)} ${if (count == 1) "unlock\u00A0" else "unlocks"}", LogContext(LogContext.ALIGNED + LogContext.bar(count.toDouble() / most)))
+        }
+    }
+
+    /**
+     * `unlocks week` and `unlocks month`: the last [days] days as a chart, with only the days that
+     * have a count ([UnlockCounter.countOrNull]): a day with no data is left out, not drawn as 0.
+     * - Big numbers: today, a day's average and the total over those days.
+     * - Over a month: how the last 7 days compare with the 7 before, when both have 3 days or more.
+     * - A column a day, the oldest first, then (over a month) a line for each week, Monday to
+     *   Sunday, with its average over its days that have a count.
+     * - With fewer days than asked, a line says why: Android keeps about 10, and Kolahal saves each
+     *   day from 0.5.12 on.
+     */
+    private fun unlocksChart(days: Int) {
+        if (!unlocks.hasUsageAccess()) {
+            info("Counting unlocks only while the launcher is running")
+            info("Tap here to allow usage access for accurate counts", LogContext.of(LogContext.RUN to "usage-access"))
+        }
+        val today = LocalDate.now()
+        val history = unlocks.history(days)
+        val todayCount = history.lastOrNull { it.first == today }?.second ?: 0
+        val total = history.sumOf { it.second }
+        val big = mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
+        if (history.size > 1) {
+            big += (total / history.size).toString() to "a day on average"
+            big += "%,d".format(total) to "in ${history.size} days"
+        }
+        out(StyledText.stats(big))
+        if (days == 30) trend(history, today)?.let { info(it) }
+        if (history.size > 1) {
+            val label = { d: LocalDate -> com.mtwabpin.kolahal.data.TimeFormats.dayLabel(d, today, capital = true) }
+            val said = "Unlocks a day: " + history.joinToString(", ") { (d, n) -> "${label(d)} $n" }
+            out(StyledText.columns(history.map { it.second.toDouble() }, listOf(label(history.first().first), "Today"), said))
+        }
+        if (days == 30) weeks(history, today)
+        if (history.size < days) info("${history.size} ${if (history.size == 1) "day" else "days"} so far: Android keeps about 10, and Kolahal saves each day's count from now on")
+    }
+
+    /** "▼ 6% a day against the 7 days before", or null when either 7 days has fewer than 3 days with a count. */
+    private fun trend(history: List<Pair<LocalDate, Int>>, today: LocalDate): String? {
+        fun average(from: Long, to: Long): Double? {
+            val inRange = history.filter { (d, _) -> d in today.minusDays(to)..today.minusDays(from) }
+            return if (inRange.size < 3) null else inRange.sumOf { it.second }.toDouble() / inRange.size
+        }
+        val last = average(0, 6) ?: return null
+        val before = average(7, 13)?.takeIf { it > 0 } ?: return null
+        val change = Math.round((last - before) / before * 100)
+        return when {
+            change < 0 -> "▼ ${-change}% a day, the last 7 days against the 7 before"
+            change > 0 -> "▲ $change% a day, the last 7 days against the 7 before"
+            else -> "The same a day as the 7 days before"
+        }
+    }
+
+    /** A line for each week, Monday to Sunday, the newest first, with its average over its days that have a count, and a bar. */
+    private fun weeks(history: List<Pair<LocalDate, Int>>, today: LocalDate) {
+        val monday = { d: LocalDate -> d.minusDays((d.dayOfWeek.value - 1).toLong()) }
+        val byWeek = history.groupBy { monday(it.first) }.toSortedMap(compareByDescending { it })
+        if (byWeek.size < 2) return
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.getDefault())
+        val rows = byWeek.map { (start, list) ->
+            val end = start.plusDays(6)
+            val name = when {
+                start == monday(today) -> "This week"
+                start.month == end.month -> "${start.dayOfMonth}–${end.format(fmt)}"
+                else -> "${start.format(fmt)}–${end.format(fmt)}"
+            }
+            Triple(name, list.sumOf { it.second } / list.size, list.size)
+        }
+        info("By week, a day on average")
+        val width = rows.maxOf { it.first.length }
+        val countWidth = rows.maxOf { it.second.toString().length }
+        val most = rows.maxOf { it.second }.coerceAtLeast(1)
+        rows.forEach { (name, average, n) ->
+            val partial = if (n < 7) " · $n ${if (n == 1) "day" else "days"}" else ""
+            out("${name.padEnd(width)}  ${average.toString().padStart(countWidth)}$partial", LogContext(LogContext.ALIGNED + LogContext.bar(average.toDouble() / most)))
+        }
+    }
+
     // ---- storage --------------------------------------------------------------------------
 
     /**
@@ -180,7 +299,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     companion object {
         /** Commands handled by [run]. `data today` and `data month` come here too; `data` alone opens the data panel. */
-        val NAMES = setOf("storage")
+        val NAMES = setOf("storage", "unlocks")
 
         private const val MB = 1_000_000L
         private const val GB = 1_000_000_000L

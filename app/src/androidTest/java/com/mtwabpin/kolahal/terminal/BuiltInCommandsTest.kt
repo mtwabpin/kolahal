@@ -315,6 +315,38 @@ class BuiltInCommandsTest {
         }
     }
 
+    /**
+     * `unlocks month`: today, the average and the total, then a column a day and a line a week. With a
+     * history of 9 days, only those: 9 columns, and a line that says why.
+     */
+    @Test fun unlocksMonthIsAChart() {
+        val op = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+        val today = LocalDate.now()
+        try {
+            shell("appops set ${context.packageName} GET_USAGE_STATS allow")
+            forgetSavedUnlocks()
+            com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(40) }
+            val month = run("unlocks month")
+            val plain = month.map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
+            assertTrue(plain[0], Regex("\\d+ unlocks? today · \\d+ a day on average · [\\d,]+ in 30 days").matches(plain[0]))
+            val chart = com.mtwabpin.kolahal.data.StyledText.lines(month.single { com.mtwabpin.kolahal.data.StyledText.lines(it).any { l -> l.columns != null } }).single().columns!!
+            assertEquals(30, chart.heights.size)
+            assertTrue(plain.toString(), "By week, a day on average" in plain)
+            assertTrue(plain.toString(), plain.any { it.startsWith("This week") })
+            assertTrue(plain.toString(), plain.none { it.endsWith("from now on") })
+
+            forgetSavedUnlocks()
+            com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(8) }
+            val short = run("unlocks month").map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
+            assertTrue(short[0], short[0].endsWith("in 9 days"))
+            assertEquals("9 days so far: Android keeps about 10, and Kolahal saves each day's count from now on", short.last())
+        } finally {
+            shell("appops set ${context.packageName} GET_USAGE_STATS $op")
+            com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
+            forgetSavedUnlocks()
+        }
+    }
+
     /** `crashes share` hands the newest report, or the one named, to the share sheet. */
     @Test fun crashesShareSendsTheReport() {
         // Only the test's own, the rest set aside: one written earlier in the run is newer than these, and would be sent.

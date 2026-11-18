@@ -144,6 +144,7 @@ usage 7          # last 7 days (1–30)
 usage whatsapp   # one app: today, by hour, and the last 7 days
 unlocks          # today's unlock count
 unlocks 7        # one line per day for the last week (1–30)
+unlocks month    # a column a day for 30 days, the trend, and a line per week
 ```
 
 `usage` needs **Usage access** (`usage-access`). To count unlocks, Kolahal uses usage access if you granted it.
@@ -157,6 +158,11 @@ of work apps or the private space.
 Android keeps usage data for the last days only, about 10 on many phones. `usage 30` and `unlocks 30`
 leave out the days before that, and their average is over the days that are there. Kolahal also
 saves each day's unlock count, so `unlocks` goes back further as the weeks go by.
+
+`unlocks month` draws a column for each day with a count, says how the last 7 days compare with the
+7 before, and has a line for each week (Monday to Sunday) with its average. `unlocks week` is the
+same for 7 days. A day with no count is left out: at first there are about 10 days, and more as
+Kolahal saves each day.
 
 ## Data and storage
 

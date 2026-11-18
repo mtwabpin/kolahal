@@ -142,7 +142,6 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 // `data` alone opens the mobile data panel; `data today` and `data month` show the data each app used.
                 "data" if args.isNotEmpty() -> usageCommands.run(name, args)
                 "help", "?" -> if (args.isEmpty()) help() else commandHelp(args.first())
-                "unlocks" -> unlocks(args)
                 "fetch", "neofetch", "fastfetch" -> fetch()
                 "clear", "cls" -> clear(args)
                 "backup" -> backup(args)
@@ -352,39 +351,6 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     }
 
     // ---- misc -----------------------------------------------------------------------------
-
-    private fun unlocks(args: List<String>) {
-        val days = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 30) ?: 1
-        if (!unlocks.hasUsageAccess()) {
-            info("Counting unlocks only while the launcher is running")
-            info("Tap here to allow usage access for accurate counts", LogContext.of(LogContext.RUN to "usage-access"))
-        }
-        val today = java.time.LocalDate.now()
-        // Only the days with a count: a day before Android's usage history begins is left out, and the
-        // average is over the days that are here ([UnlockCounter.countOrNull]).
-        val history = unlocks.history(days)
-        val rows = history.map { (day, count) -> TimeFormats.dayLabel(day, today, capital = true) to count }
-        // Big numbers: today's count; over several days, the average and the total too.
-        val todayCount = history.firstOrNull { it.first == today }?.second ?: 0
-        val big = mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
-        if (rows.size > 1) {
-            val total = rows.sumOf { it.second }
-            big += (total / rows.size).toString() to "a day on average"
-            big += total.toString() to "in ${rows.size} days"
-        }
-        out(com.mtwabpin.kolahal.data.StyledText.stats(big))
-        // One day: the big number says it all. Over several, a line a day with a bar.
-        if (rows.size <= 1) return
-        // Pad the labels so the counts line up. The log uses a monospaced font.
-        val labelWidth = rows.maxOf { it.first.length }
-        val countWidth = rows.maxOf { it.second.toString().length }
-        // A bar after each count, on one scale: the busiest day fills its bar. "unlock" gets a no-break
-        // space, which a line keeps at its end, so its bar starts where the others do.
-        val most = rows.maxOf { it.second }.coerceAtLeast(1)
-        rows.forEach { (label, count) ->
-            out("${label.padEnd(labelWidth)}  ${count.toString().padStart(countWidth)} ${if (count == 1) "unlock\u00A0" else "unlocks"}", LogContext(LogContext.ALIGNED + LogContext.bar(count.toDouble() / most)))
-        }
-    }
 
     private fun history() {
         val cmds = logs.commandHistory(30).reversed()

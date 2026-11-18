@@ -373,7 +373,8 @@ class Completer(private val context: Context, private val data: Data) {
             "usage" if arg.isNotEmpty() && !arg[0].isDigit() -> appCompletions(head, arg) { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
             "data" -> if (parts.size == 2) words(listOf("today", "month")) else emptyList()
             "usage", "unlocks" -> if (parts.size == 2) listOf("1", "7", "14", "30")
-                .filter { it.starts(last) }.map { Suggestion.Completion(if (it == "1") "today" else "$it days", "$head $it") } else emptyList()
+                .filter { it.starts(last) }.map { Suggestion.Completion(if (it == "1") "today" else "$it days", "$head $it") } +
+                (if (cmd == "unlocks") words(listOf("week", "month")) else emptyList()) else emptyList()
             "installs", "calls" -> if (parts.size == 2) listOf("20", "50", "200")
                 .filter { it.starts(last) }.map { Suggestion.Completion("last $it", "$head $it") } else emptyList()
             "script" -> {
