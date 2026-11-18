@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -68,13 +69,10 @@ class EditorBarsTest {
     private fun text() = editor()[SemanticsProperties.EditableText].text
     private fun selection() = editor()[SemanticsProperties.TextSelectionRange]
 
-    /** Where the code is marked as found: each match's start, and the current one's. */
-    private fun marks(): Pair<List<Int>, Int?> {
-        val results = mutableListOf<TextLayoutResult>()
-        editor()[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
-        val found = results.single().layoutInput.text.spanStyles.filter { it.item.background != Color.Unspecified }
-        return found.map { it.start }.sorted() to found.firstOrNull { it.item.color == Term.bg }?.start
-    }
+    /** Where the code is marked as found ([EditorMarks]): each match's start, and the current one's. */
+    private fun marks(): Pair<List<Int>, Int?> =
+        compose.onAllNodesWithTag("editor-marks", useUnmergedTree = true).fetchSemanticsNodes().firstOrNull()
+            ?.config?.getOrNull(MarkedMatches)?.let { (starts, current) -> starts.sorted() to current } ?: (emptyList<Int>() to null)
 
     /** Opens find and types [query]; matches are found a beat after typing. */
     private fun find(query: String, count: String) {

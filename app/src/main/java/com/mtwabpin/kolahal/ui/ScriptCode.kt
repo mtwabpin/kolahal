@@ -27,7 +27,7 @@ import com.mtwabpin.kolahal.commands.CommandParsing
 @Composable
 internal fun ReadOnlyCode(code: String, lang: ScriptLang, modifier: Modifier = Modifier) {
     val palette = Term.palette
-    val styled = remember(code, lang, palette) { SyntaxHighlighter(Syntax.of(lang), flashLine = null, matches = null).filter(AnnotatedString(code)).text }
+    val styled = remember(code, lang, palette) { SyntaxHighlighter(Syntax.of(lang)).filter(AnnotatedString(code)).text }
     Surface(shape = MaterialTheme.shapes.medium, color = Term.bg, modifier = modifier.fillMaxWidth().testTag("read-only-code")) {
         // Each line whole, as in the editor: a long one scrolls sideways rather than breaking.
         SelectionContainer(Modifier.horizontalScroll(rememberScrollState())) {

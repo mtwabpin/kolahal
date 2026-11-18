@@ -12,17 +12,6 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDocs
 
 /**
- * Find matches to draw: the start offsets in a window around the current match. Two instances are
- * equal when they mark the same text.
- */
-internal class MatchHighlights(val starts: IntArray, val length: Int, val current: Int) {
-    override fun equals(other: Any?) =
-        other is MatchHighlights && other.length == length && other.current == current && other.starts.contentEquals(starts)
-
-    override fun hashCode() = 31 * (31 * starts.contentHashCode() + length) + current
-}
-
-/**
  * The colours a text gets in the editor: a script language's, or JSON's.
  * - [script]: the script language whose keywords it uses. JSON has none.
  */
@@ -43,10 +32,10 @@ enum class Syntax(val script: ScriptLang?) {
  * A cache of tokens per line, keyed by the line's text. When the user types, only the edited line
  * is matched again, not the whole script.
  * - Each token is (start, end, kind), with offsets inside its line.
- * - The editor keeps one per language, so a new [SyntaxHighlighter] (for a find match or a
- *   flashed line) starts with the tokens already found.
+ * - The editor keeps one per language, so a new [SyntaxHighlighter] (for a new coloured window)
+ *   starts with the tokens already found.
  */
-internal class LineTokens(private val syntax: Syntax) {
+internal class LineTokens(val syntax: Syntax) {
     val keywords = syntax.script?.let { ApiDocs.keywords(it).toSet() } ?: emptySet()
     // Every token here is on one line. JS template strings (`…`) can span lines, so they are found separately.
     private val token = Regex(
@@ -157,25 +146,22 @@ internal class LineTokens(private val syntax: Syntax) {
 }
 
 /**
- * Highlights code in the editor:
- * - colours comments, strings, numbers and keywords;
- * - flashes one line (after a jump to an error);
- * - marks find matches.
- *
- * With no language (null), the text is plain: only the flash and the matches show.
+ * Colours code in the editor: comments, strings, numbers and keywords.
+ * - Find matches and a flashed line are not colours: the editor draws them behind the text
+ *   (EditorMarks), so a jump to the next match does not lay the whole text out again.
+ * - A line longer than [MAX_COLOURED_LINE] (minified JSON or code) is not coloured. It would be
+ *   tokenised again at every key, and its thousands of colours make its layout slow.
+ * - With no language (null), nothing is coloured: the editor uses no transformation then.
  *
  * If [window] is set, only those lines (counted from 0) are coloured. It is used for the lines
  * around the visible part of a big script, because the colours cost several times the text itself
- * to lay out at every key. The flash and the matches show wherever they are.
+ * to lay out at every key.
  */
 internal class SyntaxHighlighter(
     lang: Syntax?,
-    private val flashLine: Int?,
-    private val matches: MatchHighlights?,
     private val tokens: LineTokens? = lang?.let(::LineTokens),
     private val window: IntRange? = null,
 ) : VisualTransformation {
-    private val keywords = tokens?.keywords ?: emptySet()
     // The theme this was made for. A text field colours again only when the new highlighter is not equal to the last one.
     private val palette = Term.palette
     private val js = lang == Syntax.JS
@@ -218,8 +204,10 @@ internal class SyntaxHighlighter(
                 val lineEnd = src.indexOf('\n', lineStart).let { if (it < 0) src.length else it }
                 if (window == null || line in window) {
                     if (from < 0) from = lineStart
-                    val t = tokens.of(src.substring(lineStart, lineEnd))
-                    for (i in t.indices step 3) addStyle(styles[t[i + 2]], lineStart + t[i], lineStart + t[i + 1])
+                    if (lineEnd - lineStart <= MAX_COLOURED_LINE) {
+                        val t = tokens.of(src.substring(lineStart, lineEnd))
+                        for (i in t.indices step 3) addStyle(styles[t[i + 2]], lineStart + t[i], lineStart + t[i + 1])
+                    }
                     to = lineEnd
                 } else if (line > window.last) {
                     break
@@ -237,31 +225,20 @@ internal class SyntaxHighlighter(
                     open = src.indexOf('`', close + 1)
                 }
             }
-            if (flashLine != null) {
-                val start = selectionAtLine(src, flashLine).start
-                val end = src.indexOf('\n', start).let { if (it < 0) src.length else it }
-                if (end > start) addStyle(SpanStyle(background = Term.error.copy(alpha = 0.25f)), start, end)
-            }
-            if (matches != null) {
-                val other = SpanStyle(background = Term.info.copy(alpha = 0.3f))
-                val cur = SpanStyle(background = Term.prompt.copy(alpha = 0.55f), color = Term.bg)
-                // Offsets can be briefly out of date while matches are recomputed after an edit.
-                for (s in matches.starts) {
-                    val e = s + matches.length
-                    if (e <= src.length) addStyle(if (s == matches.current) cur else other, s, e)
-                }
-            }
         }
         return TransformedText(styled, OffsetMapping.Identity)
     }
 
-    private companion object {
+    companion object {
         /** Above this length (about 200 lines), code gets colours only, with no italic or bold. */
-        const val PLAIN_FROM = 8_000
+        private const val PLAIN_FROM = 8_000
+
+        /** A line longer than this gets no colours. */
+        const val MAX_COLOURED_LINE = 5_000
     }
 
-    override fun equals(other: Any?) = other is SyntaxHighlighter && other.flashLine == flashLine &&
-        other.keywords == keywords && other.matches == matches && other.palette == palette && other.window == window
+    override fun equals(other: Any?) = other is SyntaxHighlighter && other.tokens?.syntax == tokens?.syntax &&
+        other.palette == palette && other.window == window
 
-    override fun hashCode() = 31 * (31 * (31 * (31 * keywords.hashCode() + (flashLine ?: 0)) + matches.hashCode()) + palette.hashCode()) + window.hashCode()
+    override fun hashCode() = 31 * (31 * (tokens?.syntax?.hashCode() ?: 0) + palette.hashCode()) + window.hashCode()
 }

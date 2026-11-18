@@ -103,6 +103,19 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
     /** The Model's calls run here: one at a time and in order, so a draft can't be written after a newer one. */
     private val io = Dispatchers.IO.limitedParallelism(1)
 
+    /** The file work on [io] that is waiting or running ([onFile]). Leaving the editor waits only when there is none. */
+    private val fileWork = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Runs [block] on [io], counted in [fileWork] while it waits and runs. */
+    private suspend fun <T> onFile(block: suspend kotlinx.coroutines.CoroutineScope.() -> T): T {
+        fileWork.incrementAndGet()
+        try {
+            return withContext(io, block)
+        } finally {
+            fileWork.decrementAndGet()
+        }
+    }
+
     /** The file is closed, or its text moved to another file: no draft is written for it any more. */
     @Volatile private var done = false
 
@@ -127,7 +140,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         reopenHelps = source.reopenHelps(uri)
         viewModelScope.launch {
             val doc = Documents.open(app, uri)
-            val opened = withContext(io) {
+            val opened = onFile {
                 // Whatever goes wrong, the window says so instead of stopping.
                 runCatching { doc.open() }.getOrElse { TextDocument.Opened.Unavailable(it.message ?: it.javaClass.simpleName, null) }
                     .also { if (it is TextDocument.Opened.Ready) runCatching { Documents.remember(app, uri, doc.name) } }
@@ -142,7 +155,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                     val draft = opened.draft
                     if (draft == null) {
                         // It can't be opened again from the recent list either.
-                        withContext(io) { Documents.forget(app, uri.toString()) }
+                        onFile { Documents.forget(app, uri.toString()) }
                         phase = Phase.Failed("Can't open ${doc.name}", "${opened.why}.")
                     } else {
                         show(draft, "", EditorMessage(
@@ -211,8 +224,10 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
 
     /**
      * The window is leaving the screen. Android may close the editor at any time from now on.
-     * - The draft is written before this returns. It waits two seconds at most: a slow save before
-     *   it (a file in the cloud) must not stop the phone, and the draft is still written after it.
+     * - The draft is written before this returns, when nothing is ahead of it on [io]: a draft is a
+     *   small file of the app's own, so that takes a moment. Behind other file work (a slow save to
+     *   a file in the cloud) it does not wait, so the phone does not stop: the draft is still written
+     *   after that work. It waits two seconds at most in any case.
      * - The cursor and the wrap choice go into the saved state. The text itself doesn't: it comes
      *   back from the file and the draft.
      */
@@ -221,8 +236,9 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         saved[KEY_START] = state.value.selection.start
         saved[KEY_END] = state.value.selection.end
         saved[KEY_WRAP] = wrap
+        val idle = fileWork.get() == 0
         val job = keepDraft(state.value.text)
-        runBlocking { withTimeoutOrNull(2_000) { job.join() } }
+        if (idle) runBlocking { withTimeoutOrNull(2_000) { job.join() } }
     }
 
     /**
@@ -236,7 +252,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         if (done) return
         viewModelScope.launch {
             // A quick look, as this runs each time the window comes back. Saving looks properly.
-            if (!withContext(io) { runCatching { doc.changedOnDisk(quick = true) }.getOrDefault(false) }) return@launch
+            if (!onFile { runCatching { doc.changedOnDisk(quick = true) }.getOrDefault(false) }) return@launch
             val changed = EditorMessage("This file changed on disk. Saving asks before it overwrites", EditorMessage.Kind.NOTE)
             if (state.dirty) state.message = changed else reload(doc, state, "The file changed on disk: this is how it is now", ifTyped = changed)
         }
@@ -251,7 +267,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
      */
     private suspend fun reload(doc: TextDocument, state: EditorState, said: String, ifTyped: EditorMessage?) {
         val before = state.value.text
-        when (val read = withContext(io) { doc.reread() }) {
+        when (val read = onFile { doc.reread() }) {
             is TextDocument.Reread.Text -> {
                 if (state.value.text != before) {
                     ifTyped?.let { state.message = it }
@@ -262,7 +278,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                 state.edit(TextFieldValue(fresh.text, TextRange(state.value.selection.start.coerceAtMost(fresh.text.length))))
                 state.history.checkpoint()
                 state.saved = fresh.text
-                withContext(io) { doc.adopt(fresh) }
+                onFile { doc.adopt(fresh) }
                 name = doc.name
                 state.message = EditorMessage(said, EditorMessage.Kind.OK)
             }
@@ -284,7 +300,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val busy = EditorMessage("Saving…", EditorMessage.Kind.BUSY)
         state.message = busy
         viewModelScope.launch {
-            val result = withContext(io) { doc.save(text, overwrite) }
+            val result = onFile { doc.save(text, overwrite) }
             if (state.message === busy) state.message = null
             when (result) {
                 is TextDocument.Saved.Done -> {
@@ -333,7 +349,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val app = getApplication<Application>()
         state.message = EditorMessage("Saving…", EditorMessage.Kind.BUSY)
         viewModelScope.launch {
-            when (val result = withContext(io) { doc.saveCopy(to.toString(), text) }) {
+            when (val result = onFile { doc.saveCopy(to.toString(), text) }) {
                 is TextDocument.Saved.Done -> {
                     done = true
                     state.saved = state.value.text
@@ -352,7 +368,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val uri = uri ?: return
         val app = getApplication<Application>()
         viewModelScope.launch {
-            val folder = withContext(io) { runCatching { Documents.source(app).folderOf(uri) }.getOrNull() }
+            val folder = onFile { runCatching { Documents.source(app).folderOf(uri) }.getOrNull() }
             _events.emit(Event.AskFromFolder(folder))
         }
     }
@@ -383,7 +399,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         val dirty = state.dirty
         val app = getApplication<Application>()
         viewModelScope.launch {
-            val moved = withContext(io) {
+            val moved = onFile {
                 // From now on no draft is written for this address: the text lives at the new one.
                 done = true
                 runCatching { !dirty || doc.moveDraftTo(to.toString(), text) }.also { if (it.getOrNull() != true) done = false }
@@ -395,7 +411,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                     EditorMessage.Kind.ERROR,
                 )
                 else -> {
-                    withContext(io) { Documents.forget(app, from.toString()) }
+                    onFile { Documents.forget(app, from.toString()) }
                     _events.emit(Event.Moved(to))
                 }
             }
@@ -409,7 +425,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         viewModelScope.launch {
             val typed = state.value.text
             // No draft of what was thrown away is written again: by a write on its way, or on leaving just now.
-            withContext(io) {
+            onFile {
                 doc.discardDraft()
                 drafted = typed
             }

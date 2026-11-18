@@ -1,6 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.text.AnnotatedString
 import com.mtwabpin.kolahal.withValue
 import org.junit.Assert.assertEquals
@@ -26,47 +25,44 @@ class SyntaxHighlighterTest {
         for ((lang, code) in listOf(Syntax.LUA to lua, Syntax.JS to js)) {
             val tokens = LineTokens(lang)
             // Warm the shared tokens with other text first, as typing does.
-            SyntaxHighlighter(lang, null, null, tokens).filter(AnnotatedString(code.replace("1", "2")))
-            val matches = MatchHighlights(intArrayOf(0, 10), 3, 10)
-            for ((flash, find) in listOf(null to null, 2 to null, null to matches, 3 to matches)) {
-                val fresh = SyntaxHighlighter(lang, flash, find).filter(AnnotatedString(code)).text
-                val kept = SyntaxHighlighter(lang, flash, find, tokens).filter(AnnotatedString(code)).text
-                assertEquals("$lang $flash $find", fresh, kept)
-            }
+            SyntaxHighlighter(lang, tokens).filter(AnnotatedString(code.replace("1", "2")))
+            val fresh = SyntaxHighlighter(lang).filter(AnnotatedString(code)).text
+            val kept = SyntaxHighlighter(lang, tokens).filter(AnnotatedString(code)).text
+            assertEquals("$lang", fresh, kept)
         }
     }
 
     @Test fun theSameTextIsntColouredAgain() {
-        val h = SyntaxHighlighter(Syntax.LUA, null, null)
+        val h = SyntaxHighlighter(Syntax.LUA)
         val first = h.filter(AnnotatedString(lua))
         assertSame(first, h.filter(AnnotatedString(lua)))
         // A changed text is coloured for what it now says.
         val changed = h.filter(AnnotatedString("$lua\nprint(1)"))
-        assertEquals(SyntaxHighlighter(Syntax.LUA, null, null).filter(AnnotatedString("$lua\nprint(1)")).text, changed.text)
+        assertEquals(SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString("$lua\nprint(1)")).text, changed.text)
     }
 
     /** The last answer stands only for the theme it was coloured in. */
     @Test fun aNewThemeColoursAgain() {
         withValue(Term::palette, Palettes.green) {
-            val h = SyntaxHighlighter(Syntax.LUA, null, null)
+            val h = SyntaxHighlighter(Syntax.LUA)
             val green = h.filter(AnnotatedString(lua))
             withValue(Term::palette, Palettes.dracula) {
                 val dracula = h.filter(AnnotatedString(lua))
                 assertNotSame(green, dracula)
-                assertEquals(SyntaxHighlighter(Syntax.LUA, null, null).filter(AnnotatedString(lua)).text, dracula.text)
+                assertEquals(SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(lua)).text, dracula.text)
             }
         }
     }
 
     /** A big script is coloured without bold and italic, which make its layout far slower; a usual one keeps them. */
     @Test fun aBigScriptIsColouredOnly() {
-        fun fonts(code: String) = SyntaxHighlighter(Syntax.LUA, null, null).filter(AnnotatedString(code)).text.spanStyles
+        fun fonts(code: String) = SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(code)).text.spanStyles
             .count { it.item.fontWeight != null || it.item.fontStyle != null }
         assertTrue(fonts(lua) > 0)
         val big = buildString { while (length <= 8_000) append(lua).append('\n') }
         assertEquals(0, fonts(big))
         // The colours stay.
-        assertTrue(SyntaxHighlighter(Syntax.LUA, null, null).filter(AnnotatedString(big)).text.spanStyles.size > 100)
+        assertTrue(SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(big)).text.spanStyles.size > 100)
     }
 
     /** The kept tokens hold a bounded amount of text, not a number of lines: a long script stays whole. */
@@ -84,44 +80,48 @@ class SyntaxHighlighterTest {
         assertTrue(LineTokens(Syntax.LUA).of(short[0]).contentEquals(tokens.of(short[0])))
     }
 
-    /** A window colours its lines as the whole script would, and no others; matches and the flash show anywhere. */
+    /** A window colours its lines as the whole script would, and no others. */
     @Test fun aWindowColoursOnlyItsLines() {
         for ((lang, code) in listOf(Syntax.LUA to lua, Syntax.JS to "$js\nconst y = `x\ny`;\n// end")) {
             val starts = listOf(0) + code.indices.filter { code[it] == '\n' }.map { it + 1 }
             fun lineOf(offset: Int) = starts.indexOfLast { it <= offset }
-            val whole = SyntaxHighlighter(lang, null, null).filter(AnnotatedString(code)).text.spanStyles
+            val whole = SyntaxHighlighter(lang).filter(AnnotatedString(code)).text.spanStyles
             for (window in listOf(0..0, 1..2, 2..100, 50..60)) {
-                val part = SyntaxHighlighter(lang, null, null, window = window).filter(AnnotatedString(code)).text.spanStyles
+                val part = SyntaxHighlighter(lang, window = window).filter(AnnotatedString(code)).text.spanStyles
                 // Every colour in the window, as coloured whole; none outside it.
                 val expected = whole.filter { r -> (lineOf(r.start)..lineOf((r.end - 1).coerceAtLeast(r.start))).any { it in window } }
                 assertEquals("$lang $window", expected.map { Triple(it.start, it.end, it.item) }.toSet(), part.map { Triple(it.start, it.end, it.item) }.toSet())
             }
-            val found = MatchHighlights(intArrayOf(code.length - 3), 3, code.length - 3)
-            val marked = SyntaxHighlighter(lang, 1, found, window = 0..0).filter(AnnotatedString(code)).text.spanStyles
-            assertTrue("$lang: the match far below the window", marked.any { it.start == code.length - 3 && it.item.background.isSpecified })
-            assertTrue("$lang: the flashed line", marked.any { it.start == 0 && it.item.background.isSpecified })
         }
-        assertNotEquals(SyntaxHighlighter(Syntax.LUA, null, null, window = 0..10), SyntaxHighlighter(Syntax.LUA, null, null, window = 5..15))
+        assertNotEquals(SyntaxHighlighter(Syntax.LUA, window = 0..10), SyntaxHighlighter(Syntax.LUA, window = 5..15))
     }
 
     @Test fun findMatchesAreEqualByWhatTheyMark() {
         assertEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 5))
-        assertEquals(
-            SyntaxHighlighter(Syntax.LUA, null, MatchHighlights(intArrayOf(1, 5), 2, 5)),
-            SyntaxHighlighter(Syntax.LUA, null, MatchHighlights(intArrayOf(1, 5), 2, 5)),
-        )
         assertNotEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 1))
     }
 
-    /** Plain text has no language: nothing is coloured, but a find match and the flashed line still show. */
-    @Test fun plainTextShowsOnlyMatchesAndTheFlash() {
-        assertEquals(emptyList<Any>(), SyntaxHighlighter(null, null, null).filter(AnnotatedString(lua)).text.spanStyles)
-        val marked = SyntaxHighlighter(null, 2, MatchHighlights(intArrayOf(3), 5, 3)).filter(AnnotatedString(lua)).text.spanStyles
-        assertEquals(listOf(lua.indexOf("local") to lua.indexOf("\nfor"), 3 to 8), marked.map { it.start to it.end })
-        assertTrue(marked.all { it.item.background.isSpecified })
+    /** Plain text has no language: nothing is coloured. */
+    @Test fun plainTextHasNoColours() {
+        assertEquals(emptyList<Any>(), SyntaxHighlighter(null).filter(AnnotatedString(lua)).text.spanStyles)
         // It is not the same as a language's, and the same as another plain one.
-        assertNotEquals(SyntaxHighlighter(null, null, null), SyntaxHighlighter(Syntax.LUA, null, null))
-        assertEquals(SyntaxHighlighter(null, 2, null), SyntaxHighlighter(null, 2, null))
+        assertNotEquals(SyntaxHighlighter(null), SyntaxHighlighter(Syntax.LUA))
+        assertEquals(SyntaxHighlighter(null), SyntaxHighlighter(null))
+        // Two languages' highlighters are not the same.
+        assertNotEquals(SyntaxHighlighter(Syntax.LUA), SyntaxHighlighter(Syntax.JS))
+    }
+
+    /** A very long line (minified JSON) has no colours; the lines around it keep theirs. */
+    @Test fun aVeryLongLineIsNotColoured() {
+        val long = "\"b\": [" + (1..2_000).joinToString(",") { "\"k$it\"" } + "],"
+        assertTrue(long.length > SyntaxHighlighter.MAX_COLOURED_LINE)
+        val code = "{\"a\": 1,\n$long\n\"c\": 2}"
+        val spans = SyntaxHighlighter(Syntax.JSON).filter(AnnotatedString(code)).text.spanStyles
+        val from = code.indexOf(long)
+        val to = from + long.length
+        assertTrue("the first line is coloured", spans.any { it.end <= from })
+        assertTrue("the last line is coloured", spans.any { it.start > to })
+        assertTrue("the long line is not", spans.none { it.start in from until to })
     }
 
     /** JSON: keys in the keyword colour, string values in the string colour, other values in the number colour. */
@@ -141,7 +141,7 @@ class SyntaxHighlighterTest {
         )
         // Backticks mean nothing in JSON: no template string is coloured across lines.
         val code = "{\n  \"a\": \"`x\",\n  \"b\": 1,\n  \"c\": \"y`\"\n}"
-        val spans = SyntaxHighlighter(Syntax.JSON, null, null).filter(AnnotatedString(code)).text.spanStyles
+        val spans = SyntaxHighlighter(Syntax.JSON).filter(AnnotatedString(code)).text.spanStyles
         assertTrue(spans.none { it.end - it.start > 6 })
     }
 }

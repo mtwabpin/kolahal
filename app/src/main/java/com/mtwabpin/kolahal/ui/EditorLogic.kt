@@ -271,19 +271,29 @@ object EditorLogic {
      * gets this width, so it does not need to measure the whole text before layout.
      * - [cellPx] is at least the width of any ASCII character. [tabPx] is the width of a tab.
      * - Any other character counts as two cells, because no glyph is wider.
-     * - Lines are measured from the widest guess down. It stops when no other line can be wider.
+     * - The line with the widest guess is measured first. Then only the lines whose guess is wider
+     *   than that (few: a guess is never narrower than the line) are measured, widest guess first.
+     * - It runs at every key in a text that doesn't wrap: one pass, over arrays of numbers.
      */
     fun widestLine(text: String, cellPx: Float, tabPx: Float, measure: (String) -> Float): Float {
         if (text.isEmpty()) return 0f
-        val starts = ArrayList<Int>()
-        val guesses = ArrayList<Float>()
+        var starts = IntArray(256)
+        var guesses = FloatArray(256)
+        var lines = 0
+        var top = 0
         var start = 0
         var guess = 0f
         for (i in 0..text.length) {
             val c = if (i < text.length) text[i] else '\n'
             if (c == '\n') {
-                starts += start
-                guesses += guess
+                if (lines == starts.size) {
+                    starts = starts.copyOf(lines * 2)
+                    guesses = guesses.copyOf(lines * 2)
+                }
+                starts[lines] = start
+                guesses[lines] = guess
+                if (guess > guesses[top]) top = lines
+                lines++
                 start = i + 1
                 guess = 0f
             } else {
@@ -294,11 +304,15 @@ object EditorLogic {
                 }
             }
         }
-        var widest = 0f
-        for (line in guesses.indices.sortedByDescending { guesses[it] }) {
-            if (guesses[line] <= widest) break
+        fun width(line: Int): Float {
             val end = text.indexOf('\n', starts[line]).let { if (it < 0) text.length else it }
-            widest = maxOf(widest, measure(text.substring(starts[line], end)))
+            return measure(text.substring(starts[line], end))
+        }
+        var widest = width(top)
+        val wider = (0 until lines).filter { it != top && guesses[it] > widest }.sortedByDescending { guesses[it] }
+        for (line in wider) {
+            if (guesses[line] <= widest) break
+            widest = maxOf(widest, width(line))
         }
         return widest
     }

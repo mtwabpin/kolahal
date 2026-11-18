@@ -1,5 +1,11 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.ScrollState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -265,18 +271,25 @@ internal fun CodeEditor(
         if (next >= 0) select(next, q.length)
     }
 
+    // The text is searched off the main thread: a big file takes a while. A text changed meanwhile is left as it is.
     fun replaceAll() {
         val q = state.query.text
         if (q.isEmpty()) return
-        val (newText, n) = EditorLogic.replaceAll(state.value.text, q, state.replacement.text, state.ignoreCase)
-        if (n == 0) {
-            state.message = EditorMessage("No matches to replace", EditorMessage.Kind.INFO)
-            return
+        val text = state.value.text
+        val with = state.replacement.text
+        val ignoreCase = state.ignoreCase
+        scope.launch {
+            val (newText, n) = withContext(Dispatchers.Default) { EditorLogic.replaceAll(text, q, with, ignoreCase) }
+            if (state.value.text !== text) return@launch
+            if (n == 0) {
+                state.message = EditorMessage("No matches to replace", EditorMessage.Kind.INFO)
+                return@launch
+            }
+            state.history.checkpoint()
+            state.edit(TextFieldValue(newText, TextRange(state.value.selection.min.coerceAtMost(newText.length))))
+            state.history.checkpoint()
+            state.message = EditorMessage("Replaced $n", EditorMessage.Kind.OK)
         }
-        state.history.checkpoint()
-        state.edit(TextFieldValue(newText, TextRange(state.value.selection.min.coerceAtMost(newText.length))))
-        state.history.checkpoint()
-        state.message = EditorMessage("Replaced $n", EditorMessage.Kind.OK)
     }
 
     // Matches are found off the main thread, with a short delay while typing.
@@ -379,15 +392,15 @@ internal fun CodeEditor(
             if (nearTop || nearBottom) window = (first - WINDOW_SPAN).coerceAtLeast(0)..(last + WINDOW_SPAN)
         }
     }
-    // The tokens of each line are kept across highlighters, because find matches and a flashed line create new highlighters.
+    // The tokens of each line are kept across highlighters, because the coloured window creates new ones.
     val lineTokens = remember(lang) { lang?.let(::LineTokens) }
     // Plain text has no colours to leave out.
     val coloured = if (big && lang != null) window else null
-    val flashLine = state.flashLine
-    val highlighter = remember(lang, flashLine, Term.palette, highlights, coloured) { SyntaxHighlighter(lang, flashLine, highlights, lineTokens, coloured) }
-    val lineCount = value.text.count { it == '\n' } + 1
+    // Plain text has no colours: no transformation, so it is not copied at every key. Find matches
+    // and the flashed line are drawn behind the text ([EditorMarks]), not coloured.
+    val highlighter = remember(lang, Term.palette, coloured) { if (lang == null) VisualTransformation.None else SyntaxHighlighter(lang, lineTokens, coloured) }
     // Where lines wrap there are no line numbers: a number would stand beside the wrong line.
-    val numbers = remember(lineCount, wraps) { if (wraps) null else (1..lineCount).joinToString("\n") }
+    val numbered = !wraps
 
     Column(
         Modifier
@@ -468,18 +481,12 @@ internal fun CodeEditor(
         ) {
             Row {
                 // Line numbers share the field's style, so they stay aligned while scrolling.
-                if (numbers != null) {
-                    Text(
-                        numbers,
-                        style = Term.code.copy(color = Term.dim, textAlign = TextAlign.End),
-                        modifier = Modifier.widthIn(min = 28.dp).padding(start = 6.dp, end = 10.dp),
-                    )
-                }
+                if (numbered) LineNumbers({ layout }, vScroll) { viewportHeight }
                 Box(
                     Modifier
                         .weight(1f)
                         .onSizeChanged { viewportWidth = it.width }
-                        .then(if (numbers == null) Modifier.padding(start = 12.dp) else Modifier)
+                        .then(if (numbered) Modifier else Modifier.padding(start = 12.dp))
                         .then(if (wrap) Modifier else Modifier.horizontalScroll(hScroll))
                 ) {
                     BasicTextField(
@@ -494,6 +501,7 @@ internal fun CodeEditor(
                         decorationBox = { field ->
                             // The field keeps its minimum width, as it would without a box around it.
                             Box(propagateMinConstraints = true) {
+                                EditorMarks(highlights, state.flashLine) { layout }
                                 field()
                                 EditorCaret(value, { layout }, state.focused, Term.prompt)
                             }
@@ -578,6 +586,8 @@ internal fun CodeEditor(
     }
 
     if (state.gotoOpen) {
+        // Counted when the dialog opens, not at each key.
+        val lineCount = remember { state.value.text.count { it == '\n' } + 1 }
         GotoLineDialog(lineCount, onDismiss = { state.gotoOpen = false }) { line ->
             state.gotoOpen = false
             gotoLine(line)
@@ -640,6 +650,43 @@ private fun EditorCaret(value: TextFieldValue, layout: () -> TextLayoutResult?, 
                 val text = layout()?.size ?: IntSize.Zero
                 val placeable = measurable.measure(Constraints.fixed(0, 0))
                 layout(text.width, text.height) { placeable.place(0, 0) }
+            },
+    )
+}
+
+/**
+ * The line numbers beside the text, from its [layout] (lines that don't wrap: one line on screen is
+ * one line of the text).
+ * - Only the numbers in view are drawn, as [scroll] moves: a text of 50,000 lines does not lay
+ *   out 50,000 numbers when a line is added.
+ * - It is as tall as the text, and as wide as the largest number needs (28 dp at least).
+ */
+@Composable
+private fun LineNumbers(layout: () -> TextLayoutResult?, scroll: ScrollState, viewportHeight: () -> Int) {
+    val style = Term.code.copy(color = Term.dim)
+    val measurer = rememberTextMeasurer(cacheSize = 128)
+    val digits by remember { derivedStateOf { (layout()?.lineCount ?: 1).toString().length } }
+    val numberPx = remember(digits, style) { measurer.measure("9".repeat(digits), style).size.width }
+    Spacer(
+        Modifier
+            .layout { measurable, _ ->
+                val width = maxOf(28.dp.roundToPx(), numberPx + 16.dp.roundToPx())
+                val height = layout()?.size?.height ?: 0
+                val placeable = measurable.measure(Constraints.fixed(width, height))
+                layout(width, height) { placeable.place(0, 0) }
+            }
+            .drawBehind {
+                val l = layout() ?: return@drawBehind
+                if (l.lineCount == 0) return@drawBehind
+                // The scroll has 12 dp above the text.
+                val top = (scroll.value - 12.dp.toPx()).coerceAtLeast(0f)
+                val first = l.getLineForVerticalPosition(top)
+                val last = l.getLineForVerticalPosition(top + viewportHeight())
+                val end = size.width - 10.dp.toPx()
+                for (line in first..last) {
+                    val number = measurer.measure((line + 1).toString(), style)
+                    drawText(number, topLeft = Offset(end - number.size.width, l.getLineTop(line)))
+                }
             },
     )
 }

@@ -347,4 +347,18 @@ class EditorLogicTest {
         // In the middle of a line: the line is split around it.
         assertEquals("x =\na()\nb()\n 1" to 12, at("x = 1", 3))
     }
+
+    /** The widest line is the one [EditorLogic.widestLine] finds, and only a few lines are measured. */
+    @Test fun widestLineMeasuresFewLines() {
+        // A line's width: 7 a character, 14 for one that isn't ASCII. A guess (8 and 16) is never narrower.
+        fun width(line: String) = line.sumOf { if (it in ' '..'~') 7 else 14 }.toFloat()
+        val lines = (0 until 5_000).map { "x".repeat(it % 97) } + "é".repeat(60) + "y".repeat(110)
+        val text = lines.shuffled(kotlin.random.Random(7)).joinToString("\n")
+        var measured = 0
+        val widest = EditorLogic.widestLine(text, 8f, 16f) { measured++; width(it) }
+        assertEquals(lines.maxOf(::width), widest)
+        assertTrue("measured $measured lines", measured <= 3)
+        assertEquals(0f, EditorLogic.widestLine("", 8f, 16f, ::width))
+        assertEquals(width("abc"), EditorLogic.widestLine("abc", 8f, 16f, ::width))
+    }
 }
