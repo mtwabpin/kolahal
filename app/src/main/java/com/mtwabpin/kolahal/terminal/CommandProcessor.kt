@@ -510,12 +510,13 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
      *   the theme's colour as home last showed it.
      *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
      *   old one can't be restored.
-     * - The material-you theme takes its colours from the wallpaper. So the wallpaper can't follow
-     *   that theme, and both forms say so.
+     * - The Material You themes take their colours from the wallpaper. So the wallpaper can't follow
+     *   one, and both forms say so.
      */
     private fun wallpaper(args: List<String>) {
         val match = com.mtwabpin.kolahal.control.WallpaperMatch
-        val theme = com.mtwabpin.kolahal.data.MaterialYou.NAME
+        // The theme in use, when it is a Material You one: its name is in the messages.
+        val theme = conf[Keys.THEME].takeIf(com.mtwabpin.kolahal.data.MaterialYou::isOne) ?: com.mtwabpin.kolahal.data.MaterialYou.NAME
         when (args.firstOrNull()?.lowercase()) {
             null -> info(
                 when {

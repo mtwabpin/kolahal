@@ -191,12 +191,12 @@ object Palettes {
     /**
      * Returns the [dark] or light version of a theme.
      * - The theme can be built-in or made by the user ([CustomThemes]).
-     * - `material-you` returns the colours of the phone's wallpaper ([MaterialYouPalettes]).
+     * - `material-you` and its variations return the colours of the phone's wallpaper ([MaterialYouPalettes]).
      * - A custom theme without a light version uses the same colours for both.
      * - An unknown name returns green.
      */
     fun named(name: String, dark: Boolean = true): Palette {
-        if (name == MaterialYou.NAME) return MaterialYouPalettes.of(dark)
+        if (MaterialYou.isOne(name)) return MaterialYouPalettes.of(dark, name)
         BUILT_IN[name]?.let { (d, l) -> return if (dark) d else l }
         val colors = CustomThemes.colors(name) ?: return if (dark) green else greenLight
         return fromColors(if (dark) colors else CustomThemes.light(colors) ?: colors)

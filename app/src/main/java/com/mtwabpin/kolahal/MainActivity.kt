@@ -333,9 +333,9 @@ class MainActivity : ComponentActivity() {
         if (!loaded) vm.onFontUnavailable(font)
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
         // - The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
-        // - material-you took its colours from the wallpaper, so the wallpaper doesn't follow that theme.
+        // - A Material You theme took its colours from the wallpaper, so the wallpaper doesn't follow it.
         if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(
-            this, Term.bg.copy(alpha = 1f).toArgb(), fromWallpaper = theme == MaterialYou.NAME && MaterialYou.supported,
+            this, Term.bg.copy(alpha = 1f).toArgb(), fromWallpaper = MaterialYou.isOne(theme) && MaterialYou.supported,
         )
         // log.wallpaper, widgets.wallpaper: the window shows the phone's wallpaper, and each home page
         // draws its colour over it, as faintly as its setting says (Modifier.page).

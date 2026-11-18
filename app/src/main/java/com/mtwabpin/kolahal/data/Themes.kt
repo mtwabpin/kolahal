@@ -19,12 +19,23 @@ import java.io.File
 object MaterialYou {
     const val NAME = "material-you"
 
+    /** The variations: the same wallpaper colours, with a lighter, a tinted or a black background (`MaterialYouPalettes`). */
+    const val SOFT = "$NAME-soft"
+    const val TINTED = "$NAME-tinted"
+    const val BLACK = "$NAME-black"
+
+    /** Every Material You theme, the plain one first. */
+    val VARIANTS = listOf(NAME, SOFT, TINTED, BLACK)
+
+    /** Whether the theme [name] takes its colours from the wallpaper. */
+    fun isOne(name: String?): Boolean = name in VARIANTS
+
     /** True where the phone has wallpaper colours: Android 12 and newer. */
     @get:ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
     val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    /** What the `theme` command says after it sets this theme on a phone that isn't [supported]. */
-    const val NOTE = "$NAME takes its colours from the wallpaper on Android 12 and newer. This phone has an older Android, so it shows Material's standard colours"
+    /** What the `theme` command says after it sets the Material You theme [name] on a phone that isn't [supported]. */
+    fun note(name: String) = "$name takes its colours from the wallpaper on Android 12 and newer. This phone has an older Android, so it shows Material's standard colours"
 }
 
 /**

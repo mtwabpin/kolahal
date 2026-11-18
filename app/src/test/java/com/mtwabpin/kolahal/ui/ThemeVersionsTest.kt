@@ -47,12 +47,13 @@ class ThemeVersionsTest {
     /** `theme <name>` and the theme cards take every built-in theme, and each has a name to show. */
     @Test fun everyBuiltInThemeCanBePicked() {
         assertEquals(
-            listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord", "material-you"),
+            listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord", "material-you", "material-you-soft", "material-you-tinted", "material-you-black"),
             Keys.BUILT_IN_THEMES,
         )
         for (name in Keys.BUILT_IN_THEMES) assertEquals(name, Keys.THEME.parse(name))
         assertEquals("Nord", ChoiceLabels.theme("nord"))
         assertEquals("Material You", ChoiceLabels.theme("material-you"))
+        assertEquals("Material You Soft", ChoiceLabels.theme("material-you-soft"))
         assertEquals("Gruvbox Material", ChoiceLabels.theme("gruvbox-material"))
     }
 

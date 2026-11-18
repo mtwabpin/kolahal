@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.ui
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.mtwabpin.kolahal.data.MaterialYou
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -43,6 +44,26 @@ class MaterialYouPalettesTest {
         assertEquals(secondary, p.private)
         assertEquals(tertiary, p.link)
         assertEquals(tertiary, p.work)
+    }
+
+    /**
+     * The variations move only the background and the shade under cards: soft one step lighter,
+     * tinted with the primary colour, black on black (its light version is the plain one). Text and
+     * accents are the plain theme's, and muted text still reads.
+     */
+    @Test fun theVariationsMoveOnlyTheBackground() {
+        for (s in listOf(darkColorScheme(), lightColorScheme())) {
+            val plain = paletteFrom(s)
+            val dark = s.surface.luminance() < 0.5f
+            for (v in MaterialYou.VARIANTS) {
+                val p = paletteFrom(s, v)
+                assertEquals("$v", plain.copy(bg = p.bg, surface = p.surface, dim = p.dim), p)
+                assertTrue("$v muted", contrast(p.dim, p.bg) >= 4f)
+            }
+            assertEquals(s.surfaceContainer to s.surfaceContainerHigh, paletteFrom(s, MaterialYou.SOFT).let { it.bg to it.surface })
+            assertNotEquals(plain.bg, paletteFrom(s, MaterialYou.TINTED).bg)
+            assertEquals(if (dark) Color.Black else plain.bg, paletteFrom(s, MaterialYou.BLACK).bg)
+        }
     }
 
     /** Good and warn don't come from the wallpaper: one green and one amber for dark schemes, another pair for light ones. */

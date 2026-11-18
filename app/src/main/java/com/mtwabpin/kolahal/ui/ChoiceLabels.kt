@@ -26,11 +26,11 @@ internal object ChoiceLabels {
 
     /**
      * A note under a theme's name on its card, or null for no note.
-     * Material You has one on Android 9 to 11 ([supported] is false there): the phone has no
+     * The Material You themes have one on Android 9 to 11 ([supported] is false there): the phone has no
      * wallpaper colours, so the card shows Material's standard colours.
      */
     fun themeNote(name: String, supported: Boolean = MaterialYou.supported): String? =
-        "Android 12+".takeIf { name == MaterialYou.NAME && !supported }
+        "Android 12+".takeIf { MaterialYou.isOne(name) && !supported }
 
     private fun readable(value: String) = value.replace('-', ' ').replaceFirstChar(Char::uppercase)
 }
