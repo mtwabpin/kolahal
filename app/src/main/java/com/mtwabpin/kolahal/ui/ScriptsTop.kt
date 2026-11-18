@@ -68,15 +68,15 @@ internal fun SearchRow(query: String, onQuery: (String) -> Unit, filters: Int, o
     var sorting by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         SearchField(query, onQuery, "Search scripts", Modifier.weight(1f).testTag("script-search"), clear = "Clear the search")
-        IconButton(shapes = IconButtonDefaults.shapes(), onClick = onFilters) {
-            BadgedBox(badge = { if (filters > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$filters") } }) {
-                Icon(painterResource(R.drawable.ic_tune), contentDescription = "Filters")
+        Labeled("Filters") {
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onFilters) {
+                BadgedBox(badge = { if (filters > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$filters") } }) {
+                    Icon(painterResource(R.drawable.ic_tune), contentDescription = "Filters")
+                }
             }
         }
         Box {
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { sorting = true }) {
-                Icon(painterResource(R.drawable.ic_sort), contentDescription = "Sort")
-            }
+            LabeledIconButton(R.drawable.ic_sort, "Sort", onClick = { sorting = true })
             DropdownMenuPopup(expanded = sorting, onDismissRequest = { sorting = false }) {
                 DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1)) {
                     // The theme's accent, as in IntervalSelector.
@@ -148,9 +148,7 @@ internal fun SelfUpdateNote(version: String, count: Int, onShow: () -> Unit, onC
                 modifier = Modifier.weight(1f),
             )
             TextButton(shapes = ButtonDefaults.shapes(), onClick = onShow) { Text("Show") }
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClose) {
-                Icon(painterResource(R.drawable.ic_close), contentDescription = "Close the note")
-            }
+            LabeledIconButton(R.drawable.ic_close, "Close the note", onClick = onClose)
         }
     }
 }
@@ -183,9 +181,7 @@ internal fun CopiesBanner(newer: Int, edited: Int, canUpdate: Boolean, onReview:
                         color = colors.onSurfaceVariant,
                     )
                 }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onHide) {
-                    Icon(painterResource(R.drawable.ic_close), contentDescription = "Hide the banner")
-                }
+                LabeledIconButton(R.drawable.ic_close, "Hide the banner", onClick = onHide)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.align(Alignment.End).padding(end = 8.dp)) {
                 TextButton(shapes = ButtonDefaults.shapes(), onClick = onReview) { Text("Review") }

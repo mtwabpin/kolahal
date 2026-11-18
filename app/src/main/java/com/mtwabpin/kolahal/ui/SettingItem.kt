@@ -27,9 +27,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
@@ -50,7 +47,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -94,14 +90,7 @@ internal fun SettingItem(
                 )
                 if (changed && key !is ConfigKey.Bool) {
                     Spacer(Modifier.width(4.dp))
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.resetConfig(key) }, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_restart),
-                            contentDescription = "Reset to default",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
+                    LabeledIconButton(R.drawable.ic_restart, "Reset to default", onClick = { vm.resetConfig(key) }, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary, iconModifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -216,7 +205,7 @@ internal fun SettingItem(
                                 ),
                                 keyboardActions = KeyboardActions(onDone = { vm.setConfig(key, text) }),
                                 trailingIcon = if (text != value && valid) {
-                                    { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.setConfig(key, text) }) { Icon(painterResource(R.drawable.ic_check), "Apply") } }
+                                    { LabeledIconButton(R.drawable.ic_check, "Apply", onClick = { vm.setConfig(key, text) }) }
                                 } else null,
                                 modifier = Modifier.fillMaxWidth(),
                             )

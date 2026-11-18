@@ -205,8 +205,10 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     navigationIcon = { BackButton(vm::closeScreen) },
                     actions = {
                         if (panel.isNotEmpty()) {
-                            IconToggleButton(shapes = IconButtonDefaults.toggleableShapes(), checked = editing, onCheckedChange = { editing = it; selected = null }) {
-                                Icon(painterResource(if (editing) R.drawable.ic_check else R.drawable.ic_edit), if (editing) "Done" else "Edit widgets")
+                            Labeled(if (editing) "Done" else "Edit widgets") {
+                                IconToggleButton(shapes = IconButtonDefaults.toggleableShapes(), checked = editing, onCheckedChange = { editing = it; selected = null }) {
+                                    Icon(painterResource(if (editing) R.drawable.ic_check else R.drawable.ic_edit), if (editing) "Done" else "Edit widgets")
+                                }
                             }
                         }
                     },
@@ -431,8 +433,8 @@ private fun WidgetToolbar(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRemove) { Icon(painterResource(R.drawable.ic_delete), "Remove", tint = MaterialTheme.colorScheme.error) }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDone) { Icon(painterResource(R.drawable.ic_check), "Done") }
+                LabeledIconButton(R.drawable.ic_delete, "Remove", onClick = onRemove, tint = MaterialTheme.colorScheme.error)
+                LabeledIconButton(R.drawable.ic_check, "Done", onClick = onDone)
             }
             // Side by side if they fit. On a narrow screen or with large text, one below the other.
             FlowRow(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -441,8 +443,8 @@ private fun WidgetToolbar(
                 Stepper("Height", "${w.heightDp}", w.heightDp > minHeight, w.heightDp < WidgetLayout.MAX_DP, onHeight)
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(-1) }, enabled = index > 0) { Icon(painterResource(R.drawable.ic_arrow_back), "Move earlier") }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(1) }, enabled = index < count - 1) { Icon(painterResource(R.drawable.ic_arrow_forward), "Move later") }
+                LabeledIconButton(R.drawable.ic_arrow_back, "Move earlier", onClick = { onMove(-1) }, enabled = index > 0)
+                LabeledIconButton(R.drawable.ic_arrow_forward, "Move later", onClick = { onMove(1) }, enabled = index < count - 1)
                 Spacer(Modifier.weight(1f))
                 if (edit != null) {
                     FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = edit.onClick) { Text(edit.label) }
@@ -531,7 +533,7 @@ private fun PendingRow(
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { found?.let { onReAdd(it, w) } }, enabled = found != null) { Text("Add again") }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDismiss) { Icon(painterResource(R.drawable.ic_delete), "Forget") }
+                LabeledIconButton(R.drawable.ic_delete, "Forget", onClick = onDismiss)
             }
         },
     ) { Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis) }

@@ -105,21 +105,25 @@ internal fun EditorIconButton(
             }
         }
     }
-    IconButton(
-        shapes = IconButtonDefaults.shapes(),
-        onClick = { if (longPressed) longPressed = false else onClick() },
-        enabled = enabled,
-        colors = IconButtonDefaults.iconButtonColors(contentColor = tint),
-        interactionSource = interactions,
-        modifier = if (onLongClick == null) Modifier else Modifier.semantics {
-            this.onLongClick(label = longClickLabel) {
-                longClick?.invoke()
-                true
-            }
-        },
-    ) {
-        Icon(painterResource(icon), description, tint = if (enabled) tint else Term.dim)
+    val button: @Composable () -> Unit = {
+        IconButton(
+            shapes = IconButtonDefaults.shapes(),
+            onClick = { if (longPressed) longPressed = false else onClick() },
+            enabled = enabled,
+            colors = IconButtonDefaults.iconButtonColors(contentColor = tint),
+            interactionSource = interactions,
+            modifier = if (onLongClick == null) Modifier else Modifier.semantics {
+                this.onLongClick(label = longClickLabel) {
+                    longClick?.invoke()
+                    true
+                }
+            },
+        ) {
+            Icon(painterResource(icon), description, tint = if (enabled) tint else Term.dim)
+        }
     }
+    // A long-press of its own (Run with…) stays; the other buttons show their name on a long-press.
+    if (onLongClick == null) Labeled(description, content = button) else button()
 }
 
 /** A button with a word on it, for an action that no icon shows clearly. It uses the system font, as Material buttons do. */

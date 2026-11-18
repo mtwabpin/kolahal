@@ -31,9 +31,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
@@ -58,7 +55,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -139,8 +135,8 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                     actions = {
                         if (editing != null) {
                             // Exports the saved theme. Unsaved changes are not in the file.
-                            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { export.launch("$editing.json") }) { Icon(painterResource(R.drawable.ic_download), "Export theme") }
-                            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Icon(painterResource(R.drawable.ic_delete), "Delete theme") }
+                            LabeledIconButton(R.drawable.ic_download, "Export theme", onClick = { export.launch("$editing.json") })
+                            LabeledIconButton(R.drawable.ic_delete, "Delete theme", onClick = { confirmDelete = true })
                         }
                     },
                 )

@@ -26,8 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -293,15 +291,9 @@ private fun FeedListPage(
         onBack = onBack,
         snackbar = snackbar,
         actions = {
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty()) {
-                Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh all")
-            }
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onImport) {
-                Icon(painterResource(R.drawable.ic_upload), contentDescription = "Import OPML")
-            }
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onExport, enabled = !feeds.isNullOrEmpty()) {
-                Icon(painterResource(R.drawable.ic_download), contentDescription = "Export OPML")
-            }
+            LabeledIconButton(R.drawable.ic_refresh, "Refresh all", onClick = onRefreshAll, enabled = !feeds.isNullOrEmpty())
+            LabeledIconButton(R.drawable.ic_upload, "Import OPML", onClick = onImport)
+            LabeledIconButton(R.drawable.ic_download, "Export OPML", onClick = onExport, enabled = !feeds.isNullOrEmpty())
         },
         floatingActionButton = {
             SmallExtendedFloatingActionButton(
@@ -384,9 +376,7 @@ private fun FeedRow(f: FeedInfo, index: Int, count: Int, onClick: () -> Unit, on
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 UnreadBadge(f.unread, f.total)
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onMenu) {
-                    Icon(painterResource(R.drawable.ic_more_vert), contentDescription = "Feed options")
-                }
+                LabeledIconButton(R.drawable.ic_more_vert, "Feed options", onClick = onMenu)
             }
         },
     ) {
@@ -584,12 +574,8 @@ private fun FeedItemsPage(
         onBack = onBack,
         snackbar = snackbar,
         actions = {
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRefresh) {
-                Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh feed")
-            }
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onMarkAllRead, enabled = feed.unread > 0) {
-                Icon(painterResource(R.drawable.ic_done_all), contentDescription = "Mark all read")
-            }
+            LabeledIconButton(R.drawable.ic_refresh, "Refresh feed", onClick = onRefresh)
+            LabeledIconButton(R.drawable.ic_done_all, "Mark all read", onClick = onMarkAllRead, enabled = feed.unread > 0)
         },
     ) {
         if (list != null && list.isEmpty()) {

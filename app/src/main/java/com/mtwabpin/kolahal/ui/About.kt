@@ -168,11 +168,15 @@ internal fun CrashSheet(crash: CrashRow, onDismiss: () -> Unit, onDeleted: () ->
             Button(shapes = ButtonDefaults.shapes(), onClick = onEmail) {
                 IconLabel(R.drawable.ic_mail, "Email us")
             }
-            OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onShare) {
-                Icon(painterResource(R.drawable.ic_share), "Share", Modifier.size(ButtonDefaults.IconSize))
+            Labeled("Share") {
+                OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onShare) {
+                    Icon(painterResource(R.drawable.ic_share), "Share", Modifier.size(ButtonDefaults.IconSize))
+                }
             }
-            OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onDelete) {
-                Icon(painterResource(R.drawable.ic_delete), "Delete", Modifier.size(ButtonDefaults.IconSize))
+            Labeled("Delete") {
+                OutlinedIconButton(shapes = IconButtonDefaults.shapes(), onClick = onDelete) {
+                    Icon(painterResource(R.drawable.ic_delete), "Delete", Modifier.size(ButtonDefaults.IconSize))
+                }
             }
         }
     }

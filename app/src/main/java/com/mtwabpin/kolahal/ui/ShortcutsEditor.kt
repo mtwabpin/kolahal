@@ -14,8 +14,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
@@ -144,15 +142,9 @@ private fun ShortcutRow(shortcut: Shortcut, index: Int, count: Int, onEdit: () -
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(-1) }, enabled = index > 0) {
-                    Icon(painterResource(R.drawable.ic_arrow_up), "Move ${shortcut.label} earlier")
-                }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onMove(1) }, enabled = index < count - 1) {
-                    Icon(painterResource(R.drawable.ic_arrow_down), "Move ${shortcut.label} later")
-                }
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRemove) {
-                    Icon(painterResource(R.drawable.ic_delete), "Remove ${shortcut.label}", tint = MaterialTheme.colorScheme.error)
-                }
+                LabeledIconButton(R.drawable.ic_arrow_up, "Move ${shortcut.label} earlier", onClick = { onMove(-1) }, enabled = index > 0)
+                LabeledIconButton(R.drawable.ic_arrow_down, "Move ${shortcut.label} later", onClick = { onMove(1) }, enabled = index < count - 1)
+                LabeledIconButton(R.drawable.ic_delete, "Remove ${shortcut.label}", onClick = onRemove, tint = MaterialTheme.colorScheme.error)
             }
         },
     ) { Text(shortcut.label, maxLines = 1, overflow = TextOverflow.Ellipsis) }

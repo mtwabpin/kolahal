@@ -37,10 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.withStyle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
@@ -334,9 +330,7 @@ private fun RunOutput(lines: List<com.mtwabpin.kolahal.data.LogEntry>, maxHeight
                 style = Term.phoneText.copy(color = Term.dim),
                 modifier = Modifier.weight(1f),
             )
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClose) {
-                Icon(painterResource(R.drawable.ic_close), "Close output", tint = Term.dim)
-            }
+            LabeledIconButton(R.drawable.ic_close, "Close output", onClick = onClose, tint = Term.dim)
         }
         Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp)) {
             lines.forEach { e ->

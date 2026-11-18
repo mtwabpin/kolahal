@@ -13,9 +13,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -33,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -109,9 +105,7 @@ internal fun ScriptSheet(
                 color = scriptColor(s.name),
                 modifier = Modifier.weight(1f, fill = false),
             )
-            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { renaming = true }) {
-                Icon(painterResource(R.drawable.ic_edit), contentDescription = "Rename", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            LabeledIconButton(R.drawable.ic_edit, "Rename", onClick = { renaming = true }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         title?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
         Text(
@@ -213,7 +207,7 @@ internal fun ScriptSheet(
             placeholder = { Text("08:00, 18:30") },
             // Or pick a time on a clock. It is added to the times and saved at once.
             leadingIcon = {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { pickingTime = true }) { Icon(painterResource(R.drawable.ic_alarm), "Add a time") }
+                LabeledIconButton(R.drawable.ic_alarm, "Add a time", onClick = { pickingTime = true })
             },
             singleLine = true,
             isError = timesError,
@@ -228,9 +222,7 @@ internal fun ScriptSheet(
             keyboardActions = KeyboardActions(onDone = { timesError = !vm.scriptActions.setScriptTimes(s, times) }),
             trailingIcon = if (times != s.atTimes.joinToString(", ")) {
                 {
-                    IconButton(shapes = IconButtonDefaults.shapes(), onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) }) {
-                        Icon(painterResource(R.drawable.ic_check), "Set times")
-                    }
+                    LabeledIconButton(R.drawable.ic_check, "Set times", onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) })
                 }
             } else null,
             modifier = Modifier.fillMaxWidth(),

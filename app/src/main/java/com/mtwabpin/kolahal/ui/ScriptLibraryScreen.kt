@@ -14,9 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
@@ -31,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -243,9 +239,7 @@ private fun LibraryRow(r: LibRow, index: Int, count: Int, nameTaken: Boolean, on
         } else null,
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRead, modifier = Modifier.testTag("read ${e.name}")) {
-                    Icon(painterResource(R.drawable.ic_code), contentDescription = "Read the code of ${e.name}", tint = MaterialTheme.colorScheme.primary)
-                }
+                LabeledIconButton(R.drawable.ic_code, "Read the code of ${e.name}", onClick = onRead, modifier = Modifier.testTag("read ${e.name}"), tint = MaterialTheme.colorScheme.primary)
                 InstallState(r, nameTaken, onInstall)
             }
         },
@@ -275,9 +269,7 @@ private fun DiffersRow(r: LibRow, index: Int, count: Int, onCompare: () -> Unit,
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onCompare) {
-                    Icon(painterResource(R.drawable.ic_visibility), contentDescription = "Compare", tint = MaterialTheme.colorScheme.primary)
-                }
+                LabeledIconButton(R.drawable.ic_visibility, "Compare", onClick = onCompare, tint = MaterialTheme.colorScheme.primary)
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onRestore) { Text(if (update) "Update" else "Reset") }
             }
         },

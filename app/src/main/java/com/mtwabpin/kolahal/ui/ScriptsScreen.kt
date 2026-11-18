@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -264,13 +262,12 @@ fun ScriptsScreen(vm: TerminalViewModel) {
             onBack = vm::closeScreen,
             snackbar = snackbar,
             actions = {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { expandAll = !expandAll; flipped = emptyList() }) {
-                    Icon(
-                        painterResource(R.drawable.ic_expand_more),
-                        contentDescription = if (expandAll) "Hide details" else "Show details",
-                        modifier = Modifier.rotate(if (expandAll) 180f else 0f),
-                    )
-                }
+                LabeledIconButton(
+                    R.drawable.ic_expand_more,
+                    if (expandAll) "Hide details" else "Show details",
+                    onClick = { expandAll = !expandAll; flipped = emptyList() },
+                    iconModifier = Modifier.rotate(if (expandAll) 180f else 0f),
+                )
             },
             floatingActionButton = {
                 SmallExtendedFloatingActionButton(

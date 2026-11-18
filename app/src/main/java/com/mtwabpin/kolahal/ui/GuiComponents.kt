@@ -38,8 +38,6 @@ import androidx.compose.material3.FilledTonalToggleButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -155,7 +153,7 @@ internal fun SectionTitle(title: String) {
 
 @Composable
 fun BackButton(onClick: () -> Unit) {
-    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClick) { Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Back") }
+    LabeledIconButton(R.drawable.ic_arrow_back, "Back", onClick = onClick)
 }
 
 /**
@@ -456,7 +454,7 @@ internal fun SearchField(
         placeholder = { Text(placeholder) },
         leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
         trailingIcon = if (clear != null && query.isNotEmpty()) {
-            { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), clear) } }
+            { LabeledIconButton(R.drawable.ic_close, clear, onClick = { onQuery("") }) }
         } else null,
         keyboardOptions = keyboardOptions,
         modifier = modifier,

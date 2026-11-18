@@ -13,9 +13,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
@@ -30,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,9 +71,7 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
             onBack = vm::closeScreen,
             snackbar = snackbar,
             actions = {
-                IconButton(shapes = IconButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading) {
-                    Icon(painterResource(R.drawable.ic_refresh), contentDescription = "Refresh the list")
-                }
+                LabeledIconButton(R.drawable.ic_refresh, "Refresh the list", onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading)
             },
         ) {
             item(key = "search") {

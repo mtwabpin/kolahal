@@ -19,8 +19,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -264,13 +262,12 @@ internal fun SecretDialog(script: String, secret: ScriptMeta.Secret, isSet: Bool
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                     trailingIcon = {
-                        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { visible = !visible }) {
-                            Icon(
-                                painterResource(R.drawable.ic_visibility),
-                                contentDescription = if (visible) "Hide it" else "Show it",
-                                tint = if (visible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        LabeledIconButton(
+                            R.drawable.ic_visibility,
+                            if (visible) "Hide it" else "Show it",
+                            onClick = { visible = !visible },
+                            tint = if (visible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     },
                     modifier = Modifier.fillMaxWidth().testTag("secret-value"),
                 )
