@@ -382,11 +382,16 @@ class AppCommands(
             s.lastUsed != null -> info("Last used ${at(s.lastUsed)}" + (s.longestAt?.let { " · longest at ${at(it)}" } ?: ""))
             else -> info("Not used today")
         }
-        if (s.total > 0) {
-            // The hours so far, in a chart of the whole day: the hours still to come keep their places.
-            val hour = java.time.LocalTime.now().hour
-            val minutes = s.hours.take(hour + 1).map { it / 60_000.0 }
-            val said = "${app.label} by hour today: " + minutes.withIndex().filter { it.value >= 1 }.joinToString(", ") { "%02d:00 %dm".format(it.index, it.value.toInt()) }
+        // A column for each hour: today's, or, when it wasn't used today, the last day it was used of these.
+        val chartDay = if (s.total > 0) today else days.lastOrNull { it.second > 0 }?.first
+        if (chartDay != null) {
+            val hours = if (chartDay == today) s.hours else reader.on(app.pkg, chartDay).hours
+            // Today has the hours so far, in a chart of the whole day: the hours still to come keep their places.
+            val upTo = if (chartDay == today) java.time.LocalTime.now().hour + 1 else 24
+            val minutes = hours.take(upTo).map { it / 60_000.0 }
+            val dayName = com.mtwabpin.kolahal.data.TimeFormats.dayLabel(chartDay, today, capital = false)
+            if (chartDay != today) info("By hour, $dayName")
+            val said = "${app.label} by hour, $dayName: " + minutes.withIndex().filter { it.value >= 1 }.joinToString(", ") { "%02d:00 %dm".format(it.index, it.value.toInt()) }
             out(com.mtwabpin.kolahal.data.StyledText.columns(minutes, listOf("00", "06", "12", "18", "24"), said, slots = 24))
         }
         if (days.size <= 1) return

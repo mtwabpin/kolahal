@@ -38,9 +38,13 @@ class AppUsage(private val context: Context) {
         UsageHistory.days(context, days, today).map { it to timeOn(pkg, it) }
 
     /** [pkg]'s sessions today, from midnight to now ([AppSessions.of]), a slot for each hour of the day. */
-    fun today(pkg: String, now: Long = System.currentTimeMillis()): AppSessions {
-        val from = startOf(LocalDate.now(zone))
-        return AppSessions.of(events(from, now), pkg, from, now, 24)
+    fun today(pkg: String, now: Long = System.currentTimeMillis()): AppSessions = on(pkg, LocalDate.now(zone), now)
+
+    /** [pkg]'s sessions on [day] (up to now for today), a slot for each hour of the day. */
+    fun on(pkg: String, day: LocalDate, now: Long = System.currentTimeMillis()): AppSessions {
+        val from = startOf(day)
+        val until = minOf(startOf(day.plusDays(1)), now)
+        return AppSessions.of(events(from, until), pkg, from, until, 24)
     }
 
     /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */

@@ -150,8 +150,8 @@ unlocks 7        # one line per day for the last week (1–30)
 If not, it counts `ACTION_USER_PRESENT` broadcasts, but only while the launcher is running.
 
 `usage <app>` shows one app: its time today, how often you opened it, its longest session and when
-you last used it. Under that, a column for each hour today, then a line for each of the last 7 days
-with their average. It works for the apps of your personal profile: Android gives Kolahal no usage
+you last used it. Under that, a column for each hour today (or of the last day you used it, when
+that was before today), then a line for each of the last 7 days with their average. It works for the apps of your personal profile: Android gives Kolahal no usage
 of work apps or the private space.
 
 Android keeps usage data for the last days only, about 10 on many phones. `usage 30` and `unlocks 30`
