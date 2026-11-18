@@ -369,7 +369,7 @@ internal fun OwnWidget(id: String, height: Dp, actions: WidgetCardActions?, own:
  *   own words. [onRowTap] sees a row's words first.
  * - While the page is in view, and each time home comes back to it, the card says so
  *   ([WidgetCardActions.ownShown]), so that old data is read again. With [againMs] it says so
- *   again that often while it stays in view: for data that changes with no sign, as a calendar does.
+ *   again that often while the card can be seen ([cardSeen]): for data that changes with no sign, as a calendar does.
  */
 @Composable
 private fun OwnCard(
@@ -384,10 +384,13 @@ private fun OwnCard(
     againMs: Long? = null,
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    if (actions != null && LocalWidgetsShown.current) LaunchedEffect(id, actions, lifecycle, againMs) {
+    // Filled when the page comes into view; read again every [againMs] only while the card can be seen.
+    if (actions != null && LocalWidgetsShown.current) LaunchedEffect(id, actions, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { actions.ownShown(id) }
+    }
+    if (actions != null && againMs != null && cardSeen()) LaunchedEffect(id, actions, lifecycle, againMs) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            actions.ownShown(id)
-            if (againMs != null) while (true) {
+            while (true) {
                 delay(againMs)
                 actions.ownShown(id)
             }

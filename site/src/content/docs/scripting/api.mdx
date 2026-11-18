@@ -780,7 +780,7 @@ Every kind takes these fields. All are optional.
 | `color` | a role | The colour of the badge, the bar, the ring or the chart: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
-| `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is in view. |
+| `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
 | `note` | text, up to 16 characters | A few words at the end of the title line, in the card's colour: `Done today`. A list's "+3 more" and the content's age ("2 h ago", "Failed 10:42") come first: then the note waits. Needs Kolahal 0.5.11. |
 
 A wide card under 100dp tall gives its title line to its content when the content needs the room:
@@ -1396,7 +1396,7 @@ The widgets page asks for runs too. In these runs, [`event.name`](#event) is `"w
 - when you place the widget: one run at once.
 - when the widgets page comes into view and the content is older than `staleAfter` (one hour
   without it, one minute for `toggles`): one run.
-- every `refresh` seconds while the widget is in view, when the description has `refresh`.
+- every `refresh` seconds while the widget is on screen, when the description has `refresh`. A widget scrolled out of sight runs when it is back, if its time has passed.
 - when you tap a card that has no `tap`.
 
 Rules for a `"widget"` run:

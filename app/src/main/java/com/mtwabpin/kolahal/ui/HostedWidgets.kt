@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -235,7 +236,7 @@ private fun WidgetPanelContent(
             panel.forEach { w ->
                 key(w.key) {
                     // Give the flow exactly one child per widget, whatever HostedWidget shows.
-                    Box {
+                    OnScreenCard {
                         // A script's widget is a card that Kolahal draws. Its taps go to the view model.
                         if (w.source != null) SourceWidget(w, w.heightDp.dp, vm.widgetActions, vm.widgetFeed)
                         else HostedWidget(

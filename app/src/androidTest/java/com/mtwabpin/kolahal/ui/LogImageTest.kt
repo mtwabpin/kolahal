@@ -15,6 +15,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -73,6 +75,19 @@ class LogImageTest {
         } finally {
             Term.palette = before
         }
+    }
+
+    /**
+     * A link whose download is no picture (an error page) is not fetched again at once: the widgets
+     * page asks at each visit, and the download can be 10 MB.
+     */
+    @Test fun aLinkThatIsNoPictureWaitsBeforeTheNextTry() {
+        download().writeText("<html>Not found</html>")
+        assertNull(LogImages.load(context, url, 300))
+        assertFalse("the page that is no picture is deleted", download().exists())
+        // The picture is there now, but the link is not tried again yet.
+        download().outputStream().use { Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertNull(LogImages.load(context, url, 300))
     }
 
     /** The phone turned, so the log is wider: the image is decoded again for it, not stretched. */

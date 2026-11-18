@@ -55,7 +55,7 @@ internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box, bleed: Bool
             val picture = state?.getOrNull()
             if (picture != null) {
                 // A see-through picture whose lines barely show on the card: on a backdrop (pictureBackdrop).
-                val backdrop = pictureBackdrop(LogImages.inkOf(picture), MaterialTheme.colorScheme.surfaceContainerHigh)
+                val backdrop = pictureBackdrop(LogImages.inkOf(spec.image), MaterialTheme.colorScheme.surfaceContainerHigh)
                 Image(
                     picture,
                     contentDescription = null,

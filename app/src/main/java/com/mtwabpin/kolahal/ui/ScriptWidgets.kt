@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -78,10 +80,25 @@ import java.time.ZoneId
 
 /**
  * True while the widgets page is the page in view: home's pager has settled on it. Home keeps the
- * page composed beside the log, so "composed" does not mean "seen". Things that move (the loading
- * shape, a wave, a countdown's seconds) and refresh requests run only while this is true.
+ * page composed beside the log, so "composed" does not mean "seen". A card is filled (its first run,
+ * a run for old content) and its picture fetched only while this is true.
  */
 val LocalWidgetsShown = compositionLocalOf { false }
+
+/**
+ * True while some of this card is on screen. The widgets page scrolls, so a card below the fold is
+ * on the page that is in view, but nobody sees it. The page sets it for each card; elsewhere a card
+ * counts as on screen.
+ */
+val LocalCardOnScreen = compositionLocalOf { true }
+
+/**
+ * True while this card can be seen: the widgets page is in view ([LocalWidgetsShown]) and the card
+ * is on screen ([LocalCardOnScreen]). Things that move (the loading shape, a wave, the seconds of a
+ * countdown, a clock or a song) and `refresh` runs go on only while this is true.
+ */
+@Composable
+internal fun cardSeen(): Boolean = LocalWidgetsShown.current && LocalCardOnScreen.current
 
 /**
  * The long-press of the card around a kind's content, or null when the card takes none. A part of
@@ -369,9 +386,9 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
     val small = box == WidgetSizes.Box.SMALL
     when {
         note == CardNote.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            // The shape changes form for as long as it is drawn. So it is drawn only while the page is in view.
+            // The shape changes form for as long as it is drawn. So it is drawn only while the card can be seen.
             // The card's description says "loading", so the shape itself is no item for a screen reader.
-            if (LocalWidgetsShown.current) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp).clearAndSetSemantics {})
+            if (cardSeen()) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp).clearAndSetSemantics {})
         }
         note == CardNote.FAILED -> QuietLine(failure ?: WidgetWords.NOTHING, small)
         note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)
@@ -590,13 +607,20 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
                 }
             }
         }
-        // `refresh` in the description: run again that often, only while in view.
+        // `refresh` in the description: run again that often, only while the card can be seen. A card
+        // that comes back into view after that time runs at once.
         val every = state?.spec?.base?.refresh
-        if (every != null) LaunchedEffect(key, actions, lifecycle, every) {
+        val lastRun = rememberUpdatedState(state?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L)
+        if (every != null && cardSeen()) LaunchedEffect(key, actions, lifecycle, every) {
+            val period = every.coerceAtLeast(MIN_REFRESH_S) * 1000L
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
-                    delay(every.coerceAtLeast(MIN_REFRESH_S) * 1000L)
+                    // A card with no run yet is being filled: its first run is on its way.
+                    val since = lastRun.value.let { if (it == 0L) 0L else System.currentTimeMillis() - it }
+                    if (since < period) delay(period - since)
                     actions.refresh(key)
+                    // A run takes a while to end, and a request can be dropped: wait a period in any case.
+                    delay(period)
                 }
             }
         }
@@ -790,4 +814,16 @@ private fun BatteryWidget(height: Dp, actions: WidgetCardActions?) {
         badge = builtinBadge(WidgetSource.BATTERY),
         onLongClick = onLongClick,
     )
+}
+
+/**
+ * A card on the widgets page, which says whether some of it is on screen ([LocalCardOnScreen]).
+ * The page scrolls: a card below the fold neither moves nor refreshes ([cardSeen]).
+ */
+@Composable
+internal fun OnScreenCard(content: @Composable () -> Unit) {
+    var onScreen by remember { mutableStateOf(false) }
+    Box(Modifier.onVisibilityChanged(minFractionVisible = 0f) { onScreen = it }) {
+        CompositionLocalProvider(LocalCardOnScreen provides onScreen, content = content)
+    }
 }

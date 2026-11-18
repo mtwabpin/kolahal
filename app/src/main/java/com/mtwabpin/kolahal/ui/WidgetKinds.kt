@@ -1,5 +1,9 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -28,6 +32,8 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.WavyProgressIndicatorDefaults
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -438,11 +444,18 @@ internal object WidgetWords {
      * its day as seen from [here]. A zone the phone does not know is left out: the parser has
      * refused such a zone already, so this is only a guard.
      */
-    fun zoneTimes(zones: List<WidgetSpec.Zone>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> {
+    fun zoneTimes(zones: List<WidgetSpec.Zone>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> =
+        zoneTimesOf(places(zones), now, here, format)
+
+    /** [zones] with their time zones, read once for a clock that ticks. A zone the phone does not know is left out. */
+    fun places(zones: List<WidgetSpec.Zone>): List<Pair<WidgetSpec.Zone, ZoneId>> =
+        zones.mapNotNull { zone -> runCatching { ZoneId.of(zone.zone) }.getOrNull()?.let { zone to it } }
+
+    /** [zoneTimes] for [places] whose time zones are read already ([places]). */
+    fun zoneTimesOf(places: List<Pair<WidgetSpec.Zone, ZoneId>>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> {
         val moment = Instant.ofEpochMilli(now)
         val today = moment.atZone(here).toLocalDate()
-        return zones.mapNotNull { zone ->
-            val id = runCatching { ZoneId.of(zone.zone) }.getOrNull() ?: return@mapNotNull null
+        return places.map { (zone, id) ->
             val there = moment.atZone(id)
             val day = there.toLocalDate()
             when {
@@ -854,7 +867,7 @@ internal fun QuietLine(text: String, small: Boolean = false) {
 internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier, wavy: Boolean = false) {
     val target = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
     val shown by animateFloatAsState(target, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "level")
-    val runs = moving && LocalWidgetsShown.current
+    val runs = moving && cardSeen()
     val waves = runs || wavy
     val line = if (moving || wavy) WAVE_LINE else BAR_LINE
     val stroke = with(LocalDensity.current) { Stroke(width = line.toPx(), cap = StrokeCap.Round) }
@@ -890,13 +903,14 @@ internal fun TextStyle.asValue(): TextStyle = copy(fontWeight = FontWeight.Extra
 
 /**
  * A kind's big text, on one line, as a value ([asValue]). A text too long for its room gets
- * smaller, down to 12 sp, before it is cut with "…".
+ * smaller, down to 12 sp, before it is cut with "…". A text whose digits alone changed (a countdown
+ * that ticks) keeps its size ([SteadyAutoSize]).
  */
 @Composable
 private fun BigText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
-    val size = remember(style.fontSize) {
+    val size = remember(style) {
         val largest = style.fontSize.value.let { if (it.isNaN()) 22f else maxOf(it, 12f) }
-        TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = largest.sp, stepSize = 1.sp)
+        SteadyAutoSize(TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = largest.sp, stepSize = 1.sp))
     }
     val value = remember(style) { style.asValue() }
     Text(text, modifier = modifier, color = color, autoSize = size, style = value, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
@@ -1236,7 +1250,7 @@ private fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
     val shown by animateFloatAsState(fraction, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "ring")
     // A bigger ring gets a thicker line: an eighth of its side.
     val stroke = with(LocalDensity.current) { Stroke(width = (side / 8).coerceIn(4.dp, 14.dp).toPx(), cap = StrokeCap.Round) }
-    val wave = moving && LocalWidgetsShown.current
+    val wave = moving && cardSeen()
     CircularWavyProgressIndicator(
         progress = { shown.coerceIn(0f, 1f) },
         modifier = Modifier.size(side).clearAndSetSemantics {},
@@ -1381,7 +1395,8 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
  * `countdown`: the time to a moment, or since it. Kolahal does the ticking: the script gave the
  * moment once, and no run is needed as time passes.
  * - The time moves by the minute, with the header's clock ([rememberNow]).
- * - It moves by the second only while the text shows seconds and the page is in view.
+ * - It moves by the second only while the text shows seconds and the card can be seen ([cardSeen]).
+ *   A tick draws the number again ([CountdownValue]), not the whole card.
  * - The number is big and its unit small: "36 days" ([WidgetWords.Count]).
  * - With a start (`from`), a bar runs from the start to the moment. In a wide box the bar takes the
  *   label's place. A small box has no bar. A large box has the time at its top and the bar at its
@@ -1396,18 +1411,22 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
 private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
+    // The time now, in seconds. Only what changes with it reads it: the count and the bar's step.
+    val now = remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     // The minute's tick. It also comes when home is back on screen, and when the clock is set.
-    LaunchedEffect(minute) { now = System.currentTimeMillis() / 1000 }
-    val count = WidgetWords.countdown(spec.to, now, spec.style, spec.reached, zone)
-    if (count.ticks && LocalWidgetsShown.current) {
+    LaunchedEffect(minute) { now.longValue = System.currentTimeMillis() / 1000 }
+    val count = remember(spec.to, spec.style, spec.reached, zone) {
+        derivedStateOf { WidgetWords.countdown(spec.to, now.longValue, spec.style, spec.reached, zone) }
+    }
+    val ticks by remember(count) { derivedStateOf { count.value.ticks } }
+    if (ticks && cardSeen()) {
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         LaunchedEffect(lifecycle) {
             // Only while home is on screen.
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     val ms = System.currentTimeMillis()
-                    now = ms / 1000
+                    now.longValue = ms / 1000
                     // Wake when the next second starts.
                     delay(1000 - ms % 1000)
                 }
@@ -1418,42 +1437,50 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     val large = box == WidgetSizes.Box.LARGE
     val type = MaterialTheme.typography
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val bar = if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now)?.let(WidgetWords::barStep)
+    val bar by remember(small, spec.from, spec.to) {
+        derivedStateOf { if (small) null else WidgetWords.countdownFraction(spec.from, spec.to, now.longValue)?.let(WidgetWords::barStep) }
+    }
     val clock24 = rememberClock24()
     // A large box writes the start and the moment under the bar's ends. They change at most once a day.
     val from = spec.from
-    val ends = if (large && bar != null && from != null) {
-        remember(from, spec.to, zone, clock24, now / 86_400) { WidgetWords.countdownEnds(from, spec.to, now, zone, clock24) }
-    } else {
-        null
-    }
+    val day by remember { derivedStateOf { now.longValue / 86_400 } }
+    val ends = if (large && from != null) remember(from, spec.to, zone, clock24, day) { WidgetWords.countdownEnds(from, spec.to, day * 86_400, zone, clock24) } else null
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = if (large) Arrangement.Top else Arrangement.Center,
         horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start,
     ) {
-        // The number big, its unit small: "36 days". A large box has both larger, as the mockup has them.
-        Row {
-            BigText(count.value, if (large) type.displayMedium else valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
-            count.unit?.let {
-                val unitStyle = if (large) type.titleLarge.copy(fontWeight = FontWeight.Bold) else type.titleMedium
-                Text(it, style = unitStyle, color = muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())
-            }
-        }
+        CountdownValue(count, large, box)
         if (bar == null || large) spec.label?.let {
             // A small box has room for two short lines: "to 20 / December".
             Text(it, style = if (large) type.bodyMedium else type.bodySmall, color = muted, maxLines = if (small) 2 else 1, overflow = TextOverflow.Ellipsis, textAlign = if (small) TextAlign.Center else TextAlign.Start)
         }
-        if (bar != null) {
+        bar?.let { fraction ->
             // A large box has the bar at its bottom.
             if (large) Spacer(Modifier.weight(1f))
             // A wave that stands still: a countdown waits, it is not at work.
-            LevelBar(bar, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp), wavy = true)
-            if (ends != null) Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                Text(ends.first, style = type.bodySmall, color = muted, maxLines = 1)
-                Spacer(Modifier.weight(1f))
-                Text(ends.second, style = type.bodySmall, color = muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+            LevelBar(fraction, moving = false, roleColour(spec.base), Modifier.padding(top = 4.dp), wavy = true)
+            ends?.let { (start, end) ->
+                Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    Text(start, style = type.bodySmall, color = muted, maxLines = 1)
+                    Spacer(Modifier.weight(1f))
+                    Text(end, style = type.bodySmall, color = muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+                }
             }
+        }
+    }
+}
+
+/** A countdown's number big and its unit small: "36 days". It alone is drawn again at each tick. */
+@Composable
+private fun CountdownValue(count: State<WidgetWords.Count>, large: Boolean, box: WidgetSizes.Box) {
+    val type = MaterialTheme.typography
+    val now = count.value
+    Row {
+        BigText(now.value, if (large) type.displayMedium else valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+        now.unit?.let {
+            val unitStyle = if (large) type.titleLarge.copy(fontWeight = FontWeight.Bold) else type.titleMedium
+            Text(it, style = unitStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())
         }
     }
 }
@@ -1583,4 +1610,29 @@ private fun RowCheck(done: Boolean, colour: Color, modifier: Modifier = Modifier
     ) {
         if (done) Icon(painterResource(R.drawable.wi_check), contentDescription = null, tint = scheme.surfaceContainerHigh, modifier = Modifier.size(14.dp))
     }
+}
+
+/**
+ * [inner]'s size for a text, kept while only the text's digits change. Fitting a text lays it out
+ * several times. A countdown that ticks would be fitted again every second, for the same size:
+ * a value's digits are all one width ([asValue] has "tnum").
+ */
+private class SteadyAutoSize(private val inner: TextAutoSize) : TextAutoSize {
+    /** What the size was found for: the room, the density, the font scale, and the text with each digit as 0. */
+    private var fitted: List<Any>? = null
+    private var size: TextUnit = TextUnit.Unspecified
+
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+        val shape = String(CharArray(text.length) { if (text[it].isDigit()) '0' else text[it] })
+        val key = listOf(constraints, density, fontScale, shape)
+        if (key == fitted && size.isSpecified) return size
+        return with(inner) { getFontSize(constraints, text) }.also {
+            fitted = key
+            size = it
+        }
+    }
+
+    // One for each BigText: it keeps that text's size.
+    override fun equals(other: Any?): Boolean = this === other
+    override fun hashCode(): Int = System.identityHashCode(this)
 }

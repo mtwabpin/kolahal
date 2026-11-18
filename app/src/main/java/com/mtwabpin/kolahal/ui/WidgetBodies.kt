@@ -38,6 +38,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -268,7 +270,7 @@ private fun StateWord(state: String) {
 @Composable
 private fun WorkingSign() {
     Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-        if (LocalWidgetsShown.current) LoadingIndicator(Modifier.fillMaxSize().clearAndSetSemantics {}, color = LocalContentColor.current)
+        if (cardSeen()) LoadingIndicator(Modifier.fillMaxSize().clearAndSetSemantics {}, color = LocalContentColor.current)
         else Text("…", style = MaterialTheme.typography.titleMedium, maxLines = 1)
     }
 }
@@ -459,7 +461,12 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
     val clock24 = rememberClock24()
     val format = remember(clock24, spec.seconds) { DateTimeFormatter.ofPattern(WidgetWords.clockPattern(clock24, spec.seconds), Locale.getDefault()) }
     val now = rememberMillis(seconds = spec.seconds)
-    val times = WidgetWords.zoneTimes(spec.zones, now, here, format)
+    val places = remember(spec.zones) { WidgetWords.places(spec.zones) }
+    // The times change with each tick; the places and their days rarely do. The card is laid out
+    // from the places, and only the times are drawn again at a tick ([ClockTime]).
+    val ticking = remember(places, here, format) { derivedStateOf { WidgetWords.zoneTimesOf(places, now.value, here, format) } }
+    val times by remember(ticking) { derivedStateOf { ticking.value.map { it.copy(time = "") } } }
+    fun time(i: Int): () -> String = { ticking.value.getOrNull(i)?.time.orEmpty() }
     if (times.isEmpty()) {
         QuietLine(WidgetWords.NOTHING, small = box == WidgetSizes.Box.SMALL)
         return
@@ -476,7 +483,7 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.CenterHorizontally else Alignment.Start,
             ) {
-                ClockTime(times[0].time, WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
+                ClockTime(time(0), WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
                 PlaceLabel(times[0], long = width.dp >= LONG_DAY)
             }
             box == WidgetSizes.Box.WIDE -> {
@@ -488,7 +495,7 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                     times.take(columns).forEachIndexed { i, time ->
                         key(i) {
                             Column(Modifier.weight(1f)) {
-                                ClockTime(time.time, size)
+                                ClockTime(time(i), size)
                                 PlaceLabel(time, long = cell.dp >= LONG_DAY)
                             }
                         }
@@ -514,7 +521,7 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                                     if (dayLine) PlaceAndDay(time)
                                     else PlaceLabel(time, long = width >= 200, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), colour = MaterialTheme.colorScheme.onSurface)
                                 }
-                                ClockTime(time.time, size)
+                                ClockTime(time(i), size)
                             }
                         }
                     }
@@ -525,16 +532,17 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
 }
 
 /**
- * A clock's time, as a value ([asValue]), with digits [sizeDp] tall whatever the phone's font
+ * A clock's [time], as a value ([asValue]), with digits [sizeDp] tall whatever the phone's font
  * size is: the size was made to fit the box. The digits are all one width where the font can do
- * that, so the text does not shake as it ticks.
+ * that, so the text does not shake as it ticks. It reads the time itself, so a tick draws this
+ * text again, not the whole card.
  */
 @Composable
-private fun ClockTime(time: String, sizeDp: Int) {
+private fun ClockTime(time: () -> String, sizeDp: Int) {
     val size = with(LocalDensity.current) { sizeDp.dp.toSp() }
     val base = MaterialTheme.typography.titleLarge
     val style = remember(base, size) { base.copy(fontSize = size, lineHeight = size * 1.25f).asValue() }
-    Text(time, style = style, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
+    Text(time(), style = style, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
 }
 
 /** From this height a large clock's row has the place's day on a line of its own ([PlaceAndDay]), in dp. */
@@ -732,21 +740,22 @@ private fun AgendaRow(
  * The time now, in milliseconds.
  * - It moves by the minute, with the header's clock ([rememberNow]). That tick also comes when
  *   home is back on screen and when the clock is set.
- * - With [seconds] it moves every second, but only while the widgets page is in view and home is
- *   on screen. A card nobody sees ticks for nothing.
+ * - With [seconds] it moves every second, but only while the card can be seen ([cardSeen]) and
+ *   home is on screen. A card nobody sees ticks for nothing.
+ * - It is a state: read it where the time is drawn, so a tick draws that again, not the card.
  */
 @Composable
-private fun rememberMillis(seconds: Boolean): Long {
+private fun rememberMillis(seconds: Boolean): State<Long> {
     val (minute, _) = rememberNow()
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(minute) { now = System.currentTimeMillis() }
-    if (seconds && LocalWidgetsShown.current) {
+    val now = remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(minute) { now.longValue = System.currentTimeMillis() }
+    if (seconds && cardSeen()) {
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         LaunchedEffect(lifecycle) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     val ms = System.currentTimeMillis()
-                    now = ms
+                    now.longValue = ms
                     // Wake when the next second starts.
                     delay(1000 - ms % 1000)
                 }
@@ -791,8 +800,10 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
     val title = WidgetWords.mediaTitle(spec)
     val line = WidgetWords.mediaLine(spec)
     val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
-    val fraction = WidgetWords.mediaFraction(spec, now)?.let(WidgetWords::barStep)
+    // The bar moves in steps, so it is drawn again only when it has moved one.
+    val step by remember(spec) { derivedStateOf { WidgetWords.mediaFraction(spec, now.value)?.let(WidgetWords::barStep) } }
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val fraction = step
         val width = maxWidth.value.toInt()
         val tall = maxHeight
         if (box == WidgetSizes.Box.WIDE) {
@@ -816,7 +827,7 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                         Spacer(Modifier.weight(1f))
                         LevelBar(fraction, moving = false, colour)
                         if (tall >= MEDIA_TIMES_FROM) Row(Modifier.fillMaxWidth()) {
-                            Text(WidgetWords.mediaTime(WidgetWords.mediaPosition(spec, now)), style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+                            MediaPosition(spec, now)
                             Spacer(Modifier.weight(1f))
                             Text(WidgetWords.mediaTime(spec.duration), style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
                         }
@@ -875,4 +886,10 @@ private fun MediaButton(
         val colors = IconButtonDefaults.filledTonalIconButtonColors().let { it.copy(disabledContainerColor = it.containerColor, disabledContentColor = it.contentColor) }
         FilledTonalIconButton(onClick = onClick, shapes = IconButtonDefaults.shapes(), modifier = modifier, enabled = onTap != null, colors = colors, interactionSource = source, content = drawn)
     }
+}
+
+/** Where the song is: "1:05". It reads the time itself, so a tick draws this text again, not the card. */
+@Composable
+private fun MediaPosition(spec: WidgetSpec.Media, now: State<Long>) {
+    Text(WidgetWords.mediaTime(WidgetWords.mediaPosition(spec, now.value)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
 }

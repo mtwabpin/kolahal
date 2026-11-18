@@ -1,5 +1,8 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.test.performScrollTo
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -407,6 +410,39 @@ class ScriptWidgetCardTest {
         compose.waitForIdle()
         assertEquals(listOf("refresh $old"), asked.all.toList())
         assertFalse(asked.all.any { it.endsWith(current) })
+    }
+
+    /**
+     * `refresh` runs only for a card on screen. The page scrolls: a card below the fold waits, and
+     * runs as soon as it is scrolled into view, since its time has passed.
+     */
+    @Test fun aCardBelowTheFoldWaitsForItsRefresh() {
+        val asked = Asked()
+        val top = kept("top", WidgetSpec.Stat(WidgetBase(refresh = 10), "1"))
+        val below = kept("below", WidgetSpec.Stat(WidgetBase(refresh = 10), "2"))
+        // Set a minute ago: not old, but its refresh time has passed.
+        setAgo(top, 1)
+        setAgo(below, 1)
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalWidgetsShown provides true) {
+                    Column(Modifier.verticalScroll(rememberScrollState()).testTag("page")) {
+                        listOf(top, below).forEachIndexed { i, name ->
+                            OnScreenCard {
+                                Box(Modifier.width(320.dp)) { SourceWidget(PlacedWidget(null, WidgetSource.script(name), 0L, 200, i), 200.dp, asked) }
+                            }
+                            // Far more than a screen between them.
+                            if (i == 0) Spacer(Modifier.height(4000.dp))
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitFor("the card on screen asked for no run") { asked.all.isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(listOf("refresh $top"), asked.all.toList())
+        compose.onNode(hasTestTag("widget:$below")).performScrollTo()
+        compose.waitFor("the card scrolled into view asked for no run") { "refresh $below" in asked.all }
     }
 
     /**

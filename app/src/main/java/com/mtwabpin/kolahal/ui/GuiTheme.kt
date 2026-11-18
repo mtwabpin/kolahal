@@ -5,25 +5,44 @@ import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 
 /**
- * The Material 3 Expressive theme for the GUI screens (settings, script manager).
+ * The Material 3 Expressive theme for the GUI screens (settings, script manager) and the widget cards.
  * The colours come from the terminal palette, so these screens match the chosen theme.
+ * - Inside another GuiTheme it adds nothing: the palette is the same. A screen of cards, or a
+ *   card in a sheet, has one theme, not one for each card.
+ * - The colour scheme is made once for each palette ([schemeOf]), not once for each card.
  */
 @Composable
 fun GuiTheme(content: @Composable () -> Unit) {
     val palette = Term.palette
-    val scheme = remember(palette) { schemeFrom(palette) }
+    if (LocalGuiPalette.current === palette) {
+        content()
+        return
+    }
+    val scheme = remember(palette) { schemeOf(palette) }
     MaterialExpressiveTheme(
         colorScheme = scheme,
         motionScheme = MotionScheme.expressive(),
-        content = content,
-    )
+    ) {
+        CompositionLocalProvider(LocalGuiPalette provides palette, content = content)
+    }
 }
+
+/** The palette of the GuiTheme around, or null outside one. */
+private val LocalGuiPalette = staticCompositionLocalOf<Palette?> { null }
+
+/** The scheme made last, with its palette: the palette rarely changes, and every card asks. */
+@Volatile private var lastScheme: Pair<Palette, ColorScheme>? = null
+
+private fun schemeOf(palette: Palette): ColorScheme =
+    lastScheme?.takeIf { it.first === palette }?.second ?: schemeFrom(palette).also { lastScheme = palette to it }
 
 /** Maps a terminal palette to a full Material colour scheme (dark). */
 fun schemeFrom(p: Palette): ColorScheme {

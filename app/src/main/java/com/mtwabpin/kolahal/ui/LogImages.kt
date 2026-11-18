@@ -63,9 +63,19 @@ object LogImages {
     /** At most two images load at a time, so a page full of images cannot use every IO thread. */
     val loader = Dispatchers.IO.limitedParallelism(2)
 
-    private val memory = object : LruCache<String, ImageBitmap>(24 * 1024 * 1024) {
+    /** Decoded pictures in memory, as many as fit in [bytes]. */
+    private class Pictures(bytes: Int) : LruCache<String, ImageBitmap>(bytes) {
         override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
     }
+
+    /**
+     * The log's pictures and the cards' pictures have room of their own, 24 MB in all. So one large
+     * picture in the log (up to 16 MB) never pushes the cards' pictures out.
+     */
+    private val logMemory = Pictures(16 * 1024 * 1024)
+    private val cardMemory = Pictures(8 * 1024 * 1024)
+    private fun memoryFor(maxPixels: Float) = if (maxPixels == MAX_PIXELS) logMemory else cardMemory
+    private fun inMemory(key: String): ImageBitmap? = logMemory.get(key) ?: cardMemory.get(key)
 
     /** For each link, the memory key of the picture decoded last ([cachedAny]). It holds keys only, and never many. */
     private val latest = LruCache<String, String>(64)
@@ -77,19 +87,23 @@ object LogImages {
     private fun key(url: String, widthPx: Int, maxPixels: Float): String =
         if (maxPixels == MAX_PIXELS) "$url@$widthPx" else "$url@$widthPx/${maxPixels.toInt()}"
 
-    fun cached(url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS): ImageBitmap? = memory.get(key(url, widthPx, maxPixels))
+    fun cached(url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS): ImageBitmap? = memoryFor(maxPixels).get(key(url, widthPx, maxPixels))
 
     /**
      * The picture of [url] that is in memory, at the size it was decoded last. Null when none is.
      * It reads no file and fetches nothing. A card that is not in view asks here.
      */
-    fun cachedAny(url: String): ImageBitmap? = latest.get(url)?.let(memory::get)
+    fun cachedAny(url: String): ImageBitmap? = latest.get(url)?.let(::inMemory)
 
     /**
      * Called when Android is short of memory. It clears the memory cache (the images are also on disk).
-     * Images on screen stay. The others are decoded again when they show.
+     * Images on screen stay. The others are decoded again when they show. What is known of each
+     * link (its ink, a link that is no picture) is small, and stays.
      */
-    fun trim() = memory.evictAll()
+    fun trim() {
+        logMemory.evictAll()
+        cardMemory.evictAll()
+    }
 
     /**
      * Returns the image at [url], or null if it cannot be loaded. Smaller images are not scaled up here.
@@ -101,6 +115,8 @@ object LogImages {
      */
     fun load(context: Context, url: String, widthPx: Int, maxPixels: Float = MAX_PIXELS, httpsOnly: Boolean = false): ImageBitmap? {
         cached(url, widthPx, maxPixels)?.let { return it }
+        // A link that gave no picture a short while ago is not downloaded again yet.
+        if (notPicture(url)) return null
         // When several lines show the same image, only one download and one decode happen. The others wait for it.
         val key = key(url, widthPx, maxPixels)
         val lock = locks.getOrPut(key) { Any() }
@@ -125,25 +141,43 @@ object LogImages {
                 decoder.setTargetSize((w * scale).roundToInt().coerceAtLeast(1), (h * scale).roundToInt().coerceAtLeast(1))
             }
         }.getOrNull()
-        // The file is not an image (for example, an error page). Delete it, so the next time the line shows it tries again.
+        // The file is not an image (for example, an error page). Delete it, so a later try downloads it
+        // again: after NOT_PICTURE_MS, not at each visit to the widgets page.
         if (bitmap == null) {
             file.delete()
+            notPictures.put(url, System.currentTimeMillis())
             return null
         }
         val image = bitmap.asImageBitmap()
         // A see-through picture: how light its lines are, for the backdrop it may need (pictureBackdrop).
-        if (bitmap.hasAlpha()) measure(file)?.let { inks[image] = it }
+        // Measured once for each link, not for each size.
+        if (inks.get(url) == null) inks.put(url, Ink(if (bitmap.hasAlpha()) measure(file) else null))
         val key = key(url, widthPx, maxPixels)
-        memory.put(key, image)
+        memoryFor(maxPixels).put(key, image)
         latest.put(url, key)
         return image
     }
 
-    /** The ink of each see-through picture in memory ([PictureInk]). A picture that is let go takes its entry with it. */
-    private val inks: MutableMap<ImageBitmap, PictureInk> = java.util.Collections.synchronizedMap(java.util.WeakHashMap())
+    /** A link whose download was no picture is tried again after this long, in milliseconds. */
+    private const val NOT_PICTURE_MS = 10 * 60_000L
 
-    /** What [image]'s lines look like, when it is see-through; null for a picture with a background of its own. */
-    fun inkOf(image: ImageBitmap): PictureInk? = inks[image]
+    /**
+     * Links whose download was no picture, with the time. A link that could not be fetched (no
+     * network) is not here: it is tried again at once, when the network is back.
+     */
+    private val notPictures = LruCache<String, Long>(64)
+
+    private fun notPicture(url: String): Boolean =
+        notPictures.get(url)?.let { System.currentTimeMillis() - it < NOT_PICTURE_MS } == true
+
+    /** What is known of a picture's ink: null for a picture with a background of its own. */
+    private class Ink(val ink: PictureInk?)
+
+    /** The ink of each link's picture ([PictureInk]), measured when it was first decoded. */
+    private val inks = LruCache<String, Ink>(256)
+
+    /** What the lines of [url]'s picture look like, when it is see-through; null for a picture with a background of its own. */
+    fun inkOf(url: String): PictureInk? = inks.get(url)?.ink
 
     /**
      * The ink of the picture in [file], from a small copy of it: at most 96 pixels across, decoded in
@@ -262,7 +296,7 @@ fun LogImage(url: String, modifier: Modifier = Modifier) {
                 h = maxHeightPx
             }
             // Dark lines with nothing behind them, on a dark log (or light ones on a light log): on a backdrop.
-            val backdrop = pictureBackdrop(LogImages.inkOf(image), Term.bg)
+            val backdrop = pictureBackdrop(LogImages.inkOf(url), Term.bg)
             with(density) {
                 Image(
                     image,
