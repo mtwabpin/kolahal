@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
+import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptLibrary
@@ -50,25 +51,37 @@ internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minute
  * A library script, its state compared with the installed copy, and its `@on` events. [newer]: the
  * library has a newer version than the one the copy came from ([ScriptLibrary.hasNewer]).
  */
-internal class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>, val newer: Boolean = false)
+internal data class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>, val newer: Boolean = false)
 
 /**
  * The library's scripts, each compared with [scripts]. Their files and directives come from assets
  * and are read off the main thread. The value is null until they are read.
+ * - They are compared again only when a script's name, language or code changed ([codesOf]), not
+ *   at each run of a script.
  */
 @Composable
-internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): State<List<LibRow>?> =
-    produceState<List<LibRow>?>(null, vm.scriptActions.library, scripts) {
+internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): State<List<LibRow>?> {
+    val codes = codesOf(scripts)
+    return produceState<List<LibRow>?>(null, vm.scriptActions.library, codes) {
         value = withContext(Dispatchers.IO) {
             val library = vm.scriptActions.library
             runCatching {
                 library.entries.map { e ->
                     val state = library.state(e, scripts)
-                    LibRow(e, state, ScriptMeta.events(library.code(e)), library.hasNewer(e, state))
+                    LibRow(e, state, e.events, library.hasNewer(e, state))
                 }
             }.getOrDefault(emptyList())
         }
     }
+}
+
+/**
+ * The name, language and code of each of [scripts]: what a copy is compared by. A run changes none
+ * of them, so work keyed on this (keys are compared by value) is not done again after a run.
+ */
+@Composable
+internal fun codesOf(scripts: List<Script>): List<Triple<String, ScriptLang, String>> =
+    remember(scripts) { scripts.map { Triple(it.name, it.lang, it.code) } }
 
 /**
  * A library or shared copy, compared with where it came from.
@@ -77,7 +90,7 @@ internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): 
  * - [shared]: the shared script in the list kept from Get more scripts, for a shared copy. Null when
  *   the list isn't kept or no longer has it.
  */
-internal class ScriptCopy(
+internal data class ScriptCopy(
     val source: ScriptSource,
     val state: CopyState,
     val edited: Boolean,
@@ -104,7 +117,7 @@ internal class ScriptCopy(
 }
 
 /** A shared copy: what is known of it, and its entry in the kept list (null if none). */
-internal class SharedCopy(val copy: ScriptCatalog.Copy, val entry: ScriptCatalog.Entry?)
+internal data class SharedCopy(val copy: ScriptCatalog.Copy, val entry: ScriptCatalog.Entry?)
 
 /** Facts read from a script's code, for its card and the filters. They are read once per version of the code. */
 internal class ScriptCode(code: String, name: String) {
@@ -210,7 +223,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     val library by rememberLibraryRows(vm, scripts)
     val libByName = remember(library) { library.orEmpty().associateBy { it.entry.name } }
     // Copies from Get more scripts. The newest versions come from its kept list, so nothing is downloaded here.
-    val shared by produceState(emptyMap<String, SharedCopy>(), scripts) {
+    val shared by produceState(emptyMap<String, SharedCopy>(), codesOf(scripts)) {
         value = withContext(Dispatchers.IO) {
             val catalog = vm.scriptActions.scriptCatalog
             ScriptPage.sharedCopies(scripts, latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()), copyOf = catalog::copy)
@@ -220,9 +233,14 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     // What the page works out from here on is in ScriptPage (plain functions, with JVM tests).
     // The list is rebuilt when a script runs (its last run changes) or is saved. Only code that
     // changed is read again, also after the page was closed.
-    val infos = remember(scripts) { ScriptPage.infos(scripts, keptCodes) }
+    val lastInfos = remember { arrayOf(emptyList<ScriptInfo>()) }
+    val infos = remember(scripts) { ScriptPage.infos(scripts, keptCodes, lastInfos[0]).also { lastInfos[0] = it } }
     // Library copies (the same name and language as a library script), then copies from Get more scripts. The rest are yours.
-    val copies = remember(infos, libByName, shared) { ScriptPage.copies(infos, libByName, shared) }
+    // A copy that compares as before keeps its object, so its card is not drawn again.
+    val lastCopies = remember { arrayOf(emptyMap<Long, ScriptCopy?>()) }
+    val copies = remember(infos, libByName, shared) {
+        ScriptPage.keepingEqual(ScriptPage.copies(infos, libByName, shared), lastCopies[0]).also { lastCopies[0] = it }
+    }
     // Declared secrets with and without a value, by script id. The lists stay the same when the
     // page is rebuilt, so a card can skip recomposition when nothing of its own changed.
     // By id, not by name: a script renamed on its sheet keeps its lists until they are read again.

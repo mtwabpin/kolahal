@@ -291,6 +291,29 @@ class Completer(private val context: Context, private val data: Data) {
     /** True when this word starts with [prefix] (any case) and is longer than it. */
     private fun String.starts(prefix: String) = startsWith(prefix, ignoreCase = true) && !equals(prefix, ignoreCase = true)
 
+    /** The scripts `script pin` and `script unpin` take: with a status line and not pinned, and pinned. */
+    private class Pins(val list: List<Script>) {
+        val pinnable by lazy { list.filter { !it.grants.allows(ScriptAccess.HEADER) && ScriptMeta.setsStatus(it.code) }.map { it.name } }
+        val pinned by lazy { list.filter { it.grants.allows(ScriptAccess.HEADER) }.map { it.name } }
+    }
+
+    /** Worked out once for each list of scripts, not at each key: it reads every script's code. */
+    @Volatile private var lastPins: Pins? = null
+
+    private fun pins(list: List<Script>): Pins = lastPins?.takeIf { it.list === list } ?: Pins(list).also { lastPins = it }
+
+    /** What `script set`, `secret`, `allow` and `deny` complete from a script's code. */
+    private class CodeWords(val code: String) {
+        val options by lazy { ScriptMeta.options(code) }
+        val secrets by lazy { ScriptMeta.secrets(code).map { it.name } }
+        val switches by lazy { ScriptAccess.switchable(code) + listOfNotNull("notify".takeIf { ScriptMeta.postsNotifications(code) }) }
+    }
+
+    /** Kept for the script asked for last: its code is read once, not at each key. */
+    @Volatile private var lastWords: CodeWords? = null
+
+    private fun wordsOf(s: Script): CodeWords = lastWords?.takeIf { it.code == s.code } ?: CodeWords(s.code).also { lastWords = it }
+
     private fun argSuggestions(cmd: String, head: String, parts: List<String>, scriptList: List<Script>): List<Suggestion> {
         val arg = parts.drop(1).joinToString(" ")
         val last = parts.last()
@@ -371,8 +394,8 @@ class Completer(private val context: Context, private val data: Data) {
                             "off" -> scriptList.filter { it.enabled }.map { it.name }
                             // Only what the command can act on: a script with a status line that isn't
                             // pinned yet, or one that is pinned.
-                            "pin" -> scriptList.filter { !it.grants.allows(ScriptAccess.HEADER) && ScriptMeta.setsStatus(it.code) }.map { it.name }
-                            "unpin" -> scriptList.filter { it.grants.allows(ScriptAccess.HEADER) }.map { it.name }
+                            "pin" -> pins(scriptList).pinnable
+                            "unpin" -> pins(scriptList).pinned
                             in SCRIPT_NO_NAME -> emptyList()
                             else -> scriptList.map { it.name }
                         }
@@ -384,19 +407,19 @@ class Completer(private val context: Context, private val data: Data) {
                     } else if (parts.size == 4 && sub == "set") {
                         // The script's @option names. The next word gets the option's choices.
                         val s = scriptList.firstOrNull { it.name == parts[2] }
-                        words((s?.let { ScriptMeta.options(it.code).map { o -> o.name } }).orEmpty()).map { it.copy(replacement = it.replacement + " ") }
+                        words((s?.let { wordsOf(it).options.map { o -> o.name } }).orEmpty()).map { it.copy(replacement = it.replacement + " ") }
                     } else if (parts.size == 5 && sub == "set") {
-                        val o = scriptList.firstOrNull { it.name == parts[2] }?.let { ScriptMeta.options(it.code) }?.firstOrNull { it.name == parts[3] }
+                        val o = scriptList.firstOrNull { it.name == parts[2] }?.let { wordsOf(it).options }?.firstOrNull { it.name == parts[3] }
                         words(o?.choices.orEmpty() + listOf("--reset"))
                     } else if (parts.size == 4 && (sub == "secret" || sub == "secrets")) {
                         // The script's @secret names.
                         val s = scriptList.firstOrNull { it.name == parts[2] }
-                        words((s?.let { ScriptMeta.secrets(it.code).map { d -> d.name } }).orEmpty())
+                        words((s?.let { wordsOf(it).secrets }).orEmpty())
                     } else if (parts.size >= 4 && (sub == "allow" || sub == "deny")) {
                         // What can be switched: its access items, and `notify` if it posts notifications. Each is offered once.
                         val s = scriptList.firstOrNull { it.name == parts[2] }
                         val given = parts.subList(3, parts.size - 1)
-                        (s?.let { ScriptAccess.switchable(it.code) + listOfNotNull("notify".takeIf { _ -> ScriptMeta.postsNotifications(it.code) }) }).orEmpty()
+                        (s?.let { wordsOf(it).switches }).orEmpty()
                             .filter { it.starts(last) && it !in given }
                             .map { Suggestion.Completion(it, (parts.dropLast(1) + it).joinToString(" ") + " ") }
                     } else emptyList()

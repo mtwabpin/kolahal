@@ -637,13 +637,24 @@ class LogRepository private constructor(private val context: Context) {
         get() = marks.long(LogMarks.SEEN_UP_TO, Long.MAX_VALUE)
         set(value) = marks.set(LogMarks.SEEN_UP_TO to value)
 
-    /** Script status lines live in the kv table. This reuses the log change signal to refresh the header. */
-    fun onStatusChanged() = changed()
+    /**
+     * Script status lines live in the kv table. This reuses the log change signal to refresh the
+     * header, and moves [statusVersion], so home reads the lines only when one changed.
+     */
+    fun onStatusChanged() {
+        statusChanges.incrementAndGet()
+        changed(status = true)
+    }
+
+    private val statusChanges = java.util.concurrent.atomic.AtomicLong()
+
+    /** Moves each time a status line is set or cleared ([onStatusChanged]), here or in the other process. */
+    val statusVersion: Long get() = statusChanges.get()
 
     /** Makes home look again without a new line, because a script run's result was recorded after its last line. */
     fun touch() = changed()
 
-    private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList(), inPlace: Boolean = false) {
+    private fun changed(restructure: Boolean = false, trimmedUpTo: Long = 0L, updated: Collection<Long> = emptyList(), inPlace: Boolean = false, status: Boolean = false) {
         _version.value++
         if (!inPlace) _linesVersion.value++
         // The other process (scripts) tells home, which reads the message with [onExternal]. Home's own
@@ -653,7 +664,8 @@ class LogRepository private constructor(private val context: Context) {
                 Intent(ACTION_LOGS_CHANGED).setPackage(context.packageName)
                     .putExtra(EXTRA_RESTRUCTURE, restructure)
                     .putExtra(EXTRA_TRIMMED_UP_TO, trimmedUpTo)
-                    .putExtra(EXTRA_UPDATED, updated.toLongArray()),
+                    .putExtra(EXTRA_UPDATED, updated.toLongArray())
+                    .putExtra(EXTRA_STATUS, status),
             )
         }
     }
@@ -667,6 +679,7 @@ class LogRepository private constructor(private val context: Context) {
     fun onExternal(intent: Intent) {
         val trimmed = intent.getLongExtra(EXTRA_TRIMMED_UP_TO, 0L)
         val updated = intent.getLongArrayExtra(EXTRA_UPDATED)
+        if (intent.getBooleanExtra(EXTRA_STATUS, false)) statusChanges.incrementAndGet()
         when {
             intent.getBooleanExtra(EXTRA_RESTRUCTURE, false) -> onExternalRestructure()
             trimmed > 0 -> onExternalTrim(trimmed)
@@ -757,6 +770,7 @@ class LogRepository private constructor(private val context: Context) {
         private const val EXTRA_TRIMMED_UP_TO = "trimmed_up_to"
         /** Lines another process changed in place ([update]). */
         private const val EXTRA_UPDATED = "updated"
+        private const val EXTRA_STATUS = "status"
 
         /** A batched command's output reaches the log at least this often while it runs. */
         private const val BATCH_MS = 250L

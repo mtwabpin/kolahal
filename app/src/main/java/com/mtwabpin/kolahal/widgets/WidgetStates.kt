@@ -86,9 +86,12 @@ object WidgetStates {
      * - The content's time moves either way, and the last error is cleared.
      * - [quietly]: the cards are not told. A run stores this way, and tells them once when it ends ([announce]).
      */
-    fun put(context: Context, name: String, spec: WidgetSpec, quietly: Boolean = false) {
+    fun put(context: Context, name: String, spec: WidgetSpec, quietly: Boolean = false) =
+        putEncoded(context, name, WidgetJson.encode(spec), quietly)
+
+    /** [put] for a spec encoded already ([WidgetJson.encode]): `widget.show` encodes it once, to check its size. */
+    fun putEncoded(context: Context, name: String, json: String, quietly: Boolean = false) {
         runCatching {
-            val json = WidgetJson.encode(spec)
             val content = KvStore(context, Stores.WIDGET)
             if (content.get(name) != json) content.set(name, json)
             writeMeta(context, name, meta(context, name).copy(set = System.currentTimeMillis(), error = null))

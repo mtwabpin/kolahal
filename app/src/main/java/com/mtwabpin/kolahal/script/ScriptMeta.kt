@@ -31,6 +31,8 @@ object ScriptMeta {
     private val argRef = Regex("""\b(args|argline)\b""")
     private val on = Regex("""^\s*(--|//)\s*@on\b(.*)$""", RegexOption.MULTILINE)
     private val usesLine = Regex("""^\s*(--|//)\s*@uses\b(.*)$""", RegexOption.MULTILINE)
+    private val notifyLine = Regex("""^\s*(--|//)\s*@notify\b""", RegexOption.MULTILINE)
+    private val spaces = Regex("\\s+")
 
     /**
      * What a script may ask for with `@uses`:
@@ -117,8 +119,13 @@ object ScriptMeta {
 
     /** The text after a `@<name>` directive, or null when there is none or it is empty. */
     private fun value(code: String, name: String): String? =
-        Regex("""^\s*(--|//)\s*@$name\b[ \t]*(.*)$""", RegexOption.MULTILINE).find(code)
-            ?.groupValues?.get(2)?.trim()?.takeIf { it.isNotEmpty() }
+        valueRegex(name).find(code)?.groupValues?.get(2)?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** The pattern of each directive [value] looks for, made once: a directive is looked for many times. */
+    private val valueRegexes = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+
+    private fun valueRegex(name: String): Regex =
+        valueRegexes.getOrPut(name) { Regex("""^\s*(--|//)\s*@$name\b[ \t]*(.*)$""", RegexOption.MULTILINE) }
 
     /**
      * `@secret OWM_KEY api.openweathermap.org Your OpenWeather API key`: a value you set in the
@@ -137,7 +144,7 @@ object ScriptMeta {
 
     /** Every well-formed `@secret` line (a name, then its hosts). If a name appears twice, the first line wins. */
     fun secrets(code: String): List<Secret> = secretLine.findAll(code).mapNotNull { m ->
-        val parts = m.groupValues[2].trim().split(Regex("\\s+"), limit = 2)
+        val parts = m.groupValues[2].trim().split(spaces, limit = 2)
         val name = parts.getOrNull(0)?.takeIf(secretName::matches) ?: return@mapNotNull null
         val rest = secretRest.find(parts.getOrNull(1).orEmpty()) ?: return@mapNotNull null
         val hosts = rest.groupValues[1].split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
@@ -158,7 +165,7 @@ object ScriptMeta {
 
     /** Every well-formed `@option` line. If a name appears twice, the first line wins. */
     fun options(code: String): List<Option> = optionLine.findAll(code).mapNotNull { m ->
-        val parts = m.groupValues[2].trim().split(Regex("\\s+"), limit = 2)
+        val parts = m.groupValues[2].trim().split(spaces, limit = 2)
         val name = parts.getOrNull(0)?.takeIf(optionName::matches) ?: return@mapNotNull null
         val rest = optionRest.find(parts.getOrNull(1).orEmpty().trim()) ?: return@mapNotNull Option(name, "", emptyList(), "")
         val raw = rest.groupValues[1]
@@ -227,7 +234,7 @@ object ScriptMeta {
     }
 
     /** `@notify`: the script suggests that it may post notifications. */
-    fun notifies(code: String): Boolean = Regex("""^\s*(--|//)\s*@notify\b""", RegexOption.MULTILINE).containsMatchIn(code)
+    fun notifies(code: String): Boolean = notifyLine.containsMatchIn(code)
 
     fun requires(code: String): String? = value(code, "requires")
 

@@ -552,9 +552,10 @@ class HostApi(
         val raw = desc ?: throw IllegalArgumentException("widget.show expects a description: a table or object such as { value, label }")
         val spec = WidgetParser.parse(raw, line.kind, text = ::redact, link = ::widgetLink)
         // The texts have limits of their own. A link has none, so this is what stops a huge one.
-        require(WidgetJson.encode(spec).toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
+        val json = WidgetJson.encode(spec)
+        require(json.toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
         if (placed) {
-            WidgetStates.put(context, widgetKey, spec, quietly = true)
+            WidgetStates.putEncoded(context, widgetKey, json, quietly = true)
             widgetChanged = true
         }
         return placed
@@ -583,11 +584,13 @@ class HostApi(
      *
      * Both are read from the database at each call, not from what the run started with: a widget
      * removed while the run sleeps or waits for the web must not get content back, and one placed
-     * meanwhile gets it.
+     * meanwhile gets it. Only the access is read, not the code: the run's code has its `@widget`
+     * line ([widget]), which the access needs too.
      */
     internal fun widgetPlacedNow(): Boolean {
-        val script = scriptId?.let { ScriptRepository.get(context).byId(it) } ?: return false
-        return script.grants.allows(ScriptAccess.WIDGET) && PlacedIds.holds(WidgetStates.placedIds(context, scriptName), widgetId)
+        if (widget == null) return false
+        val access = scriptId?.let { ScriptRepository.get(context).accessOf(it) } ?: return false
+        return access[ScriptAccess.WIDGET] == true && PlacedIds.holds(WidgetStates.placedIds(context, scriptName), widgetId)
     }
 
     /** `widget.clear()`: removes the content of the widget this run fills. Its card then says that there is nothing to show. */

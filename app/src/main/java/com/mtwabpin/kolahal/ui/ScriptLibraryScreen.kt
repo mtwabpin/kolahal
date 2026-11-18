@@ -75,7 +75,12 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     // The library script whose code is open to read, by name. It survives rotation.
     var reading by rememberSaveable { mutableStateOf<String?>(null) }
     // Your copy of a library script: the same name and language.
-    fun mine(r: LibRow): Script? = scripts.firstOrNull { it.name == r.entry.name && it.lang == r.entry.lang }
+    // Your copy of each library script, by name: looked up for each row, at each key in the search.
+    val copiesByName = remember(scripts) { scripts.associateBy { it.name to it.lang } }
+    fun mine(r: LibRow): Script? = copiesByName[r.entry.name to r.entry.lang]
+    // The rows shown, in two groups: the copies that differ, then the rest. Worked out again only when they change.
+    val differ = remember(shown, copiesByName) { shown.orEmpty().filter { it.state.differs() && mine(it) != null } }
+    val rest = remember(shown, differ) { differ.toSet().let { d -> shown.orEmpty().filter { it !in d } } }
 
     // As on a card: an edited copy asks first; an unedited one updates at once, and the notice offers Undo.
     fun restore(r: LibRow) {
@@ -120,8 +125,6 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                     NoLibraryMatch(libraryNoMatch(query, chosen), onShowAll = if (chosen.isEmpty()) null else ({ chips = emptyList(); query = "" }))
                 }
             }
-            val differ = rows.filter { it.state.differs() && mine(it) != null }
-            val rest = rows.filter { it !in differ }
             if (differ.isNotEmpty()) {
                 item(key = "differs") { GroupHeader("Your copy differs · ${differ.size}") }
                 itemsIndexed(differ, key = { _, r -> "differs:" + r.entry.name }) { i, r ->

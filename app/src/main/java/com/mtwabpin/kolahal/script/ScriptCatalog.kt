@@ -56,7 +56,19 @@ class ScriptCatalog(private val context: Context) {
     private val cacheFile get() = File(context.filesDir, "script-catalog.json")
 
     /** The list from the last download, or null when there is none yet. */
-    fun cached(): List<Entry>? = cacheFile.takeIf { it.exists() }?.let { runCatching { shared(parse(it.readText())) }.getOrNull() }
+    fun cached(): List<Entry>? {
+        val file = cacheFile.takeIf { it.exists() } ?: return null
+        // The Scripts screen asks at each change to the scripts (a run, a save). The list is parsed
+        // again only when the file changed: a new download.
+        val stamp = file.lastModified() to file.length()
+        Parsed.last?.takeIf { it.first == stamp }?.let { return it.second }
+        return runCatching { shared(parse(file.readText())) }.getOrNull()?.also { Parsed.last = stamp to it }
+    }
+
+    /** The list parsed last, with its file's time and size: one for the whole app. */
+    private object Parsed {
+        @Volatile var last: Pair<Pair<Long, Long>, List<Entry>>? = null
+    }
 
     /** The names of the scripts that come with the app ([ScriptLibrary]). */
     private val libraryNames: Set<String> by lazy { runCatching { ScriptLibrary(context).entries.map { it.name }.toSet() }.getOrDefault(emptySet()) }
@@ -74,6 +86,7 @@ class ScriptCatalog(private val context: Context) {
         val raw = get(INDEX_URL, MAX_INDEX).toString(Charsets.UTF_8)
         val entries = shared(parse(raw))
         cacheFile.writeText(raw)
+        Parsed.last = null
         prefs.edit { putLong("fetched", System.currentTimeMillis()) }
         return entries
     }
@@ -170,7 +183,7 @@ class ScriptCatalog(private val context: Context) {
     }
 
     /** What is known of a copy installed from here: whether you [edited] it, and whether the list has a [newer] version. */
-    class Copy(val edited: Boolean, val newer: Boolean)
+    data class Copy(val edited: Boolean, val newer: Boolean)
 
     /**
      * Your copy [s] compared with what was installed from here and with [latest], its entry in the list

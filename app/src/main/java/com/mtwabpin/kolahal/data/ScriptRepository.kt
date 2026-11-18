@@ -61,6 +61,12 @@ class ScriptRepository private constructor(private val context: Context) {
 
     fun byId(id: Long): Script? = query("id = ?", arrayOf(id.toString())).firstOrNull()
 
+    /** Only the access of script [id] ([Script.access]), or null when it is gone: a check a run makes at each call, with no code to read. */
+    fun accessOf(id: Long): Map<String, Boolean>? =
+        db.readableDatabase.rawQuery("SELECT access FROM scripts WHERE id = ?", arrayOf(id.toString())).use { c ->
+            if (c.moveToFirst()) ScriptAccess.parse(c.getString(0)) else null
+        }
+
     /**
      * Creates a new script.
      * - A script created switched on (one of yours, a library install) may use what it declares.

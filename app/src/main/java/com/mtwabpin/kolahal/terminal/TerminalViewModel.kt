@@ -178,7 +178,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** [scriptUsages] plus the built-in commands' usage lines. Instant launch checks a line against these on every key. */
     @Volatile private var commandUsages: Map<String, String> = scriptUsages + CommandCatalog.COMMAND_USAGES
 
-    /** The script names in the bundled library, read once. `script install` completes them. */
+    /** The script names in the bundled library, read once, off the main thread when home starts. `script install` completes them. */
     private val libraryNames: List<String> by lazy { ScriptLibrary(context).entries.map { it.name } }
 
     /** [commandUsages] without the built-in commands turned off (commands.off): their names are plain words. */
@@ -187,7 +187,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         return if (off.isEmpty()) commandUsages else commandUsages - off
     }
 
+    /** What [setCommandScripts] read last: each script's name, whether it is on, and its code. */
+    private var commandsFrom: List<Triple<String, Boolean, String>>? = null
+
+    /** Reads the command scripts' usage and description again, only when a name, a switch or a code changed: not after each run. */
     private fun setCommandScripts(list: List<Script>) {
+        val from = list.map { Triple(it.name, it.enabled, it.code) }
+        if (from == commandsFrom) return
+        commandsFrom = from
         val commands = list.filter { it.enabled && ScriptMeta.isCommand(it.code) }
         scriptUsages = commands.mapNotNull { s -> ScriptMeta.usage(s.code, s.name)?.let { s.name to it } }.toMap()
         commandUsages = scriptUsages + CommandCatalog.COMMAND_USAGES
@@ -200,6 +207,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /** Every stored `status(text, opts)` line, by script name. */
     private val _lines = MutableStateFlow<List<StatusLine>>(emptyList())
+
+    /** The [LogRepository.statusVersion] the lines were read at; -1 before the first read. */
+    @Volatile private var linesRead = -1L
 
     /** The status lines of scripts that are on, by name. Their cards on the Scripts screen show them. */
     val statuses: StateFlow<Map<String, String>> = combine(_lines, scriptList) { lines, list ->
@@ -214,11 +224,14 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     val pinned: StateFlow<List<StatusLine>> = combine(_lines, scriptList) { lines, list ->
         if (lines.isEmpty()) return@combine emptyList()
-        // A script's permissions are read from its code on the main thread, so check only scripts that have a line.
+        // A script's permissions are read from its code, so check only scripts that have a line.
         val named = lines.mapTo(HashSet()) { it.name }
         val shown = list.filter { it.name in named && it.enabled && it.grants.allows(ScriptAccess.HEADER) }.mapTo(HashSet()) { it.name }
         lines.filter { it.name in shown }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    }
+        // It reads each script's permissions from its code: off the main thread.
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** False until [refreshCaches] has read the scripts for the first time. */
     private val scriptsRead = MutableStateFlow(false)
@@ -475,13 +488,20 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     private suspend fun refreshCaches(read: LogPager.Read) {
         val print = scripts.fingerprint()
-        if (print != scriptsPrint) {
+        val scriptsChanged = print != scriptsPrint
+        if (scriptsChanged) {
             val latest = scripts.all()
             scriptList.value = latest
             withContext(Dispatchers.Default) { setCommandScripts(latest) }
             scriptsPrint = print
         }
-        _lines.value = StatusLines.all(context)
+        // The status lines are read when one was set or cleared, when a script changed (deleting or
+        // switching one clears its line), and when the whole log is read again. Not at each new line.
+        val status = logs.statusVersion
+        if (status != linesRead || scriptsChanged || read.whole) {
+            linesRead = status
+            _lines.value = StatusLines.all(context)
+        }
         scriptsRead.value = true
         if (read.whole || read.trimmed) _hiddenLines.value = logs.hiddenCount()
         // A typed command's own line puts it first in the history. Read the history again only when a
@@ -1485,6 +1505,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         searcher.start()
         // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
         viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }
+        // The library is read before `script install ` completes it: not on the main thread at the first key.
+        viewModelScope.launch(Dispatchers.IO) { runCatching { libraryNames } }
         checkFirstRun()
     }
 

@@ -192,11 +192,18 @@ internal object ScriptPage {
     /**
      * The [ScriptInfo] of each script. A script's code is read once per version: [kept] has what
      * was read before, by name and code, and loses what no script has any more.
+     * - [before]: the infos made last. A script that is just as it was keeps its info, the same
+     *   object, so its card is not drawn again when another script runs.
      */
-    fun infos(scripts: List<Script>, kept: MutableMap<Pair<String, String>, ScriptCode>): List<ScriptInfo> {
+    fun infos(scripts: List<Script>, kept: MutableMap<Pair<String, String>, ScriptCode>, before: List<ScriptInfo> = emptyList()): List<ScriptInfo> {
         kept.keys.retainAll(scripts.mapTo(HashSet()) { it.name to it.code })
-        return scripts.map { s -> ScriptInfo(s, kept.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
+        val same = before.associateBy { it.script }
+        return scripts.map { s -> same[s] ?: ScriptInfo(s, kept.getOrPut(s.name to s.code) { ScriptCode(s.code, s.name) }) }
     }
+
+    /** [now], with the value [before] had for each key where it is equal: the same objects, so what they are given to can skip drawing again. */
+    fun <K, V> keepingEqual(now: Map<K, V>, before: Map<K, V>): Map<K, V> =
+        now.mapValues { (k, v) -> before[k]?.takeIf { it == v } ?: v }
 
     /**
      * The copies from Get more scripts among [scripts], by name.

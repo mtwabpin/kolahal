@@ -21,6 +21,8 @@ class ScriptLibrary(private val context: Context) {
         val suggestedEvery: Int,
         /** What it is and how it runs ([LibraryTags.of]). The library page has a filter chip for each. */
         val tags: Set<LibraryTag> = emptySet(),
+        /** Its `@on` events ([ScriptMeta.events]). */
+        val events: List<String> = emptyList(),
     ) {
         companion object {
             /** The entry of the library file [file], a [lang] script with [code]: what its name and its directives say. */
@@ -35,6 +37,7 @@ class ScriptLibrary(private val context: Context) {
                     command = ScriptMeta.isCommand(code),
                     suggestedEvery = ScriptMeta.every(code) ?: 0,
                     tags = LibraryTags.of(name, code),
+                    events = ScriptMeta.events(code),
                 )
             }
         }
@@ -42,21 +45,49 @@ class ScriptLibrary(private val context: Context) {
 
     enum class State { NOT_INSTALLED, INSTALLED, MODIFIED, UPDATE_AVAILABLE }
 
+    /** What the app brings: read once for the whole app ([Bundled]). */
+    private val bundled = Bundled.of(context)
+
     /** Every `.lua` and `.js` file in assets/library, by name. */
-    val entries: List<Entry> by lazy {
-        context.assets.list("library").orEmpty().sorted().mapNotNull { file ->
-            val lang = ScriptLang.of(file.substringAfterLast('.', "")) ?: return@mapNotNull null
-            Entry.of(file, lang, read(file))
+    val entries: List<Entry> get() = bundled.entries
+
+    fun code(entry: Entry): String = bundled.read(entry.file)
+
+    /**
+     * The library files, their entries and their history (assets): read once for the whole app, as
+     * they don't change while it runs. Every ScriptLibrary shares them: a command, a screen, the
+     * completion of `script install`.
+     */
+    private class Bundled(private val assets: android.content.res.AssetManager) {
+        private val codes = HashMap<String, String>()
+
+        fun read(file: String): String = synchronized(codes) {
+            codes.getOrPut(file) { assets.open("library/$file").use { it.readBytes().toString(Charsets.UTF_8) } }
         }
-    }
 
-    private val codeCache = HashMap<String, String>()
+        val entries: List<Entry> by lazy {
+            assets.list("library").orEmpty().sorted().mapNotNull { file ->
+                val lang = ScriptLang.of(file.substringAfterLast('.', "")) ?: return@mapNotNull null
+                Entry.of(file, lang, read(file))
+            }
+        }
 
-    fun code(entry: Entry): String = read(entry.file)
+        /** Every version of each library file, by file: the first 16 hex digits of its SHA-256 (tools/library-history.sh). */
+        val history: Map<String, Set<String>> by lazy {
+            runCatching {
+                assets.open(HISTORY).bufferedReader().readLines()
+                    .filter { it.isNotBlank() && !it.startsWith("#") }
+                    .mapNotNull { line -> line.trim().split(' ').takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+                    .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+            }.getOrDefault(emptyMap())
+        }
 
-    private fun read(file: String): String = synchronized(codeCache) {
-        codeCache.getOrPut(file) {
-            context.assets.open("library/$file").use { it.readBytes().toString(Charsets.UTF_8) }
+        companion object {
+            @Volatile private var one: Bundled? = null
+
+            fun of(context: Context): Bundled = one ?: synchronized(this) {
+                one ?: Bundled(context.applicationContext.assets).also { one = it }
+            }
         }
     }
 
@@ -68,9 +99,9 @@ class ScriptLibrary(private val context: Context) {
     fun state(entry: Entry, installed: List<Script>): State {
         val script = installed.firstOrNull { it.name == entry.name } ?: return State.NOT_INSTALLED
         val original = installedOriginal(entry.name)
-        val bundled = code(entry)
+        val shippedNow = code(entry)
         return when {
-            script.code == bundled -> State.INSTALLED
+            script.code == shippedNow -> State.INSTALLED
             original != null && script.code == original -> State.UPDATE_AVAILABLE
             script.lang == entry.lang && shipped(entry, script.code) -> State.UPDATE_AVAILABLE
             else -> State.MODIFIED
@@ -93,15 +124,7 @@ class ScriptLibrary(private val context: Context) {
     /** Whether [code] is a version of [entry] that the library had, now or before (assets/library-history.txt). */
     fun shipped(entry: Entry, code: String): Boolean = fingerprint(code) in history[entry.file].orEmpty()
 
-    /** Every version of each library file, by file: the first 16 hex digits of its SHA-256 (tools/library-history.sh). */
-    private val history: Map<String, Set<String>> by lazy {
-        runCatching {
-            context.assets.open(HISTORY).bufferedReader().readLines()
-                .filter { it.isNotBlank() && !it.startsWith("#") }
-                .mapNotNull { line -> line.trim().split(' ').takeIf { it.size == 2 }?.let { it[0] to it[1] } }
-                .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
-        }.getOrDefault(emptyMap())
-    }
+    private val history get() = bundled.history
 
     /**
      * Installs [entry] with its suggested timers, or updates it and keeps its own timers. It remembers

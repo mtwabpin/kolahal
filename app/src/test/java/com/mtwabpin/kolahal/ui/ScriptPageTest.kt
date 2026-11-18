@@ -52,6 +52,30 @@ class ScriptPageTest {
         assertEquals(setOf("b" to b2.code), kept.keys)
     }
 
+    /** When another script runs, a script that is just as it was keeps its info, the same object: its card is not drawn again. */
+    @Test fun anUnchangedScriptKeepsItsInfo() {
+        val kept = HashMap<Pair<String, String>, ScriptCode>()
+        val a = script(1, "a")
+        val b = script(2, "b")
+        val first = ScriptPage.infos(listOf(a, b), kept)
+        // Read again from the database: equal, not the same objects. b ran.
+        val second = ScriptPage.infos(listOf(a.copy(), b.copy(lastRun = 9)), kept, first)
+        assertSame(first[0], second[0])
+        assertNotSame(first[1], second[1])
+        assertEquals(9L, second[1].script.lastRun)
+    }
+
+    /** A copy that compares as before keeps its object; one that changed is the new one. */
+    @Test fun equalValuesKeepTheirObjects() {
+        val before = mapOf(1L to ScriptCopy.of(libRow("a", ScriptLibrary.State.INSTALLED)), 2L to ScriptCopy.of(libRow("b", ScriptLibrary.State.INSTALLED)), 3L to null)
+        val now = mapOf(1L to ScriptCopy.of(libRow("a", ScriptLibrary.State.INSTALLED)), 2L to ScriptCopy.of(libRow("b", ScriptLibrary.State.MODIFIED)), 3L to null)
+        val kept = ScriptPage.keepingEqual(now, before)
+        assertSame(before[1L], kept[1L])
+        assertSame(now[2L], kept[2L])
+        assertNull(kept[3L])
+        assertEquals(now, kept)
+    }
+
     /** Only scripts installed from Get more scripts are shared copies. Each has its entry in the kept list, if it is still there. */
     @Test fun sharedCopiesAreTheScriptsInstalledFromGetMoreScripts() {
         val scripts = listOf(script(1, "define"), script(2, "units"), script(3, "mine"))
