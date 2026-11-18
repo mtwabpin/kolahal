@@ -1,0 +1,8 @@
+What's new:
+• A text editor for any text file: run edit, or pick Kolahal Editor under "Open with". It stays open when you press Home.
+• Two new themes: Material You, from your wallpaper, and Nord.
+• Widget icons follow the theme, and widget cards look cleaner.
+• Search the script library, with chips for each kind of script.
+• Two widget templates, to start a widget of your own.
+• Search the Commands page.
+• Icon buttons in the editors.
