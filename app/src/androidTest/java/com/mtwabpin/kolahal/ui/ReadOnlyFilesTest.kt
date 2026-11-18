@@ -125,8 +125,21 @@ class ReadOnlyFilesTest {
             }
             tap("the picker shows its roots", By.desc("Show roots"))
             tap("the picker has Recent", By.text("Recent"))
+            // Recent redraws its list as it loads, and a tap during a redraw can be lost: then the
+            // picker never answers. So the file is tapped again until it does.
+            // Once the picker has answered, the file is gone from the screen: a later tap is skipped.
             tap("Recent lists $name", By.text(name))
-            val uri = picked.poll(10, TimeUnit.SECONDS).also { assertNotNull("the picker gave an address", it) }!!
+            var answer: Uri? = picked.poll(4, TimeUnit.SECONDS)
+            val until = SystemClock.uptimeMillis() + 16_000
+            while (answer == null && SystemClock.uptimeMillis() < until) {
+                try {
+                    device.findObject(By.text(name))?.click()
+                } catch (_: StaleObjectException) {
+                    // Redrawn between finding and tapping: the next round finds it again.
+                }
+                answer = picked.poll(4, TimeUnit.SECONDS)
+            }
+            val uri = answer.also { assertNotNull("the picker gave an address", it) }!!
             addresses += uri.toString()
             // As `edit` does: the permission ends with this window unless it is kept.
             assertTrue(Documents.keepPermission(context, uri))

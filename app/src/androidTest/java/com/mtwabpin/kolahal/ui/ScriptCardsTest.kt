@@ -12,7 +12,6 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -68,15 +67,22 @@ class ScriptCardsTest {
     /** What the page asked the activity for: Export sends the script to save. */
     private val sent = SentEvents()
 
-    /** The Scripts tab; with [details], every card's details are open. */
+    /** The top bar's button that opens every card's details, not a card's own. */
+    private val expandAll = hasContentDescription("Show details") and !hasAnyAncestor(hasTestTag("script-card"))
+
+    /**
+     * The Scripts tab, once it has read every script there is: in a full run, scripts that earlier
+     * classes left make the list non-empty before this test's own script is in it. With [details],
+     * every card's details are open.
+     */
     private fun show(details: Boolean = true): TerminalViewModel {
         val vm = vms.terminal(app)
         compose.setContent {
             sent.Collect(vm)
             ScriptsScreen(vm)
         }
-        compose.waitUntil(5_000) { vm.scriptList.value.isNotEmpty() }
-        if (details) compose.onAllNodesWithContentDescription("Show details")[0].performClick()
+        compose.waitUntil(5_000) { vm.scriptList.value.map { it.id }.toSet().containsAll(scripts.all().map { it.id }) }
+        if (details) compose.onNode(expandAll).performClick()
         return vm
     }
 
@@ -124,7 +130,7 @@ class ScriptCardsTest {
         compose.setContent { if (shown) ScriptsScreen(vm) }
         fun details(event: String) {
             compose.waitUntil(5_000) { vm.scriptList.value.any { it.name == "scpills" && event.lowercase() in it.code } }
-            compose.onAllNodesWithContentDescription("Show details")[0].performClick()
+            compose.onNode(expandAll).performClick()
             compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(event))
         }
         details("Unlock")
