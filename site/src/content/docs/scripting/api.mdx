@@ -151,7 +151,7 @@ console.error("logged as an error line");
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: logLog, alt: 'The Lua lines above in the log: titles with bodies under them, two stories with a space between them, a line with a picture of a comic, and the print line', width: 360 }]} />
+<Cards items={[{ src: logLog, alt: 'The Lua lines above in the log: titles with bodies under them, two stories with a space between them, a line with a picture of a comic, and the print line', width: 360, caption: 'What the Lua code logs. In JavaScript, <code>console.log</code> makes the same kind of line as <code>print</code>.' }]} />
 
 ### logs(titles)
 
@@ -173,7 +173,7 @@ logs("milk", "bread");
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: logLogs, alt: 'Three lines in the log: milk, bread and eggs', width: 360 }]} />
+<Cards items={[{ src: logLogs, alt: 'Five lines in the log: milk, bread and eggs, then milk and bread', width: 360 }]} />
 
 ### md.log(title, body?, ctx?)
 
@@ -869,7 +869,7 @@ run is needed as time passes.
 widget.show{
   title = "Reading list",
   items = {
-    { title = "Lua 5.4 manual", trailing = "docs", tap = { url = "https://www.lua.org/manual/5.4/" } },
+    { title = "Kolahal's guide", trailing = "docs", tap = { url = "https://mtwabpin.github.io/kolahal/" } },
     { title = "No link here", detail = "A row needs only its title" },
   },
   empty = "Nothing to read",
@@ -897,7 +897,7 @@ widget.show{ kind = "countdown", title = "Goa trip", to = os.time{ year = 2026, 
 widget.show({
   title: "Reading list",
   items: [
-    { title: "MDN", trailing: "docs", tap: { url: "https://developer.mozilla.org/" } },
+    { title: "Kolahal's guide", trailing: "docs", tap: { url: "https://mtwabpin.github.io/kolahal/" } },
     { title: "No link here", detail: "A row needs only its title" },
   ],
   empty: "Nothing to read",
@@ -922,7 +922,7 @@ widget.show({ kind: "countdown", title: "Goa trip", to: new Date(2026, 11, 20).g
 </Tabs>
 
 <Cards items={[
-  { src: wList, alt: 'A 4×2 list card called Reading list, with two rows', size: '4x2', caption: 'list' },
+  { src: wList, alt: 'A 4×2 list card called Reading list, with two rows: Kolahal’s guide, and No link here', size: '4x2', caption: 'list' },
   { src: wText, alt: 'A 2×2 text card called Word of the day: serendipity, its meaning, and from Wiktionary', size: '2x2', caption: 'text' },
   { src: wChart, alt: 'A 2×2 chart card called Unlocks: 8 unlocks today over seven bars from Sun to Today', size: '2x2', caption: 'chart' },
   { src: wProgress, alt: 'A 2×1 progress card called Pune air: 168 Unhealthy over an amber bar', size: '2x1', caption: 'progress' },

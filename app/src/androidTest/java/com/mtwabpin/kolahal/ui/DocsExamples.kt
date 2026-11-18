@@ -64,7 +64,7 @@ object DocsExamples {
             widget.show{
               title = "Reading list",
               items = {
-                { title = "Lua 5.4 manual", trailing = "docs", tap = { url = "https://www.lua.org/manual/5.4/" } },
+                { title = "Kolahal's guide", trailing = "docs", tap = { url = "https://mtwabpin.github.io/kolahal/" } },
                 { title = "No link here", detail = "A row needs only its title" },
               },
               empty = "Nothing to read",
@@ -205,6 +205,7 @@ object DocsExamples {
             "logs",
             """
             logs({ "milk", "bread", "eggs" })
+            logs("milk", "bread")
             """,
         ),
         Log(
