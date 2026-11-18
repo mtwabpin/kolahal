@@ -27,3 +27,6 @@ site/.astro/
 
 # Emacs backup files
 *~
+
+# Pictures to share, made from the project (tools/widget-sheets.sh)
+/share/
