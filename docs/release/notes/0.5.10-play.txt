@@ -1,0 +1,5 @@
+What's new:
+• The script editor's API reference shows each kind of widget card and each kind of log line as Kolahal draws it, over its code. Tap one to add its code to your script.
+• Each fmt function shows what it makes, such as bold text or tags.
+• Read a library script's code before you install it.
+• Press and hold an icon button to see what it does.
