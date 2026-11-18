@@ -32,6 +32,8 @@ object SettingTitles {
         "log.item-spacing" to "Space between list items (dp)",
         "log.gutter" to "Colour bar beside lines",
         "log.line-height" to "Line height",
+        "data.plan" to "Mobile data plan",
+        "data.start-day" to "Plan starts on day",
         "log.taller-taps" to "Taller tappable lines",
         "log.tables" to "Tables",
         "log.fold" to "Fold long lines after (lines)",

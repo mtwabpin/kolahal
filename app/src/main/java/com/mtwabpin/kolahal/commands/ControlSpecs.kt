@@ -67,7 +67,7 @@ object ControlSpecs {
         CommandSpec("wifi", "wifi", "Wi-Fi panel", short = "Wi-Fi panel", sensitive = true),
         CommandSpec("bt", "bt", "Bluetooth settings", short = "Bluetooth settings", aka = listOf("bluetooth"), sensitive = true),
         CommandSpec("nfc", "nfc", "NFC panel", short = "NFC panel", sensitive = true),
-        CommandSpec("data", "data", "Internet / mobile data panel", short = "Mobile data panel", sensitive = true),
+        CommandSpec("data", "data [today | month]", "Internet / mobile data panel; with today or month, the data each app used", short = "Mobile data panel", args = "today · month", sensitive = true),
         CommandSpec("toggles", "toggles", "Status of every toggle (tap one to change it)", short = "Every toggle at a glance"),
     )
 

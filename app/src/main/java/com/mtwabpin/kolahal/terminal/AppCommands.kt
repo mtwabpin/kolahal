@@ -115,11 +115,7 @@ class AppCommands(
         }
     }
 
-    private fun appCtx(app: AppEntry) = LogContext.of(
-        LogContext.PKG to app.pkg,
-        LogContext.CLS to app.component.className,
-        LogContext.USER to app.profile.serial.toString(),
-    )
+    private fun appCtx(app: AppEntry) = appContext(app)
 
     /** Returns `Maps [W]`. A personal app gets a tag only when the same app also exists in another profile. */
     private fun appLine(app: AppEntry): String {

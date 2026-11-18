@@ -9,7 +9,7 @@ import org.junit.Test
 /** A built-in always wins, so every name it answers to is kept from aliases and scripts. */
 class ReservedNamesTest {
     @Test fun everyNameACommandAnswersToIsReserved() {
-        for (name in AppCommands.NAMES + ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY) {
+        for (name in AppCommands.NAMES + UsageCommands.NAMES + ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY) {
             assertTrue("$name isn't reserved", name in CommandCatalog.RESERVED_NAMES)
         }
     }
@@ -50,7 +50,7 @@ class DispatchNamesTest {
     }
 
     @Test fun everyCommandIsDispatched() {
-        val groups = AppCommands.NAMES + com.mtwabpin.kolahal.commands.ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY
+        val groups = AppCommands.NAMES + UsageCommands.NAMES + com.mtwabpin.kolahal.commands.ControlSpecs.NAMES + CommandCatalog.PRODUCTIVITY
         // `=` is the calculator, before the `when`.
         val missing = CommandCatalog.COMMAND_NAMES - dispatched - groups - "="
         assertTrue("in the catalog but not dispatched: $missing", missing.isEmpty())

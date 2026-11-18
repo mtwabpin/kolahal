@@ -28,3 +28,10 @@ abstract class CommandGroup(protected val context: Context) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
+
+/** A line that stands for [app]: a tap opens it, and a long-press offers its actions (info, uninstall…). */
+internal fun appContext(app: com.mtwabpin.kolahal.apps.AppEntry) = LogContext.of(
+    LogContext.PKG to app.pkg,
+    LogContext.CLS to app.component.className,
+    LogContext.USER to app.profile.serial.toString(),
+)

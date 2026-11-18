@@ -157,3 +157,23 @@ of work apps or the private space.
 Android keeps usage data for the last days only, about 10 on many phones. `usage 30` and `unlocks 30`
 leave out the days before that, and their average is over the days that are there. Kolahal also
 saves each day's unlock count, so `unlocks` goes back further as the weeks go by.
+
+## Data and storage
+
+```sh
+data today       # mobile and Wi-Fi data today, per app
+data month       # since the day your plan starts again, per app
+storage          # free space, the largest apps, and apps not opened for 30 days
+```
+
+`data` alone opens Android's Internet panel, as before. These need **Usage access** too.
+
+- `data month` counts from the day in `data.start-day` (1 by default). Set your monthly plan in GB
+  with `config set data.plan 75`: then it shows how much of it you used, the pace for the month,
+  and the days left. The bar turns red when the pace goes over the plan.
+- Android gives Kolahal the data of each app in your personal profile. The rest, such as the work
+  profile's apps, is in **Other**, so the columns add up to the totals.
+- On Android 9, Android tells Kolahal only the Wi-Fi data per app.
+- `storage` shows each app's size: the app and its data, cache included. The apps not opened for
+  30 days or more are each a line: tap one to open it, or press and hold it for its info or to
+  uninstall it. An app that Android has no use recorded for says so, with no day count.

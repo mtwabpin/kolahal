@@ -31,7 +31,8 @@ How to read the usage:
 | `unpin <app>` | `unfav` | remove a favourite |
 | `pins` | `favs` | show a grid of pinned apps |
 | `rename <app> = <name>` | | give an app your own label; `rename <app> =` restores the original |
-| `usage [<days>]` | `screentime` | screen time for each app (1–30 days; needs Usage Access) |
+| `usage [<days> \| <app>]` | `screentime` | screen time for each app (1–30 days), or one app in detail: today by hour and its last 7 days (needs Usage Access) |
+| `storage` | | free space, the largest apps with their cache, and apps not opened for 30 days (needs Usage Access) |
 | `installs [<n>]` | `updates` | recent app installs, updates and uninstalls |
 
 ## People
@@ -109,7 +110,7 @@ See [Media and device controls](/guides/media-and-controls/).
 | `wifi` | | Wi-Fi panel |
 | `bt` | `bluetooth` | Bluetooth settings |
 | `nfc` | | NFC panel |
-| `data` | | Internet / mobile data panel |
+| `data` | `[today \| month]` | Internet / mobile data panel; with `today` or `month`, the data each app used |
 | `toggles` | | the state of every toggle; tap a line to change it |
 
 ## Productivity

@@ -101,6 +101,13 @@ The `theme` and `font` commands didn't change.
 | `feeds.notify` | bool | `off` | feeds you add send notifications about new items |
 | `feeds.wifi` | bool | `off` | scheduled refreshes run only on Wi-Fi (unmetered networks). `feed fetch` always runs |
 
+## Data
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `data.plan` | number 0–2000 | `0` | your mobile data plan for a month, in GB. `data month` then shows how much of it is used, the pace, and the days left. 0: no plan |
+| `data.start-day` | number 1–28 | `1` | the day of the month your plan starts again. `data month` counts from there |
+
 ## Launching and suggestions
 
 | Key | Type | Default | Description |

@@ -63,6 +63,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     private val configCommands = ConfigCommands(context, ui)
     private val people = PeopleCommands(context, ui)
     private val appCommands = AppCommands(context, ::background)
+    private val usageCommands by lazy { UsageCommands(context) }
     private val feedCommands = FeedCommands(context, appCommands, ui)
     private val editCommands = EditCommands(context, ui)
 
@@ -137,6 +138,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "alias" -> alias(rest)
                 "unalias" -> unalias(args)
                 in AppCommands.NAMES -> appCommands.run(name, args)
+                in UsageCommands.NAMES -> usageCommands.run(name, args)
+                // `data` alone opens the mobile data panel; `data today` and `data month` show the data each app used.
+                "data" if args.isNotEmpty() -> usageCommands.run(name, args)
                 "help", "?" -> if (args.isEmpty()) help() else commandHelp(args.first())
                 "unlocks" -> unlocks(args)
                 "fetch", "neofetch", "fastfetch" -> fetch()

@@ -121,6 +121,8 @@ object Keys {
     val LOG_SPACING = ConfigKey.Num("log.spacing", 5, 0..40, "Gap (dp) above each output group: a command and its output, or a background batch (feeds, scripts)")
     val LOG_ITEM_SPACING = ConfigKey.Num("log.item-spacing", 5, 0..40, "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the colour bar runs through it")
     val LOG_GUTTER = ConfigKey.Bool("log.gutter", true, "Thin colour bar at the left of each log line: green for commands, script colour for background output, red for errors")
+    val DATA_PLAN = ConfigKey.Num("data.plan", 0, 0..2000, "Your mobile data plan for a month, in GB, for `data month`: how much is left, and the pace. 0: no plan")
+    val DATA_START_DAY = ConfigKey.Num("data.start-day", 1, 1..28, "The day of the month your mobile data plan starts again, for `data month`")
     val LOG_LINE_HEIGHT = ConfigKey.Num("log.line-height", 22, 10..56, "Minimum height of a log line (22 is 22 dp at the default text size, and scales with it); a line is never shorter than its text")
     val LOG_WALLPAPER = ConfigKey.Num("log.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour")
     val LOG_TALLER_TAPS = ConfigKey.Bool("log.taller-taps", false, "Make tappable lines slightly taller, so they're easier to hit; off: every line is the same height")
@@ -228,6 +230,8 @@ object Keys {
         LOG_ITEM_SPACING,
         LOG_GUTTER,
         LOG_LINE_HEIGHT,
+        DATA_PLAN,
+        DATA_START_DAY,
         LOG_TALLER_TAPS,
         LOG_TABLES,
         LOG_FOLD,
@@ -263,7 +267,7 @@ object Keys {
      * Settings that the pages of the Settings screen leave out. Only `config` changes them, or a screen
      * of their own (the header's sides: Settings → Header → Arrange the header).
      */
-    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, LOG_LINE_HEIGHT, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT, COMMANDS_OFF)
+    val CONFIG_ONLY: Set<ConfigKey<*>> = setOf(LOG_KEEP_LINES, LOG_LINE_HEIGHT, DATA_PLAN, DATA_START_DAY, SELECTOR_AIM, SELECTOR_AIM_SPEED, SELECTOR_ACTIONS, BACKUP_KEEP, HEADER_PADDING, HEADER_PINNED_SECONDS, HEADER_PINNED_DOTS, HEADER_PINNED_BAR_ABOVE, HEADER_PINNED_BAR_BELOW, HEADER_LEFT, HEADER_RIGHT, COMMANDS_OFF)
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
     fun byName(name: String): ConfigKey<*>? {
