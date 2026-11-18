@@ -128,14 +128,6 @@ private fun runs(e: ScriptCatalog.Entry): String = buildList {
     if (e.on.isNotEmpty()) add("on ${e.on.joinToString(", ")}")
 }.joinToString(" · ")
 
-/** The same text, read from the script file itself. This is what installing it sets up. */
-private fun runs(code: String): String = buildList {
-    if (ScriptMeta.isCommand(code)) add("command")
-    ScriptMeta.every(code)?.let { add("every ${CommandParsing.formatInterval(it)}") }
-    ScriptMeta.at(code).takeIf { it.isNotEmpty() }?.let { add("daily ${it.joinToString(", ")}") }
-    ScriptMeta.events(code).takeIf { it.isNotEmpty() }?.let { add("on ${it.joinToString(", ")}") }
-}.joinToString(" · ")
-
 private fun stateLabel(state: ScriptCatalog.State?, e: ScriptCatalog.Entry): String? = when (state) {
     ScriptCatalog.State.INSTALLED -> "Installed"
     ScriptCatalog.State.UPDATE_AVAILABLE -> "Update to ${e.version}"
@@ -195,7 +187,7 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
         // is what installing grants. Until then, use the list's values.
         val text = code?.getOrNull()
         val uses = remember(text) { text?.let { ScriptMeta.uses(it).toList() } ?: e.uses }
-        Fact("Runs", remember(text) { text?.let { runs(it) } ?: runs(e) }.ifEmpty { "manually" })
+        Fact("Runs", remember(text) { text?.let { scriptRuns(it) } ?: runs(e) }.ifEmpty { "manually" })
         Fact("Uses", if (uses.isEmpty()) "nothing private" else uses.joinToString(", ") { ScriptAccess.label(it).lowercase() })
         code?.getOrNull()?.let(ScriptMeta::secrets)?.takeIf { it.isNotEmpty() }?.let { keys ->
             Fact("Keys", keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
@@ -235,17 +227,11 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
         Spacer(Modifier.height(16.dp))
         SectionTitle("Code")
         Spacer(Modifier.height(8.dp))
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
-            val result = code
-            Text(
-                when {
-                    result == null -> "Downloading…"
-                    result.isSuccess -> result.getOrThrow()
-                    else -> "Can't download it: ${result.exceptionOrNull()?.message}"
-                },
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
-                modifier = Modifier.padding(12.dp),
-            )
+        val result = code
+        when {
+            result == null -> Text("Downloading…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            result.isSuccess -> ReadOnlyCode(result.getOrThrow(), e.lang)
+            else -> Text("Can't download it: ${result.exceptionOrNull()?.message}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
         }
     }
 

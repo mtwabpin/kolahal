@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -35,12 +36,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.script.LibraryTag
 import com.mtwabpin.kolahal.script.LibraryTags
+import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptLibrary
+import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -71,6 +76,8 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
     val shown = remember(library, words, chosen) { library?.filter { LibraryTags.shows(it.entry, words, chosen) } }
     // The library script whose copy shows a dialog, and which one: the question before Update or Reset, or Compare.
     var copyDialog by remember { mutableStateOf<Pair<String, CopyDialog>?>(null) }
+    // The library script whose code is open to read, by name. It survives rotation.
+    var reading by rememberSaveable { mutableStateOf<String?>(null) }
     // Your copy of a library script: the same name and language.
     fun mine(r: LibRow): Script? = scripts.firstOrNull { it.name == r.entry.name && it.lang == r.entry.lang }
 
@@ -128,7 +135,7 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                 if (rest.isNotEmpty()) item(key = "all") { GroupHeader("All scripts") }
             }
             itemsIndexed(rest, key = { _, r -> "lib:" + r.entry.name }) { i, r ->
-                LibraryRow(r, i, rest.size, nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null) {
+                LibraryRow(r, i, rest.size, nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null, onRead = { reading = r.entry.name }) {
                     vm.scriptActions.installFromLibrary(r.entry)
                 }
             }
@@ -142,6 +149,17 @@ fun ScriptLibraryScreen(vm: TerminalViewModel) {
                         )
                     )
                 }
+            }
+        }
+
+        reading?.let { name ->
+            library.orEmpty().firstOrNull { it.entry.name == name }?.let { r ->
+                LibrarySheet(
+                    vm, r,
+                    nameTaken = r.state != ScriptLibrary.State.NOT_INSTALLED && mine(r) == null,
+                    onInstall = { vm.scriptActions.installFromLibrary(r.entry) },
+                    onDismiss = { reading = null },
+                )
             }
         }
 
@@ -207,11 +225,12 @@ private fun overline(r: LibRow): String {
 /**
  * One library script and its install state.
  * - A tap on the row shows or hides the description.
+ * - The code button opens its code to read ([LibrarySheet]), before installing it.
  * - Install installs it with its suggested timers.
  * - [nameTaken]: one of your scripts has its name, in the other language.
  */
 @Composable
-private fun LibraryRow(r: LibRow, index: Int, count: Int, nameTaken: Boolean, onInstall: () -> Unit) {
+private fun LibraryRow(r: LibRow, index: Int, count: Int, nameTaken: Boolean, onRead: () -> Unit, onInstall: () -> Unit) {
     var open by rememberSaveable(r.entry.name) { mutableStateOf(false) }
     val e = r.entry
     SegmentedListItem(
@@ -223,12 +242,11 @@ private fun LibraryRow(r: LibRow, index: Int, count: Int, nameTaken: Boolean, on
             { Text(e.description) }
         } else null,
         trailingContent = {
-            when {
-                nameTaken -> Text("Name in use", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                r.state == ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Install") }
-                r.state == ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Update") }
-                r.state == ScriptLibrary.State.MODIFIED -> Text("Edited", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> Text("Installed", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(shapes = IconButtonDefaults.shapes(), onClick = onRead, modifier = Modifier.testTag("read ${e.name}")) {
+                    Icon(painterResource(R.drawable.ic_code), contentDescription = "Read the code of ${e.name}", tint = MaterialTheme.colorScheme.primary)
+                }
+                InstallState(r, nameTaken, onInstall)
             }
         },
     ) { Text(e.title) }
@@ -264,4 +282,62 @@ private fun DiffersRow(r: LibRow, index: Int, count: Int, onCompare: () -> Unit,
             }
         },
     ) { Text(r.entry.title) }
+}
+
+/** What a library script's row and sheet say of it: Install or Update, or that it is installed, edited, or its name is in use. */
+@Composable
+private fun InstallState(r: LibRow, nameTaken: Boolean, onInstall: () -> Unit) {
+    when {
+        nameTaken -> Text("Name in use", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        r.state == ScriptLibrary.State.NOT_INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Install") }
+        r.state == ScriptLibrary.State.UPDATE_AVAILABLE -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onInstall) { Text("Update") }
+        r.state == ScriptLibrary.State.MODIFIED -> Text("Edited", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> Text("Installed", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * One library script to read before installing it: what it is, how it runs, what it uses, Install,
+ * and its code, read-only ([ReadOnlyCode]). The code is read from the app, off the main thread.
+ */
+@Composable
+private fun LibrarySheet(vm: TerminalViewModel, r: LibRow, nameTaken: Boolean, onInstall: () -> Unit, onDismiss: () -> Unit) {
+    val e = r.entry
+    val code by produceState<String?>(null, e.file) {
+        value = withContext(Dispatchers.IO) { runCatching { vm.scriptActions.library.code(e) }.getOrNull() }
+    }
+    GuiSheet(onDismiss, scroll = true) {
+        Text(e.title, style = MaterialTheme.typography.titleLarge)
+        val text = code
+        Text(
+            listOfNotNull(
+                "${e.name}.${e.lang.ext}",
+                text?.let(ScriptMeta::version)?.let { "v$it" },
+                text?.let(ScriptMeta::author)?.let { "by $it" },
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (e.description.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(e.description, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (text != null) {
+            Spacer(Modifier.height(12.dp))
+            val uses = remember(text) { ScriptMeta.uses(text).toList() }
+            Fact("Runs", remember(text) { scriptRuns(text) }.ifEmpty { "manually" })
+            Fact("Uses", if (uses.isEmpty()) "nothing private" else uses.joinToString(", ") { ScriptAccess.label(it).lowercase() })
+            Fact("Internet", if (ScriptMeta.usesInternet(text)) "yes" else "no")
+            ScriptMeta.secrets(text).takeIf { it.isNotEmpty() }?.let { keys ->
+                Fact("Keys", keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        androidx.compose.foundation.layout.Box(Modifier.testTag("library-sheet-install")) { InstallState(r, nameTaken, onInstall) }
+        Spacer(Modifier.height(16.dp))
+        SectionTitle("Code")
+        Spacer(Modifier.height(8.dp))
+        if (text == null) Text("Reading…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else ReadOnlyCode(text, e.lang)
+    }
 }

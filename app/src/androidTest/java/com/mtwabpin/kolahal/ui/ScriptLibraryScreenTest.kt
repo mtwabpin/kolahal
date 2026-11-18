@@ -18,6 +18,8 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -42,6 +44,7 @@ import com.mtwabpin.kolahal.waitForNode
 import com.mtwabpin.kolahal.waitForText
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -264,6 +267,27 @@ class ScriptLibraryScreenTest {
         val s = scripts.byName("countdown")!!
         assertEquals(library.code(entry), s.code)
         assertEquals(listOf("00:05"), s.atTimes)
+    }
+
+    /**
+     * The code button opens the script to read before installing it: how it runs, what it uses, and
+     * its code as the library has it, read-only. Install there installs it.
+     */
+    @Test fun theCodeButtonOpensTheScriptToReadBeforeInstalling() {
+        show()
+        compose.onNodeWithTag("read countdown").performClick()
+        compose.waitForText("Runs: command · daily 00:05")
+        compose.onNodeWithText("Uses: nothing private").assertExists()
+        compose.onNodeWithText("Internet: no").assertExists()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("read-only-code").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasText(library.code(entry)) and hasAnyAncestor(hasTestTag("read-only-code"))).assertExists()
+        // Nothing to type in: the code can only be read.
+        compose.onAllNodes(hasSetTextAction() and hasAnyAncestor(hasTestTag("read-only-code"))).assertCountEquals(0)
+        assertNull(scripts.byName("countdown"))
+        compose.onNode(hasText("Install") and hasAnyAncestor(hasTestTag("library-sheet-install"))).performClick()
+        compose.waitUntil(5_000) { scripts.byName("countdown") != null }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Installed") and hasAnyAncestor(hasTestTag("library-sheet-install"))).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(library.code(entry), scripts.byName("countdown")!!.code)
     }
 
     /** A copy from an older Kolahal, never edited, comes first and offers Update, which brings this version's at once. */
