@@ -50,4 +50,9 @@ interface TerminalUi {
     fun newTextFile(name: String)
     /** For `edit <file>`: opens the file at [uri], a `content:` address, in the text editor. */
     fun openTextFile(uri: String)
+    /**
+     * A tap on [app] while its profile is paused (the work profile) or locked (the private space):
+     * asks whether to resume it and open [app]. A typed `open` writes a line in the log instead.
+     */
+    fun askResume(app: com.mtwabpin.kolahal.apps.AppEntry)
 }

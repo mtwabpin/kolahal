@@ -238,7 +238,7 @@ class AppCommands(
     }
 
     /** Turns the paused profile back on, waits until it is available, then opens [app]. */
-    private fun resumeAndLaunch(app: AppEntry) {
+    fun resumeAndLaunch(app: AppEntry) {
         if (!apps.setQuietMode(app.profile, false)) {
             error("Couldn't resume the ${app.profile.kind.label} profile (is Kolahal the default launcher? run 'home')")
             return

@@ -48,8 +48,11 @@ To turn profiles on or off, you need **Android 10+**, and Kolahal must be the **
 - You can add `profiles` as one of the header's parts (`header.left` or `header.right`). Then the header
   shows the work profile's status. Tap it to resume a paused profile. To pause, you must tap twice,
   so you can't pause it by accident.
-- Apps in a paused profile are faded. If you open one, Kolahal prints a line that offers to resume the profile and
-  open the app. Tap it. Kolahal turns the profile on, waits for it (up to 20 s) and opens the app.
+- Apps in a paused profile are faded. Tap one, in the app selector, a search or the log, and Kolahal
+  asks **Resume work apps?** (for the private space: **Unlock the private space?**). Tap **Resume** (**Unlock**):
+  Kolahal turns the profile on, waits for it (up to 20 s) and opens the app. For the private space,
+  Android asks for your lock first. **Cancel** leaves the profile as it is.
+- Typed, `open <app>` prints a line that offers the same instead, under what you typed. Tap it.
 - While the private space is locked, its lines in the log (launches, notifications) are hidden too.
   They come back when you unlock it.
 

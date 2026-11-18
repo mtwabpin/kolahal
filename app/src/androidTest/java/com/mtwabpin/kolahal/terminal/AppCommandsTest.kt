@@ -301,9 +301,11 @@ class AppCommandsTest {
     @Test fun anAppThatCantOpenSaysWhatToDo() {
         val me = Process.myUserHandle()
         val component = ComponentName("com.example.kolahal.llat", "com.example.kolahal.llat.Main")
+        // As a typed `open` launches: a tap on a paused app asks instead (ResumeProfileTest).
+        val typed = AppCommands(context) { _, block -> block() }
         fun launch(app: AppEntry): LogEntry {
             val before = logs.maxId()
-            commands.processor.launch(app)
+            typed.launch(app)
             return logs.recent(50).single { it.id > before && app.label in it.text }
         }
         val work = launch(AppEntry("Llat Work", component, Profile(me, 4242, ProfileKind.WORK, quiet = true)))

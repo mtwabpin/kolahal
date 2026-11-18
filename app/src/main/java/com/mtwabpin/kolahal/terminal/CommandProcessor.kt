@@ -292,8 +292,15 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         }
     }
 
-    /** Launches [app], the same way as a tap on it or on its suggestion. */
-    fun launch(app: AppEntry) = appCommands.launch(app)
+    /**
+     * Launches [app] for a tap on it, its suggestion or its line. When its profile is paused (work)
+     * or locked (private space), it asks first whether to resume it ([TerminalUi.askResume]): a line
+     * in the log is easy to miss after a tap in the app selector.
+     */
+    fun launch(app: AppEntry) = if (app.profile.quiet) ui.askResume(app) else appCommands.launch(app)
+
+    /** The answer Resume to [TerminalUi.askResume]: resumes [app]'s profile, waits for it, then opens [app]. */
+    fun resumeAndLaunch(app: AppEntry) = appCommands.resumeAndLaunch(app)
 
     /** Treats any input that isn't a command as an app name. */
     private fun fallbackLaunch(text: String) {

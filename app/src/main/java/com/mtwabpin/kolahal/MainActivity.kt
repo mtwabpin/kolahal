@@ -249,6 +249,11 @@ class MainActivity : ComponentActivity() {
                     onAllow = { vm.answerNotificationAccess(true) },
                     onDismiss = { vm.answerNotificationAccess(false) },
                 )
+                // A tap on an app whose profile is paused or locked, on any page of home: resume it and open the app?
+                val resuming by vm.resumeAsk.collectAsStateWithLifecycle()
+                resuming?.let { app ->
+                    com.mtwabpin.kolahal.ui.ResumeProfileDialog(app, onResume = { vm.answerResume(true) }, onDismiss = { vm.answerResume(false) })
+                }
             }
         }
     }

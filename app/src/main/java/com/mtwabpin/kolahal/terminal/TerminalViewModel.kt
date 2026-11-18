@@ -1258,6 +1258,22 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     // ---- TerminalUi -----------------------------------------------------------------------
 
+    private val _resumeAsk = MutableStateFlow<AppEntry?>(null)
+
+    /** The app whose paused or locked profile a tap asks to resume ([askResume]), or null. Home shows the question. */
+    val resumeAsk: StateFlow<AppEntry?> = _resumeAsk.asStateFlow()
+
+    override fun askResume(app: AppEntry) {
+        _resumeAsk.value = app
+    }
+
+    /** The answer to [askResume]: Resume turns the profile on and opens the app. Cancel leaves both as they are. */
+    fun answerResume(resume: Boolean) {
+        val app = _resumeAsk.value ?: return
+        _resumeAsk.value = null
+        if (resume) io { processor.resumeAndLaunch(app) }
+    }
+
     override fun openEditor(script: Script) = openEditorAt(script, null)
 
     /** Permissions and pickers: what Kolahal asks for, and what it does with the answer. */
