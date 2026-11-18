@@ -175,6 +175,40 @@ class AppSelectorTest {
         assertTrue("icons in the list", iconsShown() > 0)
     }
 
+    /**
+     * A row starts at the screen's other edge: there it has its icon, and the name follows toward the
+     * strip. On the left edge it is the right edge's row, reflected: the icon at the right, the name
+     * before it and aligned to it.
+     */
+    private fun rowStartsAtTheOtherEdge(left: Boolean) {
+        show(left = left, position = "bottom", icons = true)
+        compose.onNodeWithTag("app-selector").performTouchInput { down(center) }
+        compose.waitForIdle()
+        val panel = compose.onNodeWithTag("app-selector-panel").getUnclippedBoundsInRoot()
+        val icon = compose.onAllNodesWithTag("app-selector-icon", useUnmergedTree = true).fetchSemanticsNodes()
+            .first { it.boundsInRoot.center.y > 0f }
+        // The row's name: the text on the icon's line that is longer than a section letter.
+        val text = androidx.compose.ui.semantics.SemanticsProperties.Text
+        val name = compose.onAllNodes(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(text), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .filter { kotlin.math.abs(it.boundsInRoot.center.y - icon.boundsInRoot.center.y) < 4f }
+            .filter { n -> n.config[text].joinToString("").length > 2 }
+        assertTrue("a name on the icon's line", name.isNotEmpty())
+        val dp = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+        val iconBox = icon.boundsInRoot
+        if (left) {
+            assertTrue("the icon is near the list's right", panel.right.value - iconBox.right / dp < 60f)
+            assertTrue("the name is before the icon", name.all { it.boundsInRoot.right <= iconBox.left + 1f })
+        } else {
+            assertTrue("the icon is near the list's left", iconBox.left / dp - panel.left.value < 60f)
+            assertTrue("the name is after the icon", name.all { it.boundsInRoot.left >= iconBox.right - 1f })
+        }
+    }
+
+    @Test fun onTheRightARowStartsAtTheLeft() = rowStartsAtTheOtherEdge(left = false)
+
+    @Test fun onTheLeftARowIsTheRightEdgesRowReflected() = rowStartsAtTheOtherEdge(left = true)
+
     @Test fun iconsByDefaultAndNoneWhenOff() {
         assertEquals(true, Keys.SELECTOR_ICONS.default)
         show(left = false, position = "bottom", icons = false)
@@ -737,7 +771,10 @@ class AppSelectorTest {
             // Where the name's box ends on screen, with its scale, not cut by any clip.
             val c = node.layoutInfo.coordinates
             val right = c.localToRoot(Offset(c.size.width.toFloat(), c.size.height / 2f)).x / dp
+            val left = c.localToRoot(Offset(0f, c.size.height / 2f)).x / dp
             assertTrue("$what: a name ends at $right, past the list's edge ${panel.right}", right <= panel.right.value + 0.5f)
+            // On the left edge a magnified row grows toward the strip: it still starts inside the list.
+            assertTrue("$what: a name starts at $left, before the list's edge ${panel.left}", left >= panel.left.value - 0.5f)
         }
     }
 

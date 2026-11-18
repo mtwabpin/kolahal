@@ -458,9 +458,15 @@ internal object SelectorMath {
     fun holdShown(shown: Float, target: Float, dtMs: Long): Float =
         if (target >= shown) target else max(target, shown - dtMs / DRAIN_MS)
 
-    /** Whether [fingerX] is on the far side of the panel from the strip, in its last [FAR_SHARE] of width. The panel starts at [panelX] and is [panelW] wide. */
-    fun farSide(fingerX: Float, panelX: Float, panelW: Float, left: Boolean): Boolean =
-        if (left) fingerX > panelX + panelW * (1f - FAR_SHARE) else fingerX < panelX + panelW * FAR_SHARE
+    /**
+     * Whether [fingerX] is on the far side of the panel from the strip, in its last [FAR_SHARE] of
+     * width. The panel starts at [panelX] (screen x) and is [panelW] wide; the strip is on [edge].
+     */
+    fun farSide(fingerX: Float, panelX: Float, panelW: Float, edge: SelectorEdge): Boolean {
+        // The panel's far side is its side away from the edge: its first FAR_SHARE from the other edge.
+        val fromOther = if (edge.left) panelX + panelW - fingerX else fingerX - panelX
+        return fromOther < panelW * FAR_SHARE
+    }
 
     /** How a move feels: nothing, a letter passed along the edge, an app passed in the list, or a switch between the two. */
     enum class Feel { NONE, LETTER, APP, SWITCH }
@@ -477,5 +483,42 @@ internal object SelectorMath {
         section != lastSection && lastSection != -1 -> Feel.LETTER
         aiming && row != lastRow && lastRow != -1 -> Feel.APP
         else -> Feel.NONE
+    }
+}
+
+/**
+ * The edge the app selector is on (`selector.side`): the right one, or the left one.
+ * - The selector places its parts by how far they are from this edge, so one layout serves both
+ *   sides. On the left, everything is the right edge's layout, reflected: the strip at the edge,
+ *   the list against the other edge, the wave and the bubble coming out from the edge.
+ * - Screen x counts from the left, as touches do. The selector is laid out left to right, also in a
+ *   right-to-left language, because its edge is a side of the screen, not the start of a line.
+ */
+@JvmInline
+value class SelectorEdge(val left: Boolean) {
+    /** The screen x of a point [fromEdge] from the edge, in a box [width] wide. */
+    fun x(fromEdge: Float, width: Float): Float = if (left) fromEdge else width - fromEdge
+
+    /** How far the screen x [x] is from the edge, in a box [width] wide. */
+    fun fromEdge(x: Float, width: Float): Float = if (left) x else width - x
+
+    /** The screen x where a part [size] wide starts when it touches the edge (the strip). */
+    fun atEdge(size: Float, width: Float): Float = if (left) 0f else width - size
+
+    /** The screen x where a part [size] wide starts when it touches the other edge (the list). */
+    fun atOtherEdge(size: Float, width: Float): Float = if (left) width - size else 0f
+
+    /** [distance] away from the edge, as a screen distance: positive to the right. The list slides in from there. */
+    fun away(distance: Int): Int = if (left) distance else -distance
+
+    /**
+     * Where a list row starts: at the other edge, as on the right edge, where a row is the letter,
+     * the icon, then the name. A magnified row grows from there. 0 is a row's left side, 1 its right.
+     */
+    val rowStart: Float get() = if (left) 1f else 0f
+
+    companion object {
+        val RIGHT = SelectorEdge(false)
+        val LEFT = SelectorEdge(true)
     }
 }

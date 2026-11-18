@@ -25,11 +25,11 @@ class SelectorMathTest {
     /** B2: the far side is the panel's last 30%, away from the strip. */
     @Test fun theFarSideIsAwayFromTheStrip() {
         // Strip on the right, panel at 0..252: the far side is left of 75.6.
-        assertTrue(SelectorMath.farSide(60f, 0f, 252f, left = false))
-        assertFalse(SelectorMath.farSide(120f, 0f, 252f, left = false))
+        assertTrue(SelectorMath.farSide(60f, 0f, 252f, SelectorEdge.RIGHT))
+        assertFalse(SelectorMath.farSide(120f, 0f, 252f, SelectorEdge.RIGHT))
         // Strip on the left, panel at 108..360: the far side is right of 284.4.
-        assertTrue(SelectorMath.farSide(300f, 108f, 252f, left = true))
-        assertFalse(SelectorMath.farSide(200f, 108f, 252f, left = true))
+        assertTrue(SelectorMath.farSide(300f, 108f, 252f, SelectorEdge.LEFT))
+        assertFalse(SelectorMath.farSide(200f, 108f, 252f, SelectorEdge.LEFT))
     }
 
     /** Plan A: with gesture navigation a touch starts only in the middle 200dp; otherwise anywhere on the strip. */
