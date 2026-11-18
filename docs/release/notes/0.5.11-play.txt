@@ -1,0 +1,6 @@
+What's new:
+• Material You comes in four versions: Soft, Tinted and Black join the plain one.
+• A tap on a paused work app asks whether to resume work apps, then opens it.
+• Dark see-through pictures, such as Wikipedia diagrams, get a light backdrop on a dark theme.
+• The habit card says "Done today", and widgets can add a short note to their title.
+• Faster: widgets out of sight rest, the editor keeps up with big files, and the Scripts screens stay calm while scripts run.
