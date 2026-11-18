@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -53,11 +54,13 @@ internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box, bleed: Bool
             val state = rememberWebImage(spec.image, size.widthPx, size.maxPixels, enabled = inView, httpsOnly = true)
             val picture = state?.getOrNull()
             if (picture != null) {
+                // A see-through picture whose lines barely show on the card: on a backdrop (pictureBackdrop).
+                val backdrop = pictureBackdrop(LogImages.inkOf(picture), MaterialTheme.colorScheme.surfaceContainerHigh)
                 Image(
                     picture,
                     contentDescription = null,
                     contentScale = if (spec.fit == "fit") ContentScale.Fit else ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().testTag("widget-picture"),
+                    modifier = Modifier.fillMaxSize().then(if (backdrop == null) Modifier else Modifier.background(backdrop).padding(6.dp)).testTag("widget-picture"),
                 )
             } else {
                 val note = WidgetWords.pictureNote(loaded = false, failed = state?.isFailure == true, inView = inView, alt = spec.alt)

@@ -15,7 +15,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -109,7 +114,7 @@ object LogImages {
     private fun decode(context: Context, url: String, widthPx: Int, maxPixels: Float, httpsOnly: Boolean): ImageBitmap? {
         val file = file(context, url, httpsOnly) ?: return null
         val most = maxPixels.coerceIn(1f, MAX_PIXELS)
-        val image = runCatching {
+        val bitmap = runCatching {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
                 val w = info.size.width.toFloat()
                 val h = info.size.height.toFloat()
@@ -118,18 +123,43 @@ object LogImages {
                 var scale = min(1f, widthPx / w)
                 if (w * h * scale * scale > most) scale = sqrt(most / (w * h))
                 decoder.setTargetSize((w * scale).roundToInt().coerceAtLeast(1), (h * scale).roundToInt().coerceAtLeast(1))
-            }.asImageBitmap()
+            }
         }.getOrNull()
         // The file is not an image (for example, an error page). Delete it, so the next time the line shows it tries again.
-        if (image == null) {
+        if (bitmap == null) {
             file.delete()
             return null
         }
+        val image = bitmap.asImageBitmap()
+        // A see-through picture: how light its lines are, for the backdrop it may need (pictureBackdrop).
+        if (bitmap.hasAlpha()) measure(file)?.let { inks[image] = it }
         val key = key(url, widthPx, maxPixels)
         memory.put(key, image)
         latest.put(url, key)
         return image
     }
+
+    /** The ink of each see-through picture in memory ([PictureInk]). A picture that is let go takes its entry with it. */
+    private val inks: MutableMap<ImageBitmap, PictureInk> = java.util.Collections.synchronizedMap(java.util.WeakHashMap())
+
+    /** What [image]'s lines look like, when it is see-through; null for a picture with a background of its own. */
+    fun inkOf(image: ImageBitmap): PictureInk? = inks[image]
+
+    /**
+     * The ink of the picture in [file], from a small copy of it: at most 96 pixels across, decoded in
+     * memory the app can read (the picture shown may be in graphics memory, which it can't).
+     */
+    private fun measure(file: File): PictureInk? = runCatching {
+        val small = ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
+            val scale = min(1f, 96f / maxOf(info.size.width, info.size.height))
+            decoder.setTargetSize((info.size.width * scale).roundToInt().coerceAtLeast(1), (info.size.height * scale).roundToInt().coerceAtLeast(1))
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+        val pixels = IntArray(small.width * small.height)
+        small.getPixels(pixels, 0, small.width, 0, 0, small.width, small.height)
+        small.recycle()
+        PictureInk.of(pixels)
+    }.getOrNull()
 
     /** Stops a request at any hop that is not https. So a redirect to plain http ends the download. */
     private val httpsHops = Net.HopCheck { hop -> if (!hop.url.isHttps) throw java.io.IOException("this picture is only fetched over https") }
@@ -207,6 +237,7 @@ internal fun rememberWebImage(url: String, widthPx: Int, maxPixels: Float, enabl
  * - It is as wide as the log, but at most twice its own size, so an icon does not become blurry.
  * - It is never taller than 75% of the screen.
  * - A dim note shows while it loads, or if it cannot be loaded.
+ * - A see-through picture whose lines barely show on the log gets a light or a dark backdrop ([pictureBackdrop]).
  */
 @Composable
 fun LogImage(url: String, modifier: Modifier = Modifier) {
@@ -230,8 +261,18 @@ fun LogImage(url: String, modifier: Modifier = Modifier) {
                 w *= maxHeightPx / h
                 h = maxHeightPx
             }
+            // Dark lines with nothing behind them, on a dark log (or light ones on a light log): on a backdrop.
+            val backdrop = pictureBackdrop(LogImages.inkOf(image), Term.bg)
             with(density) {
-                Image(image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(w.toDp(), h.toDp()))
+                Image(
+                    image,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(w.toDp(), h.toDp()).then(
+                        if (backdrop == null) Modifier
+                        else Modifier.background(backdrop, RoundedCornerShape(8.dp)).padding(6.dp).testTag("picture-backdrop"),
+                    ),
+                )
             }
         }
     }

@@ -122,7 +122,7 @@ line:
 | --- | --- |
 | `url` | Tap opens the link. Long-press offers open, share and copy. |
 | `copy` | What "Copy text" copies instead of the title and body. It must be all or part of what the line shows, or its `url`. Anything else is dropped. |
-| `image` | An image URL (http or https). The picture shows under the line, as wide as the log. Long-press offers "Open image". |
+| `image` | An image URL (http or https). The picture shows under the line, as wide as the log. Long-press offers "Open image". A see-through picture whose lines barely show on the log (dark lines on a dark theme, as Wikipedia's diagrams have) is drawn on a light backdrop, or a dark one on a light theme. |
 | `mono` | `"1"`: the line keeps the terminal font even with `font.sans all`, so columns padded with spaces line up. |
 | `actions` | Up to 3 [buttons](#buttons) under the line, each `{ label, args }`. A tap runs this script again with those args. |
 | `gap` | `true`: the line starts a new item of a list, such as a story with its points under it. A small space shows above it (`log.item-spacing`, 5 dp by default), and the colour bar runs through it, so the items stand apart but stay one group. It has no effect on a group's first line or on the line right under the command. From Kolahal 0.5.0; an older one ignores it. |
@@ -1176,6 +1176,8 @@ picture.
 - Home fetches the picture when the widgets page comes into view, not when the script runs. It
   fetches a link once and keeps the picture, as it does for the pictures on log lines.
 - A picture file can be 10 MB at most. A larger one is not shown, and the card keeps its `alt`.
+- A see-through picture whose lines barely show on the card gets a light or a dark backdrop, as on
+  a log line.
 - **Arrange widgets** shows the picture only when home has it already. It fetches nothing.
 - The script itself needs no request for the picture. It makes one only to learn the link.
 

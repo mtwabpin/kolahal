@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
@@ -37,6 +39,40 @@ class LogImageTest {
     private fun download(): File {
         val name = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
         return File(File(context.cacheDir, "log-images").apply { mkdirs() }, name)
+    }
+
+    /**
+     * Dark lines with nothing behind them, on the dark theme: the picture is on a light backdrop.
+     * A picture with a background of its own (here, all grey) has none.
+     */
+    @Test fun aDarkDrawingOnADarkLogGetsABackdrop() {
+        val before = Term.palette
+        Term.palette = Palettes.green
+        try {
+            // Black strokes across a see-through picture, as Wikipedia's diagrams are.
+            val drawing = Bitmap.createBitmap(400, 200, Bitmap.Config.ARGB_8888).apply {
+                for (y in 0 until 200 step 10) for (x in 0 until 400) setPixel(x, y, android.graphics.Color.BLACK)
+            }
+            download().outputStream().use { drawing.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            var shown by mutableStateOf(url)
+            compose.setContent { KolahalTheme { Box(Modifier.width(300.dp)) { LogImage(shown) } } }
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("picture-backdrop").fetchSemanticsNodes().isNotEmpty() }
+
+            // A picture with a background of its own: all grey.
+            val photo = "https://example.com/log-photo-${System.nanoTime()}.png"
+            val photoFile = File(download().parentFile, MessageDigest.getInstance("SHA-256").digest(photo.toByteArray()).joinToString("") { "%02x".format(it) })
+            photoFile.outputStream().use { Bitmap.createBitmap(400, 200, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.GRAY) }.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            try {
+                compose.runOnIdle { shown = photo }
+                compose.waitUntil(5_000) { LogImages.cachedAny(photo) != null }
+                compose.waitForIdle()
+                compose.onAllNodesWithTag("picture-backdrop").assertCountEquals(0)
+            } finally {
+                photoFile.delete()
+            }
+        } finally {
+            Term.palette = before
+        }
     }
 
     /** The phone turned, so the log is wider: the image is decoded again for it, not stretched. */
