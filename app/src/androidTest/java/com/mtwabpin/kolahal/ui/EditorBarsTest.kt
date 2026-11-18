@@ -246,6 +246,24 @@ class EditorBarsTest {
         assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
     }
 
+    /**
+     * The reference shows each log example as its lines. A tap on a line, even on one of its buttons
+     * or links, runs nothing and opens nothing: the example goes in, on lines of its own.
+     */
+    @Test fun aLogExampleShowsItsLinesAndGoesInOnATap() {
+        show()
+        cursorAt(10)
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("log-example buttons"))
+        val button = compose.onNode(hasText("Snooze 30 min") and hasAnyAncestor(hasTestTag("log-example buttons")), useUnmergedTree = true)
+        button.assertExists()
+        button.performClick()
+        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
+        val code = ReferenceExamples.logs.single { it.name == "buttons" }.code(ScriptLang.LUA)
+        assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
+    }
+
     /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */
     @Test fun theSymbolBarInsertsAndUndoes() {
         show()

@@ -93,6 +93,23 @@ internal fun LogEntry.style() = if (ctx.values.containsKey(LogContext.MONO)) Ter
 data class LineIndents(val text: TextUnit, val code: TextUnit, val bullet: TextUnit)
 
 /**
+ * The [LineIndents] of the log's font, as the log measures them: wrapped and detail lines are
+ * indented by the width of `$ ` (or `• `). Each is measured with a letter after it, because a
+ * trailing space alone may not count towards the width.
+ */
+@androidx.compose.runtime.Composable
+internal fun rememberLineIndents(): LineIndents {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    return androidx.compose.runtime.remember(Term.fontSize, Term.fontFamily, Term.sans, density) {
+        fun width(prefix: String, style: TextStyle) = with(density) {
+            (measurer.measure("${prefix}0", style).size.width - measurer.measure("0", style).size.width).toSp()
+        }
+        LineIndents(text = width("$ ", Term.text), code = width("$ ", Term.code), bullet = width("• ", Term.text))
+    }
+}
+
+/**
  * Styles one log line. Wrapped lines are indented past the prefix (`$ `, `• `), so each item
  * reads as one block. The widths are measured ([LineIndents]), so this works in any font.
  * - [icon]: end a script line with its notification icon instead of `· app`.

@@ -92,10 +92,14 @@ details and examples.
 others, as in [describing a script](/scripting/overview/#describing-a-script). Tap an entry to
 insert it at the cursor. An `@` line is inserted as a whole comment line.
 
-Under them, **Widgets** shows each kind of [widget](/scripting/api/#widgets) card as Kolahal
-draws it, over the code that fills it, in the script's language: the same examples as the
-scripting guide. Tap an example to put its code in at the cursor, on lines of its own. The card
-only shows: a tap on its buttons or rows inserts the example too.
+Under them are examples, each over its code in the script's language: the same examples as the
+scripting guide.
+
+- **Widgets** shows each kind of [widget](/scripting/api/#widgets) card as Kolahal draws it.
+- **Log lines** shows the lines that [`log`, `md.log` and `fmt`](/scripting/api/#output) make, as
+  the log draws them.
+- Tap an example to put its code in at the cursor, on lines of its own. The cards and lines only
+  show: a tap on a button, a row or a link inserts the example too.
 
 After them, **Icons** shows every [widget icon](/scripting/api/#icons) with its name, in
 groups. Tap one to insert its name at the cursor, in quotes unless the cursor is already after a

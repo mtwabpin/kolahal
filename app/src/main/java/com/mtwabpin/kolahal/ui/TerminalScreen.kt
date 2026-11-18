@@ -55,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import com.mtwabpin.kolahal.terminal.KeyBarKey
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import androidx.compose.runtime.snapshotFlow
@@ -70,12 +71,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -313,16 +312,8 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     val commandGap = remember(configVersion) { config[Keys.LOG_SPACING].dp }
     val itemGap = remember(configVersion) { config[Keys.LOG_ITEM_SPACING].dp }
     val showGutter = remember(configVersion) { config[Keys.LOG_GUTTER] }
-    // Wrapped and detail lines are indented by the width of `$ ` (or `• `) in the log's font.
-    // It is measured with a letter after it, because a trailing space alone may not count towards the width.
-    val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val indents = remember(Term.fontSize, Term.fontFamily, Term.sans, density) {
-        fun width(prefix: String, style: androidx.compose.ui.text.TextStyle) = with(density) {
-            (measurer.measure("${prefix}0", style).size.width - measurer.measure("0", style).size.width).toSp()
-        }
-        LineIndents(text = width("$ ", Term.text), code = width("$ ", Term.code), bullet = width("• ", Term.text))
-    }
+    val indents = rememberLineIndents()
     val zone = rememberZoneChanges()
     val lineTimeFormat = remember(configVersion, zone) {
         com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H])

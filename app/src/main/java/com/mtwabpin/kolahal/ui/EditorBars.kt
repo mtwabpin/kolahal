@@ -356,7 +356,7 @@ internal fun ApiReferenceSheet(
     onPick: (ApiDoc) -> Unit,
     onDirective: (String) -> Unit,
     onIcon: (String) -> Unit,
-    /** A tap on a widget example: its code, to insert. */
+    /** A tap on a widget or log example: its code, to insert. */
     onExample: (String) -> Unit,
 ) {
     val docs = remember(lang) { ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD } }
@@ -402,6 +402,7 @@ internal fun ApiReferenceSheet(
                 }
             }
             widgetExamples(lang, onExample)
+            logExamples(lang, onExample)
             item {
                 Text(
                     "Icons · for a widget's icon, such as icon = \"sun\"",

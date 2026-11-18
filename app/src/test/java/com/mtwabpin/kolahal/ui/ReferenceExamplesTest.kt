@@ -11,13 +11,13 @@ class ReferenceExamplesTest {
     private val guide = sourceFile("../site/src/content/docs/scripting/api.mdx").readText()
 
     @Test fun theGuideHasEachExamplesCodeInBothLanguages() {
-        for (ex in ReferenceExamples.widgets) for (lang in ScriptLang.entries) {
-            assertTrue("${ex.name} in $lang is not in api.mdx:\n${ex.code(lang)}", ex.code(lang) in guide)
+        val codes = ReferenceExamples.widgets.map { it.name to it::code } + ReferenceExamples.logs.map { it.name to it::code }
+        for ((name, code) in codes) for (lang in ScriptLang.entries) {
+            assertTrue("$name in $lang is not in api.mdx:\n${code(lang)}", code(lang) in guide)
         }
     }
 
     @Test fun eachExampleHasItsOwnName() {
-        val names = ReferenceExamples.widgets.map { it.name }
-        assertEquals(names.distinct(), names)
+        for (names in listOf(ReferenceExamples.widgets.map { it.name }, ReferenceExamples.logs.map { it.name })) assertEquals(names.distinct(), names)
     }
 }

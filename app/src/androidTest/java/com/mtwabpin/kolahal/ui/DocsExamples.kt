@@ -80,96 +80,20 @@ object DocsExamples {
         ),
     )
 
-    val logs = listOf(
-        Log(
-            "log",
-            """
-            log("neovim/neovim", "Nvim 0.11.4", { url = "https://github.com/neovim/neovim/releases" })
-            log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C")
-            log("Kolahal on GitHub", { url = "https://github.com/mtwabpin/kolahal" })
-            -- A list: each story a title with its points under it, and a small space between the stories.
-            for _, s in ipairs(stories) do log(s.title, s.points .. " points", { url = s.link, gap = true }) end
-            log("Your code is 4821", { copy = "4821" })
-            log("xkcd #327", { image = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" })
-            print("print() also logs", 42)   -- arguments joined with tabs
-            """,
-            before = "local stories = { { title = \"A launcher that is a terminal\", points = 128, link = \"https://example.com/1\" }," +
-                " { title = \"Lua 5.5 is out\", points = 342, link = \"https://example.com/2\" } }\n",
-        ),
-        Log(
-            "logs",
-            """
-            logs({ "milk", "bread", "eggs" })
-            logs("milk", "bread")
-            """,
-        ),
-        Log(
-            "md",
-            """
-            md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")
-            md.log("**HN** " .. md.escape(item.title), nil, { url = item.link })
-            """,
-            before = "local item = { title = \"Show HN: Kolahal, a launcher\", link = \"https://example.com/hn\" }\n",
-        ),
-        Log(
-            "styles",
-            """
-            log(fmt.bold(item.score) .. " · " .. item.title, nil, { url = item.link })
-            log("Today", fmt.list({ "standup " .. fmt.code("10:00"), "review" }, true))
-            log("BTC 67,120 USD " .. fmt.color("good", "▲ 1.2%"))
-            """,
-            before = "local item = { score = 128, title = \"A launcher that is a terminal\", link = \"https://example.com/1\" }\n",
-        ),
-        Log(
-            "table",
-            """
-            log("Prices in USD", fmt.table({
-              { "Coin", "Price", "24h" },
-              { "BTC", "64,210", fmt.color("good", "▲ 2.1%") },
-              { "ETH", "3,118", fmt.color("bad", "▼ 0.8%") },
-            }, { header = true, align = "lrr" }))
-            """,
-        ),
-        Log(
-            "links",
-            """
-            log(item.title .. " · " .. fmt.link("138 comments", item.comments), { url = item.link })
-            md.log("New in [neovim](https://github.com/neovim/neovim/releases)")
-            """,
-            before = "local item = { title = \"A launcher that is a terminal\", comments = \"https://example.com/c\", link = \"https://example.com/1\" }\n",
-        ),
-        Log(
-            "tags",
-            """
-            log(fmt.tag("bad", "LIVE") .. " IND v NZ")
-            log("neovim/neovim " .. fmt.tag("v0.12.0") .. " " .. fmt.tag("warn", "pre-release"))
-            """,
-        ),
-        Log(
-            "bars",
-            """
-            log("Pune · AQI 168", "Unhealthy\n" .. fmt.bar(168, { max = 300, color = "bad" }))
-            log("Unlocks", fmt.bars({ { "Mon", 42 }, { "Tue", 21 } }, { color = "good" }))
-            log("Pune · 3 days", fmt.ranges({ { "Today", 23, 31 }, { "Tomorrow", 22, 30 } }, { unit = "°", color = "warn" }))
-            """,
-        ),
-        Log(
-            "stats",
-            """
-            log("Pune", fmt.stats({ { "25°C", "☀️ Sunny" }, { "36%", "humidity" }, { "9 km/h", "wind" } }))
-            """,
-        ),
-        Log(
-            "buttons",
-            """
-            if event and event.name == "action" then
-              if args[1] == "snooze" then store.set("until", tostring(os.time() + tonumber(args[2]) * 60)) end
-              return log("Snoozed for " .. args[2] .. " min")
-            end
-            log("Battery at 92%", "Unplug the charger.", { actions = { { "Snooze 30 min", "snooze 30" }, { "Not today", "snooze 720" } } })
-            """,
-        ),
-    )
+    /** The rest of the guide's first log example. */
+    private val LOG_REST = """
+        log("xkcd #327", { image = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" })
+        print("print() also logs", 42)   -- arguments joined with tabs
+    """.trimIndent()
+
+    /**
+     * The log examples: the editor reference's ([ReferenceExamples]), with their Lua code. The first
+     * one goes on as the guide's does, with a picture line and `print`, which the reference leaves out.
+     */
+    val logs: List<Log> = ReferenceExamples.logs.map { ex ->
+        val code = ex.lua.trimIndent() + if (ex.name == "log") "\n" + LOG_REST else ""
+        Log(ex.name, code, before = ex.luaGiven)
+    }
 
     /** Keeps what the code hands to `widget.show` in the script's store, as JSON, and passes it on. */
     private const val KEEPS_SHOWN = "do local show = widget.show; widget = { show = function(d) store.set('_shown', json.encode(d)); return show(d) end } end\n"

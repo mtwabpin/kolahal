@@ -20,9 +20,6 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogEntry
@@ -97,13 +94,7 @@ class LogGalleryTest {
         val times = lineTimeFormat(clock24 = true)
         compose.setContent {
             KolahalTheme {
-                // As home measures them: the width of `$ ` and `• ` in the log's font.
-                val measurer = rememberTextMeasurer()
-                val density = LocalDensity.current
-                fun width(prefix: String, style: TextStyle) = with(density) {
-                    (measurer.measure("${prefix}0", style).size.width - measurer.measure("0", style).size.width).toSp()
-                }
-                val indents = LineIndents(text = width("$ ", Term.text), code = width("$ ", Term.code), bullet = width("• ", Term.text))
+                val indents = rememberLineIndents()
                 Column(Modifier.testTag(SHOT).width(WIDTH_DP.dp).background(Term.bg).padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
                     for (row in shown) key(row.entry.id) {
                         LogLine(
