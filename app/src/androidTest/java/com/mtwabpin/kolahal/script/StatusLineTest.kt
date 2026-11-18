@@ -57,6 +57,18 @@ class StatusLineTest {
         }
     }
 
+    /** Setting or clearing a line tells home: it reads the lines again only when [com.mtwabpin.kolahal.data.LogRepository.statusVersion] moves. */
+    @Test fun settingAndClearingALineMoveTheStatusVersion() {
+        val logs = com.mtwabpin.kolahal.data.LogRepository.get(context)
+        val name = "status-version-${System.nanoTime()}"
+        val before = logs.statusVersion
+        com.mtwabpin.kolahal.data.StatusLines.set(context, name, "on", null)
+        val set = logs.statusVersion
+        assertTrue("set moves it", set > before)
+        com.mtwabpin.kolahal.data.StatusLines.clear(context, name)
+        assertTrue("clear moves it", logs.statusVersion > set)
+    }
+
     @Test fun aLineKeepsItsFirstLineBarAndRefresh() {
         host(script()).status("NZ 136/8 (33.2 ov) v IND\nsecond line", mapOf("progress" to 0.66, "refresh" to 30))
         val l = stored()!!

@@ -79,11 +79,13 @@ object StatusLines {
 
     /**
      * Removes a script's line and what it adds. Called when the script is deleted, switched off or
-     * on, or changed from outside.
+     * on, or changed from outside. It tells home the lines changed, as [set] does: home reads them
+     * again only then (LogRepository.statusVersion).
      */
     fun clear(context: Context, name: String) {
         KvStore(context, Stores.STATUS).set(name, null)
         KvStore(context, Stores.STATUS_EXTRAS).set(name, null)
+        LogRepository.get(context).onStatusChanged()
     }
 
     /** Saved after [pinShownOnce] has run on this phone. */

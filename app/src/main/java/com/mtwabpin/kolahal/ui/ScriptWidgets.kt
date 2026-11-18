@@ -615,8 +615,9 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
             val period = every.coerceAtLeast(MIN_REFRESH_S) * 1000L
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
-                    // A card with no run yet is being filled: its first run is on its way.
-                    val since = lastRun.value.let { if (it == 0L) 0L else System.currentTimeMillis() - it }
+                    // A card with no run yet is being filled: its first run is on its way. A clock set back
+                    // counts as no time passed, so the card waits one period, not the jump as well.
+                    val since = lastRun.value.let { if (it == 0L) 0L else (System.currentTimeMillis() - it).coerceIn(0L, period) }
                     if (since < period) delay(period - since)
                     actions.refresh(key)
                     // A run takes a while to end, and a request can be dropped: wait a period in any case.

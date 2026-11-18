@@ -224,10 +224,10 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
 
     /**
      * The window is leaving the screen. Android may close the editor at any time from now on.
-     * - The draft is written before this returns, when nothing is ahead of it on [io]: a draft is a
-     *   small file of the app's own, so that takes a moment. Behind other file work (a slow save to
-     *   a file in the cloud) it does not wait, so the phone does not stop: the draft is still written
-     *   after that work. It waits two seconds at most in any case.
+     * - The draft is written before this returns: a draft is a small file of the app's own, so that
+     *   takes a moment. It waits two seconds at most when nothing is ahead of it on [io], and only
+     *   0.3 seconds behind other file work (a slow save to a file in the cloud), so the phone does not
+     *   stop. The draft is still written after that work.
      * - The cursor and the wrap choice go into the saved state. The text itself doesn't: it comes
      *   back from the file and the draft.
      */
@@ -238,7 +238,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         saved[KEY_WRAP] = wrap
         val idle = fileWork.get() == 0
         val job = keepDraft(state.value.text)
-        if (idle) runBlocking { withTimeoutOrNull(2_000) { job.join() } }
+        runBlocking { withTimeoutOrNull(if (idle) 2_000 else 300) { job.join() } }
     }
 
     /**

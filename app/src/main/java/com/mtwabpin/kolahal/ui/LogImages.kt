@@ -69,11 +69,11 @@ object LogImages {
     }
 
     /**
-     * The log's pictures and the cards' pictures have room of their own, 24 MB in all. So one large
-     * picture in the log (up to 16 MB) never pushes the cards' pictures out.
+     * The log's pictures and the cards' pictures have room of their own, 16 MB each. So one large
+     * picture in the log never pushes the cards' pictures out, and a picture on a large card (about 9 MB) fits.
      */
     private val logMemory = Pictures(16 * 1024 * 1024)
-    private val cardMemory = Pictures(8 * 1024 * 1024)
+    private val cardMemory = Pictures(16 * 1024 * 1024)
     private fun memoryFor(maxPixels: Float) = if (maxPixels == MAX_PIXELS) logMemory else cardMemory
     private fun inMemory(key: String): ImageBitmap? = logMemory.get(key) ?: cardMemory.get(key)
 

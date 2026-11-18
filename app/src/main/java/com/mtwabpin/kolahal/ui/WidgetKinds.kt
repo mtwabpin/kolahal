@@ -32,6 +32,7 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.WavyProgressIndicatorDefaults
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
@@ -1444,7 +1445,7 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     // A large box writes the start and the moment under the bar's ends. They change at most once a day.
     val from = spec.from
     val day by remember { derivedStateOf { now.longValue / 86_400 } }
-    val ends = if (large && from != null) remember(from, spec.to, zone, clock24, day) { WidgetWords.countdownEnds(from, spec.to, day * 86_400, zone, clock24) } else null
+    val ends = if (large && from != null) remember(from, spec.to, zone, clock24, day) { WidgetWords.countdownEnds(from, spec.to, Snapshot.withoutReadObservation { now.longValue }, zone, clock24) } else null
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = if (large) Arrangement.Top else Arrangement.Center,
