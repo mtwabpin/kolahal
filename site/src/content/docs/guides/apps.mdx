@@ -141,9 +141,19 @@ If apps change while the launcher isn't running, Kolahal logs the changes the ne
 ```sh
 usage            # time per app today (alias: screentime)
 usage 7          # last 7 days (1–30)
+usage whatsapp   # one app: today, by hour, and the last 7 days
 unlocks          # today's unlock count
 unlocks 7        # one line per day for the last week (1–30)
 ```
 
 `usage` needs **Usage access** (`usage-access`). To count unlocks, Kolahal uses usage access if you granted it.
 If not, it counts `ACTION_USER_PRESENT` broadcasts, but only while the launcher is running.
+
+`usage <app>` shows one app: its time today, how often you opened it, its longest session and when
+you last used it. Under that, a column for each hour today, then a line for each of the last 7 days
+with their average. It works for the apps of your personal profile: Android gives Kolahal no usage
+of work apps or the private space.
+
+Android keeps usage data for the last days only, about 10 on many phones. `usage 30` and `unlocks 30`
+leave out the days before that, and their average is over the days that are there. Kolahal also
+saves each day's unlock count, so `unlocks` goes back further as the weeks go by.

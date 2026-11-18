@@ -1,5 +1,7 @@
 package com.mtwabpin.kolahal.data
 
+import kotlin.math.roundToLong
+
 /**
  * Styled text in a log line. Invisible markers surround its styled parts. A script's `fmt.*`
  * functions put them there, or `md.log` does from Markdown.
@@ -33,7 +35,14 @@ object StyledText {
      * it shows ("•", "◦", "3."). [spans] are its pieces. A table row has [row], a bar has [meter],
      * and then no spans.
      */
-    data class Line(val level: Int, val prefix: String, val spans: List<Span>, val row: Row? = null, val meter: Meter? = null, val stats: List<Stat>? = null)
+    data class Line(val level: Int, val prefix: String, val spans: List<Span>, val row: Row? = null, val meter: Meter? = null, val stats: List<Stat>? = null, val columns: Columns? = null)
+
+    /**
+     * A small column chart ([columns]): each column's height from 0 to 1, the labels spread along
+     * its foot, and [said]: the words for a screen reader and for plain text. The last column is
+     * the newest, and stands out.
+     */
+    data class Columns(val heights: List<Float>, val labels: List<List<Span>>, val said: List<Span>)
 
     /** One of a line of big numbers ([stats]): its value, and its label under it. */
     data class Stat(val value: List<Span>, val label: List<Span>)
@@ -68,6 +77,9 @@ object StyledText {
     private const val METER = BASE + 0x19
     // Big numbers: a marker at the start of a line, then a CELL marker before each value and each label.
     private const val STATS = BASE + 0x1A
+    // A column chart: a marker at the start of a line, then its heights, then a CELL marker before
+    // its words for a screen reader and before each label.
+    private const val COLUMNS = BASE + 0x1B
     private const val COLOUR = BASE + 0x20
     private const val COLOUR_END = BASE + 0x2F
     private const val LAST = COLOUR_END
@@ -192,7 +204,7 @@ object StyledText {
     private fun withMore(lines: List<String>, more: Int) = (if (more > 0) lines + "+$more more" else lines).joinToString("\n")
 
     /** A piece of a row or a bar: one line, without the markers that start rows, cells or bars. */
-    private fun part(text: String): String = without(without(withoutBars(text), ROW..CELL_RIGHT), STATS..STATS).replace('\n', ' ')
+    private fun part(text: String): String = without(without(withoutBars(text), ROW..CELL_RIGHT), STATS..COLUMNS).replace('\n', ' ')
 
     /** [text] without bars: each bar marker goes with its numbers (up to its first part or the line's end). */
     private fun withoutBars(text: String): String {
@@ -251,6 +263,24 @@ object StyledText {
     fun stats(items: List<Pair<String, String>>): String {
         if (items.isEmpty()) return ""
         return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) -> char(CELL) + part(value) + char(CELL) + part(label) }
+    }
+
+    /** The most columns a column chart keeps ([columns]): the newest ones. */
+    const val COLUMNS_MAX = 62
+
+    /**
+     * A small column chart of [values], the oldest first, on one scale from 0 to the largest.
+     * - [labels] spread along its foot: for the hours of a day "00", "06", "12", "18", or the first
+     *   day and "Today".
+     * - [said] is what a screen reader says, and what plain text keeps: the chart has no words.
+     * - Up to [COLUMNS_MAX] columns, the newest; the last one stands out.
+     */
+    fun columns(values: List<Double>, labels: List<String>, said: String): String {
+        if (values.isEmpty()) return ""
+        val kept = values.takeLast(COLUMNS_MAX)
+        val top = kept.maxOf { it.takeIf(Double::isFinite) ?: 0.0 }
+        return char(COLUMNS) + kept.joinToString(",") { number((share(it, 0.0, top) * 1000).roundToLong() / 1000.0) } +
+            char(CELL) + part(said) + labels.joinToString("") { char(CELL) + part(it) }
     }
 
     /** A row of [bars]: its [label], its [value], and the text after its bar (by default the value with the unit). */
@@ -314,7 +344,9 @@ object StyledText {
 
     private fun isStats(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == STATS
 
-    private fun isBlock(line: String): Boolean = isRow(line) || isMeter(line) || isStats(line)
+    private fun isColumns(line: String): Boolean = line.length >= 2 && line.codePointAt(0) == COLUMNS
+
+    private fun isBlock(line: String): Boolean = isRow(line) || isMeter(line) || isStats(line) || isColumns(line)
 
     /**
      * [body] split before its first table row or bar: the text above it, and the rest (the tables,
@@ -353,6 +385,10 @@ object StyledText {
         for (raw in text.split('\n')) {
             if (isStats(raw)) {
                 out += Line(0, "", emptyList(), stats = statsOf(raw))
+                continue
+            }
+            if (isColumns(raw)) {
+                out += Line(0, "", emptyList(), columns = columnsOf(raw))
                 continue
             }
             if (isMeter(raw)) {
@@ -447,6 +483,15 @@ object StyledText {
         return parts.chunked(2).take(STATS_MAX).map { Stat(spans(it[0]), spans(it.getOrElse(1) { "" })) }
     }
 
+    /** A column chart ([columns]) read back. A height it can't read is 0. */
+    private fun columnsOf(raw: String): Columns {
+        val parts = raw.substring(Character.charCount(COLUMNS)).split(char(CELL))
+        val heights = parts[0].split(',').filter { it.isNotEmpty() }.take(COLUMNS_MAX)
+            .map { it.toFloatOrNull()?.takeIf { h -> !h.isNaN() }?.coerceIn(0f, 1f) ?: 0f }
+        fun spans(part: String) = if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
+        return Columns(heights, parts.drop(2).map(::spans), spans(parts.getOrElse(1) { "" }))
+    }
+
     /** A bar line ([meter]) read back. Numbers it can't read make an empty bar. */
     private fun meterOf(raw: String): Meter {
         val parts = raw.substring(Character.charCount(METER)).split(char(CELL))
@@ -488,7 +533,7 @@ object StyledText {
 
     private fun words(spans: List<Span>) = spans.joinToString("") { it.text }
 
-    private fun isBlockLine(line: Line) = line.row != null || line.meter != null || line.stats != null
+    private fun isBlockLine(line: Line) = line.row != null || line.meter != null || line.stats != null || line.columns != null
 
     /**
      * The words of a table row, a bar or a line of big numbers, as plain text. Null for any other
@@ -499,6 +544,7 @@ object StyledText {
         line.row?.let { row -> return row.cells.joinToString("\t") { c -> words(c.spans) } }
         line.meter?.let { m -> return listOf(m.label, m.start, m.end).map(::words).filter { it.isNotEmpty() }.joinToString("\t").ifEmpty { null } }
         line.stats?.let { s -> return s.joinToString(" · ") { listOf(words(it.value), words(it.label)).filter(String::isNotEmpty).joinToString(" ") }.ifEmpty { null } }
+        line.columns?.let { c -> return words(c.said).ifEmpty { null } }
         return null
     }
 

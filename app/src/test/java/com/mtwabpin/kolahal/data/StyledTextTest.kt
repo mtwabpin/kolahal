@@ -231,6 +231,22 @@ class StyledTextBlocksTest {
     }
 
     /** fmt.stats: values with their labels, as a line of its own; plain text reads "24° Pune · 60% humidity". */
+    /** A column chart: its heights on one scale, its labels and its words; plain text keeps the words only. */
+    @Test fun columnsAreAChartWithWords() {
+        val chart = StyledText.columns(listOf(0.0, 30.0, 60.0, 15.0), listOf("00", "Now"), "Chrome by hour today: 01:00 30m, 02:00 60m")
+        val body = "Today\n" + chart + "\nlater"
+        val line = StyledText.lines(body)[1].columns!!
+        assertEquals(listOf(0f, 0.5f, 1f, 0.25f), line.heights)
+        assertEquals(listOf("00", "Now"), line.labels.map { l -> l.joinToString("") { it.text } })
+        assertEquals("Today\nChrome by hour today: 01:00 30m, 02:00 60m\nlater", StyledText.plain(body))
+        assertTrue(StyledText.hasBlock(chart))
+        assertEquals("Today" to chart + "\nlater", StyledText.splitAtBlocks(body))
+        // Only the newest columns are kept; nothing to scale is all 0.
+        assertEquals(StyledText.COLUMNS_MAX, StyledText.lines(StyledText.columns(List(100) { it.toDouble() }, emptyList(), "x")).single().columns!!.heights.size)
+        assertEquals(listOf(0f, 0f), StyledText.lines(StyledText.columns(listOf(0.0, 0.0), emptyList(), "x")).single().columns!!.heights)
+        assertEquals("", StyledText.columns(emptyList(), emptyList(), "x"))
+    }
+
     @Test fun statsAreALineOfBigNumbers() {
         val body = "Now\n" + StyledText.stats(listOf("24°" to "Pune, clear", StyledText.colour(StyledText.Colour.GOOD, "60%") to "humidity", "12" to "")) + "\nlater"
         val lines = StyledText.lines(body)

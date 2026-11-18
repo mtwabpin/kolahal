@@ -245,6 +245,13 @@ class BuiltInCommandsTest {
         printed(from, "Lua's answer", ms = 30_000) { it == "pcqpcq" }
     }
 
+    /** Forgets the unlock counts Kolahal saved for past days ([com.mtwabpin.kolahal.unlock.UnlockCounter.countOrNull]): a test's days are its own. */
+    private fun forgetSavedUnlocks() {
+        val kept = com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
+        val today = LocalDate.now()
+        (1L..45L).forEach { kept.set("h:${today.minusDays(it)}", null) }
+    }
+
     /** `unlocks 3` is a line a day, oldest first, counts lined up; without usage access it says it counts only while it runs. */
     @Test fun unlocksPerDay() {
         val op = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
@@ -258,6 +265,12 @@ class BuiltInCommandsTest {
             parsed.forEach { assertEquals(it.value, it.groupValues[2] == "1", it.groupValues[3] == "unlock") }
             assertEquals(rows.toString(), 1, rows.map { it.substringBeforeLast(' ').length }.distinct().size)
         }
+        // Every day has data here: Android's history on the emulator is not the test's to pick. Without
+        // usage access, a day has a count when Kolahal counted it while it ran.
+        com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(40) }
+        val kept = com.mtwabpin.kolahal.data.KvStore(context, com.mtwabpin.kolahal.data.Stores.UNLOCKS)
+        val counted = (1L..2L).map { "d:${today.minusDays(it)}" }.associateWith { kept.get(it) }
+        counted.forEach { (key, was) -> if (was == null) kept.set(key, "0") }
         try {
             shell("appops set ${context.packageName} GET_USAGE_STATS ignore")
             val without = run("unlocks 3")
@@ -274,6 +287,31 @@ class BuiltInCommandsTest {
             assertTrue(Regex("\\d+ unlocks? today").matches(com.mtwabpin.kolahal.data.StyledText.plain(run("unlocks 0").single())))
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $op")
+            com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
+            counted.forEach { (key, was) -> kept.set(key, was) }
+            forgetSavedUnlocks()
+        }
+    }
+
+    /**
+     * A day before Android's usage history begins is left out: not a row, not in the average. Here the
+     * history begins yesterday, so `unlocks 7` has two days.
+     */
+    @Test fun unlocksLeavesOutDaysWithNoData() {
+        val op = Regex("GET_USAGE_STATS: (\\w+)").find(shell("appops get ${context.packageName} GET_USAGE_STATS"))?.groupValues?.get(1) ?: "default"
+        val today = LocalDate.now()
+        forgetSavedUnlocks()
+        com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(1) }
+        try {
+            shell("appops set ${context.packageName} GET_USAGE_STATS allow")
+            val lines = run("unlocks 7")
+            assertTrue(lines[0], Regex("\\d+ unlocks? today · \\d+ a day on average · \\d+ in 2 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(lines[0])))
+            assertEquals(listOf("Yesterday", "Today"), lines.drop(1).map { it.substringBefore("  ").trim() })
+            // Scripts get the same days.
+            assertEquals(2, com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).history(7).size)
+        } finally {
+            shell("appops set ${context.packageName} GET_USAGE_STATS $op")
+            com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
         }
     }
 

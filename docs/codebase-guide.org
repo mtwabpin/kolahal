@@ -720,6 +720,7 @@ All app code is under =app/src/main/java/com/mtwabpin/kolahal/=.
 | =documents/=          | text files for the text editor: reading, saving, drafts, the recent list           | [[src:documents/TextDocument.kt::class TextDocument][TextDocument.kt]] (pure, tested) |
 | =status/=             | battery, network and alarm state for the header                                    | [[src:status/DeviceStatus.kt::class DeviceStatus][DeviceStatus.kt]]                |
 | =unlock/=             | the unlock counter                                                                 | [[src:unlock/UnlockCounter.kt::class UnlockCounter][UnlockCounter.kt]]               |
+| =usage/=              | screen time, data and storage from Android's usage data: which days have data, one app's sessions | [[src:usage/UsageHistory.kt::object UsageHistory][UsageHistory.kt]], [[src:usage/AppSessions.kt::class AppSessions][AppSessions.kt]] |
 | =contacts/=, =calls/= | contacts for =call= / =sms=, calls in the log                                      |                                |
 | =gesture/=            | the lock-only accessibility service, the notification-shade helper                 |                                |
 | =notify/=             | notification channels and posting                                                  |                                |

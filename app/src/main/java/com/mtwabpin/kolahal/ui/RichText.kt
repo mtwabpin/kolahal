@@ -1,5 +1,8 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -140,6 +143,7 @@ internal fun RichBody(rest: String, style: TextStyle, start: Dp, bullet: TextUni
             is Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
             is Block.Bars -> Meters(block.meters, style, Modifier.padding(vertical = 2.dp))
             is Block.Stats -> StatsRow(block.stats, style, Modifier.padding(top = 4.dp, bottom = 2.dp))
+            is Block.Columns -> ColumnChart(block.columns, style, Modifier.padding(vertical = 4.dp))
             is Block.Text -> RichText(remember(block.raw, Term.palette) { buildAnnotatedString { appendBody(block.raw, 0.sp, bullet) } }, style = style)
         }
     }
@@ -149,6 +153,7 @@ private sealed interface Block {
     class Table(val rows: List<StyledText.Row>) : Block
     class Bars(val meters: List<StyledText.Meter>) : Block
     class Stats(val stats: List<StyledText.Stat>) : Block
+    class Columns(val columns: StyledText.Columns) : Block
     class Text(val raw: String) : Block
 }
 
@@ -167,6 +172,7 @@ private fun blocks(rest: String): List<Block> {
             line?.row != null -> { endText(); endBars(); rows += line.row }
             line?.meter != null -> { endText(); endTable(); meters += line.meter }
             line?.stats != null -> { endText(); endTable(); endBars(); out += Block.Stats(line.stats) }
+            line?.columns != null -> { endText(); endTable(); endBars(); out += Block.Columns(line.columns) }
             else -> { endTable(); endBars(); text += raw }
         }
     }
@@ -455,3 +461,43 @@ internal fun ActionPills(entry: com.mtwabpin.kolahal.data.LogEntry, actions: Lis
     }
 }
 
+
+/**
+ * A small column chart (`StyledText.columns`): a column for each value, the oldest first, all on
+ * one scale, with the labels spread along its foot. The last column, the newest, is in the accent
+ * colour; the others are lighter. It is drawn in one pass, with no text inside. A screen reader
+ * hears its words ([StyledText.Columns.said]).
+ */
+@Composable
+internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier: Modifier = Modifier) {
+    if (columns.heights.isEmpty()) return
+    val accent = Term.prompt
+    val faint = Term.prompt.copy(alpha = 0.4f)
+    val base = Term.dim.copy(alpha = 0.5f)
+    val said = remember(columns) { columns.said.joinToString("") { it.text } }
+    Column(modifier.fillMaxWidth().testTag("log-columns").clearAndSetSemantics { contentDescription = said }) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(COLUMNS_HEIGHT)) {
+            val n = columns.heights.size
+            val slot = size.width / n
+            val gap = minOf(2.dp.toPx(), slot / 3)
+            val w = (slot - gap).coerceAtLeast(1f)
+            val round = androidx.compose.ui.geometry.CornerRadius(minOf(2.dp.toPx(), w / 2))
+            // A value of 0 still shows as a sliver above the baseline, so a quiet hour is not a gap.
+            val least = 1.dp.toPx()
+            columns.heights.forEachIndexed { i, h ->
+                val tall = (size.height - least) * h + least
+                drawRoundRect(if (i == n - 1) accent else faint, Offset(i * slot + gap / 2, size.height - tall), Size(w, tall), round)
+            }
+            drawLine(base, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+        }
+        if (columns.labels.isNotEmpty()) {
+            val small = style.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp)
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
+                columns.labels.forEach { label -> Text(label.joinToString("") { it.text }, style = small, maxLines = 1) }
+            }
+        }
+    }
+}
+
+/** How tall a column chart is. */
+private val COLUMNS_HEIGHT = 40.dp

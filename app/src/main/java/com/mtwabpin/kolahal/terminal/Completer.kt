@@ -369,6 +369,8 @@ class Completer(private val context: Context, private val data: Data) {
                 4 if parts[1] == "every" -> words(INTERVALS - "off")
                 else -> emptyList()
             }
+            // `usage <app>`: a name gets the apps of the personal profile, whose use Android gives Kolahal.
+            "usage" if arg.isNotEmpty() && !arg[0].isDigit() -> appCompletions(head, arg) { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
             "usage", "unlocks" -> if (parts.size == 2) listOf("1", "7", "14", "30")
                 .filter { it.starts(last) }.map { Suggestion.Completion(if (it == "1") "today" else "$it days", "$head $it") } else emptyList()
             "installs", "calls" -> if (parts.size == 2) listOf("20", "50", "200")

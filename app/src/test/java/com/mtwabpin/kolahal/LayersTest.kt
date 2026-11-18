@@ -18,7 +18,7 @@ import org.junit.Test
 class LayersTest {
     private val model = listOf(
         "commands", "data", "script", "apps", "feeds", "productivity", "notifications", "calls", "contacts", "unlock", "status", "control",
-        "widgets", "notify", "gesture", "documents",
+        "widgets", "notify", "gesture", "documents", "usage",
     )
 
     /** Lines in [packages] that name something matching [above], outside comments. */

@@ -1792,8 +1792,10 @@ With `days`, it returns a list instead: one count for each of the last `days` da
 - The oldest day comes first. Today's count is the last one.
 - `days` is from 1 to 30. A number outside that is held at its nearest end, and a fraction is
   dropped. Anything that isn't a number is an error.
-- The counts are the ones the [`unlocks` command](/guides/apps/#screen-time-and-unlocks) shows. A
-  day that Kolahal has no count for is 0.
+- The counts are the ones the [`unlocks` command](/guides/apps/#screen-time-and-unlocks) shows.
+- A day with no data is left out, so the list can be shorter than `days`. Android keeps usage
+  events for the last days only (about 10 on many phones), and Kolahal saves each day's count
+  from 0.5.12 on. Before 0.5.12, such a day was 0.
 - It needs no `@uses` line, like today's count.
 - Kolahal before 0.5.8 ignores `days` and returns today's count as a number.
 

@@ -141,7 +141,7 @@ object CommandCatalog {
         CommandSpec("wiki", "wiki <query>", "Search Wikipedia", short = "Search Wikipedia", args = "<query>"),
         CommandSpec("maps", "maps <place>", "Find a place in your maps app", short = "Find a place", args = "<place>", aka = listOf("map")),
         CommandSpec("play", "play <query>", "Search the Play Store", short = "Search the Play Store", args = "<query>", aka = listOf("store")),
-        CommandSpec("usage", "usage [<days>]", "Screen time per app", short = "Screen time per app", args = "<days>", aka = listOf("screentime")),
+        CommandSpec("usage", "usage [<days> | <app>]", "Screen time per app, or one app in detail", short = "Screen time per app", args = "<days> · <app>", aka = listOf("screentime")),
         CommandSpec("installs", "installs [<n>]", "Recent app installs, updates and uninstalls", short = "Recent installs", args = "<n>", aka = listOf("updates")),
         // The Play build has no READ_CONTACTS. There, a command without a name opens Android's contact picker.
         if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec("call", "call <name|number>", "Dial a contact or number", short = "Call someone", args = "<name|number>", aka = listOf("dial"), sensitive = true)

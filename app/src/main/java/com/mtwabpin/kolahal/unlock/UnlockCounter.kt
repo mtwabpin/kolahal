@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.usage.UsageHistory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,9 +60,17 @@ class UnlockCounter private constructor(private val context: Context) {
         refresh()
     }
 
-    /** Counts again off the main thread, because one day of UsageStats events can have thousands of entries. */
+    /**
+     * Counts again off the main thread, because one day of UsageStats events can have thousands of
+     * entries. Yesterday's count is saved then too, once ([countOrNull]): so the history grows past
+     * the days Android keeps, while home is used at least every few days.
+     */
     fun refresh() {
-        scope.launch { _today.value = countFor(LocalDate.now()) }
+        scope.launch {
+            val today = LocalDate.now()
+            _today.value = countFor(today)
+            runCatching { countOrNull(today.minusDays(1)) }
+        }
     }
 
     fun hasUsageAccess(): Boolean {
@@ -133,13 +142,38 @@ class UnlockCounter private constructor(private val context: Context) {
         return count to last
     }
 
-    /** Counts for the last [days] days, oldest first. */
+    /**
+     * The unlocks on [day], or null when there is no count for it. Today always has one.
+     * - A finished day's count is saved the first time it is counted from Android's events (key
+     *   `h:<day>`), and read from there after. So it stays when Android no longer keeps that day.
+     * - With usage access, a day Android has no data for ([UsageHistory]) and no saved count has none.
+     * - Without it, a day has the count of the unlocks seen while Kolahal ran, if it ran then.
+     */
+    fun countOrNull(day: LocalDate): Int? {
+        val today = LocalDate.now()
+        if (day == today) return countFor(day)
+        if (day.isAfter(today)) return null
+        savedCount(day)?.let { return it }
+        if (!hasUsageAccess()) return counts.get(dayKey(day))?.toIntOrNull()
+        if (!UsageHistory.hasData(context, day, today)) return null
+        return countFor(day).also { counts.set(savedKey(day), it.toString()) }
+    }
+
+    /**
+     * The counts of the last [days] days, oldest first, with only the days that have one
+     * ([countOrNull]): a day with no data is left out, not counted as 0. Today is always the last.
+     */
     fun history(days: Int): List<Pair<LocalDate, Int>> {
         val today = LocalDate.now()
-        return (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.map { it to countFor(it) }
+        return (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.mapNotNull { d -> countOrNull(d)?.let { d to it } }
     }
 
     private fun dayKey(day: LocalDate) = "d:$day"
+
+    /** Where a finished day's count from Android's events is saved. */
+    private fun savedKey(day: LocalDate) = "h:$day"
+
+    private fun savedCount(day: LocalDate): Int? = counts.get(savedKey(day))?.toIntOrNull()
 
     private fun fallbackCount(day: LocalDate): Int = counts.get(dayKey(day))?.toIntOrNull() ?: 0
 

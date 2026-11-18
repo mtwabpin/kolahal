@@ -381,6 +381,12 @@ class AppCommandsTest {
      * with none recorded it says so. A fresh emulator often has none: then the test shows as skipped.
      */
     @Test fun usageShowsScreenTime() = withUsageAccess("allow") {
+        // Every day has data here: which days the emulator keeps is not the test's to pick.
+        com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { java.time.LocalDate.now().minusDays(40) }
+        try { screenTimeRows() } finally { com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null }
+    }
+
+    private fun screenTimeRows() {
         val duration = "(\\d+h )?\\d+m"
         var listed = false
         for ((typed, said) in listOf("usage" to "today", "screentime 7" to "last 7 days", "usage 99" to "last 30 days")) {
@@ -410,6 +416,29 @@ class AppCommandsTest {
             assertEquals(typed, bars.take(perApp.size).sortedDescending(), bars.take(perApp.size))
         }
         assumeTrue("no app usage recorded in 30 days, so no list to check", listed)
+    }
+
+    /**
+     * `usage <app>`: the app's time today, its opens and its longest session; when it was last used;
+     * then a line for each of the last 7 days with data and their average. Here every day has data.
+     */
+    @Test fun usageOfOneApp() = withUsageAccess("allow") {
+        com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { java.time.LocalDate.now().minusDays(40) }
+        try {
+            val shown = lines("usage settings")
+            val label = settings().label
+            val duration = "(\\d+h )?\\d+m"
+            val first = com.mtwabpin.kolahal.data.StyledText.plain(shown.first().text)
+            assertTrue(first, Regex("$duration ${Regex.escape(label)} today · \\d+ opens? · $duration longest").matches(first))
+            assertEquals(settings().pkg, shown.first().ctx.pkg)
+            assertTrue(shown[1].text, shown[1].text == "In use now" || shown[1].text == "Not used today" || shown[1].text.startsWith("Last used "))
+            // A line a day for 7 days, then their average.
+            val days = shown.filter { it.ctx.values.containsKey(LogContext.BAR) }
+            assertEquals(shown.joinToString("\n") { it.text }, 7, days.size)
+            assertTrue(shown.last().text, Regex("$duration a day on average, over 7 days").matches(shown.last().text))
+        } finally {
+            com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
+        }
     }
 
     /**
