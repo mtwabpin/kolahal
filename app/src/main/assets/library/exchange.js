@@ -3,6 +3,9 @@
 // @desc Convert currency: exchange [amount] <from> [to…] (e.g. exchange 100 usd inr eur)
 // @usage [<amount>] <from> [<to…>]
 // @title Currency converter
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.9
 // @widget list 2x2
 // @every 6h
 // @option from USD Default currency to convert from

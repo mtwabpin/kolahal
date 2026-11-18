@@ -1,6 +1,9 @@
 -- hn.lua — Hacker News front page, only stories you have not seen yet.
 -- @desc Hacker News front page: new stories since the last run
 -- @title Hacker News
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.9
 -- @widget list 4x2
 -- @every 1h
 -- @notify

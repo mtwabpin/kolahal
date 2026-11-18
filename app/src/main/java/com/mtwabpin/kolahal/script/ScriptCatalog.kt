@@ -56,13 +56,23 @@ class ScriptCatalog(private val context: Context) {
     private val cacheFile get() = File(context.filesDir, "script-catalog.json")
 
     /** The list from the last download, or null when there is none yet. */
-    fun cached(): List<Entry>? = cacheFile.takeIf { it.exists() }?.let { runCatching { parse(it.readText()) }.getOrNull() }
+    fun cached(): List<Entry>? = cacheFile.takeIf { it.exists() }?.let { runCatching { shared(parse(it.readText())) }.getOrNull() }
+
+    /** The names of the scripts that come with the app ([ScriptLibrary]). */
+    private val libraryNames: Set<String> by lazy { runCatching { ScriptLibrary(context).entries.map { it.name }.toSet() }.getOrDefault(emptySet()) }
+
+    /**
+     * The list without the scripts that come with the app. The repository has Kolahal's own
+     * library too, but in the app those are under Add script → From the library, where a copy of
+     * one is installed, compared and updated. Listed here as well, each would say "Name taken".
+     */
+    private fun shared(entries: List<Entry>): List<Entry> = entries.filter { it.name !in libraryNames }
 
     /** The list. Returns the copy kept for an hour, or downloads it now when [refresh] is true or there is no copy. */
     fun entries(refresh: Boolean = false): List<Entry> {
         if (!refresh && System.currentTimeMillis() - prefs.getLong("fetched", 0) < KEEP_MS) cached()?.let { return it }
         val raw = get(INDEX_URL, MAX_INDEX).toString(Charsets.UTF_8)
-        val entries = parse(raw)
+        val entries = shared(parse(raw))
         cacheFile.writeText(raw)
         prefs.edit { putLong("fetched", System.currentTimeMillis()) }
         return entries

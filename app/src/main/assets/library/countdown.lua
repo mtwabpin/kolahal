@@ -3,6 +3,9 @@
 -- @desc Days until a date, or the next birthday or anniversary: countdown YYYY-MM-DD | add [yearly] YYYY-MM-DD label | rm N
 -- @usage [<YYYY-MM-DD>|add [yearly] <YYYY-MM-DD> <label>|rm <n>]
 -- @title Countdowns
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.9
 -- @widget countdown 2x1
 -- @at 00:05
 --

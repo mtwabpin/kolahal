@@ -3,6 +3,9 @@
 -- @desc Current weather: weather [city] (default: its city option, or your location)
 -- @usage [<city>]
 -- @title Weather
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.9
 -- @widget stat 2x1
 -- @every 1h
 -- @option city "" Default city; empty: your IP address's location

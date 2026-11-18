@@ -10,6 +10,7 @@ aqi.js d74923abbcc7d718
 charge-reminder.lua 16c8ee78fa2ffb95
 charge-reminder.lua 1db9b8545cf4a013
 charge-reminder.lua 465dc3fb808798a1
+charge-reminder.lua 4683f1832a5bc84d
 charge-reminder.lua 6b6a5be7270cec4c
 charge-reminder.lua 6c3d972af8d0d828
 charge-reminder.lua 9a8fd5df7dcf90f9
@@ -21,6 +22,7 @@ countdown.lua 11c73f5e72149097
 countdown.lua 2b31b03827d7375f
 countdown.lua 2d9b72f1a91b549a
 countdown.lua 3d7de577927eb132
+countdown.lua 4f94e2a6f5ec21bf
 countdown.lua 750755716fa7e9b9
 countdown.lua 8c50eb114b7c9593
 countdown.lua 971841051c8d7f8b
@@ -49,6 +51,7 @@ crypto.js b70332c429b5bc87
 crypto.js bb8187491c673c01
 crypto.js c1170d4f29e7056b
 crypto.js c5592ef726e2a5c0
+crypto.js cae5d7986303ddda
 crypto.js d83be4f8ca5f1c3a
 exchange.js 1acf4b149d2f1824
 exchange.js 1ecef54f1aac51f8
@@ -61,6 +64,7 @@ exchange.js 682e416135d80659
 exchange.js 696a85a3834cc985
 exchange.js 80fa600c68fac8be
 exchange.js a80850174a186602
+exchange.js c7a86aaae9df4205
 exchange.js cb95756e6b153b4d
 exchange.js cfcde40c26aae233
 exchange.js e46d14f1eb642d4f
@@ -73,6 +77,7 @@ forecast.js 10da580a645d7176
 forecast.js 20cdebd801c76451
 forecast.js 22b67a4abefadf31
 forecast.js 2fd4affa578f1e77
+forecast.js 368da97ae4237ed8
 forecast.js 3e471f066589bf04
 forecast.js 44a71e880ecd9c7d
 forecast.js 4520a4efeda04e5f
@@ -107,9 +112,11 @@ hn.lua acc5c237c02f2204
 hn.lua b6039b32a91c37b9
 hn.lua bbd76c67bfd208c0
 hn.lua c14a650f6f06ecb5
+hn.lua d5a2f668c983b26f
 hn.lua fa83b7ef888dec64
 ip.lua 2007b5ec03769b99
 ip.lua 3d1d99fc9c4dfb1f
+ip.lua 48e820f2547929da
 ip.lua 49ca2d7187001995
 ip.lua 85236c6c490cfa7f
 ip.lua 8b6c949f146c145c
@@ -117,11 +124,14 @@ ip.lua 92e1cdd5ebe40776
 ip.lua ae2a7f533e728907
 ip.lua b64b752059221a5f
 lobsters.lua 25a051bc466c6f57
+lobsters.lua 25adeda47dd78228
 lobsters.lua 4bc7d734067f90eb
 lobsters.lua d886b1d89e92ec96
+night-dnd.lua 07f8b77f2288d40f
 night-dnd.lua 5f786052af428b7b
 night-dnd.lua b6040383e43eb9e7
 night-dnd.lua b730147ecba5e5c8
+night-work.lua 12d4a205dac0507b
 night-work.lua 4a5390218bb41547
 night-work.lua 639645bd4fc54757
 quick-toggles.lua a07ca37d1523ffb4
@@ -138,12 +148,14 @@ quote.js eefce5e3c5ca9402
 quote.js f7343314b5fe3948
 quote.js f7dd06ee749bf67f
 quote.js f906545ad02718ad
+quote.js fd5468699406beef
 reddit.js 0356f3ee05a04bd0
 reddit.js 05c30afbe5feba2e
 reddit.js 26c1b281398d9cb2
 reddit.js 2cc81a12d375b465
 reddit.js 54363c6ec548bd16
 reddit.js 551f5d33d1987ccc
+reddit.js 6206795c8c4b3b6e
 reddit.js 745d4d7a0fbe7ffb
 reddit.js 83fa700be41fd72b
 reddit.js 9756ecf1f1f50280
@@ -157,6 +169,7 @@ releases.lua 789c7a5dda8e22a4
 releases.lua 7afffcb23660bede
 releases.lua 857ce26d57c62ac4
 releases.lua 88c3c64cb70e86ae
+releases.lua 92e7a93ed242263c
 releases.lua 99b8e93cdba61658
 releases.lua b49a1180e2be7a4b
 releases.lua bcfb61927e536ad3
@@ -166,6 +179,7 @@ releases.lua d90cc1b7b42dcf71
 releases.lua dd263f6d062f3725
 releases.lua e4ba66eeeddedf65
 releases.lua ec8d032d79acc000
+sun.js 1263e8a14e78da70
 sun.js 22c69d371fab1098
 sun.js 2c143fb181931a42
 sun.js 4e4622389a7013e8
@@ -215,6 +229,7 @@ weather.lua 5e9eaf36cb98a4be
 weather.lua 6c7e726827e7bb75
 weather.lua 6cfe91e4243fcbe7
 weather.lua 9455c13ffb57463b
+weather.lua a96c095e26d77d44
 weather.lua e10119b75310166b
 weather.lua ef720bfa0c80c47f
 webnumber.js 6e1eba52052d8a99
@@ -224,6 +239,7 @@ wikipedia.js 00340392abaa297f
 wikipedia.js 969b424777558a7c
 wikipedia.js 97cb29c24ee29bdf
 wikipedia.js a5a59f8f98fe0a14
+wikipedia.js b08f5d7187df12a7
 wikipedia.js d35fe789bd694da6
 wikipedia.js d8cfc1924462f818
 wikipedia.js f81a8abc18988c76
@@ -234,6 +250,7 @@ world-clocks.lua f89791ab640ac7b2
 xkcd.js 0aa2259873c4e7de
 xkcd.js 2c9381ac32ed4247
 xkcd.js 331f996d34e65f12
+xkcd.js 37c29437a4f154d9
 xkcd.js 3f75bf2d82b5dc6a
 xkcd.js 621f386c60c20b9b
 xkcd.js c4e6ad3bfdeff9ce

@@ -102,8 +102,8 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
             item(key = "about") {
                 PageHint(
                     "Every script here is reviewed before it is added. When you install one, you choose what it can " +
-                        "use; its Access switches change that later. Share your own at " +
-                        "github.com/mtwabpin/${ScriptCatalog.SOURCE}.",
+                        "use; its Access switches change that later. Kolahal's own scripts are under Add script → From " +
+                        "the library. Share your own at github.com/mtwabpin/${ScriptCatalog.SOURCE}.",
                 )
             }
         }

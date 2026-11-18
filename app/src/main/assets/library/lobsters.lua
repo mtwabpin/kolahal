@@ -1,6 +1,9 @@
 -- lobsters.lua — Lobsters' front page, only stories you have not seen yet.
 -- @desc Lobsters front page: new stories since the last run, each with a link to its comments
 -- @title Lobsters
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.0
 -- @every 1h
 -- @notify
 -- @option score 5 Only stories with at least this score; 0: every story

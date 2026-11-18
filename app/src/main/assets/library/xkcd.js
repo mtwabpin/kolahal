@@ -3,6 +3,9 @@
 // @desc xkcd comic: xkcd | xkcd <number> | xkcd random
 // @usage [random|<number>]
 // @title xkcd
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.9
 // @widget image 4x2
 // @every 6h
 // @notify

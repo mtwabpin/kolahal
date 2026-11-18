@@ -3,6 +3,9 @@
 // @desc Coin prices: crypto [ids…] [--vs eur] (default: its coins and currency options)
 // @usage [<ids…>] [--vs <currency>]
 // @title Crypto prices
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.9
 // @widget list 2x2
 // @every 30m
 // @option coins "bitcoin ethereum" Default CoinGecko ids

@@ -2,6 +2,9 @@
 -- @on charger, unplug
 -- @desc Charging session summary; warns when unplugged below 30% (its low option)
 -- @title Charge reminder
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.0
 -- @notify
 -- @option low 30 Warn when unplugged below this battery %
 --

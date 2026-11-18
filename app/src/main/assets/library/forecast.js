@@ -3,6 +3,9 @@
 // @desc 3-day forecast: forecast [city] (default: its city option)
 // @usage [<city>]
 // @title 3-day forecast
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.9
 // @widget list 2x2
 // @at 07:00
 // @option city "" Default city; empty: London

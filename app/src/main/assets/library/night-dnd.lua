@@ -1,6 +1,9 @@
 -- night-dnd.lua — Do Not Disturb for the night: on at 11 PM, off at 7 AM. No network.
 -- @desc Do Not Disturb on at 11 PM and off at 7 AM; if you turned it on yourself, it does nothing
 -- @title Night Do Not Disturb
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.0
 -- @at 23:00, 07:00
 -- @uses dnd
 -- @option mode priority|alarms|none Priority only, alarms only, or total silence

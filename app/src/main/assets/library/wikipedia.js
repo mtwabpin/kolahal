@@ -3,6 +3,9 @@
 // @desc Wikipedia summary: wikipedia <topic> (no topic: a random article)
 // @usage [<topic>]
 // @title Wikipedia
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.0
 // @option lang en The language edition: en, de, hi, simple…
 //
 // Usage:

@@ -3,6 +3,9 @@
 // @desc Top posts today: reddit [subreddit] (default: its subreddit option, android)
 // @usage [<subreddit>]
 // @title Reddit top posts
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.0
 // @option subreddit android Default subreddit
 // @option posts 5 How many posts it shows, up to 25
 // @option images on|off A picture under each post that has one; off saves data

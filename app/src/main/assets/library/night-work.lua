@@ -1,6 +1,9 @@
 -- night-work.lua — the work profile off for the night: paused at 11 PM, back at 7 AM. No network.
 -- @desc Pauses the work profile at 11 PM and resumes it at 7 AM; if you paused it yourself, it does nothing
 -- @title Night work profile
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.0
 -- @at 23:00, 07:00
 -- @uses work
 --

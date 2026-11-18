@@ -3,6 +3,9 @@
 // @desc Sunrise and sunset: sun | sun <city> | sun <lat> <lng> (city/coords are saved)
 // @usage [<city>|<lat> <lng>]
 // @title Sunrise and sunset
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.0
 // @at 05:00
 //
 // Usage:

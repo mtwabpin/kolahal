@@ -168,6 +168,21 @@ class GetScriptsScreenTest {
     }
 
     /**
+     * The repository has Kolahal's own library too. Those scripts are left out here: they are under
+     * Add script → From the library, where a copy of one is installed and updated. Here, each would
+     * say "Name taken".
+     */
+    @Test fun theAppsOwnScriptsAreLeftOut() {
+        val own = Shared("weather", ScriptLang.LUA, "Weather", "Kolahal's own", "Kolahal", "1.0", emptyList(), "log('weather')")
+        cacheFile.writeText(JSONObject().put("format", 1).put("scripts", JSONArray(listOf(tide, own).map { it.json() })).toString())
+        prefs.edit { putLong("fetched", System.currentTimeMillis()) }
+        assertEquals(listOf(tide.name), catalog.cached()?.map { it.name })
+        show()
+        compose.waitForNode(row("Tide times", "gstide.lua · command", "The next high and low tide"))
+        compose.onNodeWithText("Kolahal's own").assertDoesNotExist()
+    }
+
+    /**
      * The search matches names, authors and tags, every word: two words that each match a different
      * script find neither. Nothing found says so.
      */

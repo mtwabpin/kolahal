@@ -3,6 +3,9 @@
 -- @desc GitHub release watcher: releases [add|rm owner/repo | list]
 -- @usage [add <owner/repo>|rm <owner/repo>|list]
 -- @title GitHub releases
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.9
 -- @widget list 4x2
 -- @every 3h
 -- @notify

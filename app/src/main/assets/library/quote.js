@@ -3,6 +3,9 @@
 // @desc A random quote; long-press to copy it
 // @usage
 // @title Quote of the day
+// @author Kolahal
+// @version 1.0
+// @requires 0.5.9
 // @widget text 2x2
 // @at 08:00
 // @notify

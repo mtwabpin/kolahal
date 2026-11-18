@@ -3,6 +3,9 @@
 -- @desc Public IP address; long-press the line to copy it
 -- @usage
 -- @title Public IP
+-- @author Kolahal
+-- @version 1.0
+-- @requires 0.5.0
 -- @every 30m
 -- @notify
 --
