@@ -4,6 +4,30 @@ description: Every function scripts can call, in Lua and JavaScript, with return
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import Cards from '../../../components/Cards.astro';
+import logLog from '../../../assets/log/log.png';
+import logLogs from '../../../assets/log/logs.png';
+import logMd from '../../../assets/log/md.png';
+import logStyles from '../../../assets/log/styles.png';
+import logTable from '../../../assets/log/table.png';
+import logLinks from '../../../assets/log/links.png';
+import logTags from '../../../assets/log/tags.png';
+import logBars from '../../../assets/log/bars.png';
+import logStats from '../../../assets/log/stats.png';
+import logButtons from '../../../assets/log/buttons.png';
+import wSteps from '../../../assets/widgets/example-steps-2x1.png';
+import wList from '../../../assets/widgets/example-list-4x2.png';
+import wText from '../../../assets/widgets/example-text-2x2.png';
+import wProgress from '../../../assets/widgets/example-progress-2x1.png';
+import wChart from '../../../assets/widgets/example-chart-2x2.png';
+import wCountdown from '../../../assets/widgets/example-countdown-2x1.png';
+import wButtons from '../../../assets/widgets/example-buttons-4x1.png';
+import wToggles from '../../../assets/widgets/example-toggles-4x1.png';
+import wClock from '../../../assets/widgets/example-clock-2x1.png';
+import wAgenda from '../../../assets/widgets/example-agenda-4x2.png';
+import wImage from '../../../assets/widgets/example-image-4x2.png';
+import wStyles from '../../../assets/widgets/example-styles-4x1.png';
+import wWater from '../../../assets/widgets/example-water-2x1.png';
 
 Both languages have the same API.
 
@@ -127,6 +151,8 @@ console.error("logged as an error line");
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: logLog, alt: 'The Lua lines above in the log: titles with bodies under them, two stories with a space between them, a line with a picture of a comic, and the print line', width: 360 }]} />
+
 ### logs(titles)
 
 Adds one title line for each item, without bodies. Pass a list (a table in Lua, an array in
@@ -146,6 +172,8 @@ logs("milk", "bread");
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: logLogs, alt: 'Three lines in the log: milk, bread and eggs', width: 360 }]} />
 
 ### md.log(title, body?, ctx?)
 
@@ -177,6 +205,8 @@ md.log("**HN** " + md.escape(item.title), null, { url: item.link });
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: logMd, alt: 'Markdown lines in the log: a bold title with a bulleted list under it, code in grey, and a struck-out version', width: 360 }]} />
 
 ### Styles: fmt
 
@@ -234,6 +264,8 @@ log(`BTC 67,120 USD ${fmt.color("good", "▲ 1.2%")}`);
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: logStyles, alt: 'Styled lines in the log: a bold score, a numbered list with code, and a green change', width: 360 }]} />
+
 ### Tables
 
 `fmt.table(rows, opts?)` makes a table to use as a line's body. Each row is a list of cells.
@@ -270,6 +302,8 @@ log("Prices in USD", fmt.table([
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: logTable, alt: 'A table in the log: Coin, Price and 24h, with the changes in green and red', width: 360 }]} />
+
 ### Links
 
 `fmt.link(text, url)` makes `text` a link: a tap on it opens `url`. A tap anywhere else on the
@@ -300,6 +334,8 @@ md.log("New in [neovim](https://github.com/neovim/neovim/releases)");
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: logLinks, alt: 'Lines in the log with underlined links: 138 comments, and neovim', width: 360 }]} />
+
 ### Tags
 
 `fmt.tag(role, text)` shows a short label on a chip shaded in one of the theme's colours, by role,
@@ -323,6 +359,8 @@ log(`neovim/neovim ${fmt.tag("v0.12.0")} ${fmt.tag("warn", "pre-release")}`);
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: logTags, alt: 'Tags in the log: a red LIVE tag, and a version tag and an amber pre-release tag', width: 360 }]} />
 
 ### Bars
 
@@ -364,6 +402,8 @@ log("Pune · 3 days", fmt.ranges([["Today", 23, 31], ["Tomorrow", 22, 30]], { un
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: logBars, alt: 'Bars in the log: one red bar for the air quality, green bars for unlocks on Monday and Tuesday, and amber ranges for three days of temperatures', width: 360 }]} />
+
 ### Big numbers
 
 `fmt.stats(items)` makes a line of big numbers for a body. Each item is `{ value, label }`: the
@@ -386,6 +426,8 @@ log("Pune", fmt.stats([["25°C", "☀️ Sunny"], ["36%", "humidity"], ["9 km/h"
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: logStats, alt: 'Big numbers in the log: 25°C large with Sunny under it, then 36% humidity and 9 km/h wind', width: 360 }]} />
 
 ### Buttons
 
@@ -419,6 +461,8 @@ log("Battery at 92%", "Unplug the charger.", { actions: [["Snooze 30 min", "snoo
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: logButtons, alt: 'A log line, Battery at 92%, with two buttons under it: Snooze 30 min and Not today', width: 360 }]} />
 
 ### line.set
 
@@ -625,6 +669,8 @@ widget.show({
 </TabItem>
 </Tabs>
 
+<Cards items={[{ src: wSteps, alt: 'A 2×1 card called Steps: 6,240 large, with steps today and 4.1 km walked beside it', size: '2x1' }]} />
+
 ### The @widget line
 
 ```lua
@@ -829,11 +875,16 @@ widget.show{
   empty = "Nothing to read",
 }
 
--- progress: a ring, in the warning colour
-widget.show{ kind = "progress", value = 168, max = 300, text = "168", label = "Unhealthy", color = "warn" }
+-- text: a few lines, and a caption
+widget.show{ kind = "text", title = "Word of the day",
+  text = "serendipity\nFinding something good without looking for it.",
+  caption = "from Wiktionary" }
+
+-- progress: in the warning colour
+widget.show{ kind = "progress", title = "Pune air", value = 168, max = 300, text = "168", label = "Unhealthy", color = "warn" }
 
 -- chart: seven days as bars
-widget.show{ kind = "chart", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
+widget.show{ kind = "chart", title = "Unlocks", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
   value = 8, label = "unlocks today", labels = { "Sun", "Today" } }
 
 -- countdown: Kolahal counts the days
@@ -852,11 +903,16 @@ widget.show({
   empty: "Nothing to read",
 });
 
-// progress: a ring, in the warning colour
-widget.show({ kind: "progress", value: 168, max: 300, text: "168", label: "Unhealthy", color: "warn" });
+// text: a few lines, and a caption
+widget.show({ kind: "text", title: "Word of the day",
+  text: "serendipity\nFinding something good without looking for it.",
+  caption: "from Wiktionary" });
+
+// progress: in the warning colour
+widget.show({ kind: "progress", title: "Pune air", value: 168, max: 300, text: "168", label: "Unhealthy", color: "warn" });
 
 // chart: seven days as bars
-widget.show({ kind: "chart", points: [12, 30, 0, 45, 7, 1, 8], style: "bars",
+widget.show({ kind: "chart", title: "Unlocks", points: [12, 30, 0, 45, 7, 1, 8], style: "bars",
   value: 8, label: "unlocks today", labels: ["Sun", "Today"] });
 
 // countdown: Kolahal counts the days
@@ -864,6 +920,14 @@ widget.show({ kind: "countdown", title: "Goa trip", to: new Date(2026, 11, 20).g
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[
+  { src: wList, alt: 'A 4×2 list card called Reading list, with two rows', size: '4x2', caption: 'list' },
+  { src: wText, alt: 'A 2×2 text card called Word of the day: serendipity, its meaning, and from Wiktionary', size: '2x2', caption: 'text' },
+  { src: wChart, alt: 'A 2×2 chart card called Unlocks: 8 unlocks today over seven bars from Sun to Today', size: '2x2', caption: 'chart' },
+  { src: wProgress, alt: 'A 2×1 progress card called Pune air: 168 Unhealthy over an amber bar', size: '2x1', caption: 'progress' },
+  { src: wCountdown, alt: 'A 2×1 countdown card called Goa trip, with the days to go', size: '2x1', caption: 'countdown' },
+]} />
 
 **`buttons`**: 1 to 8 buttons. Each button has its own tap.
 
@@ -1004,16 +1068,17 @@ widget.show{ kind = "toggles", items = {
 } }
 
 -- clock: Kolahal moves the clocks
-widget.show{ kind = "clock", staleAfter = 604800, zones = {
+widget.show{ kind = "clock", title = "Clocks", staleAfter = 604800, zones = {
   { zone = "Asia/Kolkata", label = "Pune" },
   { zone = "America/New_York" },
 } }
 
--- agenda: two events, and the days from today to the day after tomorrow
-local noon = os.time{ year = 2026, month = 12, day = 20, hour = 12 }
-local trip = os.time{ year = 2026, month = 12, day = 21, hour = 0 }
-widget.show{ kind = "agenda", days = 3, empty = "Nothing planned", events = {
-  { title = "Lunch with Asha", starts = noon, ends = noon + 3600, where = "Cafe Goodluck" },
+-- agenda: lunch tomorrow and a trip the day after, in the days from today to the day after tomorrow
+local t = os.date("*t")
+local lunch = os.time{ year = t.year, month = t.month, day = t.day + 1, hour = 13 }
+local trip = os.time{ year = t.year, month = t.month, day = t.day + 2, hour = 0 }
+widget.show{ kind = "agenda", title = "Plans", days = 3, empty = "Nothing planned", events = {
+  { title = "Lunch with Asha", starts = lunch, ends = lunch + 3600, where = "Cafe Goodluck" },
   { title = "Goa trip", starts = trip, allDay = true, color = "good" },
 } }
 ```
@@ -1037,21 +1102,29 @@ widget.show({ kind: "toggles", items: [
 ] });
 
 // clock: Kolahal moves the clocks
-widget.show({ kind: "clock", staleAfter: 604800, zones: [
+widget.show({ kind: "clock", title: "Clocks", staleAfter: 604800, zones: [
   { zone: "Asia/Kolkata", label: "Pune" },
   { zone: "America/New_York" },
 ] });
 
-// agenda: two events, and the days from today to the day after tomorrow
-const noon = new Date(2026, 11, 20, 12).getTime() / 1000;
-const trip = new Date(2026, 11, 21).getTime() / 1000;
-widget.show({ kind: "agenda", days: 3, empty: "Nothing planned", events: [
-  { title: "Lunch with Asha", starts: noon, ends: noon + 3600, where: "Cafe Goodluck" },
+// agenda: lunch tomorrow and a trip the day after, in the days from today to the day after tomorrow
+const t = new Date();
+const lunch = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1, 13).getTime() / 1000;
+const trip = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 2).getTime() / 1000;
+widget.show({ kind: "agenda", title: "Plans", days: 3, empty: "Nothing planned", events: [
+  { title: "Lunch with Asha", starts: lunch, ends: lunch + 3600, where: "Cafe Goodluck" },
   { title: "Goa trip", starts: trip, allDay: true, color: "good" },
 ] });
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[
+  { src: wButtons, alt: 'A 4×1 buttons card: Start, a red Stop and Help', size: '4x1', caption: 'buttons' },
+  { src: wToggles, alt: 'A 4×1 toggles card: Do Not Disturb, on', size: '4x1', caption: 'toggles' },
+  { src: wClock, alt: 'A 2×1 clock card called Clocks: the time in Pune and in New York', size: '2x1', caption: 'clock' },
+  { src: wAgenda, alt: 'A 4×2 agenda card called Plans: Lunch with Asha at 13:00 tomorrow at Cafe Goodluck, and the Goa trip all day after it', size: '4x2', caption: 'agenda' },
+]} />
 
 **`image`**: a picture from the web. The script gives the picture's link, and home fetches the
 picture.
@@ -1086,7 +1159,7 @@ local res = http.cached("https://example.com/today.json", 3600)
 local today = json.decode(res.body)
 widget.show{
   image = today.url,                 -- "https://example.com/pictures/1432.jpg"
-  alt = today.description,           -- "A red fox in the snow"
+  alt = today.description,           -- "Hills at sunrise"
   caption = today.title,
   tap = { url = today.page, label = "open the page" },
 }
@@ -1101,13 +1174,15 @@ const res = await http.cached("https://example.com/today.json", 3600);
 const today = JSON.parse(res.body);
 widget.show({
   image: today.url,                  // "https://example.com/pictures/1432.jpg"
-  alt: today.description,            // "A red fox in the snow"
+  alt: today.description,            // "Hills at sunrise"
   caption: today.title,
   tap: { url: today.page, label: "open the page" },
 });
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: wImage, alt: 'A 4×2 picture card: hills at sunrise, with the caption Sunrise over the ghats and the title Picture of the day on a chip', size: '4x2' }]} />
 
 ### Limits
 
@@ -1165,7 +1240,7 @@ colour.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-widget.show{ kind = "list", items = {
+widget.show{ kind = "list", title = "Bills", items = {
   {
     title = fmt.bold("Rent") .. " to Asha",
     detail = "due in " .. fmt.color("warn", "2 days"),
@@ -1176,7 +1251,7 @@ widget.show{ kind = "list", items = {
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-widget.show({ kind: "list", items: [
+widget.show({ kind: "list", title: "Bills", items: [
   {
     title: fmt.bold("Rent") + " to Asha",
     detail: "due in " + fmt.color("warn", "2 days"),
@@ -1186,6 +1261,8 @@ widget.show({ kind: "list", items: [
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: wStyles, alt: 'A 4×1 list card called Bills: Rent in bold to Asha, due in 2 days in amber, and 520 struck out before 480', size: '4x1' }]} />
 
 ### Taps
 
@@ -1270,6 +1347,8 @@ widget.show({
 ```
 </TabItem>
 </Tabs>
+
+<Cards items={[{ src: wWater, alt: 'A 2×1 progress card called Water: 5 / 8 over a green bar', size: '2x1' }]} />
 
 This script has no timer. It runs when you place its widget, when you tap it, and when the widgets
 page shows it with old content.

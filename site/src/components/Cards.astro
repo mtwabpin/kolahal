@@ -1,0 +1,68 @@
+---
+/**
+ * Pictures of widget cards or log lines, side by side, each at the size it has on a phone, with an
+ * optional caption under it. They wrap to the next row when the page is narrow.
+ *
+ * - `size` is a widget's size, such as "2x1": the card is as wide as on a phone (the pictures
+ *   come from WidgetGalleryTest, on a 412 dp wide screen).
+ * - `width` is the width in CSS pixels instead: a log picture (LogGalleryTest) is 360.
+ */
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Item {
+	src: ImageMetadata;
+	alt: string;
+	caption?: string;
+	size?: string;
+	width?: number;
+}
+
+interface Props {
+	items: Item[];
+}
+
+/** A card's width in dp by the columns it spans, with the 4 dp around it in its picture. */
+const byColumns: Record<string, number> = { '1': 100, '2': 201, '4': 403 };
+
+const { items } = Astro.props;
+const widthOf = (it: Item) => it.width ?? byColumns[(it.size ?? '2x1').split('x')[0]] ?? 201;
+---
+
+<div class="cards">
+	{
+		items.map((it) => (
+			<figure style={`max-width: ${widthOf(it)}px`}>
+				<Image src={it.src} alt={it.alt} width={widthOf(it)} densities={[1, 2]} />
+				{it.caption && <figcaption set:html={it.caption} />}
+			</figure>
+		))
+	}
+</div>
+
+<style>
+	.cards {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: 1rem;
+		margin-block: 1.25rem;
+	}
+	figure {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	figure :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: 0.75rem;
+	}
+	figcaption {
+		font-size: var(--sl-text-xs);
+		color: var(--sl-color-gray-3);
+		text-align: center;
+	}
+</style>

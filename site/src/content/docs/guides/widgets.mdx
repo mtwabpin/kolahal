@@ -3,6 +3,20 @@ title: Widgets
 description: Host Android home-screen widgets on a widgets page beside the terminal, with Kolahal's own widgets and your scripts' widgets.
 ---
 
+import Cards from "../../../components/Cards.astro";
+import battery from "../../../assets/widgets/battery-2x1.png";
+import shortcuts from "../../../assets/widgets/shortcuts-4x1.png";
+import nowplaying from "../../../assets/widgets/nowplaying-4x2.png";
+import todos from "../../../assets/widgets/todos-2x2.png";
+import agenda from "../../../assets/widgets/agenda-4x2.png";
+import reminders from "../../../assets/widgets/reminders-2x2.png";
+import notes from "../../../assets/widgets/notes-2x1.png";
+import weather from "../../../assets/widgets/weather-2x1.png";
+import forecast from "../../../assets/widgets/forecast-2x2.png";
+import habit from "../../../assets/widgets/habit-2x2.png";
+import hn from "../../../assets/widgets/hn-4x2.png";
+import widgetsPage from "../../../assets/parts/widgets-page.png";
+
 Kolahal can show the same home-screen widgets as any other launcher: clocks, weather, calendar,
 music, notes. The widgets are on a separate **widgets page** beside the terminal, so they take no space from it.
 The page also has [Kolahal's own widgets](#kolahals-own-widgets), such as your todos and what is
@@ -17,7 +31,7 @@ A swipe that starts on a log line copies or deletes that line instead.
 - Back or Home takes you back to the terminal.
 - `widgets.page` sets the side of the page: `left` (the default) or `right`. `off` turns the page off.
 
-![The widgets page with a clock widget, the add and edit buttons at the top](../../../assets/parts/widgets-page.png)
+<Cards items={[{ src: widgetsPage, alt: "The widgets page: the + and pencil buttons at the top, then weather and battery cards, todos and a habit streak, and a row of shortcuts", width: 380 }]} />
 
 The page can show your phone's wallpaper (the one you set in Android) behind the widgets.
 **Settings → Widgets → Transparency** (`widgets.wallpaper`) sets how much of it shows:
@@ -79,6 +93,16 @@ reminders, what is playing. Kolahal draws them as cards, in the theme's colours.
 | **Agenda** | your calendar's events for today and the next days | on an event: opens it in your calendar app. On the card: runs `agenda` |
 | **Reminders** | the next reminder and the two after it, with the time to each | runs `reminders` |
 | **Notes** | your newest note, or the newest three in a taller card | runs `notes` |
+
+<Cards items={[
+  { src: battery, alt: "The Battery and network card: 68% in a ring, Charging, and Wi-Fi", size: "2x1", caption: "Battery and network" },
+  { src: notes, alt: "The Notes card: the newest note and when it was written", size: "2x1", caption: "Notes" },
+  { src: shortcuts, alt: "The Shortcuts card: four buttons, torch, dnd, todo and maps", size: "4x1", caption: "Shortcuts" },
+  { src: nowplaying, alt: "The Now playing card: the track, the artist and the app, a bar for the position, and previous, pause and next", size: "4x2", caption: "Now playing" },
+  { src: todos, alt: "The Todos card: three open todos, each with an empty checkbox, and +2 more", size: "2x2", caption: "Todos" },
+  { src: reminders, alt: "The Reminders card: 42 min to the next one, Call the bank, and two more under it", size: "2x2", caption: "Reminders" },
+  { src: agenda, alt: "The Agenda card: two events today and one all-day event tomorrow", size: "4x2", caption: "Agenda" },
+]} />
 
 When a tap runs a command, it runs as if you had typed it. Home turns to the log, where the
 answer is.
@@ -185,6 +209,17 @@ script tells it. For example the weather, a feed's headlines, or your unlocks of
   It can be as small as a quarter of the page wide.
 - Under old content, the card says its age ("2 h ago"). After a run that failed, it says "Failed 10:42"
   and keeps what it had.
+
+A few of the library's widgets:
+
+<Cards items={[
+  { src: weather, alt: "The weather card: 27° in Pune, Sunny, 62% humidity", size: "2x1", caption: "weather" },
+  { src: forecast, alt: "The forecast card: three days, each with its sky, its low and its high", size: "2x2", caption: "forecast" },
+  { src: habit, alt: "The habit card: 5 days in a row over a bar for each of the last 7 days", size: "2x2", caption: "habit" },
+  { src: hn, alt: "The Hacker News card: three stories with their points, and +5 more", size: "4x2", caption: "hn" },
+]} />
+
+The [library](/scripting/library/#widgets) shows all of them.
 
 ### The same widget more than once
 
