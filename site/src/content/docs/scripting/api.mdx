@@ -591,10 +591,12 @@ draws nothing itself.
 1. Put an [`@widget` line](#the-widget-line) at the top of the script.
 2. Call [`widget.show`](#widgetshowdesc) with a description: a table in Lua, an object in
    JavaScript.
-3. Place the widget: tap **+ Add** on the widgets page. The picker lists your scripts' widgets in
-   the **Kolahal** group. A script can't place its own widget.
+3. Place the widget: tap **+** at the top of the widgets page. The picker lists your scripts'
+   widgets in the **Kolahal** group. A script can't place its own widget.
 
-Widgets need Kolahal 0.5.8 or newer.
+Widgets need Kolahal 0.5.8 or newer. To start from a widget that works, install a template from the
+[library](/scripting/library/#templates): **template-widget** shows a number from the web, and
+**template-widget-list** is a checklist you tap. Each also comes in JavaScript (`-js`).
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">

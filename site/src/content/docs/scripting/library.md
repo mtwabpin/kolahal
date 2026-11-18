@@ -1,9 +1,9 @@
 ---
 title: Script library
-description: The 39 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 43 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
-Kolahal includes 39 ready-made scripts, 12 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 43 ready-made scripts, 16 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -87,7 +87,8 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Eighteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others).
+Eighteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others),
+and two [templates](#templates), each in Lua and in JavaScript, show how to make your own.
 
 None of the network scripts need an API key.
 
@@ -132,6 +133,10 @@ None of the network scripts need an API key.
 | [template-js](#templates) | JS | yes | | |
 | [template-logs](#templates) | Lua | yes | | |
 | [template-logs-js](#templates) | JS | yes | | |
+| [template-widget](#templates) | Lua | | | |
+| [template-widget-js](#templates) | JS | | | |
+| [template-widget-list](#templates) | Lua | | daily 00:01 | |
+| [template-widget-list-js](#templates) | JS | | daily 00:01 | |
 
 ## Widgets
 
@@ -139,7 +144,7 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
-2. Tap **+ Add** on the widgets page, or run `widget add`.
+2. Tap **+** at the top of the widgets page, or run `widget add`.
 3. Pick the script in the **Kolahal** group.
 
 | Script | Its widget shows | A tap |
@@ -170,6 +175,8 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 - Old content stays on the card, with its age under it ("2 h ago"). After a run for the widget
   failed, the card says "Failed 10:42" and keeps its content.
 - A long-press on a card opens **Arrange widgets**. There you resize, move or remove it.
+- To make a widget of your own, start from a [template](#templates): **template-widget** shows a
+  number from the web, and **template-widget-list** is a checklist you tap.
 
 ## hn
 
@@ -586,6 +593,15 @@ Lua and in JavaScript: the JavaScript one has `-js` at the end of its name.
   shows one kind of line next to the code that makes it: plain lines and bodies, links and Copy
   text, styles and colours, tags, Markdown, lists, tables, bars, big numbers, a picture, a list with
   a space between its items, buttons, `line.set`, and the status line.
+- **template-widget** / **template-widget-js**: a [widget](#widgets). It fills a card on the widgets
+  page with a number from the web, large, with smaller ones under it (here, a GitHub project's
+  stars, forks and open issues; its `repo` option picks the project). A tap opens the project. It
+  has no timer: the widgets page runs it when it needs to. It shows how a run for the widget
+  differs from a run by hand.
+- **template-widget-list** / **template-widget-list-js**: a widget you tap. A checklist for each
+  day, with a checkbox on each row (its `items` option lists the things). A tap on a row runs the
+  script again, which ticks the row and fills the card again. Each new day starts with no ticks,
+  and each placed widget keeps its own.
 
 Install one, then copy it under a new name to make it yours, so library updates don't replace your
 changes: `script mv template-command mycommand`.

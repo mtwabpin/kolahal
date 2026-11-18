@@ -92,6 +92,10 @@ details and examples.
 others, as in [describing a script](/scripting/overview/#describing-a-script). Tap an entry to
 insert it at the cursor. An `@` line is inserted as a whole comment line.
 
+Its last part, **Icons**, shows every [widget icon](/scripting/api/#icons) with its name, in
+groups. Tap one to insert its name at the cursor, in quotes unless the cursor is already after a
+quote.
+
 ## Editing elsewhere
 
 For longer scripts, you may prefer a computer. You can:

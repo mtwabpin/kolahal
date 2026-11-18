@@ -226,7 +226,7 @@ widget.show{
   - The sizes are `1x1`, `2x1`, `2x2`, `4x1`, `4x2` and `4x4`, in cells of a 4-column grid.
 - `widget.show{…}` fills the card. Each kind has its own fields:
   [the API reference](/scripting/api/#widgets) lists them.
-- You place the widget yourself. Tap **+ Add** on the widgets page (or run `widget add`) and pick
+- You place the widget yourself. Tap **+** at the top of the widgets page (or run `widget add`) and pick
   it in the **Kolahal** group. A script can't place itself.
 - Until you place it, `widget.show` only checks what it gets, and stores nothing.
 - A tap on the card can run the script again with arguments, or open a web link
@@ -248,7 +248,8 @@ A script with no timer is a good widget. It runs only when you look at it or tap
 battery in the background.
 
 Widgets need Kolahal 0.5.8 or newer. Eighteen [library](/scripting/library/#widgets) scripts have one,
-for example weather, hn and countdown.
+for example weather, hn and countdown. Two [templates](/scripting/library/#templates) are a start
+for your own: **template-widget** and **template-widget-list**.
 
 ## Command scripts
 
