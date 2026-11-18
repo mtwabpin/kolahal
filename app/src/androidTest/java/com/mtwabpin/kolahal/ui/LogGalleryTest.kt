@@ -77,25 +77,36 @@ class LogGalleryTest {
 
     private fun lines(): List<LogEntry> = logs.recent(limit = 200).filter { it.source == name }.sortedBy { it.id }
 
-    /** Runs [ex]'s code as a script, and returns the lines it logged. */
-    private fun run(ex: DocsExamples.Log): List<LogEntry> {
+    /** Runs [code] (Lua) as a script, and returns the lines it logged. */
+    private fun run(code: String): List<LogEntry> {
         lines().forEach { logs.delete(it.id) }
         val host = HostApi(context, name, scriptId = id, notifyEnabled = false)
-        runBlocking { ScriptEngine.forLang(ScriptLang.LUA).run(ex.before + ex.code.trimIndent(), name, host, 10_000, false, emptyList(), null) }
+        runBlocking { ScriptEngine.forLang(ScriptLang.LUA).run(code, name, host, 10_000, false, emptyList(), null) }
         host.flush()
         return lines()
     }
 
     private var shown by mutableStateOf<List<LogRow.Entry>>(emptyList())
 
-    @Test fun theGuidesLogExamplesAreDrawnAndSaved() {
-        val out = checkNotNull(context.getExternalFilesDir("gallery-log")) { "no external files" }
+    @Test fun theGuidesLogExamplesAreDrawnAndSaved() =
+        draw(DocsExamples.logs.map { "log-${it.name}" to it.before + it.code.trimIndent() }, "gallery-log", WIDTH_DP, source = true)
+
+    /**
+     * The website's pictures of the fmt samples ([ReferenceExamples.fmt]), for the guide's table of
+     * fmt functions: narrower, and without the script's name after the line. As `fmt-<name>.png`.
+     */
+    @Test fun theFmtSamplesAreDrawnAndSaved() =
+        draw(ReferenceExamples.fmt.map { "fmt-${it.name.removePrefix("fmt.")}" to it.code(ScriptLang.LUA) }, "gallery-fmt", FMT_WIDTH_DP, source = false)
+
+    /** Runs each of [examples] (a picture's name, and its Lua code) and saves its lines in [dir], [widthDp] wide. */
+    private fun draw(examples: List<Pair<String, String>>, dir: String, widthDp: Int, source: Boolean) {
+        val out = checkNotNull(context.getExternalFilesDir(dir)) { "no external files" }
         out.listFiles()?.forEach { it.delete() }
         val times = lineTimeFormat(clock24 = true)
         compose.setContent {
             KolahalTheme {
                 val indents = rememberLineIndents()
-                Column(Modifier.testTag(SHOT).width(WIDTH_DP.dp).background(Term.bg).padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
+                Column(Modifier.testTag(SHOT).width(widthDp.dp).background(Term.bg).padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
                     for (row in shown) key(row.entry.id) {
                         LogLine(
                             row, TimeMode.OFF, times, dim = false, topGap = 0.dp, itemGap = if (row.itemGap) 5.dp else 0.dp,
@@ -107,21 +118,21 @@ class LogGalleryTest {
             }
         }
         val pictures = ArrayList<String>()
-        for (ex in DocsExamples.logs) {
-            val entries = run(ex)
-            assertTrue("${ex.name} logged nothing", entries.isNotEmpty())
-            shown = buildRows(entries).filterIsInstance<LogRow.Entry>()
+        for ((picture, code) in examples) {
+            val entries = run(code)
+            assertTrue("$picture logged nothing", entries.isNotEmpty())
+            shown = buildRows(entries).filterIsInstance<LogRow.Entry>().map { if (source) it else it.copy(showSource = false) }
             compose.waitForIdle()
             // A picture line loads its picture off the main thread.
             if (entries.any { it.ctx.values.containsKey("image") }) {
                 Thread.sleep(1_000)
                 compose.waitForIdle()
             }
-            val picture = compose.onNodeWithTag(SHOT).captureToImage().asAndroidBitmap()
-            val file = File(out, "log-${ex.name}.png")
-            file.outputStream().use { picture.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            val shot = compose.onNodeWithTag(SHOT).captureToImage().asAndroidBitmap()
+            val file = File(out, "$picture.png")
+            file.outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) }
             assertTrue("${file.name} is empty", file.length() > 0)
-            pictures += """{"name":"log-${ex.name}","w":$WIDTH_DP}"""
+            pictures += """{"name":"$picture","w":$widthDp}"""
         }
         val density = context.resources.displayMetrics.density
         File(out, "manifest.json").writeText("""{"density":$density,"lines":[${pictures.joinToString(",")}]}""")
@@ -163,5 +174,8 @@ class LogGalleryTest {
 
         /** A phone's log is about this wide, in dp. */
         const val WIDTH_DP = 360
+
+        /** A fmt sample's width, in dp: it shows in a column of the guide's table. */
+        const val FMT_WIDTH_DP = 240
     }
 }

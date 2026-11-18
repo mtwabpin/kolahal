@@ -5,6 +5,18 @@ description: Every function scripts can call, in Lua and JavaScript, with return
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import Cards from '../../../components/Cards.astro';
+import { Image } from 'astro:assets';
+import fBold from '../../../assets/fmt/bold.png';
+import fItalic from '../../../assets/fmt/italic.png';
+import fUnderline from '../../../assets/fmt/underline.png';
+import fStrike from '../../../assets/fmt/strike.png';
+import fCode from '../../../assets/fmt/code.png';
+import fColor from '../../../assets/fmt/color.png';
+import fTag from '../../../assets/fmt/tag.png';
+import fLink from '../../../assets/fmt/link.png';
+import fStats from '../../../assets/fmt/stats.png';
+import fList from '../../../assets/fmt/list.png';
+import fTable from '../../../assets/fmt/table.png';
 import logLog from '../../../assets/log/log.png';
 import logLogs from '../../../assets/log/logs.png';
 import logMd from '../../../assets/log/md.png';
@@ -224,20 +236,23 @@ Use these for lines that include text from the web, where Markdown would need es
 function returns styled text. You can join it with other text in any `log`, `logs` or `md.log`.
 Nothing else in the line is read as a style.
 
-| Function | Shows |
-| --- | --- |
-| `fmt.bold(text)` | bold (in a body, also in the text colour) |
-| `fmt.italic(text)` | italic |
-| `fmt.underline(text)` | underlined |
-| `fmt.strike(text)` | struck through |
-| `fmt.code(text)` | on a shaded chip, in the terminal font |
-| `fmt.color(role, text)` | in one of the theme's colours: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` |
-| `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) |
-| `fmt.link(text, url)` | text that opens a link: see [Links](#links) |
-| `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) |
-| `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. |
-| `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) |
-| `fmt.plain(text)` | the text without its styles |
+| Function | Shows | Looks like |
+| --- | --- | --- |
+| `fmt.bold(text)` | bold (in a body, also in the text colour) | <Image src={fBold} alt="Rent, then due today in bold" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.italic(text)` | italic | <Image src={fItalic} alt="Simplicity first in italics, then Dijkstra" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.underline(text)` | underlined | <Image src={fUnderline} alt="Read the terms first, with terms underlined" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.strike(text)` | struck through | <Image src={fStrike} alt="Price 520 480, with 520 struck through" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.code(text)` | on a shaded chip, in the terminal font | <Image src={fCode} alt="Run, then script lib on a shaded chip" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.color(role, text)` | in one of the theme's colours: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` | <Image src={fColor} alt="Each role's name in its colour: accent, link, info, muted, text, good, warn and bad" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) | <Image src={fTag} alt="Three tags: a red LIVE, an accent NEW and a green v1.2" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.link(text, url)` | text that opens a link: see [Links](#links) | <Image src={fLink} alt="Read the guide, with the guide underlined in the link colour" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) | <Image src={fStats} alt="Pune, then 25°C large with Sunny under it, and 36% humidity" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. | <Image src={fList} alt="Today, then 1. standup and 2. review" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) | <Image src={fTable} alt="Rates, then a table: USD 84.40 and EUR 91.20" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.plain(text)` | the text without its styles | the same text, with no styles |
+
+Each picture is one line, such as `log("Rent " .. fmt.bold("due today"))`. The script editor's API
+reference shows the same lines under these functions, drawn in your theme.
 
 Colours:
 

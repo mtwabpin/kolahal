@@ -364,7 +364,8 @@ internal object ReferenceExamples {
     private fun code(text: String) = StyledText.wrap(StyledText.Style.CODE, text)
     private fun colour(colour: Colour, text: String) = StyledText.colour(colour, text)
 
-    private val fmt = Fmt { v -> if (v is Double) Json.numberText(v) else v?.toString().orEmpty() }
+    /** The engines' `fmt` helpers, with numbers written as the scripts write them. */
+    private val styles = Fmt { v -> if (v is Double) Json.numberText(v) else v?.toString().orEmpty() }
 
     private const val STORY_1 = "A launcher that is a terminal"
     private const val STORY_2 = "Lua 5.5 is out"
@@ -529,11 +530,11 @@ internal object ReferenceExamples {
             log("Pune · 3 days", fmt.ranges([["Today", 23, 31], ["Tomorrow", 22, 30]], { unit: "°", color: "warn" }));
             """,
             lines = listOf(
-                Line("Pune · AQI 168", "Unhealthy\n" + fmt.bar(listOf(168.0, mapOf("max" to 300.0, "color" to "bad")))),
-                Line("Unlocks", fmt.bars(listOf(listOf(listOf("Mon", 42.0), listOf("Tue", 21.0)), mapOf("color" to "good")))),
+                Line("Pune · AQI 168", "Unhealthy\n" + styles.bar(listOf(168.0, mapOf("max" to 300.0, "color" to "bad")))),
+                Line("Unlocks", styles.bars(listOf(listOf(listOf("Mon", 42.0), listOf("Tue", 21.0)), mapOf("color" to "good")))),
                 Line(
                     "Pune · 3 days",
-                    fmt.ranges(listOf(listOf(listOf("Today", 23.0, 31.0), listOf("Tomorrow", 22.0, 30.0)), mapOf("unit" to "°", "color" to "warn"))),
+                    styles.ranges(listOf(listOf(listOf("Today", 23.0, 31.0), listOf("Tomorrow", 22.0, 30.0)), mapOf("unit" to "°", "color" to "warn"))),
                 ),
             ),
         ),
@@ -560,4 +561,111 @@ internal object ReferenceExamples {
             ),
         ),
     )
+
+    private val ROLES = listOf("accent", "link", "info", "muted", "text", "good", "warn", "bad")
+
+    /**
+     * A sample for each `fmt` function: one short `log` call, and the line it makes. The reference
+     * draws it under the function's entry ([ApiDoc] of the same name), and the website shows it in
+     * the guide's table of `fmt` functions. `fmt.plain` has none: its text has no styles to show.
+     */
+    val fmt: List<Log> = listOf(
+        Log(
+            "fmt.bold", "fmt.bold",
+            lua = """log("Rent " .. fmt.bold("due today"))""",
+            js = """log("Rent " + fmt.bold("due today"));""",
+            lines = listOf(Line("Rent " + bold("due today"))),
+        ),
+        Log(
+            "fmt.italic", "fmt.italic",
+            lua = """log(fmt.italic("Simplicity first") .. " · Dijkstra")""",
+            js = """log(fmt.italic("Simplicity first") + " · Dijkstra");""",
+            lines = listOf(Line(StyledText.wrap(StyledText.Style.ITALIC, "Simplicity first") + " · Dijkstra")),
+        ),
+        Log(
+            "fmt.underline", "fmt.underline",
+            lua = """log("Read the " .. fmt.underline("terms") .. " first")""",
+            js = """log("Read the " + fmt.underline("terms") + " first");""",
+            lines = listOf(Line("Read the " + StyledText.wrap(StyledText.Style.UNDERLINE, "terms") + " first")),
+        ),
+        Log(
+            "fmt.strike", "fmt.strike",
+            lua = """log("Price " .. fmt.strike("520") .. " 480")""",
+            js = """log("Price " + fmt.strike("520") + " 480");""",
+            lines = listOf(Line("Price " + StyledText.wrap(StyledText.Style.STRIKE, "520") + " 480")),
+        ),
+        Log(
+            "fmt.code", "fmt.code",
+            lua = """log("Run " .. fmt.code("script lib"))""",
+            js = """log("Run " + fmt.code("script lib"));""",
+            lines = listOf(Line("Run " + code("script lib"))),
+        ),
+        Log(
+            "fmt.color", "fmt.color",
+            lua = """
+            local roles = { "accent", "link", "info", "muted", "text", "good", "warn", "bad" }
+            local shown = {}
+            for i, role in ipairs(roles) do shown[i] = fmt.color(role, role) end
+            log(table.concat(shown, " "))
+            """,
+            js = """
+            const roles = ["accent", "link", "info", "muted", "text", "good", "warn", "bad"];
+            log(roles.map((role) => fmt.color(role, role)).join(" "));
+            """,
+            lines = listOf(Line(ROLES.joinToString(" ") { colour(Colour.named(it)!!, it) })),
+        ),
+        Log(
+            "fmt.tag", "fmt.tag",
+            lua = """log(fmt.tag("bad", "LIVE") .. " " .. fmt.tag("NEW") .. " " .. fmt.tag("good", "v1.2"))""",
+            js = """log(fmt.tag("bad", "LIVE") + " " + fmt.tag("NEW") + " " + fmt.tag("good", "v1.2"));""",
+            lines = listOf(Line(StyledText.tag(Colour.BAD, "LIVE") + " " + StyledText.tag(Colour.ACCENT, "NEW") + " " + StyledText.tag(Colour.GOOD, "v1.2"))),
+        ),
+        Log(
+            "fmt.link", "fmt.link",
+            lua = """log("Read " .. fmt.link("the guide", "https://mtwabpin.github.io/kolahal/"))""",
+            js = """log("Read " + fmt.link("the guide", "https://mtwabpin.github.io/kolahal/"));""",
+            lines = listOf(Line("Read " + StyledText.link("https://mtwabpin.github.io/kolahal/", "the guide"))),
+        ),
+        Log(
+            "fmt.list", "fmt.list",
+            lua = """log("Today", fmt.list({ "standup", "review" }, true))""",
+            js = """log("Today", fmt.list(["standup", "review"], true));""",
+            lines = listOf(Line("Today", StyledText.list(listOf("standup", "review"), numbered = true))),
+        ),
+        Log(
+            "fmt.table", "fmt.table",
+            lua = """log("Rates", fmt.table({ { "USD", "84.40" }, { "EUR", "91.20" } }, { align = "lr" }))""",
+            js = """log("Rates", fmt.table([["USD", "84.40"], ["EUR", "91.20"]], { align: "lr" }));""",
+            lines = listOf(Line("Rates", StyledText.table(listOf(listOf("USD", "84.40"), listOf("EUR", "91.20")), header = false, align = "lr"))),
+        ),
+        Log(
+            "fmt.bar", "fmt.bar",
+            lua = """log("Battery", fmt.bar(0.68, { color = "good" }))""",
+            js = """log("Battery", fmt.bar(0.68, { color: "good" }));""",
+            lines = listOf(Line("Battery", styles.bar(listOf(0.68, mapOf("color" to "good"))))),
+        ),
+        Log(
+            "fmt.bars", "fmt.bars",
+            lua = """log("Unlocks", fmt.bars({ { "Mon", 42 }, { "Tue", 21 } }))""",
+            js = """log("Unlocks", fmt.bars([["Mon", 42], ["Tue", 21]]));""",
+            lines = listOf(Line("Unlocks", styles.bars(listOf(listOf(listOf("Mon", 42.0), listOf("Tue", 21.0)))))),
+        ),
+        Log(
+            "fmt.ranges", "fmt.ranges",
+            lua = """log("Pune", fmt.ranges({ { "Today", 23, 31 }, { "Tomorrow", 22, 30 } }, { unit = "°" }))""",
+            js = """log("Pune", fmt.ranges([["Today", 23, 31], ["Tomorrow", 22, 30]], { unit: "°" }));""",
+            lines = listOf(Line("Pune", styles.ranges(listOf(listOf(listOf("Today", 23.0, 31.0), listOf("Tomorrow", 22.0, 30.0)), mapOf("unit" to "°"))))),
+        ),
+        Log(
+            "fmt.stats", "fmt.stats",
+            lua = """log("Pune", fmt.stats({ { "25°C", "Sunny" }, { "36%", "humidity" } }))""",
+            js = """log("Pune", fmt.stats([["25°C", "Sunny"], ["36%", "humidity"]]));""",
+            lines = listOf(Line("Pune", StyledText.stats(listOf("25°C" to "Sunny", "36%" to "humidity")))),
+        ),
+    )
+
+    private val fmtByName = fmt.associateBy { it.name }
+
+    /** The sample of the `fmt` function [name] ("fmt.bold"), or null when it has none. */
+    fun fmtSample(name: String): Log? = fmtByName[name]
 }

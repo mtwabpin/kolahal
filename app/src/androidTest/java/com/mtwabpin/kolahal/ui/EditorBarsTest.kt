@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
@@ -280,6 +281,23 @@ class EditorBarsTest {
             val acting = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
             assertEquals(tag, listOf(cover), acting.map { it.config.getOrNull(SemanticsProperties.TestTag) })
         }
+    }
+
+    /**
+     * A fmt function's entry shows what it makes, as the log draws it. A tap on the sample, even on
+     * its link, picks the function, as a tap on its entry does.
+     */
+    @Test fun aFmtSampleShowsWhatItMakesAndPicksTheFunction() {
+        show()
+        cursorAt(10)
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("fmt-sample fmt.link"))
+        // The line reads as one text: the link is part of it, not a button of its own.
+        compose.onNode(hasContentDescription("Read the guide")).assertExists()
+        compose.onNodeWithTag("fmt-sample fmt.link").performClick()
+        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
+        assertEquals("apple pie\nfmt.link(banana apple\nApple cider", text())
     }
 
     /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */

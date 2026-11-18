@@ -100,6 +100,10 @@ scripting guide.
   the log draws them.
 - Tap an example to put its code in at the cursor, on lines of its own. The cards and lines only
   show: a tap on a button, a row or a link inserts the example too.
+- Each example is on a panel of its own: its name, what it makes, and its code.
+
+Each `fmt` function's entry in the list also shows what it makes, as the log draws it: a bold
+word for `fmt.bold`, a row of tags for `fmt.tag`. A tap on it picks the function.
 
 After them, **Icons** shows every [widget icon](/scripting/api/#icons) with its name, in
 groups. Tap one to insert its name at the cursor, in quotes unless the cursor is already after a

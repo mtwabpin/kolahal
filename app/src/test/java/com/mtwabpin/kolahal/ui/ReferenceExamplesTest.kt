@@ -17,6 +17,13 @@ class ReferenceExamplesTest {
         }
     }
 
+    /** Each fmt function of the reference has a sample, but fmt.plain, whose text has no styles; and each sample is of a function there. */
+    @Test fun eachFmtFunctionHasASample() {
+        val functions = com.mtwabpin.kolahal.script.ApiDocs.forLang(ScriptLang.LUA).map { it.name }.filter { it.startsWith("fmt.") }.toSet()
+        assertEquals(functions - "fmt.plain", ReferenceExamples.fmt.map { it.name }.toSet())
+        assertEquals(ReferenceExamples.fmt.size, ReferenceExamples.fmt.map { it.name }.distinct().size)
+    }
+
     @Test fun eachExampleHasItsOwnName() {
         for (names in listOf(ReferenceExamples.widgets.map { it.name }, ReferenceExamples.logs.map { it.name })) assertEquals(names.distinct(), names)
     }

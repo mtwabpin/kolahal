@@ -379,7 +379,12 @@ internal fun ApiReferenceSheet(
                 ) {
                     Text(d.signature, style = Term.code.copy(color = if (d.kind == ApiDoc.Kind.NAMESPACE) Term.info else Term.fg))
                     Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
+                    // A fmt function: what it makes, as the log draws it. A tap on it picks the entry too.
+                    ReferenceExamples.fmtSample(d.name)?.let { sample ->
+                        LinesPreview(sample, "Insert ${d.name}", cover = "fmt-sample ${d.name}", Modifier.padding(top = 6.dp), source = false) { onPick(d) }
+                    }
                 }
+                EntryDivider()
             }
             item {
                 Text(
@@ -400,6 +405,7 @@ internal fun ApiReferenceSheet(
                     Text("$comment @${d.name} ${d.args}".trimEnd(), style = Term.code.copy(color = Term.fg))
                     Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
                 }
+                EntryDivider()
             }
             widgetExamples(lang, onExample)
             logExamples(lang, onExample)
@@ -444,3 +450,8 @@ internal fun ApiReferenceSheet(
         }
     }
 }
+
+/** A thin line under an entry of the API reference, so each entry reads as one at a glance. */
+@Composable
+private fun EntryDivider() =
+    androidx.compose.material3.HorizontalDivider(color = Term.dim.copy(alpha = 0.2f), modifier = Modifier.padding(horizontal = 16.dp))

@@ -15,7 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The editor reference draws each log example from lines made in Kotlin
+ * The editor reference draws each log example and fmt sample from lines made in Kotlin
  * ([ReferenceExamples.Log.lines]), not by running the example. Here each example's code runs as
  * the reference inserts it, in Lua and in JavaScript, as a saved script, and must log those same
  * lines: the same text, and the same context for what a line shows (its body, link, gap, Copy text
@@ -36,7 +36,7 @@ class ReferenceLinesTest {
     private val shown = setOf(LogContext.TITLE, LogContext.BODY, LogContext.URL, LogContext.GAP, LogContext.COPY, LogContext.ACTIONS)
 
     @Test fun eachExampleLogsTheLinesTheReferenceDraws() {
-        for (ex in ReferenceExamples.logs) for (lang in ScriptLang.entries) {
+        for (ex in ReferenceExamples.logs + ReferenceExamples.fmt) for (lang in ScriptLang.entries) {
             lines().forEach { logs.delete(it.id) }
             // A saved script: only its lines may have buttons.
             val host = HostApi(context, name, scriptId = id, notifyEnabled = false)
