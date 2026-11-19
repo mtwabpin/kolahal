@@ -82,6 +82,20 @@ class UsageLevels(private val context: Context) {
             }.filter { it.total > 0 && it.span >= if (it.current) DAY_MS else HOUR_MS }.sortedBy { it.start }
         }
 
+        /**
+         * [outer] with each app's time at least what the [inner] buckets inside it hold. Android deletes a
+         * removed or reinstalled app's history from some levels and not others: on one phone the year
+         * lost 48 hours of a reinstalled browser that the months kept. An outer bucket can't hold less
+         * than the buckets inside it, so each app gets the larger of the two. An inner bucket counts
+         * when it lies wholly inside, give or take an hour: the current ones end together, at now.
+         */
+        fun fill(outer: List<Bucket>, inner: List<Bucket>): List<Bucket> = outer.map { o ->
+            val inside = inner.filter { it.start >= o.start && it.end <= o.end + HOUR_MS }
+            if (inside.isEmpty()) return@map o
+            val sums = inside.flatMap { it.apps.entries }.groupBy({ it.key }, { it.value }).mapValues { it.value.sum() }
+            o.copy(apps = (o.apps.keys + sums.keys).associateWith { maxOf(o.apps[it] ?: 0, sums[it] ?: 0) })
+        }
+
         /** The buckets an average counts: those that are over, and the current one once it has run a week. */
         fun counted(buckets: List<Bucket>): List<Bucket> = buckets.filter { !it.current || it.span >= COUNTS_AFTER_MS }
 

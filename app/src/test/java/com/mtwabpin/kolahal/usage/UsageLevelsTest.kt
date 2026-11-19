@@ -60,6 +60,24 @@ class UsageLevelsTest {
         assertNull(UsageLevels.change(months.takeLast(2)))
     }
 
+    /**
+     * A year can't hold less than the months inside it: Android deleted a reinstalled app's history
+     * from the year and not from the months. Each app gets the larger; a month outside is no part.
+     */
+    @Test fun theYearIsFilledFromItsMonths() {
+        val year = Bucket(0, 200 * DAY_MS, mapOf("ff" to 50 * hour, "wa" to 20 * hour), null, current = true)
+        val months = listOf(
+            Bucket(-30 * DAY_MS, 10 * DAY_MS, mapOf("ff" to 500 * hour), null, current = false),
+            Bucket(100 * DAY_MS, 130 * DAY_MS, mapOf("ff" to 60 * hour, "wa" to 5 * hour, "rd" to 3 * hour), null, current = false),
+            Bucket(130 * DAY_MS, 200 * DAY_MS - hour / 2, mapOf("ff" to 40 * hour), null, current = true),
+        )
+        val filled = UsageLevels.fill(listOf(year), months).single()
+        assertEquals(mapOf("ff" to 100 * hour, "wa" to 20 * hour, "rd" to 3 * hour), filled.apps)
+        assertEquals(year.start to year.end, filled.start to filled.end)
+        // With no month inside, the year stays as Android gives it.
+        assertEquals(year, UsageLevels.fill(listOf(year), months.take(1)).single())
+    }
+
     /** The top apps over all buckets; a year's apps left behind and new ones. */
     @Test fun topAppsAndShifts() {
         val last = bucket(0, 365, "insta" to 1.2, "yt" to 1.0, "maps" to 0.1)

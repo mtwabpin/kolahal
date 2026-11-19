@@ -35,16 +35,24 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     fun run(args: List<String>) {
         if (!unlocks.hasUsageAccess()) return fix("Usage summary needs usage access — tap to allow it", "usage-access")
         val levels = UsageLevels(context)
-        // Each level is read once, even by `full`.
+        // Each level is read once, even by `full`. A year is filled from the months inside it, and a
+        // month from its weeks: Android deletes a removed app's history from some levels only.
         val read = HashMap<Level, List<Bucket>>()
-        val buckets = { level: Level -> read.getOrPut(level) { levels.read(level) } }
+        fun buckets(level: Level): List<Bucket> = read.getOrPut(level) {
+            val own = levels.read(level)
+            when (level) {
+                Level.YEARS -> UsageLevels.fill(own, buckets(Level.MONTHS))
+                Level.MONTHS -> UsageLevels.fill(own, buckets(Level.WEEKS))
+                else -> own
+            }
+        }
         when (args.firstOrNull()?.lowercase()) {
-            null -> overview(buckets)
+            null -> overview(::buckets)
             "week" -> period(buckets(Level.WEEKS), Level.WEEKS)
             "month" -> period(buckets(Level.MONTHS), Level.MONTHS)
             "year" -> years(buckets(Level.YEARS))
             "full" -> {
-                overview(buckets)
+                overview(::buckets)
                 for (level in listOf(Level.WEEKS, Level.MONTHS, Level.YEARS)) {
                     rule(unit(level, 2))
                     if (level == Level.YEARS) years(buckets(level)) else period(buckets(level), level)
@@ -86,20 +94,32 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     private fun byPkg(): Map<String, AppEntry> =
         apps.apps.value.groupBy { it.pkg }.mapValues { (_, list) -> list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first() }
 
-    /** An app's name: the app list's, or Android's; null for a package with no name of its own (the in-call screen). */
+    /** Whether [pkg] is no longer installed. Android may keep its time in some levels, with no name for it. */
+    private fun removed(pkg: String): Boolean =
+        runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.exceptionOrNull() is android.content.pm.PackageManager.NameNotFoundException
+
+    /**
+     * An app's name: the app list's, or Android's. A removed app has only its package, so that is its
+     * name. Null for an installed package with no name of its own (the in-call screen).
+     */
     private fun name(pkg: String, byPkg: Map<String, AppEntry>): String? {
         byPkg[pkg]?.let { return it.label }
         val pm = context.packageManager
         val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+        if (label == null && removed(pkg)) return pkg
         return label?.takeIf { it.isNotBlank() && it != pkg }
     }
 
-    /** The line of an app: [prefix] (a chip) and its name, and a tap opens it when it is in the app list. */
+    /**
+     * The line of an app: [prefix] (a chip) and its name, and a tap opens it when it is in the app list.
+     * A removed app has a "removed" chip before its package.
+     */
     private fun appLine(pkg: String, byPkg: Map<String, AppEntry>, desc: String, fraction: Double? = null, prefix: String = "") {
         val label = name(pkg, byPkg) ?: return
+        val gone = if (byPkg[pkg] == null && label == pkg) StyledText.tag(StyledText.Colour.MUTED, "removed") + " " else ""
         val ctx = (byPkg[pkg]?.let { appContext(it) } ?: LogContext.EMPTY) + mapOf(LogContext.DESC to desc) +
             (fraction?.let { LogContext.bar(it) } ?: emptyMap())
-        out(prefix + label, ctx)
+        out(prefix + gone + label, ctx)
     }
 
     /** A thin rule with a label, `── top apps ──`: it parts the output where a heading or a sentence would. */
