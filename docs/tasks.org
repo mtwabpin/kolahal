@@ -81,3 +81,218 @@ lint. Nothing was run on a device, so all times are estimates. Line numbers are 
   functions with JVM tests, as calc, cal, pipes and =commands.off= already were; aliases, typo hints
   and help's catalog checks followed in 0.5.8. No =LogSink= fake and no Robolectric: the device tests
   keep checking the wiring, on the shared =kolahal.db=, one at a time.
+
+* Code scan findings (19 November 2026)
+Two read-only scans of 0.5.14-dev (=2b1cfb5b=): one of the architecture, one of code that adds
+complexity but provides nothing. Line numbers are from that commit.
+
+- Paths are under =app/src/main/java/com/mtwabpin/kolahal/=.
+- Priority: =[#A]= the copies already disagree (a real difference you can see), =[#B]= restructuring,
+  =[#C]= cleanup.
+- /(checked)/: checked against the code again after the scan. The others rest on the scan's reading.
+- Write what to do after =Remark:= (do it, skip it, or change it), and I'll follow that.
+
+** Drift: the same job done twice, and the copies disagree
+*** TODO [#A] Device controls written twice: the terminal and scripts /(checked)/
+- =terminal/ControlCommands.kt:245-279= and =script/HostApi.kt:717-724=, =:884-893=, =:678-687=, =:749-756=.
+- Do Not Disturb: =dnd off= checks it really turned off (since Android 15, Kolahal can only turn
+  off one it turned on). The script's =device.setDnd("off")= returns true while it stays on. The
+  mode words are two separate tables.
+- The network kind: the header knows =vpn= and marks an unchecked network with =?=;
+  =device.network()= knows neither.
+- Pausing the work profile: =AppRepository.setQuietMode= ignores Android's answer;
+  =HostApi.setWork= returns it.
+- Fix: the Android calls move to shared model helpers (=control/Dnd=, a pure =networkKind=,
+  =Profiles.setQuiet=); the terminal, the header and scripts all call them. Medium.
+- Remark:
+
+*** TODO [#A] An app's name worked out 6 ways /(checked)/
+- =control/MediaRepository.kt:281-288=, =notifications/KolahalNotificationListener.kt:198-203=,
+  =terminal/UsageSummaryCommands.kt:102-108=, =terminal/UsageCommands.kt:112-125=,
+  =usage/AppUsage.kt:61-69=, =script/HostData.kt:154-158=.
+- The Now playing card ignores names set with =rename=, and its name cache is never cleared, so
+  an app update or a rename isn't seen until the app restarts.
+- Some places don't remove styling from Android's labels, which =AppRepository= says must not
+  style a log line.
+- Fix: one =apps/AppNames= (the app list, then the stripped Android label); =:script= passes a
+  label lambda, as =AppUsage.times= already takes. Small to medium.
+- Remark:
+
+*** TODO [#A] Two caches of todos, notes, reminders and feeds /(checked)/
+- =terminal/TerminalViewModel.kt:1360-1401= and =:513-521=; =terminal/OwnWidgets.kt:238-262=.
+- The suggestions and the header count refresh when a log line "looks like" productivity work.
+  The widget cards refresh from each store's change counter.
+- =followTodoWrites= patches the todo case (the widget's checkbox writes no log line). Feeds have
+  no patch: a feed added or removed on the Feeds screen is missing from =feed rm= suggestions for
+  up to a minute.
+- Fix: one source driven by the stores' change counters; both read from it; the log-line guess
+  and the patch go. Medium.
+- Remark:
+
+*** TODO [#A] Feed subscribing written twice /(checked)/
+- =ui/FeedsScreen.kt:143-145=, =:198-236= and =terminal/FeedCommands.kt:70-145=.
+- The Feeds screen checks for a duplicate with the URL as typed (=:217=), but the repository stores
+  it normalised, so "Already subscribed" can miss. =feed add= with a known URL says "Subscribed".
+  =FeedCommands:137= hard-codes 15 instead of =FeedScheduler.MIN_INTERVAL_MIN=.
+- Fix: one =feeds/FeedSubscriptions= (subscribe, remove, on and off, interval, move, OPML import)
+  that changes the repository and the schedule together. Small to medium.
+- Remark:
+
+*** TODO [#A] Times and days formatted outside TimeFormats /(checked)/
+- =installs= ignores the 12/24-hour setting (=AppCommands.kt:87=), and so does a widget's "Failed
+  10:42" footer (=ui/WidgetKinds.kt:687=).
+- A reminder's time says "Tomorrow" on a widget (=ui/OwnWidgets.kt:232-244=) and "tomorrow", with
+  the year for another year, in the log (=terminal/ProductivityCommands.kt:292-302=).
+- =agenda= writes =h:mma=; everywhere else writes =h:mm a=. Copies of the clock and day patterns
+  are in =TerminalHeader.kt:273-274=, =LogView.kt:88= and =TourPreviews.kt:171=, =:337=, =:342=.
+- Fix: =TimeFormats= gets a day-and-time format with one rule for "Tomorrow" and the year, plus
+  the log line's time; the copies use it. Small.
+- Remark:
+
+*** TODO [#A] Settings shared with scripts are copied one key at a time /(checked)/
+- =data/SharedSettings.kt:12-13=, =LauncherApp.kt:155-175=, =data/LogRepository.kt:586-589=.
+- =SharedSettings.get= takes any key. For a key nobody copied, it quietly returns the default, so
+  a script feature reading it gets a wrong value and nothing says so.
+- Fix: a =Keys.SHARED= list, copied in one loop; =SharedSettings.get= refuses other keys in debug
+  builds; a unit test. Small.
+- Remark:
+
+*** TODO [#A] Widget limits written twice; a time limit differs /(checked)/
+- =widgets/WidgetSpec.kt:292-311= repeats 15 limits of =widgets/WidgetParser.kt:64-97=.
+- They already differ: the parser accepts times up to the year 9999 (=MAX_TIME =
+  253_402_300_799=), but reading the card back allows only up to 5138 (=99_999_999_999=). A time
+  between the two is shown once, then the card says "widget unavailable".
+- Fix: one set of limits that both use; three tests change their reference. Small.
+- Remark:
+
+** Restructuring
+*** TODO [#B] Usage features in four places
+- =usage= and =screentime= are in =terminal/AppCommands.kt:76=, =:307-427=, the apps commands.
+  =data=, =storage= and =unlocks= are in =UsageCommands=, =usage-summary= in its own class, and the
+  script calls read screen time again on their own (=script/HostData.kt:170-194=).
+- The usage-access check and its settings page are on =unlock/UnlockCounter.kt:76-89=, which
+  doesn't own that permission.
+- The personal-first app map is in =AppCommands:360-361= and =UsageSummaryCommands:94-95= (and
+  variants in =UsageCommands:125=, =:251=). "Data plan × GB" is in =UsageCommands:72= and
+  =HostData:222=.
+- Fix: =usage/UsageAccess=; a =usage/ScreenTime= API that the commands and scripts share; =usage=
+  moves into =UsageCommands=; one personal-first map on =AppRepository=. Medium.
+- Remark:
+
+*** TODO [#B] Script details re-read from the code, with three caches
+- =Script.grants= (=data/ScriptRepository.kt:52=) reads the script's code on each call, including
+  in =TerminalViewModel.pinned= after every run, and in the completer and the script commands.
+- Three caches read the same code with their own keys: =TerminalViewModel.kt:191-203=,
+  =terminal/WidgetActions.kt:40-61= and =ui/ScriptsScreen.kt:141-146=.
+- Fix: one parsed form (title, desc, usage, uses, widget, options, events) read once per code,
+  kept on =Script=; the caches and =grants= read from it. Medium.
+- Remark:
+
+*** TODO [#B] Widget labels loaded on the main thread
+- =ui/WidgetsScreen.kt:178-183=, =:550= call =loadLabel= while drawing; =:182= can also call into
+  Android (=WidgetHost.kt:461-464=). The same "label, or the provider's last part" rule is in
+  =widgets/WidgetHost.kt:643=.
+- =ui/WidgetPickerScreen.kt:105-121= groups providers in =ui/= (off the main thread already).
+- Fix: =WidgetHost.label(w)=, cached and loaded off the main thread; the grouping moves to
+  =widgets/=. Small.
+- Remark:
+
+*** TODO [#B] The profile flags (-w -s -c -p) in four places
+- =AppCommands.kt:127-133=, =Completer.kt:667-672=, =ActivityCommands.kt:164=, =AppCommands.kt:219=.
+- =:219= gives every profile but the private space =-w=, so a paused clone profile gets the wrong
+  flag in the "resume" line.
+- Fix: =ProfileKind= gets its flag, and a =fromFlags(args)=. Small.
+- Remark:
+
+*** TODO [#B] WidgetKinds.kt holds two jobs
+- =ui/WidgetKinds.kt= is 1,639 lines. =WidgetWords= (=:100-783=), about 680 lines of plain text,
+  time and layout logic with unit tests, sits with the composables.
+- Fix: =WidgetWords= moves to its own file. Small.
+- Remark:
+
+** Cleanup: code that adds complexity and gives nothing
+About 150-200 lines of app code in all, plus test edits. Nothing large is dead: every setting,
+permission, resource and command is used.
+
+*** TODO [#C] Duplicates kept in step by hand
+- The per-second tick: =ui/WidgetKinds.kt:1416-1436= and =ui/WidgetBodies.kt:748-766=.
+- =WidgetIcons.NAMES= copies =GROUPS= (=widgets/WidgetIcons.kt:12-33=); a test exists only to keep
+  them equal. =NAMES = GROUPS.flatMap { it.second }=.
+- =NewScriptDialog= repeats =ScriptNames.invalid= (=ui/ScriptDialogs.kt:373-382=); the rename
+  dialog in the same file already calls it.
+- The same bell curve twice in =ui/SelectorMath.kt= (=:223-229= and =:412-426=).
+- Small ones: =ScriptCheck.DIRECTIVES= (=script/ScriptCheck.kt:20=); =StatusLines.clear=
+  (=data/StatusLines.kt:85-89=); =FOLD_SLACK= in =ui/RichText.kt:322= and =ui/LogView.kt:465=;
+  =TourPreviews.logTime=; =BUILT_INS= in =data/Backup.kt:237= and =data/FullBackup.kt:44=;
+  =vm.events= collected twice in =ui/TerminalScreen.kt:186-211=, =:305-307=.
+- Remark:
+
+*** TODO [#C] Code only tests reach
+Removing these means editing their tests.
+- =ScriptFilters.shown=, =OwnCards.until=, the =AppSessions= overloads that take events,
+  =StyledText.links=, =StyledText.hasTable=, =Fuzzy.distance=, =WidgetStates.put= and its
+  =quietly= flags.
+- Options no app code uses: a null language in =SyntaxHighlighter=; =SourceWidget='s null =feed=;
+  =ProductivityCommands.run='s Boolean; the second half of =ControlSpecs.suggest='s pairs;
+  =WidgetWords.pictureNote='s =loaded=.
+- One-liners: =WidgetWords.span=, =WidgetRef.isOf=, =WidgetHost.isPlaced=,
+  =WidgetSource.scriptName=, =SettingTitles.contains=, a null check in =LogPager.canPatchFilter=,
+  =WidgetLayout.resize='s =deltaDp=.
+- =AppSessions.STOPPED= (=usage/AppSessions.kt:28=): Kolahal never reads that event kind, so its
+  test feeds input the app can't get.
+- Kept on purpose, as test seams: =Stores.SCOPES=, =SyntaxHighlighter.keptChars=,
+  =WidgetHost.isListening=, =settle=, =SecretStore.setWithoutSites=, =WidgetParser.FIELDS=, =STYLED=.
+- Remark:
+
+*** TODO [#C] The "More" settings page hides missing settings /(checked)/
+- =ui/SettingsCatalog.kt:254-263=: it is always empty, and it takes any setting that no page lists.
+  So =everySettingIsOnAPageButConfigOnlyOnes= can never fail.
+- Fix: remove it; the test then catches a setting left off every page. Small.
+- Remark:
+
+*** TODO [#C] Fallbacks that can never be used
+- =InstallState='s "Update" and "Edited" for the library's other rows (=ui/ScriptLibraryScreen.kt:288-289=):
+  "Name in use" always wins.
+- =MaterialYouPalettes.of='s fallback (=ui/MaterialYouPalettes.kt:41=).
+- Remark:
+
+*** TODO [#C] Dead branches and conditions
+Each is a line or two, and safe to remove.
+- =terminal/FeedCommands.kt:181-182= (the mute branch's unmute half); =commands/ControlSpecs.kt:81=,
+  =:90= (="vol"= is turned into =volume= first); =terminal/Calc.kt:199=; =terminal/LogRows.kt:104=,
+  =:133=.
+- =ui/LogView.kt:107-108= (=scriptColor='s null), =:341= (computes the line style again);
+  =ui/RichText.kt:199=, =:336=; =ui/ScriptWidgets.kt:284=, =:296=, =:449=; =ui/FeedsScreen.kt:158=;
+  =ui/EditorLogic.kt:441-442=; =ui/TerminalScreen.kt:707=.
+- =terminal/CommandProcessor.kt:169= (=widgets= checks for no arguments twice);
+  =widgets/WidgetParser.kt:178=; =notifications/NotificationStore.kt:59-61= (=includeRemoved= is
+  always true); =ui/TourPreviews.kt:115= (=bold= and =time= are never passed).
+- Remark:
+
+*** TODO [#C] Parameters always the same, and forwarding aliases
+- Always the same value: the height of =CopyButton=, =CompareButton=, =OutlinedAction=
+  (=ui/ScriptCard.kt:456-478=); =LibRow.events=; =ScriptRun.reportBlocked='s constants;
+  =BackupActions.notice='s =error=; =WidgetStates.version= (written, never read).
+- Defaults no caller uses: about 15 (for example =UsageLevels.read='s =now=, =StorageUsage.unused='s
+  =now=, =TwoColumns='s =marks=, =dense=, =bar=).
+- Aliases that only forward: =PackageEvents.serial=, =AppCommands.appCtx=, =GuiTheme.mix=,
+  =ScriptLibrary.recorded=, =InstantRun.SENSITIVE= and =SYNONYMS=, =About.openGuide=,
+  =CommandProcessor.resumeAndLaunch=; =HostedWidget='s =onLongPress= needn't be nullable.
+- Unused imports: =PinnedHeader.kt=, =SelectorMath.kt:3-4=, =SettingItem.kt:25=, =SettingsPeek.kt=.
+- Remark:
+
+*** TODO [#C] Stored values written but never read
+- =feeds.added_at= (=feeds/FeedDb.kt:34=) and =reminders.created= (=data/Db.kt:96=): removing them
+  needs a schema change, and they travel in backups. The scan suggests leaving them.
+- The ="version"= in the library's =installed:= record (=script/ScriptCatalog.kt:177=): safe to stop
+  writing.
+- =FullBackup='s BLOB branches (=data/FullBackup.kt:150=, =:215=, =:322=): no backed-up table has a
+  BLOB column. The scan is less sure of this one.
+- Remark:
+
+** Left alone on purpose
+- Data migrations (=Keys.migrate=, =Db.upgrade=, the =OLD_*= stores, the "before 0.4.2" log paths)
+  and =ScriptScheduler='s old =dailyTag= cancel: old installs may still need them.
+- The three "needs usage access" messages are the same call; the duration formats differ on
+  purpose; the Lua and JS functions are already checked against each other by =ApiDocsTest=.
+- =WidgetWords.agenda= handles a script's own agenda, so it isn't a copy of =Agenda.group=.
