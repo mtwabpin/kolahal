@@ -17,7 +17,7 @@ class UsageLevelsTest {
     private fun bucket(from: Int, days: Int, vararg perDay: Pair<String, Double>, unlocks: Int? = null, current: Boolean = false) =
         Bucket(from * DAY_MS, (from + days) * DAY_MS, perDay.associate { (pkg, h) -> pkg to (h * hour * days).toLong() }, unlocks, current)
 
-    /** Stats group by their start; Kolahal and empty or short buckets are left out; the newest start is current. */
+    /** Stats group by their start; empty or short buckets are left out; the newest start is current. */
     @Test fun statsBecomeBuckets() {
         val stats = listOf(
             Stat("yt", 0, 7 * DAY_MS, 14 * hour), Stat(own, 0, 7 * DAY_MS, 5 * hour), Stat("wa", 0, 7 * DAY_MS, 0),
@@ -25,16 +25,17 @@ class UsageLevelsTest {
             Stat("yt", 7 * DAY_MS, 14 * DAY_MS, 0),
             Stat("yt", 14 * DAY_MS, 17 * DAY_MS, 6 * hour),
         )
-        val b = UsageLevels.buckets(stats, mapOf(0L to 70), own)
+        val b = UsageLevels.buckets(stats, mapOf(0L to 70))
         assertEquals(listOf(0L, 14 * DAY_MS), b.map { it.start })
-        assertEquals(mapOf("yt" to 14 * hour), b[0].apps)
+        // Kolahal counts too: an app's use is its use.
+        assertEquals(mapOf("yt" to 14 * hour, own to 5 * hour), b[0].apps)
         assertEquals(70, b[0].unlocks)
         assertEquals(listOf(false, true), b.map { it.current })
-        assertEquals(2 * hour, b[0].perDay)
+        assertEquals(19 * hour / 7, b[0].perDay)
         // A current bucket only hours old is left out: it would say little.
-        assertTrue(UsageLevels.buckets(listOf(Stat("yt", 0, 3 * hour, hour)), emptyMap(), own).isEmpty())
+        assertTrue(UsageLevels.buckets(listOf(Stat("yt", 0, 3 * hour, hour)), emptyMap()).isEmpty())
         // One that is over may be shorter than a day: Android ends it at its last event.
-        val day = UsageLevels.buckets(listOf(Stat("yt", 0, 20 * hour, hour), Stat("yt", DAY_MS, DAY_MS + 3 * hour, hour)), emptyMap(), own)
+        val day = UsageLevels.buckets(listOf(Stat("yt", 0, 20 * hour, hour), Stat("yt", DAY_MS, DAY_MS + 3 * hour, hour)), emptyMap())
         assertEquals(listOf(0L), day.map { it.start })
     }
 

@@ -132,7 +132,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
 
     /**
      * `usage-summary` alone: a line for each level, how many buckets it has, where it starts, and the
-     * time a day in it, under a dim header. A tap on a line (its › says so) runs that level's
+     * time a day in it, under a dim header. A tap on a line runs that level's
      * summary; the days run `usage`, which works each day out from events.
      */
     private fun overview(buckets: (Level) -> List<Bucket>) {
@@ -155,7 +155,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         val w2 = maxOf(rows.maxOf { it[2].length }, A_DAY.length)
         info("${"".padEnd(w0, NBSP)}  ${SINCE.padEnd(w1)}  ${A_DAY.padStart(w2)}", LogContext(LogContext.ALIGNED))
         rows.forEach { (count, from, time, run) ->
-            out("${count.padEnd(w0)}  ${from.padEnd(w1)}  ${time.padStart(w2)} ›", LogContext(LogContext.ALIGNED + mapOf(LogContext.RUN to run)))
+            out("${count.padEnd(w0)}  ${from.padEnd(w1)}  ${time.padStart(w2)}", LogContext(LogContext.ALIGNED + mapOf(LogContext.RUN to run)))
         }
     }
 

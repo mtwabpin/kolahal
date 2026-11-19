@@ -35,7 +35,7 @@ class UsageLevels(private val context: Context) {
         val unlocks = runCatching { usage.queryEventStats(level.interval, from, now) }.getOrNull().orEmpty()
             .filter { it.eventType == UsageEvents.Event.KEYGUARD_HIDDEN }
             .associate { it.firstTimeStamp to it.count }
-        return buckets(stats, unlocks, context.packageName)
+        return buckets(stats, unlocks)
     }
 
     companion object {
@@ -70,14 +70,14 @@ class UsageLevels(private val context: Context) {
         }
 
         /**
-         * [stats] as buckets, the oldest first, without [own] (Kolahal, as `usage` leaves it out). The
+         * [stats] as buckets, the oldest first, every app in them (Kolahal too, as in `usage`). The
          * newest start is the current bucket. Buckets with no time are left out, and so are the current
          * one under a day long and one that is over but under an hour long.
          */
-        fun buckets(stats: List<Stat>, unlocks: Map<Long, Int>, own: String): List<Bucket> {
+        fun buckets(stats: List<Stat>, unlocks: Map<Long, Int>): List<Bucket> {
             val newest = stats.maxOfOrNull { it.start } ?: return emptyList()
             return stats.groupBy { it.start }.map { (start, list) ->
-                val apps = list.filter { it.pkg != own && it.ms > 0 }.groupBy { it.pkg }.mapValues { (_, s) -> s.sumOf { it.ms } }
+                val apps = list.filter { it.ms > 0 }.groupBy { it.pkg }.mapValues { (_, s) -> s.sumOf { it.ms } }
                 Bucket(start, list.maxOf { it.end }, apps, unlocks[start], current = start == newest)
             }.filter { it.total > 0 && it.span >= if (it.current) DAY_MS else HOUR_MS }.sortedBy { it.start }
         }

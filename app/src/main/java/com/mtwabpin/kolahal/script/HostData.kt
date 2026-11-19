@@ -164,7 +164,7 @@ internal class HostData(
 
     /**
      * `usage.today(n?)`: `{ total, apps }`. [total] is today's screen time in minutes since midnight
-     * (every app but Kolahal); [apps] the [n] apps used a minute or more, most first (10 by default,
+     * (every app, Kolahal too); [apps] the [n] apps used a minute or more, most first (10 by default,
      * up to [MAX_USAGE_APPS]), each `{ app, pkg, minutes }`: what `usage` shows. Nil: see above.
      */
     fun usageToday(n: Any?): Map<String, Any?>? {

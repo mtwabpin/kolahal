@@ -407,7 +407,8 @@ class AppCommandsTest {
             assertTrue(typed, perApp.size in 0..12)
             assertTrue(typed, rows.indexOfFirst { it.text == "Other apps" } in listOf(-1, rows.size - 1))
             assertTrue(rows.toString(), rows.all { Regex(duration).matches(it.ctx.values[LogContext.DESC].orEmpty()) })
-            assertTrue(perApp.toString(), perApp.none { it.ctx.pkg == context.packageName })
+            // Kolahal counts like any app: an app's use is its use. A tap on its line opens it, like the others.
+            perApp.filter { it.ctx.pkg == context.packageName }.forEach { assertEquals(it.toString(), "com.mtwabpin.kolahal.MainActivity", it.ctx.values["cls"]) }
             // An app's name, never its package (such as com.samsung.android.incallui).
             assertTrue(perApp.toString(), perApp.none { Regex("[a-z0-9_]+(\\.[a-z0-9_]+)+").matches(it.text) })
             // A drawn bar on one scale (LogContext.BAR, "0,share,"): the longest row fills its bar.

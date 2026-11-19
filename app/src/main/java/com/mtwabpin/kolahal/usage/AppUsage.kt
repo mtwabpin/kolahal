@@ -46,10 +46,10 @@ class AppUsage(private val context: Context) {
     class Times(val apps: List<AppTime>, val total: Long)
 
     /**
-     * Screen time in [sessions]: every app but Kolahal itself. The time `usage`, `usage N` and
-     * `usage.days` add up, so they agree.
+     * Screen time in [sessions]: every app, Kolahal too, as an app's use is its use. The time
+     * `usage`, `usage N` and `usage.days` add up, so they agree.
      */
-    fun total(sessions: List<Session>): Long = sessions.filter { it.pkg != context.packageName }.sumOf { it.end - it.start }
+    fun total(sessions: List<Session>): Long = sessions.sumOf { it.end - it.start }
 
     /**
      * Each app's time in [sessions], biggest first, and the total ([total]), for `usage` and
@@ -59,7 +59,7 @@ class AppUsage(private val context: Context) {
      *   with no name at all (the phone's in-call screen) counts in the total, not in the list.
      */
     fun times(sessions: List<Session>, label: (String) -> String?): Times {
-        val counted = AppSessions.totals(sessions).filter { it.key != context.packageName }
+        val counted = AppSessions.totals(sessions)
         val pm = context.packageManager
         val named = counted.filter { it.value >= 60_000 }.mapNotNull { (pkg, ms) ->
             val name = label(pkg) ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()

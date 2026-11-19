@@ -145,7 +145,7 @@ object CommandCatalog {
         CommandSpec("usage", "usage [<days> | <app>]", "Screen time per app, or one app in detail", short = "Screen time per app", args = "<days> · <app>", aka = listOf("screentime")),
         CommandSpec(
             "usage-summary", "usage-summary [week | month | year | full]",
-            "Screen time over Android's weeks, months and years. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. A line with › runs more.",
+            "Screen time over Android's weeks, months and years. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the overview to see that level.",
             short = "Screen time over months", args = "week · month · year · full",
             uses = listOf(
                 "usage-summary" to "each level: how far back, and the time a day",

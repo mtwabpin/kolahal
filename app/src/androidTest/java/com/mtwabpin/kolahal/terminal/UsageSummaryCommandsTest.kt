@@ -46,7 +46,7 @@ class UsageSummaryCommandsTest {
         val rows = shown.drop(1)
         assertTrue(rows.isNotEmpty())
         rows.forEach { row ->
-            assertTrue(row.text, Regex("\\d+ (days?|weeks?|months?|years?) +\\d+ \\w+( \\d{4})? +(\\d+h )?\\d+m ›").matches(row.text))
+            assertTrue(row.text, Regex("\\d+ (days?|weeks?|months?|years?) +\\d+ \\w+( \\d{4})? +(\\d+h )?\\d+m").matches(row.text))
             assertTrue(row.ctx.values[LogContext.RUN].orEmpty(), Regex("usage \\d+|usage-summary (week|month|year)").matches(row.ctx.values[LogContext.RUN].orEmpty()))
         }
     }
