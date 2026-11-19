@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -191,6 +192,34 @@ class WidgetsScreenTest {
         assertTrue("the moved widget is drawn after the other", top(la) > top(lb))
         if (panel().last().key == a.key) compose.onNodeWithContentDescription("Move later").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Move earlier").assertIsEnabled()
+    }
+
+    /**
+     * In a list longer than the screen, the chosen widget stays in view as it moves: each Move later
+     * scrolls it back, with its top on the screen and above the toolbar.
+     */
+    @Test fun aMovedWidgetStaysInView() {
+        val clocks = t.clocks()
+        assumeTrue("no clock widget on this device", clocks.isNotEmpty())
+        t.allowBinding(clocks[0])
+        val placed = List(5) { t.place(clocks[0]) }
+        // Tall, so five of them are much longer than the screen.
+        placed.forEach { widgets.resize(it.key, 300) }
+        val label = t.label(clocks[0])
+        show()
+        compose.onNodeWithContentDescription("Edit widgets").performClick()
+        compose.onAllNodes(hasClickLabel("change $label"))[0].performClick()
+        compose.waitForIdle()
+        val screen = compose.onRoot().getUnclippedBoundsInRoot()
+        repeat(placed.size - 1) { step ->
+            compose.onNodeWithContentDescription("Move later").performClick()
+            compose.waitForIdle()
+            val card = chosenCard()
+            val bar = compose.onNodeWithContentDescription("Move later").getUnclippedBoundsInRoot()
+            assertTrue("step $step: card $card, screen $screen", card.top >= screen.top && card.bottom > screen.top)
+            assertTrue("step $step: card $card, toolbar $bar", card.top < bar.top)
+        }
+        compose.onNodeWithContentDescription("Move later").assertIsNotEnabled()
     }
 
     /** Remove asks first; Cancel keeps the widget, Remove deletes it and frees its id. */

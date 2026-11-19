@@ -44,6 +44,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -298,10 +305,24 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     )
                     }
                 }
+                // Room the bars leave: a widget brought into view stays clear of the top bar and the toolbar.
+                val density = LocalDensity.current
+                val topRoom = with(density) { padding.calculateTopPadding().toPx() }
+                val bottomRoom = with(density) { (padding.calculateBottomPadding() + 8.dp).toPx() }
                 WidgetFlow(panel.map { it.span }, WidgetLayout.GAP_DP.dp, Modifier.fillMaxWidth()) {
-                    panel.forEach { w ->
+                    panel.forEachIndexed { index, w ->
                         key(w.key) {
+                            val bring = remember { BringIntoViewRequester() }
+                            var size by remember { mutableStateOf(IntSize.Zero) }
+                            // The chosen widget, once it moves (Move earlier, Move later) or changes size, is
+                            // scrolled back into view: in a long list it would go off the screen. After a
+                            // frame, so its new place is laid out first.
+                            if (selected == w.key) LaunchedEffect(index, w.span, w.heightDp) {
+                                withFrameNanos { }
+                                bring.bringIntoView(Rect(0f, -topRoom, size.width.toFloat(), size.height + bottomRoom))
+                            }
                             WidgetCard(
+                                modifier = Modifier.bringIntoViewRequester(bring).onSizeChanged { size = it },
                                 w = w,
                                 label = labelOf(w) ?: w.provider,
                                 selected = selected == w.key,
@@ -369,12 +390,13 @@ private fun WidgetCard(
     pausedKind: ProfileKind?,
     feed: WidgetFeed,
     onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier.fillMaxWidth().semantics { this.selected = selected },
+        modifier = modifier.fillMaxWidth().semantics { this.selected = selected },
     ) {
         Box {
             // A widget Kolahal draws itself shows its real card here, without taps of its own: a tap
