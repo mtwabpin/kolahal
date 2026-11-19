@@ -174,8 +174,8 @@ class FeedCommands(
                 info("${apps.apps.value.firstOrNull { it.pkg == pkg }?.label ?: pkg}: notifications will appear in the log")
             } ?: appCommands.withApp(args.drop(1)) { app -> prefs.unmute(app.pkg); info("${app.label}: notifications will appear in the log") }
             "mute" -> appCommands.withApp(args.drop(1)) { app ->
-                if (args[0] == "mute") prefs.mute(app.pkg) else prefs.unmute(app.pkg)
-                info("${app.label}: notifications ${if (args[0] == "mute") "won't" else "will"} appear in the log")
+                prefs.mute(app.pkg)
+                info("${app.label}: notifications won't appear in the log")
             }
             "muted" -> {
                 val muted = prefs.muted.value

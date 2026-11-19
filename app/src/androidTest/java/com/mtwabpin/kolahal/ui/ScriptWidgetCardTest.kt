@@ -50,6 +50,7 @@ import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.waitFor
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
@@ -92,7 +93,13 @@ class ScriptWidgetCardTest {
     }
 
     /** A name with [spec] kept as its widget's content, set just now. */
-    private fun kept(suffix: String, spec: WidgetSpec): String = name(suffix).also { WidgetStates.put(context, it, spec) }
+    private fun kept(suffix: String, spec: WidgetSpec): String = name(suffix).also { store(it, spec) }
+
+    /** Stores [spec] as [name]'s widget and tells its card, as a run does when it ends. */
+    private fun store(name: String, spec: WidgetSpec) {
+        WidgetStates.putEncoded(context, name, WidgetJson.encode(spec))
+        WidgetStates.announce(context, name)
+    }
 
     /** [name]'s content as set [minutes] ago. */
     private fun setAgo(name: String, minutes: Long) {
@@ -104,18 +111,19 @@ class ScriptWidgetCardTest {
      * The cards of these scripts' widgets, one under the other, each [width] wide and [height] tall.
      * - Without [actions] they are as the Widgets screen draws them.
      * - With [inView], the widgets page is the page in view.
-     * - Without a [feed] the cards know nothing of their scripts, and draw what is kept under the name.
+     * - Without a [feed], each shown script is there, on, with a widget and no title ([scriptsOf]).
      */
     private fun show(vararg names: String, width: Dp = 320.dp, height: Dp = 200.dp, actions: WidgetCardActions? = null, inView: Boolean = false, feed: WidgetFeed? = null) =
         showSources(*names.map(WidgetSource::script).toTypedArray(), width = width, height = height, actions = actions, inView = inView, feed = feed)
 
     private fun showSources(vararg sources: String, width: Dp = 320.dp, height: Dp = 200.dp, actions: WidgetCardActions? = null, inView: Boolean = false, feed: WidgetFeed? = null) {
+        val known = feed ?: scriptsOf(*sources)
         compose.setContent {
             KolahalTheme {
                 CompositionLocalProvider(LocalWidgetsShown provides inView) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         sources.forEachIndexed { i, source ->
-                            Box(Modifier.width(width)) { SourceWidget(PlacedWidget(null, source, 0L, height.value.toInt(), i), height, actions, feed) }
+                            Box(Modifier.width(width)) { SourceWidget(PlacedWidget(null, source, 0L, height.value.toInt(), i), height, actions, known) }
                         }
                     }
                 }
@@ -291,8 +299,10 @@ class ScriptWidgetCardTest {
     @Test fun withNothingKeptItSaysSo() {
         val cleared = kept("cleared", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         WidgetStates.clear(context, cleared)
+        WidgetStates.announce(context, cleared)
         val ran = name("ran")
         WidgetStates.ran(context, ran, null)
+        WidgetStates.announce(context, ran)
         val new = name("new")
         show(cleared, ran, new)
         // Without content the card has the script's name: the title was part of what it showed.
@@ -346,8 +356,10 @@ class ScriptWidgetCardTest {
     @Test fun aFailedRunSaysWhen() {
         val failed = kept("failed", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
         WidgetStates.ran(context, failed, "wcard-failed: no network")
+        WidgetStates.announce(context, failed)
         val empty = name("failed-empty")
         WidgetStates.ran(context, empty, "\n  wcard-failed-empty: no network  \nstack traceback: …")
+        WidgetStates.announce(context, empty)
         show(failed, empty)
         val at = hhmm(WidgetStates.read(context, failed).triedAt)
         draws(failed, "Weather", "24", "Failed $at")
@@ -424,13 +436,14 @@ class ScriptWidgetCardTest {
         // Set a minute ago: not old, but its refresh time has passed.
         setAgo(top, 1)
         setAgo(below, 1)
+        val feed = scriptsOf(WidgetSource.script(top), WidgetSource.script(below))
         compose.setContent {
             KolahalTheme {
                 CompositionLocalProvider(LocalWidgetsShown provides true) {
                     Column(Modifier.verticalScroll(rememberScrollState()).testTag("page")) {
                         listOf(top, below).forEachIndexed { i, name ->
                             OnScreenCard {
-                                Box(Modifier.width(320.dp)) { SourceWidget(PlacedWidget(null, WidgetSource.script(name), 0L, 200, i), 200.dp, asked) }
+                                Box(Modifier.width(320.dp)) { SourceWidget(PlacedWidget(null, WidgetSource.script(name), 0L, 200, i), 200.dp, asked, feed) }
                             }
                             // Far more than a screen between them.
                             if (i == 0) Spacer(Modifier.height(4000.dp))
@@ -459,7 +472,7 @@ class ScriptWidgetCardTest {
         val second = further("2")
         val third = further("3")
         assertEquals("$first#2", second)
-        WidgetStates.put(context, second, WidgetSpec.Stat(WidgetBase(tap = WidgetTap(args = "go", label = "go on")), "Tokyo", label = "second"))
+        store(second, WidgetSpec.Stat(WidgetBase(tap = WidgetTap(args = "go", label = "go on")), "Tokyo", label = "second"))
         // The third has nothing kept: its card is the one that asks for a run.
         showSources("script:$first", "script:$second", "script:$third", actions = asked, inView = true)
 
@@ -484,6 +497,12 @@ class ScriptWidgetCardTest {
 
     /** What the view model knows of these scripts, as the cards get it. */
     private fun feed(vararg scripts: WidgetScript) = WidgetFeed(MutableStateFlow(scripts.associateBy { it.name }))
+
+    /** A feed where the script of each of [sources] is there, on, with a widget and no title. Built-in sources have none. */
+    private fun scriptsOf(vararg sources: String) = feed(
+        *sources.mapNotNull { WidgetSource.scriptRef(it)?.script }.distinct()
+            .map { WidgetScript(it, null, enabled = true, widget = ScriptMeta.Widget(WidgetKind.STAT, WidgetSize.S2X1)) }.toTypedArray(),
+    )
 
     /**
      * A card that knows its script from the view model says when the script can't fill it: it is
@@ -563,7 +582,7 @@ class ScriptWidgetCardTest {
         compose.runOnIdle { assertEquals(listOf("tap $todo done 1"), asked.all.toList()) }
         // The box is as the description says, until the script shows a new one.
         compose.onNode(milk and isCheckbox(ticked = false)).assertExists()
-        WidgetStates.put(context, todo, todos(milk = true))
+        store(todo, todos(milk = true))
         compose.waitFor("the row isn't ticked after the script showed it done") {
             compose.onAllNodes(milk and isCheckbox(ticked = true)).fetchSemanticsNodes().isNotEmpty()
         }
@@ -650,13 +669,13 @@ class ScriptWidgetCardTest {
 
         // The run ends with the state as it was: the change didn't work. The same description is
         // kept, only its time moves, and that is enough for the switch.
-        WidgetStates.put(context, quick, switches(dnd = false, work = true))
+        store(quick, switches(dnd = false, work = true))
         waitsNoMore("Do Not Disturb", on = false)
 
         // The other switch, and a run that reports a new state.
         compose.onNode(work).performClick()
         compose.onNode(work).assert(working and isOn(true))
-        WidgetStates.put(context, quick, switches(dnd = false, work = false))
+        store(quick, switches(dnd = false, work = false))
         waitsNoMore("Work", on = false)
         assertEquals("Quick: Do Not Disturb off, Work off, Torch off", said(quick))
 
@@ -667,6 +686,7 @@ class ScriptWidgetCardTest {
         compose.onNode(torch).performClick()
         compose.onNode(torch).assert(working and isOn(false))
         WidgetStates.ran(context, quick, "wcard-toggles: no torch")
+        WidgetStates.announce(context, quick)
         waitsNoMore("Torch", on = false)
         draws(quick, "Failed ${hhmm(WidgetStates.read(context, quick).triedAt)}")
         compose.runOnIdle { assertEquals(listOf("tap $quick dnd", "tap $quick work", "tap $quick torch"), asked.all.toList()) }

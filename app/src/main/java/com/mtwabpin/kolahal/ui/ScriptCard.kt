@@ -446,36 +446,36 @@ private fun Pills(content: @Composable FlowRowScope.() -> Unit) {
 }
 
 /**
- * A button that brings the source's version of a library or shared [copy]. It is [height] tall (as
- * small as a pill in a card).
+ * A button that brings the source's version of a library or shared [copy].
  * - Edited, nothing newer: Reset to library version (or shared version).
  * - A newer version: Update from library, or Update to its version for a shared copy.
  * The icon uses the error colour when the copy is edited, because the edits are lost. Then it asks first.
  */
 @Composable
-internal fun CopyButton(copy: ScriptCopy, height: Dp, onClick: () -> Unit) {
+internal fun CopyButton(copy: ScriptCopy, onClick: () -> Unit) {
     val label = when {
         copy.state == CopyState.EDITED -> if (copy.lib != null) "Reset to library version" else "Reset to shared version"
         copy.lib != null -> "Update from library"
         else -> copy.shared?.version?.takeIf { it.isNotBlank() }?.let { "Update to $it" } ?: "Update"
     }
-    OutlinedAction(label, R.drawable.ic_refresh, height, iconTint = if (copy.edited) MaterialTheme.colorScheme.error else null, onClick = onClick)
+    OutlinedAction(label, R.drawable.ic_refresh, iconTint = if (copy.edited) MaterialTheme.colorScheme.error else null, onClick = onClick)
 }
 
 /** Whether a library copy is not this version's: it was edited, or it comes from an older Kolahal. */
 internal fun ScriptLibrary.State.differs() = this == ScriptLibrary.State.MODIFIED || this == ScriptLibrary.State.UPDATE_AVAILABLE
 
-/** The Compare button, [height] tall. It shows a library copy next to the library version. */
+/** The Compare button. It shows a library copy next to the library version. */
 @Composable
-internal fun CompareButton(height: Dp, onClick: () -> Unit) = OutlinedAction("Compare", R.drawable.ic_visibility, height, onClick = onClick)
+internal fun CompareButton(onClick: () -> Unit) = OutlinedAction("Compare", R.drawable.ic_visibility, onClick = onClick)
 
 /**
- * The button for Compare and Reset, [height] tall. It is outlined, in the theme's text and outline
+ * The button for Compare and Reset, of the usual button height. It is outlined, in the theme's text and outline
  * colours, so it looks right both on an on script's tinted card and on the page, in every theme.
  * [iconTint] applies only to the icon.
  */
 @Composable
-private fun OutlinedAction(label: String, icon: Int, height: Dp, iconTint: Color? = null, onClick: () -> Unit) {
+private fun OutlinedAction(label: String, icon: Int, iconTint: Color? = null, onClick: () -> Unit) {
+    val height = ButtonDefaults.MinHeight
     val colors = MaterialTheme.colorScheme
     OutlinedButton(
         onClick = onClick,

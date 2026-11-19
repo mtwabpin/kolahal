@@ -100,9 +100,6 @@ internal object WidgetWords {
         else -> "under a minute" to null
     }
 
-    /** A length of time by its largest unit: "12 days", "1 hour", "5 min". */
-    fun span(seconds: Long): String = spanParts(seconds).let { (n, unit) -> if (unit == null) n else "$n $unit" }
-
     /** A length of time as a clock: "03:25:10". Past two days, the days come first: "12d 03:25:10". */
     fun clock(seconds: Long): String {
         val s = seconds.coerceAtLeast(0)
@@ -273,14 +270,13 @@ internal object WidgetWords {
     const val PICTURE_UNAVAILABLE = "Picture unavailable"
 
     /**
-     * What an image card says in the place of its picture. Null when it has the picture ([loaded]).
+     * What an image card says in the place of its picture, while it has no picture.
      * - [failed]: [PICTURE_UNAVAILABLE].
      * - Not there yet, and the widgets page is [inView]: [PICTURE_LOADING]. The fetch is on its way.
      * - Not there, and the page is not in view: the picture's [alt] text. Nothing is fetched then,
      *   so the card never says "Loading" for ever.
      */
-    fun pictureNote(loaded: Boolean, failed: Boolean, inView: Boolean, alt: String): String? = when {
-        loaded -> null
+    fun pictureNote(failed: Boolean, inView: Boolean, alt: String): String = when {
         failed -> PICTURE_UNAVAILABLE
         inView -> PICTURE_LOADING
         else -> alt

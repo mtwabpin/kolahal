@@ -398,7 +398,7 @@ internal fun CodeEditor(
     val coloured = if (big && lang != null) window else null
     // Plain text has no colours: no transformation, so it is not copied at every key. Find matches
     // and the flashed line are drawn behind the text ([EditorMarks]), not coloured.
-    val highlighter = remember(lang, Term.palette, coloured) { if (lang == null) VisualTransformation.None else SyntaxHighlighter(lang, lineTokens, coloured) }
+    val highlighter = remember(lang, Term.palette, coloured) { if (lineTokens == null) VisualTransformation.None else SyntaxHighlighter(lineTokens.syntax, lineTokens, coloured) }
     // Where lines wrap there are no line numbers: a number would stand beside the wrong line.
     val numbered = !wraps
 

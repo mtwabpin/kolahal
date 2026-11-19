@@ -734,14 +734,13 @@ private fun AgendaRow(
     }
 }
 
-// ---- the time, for media and the clock -------------------------------------------------------
+// ---- the time, for media, the clock and the countdown ----------------------------------------
 
 /**
  * The time now, in milliseconds.
  * - It moves by the minute, with the header's clock ([rememberNow]). That tick also comes when
  *   home is back on screen and when the clock is set.
- * - With [seconds] it moves every second, but only while the card can be seen ([cardSeen]) and
- *   home is on screen. A card nobody sees ticks for nothing.
+ * - With [seconds] it moves every second ([EverySecond]).
  * - It is a state: read it where the time is drawn, so a tick draws that again, not the card.
  */
 @Composable
@@ -749,20 +748,31 @@ private fun rememberMillis(seconds: Boolean): State<Long> {
     val (minute, _) = rememberNow()
     val now = remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(minute) { now.longValue = System.currentTimeMillis() }
-    if (seconds && cardSeen()) {
-        val lifecycle = LocalLifecycleOwner.current.lifecycle
-        LaunchedEffect(lifecycle) {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    val ms = System.currentTimeMillis()
-                    now.longValue = ms
-                    // Wake when the next second starts.
-                    delay(1000 - ms % 1000)
-                }
+    EverySecond(seconds) { now.longValue = it }
+    return now
+}
+
+/**
+ * Calls [onSecond] with the time in milliseconds when each second starts.
+ * - Only while [on], the card can be seen ([cardSeen]) and home is on screen. A card nobody sees
+ *   ticks for nothing.
+ * - The clock, media and countdown cards use it.
+ */
+@Composable
+internal fun EverySecond(on: Boolean, onSecond: (Long) -> Unit) {
+    if (!on || !cardSeen()) return
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val tick by rememberUpdatedState(onSecond)
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val ms = System.currentTimeMillis()
+                tick(ms)
+                // Wake when the next second starts.
+                delay(1000 - ms % 1000)
             }
         }
     }
-    return now
 }
 
 // ---- media ----------------------------------------------------------------------------------

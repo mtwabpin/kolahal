@@ -61,7 +61,7 @@ class WidgetPlacementTest {
         assertEquals("s:script:${s.name}", w.key)
         assertFalse("it needs no id, so it never waits to be added again", w.pending)
         assertTrue("${w.heightDp}dp", w.heightDp >= WidgetSizes.MIN_ROW_DP)
-        assertTrue(host.isPlaced(t.source(s.name)))
+        assertTrue(host.widgets.value.any { it.source == t.source(s.name) })
         assertEquals(listOf(w), saved().filter { it.source == w.source })
         assertTrue(host.listing(context).toString(), host.listing(context).any { (text, detail) -> text.endsWith(". ${s.name}") && detail.endsWith(" · script") })
 

@@ -63,8 +63,8 @@ internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box, bleed: Bool
                     modifier = Modifier.fillMaxSize().then(if (backdrop == null) Modifier else Modifier.background(backdrop).padding(6.dp)).testTag("widget-picture"),
                 )
             } else {
-                val note = WidgetWords.pictureNote(loaded = false, failed = state?.isFailure == true, inView = inView, alt = spec.alt)
-                QuietLine(note ?: spec.alt, small = box == WidgetSizes.Box.SMALL)
+                val note = WidgetWords.pictureNote(failed = state?.isFailure == true, inView = inView, alt = spec.alt)
+                QuietLine(note, small = box == WidgetSizes.Box.SMALL)
             }
         }
         if (caption != null) {

@@ -49,9 +49,6 @@ internal fun crashRows(context: Context): List<CrashRow> = CrashReports.list(con
     CrashRow(r, title, summary)
 }
 
-/** Opens the guide on the website. Returns false if no app can open it. */
-internal fun openGuide(context: Context): Boolean = openLink(context, Links.GUIDE)
-
 /** Opens [url] in the browser (or in the app that handles it). Returns false if no app can open it. */
 internal fun openLink(context: Context, url: String): Boolean =
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }.isSuccess
@@ -101,7 +98,7 @@ internal fun LazyListScope.aboutItems(crashCount: Int?, onTour: () -> Unit, onCr
         ActionGroup(
             listOf(
                 Action(R.drawable.ic_book, "Guide", "How everything works, on the Kolahal website") {
-                    if (!openGuide(context)) say("No browser to open ${Links.GUIDE}")
+                    if (!openLink(context, Links.GUIDE)) say("No browser to open ${Links.GUIDE}")
                 },
                 Action(R.drawable.ic_info, "Tour", "How Kolahal works, and a few initial settings", chevron = true, onClick = onTour),
                 Action(R.drawable.ic_forum, "Discord", "Questions, ideas and help from other people using Kolahal") {

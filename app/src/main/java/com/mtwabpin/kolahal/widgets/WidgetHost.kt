@@ -271,9 +271,6 @@ class WidgetHost private constructor(context: Context) {
 
     // ---- widgets Kolahal draws itself -------------------------------------------------------
 
-    /** Whether the widget with this [source] is on the page. A widget with a source is placed once. */
-    fun isPlaced(source: String): Boolean = _widgets.value.any { it.source == source }
-
     /** The widgets of the script [script] that are on the page, in page order. */
     fun placedOf(script: String): List<WidgetRef> =
         WidgetOrder.sorted(_widgets.value).mapNotNull { WidgetSource.scriptRef(it.source) }.filter { it.script == script }
@@ -452,7 +449,7 @@ class WidgetHost private constructor(context: Context) {
         w.id?.let { cachedInfo(it) }?.let { minHeightDp(it) } ?: WidgetLayout.minDp(w.source != null)
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
-        val h = WidgetLayout.resize(heightDp, 0, minHeightOf(w))
+        val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
         if (h != w.heightDp) update { all -> all.map { if (it.key == w.key) it.copy(heightDp = h) else it } }
     }
 

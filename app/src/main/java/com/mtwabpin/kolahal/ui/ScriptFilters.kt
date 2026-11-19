@@ -144,10 +144,6 @@ object ScriptFilters {
     /** Whether [f] has every word of [query] in its name, title, description, author or tags ([SearchWords]). */
     fun found(f: ScriptFacts, query: String): Boolean = SearchWords.allIn(SearchWords.of(query), listOf(f.text))
 
-    /** The scripts to show: found by [query], passing [selected], in [sort] order. */
-    fun shown(all: List<ScriptFacts>, selected: Set<String>, query: String, sort: ScriptSort): List<ScriptFacts> =
-        sorted(all.filter { found(it, query) && matches(it, selected) }, sort)
-
     /**
      * The count on each chip: how many of [all] it keeps, together with the chips chosen in the other
      * groups. Chips of its own group are left out, because a chip there adds to them.

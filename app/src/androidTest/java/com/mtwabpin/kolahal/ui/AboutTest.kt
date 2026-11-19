@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.CrashReports
+import com.mtwabpin.kolahal.Links
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
@@ -59,7 +60,7 @@ class AboutTest {
 
     @Test fun guideOpensTheWebsite() {
         val phone = Catching(context)
-        assertTrue(openGuide(phone))
+        assertTrue(openLink(phone, Links.GUIDE))
         val view = phone.started.single()
         assertEquals(Intent.ACTION_VIEW, view.action)
         assertEquals("https://mtwabpin.github.io/kolahal/", view.dataString)

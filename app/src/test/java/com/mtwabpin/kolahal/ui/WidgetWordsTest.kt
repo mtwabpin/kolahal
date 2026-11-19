@@ -66,13 +66,16 @@ class WidgetWordsTest {
         assertEquals("No values", WidgetWords.chartSummary(emptyList()))
     }
 
+    /** A countdown in days names the time left by its largest unit. */
     @Test fun aSpanIsNamedByItsLargestUnit() {
-        assertEquals("12 days", WidgetWords.span(12 * 86_400L + 3 * 3600))
-        assertEquals("1 day", WidgetWords.span(86_400L))
-        assertEquals("5 hours", WidgetWords.span(5 * 3600L + 59 * 60))
-        assertEquals("1 hour", WidgetWords.span(3600L))
-        assertEquals("12 min", WidgetWords.span(12 * 60L + 30))
-        assertEquals("under a minute", WidgetWords.span(59))
+        val now = 1_700_000_000L
+        fun span(seconds: Long) = WidgetWords.countdown(now + seconds, now, "days", null, utc).text
+        assertEquals("12 days", span(12 * 86_400L + 3 * 3600))
+        assertEquals("1 day", span(86_400L))
+        assertEquals("5 hours", span(5 * 3600L + 59 * 60))
+        assertEquals("1 hour", span(3600L))
+        assertEquals("12 min", span(12 * 60L + 30))
+        assertEquals("under a minute", span(59))
     }
 
     @Test fun aClockShowsDaysOnlyPastTwoDays() {
@@ -550,13 +553,11 @@ class WidgetWordsTest {
 
     /** A card that has no picture says why. Out of view it shows the words for the picture, and never "Loading". */
     @Test fun anImageCardSaysWhyItHasNoPicture() {
-        assertNull(WidgetWords.pictureNote(loaded = true, failed = false, inView = true, alt = "A graph"))
-        assertNull(WidgetWords.pictureNote(loaded = true, failed = false, inView = false, alt = "A graph"))
-        assertEquals("Loading picture…", WidgetWords.pictureNote(loaded = false, failed = false, inView = true, alt = "A graph"))
+        assertEquals("Loading picture…", WidgetWords.pictureNote(failed = false, inView = true, alt = "A graph"))
         // Out of view nothing is fetched, so "Loading" would never end.
-        assertEquals("A graph", WidgetWords.pictureNote(loaded = false, failed = false, inView = false, alt = "A graph"))
-        assertEquals("Picture unavailable", WidgetWords.pictureNote(loaded = false, failed = true, inView = true, alt = "A graph"))
-        assertEquals("Picture unavailable", WidgetWords.pictureNote(loaded = false, failed = true, inView = false, alt = "A graph"))
+        assertEquals("A graph", WidgetWords.pictureNote(failed = false, inView = false, alt = "A graph"))
+        assertEquals("Picture unavailable", WidgetWords.pictureNote(failed = true, inView = true, alt = "A graph"))
+        assertEquals("Picture unavailable", WidgetWords.pictureNote(failed = true, inView = false, alt = "A graph"))
     }
 
     /** A picture is decoded for its place: at most twice as wide, with at most twice its pixels. */

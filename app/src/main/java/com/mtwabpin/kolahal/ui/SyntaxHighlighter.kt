@@ -151,15 +151,15 @@ internal class LineTokens(val syntax: Syntax) {
  *   (EditorMarks), so a jump to the next match does not lay the whole text out again.
  * - A line longer than [MAX_COLOURED_LINE] (minified JSON or code) is not coloured. It would be
  *   tokenised again at every key, and its thousands of colours make its layout slow.
- * - With no language (null), nothing is coloured: the editor uses no transformation then.
+ * - Plain text has no language and gets no highlighter: the editor uses no transformation then.
  *
  * If [window] is set, only those lines (counted from 0) are coloured. It is used for the lines
  * around the visible part of a big script, because the colours cost several times the text itself
  * to lay out at every key.
  */
 internal class SyntaxHighlighter(
-    lang: Syntax?,
-    private val tokens: LineTokens? = lang?.let(::LineTokens),
+    lang: Syntax,
+    private val tokens: LineTokens = LineTokens(lang),
     private val window: IntRange? = null,
 ) : VisualTransformation {
     // The theme this was made for. A text field colours again only when the new highlighter is not equal to the last one.
@@ -200,7 +200,7 @@ internal class SyntaxHighlighter(
             // Start and end of the window's lines in the text. Used for the template strings.
             var from = if (window == null) 0 else -1
             var to = src.length
-            while (tokens != null && lineStart <= src.length) {
+            while (lineStart <= src.length) {
                 val lineEnd = src.indexOf('\n', lineStart).let { if (it < 0) src.length else it }
                 if (window == null || line in window) {
                     if (from < 0) from = lineStart
@@ -237,8 +237,8 @@ internal class SyntaxHighlighter(
         const val MAX_COLOURED_LINE = 5_000
     }
 
-    override fun equals(other: Any?) = other is SyntaxHighlighter && other.tokens?.syntax == tokens?.syntax &&
+    override fun equals(other: Any?) = other is SyntaxHighlighter && other.tokens.syntax == tokens.syntax &&
         other.palette == palette && other.window == window
 
-    override fun hashCode() = 31 * (31 * (tokens?.syntax?.hashCode() ?: 0) + palette.hashCode()) + window.hashCode()
+    override fun hashCode() = 31 * (31 * tokens.syntax.hashCode() + palette.hashCode()) + window.hashCode()
 }

@@ -107,14 +107,6 @@ object StyledText {
         char(LINK) + without(url, BASE..LAST).filterNot { it.isWhitespace() } + char(LINK_TEXT) +
             mapLinks(text) { null }.replace('\n', ' ') + char(LINK_END)
 
-    /** The addresses of the links in [text], in order. */
-    fun links(text: String): List<String> {
-        if (!has(text)) return emptyList()
-        val out = ArrayList<String>()
-        mapLinks(text) { out += it; it }
-        return out
-    }
-
     /**
      * The links in [text] as they show: each one's text and address, once for each address, in
      * order. In table cells and the texts of bars too. A line's long-press menu offers them.
@@ -340,9 +332,6 @@ object StyledText {
 
     /** Whether [text] holds a table row or a bar: lines the log draws under the text ([splitAtBlocks]). */
     fun hasBlock(text: String): Boolean = has(text) && text.split('\n').any { isBlock(it) }
-
-    /** Whether [text] holds a table row. */
-    fun hasTable(text: String): Boolean = has(text) && text.split('\n').any { isRow(it) }
 
     private fun isRow(line: String): Boolean = line.length >= 2 && line.codePointAt(0).let { it == ROW || it == HEAD }
 

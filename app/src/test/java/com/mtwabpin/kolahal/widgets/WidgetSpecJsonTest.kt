@@ -244,7 +244,7 @@ class WidgetSpecJsonTest {
         val link = "see " + StyledText.link("https://evil.example/x", bold("here"))
         val read = WidgetJson.decode(changed(text) { put("text", link); put("caption", StyledText.tag(StyledText.Colour.BAD, "LIVE") + StyledText.wrap(StyledText.Style.CODE, "x")) }) as WidgetSpec.Text
         assertEquals("see " + bold("here"), read.text)
-        assertEquals(emptyList<String>(), StyledText.links(read.text))
+        assertEquals(emptyList<String>(), StyledText.linkTexts(read.text).map { it.second })
         assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + "x", read.caption)
         val table = StyledText.table(listOf(listOf("a", "b")), header = true) + "\n" + StyledText.bar(0.5) + "\n" + StyledText.stats(listOf("1" to "one"))
         val row = (WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to table, "detail" to link, "trailing" to StyledText.item(1) + "x"))) }) as WidgetSpec.Rows).items.single()

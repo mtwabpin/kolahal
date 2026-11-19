@@ -25,7 +25,6 @@ import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Repeat
-import com.mtwabpin.kolahal.productivity.TimeSpec
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.terminal.AgendaRead
 import com.mtwabpin.kolahal.terminal.OwnData
@@ -230,16 +229,6 @@ internal object OwnCards {
     // ---- reminders --------------------------------------------------------------------------
 
     /**
-     * The time from [now] to [at], in whole minutes, rounded up: "in 25m", "in 2h 10m", "in 1d 1h".
-     * A reminder whose time has come says "now". Both are in milliseconds.
-     */
-    fun until(at: Long, now: Long): String {
-        val left = at - now
-        if (left <= 0) return "now"
-        return "in " + TimeSpec.formatDuration((left + 59_999) / 60_000 * 60)
-    }
-
-    /**
      * When a reminder is due, short, for the end of a row: "18:30" today, "Mon" in the next six
      * days, else "20 Nov". [at] and [now] are in milliseconds.
      */
@@ -256,7 +245,7 @@ internal object OwnCards {
 
     /**
      * The time from [now] to [at] as a number and its unit, for a lead: "42" "min", "13" "h",
-     * "2" "days". Minutes are rounded up, as [until] does. A time that has come is "now".
+     * "2" "days". Minutes are rounded up: 9 minutes and a second is "10" "min". A time that has come is "now".
      */
     fun untilParts(at: Long, now: Long): Pair<String, String?> {
         val left = at - now

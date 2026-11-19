@@ -214,7 +214,11 @@ complexity but provides nothing. Line numbers are from that commit.
 About 150-200 lines of app code in all, plus test edits. Nothing large is dead: every setting,
 permission, resource and command is used.
 
-*** TODO [#C] Duplicates kept in step by hand
+*** DONE [#C] Duplicates kept in step by hand
+- Done 19 November, except three that already differ, so merging would change what you see:
+  =NewScriptDialog= and =ScriptNames.invalid= word their messages differently; =ScriptCheck.DIRECTIVES=
+  is in another order than =ApiDocs.directives= (the typo hint takes the first close match); the two
+  =vm.events= collectors start at different times.
 - The per-second tick: =ui/WidgetKinds.kt:1416-1436= and =ui/WidgetBodies.kt:748-766=.
 - =WidgetIcons.NAMES= copies =GROUPS= (=widgets/WidgetIcons.kt:12-33=); a test exists only to keep
   them equal. =NAMES = GROUPS.flatMap { it.second }=.
@@ -227,7 +231,8 @@ permission, resource and command is used.
   =vm.events= collected twice in =ui/TerminalScreen.kt:186-211=, =:305-307=.
 - Remark:
 
-*** TODO [#C] Code only tests reach
+*** DONE [#C] Code only tests reach
+- Done 19 November; the tests now go through the code the app runs.
 Removing these means editing their tests.
 - =ScriptFilters.shown=, =OwnCards.until=, the =AppSessions= overloads that take events,
   =StyledText.links=, =StyledText.hasTable=, =Fuzzy.distance=, =WidgetStates.put= and its
@@ -244,19 +249,23 @@ Removing these means editing their tests.
   =WidgetHost.isListening=, =settle=, =SecretStore.setWithoutSites=, =WidgetParser.FIELDS=, =STYLED=.
 - Remark:
 
-*** TODO [#C] The "More" settings page hides missing settings /(checked)/
+*** DONE [#C] The "More" settings page hides missing settings /(checked)/
+- Done 19 November: the test failed when a setting was taken off its page.
 - =ui/SettingsCatalog.kt:254-263=: it is always empty, and it takes any setting that no page lists.
   So =everySettingIsOnAPageButConfigOnlyOnes= can never fail.
 - Fix: remove it; the test then catches a setting left off every page. Small.
 - Remark:
 
-*** TODO [#C] Fallbacks that can never be used
+*** DONE [#C] Fallbacks that can never be used
+- Done 19 November, except =InstallState=: a copy's code can change while its sheet is open (a
+  script folder synced from outside), and then "Edited" or "Update" can still show.
 - =InstallState='s "Update" and "Edited" for the library's other rows (=ui/ScriptLibraryScreen.kt:288-289=):
   "Name in use" always wins.
 - =MaterialYouPalettes.of='s fallback (=ui/MaterialYouPalettes.kt:41=).
 - Remark:
 
-*** TODO [#C] Dead branches and conditions
+*** DONE [#C] Dead branches and conditions
+- Done 19 November.
 Each is a line or two, and safe to remove.
 - =terminal/FeedCommands.kt:181-182= (the mute branch's unmute half); =commands/ControlSpecs.kt:81=,
   =:90= (="vol"= is turned into =volume= first); =terminal/Calc.kt:199=; =terminal/LogRows.kt:104=,
@@ -269,7 +278,9 @@ Each is a line or two, and safe to remove.
   always true); =ui/TourPreviews.kt:115= (=bold= and =time= are never passed).
 - Remark:
 
-*** TODO [#C] Parameters always the same, and forwarding aliases
+*** DONE [#C] Parameters always the same, and forwarding aliases
+- Done 19 November, except =CommandProcessor.resumeAndLaunch=: it is the view model's way in, not
+  only an alias. Of the unused defaults, the five named here.
 - Always the same value: the height of =CopyButton=, =CompareButton=, =OutlinedAction=
   (=ui/ScriptCard.kt:456-478=); =LibRow.events=; =ScriptRun.reportBlocked='s constants;
   =BackupActions.notice='s =error=; =WidgetStates.version= (written, never read).
@@ -281,7 +292,8 @@ Each is a line or two, and safe to remove.
 - Unused imports: =PinnedHeader.kt=, =SelectorMath.kt:3-4=, =SettingItem.kt:25=, =SettingsPeek.kt=.
 - Remark:
 
-*** TODO [#C] Stored values written but never read
+*** DONE [#C] Stored values written but never read
+- Done 19 November: the ="version"= is no longer written. The columns and the BLOB branches stay.
 - =feeds.added_at= (=feeds/FeedDb.kt:34=) and =reminders.created= (=data/Db.kt:96=): removing them
   needs a schema change, and they travel in backups. The scan suggests leaving them.
 - The ="version"= in the library's =installed:= record (=script/ScriptCatalog.kt:177=): safe to stop

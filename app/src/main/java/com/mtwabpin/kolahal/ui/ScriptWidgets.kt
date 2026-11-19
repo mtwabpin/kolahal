@@ -281,7 +281,7 @@ private fun CardLayout(
     val setMore: (String?) -> Unit = remember { { more = it } }
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            TitleLine(title, spec, badge, 24.dp, type.titleSmall) { if (more != null) MoreNote(more) else TitleNote(spec?.base) }
+            TitleLine(title, spec, badge, 24.dp, type.titleSmall) { val m = more; if (m != null) MoreNote(m) else TitleNote(spec?.base) }
             // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
             // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
             Spacer(Modifier.height(12.dp))
@@ -293,7 +293,8 @@ private fun CardLayout(
         WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
             if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium) {
                 // The age or "Failed 10:42" says more than the note, and "+3 more" too: then the note waits.
-                if (more != null) MoreNote(more) else if (footer == null) TitleNote(spec?.base)
+                val m = more
+                if (m != null) MoreNote(m) else if (footer == null) TitleNote(spec?.base)
                 if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -333,10 +334,10 @@ private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: Widget
     }
 }
 
-/** "+3 more" at the end of a title line, or nothing. */
+/** "+3 more" at the end of a title line. */
 @Composable
-private fun MoreNote(text: String?) {
-    if (text != null) Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+private fun MoreNote(text: String) {
+    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
 }
 
 /** The script's note at the end of the title line ([WidgetBase.note]): "Done today", in the card's colour. */
@@ -430,11 +431,12 @@ private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, si
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
-    // Material's own pill is slanted. A list's badge is a plain round pill, 1.4 times as wide as tall (Badge). A list
-    // that starts with a big line (Reminders) gets the cookie of a number, as a stat does.
-    is WidgetSpec.Rows -> if (spec.lead != null) MaterialShapes.Cookie9Sided.toShape() else RoundedCornerShape(50)
-    else -> when (spec) {
+private fun badgeShape(spec: WidgetSpec?): Shape {
+    // Material's own pill is slanted. A list's badge is a plain round pill, 1.4 times as wide as tall (Badge).
+    if (spec is WidgetSpec.Rows && spec.lead == null) return RoundedCornerShape(50)
+    return when (spec) {
+        // A list that starts with a big line (Reminders) gets the cookie of a number, as a stat does.
+        is WidgetSpec.Rows -> MaterialShapes.Cookie9Sided
         is WidgetSpec.Stat -> MaterialShapes.Cookie9Sided
         is WidgetSpec.Text -> MaterialShapes.Square
         is WidgetSpec.Progress -> MaterialShapes.Cookie9Sided
@@ -446,7 +448,7 @@ private fun badgeShape(spec: WidgetSpec?): Shape = when (spec) {
         is WidgetSpec.Agenda -> MaterialShapes.Square
         is WidgetSpec.Image -> MaterialShapes.Square
         is WidgetSpec.Media -> MaterialShapes.Square
-        is WidgetSpec.Rows, null -> MaterialShapes.Circle
+        null -> MaterialShapes.Circle
     }.toShape()
 }
 
@@ -487,12 +489,11 @@ private const val MIN_REFRESH_S = 10
  * - [actions] takes taps, the long-press and refresh requests. With null the card takes no touches
  *   and asks for no runs: this is the Widgets screen.
  * - [feed] is what the view model knows of the scripts. A card reads its script from there, and
- *   never from the database. With null the card knows nothing of its script, and draws what is
- *   stored under the script's name: a card drawn without a view model, in a test.
+ *   never from the database.
  * It brings its own [GuiTheme], because the widgets page is drawn in the terminal's styles.
  */
 @Composable
-internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed? = null) {
+internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed) {
     // Which widget of which script: a script can have several on the page ([WidgetRef]).
     val ref = WidgetSource.scriptRef(w.source)
     val builtin = WidgetSource.builtinId(w.source)
@@ -502,7 +503,7 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
         } else if (builtin == WidgetSource.BATTERY) {
             BatteryWidget(height, actions)
         } else if (builtin != null && OwnCards.draws(builtin)) {
-            OwnWidget(builtin, height, actions, feed?.own)
+            OwnWidget(builtin, height, actions, feed.own)
         } else {
             val what = w.source?.let(WidgetSource::label).orEmpty()
             // Nothing to tap here, so a tap opens the screen where the widget can be removed.
@@ -523,20 +524,17 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
 
 /**
  * What a card knows of its script, from the view model's [WidgetFeed].
- * - [read] is false until the view model has read the scripts, and for a card with no feed.
+ * - [read] is false until the view model has read the scripts.
  * - With [read], a null [script] means that no script has the name.
  */
 private data class Known(val read: Boolean, val script: WidgetScript?)
-
-private val UNREAD = Known(read = false, script = null)
 
 /**
  * [name]'s script as [feed] has it. The feed changes when any script's title, switch or `@widget`
  * line changes. A card is drawn again only when what it knows of its own script changes.
  */
 @Composable
-private fun knownScript(feed: WidgetFeed?, name: String): Known {
-    if (feed == null) return UNREAD
+private fun knownScript(feed: WidgetFeed, name: String): Known {
     val changes = remember(feed, name) { feed.scripts.map { all -> Known(all != null, all?.get(name)) }.distinctUntilChanged() }
     val known by changes.collectAsStateWithLifecycle(initialValue = remember(feed, name) { feed.scripts.value.let { Known(it != null, it?.get(name)) } })
     return known
@@ -554,7 +552,7 @@ private fun knownScript(feed: WidgetFeed?, name: String): Known {
  *   "Weather 2".
  */
 @Composable
-private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed?) {
+private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?, feed: WidgetFeed) {
     val key = ref.key
     val context = LocalContext.current.applicationContext
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -579,9 +577,8 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     // The script is gone or off, or its code has lost the `@widget` line: the card says so, and asks
     // for no runs. Without the line a run stores nothing, so the card would ask again at every view.
     val missing = scriptNote(known.read, known.script)
-    // With a feed, a run is asked for only once the scripts are read and the script can run. A card
-    // with no feed knows nothing of its script, and asks as if it were there.
-    val runnable = feed == null || (known.read && missing == null)
+    // A run is asked for only once the scripts are read and the script can run.
+    val runnable = known.read && missing == null
     val shown = LocalWidgetsShown.current
     if (actions != null && shown && runnable) {
         // The page came into view, or home came back with the page in view: run the script once if

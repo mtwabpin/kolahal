@@ -163,7 +163,7 @@ class Completer(private val context: Context, private val data: Data) {
             // match, or with launch.top on a prefix match. Then that app is the first, highlighted row,
             // so Enter, TAB and the highlight agree.
             val top = ranked.firstOrNull()
-            val enterLaunches = top != null && head !in names && (head !in InstantRun.SYNONYMS || cmd in off) &&
+            val enterLaunches = top != null && head !in names && (head !in CommandCatalog.SYNONYMS || cmd in off) &&
                 (top.first.label.equals(head, ignoreCase = true) || (ranked.size == 1 && config[Keys.AUTO_LAUNCH]) ||
                     (config[Keys.LAUNCH_TOP] && top.second <= 2))
             val apps = ranked.map { Suggestion.App(it.first) }
@@ -480,7 +480,7 @@ class Completer(private val context: Context, private val data: Data) {
                     .map { Suggestion.Completion(it.label, "$head only ${it.word}", icon = R.drawable.ic_visibility) }
             } else emptyList()
             else -> com.mtwabpin.kolahal.commands.ControlSpecs.suggest(cmd, arg)
-                .map { (label, _) -> Suggestion.Completion(label, "$head $label") }
+                .map { Suggestion.Completion(it, "$head $it") }
         }
     }
 

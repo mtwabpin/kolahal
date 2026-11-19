@@ -101,14 +101,10 @@ class SyntaxHighlighterTest {
         assertNotEquals(MatchHighlights(intArrayOf(1, 5), 2, 5), MatchHighlights(intArrayOf(1, 5), 2, 1))
     }
 
-    /** Plain text has no language: nothing is coloured. */
-    @Test fun plainTextHasNoColours() {
-        assertEquals(emptyList<Any>(), SyntaxHighlighter(null).filter(AnnotatedString(lua)).text.spanStyles)
-        // It is not the same as a language's, and the same as another plain one.
-        assertNotEquals(SyntaxHighlighter(null), SyntaxHighlighter(Syntax.LUA))
-        assertEquals(SyntaxHighlighter(null), SyntaxHighlighter(null))
-        // Two languages' highlighters are not the same.
+    /** Two languages' highlighters are not the same. */
+    @Test fun eachLanguageHasItsOwnHighlighter() {
         assertNotEquals(SyntaxHighlighter(Syntax.LUA), SyntaxHighlighter(Syntax.JS))
+        assertEquals(SyntaxHighlighter(Syntax.LUA), SyntaxHighlighter(Syntax.LUA))
     }
 
     /** A very long line (minified JSON) has no colours; the lines around it keep theirs. */

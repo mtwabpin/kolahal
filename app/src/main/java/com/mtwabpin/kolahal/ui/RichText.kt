@@ -192,11 +192,10 @@ private val COLUMN_GAP = 8.dp
  * Bars on lines that follow each other (`fmt.bar`, `fmt.bars`, `fmt.ranges`), lined up in
  * columns: the labels, the texts before the tracks, the tracks, and the texts after them. Each
  * column is as wide as its widest text, and the tracks take the rest of the width. The label is in
- * the body's colour, the numbers in the text colour, each with its own styles.
+ * the body's colour, the numbers in the text colour, each with its own styles. [meters] is never empty.
  */
 @Composable
 internal fun Meters(meters: List<StyledText.Meter>, style: TextStyle, modifier: Modifier = Modifier) {
-    if (meters.isEmpty()) return
     val labels = meters.any { it.label.isNotEmpty() }
     val starts = meters.any { it.start.isNotEmpty() }
     val ends = meters.any { it.end.isNotEmpty() }
@@ -319,13 +318,14 @@ internal fun WithBar(bar: StyledText.Meter, modifier: Modifier = Modifier, text:
 }
 
 /** Lines past [Term.foldLines] fold only when this many more would be hidden: a fold never hides a line or two. */
-private const val FOLD_SLACK = 2
+internal const val FOLD_SLACK = 2
 
 /**
  * A line's content, folded when it is taller than [Term.foldLines] lines of [style]'s text: the
  * first lines show, then "▾ N more lines". A tap on it shows the whole line, with "▴ Show less"
  * under it. A line stays open while it is in the log's memory (scrolled away and back).
- * [enabled]: false for a search result, where the matching words must show.
+ * [enabled]: false when the line can't fold: log.fold is off, the line is short or a command, or
+ * it is a search result, where the matching words must show.
  *
  * [content] gets whether the line is open. While it is folded, a very long line may leave out its
  * end ([cutLines] lines, estimated), so it isn't all laid out for the few lines that show.
@@ -333,7 +333,7 @@ private const val FOLD_SLACK = 2
 @Composable
 internal fun Foldable(id: Long, style: TextStyle, enabled: Boolean = true, cutLines: Int = 0, content: @Composable (open: Boolean) -> Unit) {
     val lines = Term.foldLines
-    if (!enabled || lines <= 0) return content(true)
+    if (!enabled) return content(true)
     var open by rememberSaveable(id) { mutableStateOf(false) }
     val toggle = remember(id) { { open = !open } }
     val density = LocalDensity.current

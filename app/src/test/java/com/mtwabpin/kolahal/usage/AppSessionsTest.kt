@@ -18,12 +18,17 @@ class AppSessionsTest {
 
     private fun front(pkg: String, at: Long) = Event(AppSessions.RESUMED, pkg, at)
     private fun away(pkg: String, at: Long) = Event(AppSessions.PAUSED, pkg, at)
-    private fun of(vararg e: Event) = AppSessions.of(e.toList(), app, from, until, java.time.ZoneOffset.UTC)
+    /** The app's use in [from, until), worked out as `usage` does it: every app's sessions, then the app's. */
+    private fun of(events: List<Event>, until: Long = this.until): AppSessions {
+        val (all, inFront) = AppSessions.sessions(events, from, until)
+        return AppSessions.of(all, app, inFront, java.time.ZoneOffset.UTC)
+    }
+
+    private fun of(vararg e: Event) = of(e.toList())
 
     @Test fun theKindsAreAndroids() {
         assertEquals(UsageEvents.Event.ACTIVITY_RESUMED, AppSessions.RESUMED)
         assertEquals(UsageEvents.Event.ACTIVITY_PAUSED, AppSessions.PAUSED)
-        assertEquals(UsageEvents.Event.ACTIVITY_STOPPED, AppSessions.STOPPED)
         assertEquals(UsageEvents.Event.SCREEN_NON_INTERACTIVE, AppSessions.SCREEN_OFF)
         assertEquals(UsageEvents.Event.KEYGUARD_SHOWN, AppSessions.LOCKED)
         assertEquals(UsageEvents.Event.DEVICE_SHUTDOWN, AppSessions.SHUTDOWN)
@@ -48,15 +53,15 @@ class AppSessionsTest {
     }
 
     /**
-     * Android 10 and later: from one screen of an app to another, the first pauses, the next comes to
-     * the front, then the first stops. One session, one open: the late "stopped" ends nothing.
+     * From one screen of an app to another: the first pauses, then the next comes to the front.
+     * One session, one open. (Android then says the first screen stopped; Kolahal doesn't read that kind.)
      */
-    @Test fun aScreenThatStopsLateEndsNothing() {
+    @Test fun anotherScreenAfterAPauseIsTheSameSession() {
         fun screen(type: Int, name: String, at: Long) = Event(type, app, at, name)
         val s = of(
             screen(AppSessions.RESUMED, "Chats", 10 * min),
-            screen(AppSessions.PAUSED, "Chats", 15 * min), screen(AppSessions.RESUMED, "Chat", 15 * min + 200), screen(AppSessions.STOPPED, "Chats", 15 * min + 900),
-            screen(AppSessions.PAUSED, "Chat", 30 * min), screen(AppSessions.RESUMED, "Chats", 30 * min + 200), screen(AppSessions.STOPPED, "Chat", 30 * min + 900),
+            screen(AppSessions.PAUSED, "Chats", 15 * min), screen(AppSessions.RESUMED, "Chat", 15 * min + 200),
+            screen(AppSessions.PAUSED, "Chat", 30 * min), screen(AppSessions.RESUMED, "Chats", 30 * min + 200),
             screen(AppSessions.PAUSED, "Chats", 50 * min), front(other, 50 * min),
         )
         assertEquals(1, s.opens)
@@ -115,7 +120,7 @@ class AppSessionsTest {
     /** Every app's time from one pass: one app in front at a time, so the times add up to the time in use. */
     @Test fun totalsForEveryApp() {
         val events = listOf(front(app, 10 * min), front(other, 25 * min), Event(AppSessions.SCREEN_OFF, "android", 40 * min), front(app, 50 * min))
-        val totals = AppSessions.totals(events, from, 60 * min)
+        val totals = AppSessions.totals(AppSessions.sessions(events, from, 60 * min).first)
         assertEquals(mapOf(app to 25 * min, other to 15 * min), totals)
     }
 
@@ -125,7 +130,7 @@ class AppSessionsTest {
         assertEquals(10 * min + 100, s.total)
         assertEquals(UsageEvents.Event.DEVICE_STARTUP, AppSessions.STARTUP)
         // In front, and nothing since for 7 hours up to the end of the window.
-        val quiet = AppSessions.of(listOf(front(app, 10 * min)), app, from, 10 * min + 7 * 60 * min, java.time.ZoneOffset.UTC)
+        val quiet = of(listOf(front(app, 10 * min)), until = 10 * min + 7 * 60 * min)
         assertEquals(0L, quiet.total)
         assertFalse(quiet.inFront)
     }

@@ -201,7 +201,7 @@ internal object ScriptRun {
             // The run's lines went out before its result was stored. Without this, home could show the previous run.
             logs.touch()
         }
-        if (host.notifyBlocked) reportBlocked(ctx, logs, name, "notify-blocked", "notifications are blocked", "notifications")
+        if (host.notifyBlocked) reportNotifyBlocked(ctx, logs, name)
         logs.trimIfWritten()
         return true
     }
@@ -224,7 +224,7 @@ internal object ScriptRun {
         val states = com.mtwabpin.kolahal.widgets.WidgetStates
         val noted = noteEnd && runCatching {
             val placed = host.widgetPlacedNow()
-            if (placed) states.ran(ctx, host.widgetKey, failed, quietly = true)
+            if (placed) states.ran(ctx, host.widgetKey, failed)
             placed
         }.getOrDefault(false)
         if (noted || host.widgetChanged) states.announce(ctx, host.widgetKey)
@@ -258,12 +258,12 @@ internal object ScriptRun {
         ScriptLang.JS -> (e as? com.dokar.quickjs.QuickJsException)?.lineNumber?.minus(1)?.takeIf { it > 0 }
     }
 
-    /** Logs one "tap to allow" line per day ([key] tells the kinds apart), instead of one per blocked call. */
-    private fun reportBlocked(context: Context, logs: LogRepository, name: String, key: String, what: String, fix: String) {
+    /** Logs one "tap to allow" line per day when notifications are blocked, instead of one per blocked call. */
+    private fun reportNotifyBlocked(context: Context, logs: LogRepository, name: String) {
         val store = KvStore(context, Stores.WORKER)
         val today = java.time.LocalDate.now().toString()
-        if (store.get(key) == today) return
-        store.set(key, today)
-        logs.add(LogKind.ERROR, "$name: $what — tap to allow", name, LogContext.of(LogContext.RUN to fix))
+        if (store.get("notify-blocked") == today) return
+        store.set("notify-blocked", today)
+        logs.add(LogKind.ERROR, "$name: notifications are blocked — tap to allow", name, LogContext.of(LogContext.RUN to "notifications"))
     }
 }

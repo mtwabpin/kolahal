@@ -166,8 +166,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "rss" -> feedCommands.rss(rest)
                 "feeds" -> if (args.isEmpty()) ui.openScreen(Screen.FEEDS) else feedCommands.feeds(args)
                 "feed" -> feedCommands.feeds(args)
-                "widgets" -> if (args.isEmpty()) ui.openScreen(Screen.WIDGETS) else widgets(args)
-                "widget" -> widgets(args)
+                "widgets", "widget" -> widgets(args)
                 "notifs", "notifications-feed" -> feedCommands.notifs(args)
                 "url", "web" -> openUrl(rest)
                 "source" -> openUrl(com.mtwabpin.kolahal.Links.SOURCE)
@@ -452,6 +451,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     // ---- widgets ----------------------------------------------------------------------------
 
     /**
+     * - `widgets` alone opens the widgets page.
      * - `widgets ls` prints the placed widgets. A tap opens the widgets page.
      * - `widget add` opens the picker.
      */

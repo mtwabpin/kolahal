@@ -33,13 +33,14 @@ class SettingsCatalogTest {
     @Test fun theHeaderHasAFewSettings() {
         val header = Keys.ALL.filter { it.key.startsWith("header.") }
         assertEquals(listOf("header.show", "header.below-bar", "header.padding", "header.left", "header.right", "header.pinned-seconds", "header.pinned-dots", "header.pinned-bar-above", "header.pinned-bar-below"), header.map { it.key })
-        assertTrue(header.all { it.key in SettingTitles })
+        assertTrue(header.all { SettingTitles[it.key] != null })
         assertTrue(Keys.REMOVED.keys.filter { it.startsWith("header.compact.") }.size == 12)
     }
 
     @Test fun everySettingIsOnAPageButConfigOnlyOnes() {
-        val shown = allCategories().flatMap { it.keys }
-        assertEquals(Keys.ALL.toSet() - Keys.CONFIG_ONLY, shown.toSet())
+        val shown = allCategories().flatMap { it.keys }.map { it.key }
+        // By name, so a failure names the setting that is on no page.
+        assertEquals((Keys.ALL.toSet() - Keys.CONFIG_ONLY).map { it.key }.toSet(), shown.toSet())
         assertTrue(Keys.LOG_KEEP_LINES in Keys.CONFIG_ONLY)
         assertTrue(Keys.LOG_KEEP_LINES in Keys.ALL)
     }

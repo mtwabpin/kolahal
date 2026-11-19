@@ -175,7 +175,6 @@ object WidgetParser {
         val kind = raw["kind"]?.let {
             WidgetKind.named(it as? String) ?: throw IllegalArgumentException("widget: no kind ${shown(it)}; use ${WidgetKind.forScripts.joinToString { k -> k.id }}")
         } ?: default
-        if (!kind.script) notForScripts(kind)
         // "an image widget", "an agenda widget".
         val a = if (kind.id.first() in "aeiou") "an" else "a"
         val t = Table(raw, "", "$a ${kind.id} widget has no field", COMMON + own(kind), text, link)

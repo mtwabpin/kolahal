@@ -195,8 +195,8 @@ object Calc {
                         if (d == 0.0) throw ArithmeticException("can't divide by zero")
                         Value(left.value - floor(left.value / d) * d)
                     }
-                    // `2pi`, `3(4+5)`, `2 sqrt 9`: values side by side multiply.
-                    isOp("(") || (peek() is Word && !isWord("x") && !isWord("of") && !isWord("mod")) -> Value(left.value * unary().value)
+                    // `2pi`, `3(4+5)`, `2 sqrt 9`: values side by side multiply. ("x", "of" and "mod" were taken above.)
+                    isOp("(") || peek() is Word -> Value(left.value * unary().value)
                     else -> return left
                 }
             }

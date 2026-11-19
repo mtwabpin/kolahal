@@ -99,7 +99,7 @@ class AppCommands(
     private fun setHidden(app: AppEntry, hidden: Boolean) {
         prefs.setHidden(app.key, hidden)
         apps.refresh()
-        info("${if (hidden) "Hidden" else "Unhidden"} ${appLine(app)}", appCtx(app))
+        info("${if (hidden) "Hidden" else "Unhidden"} ${appLine(app)}", appContext(app))
     }
 
     /** `rename <app> = <new label>`, or `rename <app> =` to restore the original. */
@@ -110,11 +110,9 @@ class AppCommands(
             val label = args.drop(eq + 1).joinToString(" ").ifBlank { null }
             prefs.setLabel(app.key, label)
             apps.refresh()
-            info("${app.originalLabel} → ${label ?: app.originalLabel}", appCtx(app))
+            info("${app.originalLabel} → ${label ?: app.originalLabel}", appContext(app))
         }
     }
-
-    private fun appCtx(app: AppEntry) = appContext(app)
 
     /** Returns `Maps [W]`. A personal app gets a tag only when the same app also exists in another profile. */
     private fun appLine(app: AppEntry): String {
@@ -142,7 +140,7 @@ class AppCommands(
         }
         val kinds = list.map { it.profile.kind }.distinct().sortedBy { it.ordinal }
         when {
-            "-l" in args -> list.forEach { out(appLine(it), appCtx(it)) }
+            "-l" in args -> list.forEach { out(appLine(it), appContext(it)) }
             // Show one grid per profile, so an app and its work copy are not mixed together.
             kinds.size > 1 -> kinds.forEach { k ->
                 info("── ${k.label} ──", LogContext(LogContext.ITEM))
@@ -194,7 +192,7 @@ class AppCommands(
             }?.takeIf { s -> (s.shortLabel ?: "").toString().lowercase().contains(wanted) || (s.longLabel ?: "").toString().lowercase().contains(wanted) }
                 ?: return error("${app.label} has no shortcut matching '$wanted' — 'shortcuts ${app.label}'")
             apps.startShortcut(app, shortcut.id)
-            return info("${app.label} › ${shortcut.shortLabel}", appCtx(app))
+            return info("${app.label} › ${shortcut.shortLabel}", appContext(app))
         }
         val matches = resolveApp(args)
         if (matches.isEmpty()) {
@@ -219,7 +217,7 @@ class AppCommands(
         runCatching { apps.launch(app) }
             // Launched by a tap (no typed command above it), it is an event of its own in the log.
             .onSuccess {
-                val ctx = if (logs.currentCause == null) appCtx(app) + mapOf(LogContext.APART to "1") else appCtx(app)
+                val ctx = if (logs.currentCause == null) appContext(app) + mapOf(LogContext.APART to "1") else appContext(app)
                 logs.addReplacing(LogKind.INFO, "Launched ${appLine(app)}", ctx)
             }
             .onFailure { error("Can't launch ${app.label}: ${it.reason()}") }
@@ -294,7 +292,7 @@ class AppCommands(
         list.forEach { s ->
             out(
                 "${app.label} › ${s.shortLabel}",
-                appCtx(app) + mapOf(LogContext.SHORTCUT to s.id, LogContext.DESC to (s.longLabel ?: s.shortLabel ?: "").toString()),
+                appContext(app) + mapOf(LogContext.SHORTCUT to s.id, LogContext.DESC to (s.longLabel ?: s.shortLabel ?: "").toString()),
             )
         }
     }

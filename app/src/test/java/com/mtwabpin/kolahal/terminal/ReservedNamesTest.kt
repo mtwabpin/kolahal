@@ -16,7 +16,7 @@ class ReservedNamesTest {
 
     /** `help favs` shows the command it's another name for, so that has to be a command. */
     @Test fun everyOtherNameIsForACommand() {
-        for ((other, name) in InstantRun.SYNONYMS) assertTrue("$other names $name", name in CommandCatalog.COMMAND_NAMES)
+        for ((other, name) in CommandCatalog.SYNONYMS) assertTrue("$other names $name", name in CommandCatalog.COMMAND_NAMES)
     }
 }
 
@@ -44,7 +44,7 @@ class DispatchNamesTest {
 
     @Test fun everyNameDispatchedIsACommandOrAnotherNameForOne() {
         for (name in dispatched) {
-            assertTrue("$name is dispatched but isn't a command or a synonym (CommandCatalog.COMMANDS, InstantRun.SYNONYMS)", name in CommandCatalog.RESERVED_NAMES)
+            assertTrue("$name is dispatched but isn't a command or a synonym (CommandCatalog.COMMANDS, CommandCatalog.SYNONYMS)", name in CommandCatalog.RESERVED_NAMES)
             assertTrue("$name stands for ${InstantRun.canonical(name)}, which isn't a command", InstantRun.canonical(name) in CommandCatalog.COMMAND_NAMES)
         }
     }
@@ -57,7 +57,7 @@ class DispatchNamesTest {
     }
 
     @Test fun everySensitiveNameIsACommand() {
-        val unknown = InstantRun.SENSITIVE - CommandCatalog.RESERVED_NAMES - "="
+        val unknown = CommandCatalog.SENSITIVE - CommandCatalog.RESERVED_NAMES - "="
         assertTrue("sensitive but not a command: $unknown", unknown.isEmpty())
     }
 }

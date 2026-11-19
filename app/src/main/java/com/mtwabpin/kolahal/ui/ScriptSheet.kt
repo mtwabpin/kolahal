@@ -249,9 +249,9 @@ internal fun ScriptSheet(
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (copy != null && copy.canRestore) {
-                if (copy.lib != null) CompareButton(ButtonDefaults.MinHeight) { copyDialog = CopyDialog.COMPARE }
+                if (copy.lib != null) CompareButton { copyDialog = CopyDialog.COMPARE }
                 // Update or Reset to the source's version. An edited copy asks first; an unedited one changes at once.
-                CopyButton(copy, ButtonDefaults.MinHeight) { restoreCopy(vm, s, copy) { copyDialog = CopyDialog.CONFIRM } }
+                CopyButton(copy) { restoreCopy(vm, s, copy) { copyDialog = CopyDialog.CONFIRM } }
             }
             ErrorTextButton(onClick = { confirmDelete = true }) {
                 IconLabel(R.drawable.ic_delete, "Delete")

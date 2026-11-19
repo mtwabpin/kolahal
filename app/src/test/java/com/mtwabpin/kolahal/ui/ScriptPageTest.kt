@@ -20,7 +20,7 @@ class ScriptPageTest {
     private fun infos(vararg scripts: Script) = ScriptPage.infos(scripts.toList(), HashMap())
 
     private fun libRow(name: String, state: ScriptLibrary.State, lang: ScriptLang = ScriptLang.LUA, newer: Boolean = false) =
-        LibRow(ScriptLibrary.Entry("$name.${lang.ext}", name, lang, name, "", command = false, suggestedEvery = 0), state, emptyList(), newer)
+        LibRow(ScriptLibrary.Entry("$name.${lang.ext}", name, lang, name, "", command = false, suggestedEvery = 0), state, newer)
 
     private fun sharedEntry(name: String, tags: List<String> = emptyList()) =
         ScriptCatalog.Entry(name, ScriptLang.LUA, "$name.lua", name, "", "", "1.0", tags, emptyList(), emptyList(), false, null, emptyList(), null, "sha-$name")

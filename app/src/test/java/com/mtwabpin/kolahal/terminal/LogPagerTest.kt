@@ -296,6 +296,5 @@ class LogPagerTest {
         assertFalse(canPatchFilter(feeds, incremental = false, filteredFor = feeds, limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
         assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = LogFilter.parse("starred"), limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
         assertFalse(canPatchFilter(feeds, incremental = true, filteredFor = feeds, limit = 200, filteredLimit = 100, removed = false, emptySet(), emptySet()))
-        assertFalse(canPatchFilter(null, incremental = true, filteredFor = null, limit = 100, filteredLimit = 100, removed = false, emptySet(), emptySet()))
     }
 }

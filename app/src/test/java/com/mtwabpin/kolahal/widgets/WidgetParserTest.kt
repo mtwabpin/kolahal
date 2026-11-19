@@ -907,7 +907,7 @@ class WidgetParserTest {
         val link = StyledText.link("https://example.com/x", bold("the page"))
         val text = parse(mapOf("text" to "see $link", "caption" to StyledText.tag(StyledText.Colour.BAD, "LIVE") + " " + StyledText.wrap(StyledText.Style.CODE, "v1")), WidgetKind.TEXT) as WidgetSpec.Text
         assertEquals("see " + bold("the page"), text.text)
-        assertEquals(emptyList<String>(), StyledText.links(text.text))
+        assertEquals(emptyList<String>(), StyledText.linkTexts(text.text).map { it.second })
         assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + " v1", text.caption)
         val table = StyledText.table(listOf(listOf("a", "b")), header = false) + "\n" + StyledText.meter(0.0, 0.5, null, "Overs", "", "40/50") + "\n" + StyledText.list(listOf("one"), numbered = false)
         val body = parse(mapOf("text" to table), WidgetKind.TEXT) as WidgetSpec.Text

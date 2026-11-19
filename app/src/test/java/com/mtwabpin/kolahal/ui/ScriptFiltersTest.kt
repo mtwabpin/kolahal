@@ -28,6 +28,10 @@ class ScriptFiltersTest {
         changedAt: Long? = null,
     ) = ScriptFacts(name, lang, on, failed, needsKey, command, timer, event, pinned, source, copy, uses, text, lastRun, changedAt)
 
+    /** The scripts the tab shows, worked out as ScriptsScreen does: found by [query], then the chips, then sorted. */
+    private fun shown(all: List<ScriptFacts>, selected: Set<String>, query: String, sort: ScriptSort): List<ScriptFacts> =
+        ScriptFilters.sorted(all.filter { ScriptFilters.found(it, query) }.filter { ScriptFilters.matches(it, selected) }, sort)
+
     private val sample = listOf(
         script("weather", timer = true, uses = setOf("notifications")),
         script("hn", timer = true, copy = CopyState.NEW_VERSION),
@@ -61,13 +65,13 @@ class ScriptFiltersTest {
     private fun names(list: List<ScriptFacts>) = list.map { it.name }
 
     @Test fun inAGroupAnyChipAcrossGroupsAll() {
-        assertEquals(listOf("countdown", "define", "quote", "units"), names(ScriptFilters.shown(sample, a2, "", ScriptSort.NAME)))
+        assertEquals(listOf("countdown", "define", "quote", "units"), names(shown(sample, a2, "", ScriptSort.NAME)))
         // Library alone, then Library or Shared: a second chip in a group adds.
-        assertEquals(2, ScriptFilters.shown(sample, setOf("command", "library"), "", ScriptSort.NAME).size)
+        assertEquals(2, shown(sample, setOf("command", "library"), "", ScriptSort.NAME).size)
         // No chip on: all of them.
-        assertEquals(11, ScriptFilters.shown(sample, emptySet(), "", ScriptSort.NAME).size)
+        assertEquals(11, shown(sample, emptySet(), "", ScriptSort.NAME).size)
         // Two groups that nothing has together.
-        assertEquals(emptyList<String>(), names(ScriptFilters.shown(sample, setOf("event", "js"), "", ScriptSort.NAME)))
+        assertEquals(emptyList<String>(), names(shown(sample, setOf("event", "js"), "", ScriptSort.NAME)))
     }
 
     /** Each count is what the chip keeps with the other groups' chips: the draft's frame A2. */
@@ -88,7 +92,7 @@ class ScriptFiltersTest {
     @Test fun withNothingOnACountIsTheListAfterATap() {
         val counts = ScriptFilters.counts(sample, emptySet())
         for (chip in ScriptFilters.ALL) {
-            assertEquals(chip.id, ScriptFilters.shown(sample, setOf(chip.id), "", ScriptSort.NAME).size, counts[chip.id])
+            assertEquals(chip.id, shown(sample, setOf(chip.id), "", ScriptSort.NAME).size, counts[chip.id])
         }
         assertEquals(9, counts["on"])
         assertEquals(7, counts["lua"])
@@ -156,19 +160,19 @@ class ScriptFiltersTest {
     @Test fun reviewShowsTheCopiesThatDiffer() {
         val picked = ScriptFilters.review(setOf("up-to-date", "command", "lua"))
         assertEquals(setOf("command", "lua", ScriptFilters.NEW_VERSION, ScriptFilters.EDITED), picked)
-        assertEquals(listOf("define", "hn", "lobsters"), names(ScriptFilters.shown(sample, ScriptFilters.review(emptySet()), "", ScriptSort.NAME)))
+        assertEquals(listOf("define", "hn", "lobsters"), names(shown(sample, ScriptFilters.review(emptySet()), "", ScriptSort.NAME)))
     }
 
     /** Show in the note about scripts Kolahal updated: only those, and joined with the rest as a group of its own. */
     @Test fun theNotesShowKeepsTheUpdatedScripts() {
         val updated = setOf("weather", "countdown", "cricket")
         val list = sample.map { it.copy(selfUpdated = it.name in updated) }
-        assertEquals(listOf("countdown", "cricket", "weather"), names(ScriptFilters.shown(list, setOf(ScriptFilters.SELF_UPDATED), "", ScriptSort.NAME)))
-        assertEquals(listOf("countdown"), names(ScriptFilters.shown(list, setOf(ScriptFilters.SELF_UPDATED, "command"), "", ScriptSort.NAME)))
+        assertEquals(listOf("countdown", "cricket", "weather"), names(shown(list, setOf(ScriptFilters.SELF_UPDATED), "", ScriptSort.NAME)))
+        assertEquals(listOf("countdown"), names(shown(list, setOf(ScriptFilters.SELF_UPDATED, "command"), "", ScriptSort.NAME)))
     }
 
     /** An id no chip has (one saved by an older version) is ignored. */
     @Test fun anUnknownIdIsIgnored() {
-        assertEquals(11, ScriptFilters.shown(sample, setOf("differs"), "", ScriptSort.NAME).size)
+        assertEquals(11, shown(sample, setOf("differs"), "", ScriptSort.NAME).size)
     }
 }

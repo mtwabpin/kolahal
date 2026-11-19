@@ -142,7 +142,7 @@ class TestScriptWidgets(private val prefix: String) {
         // A run still on its way would write after the clean-up.
         mine.forEach { runEnded(it.id) }
         host.widgets.value
-            .filter { w -> WidgetSource.scriptName(w.source)?.startsWith(prefix) == true || (had != null && w.key !in had) }
+            .filter { w -> WidgetSource.scriptRef(w.source)?.script?.startsWith(prefix) == true || (had != null && w.key !in had) }
             .forEach { host.remove(it.key) }
         host.settle()
         Stores.WIDGETS.open(context).edit().commit()

@@ -273,8 +273,7 @@ class PackageEvents private constructor(private val context: Context) {
         private const val MAX_HISTORY = 200
         private const val RECHECK_AFTER_MS = 3_600_000L
 
-        private fun serial(key: String) = serialOf(key)
-        private fun serials(keys: Collection<String>) = keys.mapNotNull(::serial).toSet()
+        private fun serials(keys: Collection<String>) = keys.mapNotNull(::serialOf).toSet()
 
         /** Result of one comparison: lines to log (kind, key, app), what to keep, and when to check again. */
         internal data class Plan(
@@ -313,7 +312,7 @@ class PackageEvents private constructor(private val context: Context) {
             for ((key, p) in now) {
                 val old = before[key]
                 when {
-                    old == null && serial(key) in fresh -> Unit
+                    old == null && serialOf(key) in fresh -> Unit
                     old == null -> events += Triple("installed", key, p)
                     // It was gone a moment ago and is back: an uninstall + reinstall is one update.
                     old.removedAt > 0 -> events += Triple("updated", key, p)
@@ -324,7 +323,7 @@ class PackageEvents private constructor(private val context: Context) {
             var nextCheck = Long.MAX_VALUE
             for ((key, p) in before) {
                 if (key in now) continue
-                val s = serial(key)
+                val s = serialOf(key)
                 when {
                     s in gone -> Unit
                     // A paused or locked profile hides its apps. They are not uninstalled.

@@ -155,7 +155,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
 
     GuiTheme {
         val open = openFeedId?.let { id -> feeds?.firstOrNull { it.id == id } }
-        if (openFeedId != null && open != null) {
+        if (open != null) {
             FeedItemsPage(
                 feed = open,
                 repo = repo,

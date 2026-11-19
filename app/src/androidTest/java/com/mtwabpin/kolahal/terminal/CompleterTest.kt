@@ -342,7 +342,7 @@ class CompleterReviewTest {
         // One word, and not a command's name, so Enter launches it.
         val app = apps.apps.value.first {
             it.profile.kind == ProfileKind.PERSONAL && it.label.length >= 4 && ' ' !in it.label &&
-                it.label.lowercase() !in CommandCatalog.COMMAND_NAMES && it.label.lowercase() !in InstantRun.SYNONYMS
+                it.label.lowercase() !in CommandCatalog.COMMAND_NAMES && it.label.lowercase() !in CommandCatalog.SYNONYMS
         }
         val best = apps.search(app.label.take(4)).first()
         val open = completer.suggestions("open ${app.label.take(4)}")

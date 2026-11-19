@@ -79,14 +79,10 @@ object StatusLines {
 
     /**
      * Removes a script's line and what it adds. Called when the script is deleted, switched off or
-     * on, or changed from outside. It tells home the lines changed, as [set] does: home reads them
-     * again only then (LogRepository.statusVersion).
+     * on, or changed from outside. It is [set] with no text, so it tells home the lines changed:
+     * home reads them again only then (LogRepository.statusVersion).
      */
-    fun clear(context: Context, name: String) {
-        KvStore(context, Stores.STATUS).set(name, null)
-        KvStore(context, Stores.STATUS_EXTRAS).set(name, null)
-        LogRepository.get(context).onStatusChanged()
-    }
+    fun clear(context: Context, name: String) = set(context, name, null, null)
 
     /** Saved after [pinShownOnce] has run on this phone. */
     private const val PINS_CARRIED = "pins_carried"

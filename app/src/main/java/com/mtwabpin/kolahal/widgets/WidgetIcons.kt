@@ -9,17 +9,7 @@ package com.mtwabpin.kolahal.widgets
  * - A name, once here, stays: a script may use it. New names can be added.
  */
 object WidgetIcons {
-    val NAMES: List<String> = listOf(
-        "sun", "moon", "cloud", "rain", "snow", "storm", "wind", "fog", "temp", "drop", "lock",
-        "unlock", "bell", "alarm", "timer", "clock", "calendar", "home", "work", "wifi",
-        "battery", "bolt", "torch", "phone", "mail", "chat", "music", "play", "pause", "heart",
-        "star", "check", "flag", "fire", "leaf", "cart", "money", "chart", "up", "down", "car",
-        "bus", "train", "plane", "walk", "pin", "globe", "news", "book", "code", "bug", "person",
-        "people", "trophy", "ball", "cricket", "parcel", "gift", "coffee", "dnd", "feed", "link",
-        "quote",
-    )
-
-    /** [NAMES] in groups, as the script editor's reference and the scripting guide show them. Every name is in one group. */
+    /** The names in groups, as the script editor's reference and the scripting guide show them. */
     val GROUPS: List<Pair<String, List<String>>> = listOf(
         "Weather" to listOf("sun", "moon", "cloud", "rain", "snow", "storm", "wind", "fog", "temp", "drop"),
         "Time" to listOf("alarm", "timer", "clock", "calendar", "bell"),
@@ -31,6 +21,9 @@ object WidgetIcons {
         "Going places" to listOf("car", "bus", "train", "plane", "walk", "pin", "globe", "coffee"),
         "Work" to listOf("code", "bug", "link"),
     )
+
+    /** Every icon name: the names of all [GROUPS]. */
+    val NAMES: List<String> = GROUPS.flatMap { it.second }
 
     private val SET = NAMES.toHashSet()
 

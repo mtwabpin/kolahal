@@ -35,11 +35,12 @@ class WidgetRefTest {
     /** Every key of a script: its name, or its name and the separator at the start. A longer name is another script. */
     @Test fun aKeyBelongsToOneScript() {
         assertEquals("weather#", WidgetRef.further("weather"))
-        assertTrue(WidgetRef.isOf("weather", "weather"))
-        assertTrue(WidgetRef.isOf("weather#2", "weather"))
-        assertFalse(WidgetRef.isOf("weather2", "weather"))
-        assertFalse(WidgetRef.isOf("weather_2#2", "weather"))
-        assertFalse(WidgetRef.isOf("weathe", "weather"))
+        fun isOf(key: String, script: String) = WidgetRef.parse(key)?.script == script
+        assertTrue(isOf("weather", "weather"))
+        assertTrue(isOf("weather#2", "weather"))
+        assertFalse(isOf("weather2", "weather"))
+        assertFalse(isOf("weather_2#2", "weather"))
+        assertFalse(isOf("weathe", "weather"))
     }
 
     @Test fun theNextIdIsTheSmallestFreeOne() {

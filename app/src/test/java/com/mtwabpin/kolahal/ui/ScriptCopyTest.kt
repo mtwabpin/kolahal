@@ -22,7 +22,7 @@ class ScriptCopyTest {
      * unedited older copy always has a newer version; an edited one has it when [fromOlder].
      */
     private fun row(state: ScriptLibrary.State, fromOlder: Boolean = false) = LibRow(
-        entry, state, emptyList(),
+        entry, state,
         newer = state == ScriptLibrary.State.UPDATE_AVAILABLE || (state == ScriptLibrary.State.MODIFIED && fromOlder),
     )
 

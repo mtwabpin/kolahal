@@ -34,10 +34,11 @@ data class WidgetState(val spec: WidgetSpec?, val hasContent: Boolean, val setAt
  *
  * Both processes use it. The :script process writes while a script runs, and tells the main process
  * with a message ([ACTION_CHANGED]) of its own, not the log's: the log's would make home read the
- * log again. The main process raises [version], and the cards read their state again.
+ * log again. The main process raises the widget's number in [versions], and its card reads its state again.
  *
- * A run sends one message, when it ends, for everything it changed: it writes `quietly`, then calls
- * [announce] once. Every other write (a test's, the main process's) tells the cards itself.
+ * A run sends one message, when it ends, for everything it changed: [putEncoded], [clear] and [ran]
+ * tell no card, and the run calls [announce] once. The main process's writes ([forget],
+ * [forgetScript]) tell the cards themselves.
  *
  * It is a cache: it stays on this phone and out of backups. Nothing here throws.
  */
@@ -55,10 +56,6 @@ object WidgetStates {
     /** The name of the widget that changed, in [ACTION_CHANGED]. Absent: any of them may have changed. */
     const val EXTRA_NAME = "name"
 
-    private val _version = MutableStateFlow(0)
-    /** Increases when any widget's state changes. */
-    val version: StateFlow<Int> = _version.asStateFlow()
-
     /** Moves when a change named no widget, so a card with no entry in [versions] yet reads again too. */
     private val everyone = MutableStateFlow(0)
 
@@ -71,7 +68,6 @@ object WidgetStates {
 
     /** [name]'s state changed; null when it isn't known which widget's did (then every widget's number moves). */
     fun bump(name: String? = null) {
-        _version.update { it + 1 }
         _versions.update { all ->
             if (name != null) all + (name to (all[name] ?: 0) + 1)
             else all.mapValues { it.value + 1 }
@@ -81,39 +77,33 @@ object WidgetStates {
 
 
     /**
-     * Stores [spec] as [name]'s widget, for `widget.show`.
+     * Stores [json], a spec encoded already ([WidgetJson.encode]), as [name]'s widget, for
+     * `widget.show`. It encodes the spec once, to check its size.
      * - A description equal to the stored one is not written again.
      * - The content's time moves either way, and the last error is cleared.
-     * - [quietly]: the cards are not told. A run stores this way, and tells them once when it ends ([announce]).
+     * - The cards are not told: the run tells them once when it ends ([announce]).
      */
-    fun put(context: Context, name: String, spec: WidgetSpec, quietly: Boolean = false) =
-        putEncoded(context, name, WidgetJson.encode(spec), quietly)
-
-    /** [put] for a spec encoded already ([WidgetJson.encode]): `widget.show` encodes it once, to check its size. */
-    fun putEncoded(context: Context, name: String, json: String, quietly: Boolean = false) {
+    fun putEncoded(context: Context, name: String, json: String) {
         runCatching {
             val content = KvStore(context, Stores.WIDGET)
             if (content.get(name) != json) content.set(name, json)
             writeMeta(context, name, meta(context, name).copy(set = System.currentTimeMillis(), error = null))
         }
-        if (!quietly) announce(context, name)
     }
 
-    /** Removes [name]'s content, for `widget.clear`. Its times and its error stay. [quietly]: as for [put]. */
-    fun clear(context: Context, name: String, quietly: Boolean = false) {
+    /** Removes [name]'s content, for `widget.clear`. Its times and its error stay. The cards are not told, as with [putEncoded]. */
+    fun clear(context: Context, name: String) {
         runCatching { KvStore(context, Stores.WIDGET).set(name, null) }
-        if (!quietly) announce(context, name)
     }
 
     /**
      * Notes that a run of [name] just ended: with [error] when it failed, with null when it worked.
-     * [quietly]: as for [put].
+     * The cards are not told, as with [putEncoded].
      */
-    fun ran(context: Context, name: String, error: String?, quietly: Boolean = false) {
+    fun ran(context: Context, name: String, error: String?) {
         runCatching {
             writeMeta(context, name, meta(context, name).copy(tried = System.currentTimeMillis(), error = error?.take(MAX_ERROR)?.ifBlank { null }))
         }
-        if (!quietly) announce(context, name)
     }
 
     /** Removes everything kept for the one widget [name]: when it is taken off the page. */
@@ -181,8 +171,8 @@ object WidgetStates {
      * :script process a message goes to the main one, as the log's does
      * ([com.mtwabpin.kolahal.data.LogRepository.ACTION_LOGS_CHANGED]). This process's own counter rises too.
      *
-     * The writes above call it, unless they are asked to write quietly. Then the caller calls it,
-     * once for all of them: a run does, when it ends.
+     * [forget] and [forgetScript] call it. A run's writes ([putEncoded], [clear], [ran]) don't: the
+     * run calls it once for all of them, when it ends.
      */
     fun announce(context: Context, name: String?) {
         if (Singleton.inScriptProcess) {

@@ -446,18 +446,15 @@ class OwnCardsTest {
         assertEquals("Tomorrow 01:00", com.mtwabpin.kolahal.data.TimeFormats.whenLabel(at(15, 1), now, zone, clock24 = true, locale = Locale.US, capital = true))
     }
 
-    /** The time to a reminder is in whole minutes, rounded up, so "in 10m" stays until 9 minutes are left. */
+    /** The time to a reminder is in whole minutes, rounded up, so "10 min" stays until 9 minutes are left. */
     @Test fun theTimeToAReminderCountsDown() {
         val now = at(14, 16, 5)
-        assertEquals("in 25m", OwnCards.until(at(14, 16, 30), now))
-        assertEquals("in 2h 25m", OwnCards.until(at(14, 18, 30), now))
-        assertEquals("in 1d 2h", OwnCards.until(at(15, 18, 30), now))
-        assertEquals("in 10m", OwnCards.until(now + 9 * 60_000L + 1, now))
-        assertEquals("in 9m", OwnCards.until(now + 9 * 60_000L, now))
-        assertEquals("in 1m", OwnCards.until(now + 1, now))
+        assertEquals("25" to "min", OwnCards.untilParts(at(14, 16, 30), now))
+        assertEquals("10" to "min", OwnCards.untilParts(now + 9 * 60_000L + 1, now))
+        assertEquals("9" to "min", OwnCards.untilParts(now + 9 * 60_000L, now))
+        assertEquals("1" to "min", OwnCards.untilParts(now + 1, now))
         // Its time has come: the alarm fires any moment.
-        assertEquals("now", OwnCards.until(now, now))
-        assertEquals("now", OwnCards.until(now - 90_000L, now))
+        assertEquals("now" to null, OwnCards.untilParts(now - 90_000L, now))
     }
 
     /** The next reminder is the card's lead, the time to it big. The next three are rows with their time. */

@@ -74,15 +74,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
-import kotlinx.coroutines.delay
 import java.time.ZoneId
 
 
@@ -701,7 +697,7 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
  * `countdown`: the time to a moment, or since it. Kolahal does the ticking: the script gave the
  * moment once, and no run is needed as time passes.
  * - The time moves by the minute, with the header's clock ([rememberNow]).
- * - It moves by the second only while the text shows seconds and the card can be seen ([cardSeen]).
+ * - It moves by the second ([EverySecond]) only while the text shows seconds and the card can be seen.
  *   A tick draws the number again ([CountdownValue]), not the whole card.
  * - The number is big and its unit small: "36 days" ([WidgetWords.Count]).
  * - With a start (`from`), a bar runs from the start to the moment. In a wide box the bar takes the
@@ -725,20 +721,7 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
         derivedStateOf { WidgetWords.countdown(spec.to, now.longValue, spec.style, spec.reached, zone) }
     }
     val ticks by remember(count) { derivedStateOf { count.value.ticks } }
-    if (ticks && cardSeen()) {
-        val lifecycle = LocalLifecycleOwner.current.lifecycle
-        LaunchedEffect(lifecycle) {
-            // Only while home is on screen.
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    val ms = System.currentTimeMillis()
-                    now.longValue = ms / 1000
-                    // Wake when the next second starts.
-                    delay(1000 - ms % 1000)
-                }
-            }
-        }
-    }
+    EverySecond(ticks) { now.longValue = it / 1000 }
     val small = box == WidgetSizes.Box.SMALL
     val large = box == WidgetSizes.Box.LARGE
     val type = MaterialTheme.typography

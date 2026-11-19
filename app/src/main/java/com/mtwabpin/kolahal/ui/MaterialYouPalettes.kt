@@ -32,13 +32,13 @@ object MaterialYouPalettes {
     /** The palettes of every variation, worked out once for each pair of schemes. */
     private var made: Pair<Pair<ColorScheme, ColorScheme>, Map<Pair<String, Boolean>, Palette>>? = null
 
-    /** The [dark] or the light palette of the Material You theme [variant] (`material-you-soft`). */
+    /** The [dark] or the light palette of the Material You theme [variant] (`material-you-soft`), one of [MaterialYou.VARIANTS]. */
     fun of(dark: Boolean, variant: String = MaterialYou.NAME): Palette {
         val schemes = fromWallpaper ?: standard
         val palettes = made?.takeIf { it.first === schemes }?.second
             ?: MaterialYou.VARIANTS.flatMap { v -> listOf(true, false).map { d -> (v to d) to paletteFrom(if (d) schemes.first else schemes.second, v) } }
                 .toMap().also { made = schemes to it }
-        return palettes[variant to dark] ?: palettes.getValue(MaterialYou.NAME to dark)
+        return palettes.getValue(variant to dark)
     }
 
     /**

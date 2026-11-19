@@ -48,10 +48,10 @@ import kotlin.math.roundToLong
 internal val INTERVALS = listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 720 to "12 hours", 1440 to "1 day")
 
 /**
- * A library script, its state compared with the installed copy, and its `@on` events. [newer]: the
+ * A library script, and its state compared with the installed copy. [newer]: the
  * library has a newer version than the one the copy came from ([ScriptLibrary.hasNewer]).
  */
-internal data class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val events: List<String>, val newer: Boolean = false)
+internal data class LibRow(val entry: ScriptLibrary.Entry, val state: ScriptLibrary.State, val newer: Boolean = false)
 
 /**
  * The library's scripts, each compared with [scripts]. Their files and directives come from assets
@@ -68,7 +68,7 @@ internal fun rememberLibraryRows(vm: TerminalViewModel, scripts: List<Script>): 
             runCatching {
                 library.entries.map { e ->
                     val state = library.state(e, scripts)
-                    LibRow(e, state, e.events, library.hasNewer(e, state))
+                    LibRow(e, state, library.hasNewer(e, state))
                 }
             }.getOrDefault(emptyList())
         }

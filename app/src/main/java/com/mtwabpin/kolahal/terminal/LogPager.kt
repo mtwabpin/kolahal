@@ -107,7 +107,7 @@ internal fun patchFilterPage(
  * space locked since keeps its lines out only after a whole search: a patch looks at new lines only.
  */
 internal fun canPatchFilter(
-    filter: LogFilter?,
+    filter: LogFilter,
     incremental: Boolean,
     filteredFor: LogFilter?,
     limit: Int,
@@ -115,7 +115,7 @@ internal fun canPatchFilter(
     removed: Boolean,
     locked: Set<Long>,
     filteredLocks: Set<Long>,
-): Boolean = filter != null && incremental && filter == filteredFor && limit <= filteredLimit && !removed && locked == filteredLocks
+): Boolean = incremental && filter == filteredFor && limit <= filteredLimit && !removed && locked == filteredLocks
 
 /**
  * The page of the log that home shows: the newest lines, and older ones as the user scrolls back.

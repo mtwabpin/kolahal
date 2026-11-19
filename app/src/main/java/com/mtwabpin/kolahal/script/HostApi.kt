@@ -555,7 +555,7 @@ class HostApi(
         val json = WidgetJson.encode(spec)
         require(json.toByteArray().size <= MAX_WIDGET_BYTES) { "widget: the description is over ${MAX_WIDGET_BYTES / 1024} KB" }
         if (placed) {
-            WidgetStates.putEncoded(context, widgetKey, json, quietly = true)
+            WidgetStates.putEncoded(context, widgetKey, json)
             widgetChanged = true
         }
         return placed
@@ -600,7 +600,7 @@ class HostApi(
         flush()
         widgetLine("widget.clear") ?: return
         if (widgetPlacedNow() && widgetCall("widget.clear")) {
-            WidgetStates.clear(context, widgetKey, quietly = true)
+            WidgetStates.clear(context, widgetKey)
             widgetChanged = true
         }
     }

@@ -25,7 +25,6 @@ class AppSessions(
         const val PAUSED = 2
         const val SCREEN_OFF = 16
         const val LOCKED = 17
-        const val STOPPED = 23
         const val SHUTDOWN = 26
         const val STARTUP = 27
 
@@ -148,9 +147,6 @@ class AppSessions(
         fun totals(sessions: List<Session>): Map<String, Long> =
             sessions.groupingBy { it.pkg }.fold(0L) { sum, s -> sum + (s.end - s.start) }
 
-        /** Each app's time in front in [from, until), from [events] ([sessions]), by package. */
-        fun totals(events: List<Event>, from: Long, until: Long): Map<String, Long> = totals(sessions(events, from, until).first)
-
         /**
          * [pkg]'s use in [sessions] (already cut to one day), with a slot in [hours] for each hour of the
          * clock in [zone]: on a day the clock changes, an hour may get two hours' time, or none.
@@ -179,12 +175,6 @@ class AppSessions(
                 inFront = inFront == pkg,
                 hours = hours,
             )
-        }
-
-        /** [pkg]'s use in [from, until), one day at most, from [events] ([sessions], then [of]). */
-        fun of(events: List<Event>, pkg: String, from: Long, until: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): AppSessions {
-            val (all, inFront) = sessions(events, from, until)
-            return of(all, pkg, inFront, zone)
         }
     }
 }

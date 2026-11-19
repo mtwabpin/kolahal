@@ -218,7 +218,7 @@ private fun overline(r: LibRow): String {
     val e = r.entry
     return "${e.name}.${e.lang.ext}" + (if (e.command) " · command" else
         if (e.suggestedEvery > 0) " · every ${CommandParsing.formatInterval(e.suggestedEvery)}" else "") +
-        r.events.let { if (it.isEmpty()) "" else " · on " + it.joinToString(", ") }
+        e.events.let { if (it.isEmpty()) "" else " · on " + it.joinToString(", ") }
 }
 
 /**

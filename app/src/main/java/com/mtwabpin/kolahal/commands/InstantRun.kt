@@ -14,15 +14,11 @@ object InstantRun {
     const val ALL = "all"
 
     /**
-     * Commands that never run without Enter, except those in [WHOLE_LINE_OK]. They cost money,
-     * change state, or are hard to undo. Each command's entry says whether it is ([CommandSpec.sensitive]).
+     * The command that [head] names: another name ([CommandCatalog.SYNONYMS]) gives its command.
+     * Checks always use this name. The sensitive commands ([CommandCatalog.SENSITIVE]) never run
+     * without Enter, except those in [WHOLE_LINE_OK].
      */
-    val SENSITIVE: Set<String> get() = CommandCatalog.SENSITIVE
-
-    /** Other names that the dispatcher accepts for a command ([CommandSpec.aka]). Checks always use the canonical name. */
-    val SYNONYMS: Map<String, String> get() = CommandCatalog.SYNONYMS
-
-    fun canonical(head: String): String = head.lowercase().let { SYNONYMS[it] ?: it }
+    fun canonical(head: String): String = head.lowercase().let { CommandCatalog.SYNONYMS[it] ?: it }
 
     /**
      * True when [line] is a sensitive command, after synonyms are resolved. This is decided by:
@@ -39,7 +35,7 @@ object InstantRun {
         // `=…` runs code in the calculator. (`=notify(…)` has no space after the `=`.)
         if (t.startsWith("=")) return true
         val head = canonical(t.substringBefore(' '))
-        if (head in SENSITIVE) return true
+        if (head in CommandCatalog.SENSITIVE) return true
         val args = t.substringAfter(' ', "").split(' ')
         return (head == "open" && (args.any { ':' in it } || "--resume" in args)) || args.any { it == "--allow" || it == "--settings" }
     }
@@ -133,7 +129,7 @@ object InstantRun {
         // An alias may stand for anything, so it waits for Enter.
         if (word in aliases) return false
         val head = canonical(word)
-        return (head !in SENSITIVE || head in WHOLE_LINE_OK) && commands[head]?.let { UsageLine.complete(line, it) } == true
+        return (head !in CommandCatalog.SENSITIVE || head in WHOLE_LINE_OK) && commands[head]?.let { UsageLine.complete(line, it) } == true
     }
 
     /**
@@ -159,7 +155,7 @@ object InstantRun {
         }
         val parts = current.split(Regex("\\s+"))
         val head = canonical(parts.firstOrNull() ?: return false)
-        if (head.isEmpty() || (head in SENSITIVE && !(tapped && head in TAP_OK))) return false
+        if (head.isEmpty() || (head in CommandCatalog.SENSITIVE && !(tapped && head in TAP_OK))) return false
         // Script commands are in [commands] only when their usage is known (ScriptMeta.usage).
         val usage = commands[head] ?: return head !in scriptCommands && isApp(current)
         // A bare command runs only if it takes no arguments at all. `contacts` must still accept `contacts bob`.

@@ -110,21 +110,20 @@ internal fun PreviewCaption(text: String) {
     )
 }
 
-/** A log line in a preview. [time] goes in the right-hand column, like `log.time` places it. */
+/** A log line in a preview, with its [source] after it, dim. */
 @Composable
-private fun Line(text: String, color: Color = Term.fg, bold: Boolean = false, source: String? = null, time: String? = null) {
+private fun Line(text: String, color: Color = Term.fg, source: String? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Text(
             buildAnnotatedString {
                 append(text)
                 source?.let { withStyle(SpanStyle(color = Term.dim)) { append(" · $it") } }
             },
-            style = Term.text.copy(color = color, fontWeight = if (bold) FontWeight.Bold else null),
+            style = Term.text.copy(color = color),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).alignByBaseline(),
         )
-        if (time != null) Text(time, style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp), modifier = Modifier.alignByBaseline().padding(start = 8.dp))
     }
 }
 

@@ -90,6 +90,4 @@ object SettingTitles {
     )
 
     operator fun get(key: String): String? = ALL[key]
-
-    operator fun contains(key: String): Boolean = key in ALL
 }

@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.data
 
 import com.mtwabpin.kolahal.apps.AppPrefs
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
@@ -40,9 +41,6 @@ object FullBackup {
         Table({ FeedDb.get(it).writableDatabase }, "feeds"),
         Table({ FeedDb.get(it).writableDatabase }, "items"),
     )
-
-    private val BUILT_INS get() = com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
-
 
     fun export(context: Context): Map<String, Any?> {
         // A mark set just before (a hide) may still wait to be written. The backup must have it.
@@ -123,7 +121,7 @@ object FullBackup {
             if (file !is String || file !in PREFS || entries !is Map<*, *>) return@forEach
             val safe = when (file) {
                 // The same rule as `alias`: an alias never hides a built-in command.
-                "aliases" -> entries.filterKeys { it?.toString()?.lowercase() !in BUILT_INS }
+                "aliases" -> entries.filterKeys { it?.toString()?.lowercase() !in CommandCatalog.RESERVED_NAMES }
                 // Settings are text. A number or a switch there (only an edited file has one) would
                 // break home at every start.
                 "config" -> entries.filterValues { tagged -> (tagged as? Map<*, *>)?.keys?.none { it in TYPED } == true }

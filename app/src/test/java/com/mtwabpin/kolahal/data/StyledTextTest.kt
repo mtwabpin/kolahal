@@ -92,8 +92,8 @@ class StyledTextTest {
         val table = StyledText.table(listOf(listOf("a")), header = false)
         assertEquals("plain" to null, StyledText.splitAtBlocks("plain"))
         assertEquals("above" to "$table\nbelow", StyledText.splitAtBlocks("above\n$table\nbelow"))
-        assertTrue(StyledText.hasTable(table))
-        assertFalse(StyledText.hasTable(StyledText.list(listOf("a"), numbered = false)))
+        assertTrue(StyledText.hasBlock(table))
+        assertFalse(StyledText.hasBlock(StyledText.list(listOf("a"), numbered = false)))
         assertEquals("", StyledText.table(emptyList(), header = true))
     }
 
@@ -139,7 +139,7 @@ class StyledTextBlocksTest {
         assertEquals(listOf(null, "https://example.org/ab", null, "https://news.ycombinator.com/item?id=1"), spans.map { it.url })
         assertEquals("412 A story · 138 comments", StyledText.plain(text))
         assertEquals("412 A story · 138 comments", StyledText.strip(text))
-        assertEquals(listOf("https://example.org/ab", "https://news.ycombinator.com/item?id=1"), StyledText.links(text))
+        assertEquals(listOf("https://example.org/ab", "https://news.ycombinator.com/item?id=1"), StyledText.linkTexts(text).map { it.second })
     }
 
     /** Styles work inside a link's text; a link inside a link's text is dropped. */
@@ -159,7 +159,7 @@ class StyledTextBlocksTest {
         val spans = StyledText.lines(mapped).single().spans
         assertEquals(listOf("bad ", "ok", " end"), spans.map { it.text })
         assertEquals(listOf(null, "https://ok.example/", null), spans.map { it.url })
-        assertEquals(listOf("https://ok.example/"), StyledText.links(mapped))
+        assertEquals(listOf("https://ok.example/"), StyledText.linkTexts(mapped).map { it.second })
     }
 
     @Test fun aBarIsALineWithNoText() {
@@ -173,7 +173,7 @@ class StyledTextBlocksTest {
         assertEquals("Unhealthy", StyledText.plain(body))
         assertEquals("Unhealthy" to StyledText.bar(168.0, 300.0, StyledText.Colour.BAD), StyledText.splitAtBlocks(body))
         assertTrue(StyledText.hasBlock(body))
-        assertFalse(StyledText.hasTable(body))
+        assertEquals(null, bar.row)
     }
 
     /** Past the end, below zero, not a number, no scale: the bar stays between empty and full. */
@@ -300,7 +300,7 @@ class StyledTextBlocksTest {
     @Test fun inlineDropsWhatOnlyTheLogDraws() {
         val link = StyledText.inline("see " + StyledText.link("https://example.com/x", bold("the page")) + " now")
         assertEquals("see the page now", StyledText.plain(link))
-        assertEquals(emptyList<String>(), StyledText.links(link))
+        assertEquals(emptyList<String>(), StyledText.linkTexts(link).map { it.second })
         assertFalse(link.contains("example.com"))
         assertEquals(setOf(Style.BOLD), stylesIn(link)["the page"])
 

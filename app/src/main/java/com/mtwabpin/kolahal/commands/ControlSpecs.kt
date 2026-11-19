@@ -78,7 +78,7 @@ object ControlSpecs {
      * Commands that change device or media state. A prefix never runs them. They run only as a
      * whole line, such as `torch on` (InstantRun).
      */
-    val SENSITIVE = setOf("media", "mp", "next", "prev", "torch", "volume", "vol", "ring", "dnd", "brightness", "rotate", "screen-timeout")
+    val SENSITIVE = setOf("media", "mp", "next", "prev", "torch", "volume", "ring", "dnd", "brightness", "rotate", "screen-timeout")
 
     private val ARGS = mapOf(
         "media" to listOf("play", "pause", "toggle", "next", "prev", "stop"),
@@ -87,12 +87,11 @@ object ControlSpecs {
         "dnd" to listOf("on", "off", "alarms", "none", "status", "access"),
         "ring" to listOf("normal", "vibrate", "silent"),
         "volume" to listOf("up", "down", "mute", "unmute", "0", "25", "50", "75", "100"),
-        "vol" to listOf("up", "down", "mute", "unmute"),
         "brightness" to listOf("auto", "up", "down", "25", "50", "75", "100", "access"),
         "screen-timeout" to listOf("15s", "30s", "1m", "2m", "5m", "10m", "30m"),
     )
 
-    /** Argument completions for the suggestion strip, as (label, replacement line) pairs. */
-    fun suggest(head: String, arg: String): List<Pair<String, String>> =
-        ARGS[head].orEmpty().filter { it.startsWith(arg, ignoreCase = true) && !it.equals(arg, ignoreCase = true) }.map { it to "$head $it" }
+    /** Argument completions for the suggestion strip: the arguments of [head] that start with [arg]. */
+    fun suggest(head: String, arg: String): List<String> =
+        ARGS[head].orEmpty().filter { it.startsWith(arg, ignoreCase = true) && !it.equals(arg, ignoreCase = true) }
 }

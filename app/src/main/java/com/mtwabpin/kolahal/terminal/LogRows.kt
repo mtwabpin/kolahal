@@ -101,7 +101,7 @@ fun buildRows(
         if (newDay) rows += LogRow.Day(day)
         if (last == null || day > last) previousDay = day
         val unread = isUnread(e) && isScriptLine(e)
-        if (unread && !unreadShown && unreadCount > 0) {
+        if (unread && !unreadShown) {
             rows += LogRow.Unread(unreadCount)
             unreadShown = true
         }
@@ -130,7 +130,7 @@ fun buildRows(
                 isScriptLine(e) -> Gutter.SCRIPT
                 else -> Gutter.COMMAND
             },
-            unread = unread && e.kind == LogKind.SCRIPT,
+            unread = unread,
             blockStart = blockStart,
             showSource = !trim || ((runStart || blockStart) && !underItsCommand),
             showTime = !trim || blockStart || newDay || previous == null || e.ts / 60_000 != previous.ts / 60_000,

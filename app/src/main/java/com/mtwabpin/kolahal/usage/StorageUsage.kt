@@ -50,7 +50,8 @@ class StorageUsage(private val context: Context) {
      *   updated (it can't be uninstalled). Kolahal itself is left out.
      * - [sizes]: each app's size in bytes, when known.
      */
-    fun unused(packages: Collection<String>, days: Long, sizes: Map<String, Long> = emptyMap(), now: Long = System.currentTimeMillis(), sortName: (String) -> String = { it }): List<Unused> {
+    fun unused(packages: Collection<String>, days: Long, sizes: Map<String, Long> = emptyMap(), sortName: (String) -> String): List<Unused> {
+        val now = System.currentTimeMillis()
         val last = lastUsed(now)
         val pm = context.packageManager
         val day = 86_400_000L

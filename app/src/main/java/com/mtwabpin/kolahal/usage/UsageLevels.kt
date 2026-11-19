@@ -27,7 +27,8 @@ class UsageLevels(private val context: Context) {
     }
 
     /** The buckets of [level], the oldest first, each with its apps' time and its unlocks. */
-    fun read(level: Level, now: Long = System.currentTimeMillis()): List<Bucket> {
+    fun read(level: Level): List<Bucket> {
+        val now = System.currentTimeMillis()
         val from = now - level.lookBackDays * DAY_MS
         val stats = runCatching { usage.queryUsageStats(level.interval, from, now) }.getOrNull().orEmpty()
             .map { Stat(it.packageName, it.firstTimeStamp, it.lastTimeStamp, it.totalTimeInForeground) }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -90,7 +89,7 @@ internal fun CompareDialog(vm: TerminalViewModel, s: Script, lib: LibRow, onDism
                         items(hunk.lines) { DiffLine(it) }
                     }
                 }
-                Row(Modifier.padding(16.dp)) { CopyButton(ScriptCopy.of(lib), ButtonDefaults.MinHeight, onReset) }
+                Row(Modifier.padding(16.dp)) { CopyButton(ScriptCopy.of(lib), onReset) }
             }
         }
     }

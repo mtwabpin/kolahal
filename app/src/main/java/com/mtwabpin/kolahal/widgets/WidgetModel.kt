@@ -59,9 +59,6 @@ object WidgetSource {
     fun scriptRef(source: String?): WidgetRef? =
         source?.takeIf { it.startsWith(SCRIPT) && isSource(it) }?.removePrefix(SCRIPT)?.let(WidgetRef::parse)
 
-    /** The script's name when [source] is one of a script's own widgets. Null for anything else. */
-    fun scriptName(source: String?): String? = scriptRef(source)?.script
-
     /** The id of the built-in Battery and network widget. Its source is `builtin:battery`. */
     const val BATTERY = "battery"
     /** The id of the built-in Shortcuts widget: buttons for commands you picked ([Shortcuts]). */
@@ -231,8 +228,8 @@ object WidgetLayout {
         return maxOf(minHeightDp, fromCells, 72).coerceIn(MIN_DP, MAX_DP)
     }
 
-    /** Adds [deltaDp] (for example ±[STEP_DP]) and keeps the result within [min]..[MAX_DP]. */
-    fun resize(current: Int, deltaDp: Int, min: Int): Int = (current + deltaDp).coerceIn(min.coerceAtMost(MAX_DP), MAX_DP)
+    /** [heightDp] kept within [min]..[MAX_DP]. A [min] over [MAX_DP] counts as [MAX_DP]. */
+    fun clampHeight(heightDp: Int, min: Int): Int = heightDp.coerceIn(min.coerceAtMost(MAX_DP), MAX_DP)
 
     /** Launcher grid cells for a size in dp (the classic 70n − 30 rule). */
     fun cells(dp: Int): Int = maxOf(1, (dp + 30) / 70)

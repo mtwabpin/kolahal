@@ -61,9 +61,9 @@ class MarkdownTest {
         assertEquals(listOf(null, "https://en.wikipedia.org/wiki/Lua_(programming_language)", null), spans.map { it.url })
         assertEquals(setOf(Style.BOLD), spans[1].styles)
         for (text in listOf("[a](no space)", "[](https://x)", "[a] (https://x)", "[a](https://x")) {
-            assertEquals(text, emptyList<String>(), StyledText.links(Markdown.inline(text)))
+            assertEquals(text, emptyList<String>(), StyledText.linkTexts(Markdown.inline(text)).map { it.second })
         }
         // In "[a [b](x)" the inner one is the link.
-        assertEquals(listOf("https://x"), StyledText.links(Markdown.inline("[a [b](https://x)")))
+        assertEquals(listOf("https://x"), StyledText.linkTexts(Markdown.inline("[a [b](https://x)")).map { it.second })
     }
 }

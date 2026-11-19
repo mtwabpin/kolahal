@@ -73,7 +73,7 @@ internal fun HostedWidget(
     w: PlacedWidget,
     height: Dp,
     pausedKind: ProfileKind?,
-    onLongPress: (() -> Unit)?,
+    onLongPress: () -> Unit,
     placeholder: @Composable (String) -> Unit,
 ) {
     val id = w.id ?: return
@@ -95,7 +95,7 @@ internal fun HostedWidget(
             factory = { ctx ->
                 // Home is rebuilt after Settings or the Widgets page, but the widget's view is reused.
                 widgets.view(ctx, id, info).apply {
-                    (this as? KolahalWidgetView)?.onLongPress = { longPress?.invoke() }
+                    (this as? KolahalWidgetView)?.onLongPress = { longPress() }
                 }
             },
             modifier = Modifier.fillMaxWidth().height(height),

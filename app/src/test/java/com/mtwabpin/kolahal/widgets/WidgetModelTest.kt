@@ -79,9 +79,9 @@ class WidgetModelTest {
     }
 
     @Test fun resizeClamps() {
-        assertEquals(168, WidgetLayout.resize(120, 48, 100))
-        assertEquals(100, WidgetLayout.resize(120, -48, 100))
-        assertEquals(WidgetLayout.MAX_DP, WidgetLayout.resize(WidgetLayout.MAX_DP, 48, 48))
+        assertEquals(168, WidgetLayout.clampHeight(168, 100))
+        assertEquals(100, WidgetLayout.clampHeight(72, 100))
+        assertEquals(WidgetLayout.MAX_DP, WidgetLayout.clampHeight(WidgetLayout.MAX_DP + 48, 48))
     }
 
     @Test fun minAndDefaultHeights() {
@@ -202,10 +202,10 @@ class WidgetModelTest {
         assertFalse(WidgetSource.isSource("script:a|b"))
         assertFalse(WidgetSource.isSource("script:a\nb"))
         assertEquals("script:weather", WidgetSource.script("weather"))
-        assertEquals("weather", WidgetSource.scriptName("script:weather"))
-        assertNull(WidgetSource.scriptName("status:weather"))
-        assertNull(WidgetSource.scriptName("com.a/.W"))
-        assertNull(WidgetSource.scriptName(null))
+        assertEquals("weather", WidgetSource.scriptRef("script:weather")?.script)
+        assertNull(WidgetSource.scriptRef("status:weather")?.script)
+        assertNull(WidgetSource.scriptRef("com.a/.W")?.script)
+        assertNull(WidgetSource.scriptRef(null)?.script)
     }
 
     /**
@@ -384,7 +384,7 @@ class WidgetModelTest {
         assertNull(WidgetSource.builtinId("com.a/.W"))
         assertNull(WidgetSource.builtinId(null))
         // It belongs to no script.
-        assertNull(WidgetSource.scriptName("builtin:battery"))
+        assertNull(WidgetSource.scriptRef("builtin:battery")?.script)
     }
 
     /** Each built-in widget has one name: the picker, the Widgets screen and `widgets ls` say the same. */
@@ -503,11 +503,11 @@ class WidgetModelTest {
         assertEquals(WidgetRef("weather"), WidgetSource.scriptRef("script:weather"))
         assertEquals(WidgetRef("weather", "2"), WidgetSource.scriptRef("script:weather#2"))
         // The name is the script's, whichever widget it is.
-        assertEquals("weather", WidgetSource.scriptName("script:weather#2"))
+        assertEquals("weather", WidgetSource.scriptRef("script:weather#2")?.script)
         // An id that can't be one names no widget.
         assertNull(WidgetSource.scriptRef("script:weather#"))
         assertNull(WidgetSource.scriptRef("script:weather#Two"))
-        assertNull(WidgetSource.scriptName("script:weather#2#3"))
+        assertNull(WidgetSource.scriptRef("script:weather#2#3")?.script)
         assertNull(WidgetSource.scriptRef("status:weather#2"))
         // Each widget is its own entry, with its own key.
         assertEquals("s:script:weather#2", further("weather", "2").key)
@@ -533,7 +533,7 @@ class WidgetModelTest {
             script("weather", order = 0), further("weather", "2", order = 1), further("weatherman", "2", order = 2), w(7, 3),
             further("sky", "2", order = 4), further("sky", "3", order = 5),
         )
-        assertEquals(listOf("weather", "weather", "weatherman", null, "sky", "sky"), all.map { WidgetSource.scriptName(it.source) })
+        assertEquals(listOf("weather", "weather", "weatherman", null, "sky", "sky"), all.map { WidgetSource.scriptRef(it.source)?.script })
         val renamed = WidgetSource.renamed(all, "weather", "sky")
         // The waiting `script:sky#2` gives way to the one that takes its place. `script:sky#3` stays: it is the script's now.
         assertEquals(listOf("script:sky", "script:sky#2", "script:weatherman#2", "com.a/.W3", "script:sky#3"), renamed.map { it.provider })

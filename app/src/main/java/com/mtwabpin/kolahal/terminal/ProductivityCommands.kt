@@ -38,8 +38,8 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
     private val notes = NoteStore.get(context)
     private val reminders = ReminderStore.get(context)
 
-    /** Runs [name] if this class handles it, and returns true. Otherwise returns false. [rest] is the raw argument text. */
-    fun run(name: String, rest: String): Boolean {
+    /** Runs [name], one of [com.mtwabpin.kolahal.commands.CommandCatalog.PRODUCTIVITY]. [rest] is the raw argument text. */
+    fun run(name: String, rest: String) {
         when (name) {
             "todo" -> todo(rest)
             "note" -> if (rest.isBlank()) listNotes(null) else addNote(rest)
@@ -55,9 +55,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
                 info("Opened the clock app (Android can't open its stopwatch directly)")
             }
             "agenda" -> agenda(rest)
-            else -> return false
         }
-        return true
     }
 
 

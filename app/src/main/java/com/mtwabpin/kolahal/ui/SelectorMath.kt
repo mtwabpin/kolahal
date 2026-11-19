@@ -1,7 +1,5 @@
 package com.mtwabpin.kolahal.ui
 
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
 import java.text.Normalizer
 import kotlin.math.PI
 import kotlin.math.abs
@@ -220,13 +218,10 @@ internal object SelectorMath {
     const val WAVE_GROW = 0.6f
 
     /** How much the wave pushes out a letter that is [x] letters from its centre: 1 at the centre, easing to 0 at [WAVE_REACH]. */
-    fun waveOut(x: Float): Float = if (abs(x) >= WAVE_REACH) 0f else (1f + cos(PI.toFloat() * x / WAVE_REACH)) / 2f
+    fun waveOut(x: Float): Float = bell(x, WAVE_REACH)
 
     /** [waveOut] summed from the centre to [x] (in letters): how much further from the centre the spread moves a letter. */
-    private fun waveIntegral(x: Float): Float {
-        val a = min(abs(x), WAVE_REACH)
-        return sign(x) * (a + WAVE_REACH / PI.toFloat() * sin(PI.toFloat() * a / WAVE_REACH)) / 2f
-    }
+    private fun waveIntegral(x: Float): Float = bellIntegral(x, WAVE_REACH)
 
     /** How much the wave spreads letters that are [unit] px apart at rest, so that the letters next to its centre sit [room] px from it. */
     fun waveSpread(unit: Float, room: Float): Float =
@@ -408,22 +403,24 @@ internal object SelectorMath {
     const val PEAK = 0.2f
     const val REACH = 3f
 
-    /** Fisheye bell: 1 at the contact point, falling smoothly to 0 at ±[REACH] rows. */
-    private fun bell(x: Float): Float =
-        if (abs(x) >= REACH) 0f else (1f + cos(PI.toFloat() * x / REACH)) / 2f
+    /** A bell: 1 at [x] = 0, falling smoothly to 0 at ±[reach]. The fisheye and the letters' wave both use it. */
+    private fun bell(x: Float, reach: Float): Float =
+        if (abs(x) >= reach) 0f else (1f + cos(PI.toFloat() * x / reach)) / 2f
 
-    /** Scale of a row whose centre is [x] rows from the contact point. */
-    fun fisheyeScale(x: Float): Float = 1f + PEAK * bell(x)
+    /** [bell] summed from 0 to [x]. It is negative for a negative [x]. */
+    private fun bellIntegral(x: Float, reach: Float): Float {
+        val a = min(abs(x), reach)
+        return sign(x) * (a + reach / PI.toFloat() * sin(PI.toFloat() * a / reach)) / 2f
+    }
+
+    /** Scale of a row whose centre is [x] rows from the contact point. The bell falls to 0 at ±[REACH] rows. */
+    fun fisheyeScale(x: Float): Float = 1f + PEAK * bell(x, REACH)
 
     /**
      * Extra vertical move (rows) of a row whose centre is [x] rows from the contact. Magnified rows
      * push their neighbours apart instead of overlapping. The value is the integral of the extra scale.
      */
-    fun fisheyeShift(x: Float): Float {
-        val a = min(abs(x), REACH)
-        val integral = (a + REACH / PI.toFloat() * sin(PI.toFloat() * a / REACH)) / 2f
-        return sign(x) * PEAK * integral
-    }
+    fun fisheyeShift(x: Float): Float = PEAK * bellIntegral(x, REACH)
 
     /**
      * Auto-scroll speed at the panel's ends (px/ms, negative = up) for a finger [y] px below the top

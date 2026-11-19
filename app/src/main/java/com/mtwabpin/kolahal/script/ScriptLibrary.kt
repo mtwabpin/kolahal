@@ -98,7 +98,7 @@ class ScriptLibrary(private val context: Context) {
      */
     fun state(entry: Entry, installed: List<Script>): State {
         val script = installed.firstOrNull { it.name == entry.name } ?: return State.NOT_INSTALLED
-        val original = installedOriginal(entry.name)
+        val original = recorded(entry.name)
         val shippedNow = code(entry)
         return when {
             script.code == shippedNow -> State.INSTALLED
@@ -117,7 +117,7 @@ class ScriptLibrary(private val context: Context) {
      */
     fun hasNewer(entry: Entry, state: State): Boolean = when (state) {
         State.UPDATE_AVAILABLE -> true
-        State.MODIFIED -> installedOriginal(entry.name)?.let { it != code(entry) } == true
+        State.MODIFIED -> recorded(entry.name)?.let { it != code(entry) } == true
         else -> false
     }
 
@@ -167,7 +167,7 @@ class ScriptLibrary(private val context: Context) {
         val installed = ScriptRepository.get(context).all()
         for (e in entries) {
             val script = installed.firstOrNull { it.name == e.name } ?: continue
-            if (installedOriginal(e.name) == null && script.lang == e.lang && script.code == code(e)) prefs.edit { putString("installed:${e.name}", script.code) }
+            if (recorded(e.name) == null && script.lang == e.lang && script.code == code(e)) prefs.edit { putString("installed:${e.name}", script.code) }
         }
         // If one fails (a locked database), it is tried again on the next start.
         val updated = entries.filter { state(it, installed) == State.UPDATE_AVAILABLE }
@@ -187,10 +187,8 @@ class ScriptLibrary(private val context: Context) {
     /** The note about copies Kolahal updated by itself. It is about this phone, so it stays out of backups (unlike [prefs]). */
     private val notePrefs by lazy { Stores.LIBRARY_UPDATES.open(context) }
 
-    private fun installedOriginal(name: String): String? = prefs.getString("installed:$name", null)
-
     /** The text your copy of [name] was installed from, or null. Undo after an update puts it back with [record]. */
-    fun recorded(name: String): String? = installedOriginal(name)
+    fun recorded(name: String): String? = prefs.getString("installed:$name", null)
 
     /** Sets the text your copy of [name] was installed from. Null forgets it. */
     fun record(name: String, original: String?) = prefs.edit { if (original == null) remove("installed:$name") else putString("installed:$name", original) }

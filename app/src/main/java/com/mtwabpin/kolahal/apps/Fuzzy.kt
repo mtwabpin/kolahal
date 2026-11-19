@@ -38,15 +38,10 @@ internal object Fuzzy {
     }
 
     /**
-     * Number of edits from [a] to the first [bLength] letters of [b]. A swap of two neighbours counts
-     * as one edit (optimal string alignment). Only for tests: [slip] reads every length from one table.
-     */
-    fun distance(a: String, b: String, bLength: Int = b.length): Int = lastRow(a, b, bLength)[bLength]
-
-    /**
      * Returns the table's last row for [a] against the first [bLength] letters of [b]. Index n holds
-     * the edits from [a] to the first n letters. It keeps only three rows in memory, because app
-     * search checks every name when a key press matches nothing.
+     * the edits from [a] to the first n letters. A swap of two neighbours counts as one edit (optimal
+     * string alignment). It keeps only three rows in memory, because app search checks every name
+     * when a key press matches nothing.
      */
     private fun lastRow(a: String, b: String, bLength: Int): IntArray {
         var older = IntArray(bLength + 1)

@@ -174,7 +174,7 @@ class ScriptCatalog(private val context: Context) {
             repo.saveCode(existing.id, code)
             existing
         }
-        prefs.edit { putString("installed:${e.name}", Json.stringify(mapOf("sha256" to e.sha256, "version" to e.version, "code" to code))) }
+        prefs.edit { putString("installed:${e.name}", Json.stringify(mapOf("sha256" to e.sha256, "code" to code))) }
         return repo.byId(script.id)!!.also {
             ScriptScheduler.sync(context, it)
             // A script left off asks for its secrets when it is switched on.

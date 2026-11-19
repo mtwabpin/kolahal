@@ -104,8 +104,7 @@ fun UnreadDivider(row: LogRow.Unread) {
 }
 
 /** A fixed colour for each script name, so mixed feeds are easy to tell apart. */
-fun scriptColor(name: String?): Color {
-    if (name == null) return Term.script
+fun scriptColor(name: String): Color {
     val p = Term.palette
     val choices = listOf(p.script, p.link, p.info, p.work, p.private, p.prompt)
     return choices[Math.floorMod(name.hashCode(), choices.size)]
@@ -338,7 +337,7 @@ fun LogLine(
                 desc != null -> TwoColumns(entry, desc, marks, dense, bar)
                 else -> {
                     val text = lineText!!
-                    val style = entry.style().dense(dense)
+                    val style = lineStyle
                     val words: @Composable (androidx.compose.ui.text.AnnotatedString) -> Unit = { t ->
                         if (bar != null) WithBar(bar) { RichText(t, style = style, inlineContent = inline) }
                         else RichText(t, style = style, inlineContent = inline)
@@ -441,14 +440,14 @@ private val ACTIONABLE_KEYS = setOf(
  * - It counts the text as it reads ([StyledText.plain]): no style marks, no link addresses.
  * - Each line wraps at [lineChars], and a little sooner, because lines break between words.
  * - A table row or a bar is a line of its own.
- * - A line that just fits stays out: the fold needs more than log.fold + 2 lines.
+ * - A line that just fits stays out: the fold needs more than log.fold + [FOLD_SLACK] lines.
  */
 private fun mayFold(entry: LogEntry, lineChars: Int): Boolean {
     val lines = Term.foldLines
     if (lines <= 0) return false
     val shown = listOfNotNull(entry.text, entry.ctx.body).joinToString("\n").let(StyledText::plain)
     // A rough upper bound, cheap enough for every line: 1.15 for the words that wrap early.
-    return estimatedLines(shown, lineChars) * 1.15 > lines + FOLD_SLACK_LINES
+    return estimatedLines(shown, lineChars) * 1.15 > lines + FOLD_SLACK
 }
 
 /** About how many lines [text] takes, [lineChars] to a line. */
@@ -461,12 +460,9 @@ private fun keepWhole(text: String, keep: Int): Int = if (Character.isHighSurrog
 /** A folded line keeps at least this many characters before it leaves out the rest. */
 private const val FOLDED_MIN_CHARS = 2_000
 
-/** As [Foldable] has it: a fold hides at least this many lines more than log.fold. */
-private const val FOLD_SLACK_LINES = 2
-
 /** A row of two columns (help, config, usage). A [bar] goes in the second column, before its text, so the bars of rows line up. */
 @Composable
-private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = emptyList(), dense: Boolean = false, bar: StyledText.Meter? = null) {
+private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String>, dense: Boolean, bar: StyledText.Meter?) {
     Row(Modifier.fillMaxWidth()) {
         // Beside a bar (usage, toggles), the name stays on one line and ends with "…" when too long.
         RichText(

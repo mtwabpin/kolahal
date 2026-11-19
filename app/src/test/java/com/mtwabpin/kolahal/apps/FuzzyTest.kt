@@ -55,9 +55,9 @@ class FuzzyTest {
     }
 
     @Test fun swapsCountOnce() {
-        assertEquals(1, Fuzzy.distance("mpas", "maps"))
-        assertEquals(1, Fuzzy.distance("maps", "map"))
-        assertEquals(2, Fuzzy.distance("maps", "mail"))
+        assertTrue(Fuzzy.slip("mpas", listOf("maps")))
+        assertTrue(Fuzzy.slip("maps", listOf("map")))
+        assertFalse(Fuzzy.slip("maps", listOf("mail")))
     }
 
     /** A launch counts one, halving every week: last month's habit loses to today's. */
@@ -69,7 +69,7 @@ class FuzzyTest {
         assertTrue("$oldFavourite vs $daily", daily > oldFavourite * 5)
     }
 
-    /** The distance as a full table, as it was worked out before: the three-row version must agree. */
+    /** The distance as a full table, as it was worked out before: [Fuzzy.slip]'s three-row version must agree. */
     private fun tableDistance(a: String, b: String): Int {
         val d = Array(a.length + 1) { IntArray(b.length + 1) }
         for (i in 0..a.length) d[i][0] = i
@@ -82,17 +82,6 @@ class FuzzyTest {
             }
         }
         return d[a.length][b.length]
-    }
-
-    @Test fun distanceAgreesWithTheFullTable() {
-        val r = kotlin.random.Random(7)
-        repeat(5_000) {
-            val a = String(CharArray(r.nextInt(0, 10)) { "abcde"[r.nextInt(5)] })
-            val b = String(CharArray(r.nextInt(0, 10)) { "abcde"[r.nextInt(5)] })
-            val n = r.nextInt(0, b.length + 1)
-            assertEquals("$a / $b", tableDistance(a, b), Fuzzy.distance(a, b))
-            assertEquals("$a / ${b.take(n)}", tableDistance(a, b.take(n)), Fuzzy.distance(a, b, n))
-        }
     }
 
     /** One table for every length of the name finds the slips a table for each length found. */

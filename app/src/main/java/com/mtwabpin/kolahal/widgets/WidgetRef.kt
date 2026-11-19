@@ -38,9 +38,6 @@ data class WidgetRef(val script: String, val id: String = "") {
          */
         fun further(script: String): String = script + SEPARATOR
 
-        /** Whether [key] names a widget of [script]: its first widget, or a further one. */
-        fun isOf(key: String, script: String): Boolean = key == script || key.startsWith(further(script))
-
         /**
          * The widget that [key] names, or null when it names none.
          * - Without a [SEPARATOR] the whole text is a script's name, as it always was.

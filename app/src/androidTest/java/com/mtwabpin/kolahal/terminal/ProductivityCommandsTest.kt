@@ -83,13 +83,6 @@ class ProductivityCommandsTest {
 
     private fun todo(text: String) = todos.all().single { it.text == text }
 
-    /** A name that isn't one of these is left to the dispatcher: not taken, and nothing printed. */
-    @Test fun otherNamesAreLeftToTheDispatcher() {
-        val from = logs.maxId()
-        assertFalse(ProductivityCommands(context, ui).run("echo", "pctest"))
-        assertEquals(from, logs.maxId())
-    }
-
     /** A todo is found by its number in the list or by its id; each change prints the todo as it is now. */
     @Test fun todoDoneUndoToggleEditRemove() {
         val added = run("todo add pctest milk")

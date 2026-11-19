@@ -251,16 +251,11 @@ internal const val HEADER_CATEGORY = "header"
 
 private val BACKUP = Category(BACKUP_CATEGORY, "Backup", "Automatic backups, export, import", R.drawable.ic_download, listOf(null to listOf(Keys.BACKUP_AUTO)))
 
-/** Keys that no page lists (for example, keys added later) still show under "More". [Keys.CONFIG_ONLY] keys do not. */
-private val OTHER: Category by lazy {
-    val listed = (CATEGORIES + BACKUP).flatMap { it.keys }.toSet()
-    Category("other", "More", "Everything else", R.drawable.ic_tune, listOf(null to Keys.ALL.filter { it !in listed && it !in Keys.CONFIG_ONLY }))
-}
-
 /** The feeds category. It shows in the Feeds tab ([categorySettings]), not in the Settings list. */
 internal const val FEEDS_CATEGORY = "feeds"
 
-internal fun allCategories() = CATEGORIES + BACKUP + listOfNotNull(OTHER.takeIf { it.keys.isNotEmpty() })
+/** Every settings page. Each setting is on one, except the [Keys.CONFIG_ONLY] ones: a test checks this. */
+internal fun allCategories() = CATEGORIES + BACKUP
 
 internal fun matches(key: ConfigKey<*>, q: String): Boolean {
     val title = SettingTitles[key.key] ?: key.key

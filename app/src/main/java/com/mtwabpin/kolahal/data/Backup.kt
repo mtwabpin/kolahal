@@ -7,6 +7,7 @@ import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.ScriptImport
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
@@ -138,7 +139,7 @@ class Backup(private val context: Context) {
             when {
                 name == null || v == null -> Unit
                 // The same rule as `alias`: an alias must never hide a built-in command.
-                name in BUILT_INS -> skipped += "alias $name (built-in command)"
+                name in CommandCatalog.RESERVED_NAMES -> skipped += "alias $name (built-in command)"
                 else -> { prefs.setAlias(name, v.toString()); aliases++ }
             }
         }
@@ -218,7 +219,7 @@ class Backup(private val context: Context) {
     companion object {
         /**
          * Commands that an alias from a file is worth a look for: they run code, change settings or
-         * aliases, delete things, or call and text. (Narrower than [InstantRun.SENSITIVE], which also
+         * aliases, delete things, or call and text. (Narrower than [CommandCatalog.SENSITIVE], which also
          * holds harmless commands that typing must not start by itself.)
          */
         private val REVIEW = setOf(
@@ -234,7 +235,6 @@ class Backup(private val context: Context) {
 
         const val VERSION = 3
         const val FILE_NAME = "kolahal-backup.json"
-        private val BUILT_INS get() = com.mtwabpin.kolahal.commands.CommandCatalog.RESERVED_NAMES
     }
 }
 

@@ -704,7 +704,7 @@ private fun Modifier.pinchToZoomFont(onChange: (Int) -> Unit, onEnd: (from: Int,
                 if (startDistance == 0f) {
                     startDistance = distance
                     startSize = Term.fontSize
-                } else if (startDistance > 0f) {
+                } else {
                     val size = (startSize * distance / startDistance).roundToInt().coerceIn(10, 24)
                     if (size != Term.fontSize) {
                         onChange(size)

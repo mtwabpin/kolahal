@@ -16,7 +16,7 @@ class BackupActions(
     private val host: ScriptActions.Host,
 ) {
     private fun fileOp(label: String, block: suspend () -> Unit) = host.fileOp(label, block)
-    private fun notice(text: String, error: Boolean = false) = host.notice(text, error)
+    private fun notice(text: String) = host.notice(text)
 
     fun exportBackup(uri: Uri?) {
         if (uri == null) return

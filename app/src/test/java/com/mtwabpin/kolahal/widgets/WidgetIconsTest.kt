@@ -15,7 +15,7 @@ class WidgetIconsTest {
 
     private fun refused(raw: Map<String, Any?>): String? = runCatching { parse(raw) }.exceptionOrNull()?.message
 
-    /** Every name has its drawable, in res/drawable/wi_<name>.xml, and the names are plain and unique. */
+    /** Every name has its drawable, in res/drawable/wi_<name>.xml, and the names are plain and unique (one group each). */
     @Test fun everyNameHasItsDrawable() {
         assertEquals(WidgetIcons.NAMES.size, WidgetIcons.NAMES.toSet().size)
         for (name in WidgetIcons.NAMES) {
@@ -63,12 +63,5 @@ class WidgetIconsTest {
     @Test fun aShortcutKeepsAnIconName() {
         assertEquals("calendar", Shortcuts.clean(listOf(Shortcut("Agenda", "agenda", "calendar"))).single().icon)
         assertEquals("abcd", Shortcuts.clean(listOf(Shortcut("X", "x", "abcdefg"))).single().icon)
-    }
-
-    /** The groups hold every name once, so the editor's reference shows them all. */
-    @Test fun everyNameIsInOneGroup() {
-        val grouped = WidgetIcons.GROUPS.flatMap { it.second }
-        assertEquals(grouped.size, grouped.toSet().size)
-        assertEquals(WidgetIcons.NAMES.toSet(), grouped.toSet())
     }
 }
