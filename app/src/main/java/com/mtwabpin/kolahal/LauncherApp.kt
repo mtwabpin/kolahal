@@ -152,26 +152,18 @@ class LauncherApp : Application(), Configuration.Provider {
                 com.mtwabpin.kolahal.productivity.TodoStore.get(this@LauncherApp).changedElsewhere()
         }, IntentFilter(com.mtwabpin.kolahal.productivity.TodoStore.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
 
-        // The :script process doesn't see settings changes. So home copies `log.keep-lines` to a place
-        // where :script can read it, and trims the log now and whenever the value changes.
+        // The :script process doesn't see settings changes. So home copies the ones it reads
+        // (SharedSettings.KEYS) to a place where :script can read them, now and whenever one changes.
         val config = Config.get(this)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope.launch {
-            config.version.map { config[Keys.LOG_KEEP_LINES] }.distinctUntilChanged().collect { keep ->
-                runCatching {
-                    logs.keepLines = keep
-                    logs.trim(keep)
-                }
+            config.version.map { com.mtwabpin.kolahal.data.SharedSettings.KEYS.map { it.valueText(config) } }.distinctUntilChanged().collect {
+                runCatching { com.mtwabpin.kolahal.data.SharedSettings.mirror(this@LauncherApp, config) }
             }
         }
-        // The data plan, for the data-month widget and `usage.data("month")` in the :script process.
+        // The log is trimmed now, and whenever `log.keep-lines` changes.
         scope.launch {
-            config.version.map { config[Keys.DATA_PLAN] to config[Keys.DATA_START_DAY] }.distinctUntilChanged().collect { (plan, day) ->
-                runCatching {
-                    com.mtwabpin.kolahal.data.SharedSettings.set(this@LauncherApp, Keys.DATA_PLAN, plan)
-                    com.mtwabpin.kolahal.data.SharedSettings.set(this@LauncherApp, Keys.DATA_START_DAY, day)
-                }
-            }
+            config.version.map { config[Keys.LOG_KEEP_LINES] }.distinctUntilChanged().collect { keep -> runCatching { logs.trim(keep) } }
         }
         // A new time zone, or a clock set by hand, moves every daily time, so schedule them again.
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {

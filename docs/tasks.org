@@ -149,7 +149,7 @@ complexity but provides nothing. Line numbers are from that commit.
   the log line's time; the copies use it. Small.
 - Remark:
 
-*** TODO [#A] Settings shared with scripts are copied one key at a time /(checked)/
+*** DONE [#A] Settings shared with scripts are copied one key at a time /(checked)/
 - =data/SharedSettings.kt:12-13=, =LauncherApp.kt:155-175=, =data/LogRepository.kt:586-589=.
 - =SharedSettings.get= takes any key. For a key nobody copied, it quietly returns the default, so
   a script feature reading it gets a wrong value and nothing says so.

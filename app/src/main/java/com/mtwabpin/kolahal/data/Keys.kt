@@ -6,6 +6,9 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
     abstract fun parse(raw: String): T?
     open fun format(value: T): String = value.toString()
 
+    /** This key's value in [config], as the text it is stored as. */
+    fun valueText(config: Config): String = format(config[this])
+
     class Bool(key: String, default: Boolean, help: String) : ConfigKey<Boolean>(key, default, help) {
         override fun parse(raw: String) = when (raw.lowercase()) {
             "on", "true", "yes", "1" -> true
