@@ -204,7 +204,7 @@ complexity but provides nothing. Line numbers are from that commit.
 - Fix: =ProfileKind= gets its flag, and a =fromFlags(args)=. Small.
 - Remark:
 
-*** TODO [#B] WidgetKinds.kt holds two jobs
+*** DONE [#B] WidgetKinds.kt holds two jobs
 - =ui/WidgetKinds.kt= is 1,639 lines. =WidgetWords= (=:100-783=), about 680 lines of plain text,
   time and layout logic with unit tests, sits with the composables.
 - Fix: =WidgetWords= moves to its own file. Small.
