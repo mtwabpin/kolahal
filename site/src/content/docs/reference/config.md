@@ -169,6 +169,7 @@ See [Widgets](/guides/widgets/).
 | `keybar.auto` | bool | `on` | show the key bar only while the on-screen keyboard is open for the prompt (off: always) |
 | `keybar.height` | number 20–64 | `40` | key bar row height (dp). Smaller leaves more room for the log |
 | `prompt.height` | number 20–72 | `40` | prompt line height (dp), with the keyboard open or closed. It is never shorter than its text |
+| `prompt.bottom-padding` | number 0–48 | `0` | space under the prompt (dp) while the keyboard is closed. Raise it when the screen's rounded corners cut the `$` |
 | `keybar.row1` | text | `/,@,\|,=,+,-,*,UP,DOWN` | touch keys, separated by commas: `ESC` `TAB` `UP` `DOWN` `LEFT` `RIGHT` `HOME` `END` `BKSP` `ENTER` `SPACE` `KBD` or any text |
 | `keybar.row2` | text | empty | second key bar row (same format; empty by default) |
 | `keyboard.on-home` | bool | `off` | open the on-screen keyboard every time the home screen appears |

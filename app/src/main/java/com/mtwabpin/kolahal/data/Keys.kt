@@ -65,6 +65,7 @@ object Keys {
     val KEYBAR_AUTO = ConfigKey.Bool("keybar.auto", true, "Show the key bar only while the on-screen keyboard is up for the prompt (off: always)")
     val KEYBAR_HEIGHT = ConfigKey.Num("keybar.height", 40, 20..64, "Key bar row height (dp); smaller leaves more room for the log")
     val PROMPT_HEIGHT_TYPING = ConfigKey.Num("prompt.height", 40, 20..72, "Prompt line height (dp); it never gets shorter than its text")
+    val PROMPT_BOTTOM_PADDING = ConfigKey.Num("prompt.bottom-padding", 0, 0..48, "Space under the prompt (dp) while the keyboard is closed, for screens whose rounded corners cut the $")
     /**
      * The themes that come with Kolahal. [CustomThemes] holds the ones people make.
      * A name added here can't be a saved theme's name any more: [CustomThemes.load] renames that theme.
@@ -191,6 +192,7 @@ object Keys {
         KEYBAR_AUTO,
         KEYBAR_HEIGHT,
         PROMPT_HEIGHT_TYPING,
+        PROMPT_BOTTOM_PADDING,
         KEYBAR,
         KEYBAR2,
         THEME,

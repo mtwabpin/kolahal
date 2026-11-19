@@ -32,10 +32,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -341,8 +341,14 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
             // No top padding here: the header fills the band beside the camera.
             .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal))
-            .navigationBarsPadding()
-            .imePadding()
+            // prompt.bottom-padding: space under the lowest row (the prompt, or a key bar shown always),
+            // clear of rounded screen corners. The keyboard takes the larger of the two, so while
+            // typing the space is under the keyboard, and it shrinks and grows with its animation.
+            .windowInsetsPadding(
+                WindowInsets.navigationBars
+                    .add(WindowInsets(bottom = remember(configVersion) { config[Keys.PROMPT_BOTTOM_PADDING].dp }))
+                    .union(WindowInsets.ime),
+            )
     ) {
         // A hardware keyboard already has these keys, so the bar follows the on-screen keyboard only.
         val typing = preview?.typing ?: (promptFocused && WindowInsets.isImeVisible)

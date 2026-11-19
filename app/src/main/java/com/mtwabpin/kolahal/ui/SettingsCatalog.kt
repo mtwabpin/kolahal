@@ -23,6 +23,8 @@ internal val PEEK_SLIDERS: Map<String, Boolean> = mapOf(
     Keys.WIDGETS_WALLPAPER.key to false,
     Keys.KEYBAR_HEIGHT.key to true,
     Keys.PROMPT_HEIGHT_TYPING.key to true,
+    // The space shows with the keyboard closed: the keyboard covers it.
+    Keys.PROMPT_BOTTOM_PADDING.key to false,
     Keys.SUGGESTIONS.key to true,
     Keys.SUGGESTION_ROWS.key to true,
     Keys.CHIP_HEIGHT.key to true,
@@ -191,6 +193,7 @@ private val CATEGORIES = listOf(
             ),
             "Prompt & keyboard" to listOf(
                 Keys.PROMPT_HEIGHT_TYPING,
+                Keys.PROMPT_BOTTOM_PADDING,
                 Keys.IME_SUGGESTIONS,
                 Keys.FOCUS_ON_HOME,
             ),
