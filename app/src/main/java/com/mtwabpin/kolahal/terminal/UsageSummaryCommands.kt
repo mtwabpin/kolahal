@@ -3,11 +3,9 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
-import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats.duration
-import com.mtwabpin.kolahal.unlock.UnlockCounter
 import com.mtwabpin.kolahal.usage.UsageLevels
 import com.mtwabpin.kolahal.usage.UsageLevels.Companion.Bucket
 import com.mtwabpin.kolahal.usage.UsageLevels.Level
@@ -29,11 +27,10 @@ import java.util.Locale
  */
 class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
-    private val unlocks = UnlockCounter.get(context)
     private val zone get() = ZoneId.systemDefault()
 
     fun run(args: List<String>) {
-        if (!unlocks.hasUsageAccess()) return fix("Usage summary needs usage access — tap to allow it", "usage-access")
+        if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) return fix("Usage summary needs usage access — tap to allow it", "usage-access")
         val levels = UsageLevels(context)
         // Each level is read once, even by `full`. A year is filled from the months inside it, and a
         // month from its weeks: Android deletes a removed app's history from some levels only.
@@ -90,9 +87,6 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         else -> "the same"
     }
 
-    /** The app list by package, the personal app first, so a tap on its line opens that one. */
-    private fun byPkg(): Map<String, AppEntry> =
-        apps.apps.value.groupBy { it.pkg }.mapValues { (_, list) -> list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first() }
 
     /**
      * An app's name: the app list's, or Android's; else its package. Android names no app that was
@@ -190,7 +184,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         UsageLevels.change(buckets)?.let { percent ->
             info("${coloured(change(percent), percent <= 0)} · ${span(buckets.last { !it.current }, level)}")
         }
-        val byPkg = byPkg()
+        val byPkg = apps.byPackage()
         val top = UsageLevels.top(buckets, 5).filter { it.second >= 60_000 }
         if (top.isNotEmpty()) {
             rule("top apps")
@@ -217,7 +211,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
                 diff >= 60_000 -> info(coloured("▲ ${duration(diff)} a day", false))
             }
         }
-        val byPkg = byPkg()
+        val byPkg = apps.byPackage()
         // Each year by the month it starts: "Apr 2025".
         val label = { b: Bucket -> Instant.ofEpochMilli(b.start).atZone(zone).format(monthYear) }
         val tops = buckets.map { b -> b to UsageLevels.top(listOf(b), 3).filter { it.second >= 60_000 }.map { name(it.first, byPkg) } }

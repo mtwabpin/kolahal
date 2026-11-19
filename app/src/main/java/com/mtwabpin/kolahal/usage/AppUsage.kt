@@ -67,6 +67,16 @@ class AppUsage(private val context: Context) {
         return Times(named, counted.values.sum())
     }
 
+    /** Today's screen time since local midnight: each app's time and the total, as `usage` and `usage.today` show it. */
+    fun today(label: (String) -> String?): Times = times(read(startOf(LocalDate.now(zone))).sessions, label)
+
+    /** The screen time of each of [days], in milliseconds, from one read of the events: what `usage N` and `usage.days` add up. */
+    fun perDay(days: List<LocalDate>): List<Long> {
+        if (days.isEmpty()) return emptyList()
+        val read = read(startOf(days.first()))
+        return days.map { d -> total(read.between(startOf(d), startOf(d.plusDays(1)))) }
+    }
+
     /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */
     private fun events(from: Long, until: Long): List<AppSessions.Companion.Event> {
         val kinds = intArrayOf(AppSessions.RESUMED, AppSessions.PAUSED, AppSessions.SCREEN_OFF, AppSessions.LOCKED, AppSessions.SHUTDOWN, AppSessions.STARTUP)

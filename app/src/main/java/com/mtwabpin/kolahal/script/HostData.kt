@@ -146,7 +146,7 @@ internal class HostData(
     // switch is off, or Kolahal has no usage access. A widget then says so, instead of showing 0.
 
     /** Whether Kolahal has Usage Access: without it, Android tells nothing. */
-    private fun usageAccess() = runCatching { com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).hasUsageAccess() }.getOrDefault(false)
+    private fun usageAccess() = runCatching { com.mtwabpin.kolahal.usage.UsageAccess.granted(context) }.getOrDefault(false)
 
     /** Whether a `usage.*` call can tell anything: the item is allowed ([may]), and Kolahal has usage access. */
     private fun usageReady(call: String) = may(USAGE, call) && usageAccess()
@@ -170,8 +170,7 @@ internal class HostData(
     fun usageToday(n: Any?): Map<String, Any?>? {
         val count = listCount("usage.today", "n", n, MAX_USAGE_APPS, DEFAULT_USAGE_APPS)
         if (!usageReady("usage.today")) return null
-        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
-        val t = reader.times(reader.read(startOf(java.time.LocalDate.now(zone))).sessions) { appNames[it] }
+        val t = com.mtwabpin.kolahal.usage.AppUsage(context).today { appNames[it] }
         return mapOf(
             "total" to t.total / 60_000,
             "apps" to t.apps.take(count).map { mapOf("app" to StyledText.strip(it.label).take(MAX_TEXT), "pkg" to it.pkg, "minutes" to it.ms / 60_000) },
@@ -187,10 +186,8 @@ internal class HostData(
     fun usageDays(n: Any?): List<Long>? {
         val count = listCount("usage.days", "n", n, MAX_USAGE_DAYS, DEFAULT_USAGE_DAYS)
         if (!usageReady("usage.days")) return null
-        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
         val days = com.mtwabpin.kolahal.usage.UsageHistory.days(context, count)
-        val read = reader.read(startOf(days.first()))
-        return days.map { day -> reader.total(read.between(startOf(day), startOf(day.plusDays(1)))) / 60_000 }
+        return com.mtwabpin.kolahal.usage.AppUsage(context).perDay(days).map { it / 60_000 }
     }
 
     /**
@@ -219,11 +216,11 @@ internal class HostData(
         val today = java.time.LocalDate.now(zone)
         val cycle = com.mtwabpin.kolahal.usage.DataCycle.of(today, com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_START_DAY))
         val s = com.mtwabpin.kolahal.usage.DataUsage(context).between(cycle.startMs(zone), now)
-        val plan = com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_PLAN).toLong() * 1_000_000_000L
+        val plan = com.mtwabpin.kolahal.usage.DataCycle.planBytes(com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_PLAN))
         return mapOf(
             "mobile" to s.mobile, "wifi" to s.wifi,
             "since" to cycle.startMs(zone) / 1000,
-            "plan" to plan.takeIf { it > 0 },
+            "plan" to plan,
             "pace" to s.mobile?.let { cycle.pace(it, now, zone) },
             "daysLeft" to cycle.daysLeft(today),
         )

@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
@@ -17,9 +18,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * `unlocks`, `data today`, `data month` and `storage`: what Android's usage data tells of the phone's
- * unlocks, its mobile and Wi-Fi data, and its storage. All but `unlocks` need Usage Access, as
- * `usage` does; `unlocks` counts without it while Kolahal runs.
+ * `usage`, `unlocks`, `data today`, `data month` and `storage`: what Android's usage data tells of
+ * the phone's screen time, unlocks, mobile and Wi-Fi data, and storage. All but `unlocks` need
+ * Usage Access; `unlocks` counts without it while Kolahal runs.
  */
 class UsageCommands(context: Context) : CommandGroup(context) {
     private val apps = AppRepository.get(context)
@@ -29,7 +30,9 @@ class UsageCommands(context: Context) : CommandGroup(context) {
     fun run(name: String, args: List<String>) {
         // Unlocks are counted without usage access too: while Kolahal runs.
         if (name == "unlocks") return unlocks(args)
-        if (!unlocks.hasUsageAccess()) return fix("${if (name == "data") "Data use" else "Storage per app"} needs usage access — tap to allow it", "usage-access")
+        // Screen time says itself how to allow usage access.
+        if (name == "usage" || name == "screentime") return usage(args)
+        if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) return fix("${if (name == "data") "Data use" else "Storage per app"} needs usage access — tap to allow it", "usage-access")
         when (name) {
             "data" -> when (args.firstOrNull()?.lowercase()) {
                 "today" -> dataToday()
@@ -68,9 +71,9 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val since = TimeFormats.dayLabel(cycle.start, today, capital = false)
         val big = listOfNotNull(s.mobile?.let { bytes(it) to "mobile since $since" }, bytes(s.wifi) to if (s.mobile == null) "Wi-Fi since $since" else "Wi-Fi")
         out(StyledText.stats(big))
-        val plan = config[Keys.DATA_PLAN].toLong() * GB
+        val plan = com.mtwabpin.kolahal.usage.DataCycle.planBytes(config[Keys.DATA_PLAN])
         val mobile = s.mobile
-        if (plan > 0 && mobile != null) {
+        if (plan != null && mobile != null) {
             // The pace by the time gone, not by whole days: just after midnight a new day is not a whole one.
             val pace = cycle.pace(mobile, now, zone)
             val left = cycle.daysLeft(today)
@@ -121,6 +124,123 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     private fun personal(pkg: String): AppEntry? = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }
 
+    // ---- screen time ----------------------------------------------------------------------
+
+    /** `usage [days]`: the foreground time per app from UsageStats. `usage <app>`: one app in detail ([appUsage]). Needs Usage Access. */
+    private fun usage(args: List<String>) {
+        if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) {
+            fix("Screen time needs usage access — tap to allow it", "usage-access")
+            return
+        }
+        if (args.isNotEmpty() && args.first().toIntOrNull() == null) {
+            // Without a profile flag, the personal app first: Android gives Kolahal only its use.
+            val matches = apps.search(CommandParsing.withoutFlags(args), ProfileKind.fromFlags(args))
+            val app = matches.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: matches.firstOrNull()
+                ?: return error("No app matches '${CommandParsing.withoutFlags(args)}'")
+            return appUsage(app)
+        }
+        val asked = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 30) ?: 1
+        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
+        // Only the days Android has data for: a day before its usage history begins is left out
+        // ([com.mtwabpin.kolahal.usage.UsageHistory]). The events of the whole range are read once.
+        val dataDays = com.mtwabpin.kolahal.usage.UsageHistory.days(context, asked)
+        val days = dataDays.size
+        val today = java.time.LocalDate.now()
+        val start = reader.startOf(dataDays.first())
+        val read = reader.read(start)
+        // Each app by its name in the app list, the personal app first; a package with no name counts toward "Other apps".
+        val byPkg = apps.byPackage()
+        val times = reader.times(read.sessions) { byPkg[it]?.label }
+        val sum = times.total
+        if (sum < 60_000) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
+        // Big numbers: the screen time today; over several days, a day's average (over the finished
+        // days: today has only its hours so far) and the total.
+        val finished = dataDays.filter { it != today }
+        val big = if (days == 1) listOf(duration(sum) to "screen time today")
+        else listOf(
+            duration(reader.total(read.between(start, reader.startOf(today))) / finished.size.coerceAtLeast(1)) to "a day",
+            duration(sum) to "in $days days",
+        )
+        out(com.mtwabpin.kolahal.data.StyledText.stats(big))
+        if (days < asked) info("$days of $asked days")
+        val named = times.apps.map { Triple(it.label, byPkg[it.pkg], it.ms) }
+        val shown = named.take(12)
+        val other = sum - shown.sumOf { it.third }
+        val max = maxOf(shown.firstOrNull()?.third ?: 0L, other)
+        shown.forEach { (label, app, ms) ->
+            out(
+                label,
+                // A bar on one scale before the time: the most-used app fills its bar.
+                (if (app != null) appContext(app) else LogContext.EMPTY) + mapOf(LogContext.DESC to duration(ms)) + LogContext.bar(ms.toDouble() / max),
+            )
+        }
+        // The rest, so the times add up to the total: apps past the first 12, and those without a name or under a minute.
+        if (other >= 60_000) info("Other apps", LogContext.of(LogContext.DESC to duration(other)) + LogContext.bar(other.toDouble() / max))
+    }
+
+    /**
+     * `usage <app>`: one app today and in the last days.
+     * - Big numbers: its time today, how often it was opened, and its longest session, all from
+     *   Android's usage events since midnight ([com.mtwabpin.kolahal.usage.AppUsage]), read once.
+     * - When it was last used, a column for each hour today (or of the last day it was used), then
+     *   a line for each of the last 7 days with data, with a bar, and the average of the finished days.
+     * - A work or private app has no data here: Android gives Kolahal only its own profile's.
+     */
+    private fun appUsage(app: AppEntry) {
+        if (app.profile.kind != ProfileKind.PERSONAL) {
+            return info("Screen time of ${app.profile.kind.label} apps isn't available: Android gives Kolahal only the personal profile's")
+        }
+        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now()
+        val dataDays = com.mtwabpin.kolahal.usage.UsageHistory.days(context, 7, today)
+        val read = reader.read(reader.startOf(dataDays.first()))
+        fun day(d: java.time.LocalDate) = read.between(reader.startOf(d), reader.startOf(d.plusDays(1)))
+        val days = dataDays.map { d -> d to (com.mtwabpin.kolahal.usage.AppSessions.totals(day(d))[app.pkg] ?: 0L) }
+        val s = com.mtwabpin.kolahal.usage.AppSessions.of(day(today), app.pkg, read.inFront, zone)
+        out(com.mtwabpin.kolahal.data.StyledText.stats(listOf(
+            duration(s.total) to "${app.label} today",
+            s.opens.toString() to if (s.opens == 1) "open" else "opens",
+            duration(s.longest) to "longest",
+        )), appContext(app))
+        val clock = com.mtwabpin.kolahal.data.TimeFormats.clockFormat(com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H])
+        fun at(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(zone).format(clock)
+        when {
+            s.inFront -> info("In use now")
+            s.lastUsed != null -> info("Last used ${at(s.lastUsed)}" + (s.longestAt?.let { " · longest at ${at(it)}" } ?: ""))
+            else -> info("Not used today")
+        }
+        // A column for each hour: today's, or, when it wasn't used today, the last day it was used of these.
+        val chartDay = if (s.total > 0) today else days.lastOrNull { it.second > 0 }?.first
+        if (chartDay != null) {
+            val hours = if (chartDay == today) s.hours else com.mtwabpin.kolahal.usage.AppSessions.of(day(chartDay), app.pkg, null, zone).hours
+            // Today has the hours so far, in a chart of the whole day: the hours still to come keep
+            // their places, and the hour now stands out. A past day has all 24, none standing out.
+            val upTo = if (chartDay == today) java.time.LocalTime.now().hour + 1 else 24
+            val minutes = hours.take(upTo).map { it / 60_000.0 }
+            val dayName = com.mtwabpin.kolahal.data.TimeFormats.dayLabel(chartDay, today, capital = false)
+            if (chartDay != today) info("By hour, $dayName")
+            val busy = minutes.withIndex().filter { it.value >= 1 }
+            val said = "${app.label} by hour, $dayName: " +
+                if (busy.isEmpty()) "under a minute in every hour" else busy.joinToString(", ") { "%02d:00 %dm".format(it.index, it.value.toInt()) }
+            out(com.mtwabpin.kolahal.data.StyledText.columns(minutes, listOf("00", "06", "12", "18", "24"), said, slots = 24, newest = chartDay == today))
+        }
+        if (days.size <= 1) return
+        val labels = days.map { (d, _) -> com.mtwabpin.kolahal.data.TimeFormats.dayLabel(d, today, capital = true) }
+        val width = labels.maxOf { it.length }
+        // The times padded to one width, so every bar starts in the same place.
+        val timeWidth = days.maxOf { duration(it.second).length }
+        val most = days.maxOf { it.second }.coerceAtLeast(1L)
+        days.forEachIndexed { i, (_, ms) ->
+            out("${labels[i].padEnd(width)}  ${duration(ms).padStart(timeWidth)}", LogContext(LogContext.ALIGNED + LogContext.bar(ms.toDouble() / most)))
+        }
+        // The average of the finished days: today has only its hours so far.
+        val finished = days.filter { it.first != today }
+        if (finished.isNotEmpty()) info("${duration(finished.sumOf { it.second } / finished.size)} a day · ${finished.size} ${if (finished.size == 1) "day" else "days"}")
+    }
+
+    private fun duration(ms: Long) = TimeFormats.duration(ms)
+
     // ---- unlocks --------------------------------------------------------------------------
 
     /** Says how unlocks are counted without usage access: only while Kolahal runs. */
@@ -156,7 +276,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
             "month" -> return unlocksChart(30)
         }
         val days = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 30) ?: 1
-        if (!unlocks.hasUsageAccess()) noAccessNote()
+        if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) noAccessNote()
         val today = LocalDate.now()
         // Only the days with a count: the days before Android's usage history begins are left out
         // ([UnlockCounter.history]).
@@ -187,7 +307,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
      * - With fewer days than asked, a line says why.
      */
     private fun unlocksChart(days: Int) {
-        if (!unlocks.hasUsageAccess()) noAccessNote()
+        if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) noAccessNote()
         val today = LocalDate.now()
         val history = unlocks.history(days)
         unlockStats(history, today)
@@ -281,7 +401,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
 
     companion object {
         /** Commands handled by [run]. `data today` and `data month` come here too; `data` alone opens the data panel. */
-        val NAMES = setOf("storage", "unlocks")
+        val NAMES = setOf("storage", "unlocks", "usage", "screentime")
 
         private const val MB = 1_000_000L
         private const val GB = 1_000_000_000L

@@ -186,7 +186,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "setup" -> if (args.firstOrNull() == "text") setupText() else ui.openScreen(Screen.SETUP)
                 "tour" -> ui.openScreen(Screen.ONBOARDING)
                 "status" -> scriptCommands.status(args)
-                "usage-access" -> startActivity(unlocks.usageAccessIntent())
+                "usage-access" -> startActivity(com.mtwabpin.kolahal.usage.UsageAccess.intent())
                 "battery" -> startSettings(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 "settings", "prefs" -> ui.openScreen(Screen.SETTINGS)
                 "system" -> startSettings(Settings.ACTION_SETTINGS)

@@ -166,7 +166,7 @@ complexity but provides nothing. Line numbers are from that commit.
 - Remark:
 
 ** Restructuring
-*** TODO [#B] Usage features in four places
+*** DONE [#B] Usage features in four places
 - =usage= and =screentime= are in =terminal/AppCommands.kt:76=, =:307-427=, the apps commands.
   =data=, =storage= and =unlocks= are in =UsageCommands=, =usage-summary= in its own class, and the
   script calls read screen time again on their own (=script/HostData.kt:170-194=).

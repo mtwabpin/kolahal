@@ -34,7 +34,7 @@ object SetupChecks {
             SetupCheck(
                 "Usage access",
                 "Accurate unlock counts, including unlocks while the launcher wasn't running",
-                UnlockCounter.get(context).hasUsageAccess(),
+                com.mtwabpin.kolahal.usage.UsageAccess.granted(context),
                 "usage-access",
             ),
             SetupCheck(

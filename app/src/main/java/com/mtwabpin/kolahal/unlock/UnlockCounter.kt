@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.data.Singleton
+import com.mtwabpin.kolahal.usage.UsageAccess
 import com.mtwabpin.kolahal.usage.UsageHistory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,20 +74,8 @@ class UnlockCounter private constructor(private val context: Context) {
         }
     }
 
-    fun hasUsageAccess(): Boolean {
-        val ops = context.getSystemService(AppOpsManager::class.java)
-        @Suppress("DEPRECATION") // deprecated in API 37, replacement not available on older releases
-        val mode = if (Build.VERSION.SDK_INT >= 29) {
-            ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
-        } else {
-            @Suppress("DEPRECATION")
-            ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
-        }
-        return mode == AppOpsManager.MODE_ALLOWED
-    }
-
-    fun usageAccessIntent(): Intent =
-        Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    /** Whether Kolahal has Usage Access ([UsageAccess]): then the counts come from Android's events. */
+    fun hasUsageAccess(): Boolean = UsageAccess.granted(context)
 
     /** Counts for finished days. They don't change, so each is counted once. */
     private val pastDays = java.util.concurrent.ConcurrentHashMap<LocalDate, Int>()

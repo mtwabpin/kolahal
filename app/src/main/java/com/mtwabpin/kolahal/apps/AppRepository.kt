@@ -287,6 +287,13 @@ class AppRepository private constructor(private val context: Context) {
 
     fun profileBySerial(serial: Long): Profile? = _profiles.value.firstOrNull { it.serial == serial }
 
+    /**
+     * The app list by package: the personal app where several profiles have the same app. A tap on
+     * its line opens that one, and Android gives usage data for the personal profile only.
+     */
+    fun byPackage(): Map<String, AppEntry> =
+        _apps.value.groupBy { it.pkg }.mapValues { (_, list) -> list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first() }
+
     fun find(pkg: String, cls: String?, serial: Long?): AppEntry? = _apps.value.firstOrNull {
         it.pkg == pkg && (cls == null || it.component.className == cls) &&
             (serial == null || it.profile.serial == serial)

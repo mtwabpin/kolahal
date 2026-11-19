@@ -32,6 +32,9 @@ data class DataCycle(val start: LocalDate, val next: LocalDate) {
     fun daysLeft(today: LocalDate): Long = java.time.temporal.ChronoUnit.DAYS.between(today, next)
 
     companion object {
+        /** A data plan of [gb] GB (`data.plan`), in bytes as Android counts them (1 GB is 10^9 bytes); null with no plan. */
+        fun planBytes(gb: Int): Long? = (gb.toLong() * 1_000_000_000L).takeIf { it > 0 }
+
         /** Below this share of the month gone, the pace is the data used so far. */
         private const val MIN_GONE = 0.01
 

@@ -2,6 +2,9 @@ package com.mtwabpin.kolahal.commands
 
 /** Pure helpers for reading and printing command arguments. */
 object CommandParsing {
+    /** A command's words without its flags (`-w`, `--resume`): what is left names an app or a thing. */
+    fun withoutFlags(args: List<String>): String = args.filterNot { it.startsWith("-") }.joinToString(" ")
+
     /**
      * Splits [s] into words. Put "…" or '…' around a word that contains spaces.
      * A quote opens only at the start of a word, so an apostrophe inside a word (`I'm`, `Domino's`) is just a letter.
