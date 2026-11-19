@@ -726,6 +726,7 @@ class Completer(private val context: Context, private val data: Data) {
             "volume" to "sound loud quiet",
             "brightness" to "light dim",
             "data" to "mobile cellular",
+            "usage-summary" to "screen time month year history",
             "wifi" to "wireless network internet",
             "bt" to "bluetooth headphones",
             "=" to "math sum",

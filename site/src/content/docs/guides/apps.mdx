@@ -145,6 +145,9 @@ usage whatsapp   # one app: today, by hour, and the last 7 days
 unlocks          # today's unlock count
 unlocks 7        # one line per day for the last week (1–30)
 unlocks month    # a column a day for 30 days, the trend, and a line per week
+usage-summary    # what Android keeps: days, weeks, months, years
+usage-summary month   # a column per month, the change, and the top apps
+usage-summary full    # all of them: the overview, weeks, months and years
 ```
 
 `usage` needs **Usage access** (`usage-access`). To count unlocks, Kolahal uses usage access if you granted it.
@@ -166,6 +169,25 @@ about 10 days, and more as Kolahal saves each day.
 
 Every "a day on average" counts the days before today only: today has only its hours so far, and
 would pull the average down every morning. The comparison of two weeks counts finished days too.
+
+### The long view
+
+Besides its days, Android keeps coarser totals: about 4 weeks, 6 months and 2 years. `usage-summary`
+reads them:
+
+- `usage-summary` alone: a line for each level, where it starts and the screen time a day in it.
+  Tap a line for more.
+- `usage-summary week` and `usage-summary month`: the time and unlocks a day, a column for each
+  week or month, how the last one that is over compares with those before, and the top apps.
+- `usage-summary year`: a line for each year, its top apps, and the apps you left behind or took
+  up since the year before.
+- `usage-summary full`: all of these, one after the other.
+
+These are Android's own totals, so they are about right, not exact. Android starts each week, month
+and year where the one before ended, not on a Monday or the 1st, so each date is the real start of
+one. The current one counts in an average only once it has run a week. Kolahal itself is left out,
+as in `usage`.
+
 
 ## Data and storage
 

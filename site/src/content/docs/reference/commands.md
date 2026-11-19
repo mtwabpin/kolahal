@@ -32,6 +32,7 @@ How to read the usage:
 | `pins` | `favs` | show a grid of pinned apps |
 | `rename <app> = <name>` | | give an app your own label; `rename <app> =` restores the original |
 | `usage [<days> \| <app>]` | `screentime` | screen time for each app (1–30 days), or one app in detail: today by hour and its last 7 days (needs Usage Access) |
+| `usage-summary [week \| month \| year \| full]` | | screen time over Android's weeks, months and years: alone, a line for each with its time a day; `full` shows all (needs Usage Access) |
 | `storage` | | free space, the largest apps with their cache, and apps not opened for 30 days (needs Usage Access) |
 | `installs [<n>]` | `updates` | recent app installs, updates and uninstalls |
 

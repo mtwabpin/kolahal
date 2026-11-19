@@ -36,4 +36,10 @@ object TimeFormats {
         today.minusDays(1) -> if (capital) "Yesterday" else "yesterday"
         else -> day.format(dayFormat(locale))
     }
+
+    /** A time span as people say it: `4h 12m`, or `38m`. Under a minute is `0m`. */
+    fun duration(ms: Long): String {
+        val minutes = ms / 60_000
+        return if (minutes >= 60) "${minutes / 60}h ${minutes % 60}m" else "${minutes}m"
+    }
 }

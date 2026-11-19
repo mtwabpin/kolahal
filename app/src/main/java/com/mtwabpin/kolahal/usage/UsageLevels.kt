@@ -1,0 +1,132 @@
+package com.mtwabpin.kolahal.usage
+
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.content.Context
+
+/**
+ * Android's usage at its four levels, for `usage-summary`. Android keeps each app's time in front in
+ * buckets a day, a week, a month and a year long: about 10 days, 4 weeks, 6 months and 2 years.
+ * - A bucket starts when Android rolled the one before over, not at midnight or on the 1st: on one
+ *   phone the days start near 4 AM and the months on the 12th. So each bucket keeps its real start
+ *   and end, and the output says them.
+ * - The newest bucket of a level is the current one, still filling ([Bucket.current]).
+ * - A bucket with no time is left out, never counted as 0. So is the current one before it has run a
+ *   day, and one that is over but under an hour long: Android ends a bucket at its last event.
+ * - These are Android's own totals, rough at the edges. `usage` works days out from events instead.
+ */
+class UsageLevels(private val context: Context) {
+    private val usage = context.getSystemService(UsageStatsManager::class.java)
+
+    /** A level, its Android interval, and how far back to ask for it: a little more than Android keeps. */
+    enum class Level(val interval: Int, val lookBackDays: Long) {
+        DAYS(UsageStatsManager.INTERVAL_DAILY, 14),
+        WEEKS(UsageStatsManager.INTERVAL_WEEKLY, 7 * 6),
+        MONTHS(UsageStatsManager.INTERVAL_MONTHLY, 31 * 8),
+        YEARS(UsageStatsManager.INTERVAL_YEARLY, 366 * 4),
+    }
+
+    /** The buckets of [level], the oldest first, each with its apps' time and its unlocks. */
+    fun read(level: Level, now: Long = System.currentTimeMillis()): List<Bucket> {
+        val from = now - level.lookBackDays * DAY_MS
+        val stats = runCatching { usage.queryUsageStats(level.interval, from, now) }.getOrNull().orEmpty()
+            .map { Stat(it.packageName, it.firstTimeStamp, it.lastTimeStamp, it.totalTimeInForeground) }
+        // Unlocks: the same count as `unlocks`, Android's "keyguard hidden", per bucket.
+        val unlocks = runCatching { usage.queryEventStats(level.interval, from, now) }.getOrNull().orEmpty()
+            .filter { it.eventType == UsageEvents.Event.KEYGUARD_HIDDEN }
+            .associate { it.firstTimeStamp to it.count }
+        return buckets(stats, unlocks, context.packageName)
+    }
+
+    companion object {
+        const val DAY_MS = 86_400_000L
+        const val HOUR_MS = 3_600_000L
+
+        /** The current bucket counts in averages once it has run this long: a few days say little. */
+        const val COUNTS_AFTER_MS = 7 * DAY_MS
+
+        /** Years: an app left behind had this much a day, and now has a third of it or less. */
+        const val LEFT_BEHIND_MS = 30 * 60_000L
+
+        /** Years: a new app has this much a day now, and had no time the year before. */
+        const val NEW_MS = 10 * 60_000L
+
+        /** One app's time in front in one of Android's buckets. */
+        data class Stat(val pkg: String, val start: Long, val end: Long, val ms: Long)
+
+        /**
+         * One of Android's buckets: its real [start] and [end] (for the current one, the end of its data
+         * so far), each app's time in front, and the unlocks (null when Android has no count).
+         */
+        data class Bucket(val start: Long, val end: Long, val apps: Map<String, Long>, val unlocks: Int?, val current: Boolean) {
+            val total: Long get() = apps.values.sum()
+            val span: Long get() = end - start
+
+            /** Its time in front a day, over its whole span. */
+            val perDay: Long get() = if (span <= 0) 0 else total * DAY_MS / span
+
+            /** One app's time a day in it. */
+            fun perDay(pkg: String): Long = if (span <= 0) 0 else (apps[pkg] ?: 0) * DAY_MS / span
+        }
+
+        /**
+         * [stats] as buckets, the oldest first, without [own] (Kolahal, as `usage` leaves it out). The
+         * newest start is the current bucket. Buckets with no time are left out, and so are the current
+         * one under a day long and one that is over but under an hour long.
+         */
+        fun buckets(stats: List<Stat>, unlocks: Map<Long, Int>, own: String): List<Bucket> {
+            val newest = stats.maxOfOrNull { it.start } ?: return emptyList()
+            return stats.groupBy { it.start }.map { (start, list) ->
+                val apps = list.filter { it.pkg != own && it.ms > 0 }.groupBy { it.pkg }.mapValues { (_, s) -> s.sumOf { it.ms } }
+                Bucket(start, list.maxOf { it.end }, apps, unlocks[start], current = start == newest)
+            }.filter { it.total > 0 && it.span >= if (it.current) DAY_MS else HOUR_MS }.sortedBy { it.start }
+        }
+
+        /** The buckets an average counts: those that are over, and the current one once it has run a week. */
+        fun counted(buckets: List<Bucket>): List<Bucket> = buckets.filter { !it.current || it.span >= COUNTS_AFTER_MS }
+
+        /** The time a day over [buckets] together: their time over their spans. Null with none. */
+        fun perDay(buckets: List<Bucket>): Long? {
+            val span = buckets.sumOf { it.span }
+            return if (span <= 0) null else buckets.sumOf { it.total } * DAY_MS / span
+        }
+
+        /** Unlocks a day over the [buckets] that have a count. Null with none. */
+        fun unlocksPerDay(buckets: List<Bucket>): Int? {
+            val with = buckets.filter { it.unlocks != null }
+            val span = with.sumOf { it.span }
+            return if (span <= 0) null else Math.round(with.sumOf { it.unlocks!!.toLong() } * DAY_MS.toDouble() / span).toInt()
+        }
+
+        /**
+         * The newest bucket that is over, against those before it: the change of its time a day, in
+         * percent. Null with fewer than 2 buckets that are over.
+         */
+        fun change(buckets: List<Bucket>): Long? {
+            val over = buckets.filter { !it.current }
+            if (over.size < 2) return null
+            val before = perDay(over.dropLast(1)) ?: return null
+            if (before <= 0) return null
+            return Math.round((over.last().perDay - before) * 100.0 / before)
+        }
+
+        /** The [n] apps with the most time over [buckets], biggest first. */
+        fun top(buckets: List<Bucket>, n: Int): List<Pair<String, Long>> =
+            buckets.flatMap { it.apps.entries }.groupBy({ it.key }, { it.value }).mapValues { it.value.sum() }
+                .entries.sortedByDescending { it.value }.take(n).map { it.key to it.value }
+
+        /** An app's time a day in two buckets. */
+        data class Shift(val pkg: String, val before: Long, val now: Long)
+
+        /** Apps big in [before] that are small in [now]: a third of their time a day or less. Biggest drop first. */
+        fun leftBehind(before: Bucket, now: Bucket, n: Int = 3): List<Shift> =
+            before.apps.keys.map { Shift(it, before.perDay(it), now.perDay(it)) }
+                .filter { it.before >= LEFT_BEHIND_MS && it.now * 3 <= it.before }
+                .sortedByDescending { it.before - it.now }.take(n)
+
+        /** Apps with real time in [now] that had none in [before]. Biggest first. */
+        fun newApps(before: Bucket, now: Bucket, n: Int = 3): List<Shift> =
+            now.apps.keys.filter { (before.apps[it] ?: 0) == 0L }.map { Shift(it, 0, now.perDay(it)) }
+                .filter { it.now >= NEW_MS }.sortedByDescending { it.now }.take(n)
+    }
+}

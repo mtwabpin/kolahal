@@ -424,10 +424,7 @@ class AppCommands(
     /** The profile's name with a capital first letter, for the start of a sentence. */
     private val ProfileKind.title get() = label.replaceFirstChar { it.uppercase() }
 
-    private fun duration(ms: Long): String {
-        val minutes = ms / 60_000
-        return if (minutes >= 60) "${minutes / 60}h ${minutes % 60}m" else "${minutes}m"
-    }
+    private fun duration(ms: Long) = com.mtwabpin.kolahal.data.TimeFormats.duration(ms)
 
     companion object {
         /** Commands handled by [run]. */
