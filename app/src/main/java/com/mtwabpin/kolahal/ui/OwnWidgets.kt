@@ -230,21 +230,6 @@ internal object OwnCards {
     // ---- reminders --------------------------------------------------------------------------
 
     /**
-     * When a reminder is due, as the `reminders` command says it: "18:30" for today, "Tomorrow
-     * 09:00", else "Fri 23 Oct 08:00". [at] and [now] are in milliseconds.
-     */
-    fun whenLabel(at: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): String {
-        val t = Instant.ofEpochMilli(at).atZone(zone)
-        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-        val time = TimeFormats.clockFormat(clock24, locale).format(t)
-        return when (t.toLocalDate()) {
-            today -> time
-            today.plusDays(1) -> "Tomorrow $time"
-            else -> "${t.format(TimeFormats.dayFormat(locale))} $time"
-        }
-    }
-
-    /**
      * The time from [now] to [at], in whole minutes, rounded up: "in 25m", "in 2h 10m", "in 1d 1h".
      * A reminder whose time has come says "now". Both are in milliseconds.
      */
@@ -305,7 +290,7 @@ internal object OwnCards {
                 val (value, unit) = untilParts(r.at, now)
                 // A rule that can't be read has no words. It must not end the card: such a reminder fires once.
                 val repeat = r.repeat?.let { rule -> runCatching { " · ${Repeat.label(rule)}" }.getOrNull() }.orEmpty()
-                WidgetSpec.Lead(value, unit, cut(r.text.trim(), MAX_LEAD_TEXT) + " · " + whenLabel(r.at, now, zone, clock24, locale) + repeat)
+                WidgetSpec.Lead(value, unit, cut(r.text.trim(), MAX_LEAD_TEXT) + " · " + TimeFormats.whenLabel(r.at, now, zone, clock24, locale, capital = true) + repeat)
             },
         )
     }

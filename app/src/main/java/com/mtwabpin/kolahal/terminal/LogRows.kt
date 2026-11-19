@@ -145,7 +145,7 @@ fun buildRows(
  * The time format beside a line. A format keeps the time zone in which it was created,
  * so a new one is created when the phone's time zone changes.
  */
-fun lineTimeFormat(clock24: Boolean, locale: Locale = Locale.getDefault()) = SimpleDateFormat(if (clock24) "HH:mm" else "h:mm", locale)
+fun lineTimeFormat(clock24: Boolean, locale: Locale = Locale.getDefault()) = SimpleDateFormat(com.mtwabpin.kolahal.data.TimeFormats.lineClock(clock24), locale)
 
 /**
  * Where a line came from, and when (to the second), for its long-press sheet: `countdown · today 6:55:12`.

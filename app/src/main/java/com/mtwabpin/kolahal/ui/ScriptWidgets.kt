@@ -658,13 +658,13 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     // The minute's tick, from the header's clock: content grows old, and a countdown's words change.
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
-    val footer = remember(s, minute, zone) {
-        s?.let { WidgetWords.footer(it.hasContent, WidgetAge.old(it.setAt, it.spec?.base?.staleAfter, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone) }
+    val clock24 = rememberClock24()
+    val footer = remember(s, minute, zone, clock24) {
+        s?.let { WidgetWords.footer(it.hasContent, WidgetAge.old(it.setAt, it.spec?.base?.staleAfter, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone, clock24) }
     }
     // Only the words of a kind that tells the time change with it: a countdown, a clock, an agenda.
     val now = if (WidgetWords.timed(spec)) minute.time / 1000 else 0L
     // A clock and an agenda say a time of day. A screen reader hears it in the form the card writes it.
-    val clock24 = rememberClock24()
     val description = remember(title, spec, note, failure, footer, now, zone, clock24) {
         val content = when {
             spec != null -> WidgetWords.description(title, spec, now, zone, clock24)

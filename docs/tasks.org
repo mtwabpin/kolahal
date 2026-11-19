@@ -138,7 +138,7 @@ complexity but provides nothing. Line numbers are from that commit.
   that changes the repository and the schedule together. Small to medium.
 - Remark:
 
-*** TODO [#A] Times and days formatted outside TimeFormats /(checked)/
+*** DONE [#A] Times and days formatted outside TimeFormats /(checked)/
 - =installs= ignores the 12/24-hour setting (=AppCommands.kt:87=), and so does a widget's "Failed
   10:42" footer (=ui/WidgetKinds.kt:687=).
 - A reminder's time says "Tomorrow" on a widget (=ui/OwnWidgets.kt:232-244=) and "tomorrow", with

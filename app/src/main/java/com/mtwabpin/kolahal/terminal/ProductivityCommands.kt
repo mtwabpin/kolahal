@@ -289,18 +289,8 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
         LogContext.COPY to r.text,
     )
 
-    /** Formats a time as "18:30", "tomorrow 09:00", "Fri 23 Oct 08:00", or "Thu 2 Dec 2027 08:00" in another year. */
-    private fun whenLabel(at: Long): String {
-        val zone = ZoneId.systemDefault()
-        val t = Instant.ofEpochMilli(at).atZone(zone)
-        val time = TimeFormats.clockFormat(conf[Keys.CLOCK_24H]).format(t)
-        val today = LocalDate.now(zone)
-        return when (t.toLocalDate()) {
-            today -> time
-            today.plusDays(1) -> "tomorrow $time"
-            else -> DateTimeFormatter.ofPattern(if (t.year == today.year) TimeFormats.DAY else "${TimeFormats.DAY} yyyy", Locale.getDefault()).format(t) + " " + time
-        }
-    }
+    /** A reminder's time as [TimeFormats.whenLabel] says it: "18:30", "tomorrow 09:00", "Fri 23 Oct 08:00". */
+    private fun whenLabel(at: Long): String = TimeFormats.whenLabel(at, System.currentTimeMillis(), ZoneId.systemDefault(), conf[Keys.CLOCK_24H])
 
     // ---- clock app -----------------------------------------------------------------------------
 
@@ -353,7 +343,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
             return info(if (days == 1) "Nothing left on your calendar today" else "Nothing on your calendar in the next $days days")
         }
         val is24h = conf[Keys.CLOCK_24H]
-        val timeFmt = DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mma", Locale.getDefault())
+        val timeFmt = TimeFormats.clockFormat(is24h)
         val dayFmt = TimeFormats.dayFormat()
         fun span(e: com.mtwabpin.kolahal.productivity.AgendaEvent): String {
             val b = timeFmt.format(Instant.ofEpochMilli(e.begin).atZone(zone))

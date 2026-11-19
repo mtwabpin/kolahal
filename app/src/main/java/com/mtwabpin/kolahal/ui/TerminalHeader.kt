@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.TimeFormats
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.headerSide
@@ -270,10 +271,10 @@ internal fun Header(
 ) {
     val (now, zone) = rememberNow()
     val is24h = remember(version) { config[Keys.CLOCK_24H] }
-    val timeFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm a", Locale.getDefault()) }
-    val dateFmt = remember(zone) { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
+    val timeFmt = remember(is24h, zone) { SimpleDateFormat(TimeFormats.clock(is24h), Locale.getDefault()) }
+    val dateFmt = remember(zone) { SimpleDateFormat(TimeFormats.DAY, Locale.getDefault()) }
     // The alarm time has no AM or PM: the user knows their own next alarm, and the line beside a camera is short.
-    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(if (is24h) "HH:mm" else "h:mm", Locale.getDefault()) }
+    val alarmFmt = remember(is24h, zone) { SimpleDateFormat(TimeFormats.lineClock(is24h), Locale.getDefault()) }
     val dayFmt = remember(zone) { SimpleDateFormat("EEE ", Locale.getDefault()) }
     // A part listed on both sides shows only on the left. Only `config` can list it on both.
     val leftKinds = remember(version) { headerSide(config[Keys.HEADER_LEFT]) }

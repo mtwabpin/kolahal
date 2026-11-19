@@ -464,7 +464,9 @@ class AppCommandsTest {
                     ),
                 ),
             )
-            val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.getDefault())
+            // The day, and the time as the clock setting writes it.
+            val clock24 = com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H]
+            val fmt = java.text.SimpleDateFormat("${com.mtwabpin.kolahal.data.TimeFormats.DAY} ${com.mtwabpin.kolahal.data.TimeFormats.clock(clock24)}", java.util.Locale.getDefault())
             val listed = lines("installs")
             assertEquals(listOf("Updated Llat One ↑\ncom.example.one\n1.0 → 1.1", "Installed Llat Two +\ncom.example.two\n2.0"), listed.map { it.text })
             assertEquals(listOf(fmt.format(java.util.Date(newer)), fmt.format(java.util.Date(older))), listed.map { it.ctx.values[LogContext.DESC] })

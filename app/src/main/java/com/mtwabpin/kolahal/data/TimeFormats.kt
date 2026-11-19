@@ -1,6 +1,8 @@
 package com.mtwabpin.kolahal.data
 
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -23,8 +25,34 @@ object TimeFormats {
     /** A formatter for [clock] in [locale]. */
     fun clockFormat(clock24: Boolean, locale: Locale = Locale.getDefault()): DateTimeFormatter = DateTimeFormatter.ofPattern(clock(clock24), locale)
 
+    /**
+     * The pattern for the time beside a log line: `22:40`, or `10:40` without the 24-hour setting.
+     * No AM or PM, as a line is short and the day is above it. The next alarm uses it too.
+     */
+    fun lineClock(clock24: Boolean): String = if (clock24) "HH:mm" else "h:mm"
+
     /** A formatter for [DAY] in [locale]. */
     fun dayFormat(locale: Locale = Locale.getDefault()): DateTimeFormatter = DateTimeFormatter.ofPattern(DAY, locale)
+
+    /** A formatter for a day of [year] seen in [thisYear]: [DAY], with the year when they differ (`Thu 2 Dec 2027`). */
+    fun dayFormat(year: Int, thisYear: Int, locale: Locale = Locale.getDefault()): DateTimeFormatter =
+        DateTimeFormatter.ofPattern(if (year == thisYear) DAY else "$DAY yyyy", locale)
+
+    /**
+     * When something is due, seen from [now]: `18:30` today, `tomorrow 09:00`, `Fri 23 Oct 08:00`,
+     * or `Thu 2 Dec 2027 08:00` in another year. With [capital], `Tomorrow`, at the start of a line.
+     * [at] and [now] are in milliseconds. `reminders` and the reminders card both say it this way.
+     */
+    fun whenLabel(at: Long, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault(), capital: Boolean = false): String {
+        val t = Instant.ofEpochMilli(at).atZone(zone)
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val time = clockFormat(clock24, locale).format(t)
+        return when (t.toLocalDate()) {
+            today -> time
+            today.plusDays(1) -> (if (capital) "Tomorrow " else "tomorrow ") + time
+            else -> t.format(dayFormat(t.year, today.year, locale)) + " " + time
+        }
+    }
 
     /**
      * [day] as seen from [today]: `today`, `yesterday`, or the day itself (`Tue 20 Oct`).

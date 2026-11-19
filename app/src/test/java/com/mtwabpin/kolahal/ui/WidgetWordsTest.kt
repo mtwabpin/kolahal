@@ -626,25 +626,29 @@ class WidgetWordsTest {
     @Test fun theFooterSaysAFailureOrTheAgeOfOldContent() {
         val hour = 3_600_000L
         val now = ZonedDateTime.of(2026, 12, 20, 12, 0, 0, 0, utc).toInstant().toEpochMilli()
-        assertNull("current content: no footer", WidgetWords.footer(hasContent = true, old = false, setAt = now - hour, triedAt = now - hour, failed = false, now = now, zone = utc))
+        assertNull("current content: no footer", WidgetWords.footer(hasContent = true, old = false, setAt = now - hour, triedAt = now - hour, failed = false, now = now, zone = utc, clock24 = true))
         assertEquals(
             WidgetWords.Footer("2 h ago", "Updated 2 hours ago", failed = false),
-            WidgetWords.footer(hasContent = true, old = true, setAt = now - 2 * hour, triedAt = now - 2 * hour, failed = false, now = now, zone = utc),
+            WidgetWords.footer(hasContent = true, old = true, setAt = now - 2 * hour, triedAt = now - 2 * hour, failed = false, now = now, zone = utc, clock24 = true),
         )
-        assertNull("nothing stored: nothing has an age", WidgetWords.footer(hasContent = false, old = true, setAt = 0, triedAt = 0, failed = false, now = now, zone = utc))
+        assertNull("nothing stored: nothing has an age", WidgetWords.footer(hasContent = false, old = true, setAt = 0, triedAt = 0, failed = false, now = now, zone = utc, clock24 = true))
         // A failure wins over the age, and the old content stays on the card.
         val at = ZonedDateTime.of(2026, 12, 20, 10, 42, 0, 0, utc).toInstant().toEpochMilli()
         assertEquals(
             WidgetWords.Footer("Failed 10:42", "Failed at 10:42", failed = true),
-            WidgetWords.footer(hasContent = true, old = true, setAt = now - 5 * hour, triedAt = at, failed = true, now = now, zone = utc),
+            WidgetWords.footer(hasContent = true, old = true, setAt = now - 5 * hour, triedAt = at, failed = true, now = now, zone = utc, clock24 = true),
         )
         assertEquals(
             "not today: how long ago",
             WidgetWords.Footer("Failed 2 d ago", "Failed 2 days ago", failed = true),
-            WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = now - 49 * hour, failed = true, now = now, zone = utc),
+            WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = now - 49 * hour, failed = true, now = now, zone = utc, clock24 = true),
         )
         // The time is the phone's: 10:42 in UTC is 16:12 in India.
-        assertEquals("Failed 16:12", WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = at, failed = true, now = now, zone = ZoneId.of("Asia/Kolkata"))!!.text)
+        assertEquals("Failed 16:12", WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = at, failed = true, now = now, zone = ZoneId.of("Asia/Kolkata"), clock24 = true)!!.text)
+        // Without the 24-hour setting, as the rest of Kolahal writes the time of day.
+        com.mtwabpin.kolahal.withDefaultLocale(Locale.US) {
+            assertEquals("Failed 10:42 AM", WidgetWords.footer(hasContent = false, old = false, setAt = 0, triedAt = at, failed = true, now = now, zone = utc, clock24 = false)!!.text.replace('\u202F', ' '))
+        }
     }
 
     @Test fun anErrorsFirstLineIsItsFirstLineWithText() {

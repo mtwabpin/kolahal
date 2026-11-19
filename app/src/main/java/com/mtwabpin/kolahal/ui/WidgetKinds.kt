@@ -684,7 +684,6 @@ internal object WidgetWords {
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
     data class Footer(val text: String, val said: String, val failed: Boolean)
 
-    private val HH_MM = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
 
     /**
      * How long ago [then] was at [now], both in milliseconds: "just now", "5 min ago", "2 h ago",
@@ -708,11 +707,13 @@ internal object WidgetWords {
      * - The content is [old]: its age, "2 h ago".
      * - Current content has no footer.
      */
-    fun footer(hasContent: Boolean, old: Boolean, setAt: Long, triedAt: Long, failed: Boolean, now: Long, zone: ZoneId): Footer? {
+    fun footer(hasContent: Boolean, old: Boolean, setAt: Long, triedAt: Long, failed: Boolean, now: Long, zone: ZoneId, clock24: Boolean): Footer? {
         if (failed) {
             val at = Instant.ofEpochMilli(triedAt).atZone(zone)
+            // The time of day as the clock setting writes it, as everywhere else.
+            val time = com.mtwabpin.kolahal.data.TimeFormats.clockFormat(clock24).format(at)
             val today = at.toLocalDate() == Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-            return if (today) Footer("Failed ${HH_MM.format(at)}", "Failed at ${HH_MM.format(at)}", failed = true)
+            return if (today) Footer("Failed $time", "Failed at $time", failed = true)
             else Footer("Failed ${age(triedAt, now)}", "Failed ${age(triedAt, now, whole = true)}", failed = true)
         }
         return if (hasContent && old) Footer(age(setAt, now), "Updated ${age(setAt, now, whole = true)}", failed = false) else null

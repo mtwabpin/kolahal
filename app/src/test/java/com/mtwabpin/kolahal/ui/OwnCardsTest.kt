@@ -435,14 +435,15 @@ class OwnCardsTest {
         assertEquals("Todos: 80 open", OwnCards.todosSaid(many))
     }
 
+    /** The card says a reminder's time as `reminders` does ([com.mtwabpin.kolahal.data.TimeFormats.whenLabel]), with "Tomorrow" at the start of its line. */
     @Test fun aReminderSaysWhenItIsDue() {
         val now = at(14, 16, 5)
-        assertEquals("18:30", OwnCards.whenLabel(at(14, 18, 30), now, zone, clock24 = true, locale = Locale.US))
-        assertEquals("6:30 PM", OwnCards.whenLabel(at(14, 18, 30), now, zone, clock24 = false, locale = Locale.US))
-        assertEquals("Tomorrow 09:00", OwnCards.whenLabel(at(15, 9), now, zone, clock24 = true, locale = Locale.US))
-        assertEquals("Fri 20 Nov 08:00", OwnCards.whenLabel(at(20, 8), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals("18:30", com.mtwabpin.kolahal.data.TimeFormats.whenLabel(at(14, 18, 30), now, zone, clock24 = true, locale = Locale.US, capital = true))
+        assertEquals("6:30 PM", com.mtwabpin.kolahal.data.TimeFormats.whenLabel(at(14, 18, 30), now, zone, clock24 = false, locale = Locale.US, capital = true))
+        assertEquals("Tomorrow 09:00", com.mtwabpin.kolahal.data.TimeFormats.whenLabel(at(15, 9), now, zone, clock24 = true, locale = Locale.US, capital = true))
+        assertEquals("Fri 20 Nov 08:00", com.mtwabpin.kolahal.data.TimeFormats.whenLabel(at(20, 8), now, zone, clock24 = true, locale = Locale.US, capital = true))
         // The day is the phone's day, not UTC's: 01:00 in India is still the day before in UTC.
-        assertEquals("Tomorrow 01:00", OwnCards.whenLabel(at(15, 1), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals("Tomorrow 01:00", com.mtwabpin.kolahal.data.TimeFormats.whenLabel(at(15, 1), now, zone, clock24 = true, locale = Locale.US, capital = true))
     }
 
     /** The time to a reminder is in whole minutes, rounded up, so "in 10m" stays until 9 minutes are left. */

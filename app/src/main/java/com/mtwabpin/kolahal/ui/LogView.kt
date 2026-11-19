@@ -85,7 +85,7 @@ fun DayDivider(row: LogRow.Day, today: LocalDate) {
     // Built on each composition, not remembered, so the dividers follow a change of language.
     val label =
         if (row.day == today.minusDays(1)) "Yesterday"
-        else row.day.format(DateTimeFormatter.ofPattern("EEE d MMM", LocalConfiguration.current.locales[0]))
+        else row.day.format(com.mtwabpin.kolahal.data.TimeFormats.dayFormat(LocalConfiguration.current.locales[0]))
     Text(
         "── $label ──",
         style = Term.small,

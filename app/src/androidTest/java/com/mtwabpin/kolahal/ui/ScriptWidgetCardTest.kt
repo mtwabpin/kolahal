@@ -152,7 +152,8 @@ class ScriptWidgetCardTest {
         compose.onNode(inCard(name) and hasDescription).assertContentDescriptionEquals(expected)
     }
 
-    private fun hhmm(millis: Long) = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+    /** A failure's time of day, as the card writes it: in the clock setting's form. */
+    private fun hhmm(millis: Long) = com.mtwabpin.kolahal.data.TimeFormats.clockFormat(Config.get(context)[Keys.CLOCK_24H]).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
 
     /** `stat`: the big value with its unit, the change, the label and the smaller values. */
     @Test fun aStatDrawsItsValueAndTheRest() {

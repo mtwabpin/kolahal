@@ -168,7 +168,7 @@ private fun PreviewPrompt(text: String, enter: Boolean = false) {
 }
 
 /** Formats a time the same way the log shows it. */
-private fun logTime(clock24: Boolean, at: Date = Date()) = SimpleDateFormat(if (clock24) "HH:mm" else "h:mm", Locale.getDefault()).format(at)
+private fun logTime(clock24: Boolean, at: Date = Date()) = com.mtwabpin.kolahal.terminal.lineTimeFormat(clock24).format(at)
 
 @Composable
 private fun rememberApps(): List<AppEntry> {
@@ -334,12 +334,12 @@ internal fun LookPreview(vm: TerminalViewModel) {
             modifier = Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
             Text(
-                SimpleDateFormat(if (clock24) "HH:mm" else "h:mm a", locale).format(now),
+                SimpleDateFormat(com.mtwabpin.kolahal.data.TimeFormats.clock(clock24), locale).format(now),
                 style = Term.text.copy(color = Term.fg, fontWeight = FontWeight.Bold),
                 modifier = Modifier.testTag("tour-clock"),
             )
             Spacer(Modifier.width(8.dp))
-            Text(SimpleDateFormat("EEE d MMM", locale).format(now), style = Term.text.copy(color = Term.dim))
+            Text(SimpleDateFormat(com.mtwabpin.kolahal.data.TimeFormats.DAY, locale).format(now), style = Term.text.copy(color = Term.dim))
             Spacer(Modifier.weight(1f))
             BatteryGlyph(battery, false, Term.fg, Term.fontSize.dp)
             Spacer(Modifier.width(3.dp))

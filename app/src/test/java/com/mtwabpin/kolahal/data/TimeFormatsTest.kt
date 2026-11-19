@@ -73,4 +73,18 @@ class TimeFormatsTest {
             assertEquals(TimeFormats.clockFormat(false, Locale.GERMANY).format(evening), TimeFormats.clockFormat(false).format(evening))
         }
     }
+
+    /** When something is due: the time today, "tomorrow" (or "Tomorrow" at a line's start), the day this year, the day and year in another. */
+    @Test fun whenSomethingIsDue() {
+        val zone = ZoneOffset.UTC
+        fun ms(y: Int, m: Int, d: Int, h: Int) = LocalDateTime.of(y, m, d, h, 0).toInstant(zone).toEpochMilli()
+        val now = ms(2026, 12, 30, 10)
+        assertEquals("18:00", TimeFormats.whenLabel(ms(2026, 12, 30, 18), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals("tomorrow 09:00", TimeFormats.whenLabel(ms(2026, 12, 31, 9), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals("Tomorrow 09:00", TimeFormats.whenLabel(ms(2026, 12, 31, 9), now, zone, clock24 = true, locale = Locale.US, capital = true))
+        assertEquals("Mon 28 Dec 08:00", TimeFormats.whenLabel(ms(2026, 12, 28, 8), now, zone, clock24 = true, locale = Locale.US))
+        // In another year, the year too: a reminder a year ahead must not read as this year.
+        assertEquals("Sat 2 Jan 2027 08:00", TimeFormats.whenLabel(ms(2027, 1, 2, 8), now, zone, clock24 = true, locale = Locale.US))
+        assertEquals("h:mm", TimeFormats.lineClock(false))
+    }
 }

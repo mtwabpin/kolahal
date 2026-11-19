@@ -84,7 +84,8 @@ class AppCommands(
         val n = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 200) ?: 20
         val list = com.mtwabpin.kolahal.apps.PackageEvents.get(context).history().take(n)
         if (list.isEmpty()) return info("No app installs, updates or uninstalls recorded yet")
-        val fmt = java.text.SimpleDateFormat("EEE d MMM HH:mm", java.util.Locale.getDefault())
+        val clock24 = com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H]
+        val fmt = java.text.SimpleDateFormat("${com.mtwabpin.kolahal.data.TimeFormats.DAY} ${com.mtwabpin.kolahal.data.TimeFormats.clock(clock24)}", java.util.Locale.getDefault())
         // Each event is an item: its app, then the package and the versions under it.
         list.forEach { (t, text) -> out(text, LogContext.of(LogContext.DESC to fmt.format(Date(t))) + LogContext.ITEM) }
     }
