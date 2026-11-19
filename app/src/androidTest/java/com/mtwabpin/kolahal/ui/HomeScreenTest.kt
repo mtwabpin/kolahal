@@ -194,10 +194,13 @@ class HomeScreenTest {
     @Test fun onlyPinnedScriptsShowAtTheTop() = withStatusLine("pinned-home", "NZ 136/8", pinned = true) {
         withStatusLine("unpinned-home", "US AQI 131", pinned = false) {
             showResting()
-            compose.onNodeWithText("NZ 136/8").assertExists()
-            compose.onNodeWithText("US AQI 131").assertDoesNotExist()
+            // The status may sit inside a tappable row that merges its text: look in the unmerged tree,
+            // and wait for it, as the header lays out again when it hides.
+            fun shown(text: String) = compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            compose.waitUntil(5_000) { shown("NZ 136/8") }
+            assertFalse(shown("US AQI 131"))
             compose.runOnIdle { config.set(Keys.HEADER_SHOW, "off") }
-            compose.onNodeWithText("NZ 136/8").assertExists()
+            compose.waitUntil(5_000) { shown("NZ 136/8") }
         }
     }
 
