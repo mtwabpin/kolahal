@@ -1,0 +1,7 @@
+What's new:
+• usage <app> shows one app: time today, opens, a column per hour and the last 7 days.
+• data today and data month show each app's mobile and Wi-Fi data, and the pace toward your plan.
+• storage shows free space, the largest apps and the apps not opened for 30 days.
+• unlocks month draws each day. Screen time counts from your own midnight.
+• New widgets: screen time, data this month and unused apps.
+• prompt.bottom-padding lifts the prompt clear of rounded corners.
