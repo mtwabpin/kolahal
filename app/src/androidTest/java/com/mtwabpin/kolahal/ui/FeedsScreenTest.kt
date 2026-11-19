@@ -297,14 +297,17 @@ class FeedsScreenTest {
         compose.onNodeWithText("Feed URL").assertDoesNotExist()
     }
 
-    /** An address already subscribed to says so, and nothing is added twice. */
+    /**
+     * An address already subscribed to says so, and nothing is added twice: also when it is typed
+     * another way (the scheme in capitals, a #part), as the stored address is the normalised one.
+     */
     @Test fun aFeedIsNotAddedTwice() {
         val f = feed("KT Alpha")
         show()
         compose.waitForText("KT Alpha")
         tapAddFeed()
         val box = compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog()))
-        box.performTextInput(f.url)
+        box.performTextInput(Regex("^[a-z]+://").replace(f.url) { it.value.uppercase() } + "#top")
         box.performImeAction()
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Already subscribed to ${f.url}") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
         stays("added once") { repo.all().count { it.url == f.url } == 1 }

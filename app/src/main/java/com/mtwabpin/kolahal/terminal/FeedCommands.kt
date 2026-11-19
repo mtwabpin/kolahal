@@ -48,6 +48,8 @@ class FeedCommands(
     fun feeds(args: List<String>) {
         val repo = com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
         val scheduler = com.mtwabpin.kolahal.feeds.FeedScheduler
+        // Changes go through FeedSubscriptions, as the Feeds screen's do: the feeds and their schedule together.
+        val subscriptions = com.mtwabpin.kolahal.feeds.FeedSubscriptions(context)
         val id = args.getOrNull(1)?.toLongOrNull()
         when (args.firstOrNull()) {
             null, "ls", "list" -> {
@@ -69,23 +71,20 @@ class FeedCommands(
             }
             "add" -> {
                 val url = args.getOrNull(1) ?: return error("Usage: feed add <url>")
-                val feed = runCatching { repo.add(url) }.getOrElse { return error(it.message ?: "Invalid URL") }
-                scheduler.sync(context)
-                scheduler.fetchNow(context, feed.id)
+                val (feed, isNew) = runCatching { subscriptions.subscribe(url) }.getOrElse { return error(it.message ?: "Invalid URL") }
+                if (!isNew) return info("Already subscribed: #${feed.id} ${feed.url}", LogContext.of(LogContext.URL to feed.url))
                 info("Subscribed #${feed.id} ${feed.url} — fetching…", LogContext.of(LogContext.URL to feed.url))
             }
             "url" -> {
                 val url = args.getOrNull(2)
                 if (id == null || url == null) return error("Usage: feed url <id> <address>")
-                val feed = runCatching { repo.setUrl(id, url) }.getOrElse { return error((it.message ?: "Invalid URL") + if (repo.byId(id) == null) " — 'feeds' lists them" else "") }
-                scheduler.fetchNow(context, feed.id)
+                val feed = runCatching { subscriptions.moveTo(id, url) }.getOrElse { return error((it.message ?: "Invalid URL") + if (repo.byId(id) == null) " — 'feeds' lists them" else "") }
                 info("Feed #${feed.id} is at ${feed.url} — fetching…", LogContext.of(LogContext.URL to feed.url))
             }
             "rm", "remove" -> {
                 id ?: return error("Usage: feed rm <id>")
                 if (!exists(id)) return
-                repo.remove(id)
-                scheduler.sync(context)
+                subscriptions.remove(id)
                 info("Removed feed #$id")
             }
             "fetch", "refresh" -> {
@@ -132,15 +131,12 @@ class FeedCommands(
                 val minutes = CommandParsing.parseInterval(args.getOrNull(2))
                 if (id == null || minutes == null || minutes <= 0) return error("Usage: feed every <id> <30m|2h|…>")
                 if (!exists(id)) return
-                repo.setInterval(id, minutes)
-                scheduler.sync(context)
-                info("Feed #$id every ${CommandParsing.formatInterval(minutes.coerceAtLeast(15))}")
+                info("Feed #$id every ${CommandParsing.formatInterval(subscriptions.setInterval(id, minutes))}")
             }
             "on", "off" -> {
                 id ?: return error("Usage: feed ${args[0]} <id>")
                 if (!exists(id)) return
-                repo.setEnabled(id, args[0] == "on")
-                scheduler.sync(context)
+                subscriptions.setEnabled(id, args[0] == "on")
                 info("Feed #$id ${args[0]}")
             }
             else -> usage("feed")

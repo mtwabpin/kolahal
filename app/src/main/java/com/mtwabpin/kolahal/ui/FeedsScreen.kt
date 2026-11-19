@@ -111,6 +111,8 @@ private fun FeedInfo.displayTitle(): String = title?.takeIf { it.isNotBlank() } 
 fun FeedsScreen(vm: TerminalViewModel) {
     val context = LocalContext.current
     val repo = remember { FeedRepository.get(context) }
+    // Subscribing, removing and scheduling go through FeedSubscriptions, as the `feed` command's do.
+    val subscriptions = remember { com.mtwabpin.kolahal.feeds.FeedSubscriptions(context) }
     val repoVersion by repo.version.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -140,9 +142,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
 
     val importOpml = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) io("import") {
-            val added = repo.importOpml(Files.readText(context, uri))
-            FeedScheduler.sync(context)
-            if (added > 0) FeedScheduler.fetchNow(context)
+            val added = subscriptions.importOpml(Files.readText(context, uri))
             if (added == 0) "No new feeds in that file" else "Imported $added new feeds — fetching…"
         }
     }
@@ -195,15 +195,15 @@ fun FeedsScreen(vm: TerminalViewModel) {
                     io("notifications") { repo.setNotify(sheetFeed.id, on); null }
                 },
                 onEnabled = { on ->
-                    io("update") { repo.setEnabled(sheetFeed.id, on); FeedScheduler.sync(context); null }
+                    io("update") { subscriptions.setEnabled(sheetFeed.id, on); null }
                 },
-                onInterval = { minutes -> io("update") { repo.setInterval(sheetFeed.id, minutes); FeedScheduler.sync(context); null } },
+                onInterval = { minutes -> io("update") { subscriptions.setInterval(sheetFeed.id, minutes); null } },
                 onMarkAllRead = { io("mark read") { repo.markAllRead(sheetFeed.id); "Marked ${sheetFeed.displayTitle()} read" } },
                 onEditAddress = { editingFeedId = sheetFeed.id },
                 onRemove = {
                     sheetFeedId = null
                     if (openFeedId == sheetFeed.id) openFeedId = null
-                    io("remove") { repo.remove(sheetFeed.id); FeedScheduler.sync(context); "Removed ${sheetFeed.displayTitle()}" }
+                    io("remove") { subscriptions.remove(sheetFeed.id); "Removed ${sheetFeed.displayTitle()}" }
                 },
             )
         }
@@ -214,10 +214,9 @@ fun FeedsScreen(vm: TerminalViewModel) {
             initial = "",
             onDismiss = { adding = false },
             onSubmit = { url ->
-                if (repo.byUrl(url) != null) throw IllegalArgumentException("Already subscribed to $url")
-                val feed = repo.add(url)
-                FeedScheduler.sync(context)
-                FeedScheduler.fetchNow(context, feed.id)
+                // The address as stored (normalised), so a known feed typed another way is found too.
+                val (feed, isNew) = subscriptions.subscribe(url)
+                if (!isNew) throw IllegalArgumentException("Already subscribed to ${feed.url}")
                 "Subscribed to ${feed.shortName} — fetching…"
             },
         ) { message ->
@@ -232,8 +231,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
             initial = editing.url,
             onDismiss = { editingFeedId = null },
             onSubmit = { url ->
-                val feed = repo.setUrl(editing.id, url)
-                FeedScheduler.fetchNow(context, feed.id)
+                val feed = subscriptions.moveTo(editing.id, url)
                 "${editing.displayTitle()} is at ${hostOf(feed.url)} now — fetching…"
             },
         ) { message ->

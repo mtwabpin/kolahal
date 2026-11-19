@@ -135,9 +135,9 @@ class FeedCommandsTest {
         assertEquals(feed.id.toString(), failed.ctx.values[FeedWorker.CTX_FEED])
         assertEquals(feed.url, failed.ctx.url)
 
-        // Another spelling of the same address. Its fetch runs after the first's; none is still to
-        // come when the test ends.
-        assertEquals("Subscribed #${feed.id} ${BASE}feed — fetching…", run("feed add HTTP://127.0.0.1:9/feed#top").first())
+        // Another spelling of the same address: the same feed, said so, and not fetched again. The
+        // first fetch is done before the test ends.
+        assertEquals("Already subscribed: #${feed.id} ${BASE}feed", run("feed add HTTP://127.0.0.1:9/feed#top").first())
         assertEquals(1, feeds.feeds().count { it.url.startsWith(BASE) })
         val work = androidx.work.WorkManager.getInstance(context)
         waitUntil("no fetch to come", ms = 30_000) { work.getWorkInfosForUniqueWork("feeds-now-${feed.id}").get().all { it.state.isFinished } }

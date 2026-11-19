@@ -129,7 +129,7 @@ complexity but provides nothing. Line numbers are from that commit.
   and the patch go. Medium.
 - Remark:
 
-*** TODO [#A] Feed subscribing written twice /(checked)/
+*** DONE [#A] Feed subscribing written twice /(checked)/
 - =ui/FeedsScreen.kt:143-145=, =:198-236= and =terminal/FeedCommands.kt:70-145=.
 - The Feeds screen checks for a duplicate with the URL as typed (=:217=), but the repository stores
   it normalised, so "Already subscribed" can miss. =feed add= with a known URL says "Subscribed".
