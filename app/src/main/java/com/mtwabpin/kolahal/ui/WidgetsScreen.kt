@@ -306,17 +306,19 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                     }
                 }
                 // Room the bars leave: a widget brought into view stays clear of the top bar and the toolbar.
+                // Read when it scrolls, not when the scroll starts: the toolbar comes up as a widget is chosen.
                 val density = LocalDensity.current
-                val topRoom = with(density) { padding.calculateTopPadding().toPx() }
-                val bottomRoom = with(density) { (padding.calculateBottomPadding() + 8.dp).toPx() }
+                val topRoom by rememberUpdatedState(with(density) { padding.calculateTopPadding().toPx() })
+                val bottomRoom by rememberUpdatedState(with(density) { (padding.calculateBottomPadding() + 8.dp).toPx() })
                 WidgetFlow(panel.map { it.span }, WidgetLayout.GAP_DP.dp, Modifier.fillMaxWidth()) {
                     panel.forEachIndexed { index, w ->
                         key(w.key) {
                             val bring = remember { BringIntoViewRequester() }
                             var size by remember { mutableStateOf(IntSize.Zero) }
-                            // The chosen widget, once it moves (Move earlier, Move later) or changes size, is
-                            // scrolled back into view: in a long list it would go off the screen. After a
-                            // frame, so its new place is laid out first.
+                            // The chosen widget is scrolled into view when it is chosen (the toolbar coming up
+                            // could hide it) and again each time it moves (Move earlier, Move later) or changes
+                            // size: in a long list it would go off the screen. After a frame, so its new place
+                            // and the toolbar are laid out first.
                             if (selected == w.key) LaunchedEffect(index, w.span, w.heightDp) {
                                 withFrameNanos { }
                                 bring.bringIntoView(Rect(0f, -topRoom, size.width.toFloat(), size.height + bottomRoom))

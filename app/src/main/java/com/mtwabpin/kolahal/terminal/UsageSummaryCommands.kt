@@ -94,32 +94,24 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
     private fun byPkg(): Map<String, AppEntry> =
         apps.apps.value.groupBy { it.pkg }.mapValues { (_, list) -> list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first() }
 
-    /** Whether [pkg] is no longer installed. Android may keep its time in some levels, with no name for it. */
-    private fun removed(pkg: String): Boolean =
-        runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.exceptionOrNull() is android.content.pm.PackageManager.NameNotFoundException
-
     /**
-     * An app's name: the app list's, or Android's. A removed app has only its package, so that is its
-     * name. Null for an installed package with no name of its own (the in-call screen).
+     * An app's name: the app list's, or Android's; else its package. Android names no app that was
+     * removed, none it hides from Kolahal (since Android 11 an app sees only the apps it declares),
+     * and none without a label of its own. Kolahal can't tell those apart, so it says only the
+     * package, not why: an app's use counts, named or not.
      */
-    private fun name(pkg: String, byPkg: Map<String, AppEntry>): String? {
+    private fun name(pkg: String, byPkg: Map<String, AppEntry>): String {
         byPkg[pkg]?.let { return it.label }
         val pm = context.packageManager
         val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
-        if (label == null && removed(pkg)) return pkg
-        return label?.takeIf { it.isNotBlank() && it != pkg }
+        return label?.takeIf { it.isNotBlank() && it != pkg } ?: pkg
     }
 
-    /**
-     * The line of an app: [prefix] (a chip) and its name, and a tap opens it when it is in the app list.
-     * A removed app has a "removed" chip before its package.
-     */
+    /** The line of an app: [prefix] (a chip) and its name, and a tap opens it when it is in the app list. */
     private fun appLine(pkg: String, byPkg: Map<String, AppEntry>, desc: String, fraction: Double? = null, prefix: String = "") {
-        val label = name(pkg, byPkg) ?: return
-        val gone = if (byPkg[pkg] == null && label == pkg) StyledText.tag(StyledText.Colour.MUTED, "removed") + " " else ""
         val ctx = (byPkg[pkg]?.let { appContext(it) } ?: LogContext.EMPTY) + mapOf(LogContext.DESC to desc) +
             (fraction?.let { LogContext.bar(it) } ?: emptyMap())
-        out(prefix + gone + label, ctx)
+        out(prefix + name(pkg, byPkg), ctx)
     }
 
     /** A thin rule with a label, `── top apps ──`: it parts the output where a heading or a sentence would. */
@@ -201,7 +193,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
             info("${coloured(change(percent), percent <= 0)} · ${span(buckets.last { !it.current }, level)}")
         }
         val byPkg = byPkg()
-        val top = UsageLevels.top(buckets, 8).filter { it.second >= 60_000 && name(it.first, byPkg) != null }.take(5)
+        val top = UsageLevels.top(buckets, 5).filter { it.second >= 60_000 }
         if (top.isNotEmpty()) {
             rule("top apps")
             val most = top.first().second.toDouble()
@@ -230,7 +222,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         val byPkg = byPkg()
         // Each year by the month it starts: "Apr 2025".
         val label = { b: Bucket -> Instant.ofEpochMilli(b.start).atZone(zone).format(monthYear) }
-        val tops = buckets.map { b -> b to UsageLevels.top(listOf(b), 8).filter { it.second >= 60_000 }.mapNotNull { name(it.first, byPkg) }.take(3) }
+        val tops = buckets.map { b -> b to UsageLevels.top(listOf(b), 3).filter { it.second >= 60_000 }.map { name(it.first, byPkg) } }
             .filter { it.second.isNotEmpty() }
         if (tops.isNotEmpty()) {
             rule("top apps")
