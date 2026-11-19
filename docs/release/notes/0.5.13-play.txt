@@ -1,0 +1,6 @@
+What's new:
+• usage-summary: your screen time over Android's weeks, months and years, with a row for each, its total and its time a day, the change and the top apps. usage-summary full shows all.
+• Usage output keeps to numbers and short labels.
+• Every app counts in screen time, Kolahal too.
+• Iosevka, a fifth terminal font: narrow, so more fits on a line.
+• On the Widgets screen, a moved widget stays in view.
