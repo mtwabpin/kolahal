@@ -141,30 +141,37 @@ internal class HostData(
     }
 
     // ---- usage (`@uses usage`): screen time, data and unused apps, from Android's usage data ----------
+    //
+    // Each call gives nil (null in JavaScript) when it can tell nothing: the script's "Your app usage"
+    // switch is off, or Kolahal has no usage access. A widget then says so, instead of showing 0.
 
-    /** Whether Kolahal has Usage Access: without it, Android tells nothing, and each call gives nothing. */
+    /** Whether Kolahal has Usage Access: without it, Android tells nothing. */
     private fun usageAccess() = runCatching { com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).hasUsageAccess() }.getOrDefault(false)
 
-    /** The personal profile's apps by package, with their names: how a script sees an app. */
+    /** Whether a `usage.*` call can tell anything: the item is allowed ([may]), and Kolahal has usage access. */
+    private fun usageReady(call: String) = may(USAGE, call) && usageAccess()
+
+    /** The personal profile's apps by package, with their names: as `apps.list` names them. */
     private val appNames by lazy {
         val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
         runCatching { la.getActivityList(null, android.os.Process.myUserHandle()) }.getOrDefault(emptyList())
             .associate { it.componentName.packageName to it.label.toString() }
     }
 
-    private fun startOfToday(zone: ZoneId = ZoneId.systemDefault()) = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+    private val zone get() = ZoneId.systemDefault()
+
+    private fun startOf(day: java.time.LocalDate) = day.atStartOfDay(zone).toInstant().toEpochMilli()
 
     /**
-     * `usage.today(n?)`: `{ total, apps }`. [total] is today's screen time in minutes, since
-     * midnight; [apps] the [n] apps used most (10 by default, up to [MAX_USAGE_APPS]), each
-     * `{ app, pkg, minutes }`, biggest first: what `usage` shows.
+     * `usage.today(n?)`: `{ total, apps }`. [total] is today's screen time in minutes since midnight
+     * (every app but Kolahal); [apps] the [n] apps used a minute or more, most first (10 by default,
+     * up to [MAX_USAGE_APPS]), each `{ app, pkg, minutes }`: what `usage` shows. Nil: see above.
      */
-    fun usageToday(n: Any?): Map<String, Any?> {
-        val none = mapOf("total" to 0L, "apps" to emptyList<Any>())
-        if (!may(USAGE, "usage.today")) return none
+    fun usageToday(n: Any?): Map<String, Any?>? {
         val count = listCount("usage.today", "n", n, MAX_USAGE_APPS, DEFAULT_USAGE_APPS)
-        if (!usageAccess()) return none
-        val t = com.mtwabpin.kolahal.usage.AppUsage(context).times(startOfToday(), System.currentTimeMillis()) { appNames[it] }
+        if (!usageReady("usage.today")) return null
+        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
+        val t = reader.times(reader.read(startOf(java.time.LocalDate.now(zone))).sessions) { appNames[it] }
         return mapOf(
             "total" to t.total / 60_000,
             "apps" to t.apps.take(count).map { mapOf("app" to StyledText.strip(it.label).take(MAX_TEXT), "pkg" to it.pkg, "minutes" to it.ms / 60_000) },
@@ -173,59 +180,74 @@ internal class HostData(
 
     /**
      * `usage.days(n?)`: the screen time of each of the last [n] days (7 by default, up to 30), in
-     * minutes, the oldest first. Only the days Android has data for ([com.mtwabpin.kolahal.usage.UsageHistory]):
-     * the list can be shorter than [n]. Today is the last.
+     * minutes, the oldest first, from one read of the events. Only the days Android has data for
+     * ([com.mtwabpin.kolahal.usage.UsageHistory]): the list can be shorter than [n]. Today, so far,
+     * is the last. Nil: see above.
      */
-    fun usageDays(n: Any?): List<Long> {
-        if (!may(USAGE, "usage.days")) return emptyList()
+    fun usageDays(n: Any?): List<Long>? {
         val count = listCount("usage.days", "n", n, MAX_USAGE_DAYS, DEFAULT_USAGE_DAYS)
-        if (!usageAccess()) return emptyList()
-        val zone = ZoneId.systemDefault()
+        if (!usageReady("usage.days")) return null
         val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
-        val now = System.currentTimeMillis()
-        return com.mtwabpin.kolahal.usage.UsageHistory.days(context, count).map { day ->
-            val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
-            val until = minOf(day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), now)
-            reader.times(from, until) { appNames[it] }.total / 60_000
-        }
+        val days = com.mtwabpin.kolahal.usage.UsageHistory.days(context, count)
+        val read = reader.read(startOf(days.first()))
+        return days.map { day -> reader.total(read.between(startOf(day), startOf(day.plusDays(1)))) / 60_000 }
     }
 
     /**
-     * `usage.data(since?)`: `{ mobile, wifi }`, the bytes used since [since] (seconds since 1970;
-     * by default, midnight). [mobile] is nil on Android 9, which doesn't tell it.
+     * `usage.data(since?)`: the mobile and Wi-Fi bytes used since [since].
+     * - [since] is a time in seconds since 1970, by default midnight: `{ mobile, wifi }`.
+     * - "month": the month of your data plan (`data.plan`, `data.start-day`), as `data month`
+     *   counts it: `{ mobile, wifi, since, plan, pace, daysLeft }`. [plan] is in bytes, nil with no
+     *   plan; [pace] is the mobile data the month comes to at the rate so far.
+     * - [mobile] is nil on Android 9, which doesn't tell it. Nil for the whole: see above.
      */
-    fun usageData(since: Any?): Map<String, Any?> {
-        if (!may(USAGE, "usage.data")) return emptyMap()
+    fun usageData(since: Any?): Map<String, Any?>? {
         val now = System.currentTimeMillis()
-        val from = when (since) {
-            null -> startOfToday()
-            is Number -> since.toDouble().takeIf { it.isFinite() }?.let { (it * 1000).toLong().coerceIn(0L, now) }
-                ?: throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970")
-            else -> throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970, such as os.time()")
+        val month = since == "month"
+        val from = when {
+            since == null -> startOf(java.time.LocalDate.now(zone))
+            month -> null
+            since is Number -> since.toDouble().takeIf { it.isFinite() }?.let { (it * 1000).toLong() }
+                ?.takeIf { it <= now } ?: throw IllegalArgumentException("usage.data: since must be a time in seconds since 1970 and not later than now, such as os.time()")
+            else -> throw IllegalArgumentException("usage.data: since must be \"month\" or a time in seconds since 1970, such as os.time()")
         }
-        if (!usageAccess()) return emptyMap()
-        val s = com.mtwabpin.kolahal.usage.DataUsage(context).between(from, now)
-        return mapOf("mobile" to s.mobile, "wifi" to s.wifi)
+        if (!usageReady("usage.data")) return null
+        if (!month) {
+            val s = com.mtwabpin.kolahal.usage.DataUsage(context).between(from!!, now)
+            return mapOf("mobile" to s.mobile, "wifi" to s.wifi)
+        }
+        val today = java.time.LocalDate.now(zone)
+        val cycle = com.mtwabpin.kolahal.usage.DataCycle.of(today, com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_START_DAY))
+        val s = com.mtwabpin.kolahal.usage.DataUsage(context).between(cycle.startMs(zone), now)
+        val plan = com.mtwabpin.kolahal.data.SharedSettings.get(context, com.mtwabpin.kolahal.data.Keys.DATA_PLAN).toLong() * 1_000_000_000L
+        return mapOf(
+            "mobile" to s.mobile, "wifi" to s.wifi,
+            "since" to cycle.startMs(zone) / 1000,
+            "plan" to plan.takeIf { it > 0 },
+            "pace" to s.mobile?.let { cycle.pace(it, now, zone) },
+            "daysLeft" to cycle.daysLeft(today),
+        )
     }
 
     /**
      * `usage.unused(days?)`: the apps not opened for [days] days or more (30 by default, 7 to 365),
      * each `{ app, pkg, days, bytes }`: what `storage` lists. [days] is nil for an app Android has no
-     * use recorded for; [bytes] is its size, nil when Android doesn't tell. Up to [MAX_UNUSED].
+     * use recorded for; [bytes] its size, nil when Android doesn't tell. Up to [MAX_UNUSED]; only
+     * those are measured. Nil: see above.
      */
-    fun usageUnused(days: Any?): List<Map<String, Any?>> {
-        if (!may(USAGE, "usage.unused")) return emptyList()
+    fun usageUnused(days: Any?): List<Map<String, Any?>>? {
         val wanted = when (days) {
             null -> DEFAULT_UNUSED_DAYS
             is Number -> days.toDouble().takeIf { it.isFinite() }?.toLong()?.coerceIn(7L, 365L)
                 ?: throw IllegalArgumentException("usage.unused: days must be a number from 7 to 365")
             else -> throw IllegalArgumentException("usage.unused: days must be a number from 7 to 365")
         }
-        if (!usageAccess()) return emptyList()
+        if (!usageReady("usage.unused")) return null
         val storage = com.mtwabpin.kolahal.usage.StorageUsage(context)
-        val sizes = storage.sizes(appNames.keys).associate { it.pkg to it.size }
-        return storage.unused(appNames.keys, wanted, sizes) { appNames[it]?.lowercase() ?: it }.take(MAX_UNUSED).map { u ->
-            mapOf("app" to StyledText.strip(appNames[u.pkg].orEmpty()).take(MAX_TEXT), "pkg" to u.pkg, "days" to u.days, "bytes" to u.bytes)
+        val unused = storage.unused(appNames.keys, wanted) { appNames[it]?.lowercase() ?: it }.take(MAX_UNUSED)
+        val sizes = storage.sizes(unused.map { it.pkg }).associate { it.pkg to it.size }
+        return unused.map { u ->
+            mapOf("app" to StyledText.strip(appNames[u.pkg].orEmpty()).take(MAX_TEXT), "pkg" to u.pkg, "days" to u.days, "bytes" to sizes[u.pkg])
         }
     }
 

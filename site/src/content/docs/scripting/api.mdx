@@ -2097,22 +2097,24 @@ widget.show{ items = rows, empty = "Nothing unread" }
 ## Your app usage
 
 Screen time, data use and the apps you don't open, as `usage`, `data today` and `storage` show
-them. All four need `@uses usage`, and Kolahal needs **Usage access** (`usage-access`): without it,
-each gives nothing (0, an empty list or an empty table). They read only what Android keeps. They
-work in Kolahal 0.5.12 and later.
+them. All four need `@uses usage`, and Kolahal needs **Usage access** (`usage-access`). Each gives
+nil (null in JavaScript) when it can tell nothing: Kolahal has no usage access, or you switched the
+script's "Your app usage" off. So a widget can say so, instead of showing 0. They read only what
+Android keeps. They work in Kolahal 0.5.12 and later.
 
 | Call | Gives |
 | --- | --- |
 | [`usage.today(n?)`](#usagetodayn) | `{ total, apps = [{ app, pkg, minutes }] }` |
 | [`usage.days(n?)`](#usagedaysn) | `[minutes]`, the oldest day first |
-| [`usage.data(since?)`](#usagedatasince) | `{ mobile, wifi }` in bytes |
+| [`usage.data(since?)`](#usagedatasince) | `{ mobile, wifi }` in bytes; with `"month"`, your plan's month too |
 | [`usage.unused(days?)`](#usageunuseddays) | `[{ app, pkg, days, bytes }]` |
 
 ### usage.today(n?)
 
 Today's screen time since midnight, in minutes (`total`), and the `n` apps you used most
 (`apps`), biggest first: 10 without `n`, 30 at most. Each is `{ app, pkg, minutes }`. Only apps of
-your personal profile, used for a minute or more, are in the list; `total` counts every app.
+your personal profile, used for a minute or more, are in the list. `total` counts every app but
+Kolahal itself, as `usage` does, so it can be more than the list adds up to.
 
 ### usage.days(n?)
 
@@ -2122,9 +2124,14 @@ about 10 days, `usage.days(30)` has about 10.
 
 ### usage.data(since?)
 
-The mobile and Wi-Fi data used since `since`, a time in seconds since 1970 (`os.time()`): by
-default, midnight. `{ mobile, wifi }`, in bytes. `mobile` is nil (null in JavaScript) on Android 9,
-which doesn't tell it.
+The mobile and Wi-Fi data used since `since`, in bytes: `{ mobile, wifi }`.
+
+- `since` is a time in seconds since 1970 (`os.time()`), not later than now. Without it, midnight.
+- `"month"`: the month of your data plan, as `data month` counts it (`data.plan`, `data.start-day`):
+  `{ mobile, wifi, since, plan, pace, daysLeft }`. `since` is when the month began, in seconds;
+  `plan` is your plan in bytes, nil with none; `pace` is the mobile data the month comes to at the
+  rate so far; `daysLeft` counts today.
+- `mobile` is nil on Android 9, which doesn't tell it.
 
 ### usage.unused(days?)
 

@@ -110,7 +110,7 @@ See [Media and device controls](/guides/media-and-controls/).
 | `wifi` | | Wi-Fi panel |
 | `bt` | `bluetooth` | Bluetooth settings |
 | `nfc` | | NFC panel |
-| `data` | `[today \| month]` | Internet / mobile data panel; with `today` or `month`, the data each app used |
+| `data [today \| month]` | | Internet / mobile data panel; with `today` or `month`, the data each app used |
 | `toggles` | | the state of every toggle; tap a line to change it |
 
 ## Productivity
@@ -220,7 +220,7 @@ See [Widgets](/guides/widgets/).
 | `tour` | | a page-by-page tour of how Kolahal works, with a few first settings |
 | `source` | | Kolahal's source code on GitHub |
 | `wallpaper [match]` | | shows whether the home screen wallpaper is Kolahal's or yours. `match` sets it to this theme's colour, so the screen doesn't flash when you swipe home. The wallpaper then follows the theme until you set another one. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. It doesn't work with the `material-you` theme on Android 12 and newer, which takes its colours from the wallpaper |
-| `unlocks [<days> \| week \| month]` | | unlock counts (1–30 days); `week` and `month` as a chart, with the trend and the weeks |
+| `unlocks [<days> \| week \| month]` | | unlock counts (1–30 days); `week` and `month` as a chart; `month` also with the trend and a line per week |
 | `fetch` | `neofetch`, `fastfetch` | a summary of this phone and Kolahal, in fastfetch style, under `name@device` (`user.name`). It shows Kolahal's icon next to the Android version, device, kernel, uptime, Kolahal's version, apps, scripts, feeds, theme, font, display, CPU, memory, storage, battery, network and today's unlocks, then the theme's colours |
 | `notifications [settings]` | | allow script notifications |
 | `usage-access` | | grant usage access (for the unlock count) |

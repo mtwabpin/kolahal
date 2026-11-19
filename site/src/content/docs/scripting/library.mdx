@@ -547,8 +547,8 @@ and usage access for Kolahal (`usage-access`).
 this month, as a bar toward your plan. It doesn't use the network. It needs `@uses usage` and
 usage access for Kolahal.
 
-- Set your plan in GB with its `plan` option (`script set data-month plan 75`), and the day it
-  starts again with `start` (1 by default).
+- It counts the same month as `data month`: set your plan in GB with `config set data.plan 75`,
+  and the day it starts again with `config set data.start-day 5` (1 by default).
 - The bar turns red when the pace for the month goes over your plan. Without a plan, the card
   shows the data alone, as a number.
 - A tap on the card logs the month: mobile and Wi-Fi, the pace and the days left.
@@ -560,7 +560,8 @@ usage access for Kolahal.
 each with the days since and its size: to tidy up. It doesn't use the network. It needs
 `@uses usage` and usage access for Kolahal.
 
-- An app Android has no use recorded for comes first, and says so, with no day count.
+- An app Android has no use recorded for comes first, and says so, with no day count. Apps of
+  the phone's own that were never updated are left out: they can't be uninstalled.
 - Its `days` option sets how long an app is not opened to count (7 to 365).
 - A tap on the card logs the whole list as a table. The built-in
   [`storage`](/guides/apps/#data-and-storage) command lists them too, where a long-press on one

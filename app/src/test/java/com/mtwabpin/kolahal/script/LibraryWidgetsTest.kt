@@ -168,10 +168,6 @@ class LibraryWidgetsTest {
         assertEquals(false, ScriptMeta.postsNotifications(code))
     }
 
-    /**
-     * Each watched repo with its newest release: the tag at the row's end, and its age under the
-     * repo's name. It gives no title, so the card has the script's `@title`.
-     */
     /** Screen time: today large, a bar a day for the days Android has data for, oldest first. */
     @Test fun screenTime() {
         val tap = luaTable("args" to "today", "page" to "log", "label" to "Show today's apps")
@@ -208,7 +204,7 @@ class LibraryWidgetsTest {
 
     /** Unused apps: a row each, its size under its name and the days at its end; none says so. */
     @Test fun unusedApps() {
-        val empty = "Every app was opened in the last 30 days"
+        val empty = "Every app you can uninstall was opened in the last 30 days"
         val tap = luaTable("args" to "list", "page" to "log", "label" to "Show the list")
         val spec = fromLua(
             "unused-apps.lua",
@@ -224,6 +220,10 @@ class LibraryWidgetsTest {
         assertEquals(empty, (fromLua("unused-apps.lua", luaTable("items" to luaTable(), "empty" to empty)) as WidgetSpec.Rows).empty)
     }
 
+    /**
+     * Each watched repo with its newest release: the tag at the row's end, and its age under the
+     * repo's name. It gives no title, so the card has the script's `@title`.
+     */
     @Test fun releases() {
         val empty = "No repos: releases add owner/repo"
         val spec = fromLua(

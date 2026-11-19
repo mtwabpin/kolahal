@@ -160,9 +160,12 @@ leave out the days before that, and their average is over the days that are ther
 saves each day's unlock count, so `unlocks` goes back further as the weeks go by.
 
 `unlocks month` draws a column for each day with a count, says how the last 7 days compare with the
-7 before, and has a line for each week (Monday to Sunday) with its average. `unlocks week` is the
-same for 7 days. A day with no count is left out: at first there are about 10 days, and more as
-Kolahal saves each day.
+7 before, and has a line for each week (Monday to Sunday) with its average. `unlocks week` draws
+the columns of the last 7 days. The days before the first count are left out: at first there are
+about 10 days, and more as Kolahal saves each day.
+
+Every "a day on average" counts the days before today only: today has only its hours so far, and
+would pull the average down every morning. The comparison of two weeks counts finished days too.
 
 ## Data and storage
 
@@ -182,4 +185,5 @@ storage          # free space, the largest apps, and apps not opened for 30 days
 - On Android 9, Android tells Kolahal only the Wi-Fi data per app.
 - `storage` shows each app's size: the app and its data, cache included. The apps not opened for
   30 days or more are each a line: tap one to open it, or press and hold it for its info or to
-  uninstall it. An app that Android has no use recorded for says so, with no day count.
+  uninstall it. An app that Android has no use recorded for says so, with no day count. Apps of the
+  phone's own that were never updated are left out: they can't be uninstalled.

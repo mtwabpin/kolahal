@@ -5,30 +5,39 @@ import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
+import com.mtwabpin.kolahal.usage.AppSessions.Companion.Session
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Apps' use, from Android's usage events (Usage Access): `usage` and `usage <app>`.
+ * Apps' use, from Android's usage events (Usage Access): `usage`, `usage <app>` and `usage.*`.
  * - Every time is worked out from the events, counted from local midnight ([AppSessions]): the
  *   totals, the days, the opens, the sessions and the hours. Android's own daily totals start at
  *   another hour on many phones (midnight UTC), so a day of theirs mixes two of yours.
+ * - A command reads the events of its whole range once ([read]), and cuts each day from that.
  */
 class AppUsage(private val context: Context) {
     private val usage = context.getSystemService(UsageStatsManager::class.java)
     private val zone = ZoneId.systemDefault()
 
-    private fun startOf(day: LocalDate) = day.atStartOfDay(zone).toInstant().toEpochMilli()
+    fun startOf(day: LocalDate): Long = day.atStartOfDay(zone).toInstant().toEpochMilli()
 
-    /** [pkg]'s time in front on [day] (up to now for today). */
-    fun timeOn(pkg: String, day: LocalDate, now: Long = System.currentTimeMillis()): Long {
-        val from = startOf(day)
-        val until = minOf(startOf(day.plusDays(1)), now)
-        return AppSessions.totals(events(from, until), from, until)[pkg] ?: 0L
+    /** The sessions of a range ([read]): cut to it, with the app still in front at its end. */
+    class Read(val sessions: List<Session>, val inFront: String?) {
+        /** The sessions in [from, until), cut to it. */
+        fun between(from: Long, until: Long): List<Session> = AppSessions.clip(sessions, from, until)
     }
 
-    /** Each app's time in front in [from, until), by package. */
-    fun totals(from: Long, until: Long): Map<String, Long> = AppSessions.totals(events(from, until), from, until)
+    /**
+     * The sessions of [from, until), from one read of the events. The read starts
+     * [AppSessions.LOOK_BEFORE_MS] earlier: an app in front at [from] (at midnight) has its time from
+     * there, not lost because its screen came to the front the day before.
+     */
+    fun read(from: Long, until: Long = System.currentTimeMillis()): Read {
+        val readFrom = from - AppSessions.LOOK_BEFORE_MS
+        val (all, inFront) = AppSessions.sessions(events(readFrom, until), readFrom, until)
+        return Read(AppSessions.clip(all, from, until), inFront)
+    }
 
     /** One app's time: its package, the name it shows as, and its milliseconds in front. */
     data class AppTime(val pkg: String, val label: String, val ms: Long)
@@ -37,45 +46,31 @@ class AppUsage(private val context: Context) {
     class Times(val apps: List<AppTime>, val total: Long)
 
     /**
-     * Each app's time in front in [from, until), biggest first, and the total, for `usage` and
+     * Screen time in [sessions]: every app but Kolahal itself. The time `usage`, `usage N` and
+     * `usage.days` add up, so they agree.
+     */
+    fun total(sessions: List<Session>): Long = sessions.filter { it.pkg != context.packageName }.sumOf { it.end - it.start }
+
+    /**
+     * Each app's time in [sessions], biggest first, and the total ([total]), for `usage` and
      * `usage.today()`.
-     * - Only an app with a minute or more counts. Kolahal itself is left out.
+     * - An app with a minute or more is in the list; the rest count in the total only.
      * - [label] names a package (the app list's name); without one, Android's name for it. A package
      *   with no name at all (the phone's in-call screen) counts in the total, not in the list.
      */
-    fun times(from: Long, until: Long, label: (String) -> String?): Times {
-        val counted = totals(from, until).filter { it.value >= 60_000 && it.key != context.packageName }
+    fun times(sessions: List<Session>, label: (String) -> String?): Times {
+        val counted = AppSessions.totals(sessions).filter { it.key != context.packageName }
         val pm = context.packageManager
-        val named = counted.mapNotNull { (pkg, ms) ->
+        val named = counted.filter { it.value >= 60_000 }.mapNotNull { (pkg, ms) ->
             val name = label(pkg) ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
             if (name.isNullOrBlank() || name == pkg) null else AppTime(pkg, name, ms)
         }.sortedByDescending { it.ms }
         return Times(named, counted.values.sum())
     }
 
-    /**
-     * [pkg]'s time on each of the last [days] days, the oldest first, for the days with data
-     * ([UsageHistory]). Today is the last.
-     */
-    fun days(pkg: String, days: Int, today: LocalDate = LocalDate.now()): List<Pair<LocalDate, Long>> =
-        UsageHistory.days(context, days, today).map { it to timeOn(pkg, it) }
-
-    /** [pkg]'s sessions today, from midnight to now ([AppSessions.of]), a slot for each hour of the day. */
-    fun today(pkg: String, now: Long = System.currentTimeMillis()): AppSessions = on(pkg, LocalDate.now(zone), now)
-
-    /** [pkg]'s sessions on [day] (up to now for today), a slot for each hour of the day. */
-    fun on(pkg: String, day: LocalDate, now: Long = System.currentTimeMillis()): AppSessions {
-        val from = startOf(day)
-        val until = minOf(startOf(day.plusDays(1)), now)
-        return AppSessions.of(events(from, until), pkg, from, until, 24)
-    }
-
     /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */
     private fun events(from: Long, until: Long): List<AppSessions.Companion.Event> {
-        val kinds = intArrayOf(
-            AppSessions.RESUMED, AppSessions.PAUSED, AppSessions.STOPPED,
-            AppSessions.SCREEN_OFF, AppSessions.LOCKED, AppSessions.SHUTDOWN,
-        )
+        val kinds = intArrayOf(AppSessions.RESUMED, AppSessions.PAUSED, AppSessions.SCREEN_OFF, AppSessions.LOCKED, AppSessions.SHUTDOWN, AppSessions.STARTUP)
         val read = runCatching {
             if (Build.VERSION.SDK_INT >= 35) usage.queryEvents(UsageEventsQuery.Builder(from, until).setEventTypes(*kinds).build())
             else usage.queryEvents(from, until)
@@ -84,7 +79,7 @@ class AppUsage(private val context: Context) {
         val e = UsageEvents.Event()
         while (read.hasNextEvent()) {
             read.getNextEvent(e)
-            if (e.eventType in kinds) out += AppSessions.Companion.Event(e.eventType, e.packageName ?: "", e.timeStamp)
+            if (e.eventType in kinds) out += AppSessions.Companion.Event(e.eventType, e.packageName ?: "", e.timeStamp, e.className ?: "")
         }
         return out
     }

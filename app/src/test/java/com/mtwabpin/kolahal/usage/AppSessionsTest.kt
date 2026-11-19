@@ -18,7 +18,7 @@ class AppSessionsTest {
 
     private fun front(pkg: String, at: Long) = Event(AppSessions.RESUMED, pkg, at)
     private fun away(pkg: String, at: Long) = Event(AppSessions.PAUSED, pkg, at)
-    private fun of(vararg e: Event) = AppSessions.of(e.toList(), app, from, until)
+    private fun of(vararg e: Event) = AppSessions.of(e.toList(), app, from, until, java.time.ZoneOffset.UTC)
 
     @Test fun theKindsAreAndroids() {
         assertEquals(UsageEvents.Event.ACTIVITY_RESUMED, AppSessions.RESUMED)
@@ -45,6 +45,32 @@ class AppSessionsTest {
         val s = of(front(app, 10 * min), away(app, 12 * min), front(app, 12 * min + 300), away(app, 20 * min), front(other, 20 * min))
         assertEquals(1, s.opens)
         assertEquals(10 * min, s.total)
+    }
+
+    /**
+     * Android 10 and later: from one screen of an app to another, the first pauses, the next comes to
+     * the front, then the first stops. One session, one open: the late "stopped" ends nothing.
+     */
+    @Test fun aScreenThatStopsLateEndsNothing() {
+        fun screen(type: Int, name: String, at: Long) = Event(type, app, at, name)
+        val s = of(
+            screen(AppSessions.RESUMED, "Chats", 10 * min),
+            screen(AppSessions.PAUSED, "Chats", 15 * min), screen(AppSessions.RESUMED, "Chat", 15 * min + 200), screen(AppSessions.STOPPED, "Chats", 15 * min + 900),
+            screen(AppSessions.PAUSED, "Chat", 30 * min), screen(AppSessions.RESUMED, "Chats", 30 * min + 200), screen(AppSessions.STOPPED, "Chat", 30 * min + 900),
+            screen(AppSessions.PAUSED, "Chats", 50 * min), front(other, 50 * min),
+        )
+        assertEquals(1, s.opens)
+        assertEquals(40 * min, s.total)
+    }
+
+    /** A session over the window's start keeps its part inside, and was opened before: no open in the window. */
+    @Test fun aSessionOverMidnightIsCut() {
+        val night = 24 * 60 * min
+        val end = night + 100 * min
+        val (all, _) = AppSessions.sessions(listOf(front(app, night - 30 * min), away(app, night + 40 * min), front(other, night + 40 * min)), 0L, end)
+        val today = AppSessions.clip(all, night, end)
+        assertEquals(listOf(AppSessions.Companion.Session(app, night, night + 40 * min, opened = false), AppSessions.Companion.Session(other, night + 40 * min, end, opened = true)), today)
+        assertEquals(30 * min, AppSessions.totals(AppSessions.clip(all, 0L, night))[app])
     }
 
     /** Back to the app a while later, with nothing between (the screen of a call): a second open. */
@@ -91,6 +117,17 @@ class AppSessionsTest {
         val events = listOf(front(app, 10 * min), front(other, 25 * min), Event(AppSessions.SCREEN_OFF, "android", 40 * min), front(app, 50 * min))
         val totals = AppSessions.totals(events, from, 60 * min)
         assertEquals(mapOf(app to 25 * min, other to 15 * min), totals)
+    }
+
+    /** A flat battery writes no "shut down": the start-up after it, or 6 hours with no event, ends the session at its last event. */
+    @Test fun aSilenceEndsASession() {
+        val s = of(front(app, 10 * min), away(app, 20 * min), front(app, 20 * min + 100), Event(AppSessions.STARTUP, "android", 600 * min), front(other, 601 * min))
+        assertEquals(10 * min + 100, s.total)
+        assertEquals(UsageEvents.Event.DEVICE_STARTUP, AppSessions.STARTUP)
+        // In front, and nothing since for 7 hours up to the end of the window.
+        val quiet = AppSessions.of(listOf(front(app, 10 * min)), app, from, 10 * min + 7 * 60 * min, java.time.ZoneOffset.UTC)
+        assertEquals(0L, quiet.total)
+        assertFalse(quiet.inFront)
     }
 
     @Test fun noSessionsNoTimes() {

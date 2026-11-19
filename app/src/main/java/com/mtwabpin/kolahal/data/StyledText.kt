@@ -42,7 +42,7 @@ object StyledText {
      * come (the hours left today), the labels spread along its foot, and [said]: the words for a
      * screen reader and for plain text. The last column drawn is the newest, and stands out.
      */
-    data class Columns(val heights: List<Float?>, val labels: List<List<Span>>, val said: List<Span>)
+    data class Columns(val heights: List<Float?>, val labels: List<List<Span>>, val said: List<Span>, val newest: Boolean = true)
 
     /** One of a line of big numbers ([stats]): its value, and its label under it. */
     data class Stat(val value: List<Span>, val label: List<Span>)
@@ -273,17 +273,19 @@ object StyledText {
      * - [labels] spread along its foot: for the hours of a day "00", "06", "12", "18", or the first
      *   day and "Today".
      * - [said] is what a screen reader says, and what plain text keeps: the chart has no words.
-     * - Up to [COLUMNS_MAX] columns, the newest; the last one stands out.
+     * - Up to [COLUMNS_MAX] columns, the newest; the last one stands out, unless [newest] is false
+     *   (a day that is over: none of its hours is "now").
      * - [slots]: how many columns the chart has room for. Past [values], the slots stay empty: the
      *   hours still to come today keep their places, so 00 to 24 runs along the whole width.
      */
-    fun columns(values: List<Double>, labels: List<String>, said: String, slots: Int = values.size): String {
+    fun columns(values: List<Double>, labels: List<String>, said: String, slots: Int = values.size, newest: Boolean = true): String {
         if (values.isEmpty()) return ""
         val kept = values.takeLast(COLUMNS_MAX)
         val top = kept.maxOf { it.takeIf(Double::isFinite) ?: 0.0 }
         val empty = (slots.coerceAtMost(COLUMNS_MAX) - kept.size).coerceAtLeast(0)
         val heights = kept.map { number((share(it, 0.0, top) * 1000).roundToLong() / 1000.0) } + List(empty) { "" }
-        return char(COLUMNS) + heights.joinToString(",") +
+        // "=" before the heights: no column stands out.
+        return char(COLUMNS) + (if (newest) "" else "=") + heights.joinToString(",") +
             char(CELL) + part(said) + labels.joinToString("") { char(CELL) + part(it) }
     }
 
@@ -490,11 +492,12 @@ object StyledText {
     /** A column chart ([columns]) read back. A height it can't read is 0. */
     private fun columnsOf(raw: String): Columns {
         val parts = raw.substring(Character.charCount(COLUMNS)).split(char(CELL))
-        // An empty entry is a slot still to come.
-        val heights = parts[0].split(',').take(COLUMNS_MAX)
+        // "=" first: no column stands out. An empty entry is a slot still to come.
+        val newest = !parts[0].startsWith("=")
+        val heights = parts[0].removePrefix("=").split(',').take(COLUMNS_MAX)
             .map { if (it.isEmpty()) null else it.toFloatOrNull()?.takeIf { h -> !h.isNaN() }?.coerceIn(0f, 1f) ?: 0f }
         fun spans(part: String) = if (part.isEmpty()) emptyList() else lines(part).firstOrNull()?.spans ?: emptyList()
-        return Columns(heights, parts.drop(2).map(::spans), spans(parts.getOrElse(1) { "" }))
+        return Columns(heights, parts.drop(2).map(::spans), spans(parts.getOrElse(1) { "" }), newest)
     }
 
     /** A bar line ([meter]) read back. Numbers it can't read make an empty bar. */

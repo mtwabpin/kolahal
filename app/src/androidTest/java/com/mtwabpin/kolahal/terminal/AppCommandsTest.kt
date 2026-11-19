@@ -435,7 +435,7 @@ class AppCommandsTest {
             // A line a day for 7 days, then their average.
             val days = shown.filter { it.ctx.values.containsKey(LogContext.BAR) }
             assertEquals(shown.joinToString("\n") { it.text }, 7, days.size)
-            assertTrue(shown.last().text, Regex("$duration a day on average, over 7 days").matches(shown.last().text))
+            assertTrue(shown.last().text, Regex("$duration a day on average, over the 6 days before today").matches(shown.last().text))
         } finally {
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
         }

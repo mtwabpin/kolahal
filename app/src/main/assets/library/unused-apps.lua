@@ -19,6 +19,17 @@ local started = event and event.name
 local days = math.max(7, math.min(365, math.floor(tonumber(options.days) or 30)))
 local apps = usage.unused(days)
 
+-- Nil without usage access or the switch: the card says so, and a tap says what to do.
+if apps == nil then
+  if widget then
+    widget.show{ icon = "moon", items = {}, empty = "Needs usage access", tap = { args = "list", page = "log", label = "Show what to do" } }
+  end
+  if started == nil or (args or {})[1] == "list" then
+    log("Unused apps needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+  end
+  return
+end
+
 -- A size as Android's Settings write it, and as the storage command does: "<1 MB", "410 MB", "1.2 GB".
 local function size(bytes)
   if not bytes then return nil end
@@ -37,7 +48,7 @@ if widget then
   widget.show{
     icon = "moon",
     items = rows,
-    empty = "Every app was opened in the last " .. days .. " days",
+    empty = "Every app you can uninstall was opened in the last " .. days .. " days",
     -- The list changes slowly: a new look when the card shows after 6 hours.
     staleAfter = 6 * 3600,
     tap = { args = "list", page = "log", label = "Show the list" },
@@ -46,7 +57,7 @@ end
 
 -- A tap on the widget, or a run by hand: the whole list in the log.
 if started == nil or (args or {})[1] == "list" then
-  if #apps == 0 then return log("Every app was opened in the last " .. days .. " days") end
+  if #apps == 0 then return log("Every app you can uninstall was opened in the last " .. days .. " days") end
   local rows = { { "App", "Not opened", "Size" } }
   for _, a in ipairs(apps) do rows[#rows + 1] = { a.app, since(a), size(a.bytes) or "" } end
   log(#apps .. (#apps == 1 and " app" or " apps") .. " not opened for " .. days .. " days or more", fmt.table(rows, { header = true, align = "lrr" }))

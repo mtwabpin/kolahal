@@ -5,52 +5,53 @@
 -- @version 1.0
 -- @widget progress 2x1
 -- @uses usage
--- @option plan 0 Your monthly plan in GB (0: no plan)
--- @option start 1 The day of the month your plan starts again (1 to 28)
 -- @tags data, usage, progress
 -- @requires 0.5.12
 --
 -- Its widget, once you placed it on the widgets page, shows the mobile data used since your plan
--- started again this month, with a bar toward your plan. Set the plan in GB, and the day it starts,
--- on the script's sheet (script set data-month plan 75). Without a plan it shows the data alone.
--- A tap on it logs the month: mobile and Wi-Fi, the pace for the month and the days left.
+-- started again this month, with a bar toward your plan: the same month as the data month command.
+-- Set your plan in GB with config set data.plan 75, and the day it starts again with
+-- config set data.start-day 5. The bar turns red when the pace for the month goes over the plan.
+-- Without a plan it shows the data alone. A tap on it logs the month.
 -- It needs usage access for Kolahal (usage-access) and its own "Your app usage" switch.
 -- On Android 9, which doesn't tell the mobile data, it shows the Wi-Fi data.
 
 local started = event and event.name
 local GB = 1e9
+local tap = { args = "month", page = "log", label = "Show the month" }
 
-local plan = tonumber(options.plan) or 0
-local startDay = math.max(1, math.min(28, math.floor(tonumber(options.start) or 1)))
+-- The plan's month, as Kolahal counts it: nil without usage access or the switch.
+local month = usage.data("month")
 
--- When the plan started again: this month's start day, or last month's if that is still to come.
-local now = os.date("*t")
-local month = now.day >= startDay and now.month or now.month - 1
-local since = os.time({ year = now.year, month = month, day = startDay, hour = 0 })
-local nextStart = os.time({ year = now.year, month = month + 1, day = startDay, hour = 0 })
-local daysIn = math.max(1, math.floor((nextStart - since) / 86400 + 0.5))
-local gone = math.max(1, math.floor((os.time() - since) / 86400) + 1)
-local left = math.max(0, daysIn - gone + 1)
-
-local used = usage.data(since)
-local mobile = used.mobile
 -- In GB with one decimal: "31.2".
 local function gb(bytes) return string.format("%.1f", (bytes or 0) / GB) end
-local sinceText = os.date("%d %b", since):gsub("^0", "")
+
+if month == nil then
+  if widget then
+    widget.show{ kind = "stat", title = "Data this month", icon = "wifi", value = "–",
+      label = "Needs usage access", tap = tap }
+  end
+  if started == nil or (args or {})[1] == "month" then
+    log("Data this month needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+  end
+  return
+end
+
+local sinceText = os.date("%d %b", month.since):gsub("^0", "")
+local mobile, plan = month.mobile, month.plan
 
 if widget then
-  local tap = { args = "month", page = "log", label = "Show the month" }
   if mobile == nil then
     -- Android 9: no mobile data. The Wi-Fi data as a number: there is no plan to show a bar toward.
-    widget.show{ kind = "stat", title = "Wi-Fi this month", icon = "wifi", value = gb(used.wifi), unit = "GB",
+    widget.show{ kind = "stat", title = "Wi-Fi this month", icon = "wifi", value = gb(month.wifi), unit = "GB",
       label = "since " .. sinceText, staleAfter = 30 * 60, tap = tap }
-  elseif plan > 0 then
+  elseif plan then
     widget.show{
       title = "Data this month", icon = "wifi",
-      value = mobile / GB, max = plan,
-      text = gb(mobile), label = "of " .. math.floor(plan) .. " GB",
+      value = mobile / GB, max = plan / GB,
+      text = gb(mobile), label = "of " .. math.floor(plan / GB) .. " GB",
       -- Red when the pace for the month goes over the plan.
-      color = (mobile / gone * daysIn > plan * GB) and "bad" or nil,
+      color = month.pace > plan and "bad" or nil,
       staleAfter = 30 * 60,
       tap = tap,
     }
@@ -66,12 +67,14 @@ if started == nil or (args or {})[1] == "month" then
   local lines = {}
   if mobile ~= nil then
     lines[#lines + 1] = "Mobile: " .. gb(mobile) .. " GB"
-    if plan > 0 then
-      lines[#lines + 1] = fmt.bar(mobile / GB, { max = plan })
+    if plan then
+      lines[#lines + 1] = fmt.bar(mobile / GB, { max = plan / GB })
       lines[#lines + 1] = string.format("%d%% of %d GB · on pace for %s GB · %d %s left",
-        math.floor(mobile / GB / plan * 100), math.floor(plan), gb(mobile / gone * daysIn), left, left == 1 and "day" or "days")
+        math.floor(mobile / plan * 100), math.floor(plan / GB), gb(month.pace), month.daysLeft, month.daysLeft == 1 and "day" or "days")
+    else
+      lines[#lines + 1] = "With your plan in GB, this shows how much is left: config set data.plan 75"
     end
   end
-  lines[#lines + 1] = "Wi-Fi: " .. gb(used.wifi) .. " GB"
+  lines[#lines + 1] = "Wi-Fi: " .. gb(month.wifi) .. " GB"
   log("Data since " .. sinceText, table.concat(lines, "\n"))
 end

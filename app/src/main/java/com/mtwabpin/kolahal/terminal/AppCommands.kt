@@ -310,24 +310,37 @@ class AppCommands(
             fix("Screen time needs usage access — tap to allow it", "usage-access")
             return
         }
-        if (args.isNotEmpty() && args.first().toIntOrNull() == null) return withApp(args) { appUsage(it) }
+        if (args.isNotEmpty() && args.first().toIntOrNull() == null) {
+            // Without a profile flag, the personal app first: Android gives Kolahal only its use.
+            val matches = resolveApp(args)
+            val app = matches.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: matches.firstOrNull()
+                ?: return error("No app matches '${stripFlags(args)}'")
+            return appUsage(app)
+        }
         val asked = args.firstOrNull()?.toIntOrNull()?.coerceIn(1, 30) ?: 1
-        val zone = java.time.ZoneId.systemDefault()
-        // Only the days Android has data for: a day before its usage history begins is left out, and
-        // the average is over the days that are here ([UsageHistory]).
+        val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
+        // Only the days Android has data for: a day before its usage history begins is left out
+        // ([com.mtwabpin.kolahal.usage.UsageHistory]). The events of the whole range are read once.
         val dataDays = com.mtwabpin.kolahal.usage.UsageHistory.days(context, asked)
         val days = dataDays.size
-        val start = dataDays.first().atStartOfDay(zone).toInstant().toEpochMilli()
-        // From the usage events, counted from local midnight ([com.mtwabpin.kolahal.usage.AppUsage]).
-        // Each app by its name in the app list; a package with no name counts toward "Other apps".
-        val byPkg = apps.apps.value.sortedBy { it.profile.kind != ProfileKind.PERSONAL }.associateBy { it.pkg }
-        val times = com.mtwabpin.kolahal.usage.AppUsage(context).times(start, System.currentTimeMillis()) { byPkg[it]?.label }
+        val today = java.time.LocalDate.now()
+        val start = reader.startOf(dataDays.first())
+        val read = reader.read(start)
+        // Each app by its name in the app list, the personal app first; a package with no name counts toward "Other apps".
+        val byPkg = personalFirst()
+        val times = reader.times(read.sessions) { byPkg[it]?.label }
         val sum = times.total
         if (sum < 60_000) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
-        // Big numbers: the screen time today; over several days, a day's average and the total.
+        // Big numbers: the screen time today; over several days, a day's average (over the finished
+        // days: today has only its hours so far) and the total.
+        val finished = dataDays.filter { it != today }
         val big = if (days == 1) listOf(duration(sum) to "screen time today")
-        else listOf(duration(sum / days) to "a day on average", duration(sum) to "in $days days")
+        else listOf(
+            duration(reader.total(read.between(start, reader.startOf(today))) / finished.size.coerceAtLeast(1)) to "a day on average",
+            duration(sum) to "in $days days",
+        )
         out(com.mtwabpin.kolahal.data.StyledText.stats(big))
+        if (days < asked) info("$days ${if (days == 1) "day" else "days"} with data: Android keeps usage for the last days only")
         val named = times.apps.map { Triple(it.label, byPkg[it.pkg], it.ms) }
         val shown = named.take(12)
         val other = sum - shown.sumOf { it.third }
@@ -339,16 +352,20 @@ class AppCommands(
                 (if (app != null) appCtx(app) else LogContext.EMPTY) + mapOf(LogContext.DESC to duration(ms)) + LogContext.bar(ms.toDouble() / max),
             )
         }
-        // The rest, so the times add up to the total: apps past the first 12, and those without a name.
+        // The rest, so the times add up to the total: apps past the first 12, and those without a name or under a minute.
         if (other >= 60_000) info("Other apps", LogContext.of(LogContext.DESC to duration(other)) + LogContext.bar(other.toDouble() / max))
     }
+
+    /** The app list by package, the personal app where several profiles have it: a tap on its line opens that one. */
+    private fun personalFirst(): Map<String, AppEntry> =
+        apps.apps.value.groupBy { it.pkg }.mapValues { (_, list) -> list.firstOrNull { it.profile.kind == ProfileKind.PERSONAL } ?: list.first() }
 
     /**
      * `usage <app>`: one app today and in the last days.
      * - Big numbers: its time today, how often it was opened, and its longest session, all from
-     *   Android's usage events since midnight ([com.mtwabpin.kolahal.usage.AppUsage]).
-     * - When it was last used, a column for each hour today, then a line for each of the last 7
-     *   days with data, with a bar, and the average of those days.
+     *   Android's usage events since midnight ([com.mtwabpin.kolahal.usage.AppUsage]), read once.
+     * - When it was last used, a column for each hour today (or of the last day it was used), then
+     *   a line for each of the last 7 days with data, with a bar, and the average of the finished days.
      * - A work or private app has no data here: Android gives Kolahal only its own profile's.
      */
     private fun appUsage(app: AppEntry) {
@@ -356,19 +373,20 @@ class AppCommands(
             return info("Screen time of ${app.profile.kind.label} apps isn't available: Android gives Kolahal only the personal profile's")
         }
         val reader = com.mtwabpin.kolahal.usage.AppUsage(context)
-        val now = System.currentTimeMillis()
+        val zone = java.time.ZoneId.systemDefault()
         val today = java.time.LocalDate.now()
-        val days = reader.days(app.pkg, 7, today)
-        val todayMs = days.lastOrNull()?.second ?: 0L
-        val s = reader.today(app.pkg, now)
-        val ctx = appCtx(app)
+        val dataDays = com.mtwabpin.kolahal.usage.UsageHistory.days(context, 7, today)
+        val read = reader.read(reader.startOf(dataDays.first()))
+        fun day(d: java.time.LocalDate) = read.between(reader.startOf(d), reader.startOf(d.plusDays(1)))
+        val days = dataDays.map { d -> d to (com.mtwabpin.kolahal.usage.AppSessions.totals(day(d))[app.pkg] ?: 0L) }
+        val s = com.mtwabpin.kolahal.usage.AppSessions.of(day(today), app.pkg, read.inFront, zone)
         out(com.mtwabpin.kolahal.data.StyledText.stats(listOf(
-            duration(todayMs) to "${app.label} today",
+            duration(s.total) to "${app.label} today",
             s.opens.toString() to if (s.opens == 1) "open" else "opens",
             duration(s.longest) to "longest",
-        )), ctx)
+        )), appCtx(app))
         val clock = com.mtwabpin.kolahal.data.TimeFormats.clockFormat(com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H])
-        fun at(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).format(clock)
+        fun at(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(zone).format(clock)
         when {
             s.inFront -> info("In use now")
             s.lastUsed != null -> info("Last used ${at(s.lastUsed)}" + (s.longestAt?.let { " · longest at ${at(it)}" } ?: ""))
@@ -377,23 +395,30 @@ class AppCommands(
         // A column for each hour: today's, or, when it wasn't used today, the last day it was used of these.
         val chartDay = if (s.total > 0) today else days.lastOrNull { it.second > 0 }?.first
         if (chartDay != null) {
-            val hours = if (chartDay == today) s.hours else reader.on(app.pkg, chartDay).hours
-            // Today has the hours so far, in a chart of the whole day: the hours still to come keep their places.
+            val hours = if (chartDay == today) s.hours else com.mtwabpin.kolahal.usage.AppSessions.of(day(chartDay), app.pkg, null, zone).hours
+            // Today has the hours so far, in a chart of the whole day: the hours still to come keep
+            // their places, and the hour now stands out. A past day has all 24, none standing out.
             val upTo = if (chartDay == today) java.time.LocalTime.now().hour + 1 else 24
             val minutes = hours.take(upTo).map { it / 60_000.0 }
             val dayName = com.mtwabpin.kolahal.data.TimeFormats.dayLabel(chartDay, today, capital = false)
             if (chartDay != today) info("By hour, $dayName")
-            val said = "${app.label} by hour, $dayName: " + minutes.withIndex().filter { it.value >= 1 }.joinToString(", ") { "%02d:00 %dm".format(it.index, it.value.toInt()) }
-            out(com.mtwabpin.kolahal.data.StyledText.columns(minutes, listOf("00", "06", "12", "18", "24"), said, slots = 24))
+            val busy = minutes.withIndex().filter { it.value >= 1 }
+            val said = "${app.label} by hour, $dayName: " +
+                if (busy.isEmpty()) "under a minute in every hour" else busy.joinToString(", ") { "%02d:00 %dm".format(it.index, it.value.toInt()) }
+            out(com.mtwabpin.kolahal.data.StyledText.columns(minutes, listOf("00", "06", "12", "18", "24"), said, slots = 24, newest = chartDay == today))
         }
         if (days.size <= 1) return
         val labels = days.map { (d, _) -> com.mtwabpin.kolahal.data.TimeFormats.dayLabel(d, today, capital = true) }
         val width = labels.maxOf { it.length }
+        // The times padded to one width, so every bar starts in the same place.
+        val timeWidth = days.maxOf { duration(it.second).length }
         val most = days.maxOf { it.second }.coerceAtLeast(1L)
         days.forEachIndexed { i, (_, ms) ->
-            out("${labels[i].padEnd(width)}  ${duration(ms)}", LogContext(LogContext.ALIGNED + LogContext.bar(ms.toDouble() / most)))
+            out("${labels[i].padEnd(width)}  ${duration(ms).padStart(timeWidth)}", LogContext(LogContext.ALIGNED + LogContext.bar(ms.toDouble() / most)))
         }
-        info("${duration(days.sumOf { it.second } / days.size)} a day on average, over ${days.size} days")
+        // The average of the finished days: today has only its hours so far.
+        val finished = days.filter { it.first != today }
+        if (finished.isNotEmpty()) info("${duration(finished.sumOf { it.second } / finished.size)} a day on average, over the ${finished.size} ${if (finished.size == 1) "day" else "days"} before today")
     }
 
     /** The profile's name with a capital first letter, for the start of a sentence. */

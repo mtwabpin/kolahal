@@ -85,7 +85,7 @@ class UsageCommandsTest {
         val largest = texts.indexOf("Largest apps")
         assertTrue(texts.toString(), largest > 0)
         assertTrue(texts[largest + 1], texts[largest + 1].startsWith("App\tSize\tCache"))
-        assertTrue(texts.toString(), texts.any { it == "Not opened for 30 days or more" || it == "Every app was opened in the last 30 days" })
+        assertTrue(texts.toString(), texts.any { it == "Not opened for 30 days or more" || it == "Every app you can uninstall was opened in the last 30 days" })
         // An unused app's line stands for the app: a tap opens it, a long-press offers its actions.
         val unused = texts.indexOf("Not opened for 30 days or more")
         if (unused >= 0) {

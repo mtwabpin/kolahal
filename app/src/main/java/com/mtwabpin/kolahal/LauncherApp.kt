@@ -164,6 +164,15 @@ class LauncherApp : Application(), Configuration.Provider {
                 }
             }
         }
+        // The data plan, for the data-month widget and `usage.data("month")` in the :script process.
+        scope.launch {
+            config.version.map { config[Keys.DATA_PLAN] to config[Keys.DATA_START_DAY] }.distinctUntilChanged().collect { (plan, day) ->
+                runCatching {
+                    com.mtwabpin.kolahal.data.SharedSettings.set(this@LauncherApp, Keys.DATA_PLAN, plan)
+                    com.mtwabpin.kolahal.data.SharedSettings.set(this@LauncherApp, Keys.DATA_START_DAY, day)
+                }
+            }
+        }
         // A new time zone, or a clock set by hand, moves every daily time, so schedule them again.
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {

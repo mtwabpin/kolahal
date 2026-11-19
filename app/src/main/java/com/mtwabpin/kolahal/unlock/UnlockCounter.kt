@@ -154,18 +154,22 @@ class UnlockCounter private constructor(private val context: Context) {
         if (day == today) return countFor(day)
         if (day.isAfter(today)) return null
         savedCount(day)?.let { return it }
-        if (!hasUsageAccess()) return counts.get(dayKey(day))?.toIntOrNull()
-        if (!UsageHistory.hasData(context, day, today)) return null
+        // Without Android's data for the day: what Kolahal counted while it ran, if anything; this keeps
+        // the counts from before usage access was allowed.
+        if (!hasUsageAccess() || !UsageHistory.hasData(context, day, today)) return counts.get(dayKey(day))?.toIntOrNull()
         return countFor(day).also { counts.set(savedKey(day), it.toString()) }
     }
 
     /**
-     * The counts of the last [days] days, oldest first, with only the days that have one
-     * ([countOrNull]): a day with no data is left out, not counted as 0. Today is always the last.
+     * The counts of the last [days] days, oldest first, from the first day that has one
+     * ([countOrNull]): the days before it have no data, and are left out, not counted as 0. Today
+     * is always the last. A day in between with no count (Kolahal didn't run then, without usage
+     * access) is 0, so the days stay in a row: day by day, as a widget names its bars.
      */
     fun history(days: Int): List<Pair<LocalDate, Int>> {
         val today = LocalDate.now()
-        return (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.mapNotNull { d -> countOrNull(d)?.let { d to it } }
+        val all = (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.map { d -> d to countOrNull(d) }
+        return all.dropWhile { it.second == null }.map { (d, n) -> d to (n ?: 0) }
     }
 
     private fun dayKey(day: LocalDate) = "d:$day"

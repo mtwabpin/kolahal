@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -475,7 +476,10 @@ internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier
     val faint = Term.prompt.copy(alpha = 0.4f)
     val base = Term.dim.copy(alpha = 0.5f)
     val said = remember(columns) { columns.said.joinToString("") { it.text } }
-    Column(modifier.fillMaxWidth().testTag("log-columns").clearAndSetSemantics { contentDescription = said }) {
+    // A few columns are not stretched over the whole width: each is at most COLUMN_MAX wide, and the
+    // chart keeps room for its labels.
+    val widest = maxOf(COLUMN_MAX * columns.heights.size, COLUMNS_LEAST)
+    Column(modifier.widthIn(max = widest).fillMaxWidth().testTag("log-columns").clearAndSetSemantics { contentDescription = said }) {
         androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(COLUMNS_HEIGHT)) {
             val n = columns.heights.size
             val slot = size.width / n
@@ -485,7 +489,7 @@ internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier
             // A value of 0 still shows as a sliver above the baseline, so a quiet hour is not a gap.
             val least = 1.dp.toPx()
             // The newest column drawn stands out; slots still to come are empty.
-            val newest = columns.heights.indexOfLast { it != null }
+            val newest = if (columns.newest) columns.heights.indexOfLast { it != null } else -1
             columns.heights.forEachIndexed { i, h ->
                 if (h == null) return@forEachIndexed
                 val tall = (size.height - least) * h + least
@@ -504,3 +508,7 @@ internal fun ColumnChart(columns: StyledText.Columns, style: TextStyle, modifier
 
 /** How tall a column chart is. */
 private val COLUMNS_HEIGHT = 40.dp
+
+/** The widest a column's slot gets, and the least a chart is wide (for its labels): two days are not two half-screen columns. */
+private val COLUMN_MAX = 18.dp
+private val COLUMNS_LEAST = 160.dp

@@ -22,8 +22,13 @@ object UsageHistory {
     /** How far back to look for the oldest events. Android keeps far fewer days than this. */
     private const val LOOK_BACK_DAYS = 45L
 
-    /** [firstDay] as found today: found once a day, as it moves only when a day ends. */
-    @Volatile private var found: Pair<LocalDate, LocalDate?>? = null
+    /**
+     * [firstDay] as found, with the day and the time it was found. Found again after an hour: Android
+     * drops its oldest day at an hour of its own (midnight UTC on many phones), not at local midnight.
+     */
+    @Volatile private var found: Triple<LocalDate, LocalDate, Long>? = null
+
+    private const val FOUND_FOR_MS = 3_600_000L
 
     /** Tests set this: the first day with data, without asking Android. */
     @VisibleForTesting
@@ -35,10 +40,11 @@ object UsageHistory {
      */
     fun firstDay(context: Context, today: LocalDate = LocalDate.now()): LocalDate? {
         firstDayForTests?.let { return it() }
-        found?.takeIf { it.first == today }?.let { return it.second }
+        val now = System.currentTimeMillis()
+        found?.takeIf { it.first == today && now - it.third < FOUND_FOR_MS }?.let { return it.second }
         val first = oldestDayWithEvents(context, today)?.plusDays(1)?.let { minOf(it, today) }
         // None found is not kept: usage access may be allowed in a moment.
-        if (first != null) found = today to first
+        if (first != null) found = Triple(today, first, now)
         return first
     }
 

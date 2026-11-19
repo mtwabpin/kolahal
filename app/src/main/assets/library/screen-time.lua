@@ -27,6 +27,18 @@ end
 local today = usage.today(8)
 local days = usage.days(7)
 
+-- Nil without usage access or the switch: the card says so, and a tap says what to do.
+if today == nil or days == nil then
+  if widget then
+    widget.show{ kind = "stat", title = "Screen time", icon = "timer", value = "–", label = "Needs usage access",
+      tap = { args = "today", page = "log", label = "Show what to do" } }
+  end
+  if started == nil or (args or {})[1] == "today" then
+    log("Screen time needs usage access", "Run usage-access, and allow \"Your app usage\" on this script's sheet")
+  end
+  return
+end
+
 -- The weekday of the day that was `ago` days before today ("Mon"). Noon keeps clear of the hour
 -- that a clock change adds or removes.
 local now = os.date("*t")

@@ -63,7 +63,7 @@ class LibraryFilesTest {
             assertEquals(f.name, declared, read.findAll(body).map { it.groupValues[1] }.toSet())
         }
         val withOptions = files.filter { (f, _) -> ScriptMeta.options(f.readText()).isNotEmpty() }.map { it.first.nameWithoutExtension }
-        assertEquals(listOf("aqi", "charge-reminder", "cricket", "crypto", "data-month", "exchange", "football", "forecast", "habit", "headlines", "hn", "lobsters", "night-dnd", "reddit", "template-timer-js", "template-timer", "template-widget-js", "template-widget-list-js", "template-widget-list", "template-widget", "unused-apps", "weather", "webnumber", "wikipedia", "wiktionary", "world-clocks"), withOptions)
+        assertEquals(listOf("aqi", "charge-reminder", "cricket", "crypto", "exchange", "football", "forecast", "habit", "headlines", "hn", "lobsters", "night-dnd", "reddit", "template-timer-js", "template-timer", "template-widget-js", "template-widget-list-js", "template-widget-list", "template-widget", "unused-apps", "weather", "webnumber", "wikipedia", "wiktionary", "world-clocks"), withOptions)
     }
 
     @Test fun choicesAndQuotedDefaults() {

@@ -46,7 +46,8 @@ class StorageUsage(private val context: Context) {
      * in front ([lastUsed]), for `storage` and `usage.unused()`.
      * - An app with no use recorded comes first, with no day count: it was not used in the time
      *   Android keeps, or Android doesn't know. Then the longest unused. Ties by [sortName].
-     * - An app installed less than [days] ago is not one. Kolahal itself is left out.
+     * - An app installed less than [days] ago is not one, nor one of the phone's own that was never
+     *   updated (it can't be uninstalled). Kolahal itself is left out.
      * - [sizes]: each app's size in bytes, when known.
      */
     fun unused(packages: Collection<String>, days: Long, sizes: Map<String, Long> = emptyMap(), now: Long = System.currentTimeMillis(), sortName: (String) -> String = { it }): List<Unused> {
@@ -56,8 +57,11 @@ class StorageUsage(private val context: Context) {
         return packages.mapNotNull { pkg ->
             if (pkg == context.packageName) return@mapNotNull null
             @Suppress("DEPRECATION") // the flags-as-int call is the one every Android version has
-            val installed = runCatching { pm.getPackageInfo(pkg, 0).firstInstallTime }.getOrDefault(now)
-            if (now - installed < days * day) return@mapNotNull null
+            val info = runCatching { pm.getPackageInfo(pkg, 0) }.getOrNull() ?: return@mapNotNull null
+            // An app of the phone's own that was never updated can't be uninstalled: listing it is no help.
+            val flags = info.applicationInfo?.flags ?: 0
+            if (flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0 && flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP == 0) return@mapNotNull null
+            if (now - info.firstInstallTime < days * day) return@mapNotNull null
             val seen = last[pkg]
             when {
                 seen == null -> Unused(pkg, null, sizes[pkg])
