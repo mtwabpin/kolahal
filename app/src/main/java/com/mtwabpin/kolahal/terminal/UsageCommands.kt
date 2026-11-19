@@ -77,7 +77,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
             out(StyledText.bar(mobile.toDouble(), plan.toDouble(), if (pace > plan) StyledText.Colour.BAD else null))
             info("${(mobile * 100 / plan)}% of ${bytes(plan)} · on pace for ${bytes(pace)} · $left ${if (left == 1L) "day" else "days"} left")
         } else if (mobile != null) {
-            info("With your plan in GB, this shows how much is left: config set data.plan 75")
+            info("No plan · config set data.plan 75")
         }
         appTable(s)
     }
@@ -140,7 +140,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val todayCount = history.lastOrNull { it.first == today }?.second ?: 0
         val big = mutableListOf(todayCount.toString() to if (todayCount == 1) "unlock today" else "unlocks today")
         if (history.size > 1) {
-            DayCounts.finishedAverage(history, today)?.let { big += it.toString() to "a day on average" }
+            DayCounts.finishedAverage(history, today)?.let { big += it.toString() to "a day" }
             big += "%,d".format(history.sumOf { it.second }) to "in ${history.size} days"
         }
         out(StyledText.stats(big))
@@ -149,8 +149,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
     /** With fewer days than [asked], a line says why. */
     private fun fewerDaysNote(count: Int, asked: Int) {
         if (count >= asked) return
-        val days = "$count ${if (count == 1) "day" else "days"} so far"
-        info(if (unlocks.hasUsageAccess()) "$days: Android keeps about 10, and Kolahal saves each day's count from now on" else "$days: Kolahal counts unlocks while it runs")
+        info("$count of $asked days")
     }
 
     /** `unlocks [<days>]`: today's count, or a line a day with a bar. `unlocks week` and `unlocks month`: a chart ([unlocksChart]). */
@@ -197,9 +196,9 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         unlockStats(history, today)
         if (days == 30) DayCounts.trend(history, today)?.let { change ->
             info(when {
-                change < 0 -> "▼ ${-change}% a day, the last 7 days against the 7 before"
-                change > 0 -> "▲ $change% a day, the last 7 days against the 7 before"
-                else -> "The same a day as the 7 days before"
+                change < 0 -> "▼ ${-change}% · last 7 days"
+                change > 0 -> "▲ $change% · last 7 days"
+                else -> "0% · last 7 days"
             })
         }
         if (history.size > 1) {
@@ -226,7 +225,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
             // A week with fewer days says how many, padded to one width, so every bar starts in the same place.
             Triple(name, w.average, if (w.days < 7) "${w.days} ${if (w.days == 1) "day" else "days"}" else "")
         }
-        info("By week, a day on average")
+        info(StyledText.colour(StyledText.Colour.MUTED, "── by week ──"))
         val width = rows.maxOf { it.first.length }
         val countWidth = rows.maxOf { it.second.toString().length }
         val noteWidth = rows.maxOf { it.third.length }

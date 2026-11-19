@@ -2,7 +2,7 @@
 -- @title Data this month
 -- @desc Mobile data since your plan's day, as a bar toward your plan: a widget
 -- @author Kolahal
--- @version 1.0
+-- @version 1.1
 -- @widget progress 2x1
 -- @uses usage
 -- @tags data, usage, progress
@@ -72,7 +72,7 @@ if started == nil or (args or {})[1] == "month" then
       lines[#lines + 1] = string.format("%d%% of %d GB · on pace for %s GB · %d %s left",
         math.floor(mobile / plan * 100), math.floor(plan / GB), gb(month.pace), month.daysLeft, month.daysLeft == 1 and "day" or "days")
     else
-      lines[#lines + 1] = "With your plan in GB, this shows how much is left: config set data.plan 75"
+      lines[#lines + 1] = "No plan · config set data.plan 75"
     end
   end
   lines[#lines + 1] = "Wi-Fi: " .. gb(month.wifi) .. " GB"

@@ -41,29 +41,30 @@ class UsageSummaryCommandsTest {
         val shown = commands.ownLines("usage-summary")
         val first = StyledText.plain(shown.first().text)
         if (first == "No usage recorded yet") return@withUsageAccess
-        assertEquals("What Android keeps, and the screen time a day in each", first)
-        val rows = shown.drop(1).dropLast(1)
+        // A dim header over the columns, then the lines: no sentences around them.
+        assertTrue(first, first.contains("since") && first.endsWith("≈ a day"))
+        val rows = shown.drop(1)
         assertTrue(rows.isNotEmpty())
         rows.forEach { row ->
-            assertTrue(row.text, Regex("\\d+ (days?|weeks?|months?|years?) +from \\d+ \\w+( \\d{4})? +(\\d+h )?\\d+m").matches(row.text))
+            assertTrue(row.text, Regex("\\d+ (days?|weeks?|months?|years?) +\\d+ \\w+( \\d{4})? +(\\d+h )?\\d+m ›").matches(row.text))
             assertTrue(row.ctx.values[LogContext.RUN].orEmpty(), Regex("usage \\d+|usage-summary (week|month|year)").matches(row.ctx.values[LogContext.RUN].orEmpty()))
         }
     }
 
-    /** `week` and `month` start with big numbers and end with the note on Android's own edges. */
+    /** `week` and `month` start with big numbers, ≈ before the time a day, and have no footnote. */
     @Test fun weeksAndMonths() = withUsageAccess("allow") {
-        for ((word, note) in listOf("week" to "not on Monday", "month" to "not on the 1st")) {
+        for (word in listOf("week", "month")) {
             val shown = texts("usage-summary $word")
             if (shown.size == 1 && shown.single().startsWith("No usage recorded")) continue
-            assertTrue(shown.first(), shown.first().contains("a day on average"))
-            assertTrue(shown.last(), shown.last().endsWith(note))
+            assertTrue(shown.first(), Regex("≈(\\d+h )?\\d+m a day .*total").containsMatchIn(shown.first()))
+            assertTrue(shown.toString(), shown.none { it.startsWith("Android's") })
         }
     }
 
-    /** `full` holds the overview and a part for each of weeks, months and years, in that order. */
+    /** `full` holds the overview and a part for each of weeks, months and years, in that order, each after its rule. */
     @Test fun full() = withUsageAccess("allow") {
         val shown = texts("usage-summary full")
-        val parts = listOf("Weeks", "Months", "Years").map { shown.indexOf(it) }
+        val parts = listOf("weeks", "months", "years").map { shown.indexOf("── $it ──") }
         assertTrue(shown.toString(), parts.all { it > 0 } && parts == parts.sorted())
     }
 

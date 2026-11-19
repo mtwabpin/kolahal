@@ -277,7 +277,7 @@ class BuiltInCommandsTest {
             assertEquals(listOf("Counting unlocks only while the launcher is running", "Tap here to allow usage access for accurate counts"), without.take(2))
             assertEquals("usage-access", logs.recent(10).single { it.text == without[1] }.ctx.values[LogContext.RUN])
             // Big numbers first: today, a day's average, the total.
-            assertTrue(without[2], Regex("\\d+ unlocks? today · \\d+ a day on average · \\d+ in 3 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(without[2])))
+            assertTrue(without[2], Regex("\\d+ unlocks? today · \\d+ a day · \\d+ in 3 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(without[2])))
             check(without.drop(3))
 
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
@@ -305,10 +305,10 @@ class BuiltInCommandsTest {
         try {
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
             val lines = run("unlocks 7")
-            assertTrue(lines[0], Regex("\\d+ unlocks? today · \\d+ a day on average · \\d+ in 2 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(lines[0])))
+            assertTrue(lines[0], Regex("\\d+ unlocks? today · \\d+ a day · \\d+ in 2 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(lines[0])))
             assertEquals(listOf("Yesterday", "Today"), lines.drop(1).dropLast(1).map { it.substringBefore("  ").trim() })
             // And why there are only two.
-            assertEquals("2 days so far: Android keeps about 10, and Kolahal saves each day's count from now on", lines.last())
+            assertEquals("2 of 7 days", lines.last())
             // Scripts get the same days.
             assertEquals(2, com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).history(7).size)
         } finally {
@@ -330,10 +330,10 @@ class BuiltInCommandsTest {
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(40) }
             val month = run("unlocks month")
             val plain = month.map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
-            assertTrue(plain[0], Regex("\\d+ unlocks? today · \\d+ a day on average · [\\d,]+ in 30 days").matches(plain[0]))
+            assertTrue(plain[0], Regex("\\d+ unlocks? today · \\d+ a day · [\\d,]+ in 30 days").matches(plain[0]))
             val chart = com.mtwabpin.kolahal.data.StyledText.lines(month.single { com.mtwabpin.kolahal.data.StyledText.lines(it).any { l -> l.columns != null } }).single().columns!!
             assertEquals(30, chart.heights.size)
-            assertTrue(plain.toString(), "By week, a day on average" in plain)
+            assertTrue(plain.toString(), "── by week ──" in plain)
             // This week has finished days, except on a Monday.
             if (today.dayOfWeek != java.time.DayOfWeek.MONDAY) assertTrue(plain.toString(), plain.any { it.startsWith("This week") })
             assertTrue(plain.toString(), plain.none { it.endsWith("from now on") })
@@ -342,7 +342,7 @@ class BuiltInCommandsTest {
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(8) }
             val short = run("unlocks month").map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
             assertTrue(short[0], short[0].endsWith("in 9 days"))
-            assertEquals("9 days so far: Android keeps about 10, and Kolahal saves each day's count from now on", short.last())
+            assertEquals("9 of 30 days", short.last())
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $op")
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null

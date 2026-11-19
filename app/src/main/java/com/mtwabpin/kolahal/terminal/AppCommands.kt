@@ -336,11 +336,11 @@ class AppCommands(
         val finished = dataDays.filter { it != today }
         val big = if (days == 1) listOf(duration(sum) to "screen time today")
         else listOf(
-            duration(reader.total(read.between(start, reader.startOf(today))) / finished.size.coerceAtLeast(1)) to "a day on average",
+            duration(reader.total(read.between(start, reader.startOf(today))) / finished.size.coerceAtLeast(1)) to "a day",
             duration(sum) to "in $days days",
         )
         out(com.mtwabpin.kolahal.data.StyledText.stats(big))
-        if (days < asked) info("$days ${if (days == 1) "day" else "days"} with data: Android keeps usage for the last days only")
+        if (days < asked) info("$days of $asked days")
         val named = times.apps.map { Triple(it.label, byPkg[it.pkg], it.ms) }
         val shown = named.take(12)
         val other = sum - shown.sumOf { it.third }
@@ -418,7 +418,7 @@ class AppCommands(
         }
         // The average of the finished days: today has only its hours so far.
         val finished = days.filter { it.first != today }
-        if (finished.isNotEmpty()) info("${duration(finished.sumOf { it.second } / finished.size)} a day on average, over the ${finished.size} ${if (finished.size == 1) "day" else "days"} before today")
+        if (finished.isNotEmpty()) info("${duration(finished.sumOf { it.second } / finished.size)} a day · ${finished.size} ${if (finished.size == 1) "day" else "days"}")
     }
 
     /** The profile's name with a capital first letter, for the start of a sentence. */

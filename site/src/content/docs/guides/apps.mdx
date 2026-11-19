@@ -167,7 +167,7 @@ saves each day's unlock count, so `unlocks` goes back further as the weeks go by
 the columns of the last 7 days. The days before the first count are left out: at first there are
 about 10 days, and more as Kolahal saves each day.
 
-Every "a day on average" counts the days before today only: today has only its hours so far, and
+Every "a day" average counts the days before today only: today has only its hours so far, and
 would pull the average down every morning. The comparison of two weeks counts finished days too.
 
 ### The long view
@@ -176,17 +176,17 @@ Besides its days, Android keeps coarser totals: about 4 weeks, 6 months and 2 ye
 reads them:
 
 - `usage-summary` alone: a line for each level, where it starts and the screen time a day in it.
-  Tap a line for more.
+  A line that ends in › runs more when you tap it.
 - `usage-summary week` and `usage-summary month`: the time and unlocks a day, a column for each
-  week or month, how the last one that is over compares with those before, and the top apps.
-- `usage-summary year`: a line for each year, its top apps, and the apps you left behind or took
-  up since the year before.
-- `usage-summary full`: all of these, one after the other.
+  week or month, the last one that is over with its change (▼ 13%), and the top apps.
+- `usage-summary year`: a line for each year with its change, the top apps of each, and the apps
+  you used <em>less</em> or that are <em>new</em> since the year before, each with a chip.
+- `usage-summary full`: all of these, each part after a `── weeks ──` line.
 
-These are Android's own totals, so they are about right, not exact. Android starts each week, month
-and year where the one before ended, not on a Monday or the 1st, so each date is the real start of
-one. The current one counts in an average only once it has run a week. Kolahal itself is left out,
-as in `usage`.
+The output keeps to numbers and short labels. A `≈` marks Android's own totals: about right, not
+exact. Android starts each week, month and year where the one before ended, not on a Monday or the
+1st, so each date is the real start of one. The current one counts in an average only once it has
+run a week. Kolahal itself is left out, as in `usage`. `help usage-summary` says this too.
 
 
 ## Data and storage

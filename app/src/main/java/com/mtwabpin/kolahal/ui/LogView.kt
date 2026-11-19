@@ -476,8 +476,9 @@ private fun TwoColumns(entry: LogEntry, desc: String, marks: List<String> = empt
             maxLines = if (bar != null) 1 else Int.MAX_VALUE,
             overflow = if (bar != null) androidx.compose.ui.text.style.TextOverflow.Ellipsis else androidx.compose.ui.text.style.TextOverflow.Clip,
         )
+        // Styled too: a change at its end can have its colour (usage-summary year's ▼ 49m).
         val descText = @Composable { modifier: Modifier ->
-            Text(markMatches(AnnotatedString(desc), marks), style = Term.text.copy(color = Term.dim).dense(dense), modifier = modifier)
+            Text(markMatches(remember(desc, Term.palette) { styledText(desc) }, marks), style = Term.text.copy(color = Term.dim).dense(dense), modifier = modifier)
         }
         if (bar == null) descText(Modifier.weight(0.54f))
         else Row(Modifier.weight(0.54f), verticalAlignment = Alignment.CenterVertically) {
