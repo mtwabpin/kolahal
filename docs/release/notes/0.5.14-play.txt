@@ -1,0 +1,7 @@
+What's new:
+• Your app names everywhere: Now playing uses the names you set with rename.
+• Times follow your 12- or 24-hour clock everywhere, installs and widgets too.
+• A feed you already have says "Already subscribed", however you type it.
+• Suggestions and the todo count follow changes made on cards and screens.
+• Resuming a work profile that needs its PIN says so and waits.
+• Usage names other home apps, and counts apps Android doesn't name.
