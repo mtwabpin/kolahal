@@ -25,6 +25,39 @@ import com.mtwabpin.kolahal.widgets.WidgetSize
  *   -- @widget <kind> [<size>] — it has a widget for the widgets page ([Widget]): `@widget stat 2x1`
  */
 object ScriptMeta {
+    /**
+     * What a script's code says of itself, each read once, when first asked ([parse]). The script list
+     * changes at every run, but code rarely does: the Scripts screen, the widgets, the command list
+     * and each access check read the details from here, not from the code again.
+     */
+    class Parsed(private val code: String) {
+        val title by lazy { ScriptMeta.title(code) }
+        val description by lazy { ScriptMeta.description(code) }
+        val author by lazy { ScriptMeta.author(code) }
+        val version by lazy { ScriptMeta.version(code) }
+        val isCommand by lazy { ScriptMeta.isCommand(code) }
+        val events by lazy { ScriptMeta.events(code) }
+        val uses by lazy { ScriptMeta.uses(code) }
+        val secrets by lazy { ScriptMeta.secrets(code) }
+        val options by lazy { ScriptMeta.options(code) }
+        val widget by lazy { ScriptMeta.widget(code) }
+        val usesInternet by lazy { ScriptMeta.usesInternet(code) }
+        val setsStatus by lazy { ScriptMeta.setsStatus(code) }
+        val postsNotifications by lazy { ScriptMeta.postsNotifications(code) }
+
+        /** The command line's usage for a script called [name] ([usage]). */
+        fun usage(name: String): String? = ScriptMeta.usage(code, name)
+    }
+
+    /** The codes last parsed, the least used left out first: the scripts a phone has, and a few more. */
+    private const val PARSED_KEPT = 64
+    private val parsed = object : LinkedHashMap<String, Parsed>(PARSED_KEPT, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Parsed>) = size > PARSED_KEPT
+    }
+
+    /** [code]'s details, read once per version of the code ([Parsed]). Any thread. */
+    fun parse(code: String): Parsed = synchronized(parsed) { parsed.getOrPut(code) { Parsed(code) } }
+
     private val command = Regex("""^\s*(--|//)\s*@command\b""", RegexOption.MULTILINE)
     private val desc = Regex("""^\s*(--|//)[ \t]*@desc[ \t]+(.+)$""", RegexOption.MULTILINE)
     private val usageLine = Regex("""^\s*(--|//)\s*@usage\b[ \t]*(.*)$""", RegexOption.MULTILINE)

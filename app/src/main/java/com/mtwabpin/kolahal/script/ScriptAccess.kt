@@ -37,9 +37,9 @@ object ScriptAccess {
 
     /** Which of [INTERNET], [HEADER] and [WIDGET] the [code] uses. */
     internal fun base(code: String): List<String> = listOfNotNull(
-        INTERNET.takeIf { ScriptMeta.usesInternet(code) },
-        HEADER.takeIf { ScriptMeta.setsStatus(code) },
-        WIDGET.takeIf { ScriptMeta.widget(code) != null },
+        INTERNET.takeIf { ScriptMeta.parse(code).usesInternet },
+        HEADER.takeIf { ScriptMeta.parse(code).setsStatus },
+        WIDGET.takeIf { ScriptMeta.parse(code).widget != null },
     )
 
     /**
@@ -48,10 +48,10 @@ object ScriptAccess {
      * then it may arrive switched on. (Pinning is off until you pin, and events only start runs.)
      */
     fun asksFor(code: String): List<String> =
-        listOfNotNull(INTERNET.takeIf { ScriptMeta.usesInternet(code) }) + ScriptMeta.USES.filter { it in ScriptMeta.uses(code) }
+        listOfNotNull(INTERNET.takeIf { ScriptMeta.parse(code).usesInternet }) + ScriptMeta.USES.filter { it in ScriptMeta.parse(code).uses }
 
     /** Everything a script with [code] can be switched for, in display order. Only what it uses is included. */
-    fun items(code: String): List<String> = base(code) + ScriptMeta.uses(code) + ScriptMeta.events(code)
+    fun items(code: String): List<String> = base(code) + ScriptMeta.parse(code).uses + ScriptMeta.parse(code).events
 
     /**
      * The items a user switches by hand: the script's sheet and card, `script access` and
@@ -117,11 +117,11 @@ object ScriptAccess {
         val undecided: List<String> get() = declared.filter { it !in values }
     }
 
-    fun grants(code: String, values: Map<String, Boolean>) = Grants(ScriptMeta.uses(code), values, base(code).toSet())
+    fun grants(code: String, values: Map<String, Boolean>) = Grants(ScriptMeta.parse(code).uses, values, base(code).toSet())
 
     /** [values], plus everything [code] declares that nobody has decided yet, set to allowed. */
     fun allowUndecided(code: String, values: Map<String, Boolean>): Map<String, Boolean> =
-        values + ScriptMeta.uses(code).filter { it !in values }.associateWith { true }
+        values + ScriptMeta.parse(code).uses.filter { it !in values }.associateWith { true }
 
     /**
      * [values] with the [WIDGET] item as the placed list says: on while the script's widget is on the

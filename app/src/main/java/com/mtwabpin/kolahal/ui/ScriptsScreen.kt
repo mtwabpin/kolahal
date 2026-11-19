@@ -121,21 +121,23 @@ internal data class SharedCopy(val copy: ScriptCatalog.Copy, val entry: ScriptCa
 
 /** Facts read from a script's code, for its card and the filters. They are read once per version of the code. */
 internal class ScriptCode(code: String, name: String) {
-    val title = ScriptMeta.title(code)
-    val desc = ScriptMeta.description(code)
-    val author = ScriptMeta.author(code)
-    val isCommand = ScriptMeta.isCommand(code)
-    val usage = if (isCommand) ScriptMeta.usage(code, name) else null
-    val events = ScriptMeta.events(code)
-    val uses = ScriptMeta.uses(code)
-    val secrets = ScriptMeta.secrets(code)
-    val notifies = ScriptMeta.postsNotifications(code)
+    // Read once per code for every screen and check ([ScriptMeta.parse]).
+    private val p = ScriptMeta.parse(code)
+    val title = p.title
+    val desc = p.description
+    val author = p.author
+    val isCommand = p.isCommand
+    val usage = if (isCommand) p.usage(name) else null
+    val events = p.events
+    val uses = p.uses
+    val secrets = p.secrets
+    val notifies = p.postsNotifications
     /** Whether it uses the internet and a status line ([ScriptAccess.base]). */
     val base = ScriptAccess.base(code).toSet()
     /** The items its sheet and expanded card list: first its access, then its events ([ScriptAccess.switchable]). */
     val accessItems = ScriptAccess.switchable(code)
     /** `@version`. Only the script's sheet shows it, so it is read when the sheet first asks. */
-    val version by lazy { ScriptMeta.version(code) }
+    val version get() = p.version
 }
 
 /**
@@ -158,8 +160,7 @@ internal class ScriptInfo(val script: Script, private val code: ScriptCode) {
     val timed = script.intervalMin > 0 || script.atTimes.isNotEmpty()
     val secrets = code.secrets
     val notifies = code.notifies
-    /** Same as [Script.grants], but built from the code that was already read. */
-    val grants = ScriptAccess.Grants(code.uses, script.access, code.base)
+    val grants = script.grants
     val accessItems = code.accessItems
 }
 

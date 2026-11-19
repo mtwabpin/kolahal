@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.script
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -283,5 +284,16 @@ class ScriptMetaTest {
             listOf(ScriptAccess.INTERNET, ScriptAccess.HEADER, ScriptAccess.WIDGET, "apps", "unlock"),
             ScriptAccess.items("-- @widget list\n-- @uses apps\n-- @on unlock\nstatus(http.get(u).body)"),
         )
+    }
+
+    /** A script's details are read once per code: the same code gives the same [ScriptMeta.Parsed], new code a new one. */
+    @Test fun detailsAreReadOncePerCode() {
+        val code = "-- @title Once\n-- @uses todos\nlog(1)"
+        val first = ScriptMeta.parse(code)
+        assertSame(first, ScriptMeta.parse(String(code.toCharArray())))
+        assertEquals("Once", first.title)
+        assertEquals(setOf("todos"), first.uses)
+        val changed = ScriptMeta.parse(code.replace("Once", "Twice"))
+        assertEquals("Twice", changed.title)
     }
 }

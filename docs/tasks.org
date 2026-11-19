@@ -179,7 +179,7 @@ complexity but provides nothing. Line numbers are from that commit.
   moves into =UsageCommands=; one personal-first map on =AppRepository=. Medium.
 - Remark:
 
-*** TODO [#B] Script details re-read from the code, with three caches
+*** DONE [#B] Script details re-read from the code, with three caches
 - =Script.grants= (=data/ScriptRepository.kt:52=) reads the script's code on each call, including
   in =TerminalViewModel.pinned= after every run, and in the completer and the script commands.
 - Three caches read the same code with their own keys: =TerminalViewModel.kt:191-203=,

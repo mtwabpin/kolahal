@@ -190,10 +190,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         val from = list.map { Triple(it.name, it.enabled, it.code) }
         if (from == commandsFrom) return
         commandsFrom = from
-        val commands = list.filter { it.enabled && ScriptMeta.isCommand(it.code) }
-        scriptUsages = commands.mapNotNull { s -> ScriptMeta.usage(s.code, s.name)?.let { s.name to it } }.toMap()
+        val commands = list.filter { it.enabled && ScriptMeta.parse(it.code).isCommand }
+        scriptUsages = commands.mapNotNull { s -> ScriptMeta.parse(s.code).usage(s.name)?.let { s.name to it } }.toMap()
         commandUsages = scriptUsages + CommandCatalog.COMMAND_USAGES
-        scriptDescriptions = commands.mapNotNull { s -> ScriptMeta.description(s.code)?.let { s.name to it } }.toMap()
+        scriptDescriptions = commands.mapNotNull { s -> ScriptMeta.parse(s.code).description?.let { s.name to it } }.toMap()
         _commandNames.value = commands.map { it.name }
     }
 

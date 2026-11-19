@@ -34,30 +34,18 @@ data class WidgetScript(
 
 /**
  * Makes [WidgetScript]s from the script list. The list changes at every run of a script, but code
- * changes rarely. So the reader keeps what it read: a script whose code did not change is not read
- * again. One thread at a time uses it.
+ * changes rarely: each script's details are read once per code ([ScriptMeta.parse]). One thread at a
+ * time uses it.
  */
 internal class WidgetScriptReader {
-    private var codes: Map<String, String> = emptyMap()
     private var known: Map<String, WidgetScript> = emptyMap()
 
-    /** [scripts] by name. A script that did not change keeps the object it had, so an equal list gives an equal map. */
-    fun read(scripts: List<Script>): Map<String, WidgetScript> {
-        val next = scripts.associate { s ->
-            val before = known[s.name]?.takeIf { codes[s.name] == s.code }
-            s.name to when {
-                before == null -> WidgetScript(
-                    s.name, ScriptMeta.title(s.code), s.enabled, ScriptMeta.widget(s.code),
-                    hasOptions = ScriptMeta.options(s.code).isNotEmpty(),
-                )
-                before.enabled != s.enabled -> before.copy(enabled = s.enabled)
-                else -> before
-            }
-        }
-        codes = scripts.associate { it.name to it.code }
-        known = next
-        return next
-    }
+    /** [scripts] by name. A script that did not change keeps the object it had, so an equal list gives the same map's objects. */
+    fun read(scripts: List<Script>): Map<String, WidgetScript> = scripts.associate { s ->
+        val p = ScriptMeta.parse(s.code)
+        val fresh = WidgetScript(s.name, p.title, s.enabled, p.widget, hasOptions = p.options.isNotEmpty())
+        s.name to (known[s.name]?.takeIf { it == fresh } ?: fresh)
+    }.also { known = it }
 }
 
 /**
