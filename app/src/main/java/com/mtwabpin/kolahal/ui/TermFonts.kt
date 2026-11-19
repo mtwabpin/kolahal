@@ -19,6 +19,7 @@ object TermFonts {
             "fira-code" to family(R.font.fira_code_regular, R.font.fira_code_bold),
             "ibm-plex-mono" to family(R.font.ibm_plex_mono_regular, R.font.ibm_plex_mono_bold),
             "source-code-pro" to family(R.font.source_code_pro_regular, R.font.source_code_pro_bold),
+            "iosevka" to family(R.font.iosevka_regular, R.font.iosevka_bold),
         )
     }
 

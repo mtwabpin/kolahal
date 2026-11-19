@@ -70,7 +70,7 @@ The `theme` and `font` commands didn't change.
 | `theme.name` | choice: `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `material-you`, or [one you made](/guides/themes-and-settings/#your-own-themes) | `green` | colour theme (also `theme <name>`). The phone's dark mode chooses its dark or [light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colours from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
 | `theme.always-dark` | bool | `off` | always use the theme's dark version, even in light mode |
 | `screen.bars` | choice: `show` `hide` `immersive` | `show` | full screen: `hide` hides the status bar, and `immersive` hides both system bars. Swipe from the edge to show them |
-| `font.family` | choice: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `custom` | `jetbrains-mono` | terminal font (also `font <name>`). `custom` is a .ttf/.otf file you imported with `font import` |
+| `font.family` | choice: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom` | `jetbrains-mono` | terminal font (also `font <name>`). `custom` is a .ttf/.otf file you imported with `font import` |
 | `font.sans` | choice: `off` `prompt` `all` | `off` | use the system font instead of the terminal font, for the prompt or for the whole terminal (also `font sans <mode>`). Lists with aligned columns and the script editor keep the terminal font |
 | `font.size` | number 10–24 | `14` | terminal font size (sp). Pinching the log also changes it |
 

@@ -197,7 +197,7 @@ Script names can use lowercase letters, digits, `-` and `_` (up to 40 characters
 | `unalias <name>` | | remove an alias |
 | `config [ls\|set\|get\|reset] <key> <v>` | `set` | settings (with no arguments, opens the settings screen) |
 | `theme <name>` | | `green` `amber` `mono` `dracula` `solarized` `gruvbox` `gruvbox-material` `nord` `material-you`; each has a [dark and a light version](/guides/themes-and-settings/#light-and-dark). `material-you` takes its colours from [your wallpaper](/guides/themes-and-settings/#material-you), on Android 12 and newer |
-| `font [<name>\|import\|sans [off\|prompt\|all]]` | | terminal font: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `custom`. With no arguments, lists them (tap one to use it). `import` picks a .ttf/.otf file. `sans prompt` uses the system font for the prompt, and `sans all` for everything (`font.sans`) |
+| `font [<name>\|import\|sans [off\|prompt\|all]]` | | terminal font: `system` `jetbrains-mono` `fira-code` `ibm-plex-mono` `source-code-pro` `iosevka` `custom`. With no arguments, lists them (tap one to use it). `import` picks a .ttf/.otf file. `sans prompt` uses the system font for the prompt, and `sans all` for everything (`font.sans`) |
 | `echo <text>` | | print text |
 | `date [<place>...]` | `time` | current date and time. With places, shows the time in each place and how far ahead or behind it is. A place can be a city (`tokyo`, `new york`), a zone (`Asia/Tokyo`), `utc`, or an offset like `+5:30` |
 | `cal [<month>] [<year>]` | | show the month as a calendar, with today in bold: `cal`, `cal dec`, `cal dec 2027`, `cal 2027-12` |

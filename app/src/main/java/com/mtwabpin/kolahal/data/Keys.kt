@@ -81,7 +81,7 @@ object Keys {
     val STATUS_BAR = ConfigKey.Choice("screen.bars", "show", listOf("show", "hide", "immersive"), "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them")
     val FONT = ConfigKey.Choice(
         "font.family", "jetbrains-mono",
-        listOf("system", "jetbrains-mono", "fira-code", "ibm-plex-mono", "source-code-pro", "custom"),
+        listOf("system", "jetbrains-mono", "fira-code", "ibm-plex-mono", "source-code-pro", "iosevka", "custom"),
         "Terminal font (custom: a .ttf/.otf imported with 'font import')",
     )
     val FONT_SANS = ConfigKey.Choice(

@@ -32,6 +32,7 @@ object FontFiles {
         "fira-code" -> "Fira Code"
         "ibm-plex-mono" -> "IBM Plex Mono"
         "source-code-pro" -> "Source Code Pro"
+        "iosevka" -> "Iosevka"
         CUSTOM -> "Custom"
         else -> name
     }
