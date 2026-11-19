@@ -289,26 +289,27 @@ object WidgetJson {
      * characters, and one emoji can take several units. So this never refuses what the parser cut.
      */
     const val MAX_TEXT = 4_000
-    const val MAX_ROWS = 12
-    const val MAX_MORE = 3
-    const val MAX_BARS = 4
-    const val MAX_POINTS = 60
+    // The limits the parser keeps are its own ([WidgetParser]): a card it shows reads back the same.
+    const val MAX_ROWS = WidgetParser.MAX_ITEMS
+    const val MAX_MORE = WidgetParser.MAX_MORE
+    const val MAX_BARS = WidgetParser.MAX_BARS
+    const val MAX_POINTS = WidgetParser.MAX_POINTS
     const val MAX_LABELS = 2
-    const val MAX_BUTTONS = 8
-    const val MAX_TOGGLES = 6
-    const val MAX_ZONES = 4
-    const val MAX_EVENTS = 20
+    const val MAX_BUTTONS = WidgetParser.MAX_BUTTONS
+    const val MAX_TOGGLES = WidgetParser.MAX_TOGGLES
+    const val MAX_ZONES = WidgetParser.MAX_ZONES
+    const val MAX_EVENTS = WidgetParser.MAX_EVENTS
     /** The longest link of a picture, in characters. A longer one is refused, never cut. */
     const val MAX_PICTURE_LINK = 2_000
-    const val MIN_DAYS = 1
-    const val MAX_DAYS = 7
-    const val DEFAULT_DAYS = 3
-    const val MIN_STALE = 60
-    const val MAX_STALE = 604_800
-    const val MIN_REFRESH = 10
-    const val MAX_REFRESH = 3_600
-    /** The furthest moment a countdown may name, in seconds each way from 1970 (about the year 5100). */
-    const val MAX_TIME = 99_999_999_999L
+    const val MIN_DAYS = WidgetParser.MIN_DAYS
+    const val MAX_DAYS = WidgetParser.MAX_DAYS
+    const val DEFAULT_DAYS = WidgetParser.DEFAULT_DAYS
+    const val MIN_STALE = WidgetParser.MIN_STALE
+    const val MAX_STALE = WidgetParser.MAX_STALE
+    const val MIN_REFRESH = WidgetParser.MIN_REFRESH
+    const val MAX_REFRESH = WidgetParser.MAX_REFRESH
+    /** The furthest moment a countdown may name, in seconds each way from 1970: the end of the year 9999. */
+    const val MAX_TIME = WidgetParser.MAX_TIME
 
     private const val LOG = "log"
 

@@ -115,6 +115,9 @@ class WidgetSpecJsonTest {
         roundTrip(WidgetSpec.Countdown(fullBase, to = 1_800_000_000L, from = 1_700_000_000L, label = "Trip", style = "days", reached = "Today!"))
         // A moment before 1970, and "clock".
         roundTrip(WidgetSpec.Countdown(bare, to = -300_000_000L, from = -400_000_000L, style = "clock"))
+        // The parser takes times up to the end of the year 9999; a card it showed reads back the same.
+        roundTrip(WidgetSpec.Countdown(bare, to = WidgetParser.MAX_TIME))
+        roundTrip(WidgetSpec.Countdown(bare, to = 200_000_000_000L))
     }
 
     private val go = WidgetTap(args = "go")

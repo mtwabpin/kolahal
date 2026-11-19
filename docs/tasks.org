@@ -157,7 +157,7 @@ complexity but provides nothing. Line numbers are from that commit.
   builds; a unit test. Small.
 - Remark:
 
-*** TODO [#A] Widget limits written twice; a time limit differs /(checked)/
+*** DONE [#A] Widget limits written twice; a time limit differs /(checked)/
 - =widgets/WidgetSpec.kt:292-311= repeats 15 limits of =widgets/WidgetParser.kt:64-97=.
 - They already differ: the parser accepts times up to the year 9999 (=MAX_TIME =
   253_402_300_799=), but reading the card back allows only up to 5138 (=99_999_999_999=). A time

@@ -89,7 +89,7 @@ object WidgetParser {
      * script can write passes. A larger number is a time in milliseconds, as JavaScript's
      * `Date.now()` gives it: an error that says to divide it.
      */
-    private const val MAX_TIME = 253_402_300_799.0
+    const val MAX_TIME = 253_402_300_799L
 
     const val MIN_STALE = 60
     const val MAX_STALE = 604_800
