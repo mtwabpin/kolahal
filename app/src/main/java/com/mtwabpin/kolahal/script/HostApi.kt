@@ -675,16 +675,8 @@ class HostApi(
         )
     }
 
-    fun network(): String {
-        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
-        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return "offline"
-        return when {
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "cell"
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "eth"
-            else -> "net"
-        }
-    }
+    /** The active network's kind, as the header names it ([com.mtwabpin.kolahal.status.NetworkKind]). */
+    fun network(): String = com.mtwabpin.kolahal.status.NetworkKind.of(com.mtwabpin.kolahal.status.NetworkKind.active(context))
 
     fun unlocksToday(): Int = com.mtwabpin.kolahal.unlock.UnlockCounter.get(context).countFor(java.time.LocalDate.now())
 
@@ -707,7 +699,7 @@ class HostApi(
     fun dnd(): String? {
         if (!may("dnd", "device.dnd")) return null
         val filter = context.getSystemService(android.app.NotificationManager::class.java).currentInterruptionFilter
-        return DND_MODES.entries.firstOrNull { it.value == filter }?.key
+        return com.mtwabpin.kolahal.control.Dnd.wordOf(filter)
     }
 
     /**
@@ -715,12 +707,12 @@ class HostApi(
      * Kolahal has no Do Not Disturb access (`dnd access`), or when it's switched off for the script.
      */
     fun setDnd(mode: String): Boolean {
-        val filter = DND_MODES[mode.trim().lowercase().let { if (it == "on") "priority" else it }]
+        // The same words and the same check as the `dnd` command: "off" is true only once it is off.
+        val filter = com.mtwabpin.kolahal.control.Dnd.filterOf(mode)
             ?: throw IllegalArgumentException("device.setDnd: mode must be off, on, priority, alarms or none")
         live()
         if (!may("dnd", "device.setDnd")) return false
-        val nm = context.getSystemService(android.app.NotificationManager::class.java)
-        return nm.isNotificationPolicyAccessGranted && runCatching { nm.setInterruptionFilter(filter) }.isSuccess
+        return com.mtwabpin.kolahal.control.Dnd.set(context, filter) == com.mtwabpin.kolahal.control.Dnd.Result.DONE
     }
 
     /** The work profile: `on` or `paused`. Nil when there is none, or when it's switched off for the script. */
@@ -749,10 +741,8 @@ class HostApi(
     fun setWork(on: Boolean): Boolean {
         live()
         if (!may("work", "device.setWork")) return false
-        if (android.os.Build.VERSION.SDK_INT < 29) return false
         val user = workProfile() ?: return false
-        val um = context.getSystemService(android.os.UserManager::class.java)
-        return runCatching { um.requestQuietModeEnabled(!on, user) }.getOrDefault(false)
+        return com.mtwabpin.kolahal.apps.ProfileQuiet.set(context, user, quiet = !on) == com.mtwabpin.kolahal.apps.ProfileQuiet.Result.DONE
     }
 
     /** The work profile's user, if there is one. Not this user, a private space or a clone. */
@@ -884,13 +874,6 @@ class HostApi(
     }
 
     companion object {
-        /** Do Not Disturb's modes, as scripts name them, mapped to Android's filters. */
-        private val DND_MODES = mapOf(
-            "off" to android.app.NotificationManager.INTERRUPTION_FILTER_ALL,
-            "priority" to android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY,
-            "alarms" to android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS,
-            "none" to android.app.NotificationManager.INTERRUPTION_FILTER_NONE,
-        )
         private const val MAX_BODY = 4L * 1024 * 1024
         private const val MAX_SEEN = 500
         private const val STATUS_MAX = 80

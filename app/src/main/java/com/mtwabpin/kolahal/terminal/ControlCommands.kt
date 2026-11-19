@@ -248,34 +248,17 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         val filter = when (arg) {
             null, "toggle" -> if (notifications.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL)
                 NotificationManager.INTERRUPTION_FILTER_PRIORITY else NotificationManager.INTERRUPTION_FILTER_ALL
-            "on", "priority" -> NotificationManager.INTERRUPTION_FILTER_PRIORITY
-            "alarms" -> NotificationManager.INTERRUPTION_FILTER_ALARMS
-            "none", "total", "silence" -> NotificationManager.INTERRUPTION_FILTER_NONE
-            "off" -> NotificationManager.INTERRUPTION_FILTER_ALL
-            else -> return usage("dnd")
+            // The mode words are the same for scripts (device.setDnd).
+            else -> com.mtwabpin.kolahal.control.Dnd.filterOf(arg) ?: return usage("dnd")
         }
         if (needPolicyAccess("dnd")) return
-        runCatching { notifications.setInterruptionFilter(filter) }
-            .onSuccess {
-                // Since Android 15, Kolahal can turn off only the Do Not Disturb that it turned on.
-                // Do Not Disturb turned on elsewhere (quick settings, a schedule, another app) stays on.
-                if (filter == NotificationManager.INTERRUPTION_FILTER_ALL && !turnsOff()) {
-                    error("Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there", LogContext.of(LogContext.RUN to "dnd"))
-                } else {
-                    info("Do Not Disturb ${dndLabel(filter)}", LogContext.of(LogContext.RUN to "dnd"))
-                }
-            }
-            .onFailure { error("Do Not Disturb: ${it.message}") }
-    }
-
-    /** True when Do Not Disturb turns off within a second. Android applies a change a moment after the request. */
-    private fun turnsOff(): Boolean {
-        val until = System.currentTimeMillis() + DND_SETTLE_MS
-        while (notifications.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) {
-            if (System.currentTimeMillis() >= until) return false
-            Thread.sleep(50)
+        val again = LogContext.of(LogContext.RUN to "dnd")
+        when (com.mtwabpin.kolahal.control.Dnd.set(context, filter)) {
+            com.mtwabpin.kolahal.control.Dnd.Result.DONE -> info("Do Not Disturb ${dndLabel(filter)}", again)
+            com.mtwabpin.kolahal.control.Dnd.Result.STILL_ON -> error("Do Not Disturb is still on — it was turned on outside Kolahal, so turn it off there", again)
+            com.mtwabpin.kolahal.control.Dnd.Result.NO_ACCESS -> needPolicyAccess("dnd")
+            com.mtwabpin.kolahal.control.Dnd.Result.FAILED -> error("Do Not Disturb: Android refused the change")
         }
-        return true
     }
 
     // ---- system settings (WRITE_SETTINGS) -------------------------------------------------
@@ -414,10 +397,5 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         row("Brightness", brightnessShort(), if (write) "brightness auto" else "brightness access", "Tap for auto · brightness <0-100>", LogContext.bar(brightnessPct() / 100.0))
         row("Screen timeout", TimeSpec.formatDuration(timeoutMs() / 1000), "screen-timeout", "Set with screen-timeout <30s|1m|…>")
         media.nowPlaying.value?.let { row("Media", "${it.stateLabel} · ${it.line}", "media toggle", "Tap to play / pause") }
-    }
-
-    companion object {
-        /** How long `dnd off` waits for Android to apply it, before it reports that DND stayed on. */
-        private const val DND_SETTLE_MS = 1_000L
     }
 }

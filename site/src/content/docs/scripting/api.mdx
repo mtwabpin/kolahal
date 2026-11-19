@@ -81,7 +81,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`json.encode(v)` / `json.decode(s)`](#jsonencodev--jsondecodes) | Lua only |
 | [`clipboard.get()` / `clipboard.set(text)`](#clipboardget--clipboardsettext) | string or nil |
 | [`device.battery()`](#devicebattery) | `{ level, charging }` |
-| [`device.network()`](#devicenetwork) | `"wifi"`, `"cell"`, `"eth"`, `"net"` or `"offline"` |
+| [`device.network()`](#devicenetwork) | `"wifi"`, `"cell"`, `"eth"`, `"vpn"`, `"net"` or `"offline"` |
 | [`device.unlocks(days?)`](#deviceunlocksdays) | today's unlock count, or a list of the last days' counts |
 | [`device.dnd()` / `device.setDnd(mode)`](#devicednd--devicesetdndmode) | Do Not Disturb |
 | [`apps.list()`](#appslist) | `[{ label, pkg, profile }]` |
@@ -1769,7 +1769,7 @@ phone is plugged in.
 
 ### device.network()
 
-Returns the active network: `"wifi"`, `"cell"`, `"eth"`, `"net"` (any other kind) or `"offline"`.
+Returns the active network: `"wifi"`, `"cell"`, `"eth"`, `"vpn"`, `"net"` (any other kind) or `"offline"`. The header names it the same way.
 
 ### device.unlocks(days?)
 

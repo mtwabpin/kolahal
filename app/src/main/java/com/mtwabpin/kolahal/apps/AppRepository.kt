@@ -409,15 +409,11 @@ class AppRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Pauses or resumes the work profile, or locks or unlocks the private space.
-     * Returns false when not supported. It needs API 29+ and Kolahal as the default launcher.
+     * Pauses or resumes the work profile, or locks or unlocks the private space ([ProfileQuiet]):
+     * done, waiting for its PIN, or refused. It needs API 29+ and Kolahal as the default launcher.
      */
-    fun setQuietMode(profile: Profile, quiet: Boolean): Boolean {
-        return Build.VERSION.SDK_INT >= 29 && runCatching {
-            userManager.requestQuietModeEnabled(quiet, profile.user)
-            true
-        }.getOrDefault(false).also { refresh() }
-    }
+    fun setQuietMode(profile: Profile, quiet: Boolean): ProfileQuiet.Result =
+        ProfileQuiet.set(context, profile.user, quiet).also { refresh() }
 
     companion object : Singleton<AppRepository>(::AppRepository) {
         /**

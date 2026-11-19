@@ -236,13 +236,16 @@ class AppCommands(
 
     /** Turns the paused profile back on, waits until it is available, then opens [app]. */
     fun resumeAndLaunch(app: AppEntry) {
-        if (!apps.setQuietMode(app.profile, false)) {
+        val result = apps.setQuietMode(app.profile, false)
+        if (result == com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED) {
             error("Couldn't resume the ${app.profile.kind.label} profile (is Kolahal the default launcher? run 'home')")
             return
         }
-        info("Resuming ${app.profile.kind.label} profile…")
+        // With a PIN, Android asks for it first: there is more time to type it.
+        val pin = result == com.mtwabpin.kolahal.apps.ProfileQuiet.Result.NEEDS_PIN
+        info(if (pin) "Enter the ${app.profile.kind.label} profile's PIN to resume it…" else "Resuming ${app.profile.kind.label} profile…")
         background("resume") {
-            val deadline = System.currentTimeMillis() + 20_000
+            val deadline = System.currentTimeMillis() + if (pin) 60_000 else 20_000
             while (System.currentTimeMillis() < deadline) {
                 apps.refresh()
                 Thread.sleep(500)
@@ -279,10 +282,10 @@ class AppCommands(
                 val quiet = args[0] == "off"
                 if (Build.VERSION.SDK_INT < 29) {
                     error("Toggling profiles needs Android 10+")
-                } else if (apps.setQuietMode(profile, quiet)) {
-                    info("${kind.title} profile turning ${args[0]}…")
-                } else {
-                    error("Couldn't change ${kind.label} profile (is Kolahal the default launcher? run 'home')")
+                } else when (apps.setQuietMode(profile, quiet)) {
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.DONE -> info("${kind.title} profile turning ${args[0]}…")
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.NEEDS_PIN -> info("Enter the ${kind.label} profile's PIN to turn it on")
+                    com.mtwabpin.kolahal.apps.ProfileQuiet.Result.FAILED -> error("Couldn't change ${kind.label} profile (is Kolahal the default launcher? run 'home')")
                 }
             }
             else -> error("Usage: ${kind.name.lowercase()} [on|off|status]")

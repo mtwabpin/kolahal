@@ -47,15 +47,9 @@ class DeviceStatus private constructor(private val context: Context) {
         val cm = context.getSystemService(ConnectivityManager::class.java)
         cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                val type = when {
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cell"
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "eth"
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
-                    else -> "net"
-                }
-                val validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                _status.update { it.copy(network = if (validated) type else "$type?") }
+                // Named as scripts name it (NetworkKind); "?" marks a network without internet.
+                val type = NetworkKind.of(caps)
+                _status.update { it.copy(network = if (NetworkKind.validated(caps)) type else "$type?") }
             }
 
             override fun onLost(network: Network) {

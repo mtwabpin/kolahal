@@ -93,7 +93,7 @@ complexity but provides nothing. Line numbers are from that commit.
 - Write what to do after =Remark:= (do it, skip it, or change it), and I'll follow that.
 
 ** Drift: the same job done twice, and the copies disagree
-*** TODO [#A] Device controls written twice: the terminal and scripts /(checked)/
+*** DONE [#A] Device controls written twice: the terminal and scripts /(checked)/
 - =terminal/ControlCommands.kt:245-279= and =script/HostApi.kt:717-724=, =:884-893=, =:678-687=, =:749-756=.
 - Do Not Disturb: =dnd off= checks it really turned off (since Android 15, Kolahal can only turn
   off one it turned on). The script's =device.setDnd("off")= returns true while it stays on. The
