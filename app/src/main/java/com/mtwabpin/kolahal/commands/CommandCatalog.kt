@@ -149,9 +149,9 @@ object CommandCatalog {
             short = "Screen time over months", args = "week · month · year · full",
             uses = listOf(
                 "usage-summary" to "each level: how far back, and the time a day",
-                "usage-summary week" to "a column a week, the last one's change, the top apps",
-                "usage-summary month" to "the same, a column a month",
-                "usage-summary year" to "the years, their top apps, apps used less or new",
+                "usage-summary week" to "a row a week: its total and its time a day; the change; the top apps",
+                "usage-summary month" to "the same, a row a month",
+                "usage-summary year" to "a row a year, its top apps, and apps used less or new",
                 "usage-summary full" to "all of them",
             ),
         ),
