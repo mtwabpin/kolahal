@@ -155,7 +155,7 @@ internal class HostData(
     private val appNames by lazy {
         val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
         runCatching { la.getActivityList(null, android.os.Process.myUserHandle()) }.getOrDefault(emptyList())
-            .associate { it.componentName.packageName to it.label.toString() }
+            .associate { it.componentName.packageName to com.mtwabpin.kolahal.data.StyledText.strip(it.label.toString()) }
     }
 
     private val zone get() = ZoneId.systemDefault()

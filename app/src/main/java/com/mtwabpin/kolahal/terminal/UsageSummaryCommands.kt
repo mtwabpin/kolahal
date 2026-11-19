@@ -102,9 +102,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
      */
     private fun name(pkg: String, byPkg: Map<String, AppEntry>): String {
         byPkg[pkg]?.let { return it.label }
-        val pm = context.packageManager
-        val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
-        return label?.takeIf { it.isNotBlank() && it != pkg } ?: pkg
+        return com.mtwabpin.kolahal.apps.AppNames.android(context, pkg) ?: pkg
     }
 
     /** The line of an app: [prefix] (a chip) and its name, and a tap opens it when it is in the app list. */

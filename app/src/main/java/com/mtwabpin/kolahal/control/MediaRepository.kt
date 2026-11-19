@@ -278,14 +278,8 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
 
-    private val labels = java.util.concurrent.ConcurrentHashMap<String, String>()
-
-    private fun appLabel(pkg: String): String = labels.getOrPut(pkg) {
-        runCatching {
-            val pm = context.packageManager
-            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
-        }.getOrDefault(pkg)
-    }
+    /** The player's name as the app list shows it ([AppNames]): a rename counts, and an update is seen. */
+    private fun appLabel(pkg: String): String = com.mtwabpin.kolahal.apps.AppNames.label(context, pkg) ?: pkg
 
     /** The controller that [nowPlaying] describes. When we aren't listening yet, it is read fresh. */
     private fun controller(): MediaController? {

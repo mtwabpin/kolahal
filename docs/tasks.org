@@ -106,7 +106,7 @@ complexity but provides nothing. Line numbers are from that commit.
   =Profiles.setQuiet=); the terminal, the header and scripts all call them. Medium.
 - Remark:
 
-*** TODO [#A] An app's name worked out 6 ways /(checked)/
+*** DONE [#A] An app's name worked out 6 ways /(checked)/
 - =control/MediaRepository.kt:281-288=, =notifications/KolahalNotificationListener.kt:198-203=,
   =terminal/UsageSummaryCommands.kt:102-108=, =terminal/UsageCommands.kt:112-125=,
   =usage/AppUsage.kt:61-69=, =script/HostData.kt:154-158=.

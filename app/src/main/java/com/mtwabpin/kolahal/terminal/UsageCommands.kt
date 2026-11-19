@@ -116,10 +116,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         // Several packages can share one id: the one with a name in the app list, if any.
         val app = packages.firstNotNullOfOrNull { pkg -> personal(pkg) }
         if (app != null) return app.label
-        val pm = context.packageManager
-        return packages.firstNotNullOfOrNull { pkg ->
-            runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()?.takeIf { it.isNotBlank() && it != pkg }
-        } ?: "Android system"
+        return packages.firstNotNullOfOrNull { pkg -> com.mtwabpin.kolahal.apps.AppNames.android(context, pkg) } ?: "Android system"
     }
 
     private fun personal(pkg: String): AppEntry? = apps.apps.value.firstOrNull { it.pkg == pkg && it.profile.kind == ProfileKind.PERSONAL }

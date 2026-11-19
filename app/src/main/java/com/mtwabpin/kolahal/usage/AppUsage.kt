@@ -60,9 +60,8 @@ class AppUsage(private val context: Context) {
      */
     fun times(sessions: List<Session>, label: (String) -> String?): Times {
         val counted = AppSessions.totals(sessions)
-        val pm = context.packageManager
         val named = counted.filter { it.value >= 60_000 }.mapNotNull { (pkg, ms) ->
-            val name = label(pkg) ?: runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull()
+            val name = label(pkg) ?: com.mtwabpin.kolahal.apps.AppNames.android(context, pkg)
             if (name.isNullOrBlank() || name == pkg) null else AppTime(pkg, name, ms)
         }.sortedByDescending { it.ms }
         return Times(named, counted.values.sum())

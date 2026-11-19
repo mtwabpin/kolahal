@@ -195,12 +195,7 @@ class KolahalNotificationListener : NotificationListenerService() {
         runCatching { NotifIcons.save(this, key, sbn.notification.smallIcon) }
     }
 
-    private fun labelOf(pkg: String, serial: Long): String =
-        AppRepository.get(this).find(pkg, null, serial)?.label
-            ?: AppRepository.get(this).find(pkg, null, null)?.label
-            ?: runCatching {
-                StyledText.strip(packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString())
-            }.getOrDefault(pkg)
+    private fun labelOf(pkg: String, serial: Long): String = com.mtwabpin.kolahal.apps.AppNames.label(this, pkg, serial) ?: pkg
 
     private fun maybeLog(n: Notif, message: Boolean, iconSaved: kotlinx.coroutines.Job) {
         if (!NotifPrefs.get(this).shouldLog(n.pkg)) return
