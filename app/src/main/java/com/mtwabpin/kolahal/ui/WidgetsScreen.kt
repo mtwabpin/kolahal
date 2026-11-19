@@ -175,11 +175,12 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
 
     val panel = remember(all) { WidgetOrder.inLocation(all, WidgetLocation.PANEL) }
     val pending = remember(all) { WidgetOrder.sorted(all.filter { it.pending }) }
-    // Each label needs a binder call and a load. So labels load again only when widgets are added or
-    // removed, not on every resize step.
+    // Each label needs a binder call and a load from the other app, so they load off the main thread
+    // ([WidgetHost.label]), again only when widgets are added or removed, not on every resize step.
+    // Until then, the labels loaded before, or the provider's last part.
     val placed = remember(all) { all.map { Triple(it.key, it.id, it.provider) } }
-    val labels = remember(placed, providersVersion) {
-        placed.associate { (key, id, provider) -> key to (id?.let { widgets.cachedInfo(it) }?.loadLabel(context.packageManager) ?: provider.substringAfterLast('.')) }
+    val labels by produceState(placed.associate { (key, id, provider) -> key to widgets.loadedLabel(id, provider) }, placed, providersVersion) {
+        value = withContext(Dispatchers.IO) { placed.associate { (key, id, provider) -> key to widgets.label(id, provider) } }
     }
     // A widget Kolahal draws itself is named by its script's title. The view model has read the titles
     // from the code, off the main thread, and its answer changes only when a title does: not at
@@ -546,8 +547,10 @@ private fun PendingRow(
         value = withContext(Dispatchers.IO) { widgets.findProvider(w.provider, w.profileSerial) }
     }
     val found = entry
-    // Loading a label reads the other app's resources, so it is done once per provider, not on every redraw.
-    val label = remember(found, w.provider) { found?.info?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.') }
+    // Loading a label reads the other app's resources: off the main thread, once per provider.
+    val label by produceState(w.provider.substringAfterLast('.'), found) {
+        found?.let { f -> value = withContext(Dispatchers.IO) { f.info.loadLabel(context.packageManager).toString() } }
+    }
     SegmentedListItem(
         colors = segColors(),
         shapes = segShapes(index, count),

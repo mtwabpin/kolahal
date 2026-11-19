@@ -188,7 +188,7 @@ complexity but provides nothing. Line numbers are from that commit.
   kept on =Script=; the caches and =grants= read from it. Medium.
 - Remark:
 
-*** TODO [#B] Widget labels loaded on the main thread
+*** DONE [#B] Widget labels loaded on the main thread
 - =ui/WidgetsScreen.kt:178-183=, =:550= call =loadLabel= while drawing; =:182= can also call into
   Android (=WidgetHost.kt:461-464=). The same "label, or the provider's last part" rule is in
   =widgets/WidgetHost.kt:643=.

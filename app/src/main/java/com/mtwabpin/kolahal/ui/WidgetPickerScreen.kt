@@ -3,7 +3,6 @@ package com.mtwabpin.kolahal.ui
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
-import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Process
@@ -68,6 +67,7 @@ import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedIds
 import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.providerApps
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -102,22 +102,14 @@ private fun Drawable.toImage(maxPx: Int): ImageBitmap? = runCatching {
     toBitmap((w * scale).toInt().coerceAtLeast(1), (h * scale).toInt().coerceAtLeast(1)).asImageBitmap()
 }.getOrNull()
 
+/** The picker's groups: the widgets by app and profile ([providerApps]), each with its app's icon and profile badge. Off the main thread. */
 private fun loadGroups(context: Context, widgets: WidgetHost, profiles: List<Profile>, iconPx: Int): List<ProviderGroup> {
     val pm = context.packageManager
-    val launcherApps = context.getSystemService(LauncherApps::class.java)
-    return widgets.providers().groupBy { it.packageName to it.serial }.map { (k, list) ->
-        val (pkg, serial) = k
-        val user = list.first().user
-        val ai = runCatching { launcherApps.getApplicationInfo(pkg, 0, user) }.getOrNull()
-        val label = ai?.let { pm.getApplicationLabel(it).toString() } ?: pkg
-        val icon = ai?.let { runCatching { pm.getUserBadgedIcon(pm.getApplicationIcon(it), user) }.getOrNull() }?.toImage(iconPx)
-        val kind = profiles.firstOrNull { it.serial == serial }?.kind?.takeIf { it != ProfileKind.PERSONAL }
-        val named = list.map { p ->
-            val name = p.info.loadLabel(pm).toString()
-            val description = if (Build.VERSION.SDK_INT >= 31) runCatching { p.info.loadDescription(context)?.toString() }.getOrNull() else null
-            Triple(p, name.lowercase(), CardText(name, description))
-        }.sortedBy { it.second }
-        ProviderGroup("$pkg:$serial", label, icon, kind, named.map { it.first }, named.map { it.second }, named.map { it.third })
+    return widgets.providerApps(context).map { a ->
+        val icon = a.app?.let { runCatching { pm.getUserBadgedIcon(pm.getApplicationIcon(it), a.user) }.getOrNull() }?.toImage(iconPx)
+        val kind = profiles.firstOrNull { it.serial == a.serial }?.kind?.takeIf { it != ProfileKind.PERSONAL }
+        val texts = a.names.zip(a.descriptions) { name, description -> CardText(name, description) }
+        ProviderGroup("${a.pkg}:${a.serial}", a.label, icon, kind, a.providers, a.names.map { it.lowercase() }, texts)
     }.sortedWith(compareBy({ it.label.lowercase() }, { it.work?.ordinal ?: -1 }))
 }
 

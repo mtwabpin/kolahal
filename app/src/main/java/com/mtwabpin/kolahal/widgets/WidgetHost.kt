@@ -78,6 +78,9 @@ class WidgetHost private constructor(context: Context) {
      */
     private val infos = HashMap<Int, AppWidgetProviderInfo>()
 
+    /** Each id's name as [label] last loaded it (loading reads the other app's resources). Kept and dropped with [infos], under its lock. */
+    private val labels = HashMap<Int, String>()
+
     /**
      * True when the details are the same for a widget's view: the provider, its profile, its first
      * layout and its install (an update installs the app in a new folder). Before Android 12 the
@@ -102,10 +105,10 @@ class WidgetHost private constructor(context: Context) {
         "${it.uiMode}:${it.densityDpi}:${it.orientation}:${it.fontScale}:${it.locales.toLanguageTags()}"
     }
 
-    private fun forgetInfos() = synchronized(infos) { infos.clear() }
+    private fun forgetInfos() = synchronized(infos) { infos.clear(); labels.clear() }
 
     private fun forget(id: Int) {
-        synchronized(infos) { infos.remove(id) }
+        synchronized(infos) { infos.remove(id); labels.remove(id) }
         synchronized(views) { views.remove(id) }
     }
 
@@ -457,6 +460,23 @@ class WidgetHost private constructor(context: Context) {
 
     fun info(id: Int): AppWidgetProviderInfo? = runCatching { manager.getAppWidgetInfo(id) }.getOrNull()
 
+    /**
+     * A placed widget's name: its provider's label, or the last part of the provider's name. The
+     * first time, it reads the other app's resources: call it off the main thread. [loadedLabel] is
+     * for a screen's first frame.
+     */
+    fun label(id: Int?, provider: String): String {
+        id ?: return provider.substringAfterLast('.')
+        synchronized(infos) { labels[id] }?.let { return it }
+        val label = cachedInfo(id)?.loadLabel(app.packageManager)?.toString() ?: return provider.substringAfterLast('.')
+        synchronized(infos) { labels[id] = label }
+        return label
+    }
+
+    /** [label] if it was loaded already, without loading anything: right for the main thread. */
+    fun loadedLabel(id: Int?, provider: String): String =
+        id?.let { synchronized(infos) { labels[it] } } ?: provider.substringAfterLast('.')
+
     /** [info] as last read for [id], checked at each start. Screens ask for it while they are built. */
     fun cachedInfo(id: Int): AppWidgetProviderInfo? = synchronized(infos) {
         // Don't keep a missing one. Ask again next time, because an app being updated comes back.
@@ -572,7 +592,7 @@ class WidgetHost private constructor(context: Context) {
             val fresh = info(id)
             synchronized(infos) {
                 val old = infos[id]
-                if (fresh == null) infos.remove(id) else if (old == null || !sameAs(old, fresh)) infos[id] = fresh
+                if (fresh == null) { infos.remove(id); labels.remove(id) } else if (old == null || !sameAs(old, fresh)) { infos[id] = fresh; labels.remove(id) }
             }
             if (fresh != null) return@filter false
             val user = userFor(w.profileSerial) ?: return@filter true
@@ -640,7 +660,7 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
         val source = w.source
         // A widget Kolahal draws itself: its name ("weather", "Battery and network"), and what it is ("script") where an app's widget has its package.
         // A script's further widget has its id after the name: "weather 2".
-        val label = source?.let(WidgetSource::label) ?: w.id?.let { info(it) }?.loadLabel(context.packageManager) ?: w.provider.substringAfterLast('.')
+        val label = source?.let(WidgetSource::label) ?: label(w.id, w.provider)
         val state = when {
             w.pending -> "pending re-add"
             source == null && isPaused(w.profileSerial) -> "paused"
