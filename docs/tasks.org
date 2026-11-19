@@ -118,7 +118,7 @@ complexity but provides nothing. Line numbers are from that commit.
   label lambda, as =AppUsage.times= already takes. Small to medium.
 - Remark:
 
-*** TODO [#A] Two caches of todos, notes, reminders and feeds /(checked)/
+*** DONE [#A] Two caches of todos, notes, reminders and feeds /(checked)/
 - =terminal/TerminalViewModel.kt:1360-1401= and =:513-521=; =terminal/OwnWidgets.kt:238-262=.
 - The suggestions and the header count refresh when a log line "looks like" productivity work.
   The widget cards refresh from each store's change counter.

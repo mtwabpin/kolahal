@@ -47,8 +47,8 @@ data class AgendaRead(val allowed: Boolean, val events: List<AgendaEvent>, val a
 /**
  * What the cards of the built-in widgets read from the view model. Kolahal fills these widgets from
  * its own data, in the main process: no script and no run.
- * - A card collects only the flow it shows. Nothing is read for a widget that is not placed.
- * - [todos], [notes], [reminders]: the lists as the stores give them. [shortcuts]: the Shortcuts
+ * - [todos], [notes], [reminders], [feeds]: the lists as the stores give them. The suggestions and
+ *   the header's todo count read the same lists, so all of them agree. [shortcuts]: the Shortcuts
  *   widget's list. Each is null until it is read for the first time, so a card never says "none"
  *   before it knows.
  * - [playing]: the media session the header's line shows. Null with no session, and without
@@ -64,6 +64,7 @@ class OwnFeed(
     val playing: StateFlow<NowPlaying?>,
     val agenda: StateFlow<AgendaRead>,
     val mediaAllowed: StateFlow<Boolean> = MutableStateFlow(true),
+    val feeds: StateFlow<List<com.mtwabpin.kolahal.feeds.FeedInfo>?> = MutableStateFlow(null),
 )
 
 /** What a tap inside a built-in card asks for. [OwnTaps.parse] makes one from the card's words. */
@@ -209,9 +210,10 @@ internal object AgendaTurns {
  * cards read, and does what a card's tap changes.
  * - Nothing here touches what script widgets store (WidgetStates), and nothing runs a script.
  * - The stores and the calendar are read on IO threads, never on the main thread.
- * - A list is read while a card collects it, and again when its store counts a write
- *   ([TodoStore.changes]) or the card asks ([shown]). When no card has collected it for
- *   [STOP_AFTER_MS], it is read no more, and the next card to collect it reads it again.
+ * - A list is read at once, and again when its store counts a write ([TodoStore.changes],
+ *   [com.mtwabpin.kolahal.feeds.FeedRepository.version]), a card asks ([shown]), or the view model
+ *   reloads ([reload]). It is read even with no card on screen: the suggestions and the header
+ *   read these lists too. They are small, and a write is read once however many follow it.
  * - The calendar is read when the Agenda card asks ([shown]), at most once in a minute
  *   ([AgendaTurns]), and once for the card's first reader. Nothing reads it for a widget that is not placed.
  */
@@ -220,6 +222,7 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
     private val todoStore = TodoStore.get(context)
     private val noteStore = NoteStore.get(context)
     private val reminderStore = ReminderStore.get(context)
+    private val feedRepo = com.mtwabpin.kolahal.feeds.FeedRepository.get(context)
     private val media = MediaRepository.get(context)
 
     /** One thread for what a tap writes or sends, so two quick taps keep their order. */
@@ -228,28 +231,29 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
     /** One thread for the calendar, so two cards' questions never read it twice at once. */
     private val calendar = Dispatchers.IO.limitedParallelism(1)
 
-    /** By widget id: rises when that widget's card asks for its list again ([shown]). */
-    private val asked = listOf(WidgetSource.TODOS, WidgetSource.NOTES, WidgetSource.REMINDERS).associateWith { MutableStateFlow(0) }
+    /** Rises when a card asks for its list again ([shown]) or the view model reloads ([reload]): for a write that went past the stores. */
+    private val again = MutableStateFlow(0)
 
     /**
-     * The list of the widget [id], read with [read] at each of the store's [changes] and each time
-     * its card asks. Several changes in a row are read once. A read that fails keeps the last list.
+     * A list, read with [read] at each of the store's [changes] and each time it is asked [again].
+     * Several changes in a row are read once. A read that fails keeps the last list.
      */
-    private fun <T> list(id: String, changes: StateFlow<Int>, read: () -> List<T>): StateFlow<List<T>?> =
-        combine(changes, asked.getValue(id)) { _, _ -> }
+    private fun <T> list(changes: StateFlow<Int>, read: () -> List<T>): StateFlow<List<T>?> =
+        combine(changes, again) { _, _ -> }
             .conflate()
             .mapNotNull { runCatching(read).getOrNull() }
             .flowOn(Dispatchers.IO)
-            .stateIn(scope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+            .stateIn(scope, SharingStarted.Eagerly, null)
 
     private val shortcuts = MutableStateFlow<List<Shortcut>?>(null)
     private val agenda = MutableStateFlow(AgendaRead.NOT_READ)
     private val mediaAllowed = MutableStateFlow(true)
 
     val feed = OwnFeed(
-        todos = list(WidgetSource.TODOS, todoStore.changes) { todoStore.all() },
-        notes = list(WidgetSource.NOTES, noteStore.changes) { noteStore.all() },
-        reminders = list(WidgetSource.REMINDERS, reminderStore.changes) { reminderStore.all() },
+        todos = list(todoStore.changes) { todoStore.all() },
+        notes = list(noteStore.changes) { noteStore.all() },
+        reminders = list(reminderStore.changes) { reminderStore.all() },
+        feeds = list(feedRepo.version) { feedRepo.all() },
         shortcuts = shortcuts.asStateFlow(),
         playing = media.nowPlaying,
         agenda = agenda.asStateFlow(),
@@ -265,9 +269,12 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
         when (id) {
             WidgetSource.AGENDA -> readAgenda()
             WidgetSource.MEDIA -> scope.launch(Dispatchers.IO) { mediaAllowed.value = runCatching { media.hasAccess() }.getOrDefault(false) }
-            else -> asked[id]?.update { it + 1 }
+            WidgetSource.TODOS, WidgetSource.NOTES, WidgetSource.REMINDERS -> reload()
         }
     }
+
+    /** Reads the lists again: after a write that went past the stores, such as a restored backup. */
+    fun reload() = again.update { it + 1 }
 
     /** The answer to the calendar permission came. The Agenda card must not say "allow" after a yes. */
     fun calendarAnswered() = readAgenda()
@@ -353,9 +360,6 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
     }
 
     companion object {
-        /** How long a list is still followed after its last card stopped collecting: a turn of the screen keeps it. */
-        const val STOP_AFTER_MS = 5_000L
-
         /** The Agenda widget shows as many days as the `agenda` command does. */
         const val AGENDA_DAYS = ProductivityCommands.DEFAULT_AGENDA_DAYS
     }

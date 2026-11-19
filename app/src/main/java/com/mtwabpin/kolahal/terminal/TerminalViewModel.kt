@@ -71,12 +71,6 @@ import kotlinx.coroutines.flow.withIndex
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Commands that change the todo, note, reminder and feed caches. */
-private val PRODUCTIVITY_COMMANDS = CommandCatalog.PRODUCTIVITY + setOf("feed", "feeds")
-
-/** How long after a todo is written the view model looks whether the log's reload has read it. A reload takes far less. */
-private const val TODO_FOLLOW_MS = 500L
-
 /**
  * Returns the ↑ history after [fresh] lines (oldest first) were added to it:
  * - the new commands come first, newest first;
@@ -138,10 +132,11 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val statusNames get() = _lines.value.mapTo(HashSet()) { it.name }
         override val libraryNames get() = this@TerminalViewModel.libraryNames
         override val sharedNames get() = scriptActions.sharedScripts.value.entries.map { it.name }
-        override val feeds get() = feedCache
-        override val todos get() = todoCache
-        override val notes get() = noteCache
-        override val reminders get() = reminderCache
+        // The same lists as the widget cards and the header ([OwnData]): read again at each write.
+        override val feeds get() = ownData.feed.feeds.value.orEmpty()
+        override val todos get() = ownData.feed.todos.value.orEmpty()
+        override val notes get() = ownData.feed.notes.value.orEmpty()
+        override val reminders get() = ownData.feed.reminders.value.orEmpty()
         override val logSources get() = this@TerminalViewModel.logSources
     })
 
@@ -507,18 +502,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // A typed command's own line puts it first in the history. Read the history again only when a
         // command may be gone: after a trim, or when a removed line was a command or is not on this page.
         history = if (read.whole || read.commandGone) logs.commandHistory() else withNewCommands(history, read.fresh)
-        if (read.whole || read.fresh.any(::touchesProductivity)) refreshProductivity()
+        // A whole reload (a restored backup, a clear) may follow writes that went past the stores.
+        if (read.whole) ownData.reload()
         if (read.whole || read.fresh.any { it.source != null && it.source !in logSources }) logSources = logs.sources()
-    }
-
-    /** True for a line after which the todo, note, reminder or feed caches may be out of date. */
-    private fun touchesProductivity(e: LogEntry): Boolean {
-        // `notes rm 2` prints no numbered line, but the numbers after it changed.
-        if (e.kind == LogKind.COMMAND && InstantRun.canonical(e.text.substringBefore(' ')) in PRODUCTIVITY_COMMANDS) return true
-        val k = e.ctx.values.keys
-        return LogContext.TODO in k || LogContext.NOTE in k || LogContext.REMINDER in k ||
-            com.mtwabpin.kolahal.feeds.FeedWorker.CTX_FEED in k || com.mtwabpin.kolahal.feeds.FeedWorker.CTX_ITEM in k ||
-            e.source == "remind"
     }
 
     /** Called when the user is back at the newest lines after scrolling up. The page shrinks again, so each reload stays small. */
@@ -1357,49 +1343,16 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     // ---- productivity (todo, notes, reminders, agenda) --------------------------------------
 
-    private val _todoCount = MutableStateFlow(0)
-    /** The number of open todos, for the header's todo item. */
-    val todoCount: StateFlow<Int> = _todoCount.asStateFlow()
-
-    /** Data for suggestions. Refreshed with the log, because every todo / note / remind command writes to the log. */
-    @Volatile private var todoCache: List<com.mtwabpin.kolahal.productivity.Todo> = emptyList()
-    @Volatile private var noteCache: List<com.mtwabpin.kolahal.productivity.Note> = emptyList()
-    @Volatile private var reminderCache: List<com.mtwabpin.kolahal.productivity.Reminder> = emptyList()
-    @Volatile private var feedCache: List<com.mtwabpin.kolahal.feeds.FeedInfo> = emptyList()
+    /**
+     * The number of open todos, for the header's todo item. From the same list as the Todos card and
+     * the suggestions ([OwnData]), read again at each write to the todos, by a command or a card.
+     */
+    val todoCount: StateFlow<Int> = ownData.feed.todos.map { list -> list.orEmpty().count { !it.done } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     /** Contacts with numbers (empty without the permission). Suggestions are computed again when they load. */
     val contacts get() = com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).contacts
 
-    private val todoStore = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
-
-    /** The todo store's count of writes ([com.mtwabpin.kolahal.productivity.TodoStore.changes]) when [refreshProductivity] last read the todos. */
-    @Volatile private var todosSeen = -1
-
-    /**
-     * The Todos widget's checkbox writes a todo and prints no line, so the caches that follow the
-     * log ([refreshCaches]) would miss it, and the header would count a todo that is done. This
-     * reads them again after such a write. A typed `todo` command prints a line, and the log's
-     * reload has read the todos by the time this looks: then it reads nothing.
-     */
-    private fun followTodoWrites() {
-        viewModelScope.launch {
-            todoStore.changes.drop(1).debounce(TODO_FOLLOW_MS).collect { if (it != todosSeen) refreshProductivity() }
-        }
-    }
-
-    private fun refreshProductivity() {
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                // Before the read: a write during it is then read again.
-                todosSeen = todoStore.changes.value
-                todoCache = todoStore.all()
-                noteCache = com.mtwabpin.kolahal.productivity.NoteStore.get(context).all()
-                reminderCache = com.mtwabpin.kolahal.productivity.ReminderStore.get(context).all()
-                _todoCount.value = todoCache.count { !it.done }
-            }
-            runCatching { feedCache = com.mtwabpin.kolahal.feeds.FeedRepository.get(context).all() }
-        }
-    }
 
     private val _homePresses = MutableStateFlow(0)
     /** Goes up by one on every Home press while already home. Then the widgets pager returns to the terminal. */
@@ -1501,7 +1454,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      */
     init {
         startWatching()
-        followTodoWrites()
         searcher.start()
         // Lines hidden by a clear are deleted once their Undo is gone. When the launcher closed, its Undo went too.
         viewModelScope.launch(deleteIo) { runCatching { logs.purgeCleared() } }

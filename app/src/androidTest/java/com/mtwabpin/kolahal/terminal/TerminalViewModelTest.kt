@@ -312,6 +312,34 @@ class TerminalViewModelTest {
         waitUntil("the source suggested") { vm.suggestions("log only ${token.dropLast(1)}").any { it is Suggestion.Completion && it.replacement == "log only $token" } }
     }
 
+    /**
+     * A feed added outside the terminal (the Feeds screen writes no log line) is suggested for
+     * `feed rm` too: the suggestions read the same lists as the widget cards, at each write.
+     */
+    @Test fun aFeedAddedOnTheFeedsScreenIsSuggested() {
+        val vm = home()
+        val (feed, _) = com.mtwabpin.kolahal.feeds.FeedSubscriptions(app).subscribe("http://127.0.0.1:9/$token")
+        try {
+            waitUntil("the feed suggested") { vm.suggestions("feed rm ").any { it is Suggestion.Completion && it.replacement.startsWith("feed rm ${feed.id}") } }
+        } finally {
+            com.mtwabpin.kolahal.feeds.FeedSubscriptions(app).remove(feed.id)
+        }
+    }
+
+    /** The header counts a todo written past the terminal (a card's checkbox, a script) too. */
+    @Test fun theHeaderCountsATodoWrittenElsewhere() {
+        val todos = com.mtwabpin.kolahal.productivity.TodoStore.get(app)
+        val vm = home()
+        waitUntil("the todos read") { vm.todoCount.value == todos.all().count { !it.done } }
+        val before = vm.todoCount.value
+        val id = todos.add("$token todo")
+        try {
+            waitUntil("one more open todo") { vm.todoCount.value == before + 1 }
+        } finally {
+            todos.remove(id)
+        }
+    }
+
     /** A script started by name (the script sheet's Run) runs and says so. */
     @Test fun aScriptRunsByName() {
         val name = "${token}named"
