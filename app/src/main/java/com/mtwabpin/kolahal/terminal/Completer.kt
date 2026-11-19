@@ -665,11 +665,10 @@ class Completer(private val context: Context, private val data: Data) {
         } + listOfNotNull(pick)
     }
 
+    /** The flag that picks [app]'s profile; for a personal app, only when another profile has the same app. */
     private fun flagFor(app: AppEntry) = when (app.profile.kind) {
-        ProfileKind.WORK -> " -w"
-        ProfileKind.PRIVATE -> " -s"
-        ProfileKind.CLONE -> " -c"
         ProfileKind.PERSONAL -> if (appsRepo.apps.value.any { it.pkg == app.pkg && it.profile.kind != ProfileKind.PERSONAL }) " -p" else ""
+        else -> " " + app.profile.kind.flag
     }
 
     private fun productivitySuggestions(cmd: String, head: String, parts: List<String>): List<Suggestion> {

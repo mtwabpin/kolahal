@@ -161,7 +161,7 @@ class ActivityCommands(context: Context) : CommandGroup(context) {
 
     companion object {
         /** Profile flags that `activity` can't serve. */
-        private val OTHER_PROFILES = setOf("-w", "--work", "-s", "--private", "-c", "--clone")
+        private val OTHER_PROFILES = (ProfileKind.entries - ProfileKind.PERSONAL).flatMap { listOf(it.flag, it.longFlag) }.toSet()
 
         /**
          * The app's activities that any app may open: exported, enabled and with no permission.

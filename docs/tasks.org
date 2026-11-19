@@ -197,7 +197,7 @@ complexity but provides nothing. Line numbers are from that commit.
   =widgets/=. Small.
 - Remark:
 
-*** TODO [#B] The profile flags (-w -s -c -p) in four places
+*** DONE [#B] The profile flags (-w -s -c -p) in four places
 - =AppCommands.kt:127-133=, =Completer.kt:667-672=, =ActivityCommands.kt:164=, =AppCommands.kt:219=.
 - =:219= gives every profile but the private space =-w=, so a paused clone profile gets the wrong
   flag in the "resume" line.

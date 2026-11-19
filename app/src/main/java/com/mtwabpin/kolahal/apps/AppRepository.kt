@@ -26,12 +26,23 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 /** The profile an app belongs to. [tag] is the short marker printed in the terminal. */
-enum class ProfileKind(val tag: String, val label: String) {
-    PERSONAL("P", "personal"),
-    WORK("W", "work"),
-    PRIVATE("S", "private"),
+/**
+ * A kind of profile, with its tag in a list ("[W]") and the flags that pick it in a command
+ * ("-w", "--work"): the same table for every command and for completion.
+ */
+enum class ProfileKind(val tag: String, val label: String, val flag: String, val longFlag: String) {
+    PERSONAL("P", "personal", "-p", "--personal"),
+    WORK("W", "work", "-w", "--work"),
+    PRIVATE("S", "private", "-s", "--private"),
     /** App-clone profile ("dual apps"). Never treated as the work profile. */
-    CLONE("C", "clone"),
+    CLONE("C", "clone", "-c", "--clone"),
+    ;
+
+    companion object {
+        /** The profile [args] pick with a flag, or null. With several, the first of work, personal, private, clone. */
+        fun fromFlags(args: List<String>): ProfileKind? =
+            listOf(WORK, PERSONAL, PRIVATE, CLONE).firstOrNull { it.flag in args || it.longFlag in args }
+    }
 }
 
 private const val USER_TYPE_PROFILE_CLONE = "android.os.usertype.profile.CLONE"

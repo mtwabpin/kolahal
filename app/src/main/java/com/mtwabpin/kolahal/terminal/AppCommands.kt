@@ -125,18 +125,11 @@ class AppCommands(
         return if (app.profile.kind != ProfileKind.PERSONAL || twin) "${app.label} [${app.profile.kind.tag}]" else app.label
     }
 
-    private fun profileFlag(args: List<String>): ProfileKind? = when {
-        "-w" in args || "--work" in args -> ProfileKind.WORK
-        "-p" in args || "--personal" in args -> ProfileKind.PERSONAL
-        "-s" in args || "--private" in args -> ProfileKind.PRIVATE
-        "-c" in args || "--clone" in args -> ProfileKind.CLONE
-        else -> null
-    }
 
     private fun stripFlags(args: List<String>) = args.filterNot { it.startsWith("-") }.joinToString(" ")
 
     private fun listApps(args: List<String>) {
-        val kind = profileFlag(args) ?: when (args.firstOrNull()) {
+        val kind = ProfileKind.fromFlags(args) ?: when (args.firstOrNull()) {
             "work" -> ProfileKind.WORK
             "personal" -> ProfileKind.PERSONAL
             "private" -> ProfileKind.PRIVATE
@@ -164,7 +157,7 @@ class AppCommands(
     }
 
     private fun resolveApp(args: List<String>, includeHidden: Boolean = false): List<AppEntry> =
-        apps.search(stripFlags(args), profileFlag(args), includeHidden)
+        apps.search(stripFlags(args), ProfileKind.fromFlags(args), includeHidden)
 
     /** Runs [action] on the best match for [args] (an app name and profile flags). If nothing matches, prints an error. */
     fun withApp(args: List<String>, includeHidden: Boolean = false, action: (AppEntry) -> Unit) {
@@ -189,8 +182,8 @@ class AppCommands(
         // `open maps:navigate` starts the shortcut whose label best matches "navigate".
         val joined = stripFlags(args)
         // But "Duolingo: Language Lessons" is an app's name, not a Duolingo shortcut.
-        if (joined.contains(':') && apps.search(joined, profileFlag(args)).none { it.label.equals(joined, ignoreCase = true) }) {
-            val app = apps.search(joined.substringBefore(':'), profileFlag(args)).firstOrNull()
+        if (joined.contains(':') && apps.search(joined, ProfileKind.fromFlags(args)).none { it.label.equals(joined, ignoreCase = true) }) {
+            val app = apps.search(joined.substringBefore(':'), ProfileKind.fromFlags(args)).firstOrNull()
                 ?: return error("No app matches '${joined.substringBefore(':')}'")
             val wanted = joined.substringAfter(':').trim().lowercase()
             val shortcut = apps.shortcuts(app).minByOrNull { s ->
@@ -217,7 +210,8 @@ class AppCommands(
 
     fun launch(app: AppEntry) {
         if (app.profile.quiet) {
-            val flag = if (app.profile.kind == ProfileKind.PRIVATE) "-s" else "-w"
+            // The profile's own flag: a paused clone profile is not the work profile.
+            val flag = app.profile.kind.flag
             logs.add(
                 LogKind.INFO,
                 "${app.profile.kind.title} profile is paused — tap to resume it and open ${app.label}",
