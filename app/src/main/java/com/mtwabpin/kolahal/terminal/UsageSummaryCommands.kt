@@ -20,9 +20,9 @@ import java.util.Locale
  * `usage-summary [week | month | year | full]`: the long view of screen time, from Android's
  * weeks, months and years ([UsageLevels]).
  * - Alone: a line for each level, with how far back it goes and the time a day in it.
- * - `week`, `month`: the time a day, unlocks a day and the total; a column for each of Android's
- *   weeks or months; the last one that is over against those before; the top apps.
- * - `year`: a line for each year, the top apps of each, and the apps used less or new.
+ * - `week`, `month`, `year`: the time a day, unlocks a day and the total; a table with a row for
+ *   each of Android's weeks, months or years, its total and its time a day; the change of the last
+ *   one that is over; the top apps. `year` also has the apps used less or new.
  * - `full`: all of these, one after the other, parted by `── weeks ──` rules.
  * Few words: numbers lead, labels are short, `≈` marks Android's own (rough) totals, and the
  * explanations are in `help usage-summary`. Every date is the real start of one of Android's buckets.
@@ -139,30 +139,46 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         }
     }
 
-    // ---- weeks and months -----------------------------------------------------------------
+    // ---- weeks, months and years ----------------------------------------------------------
 
-    /**
-     * `usage-summary week` and `month`: the time a day (≈: Android's own totals), unlocks a day and
-     * the total; a column for each bucket, the current one standing out; the last one that is over,
-     * its time a day and its change against those before; and the top apps over all of them.
-     */
-    private fun period(buckets: List<Bucket>, level: Level) {
-        if (buckets.isEmpty()) return info("No usage recorded yet")
+    /** Big numbers over [buckets]: the time a day (≈: Android's own totals), unlocks a day, and the total. */
+    private fun bigNumbers(buckets: List<Bucket>) {
         val counted = UsageLevels.counted(buckets)
         val big = mutableListOf<Pair<String, String>>()
         UsageLevels.perDay(counted)?.let { big += "≈${duration(it)}" to "a day" }
         UsageLevels.unlocksPerDay(counted)?.let { big += it.toString() to if (it == 1) "unlock a day" else "unlocks a day" }
         big += hours(buckets.sumOf { it.total }) to "total"
         out(StyledText.stats(big))
-        if (buckets.size > 1) {
-            val said = "Screen time a day: " + buckets.joinToString(", ") { "from ${date(it.start)} ${duration(it.perDay)}" }
-            val last = if (buckets.last().current) "now" else date(buckets.last().start)
-            out(StyledText.columns(buckets.map { it.perDay / 60_000.0 }, listOf(date(buckets.first().start), last), said, newest = buckets.last().current))
-        }
-        // The last one that is over: its start, its time a day, and its change.
+    }
+
+    /**
+     * A bucket's dates: "13 Jun – 13 Jul", "11 Nov – now"; a year by its months: "Apr 2025 – Apr 2026".
+     * Android's buckets start where the one before ended, so these are their real dates.
+     */
+    private fun span(b: Bucket, level: Level): String {
+        val show = { ms: Long -> if (level == Level.YEARS) Instant.ofEpochMilli(ms).atZone(zone).format(monthYear) else date(ms) }
+        return "${show(b.start)} – ${if (b.current) "now" else show(b.end)}"
+    }
+
+    /** A row for each bucket, the oldest first: its dates, its total, and its time a day. */
+    private fun table(buckets: List<Bucket>, level: Level) {
+        val head = when (level) { Level.WEEKS -> "Week"; Level.MONTHS -> "Month"; Level.YEARS -> "Year"; Level.DAYS -> "Day" }
+        val rows = listOf(listOf(head, "Total", "A day")) + buckets.map { listOf(span(it, level), hours(it.total), duration(it.perDay)) }
+        out(StyledText.table(rows, header = true, align = "lrr"))
+    }
+
+    /**
+     * `usage-summary week` and `month`: the big numbers; a row for each of Android's weeks or months
+     * with its total and its time a day; the last one that is over, its change against those before;
+     * and the top apps over all of them.
+     */
+    private fun period(buckets: List<Bucket>, level: Level) {
+        if (buckets.isEmpty()) return info("No usage recorded yet")
+        bigNumbers(buckets)
+        table(buckets, level)
+        // The last one that is over against those before: its change, and which row it is.
         UsageLevels.change(buckets)?.let { percent ->
-            val last = buckets.last { !it.current }
-            info("${date(last.start)}  ${duration(last.perDay)}  ${coloured(change(percent), percent <= 0)}", LogContext(LogContext.ALIGNED))
+            info("${coloured(change(percent), percent <= 0)} · ${span(buckets.last { !it.current }, level)}")
         }
         val byPkg = byPkg()
         val top = UsageLevels.top(buckets, 8).filter { it.second >= 60_000 && name(it.first, byPkg) != null }.take(5)
@@ -173,40 +189,33 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         }
     }
 
-    // ---- years ----------------------------------------------------------------------------
-
     /**
-     * `usage-summary year`: a line for each of Android's years with its time a day and a bar, the
-     * newest with its change against the one before; then the top 3 apps of each year; then the apps
-     * used less or new since the year before, each with a chip.
+     * `usage-summary year`: the big numbers; a row for each of Android's years with its total and its
+     * time a day; the newest one's change; the top 3 apps of each year; then the apps used less or new
+     * since the year before, each with a chip.
      */
     private fun years(buckets: List<Bucket>) {
         if (buckets.isEmpty()) return info("No usage recorded yet")
-        val label = { b: Bucket ->
-            val start = Instant.ofEpochMilli(b.start).atZone(zone)
-            if (b.current) "${start.format(monthYear)} – now" else "${start.format(monthYear)} – ${Instant.ofEpochMilli(b.end).atZone(zone).format(monthYear)}"
-        }
+        bigNumbers(buckets)
+        table(buckets, Level.YEARS)
         val counted = UsageLevels.counted(buckets)
         val pair = if (counted.size >= 2) counted.takeLast(2) else null
-        // The bars stay together, one line a year; the newest that counts has its change at its end.
-        val most = buckets.maxOf { it.perDay }.coerceAtLeast(1).toDouble()
-        val width = buckets.maxOf { label(it).length }
-        buckets.forEach { b ->
-            var time = "≈${duration(b.perDay)}"
-            if (pair != null && b == pair[1]) {
-                val diff = b.perDay - pair[0].perDay
-                if (diff <= -60_000) time += " " + coloured("▼ ${duration(-diff)}", true)
-                else if (diff >= 60_000) time += " " + coloured("▲ ${duration(diff)}", false)
+        if (pair != null) {
+            val diff = pair[1].perDay - pair[0].perDay
+            when {
+                diff <= -60_000 -> info(coloured("▼ ${duration(-diff)} a day", true))
+                diff >= 60_000 -> info(coloured("▲ ${duration(diff)} a day", false))
             }
-            out(label(b).padEnd(width), LogContext(LogContext.ALIGNED + mapOf(LogContext.DESC to time) + LogContext.bar(b.perDay / most)))
         }
         val byPkg = byPkg()
+        // Each year by the month it starts: "Apr 2025".
+        val label = { b: Bucket -> Instant.ofEpochMilli(b.start).atZone(zone).format(monthYear) }
         val tops = buckets.map { b -> b to UsageLevels.top(listOf(b), 8).filter { it.second >= 60_000 }.mapNotNull { name(it.first, byPkg) }.take(3) }
             .filter { it.second.isNotEmpty() }
         if (tops.isNotEmpty()) {
             rule("top apps")
             tops.forEach { (b, names) ->
-                info("${Instant.ofEpochMilli(b.start).atZone(zone).format(monthYear)}  ${names.joinToString(" · ")}", LogContext(LogContext.ALIGNED))
+                info("${label(b)}  ${names.joinToString(" · ")}", LogContext(LogContext.ALIGNED))
             }
         }
         if (pair != null) {

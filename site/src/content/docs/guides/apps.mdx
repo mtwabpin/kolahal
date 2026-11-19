@@ -146,7 +146,7 @@ unlocks          # today's unlock count
 unlocks 7        # one line per day for the last week (1–30)
 unlocks month    # a column a day for 30 days, the trend, and a line per week
 usage-summary    # what Android keeps: days, weeks, months, years
-usage-summary month   # a column per month, the change, and the top apps
+usage-summary month   # a row per month: its total and its time a day
 usage-summary full    # all of them: the overview, weeks, months and years
 ```
 
@@ -177,10 +177,11 @@ reads them:
 
 - `usage-summary` alone: a line for each level, where it starts and the screen time a day in it.
   A line that ends in › runs more when you tap it.
-- `usage-summary week` and `usage-summary month`: the time and unlocks a day, a column for each
-  week or month, the last one that is over with its change (▼ 13%), and the top apps.
-- `usage-summary year`: a line for each year with its change, the top apps of each, and the apps
-  you used <em>less</em> or that are <em>new</em> since the year before, each with a chip.
+- `usage-summary week`, `month` and `year`: the time and unlocks a day, the total, and a table with
+  a row for each week, month or year: its dates, its total and its time a day. Then the change of the
+  last one that is over (▼ 13%) and the top apps.
+- `usage-summary year` also has the top apps of each year, and the apps you used <em>less</em> or
+  that are <em>new</em> since the year before, each with a chip.
 - `usage-summary full`: all of these, each part after a `── weeks ──` line.
 
 The output keeps to numbers and short labels. A `≈` marks Android's own totals: about right, not

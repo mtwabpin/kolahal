@@ -51,13 +51,16 @@ class UsageSummaryCommandsTest {
         }
     }
 
-    /** `week` and `month` start with big numbers, ≈ before the time a day, and have no footnote. */
+    /** `week` and `month` start with big numbers, ≈ before the time a day, then a table; no footnote. */
     @Test fun weeksAndMonths() = withUsageAccess("allow") {
         for (word in listOf("week", "month")) {
             val shown = texts("usage-summary $word")
             if (shown.size == 1 && shown.single().startsWith("No usage recorded")) continue
             assertTrue(shown.first(), Regex("≈(\\d+h )?\\d+m a day .*total").containsMatchIn(shown.first()))
             assertTrue(shown.toString(), shown.none { it.startsWith("Android's") })
+            // A row for each week or month, with its total and its time a day.
+            val head = if (word == "week") "Week" else "Month"
+            assertTrue(shown.toString(), shown.any { it.startsWith("$head\tTotal\tA day") })
         }
     }
 
@@ -66,6 +69,15 @@ class UsageSummaryCommandsTest {
         val shown = texts("usage-summary full")
         val parts = listOf("weeks", "months", "years").map { shown.indexOf("── $it ──") }
         assertTrue(shown.toString(), parts.all { it > 0 } && parts == parts.sorted())
+    }
+
+    /** `year`: the big numbers, then a row for each year. */
+    @Test fun years() = withUsageAccess("allow") {
+        val shown = texts("usage-summary year")
+        if (shown.size == 1 && shown.single().startsWith("No usage recorded")) return@withUsageAccess
+        assertTrue(shown.first(), shown.first().contains("total"))
+        val rows = shown.first { it.startsWith("Year\tTotal\tA day") }.lines().drop(1)
+        assertTrue(rows.toString(), rows.isNotEmpty() && rows.all { Regex("\\w+ \\d{4} – (\\w+ \\d{4}|now)\t.+\t.+").matches(it) })
     }
 
     /** Another word says how to use it. */
