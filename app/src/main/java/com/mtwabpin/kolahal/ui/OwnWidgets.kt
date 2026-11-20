@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import android.media.session.PlaybackState
 import com.mtwabpin.kolahal.R
+import com.mtwabpin.kolahal.control.LastPlayer
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
@@ -126,15 +127,16 @@ internal object OwnCards {
     /**
      * Whether the Now playing card shows [p]: a session that plays or is paused, however long ago.
      * The header hides a paused one after a while. The card keeps it, so that you can start it again.
-     * A session with no state, or in an error, has nothing to control.
+     * A session with no state, or in an error, has nothing to control ([NowPlaying.controllable]).
      */
-    fun shows(p: NowPlaying?): Boolean = p != null && p.state != PlaybackState.STATE_NONE && p.state != PlaybackState.STATE_ERROR
+    fun shows(p: NowPlaying?): Boolean = p != null && p.controllable
 
     /**
      * The Now playing card for the session [p]: the track, the artist, the app, and where the track
      * is. The card's three buttons send `prev`, `toggle` and `next` ([OwnTaps]).
      * - The position moves by itself only while the track really plays. While it buffers it stands.
      * - A position that is not known is 0, and so is a length that is not known.
+     * - It has the session's cover, and its bar sends `seek <ms>` when the player can seek.
      */
     fun media(p: NowPlaying): WidgetSpec.Media = WidgetSpec.Media(
         base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.MEDIA)),
@@ -146,7 +148,41 @@ internal object OwnCards {
         positionAt = p.positionAt,
         speed = if (p.state == PlaybackState.STATE_PLAYING) p.speed else 0f,
         duration = p.duration.coerceAtLeast(0),
+        canSeek = p.canSeek,
+        cover = p.cover,
     )
+
+    /**
+     * The Now playing card with nothing playing, for the player that played last ([LastPlayer]):
+     * its app, its last track when known, and Play, which sends `resume`. It has no position, no
+     * cover and no other button.
+     */
+    fun lastPlayed(last: LastPlayer): WidgetSpec.Media = WidgetSpec.Media(
+        base = WidgetBase(title = WidgetSource.builtinTitle(WidgetSource.MEDIA)),
+        title = last.title?.trim()?.takeIf { it.isNotEmpty() },
+        artist = last.artist?.trim()?.takeIf { it.isNotEmpty() },
+        app = last.app,
+        playing = false,
+        position = 0,
+        positionAt = 0,
+        speed = 0f,
+        duration = 0,
+        lastPlayed = true,
+    )
+
+    /**
+     * What the Now playing card shows.
+     * - Without notification access ([allowed]): "Allow notification access". Nothing else can be known.
+     * - A [session] the card [shows]: its track ([media]).
+     * - Else the player that played [last], when there is one: its last track and Play ([lastPlayed]).
+     * - Else "Nothing playing".
+     */
+    fun nowPlaying(allowed: Boolean, session: NowPlaying?, last: LastPlayer?): WidgetSpec = when {
+        !allowed -> quiet(WidgetSource.MEDIA, ALLOW_NOTIFICATIONS)
+        session != null && shows(session) -> media(session)
+        last != null -> lastPlayed(last)
+        else -> quiet(WidgetSource.MEDIA, NOTHING_PLAYING)
+    }
 
     // ---- agenda -----------------------------------------------------------------------------
 
@@ -415,34 +451,32 @@ private fun ShortcutsWidget(height: Dp, actions: WidgetCardActions?, own: OwnFee
     OwnCard(WidgetSource.SHORTCUTS, height, spec, description, actions, cardTap = OwnTaps.EDIT, cardTapLabel = "edit shortcuts")
 }
 
-/** For a card with no feed: nothing plays, and nothing says that access is missing. */
+/** For a card with no feed: nothing plays, nothing played before, and nothing says that access is missing. */
 private val NO_SESSION: StateFlow<NowPlaying?> = MutableStateFlow(null)
+private val NO_PLAYER: StateFlow<LastPlayer?> = MutableStateFlow(null)
 private val ALLOWED: StateFlow<Boolean> = MutableStateFlow(true)
 
 /**
  * The built-in Now playing card: the track, the artist, the app and the position, with previous,
- * play or pause, and next.
+ * play or pause, and next. The cover is there when the player gives one, and the bar moves the
+ * track when the player can seek.
  * - It shows the media session that the header's line shows, live. Kolahal follows the sessions
  *   for as long as it has notification access, whichever page is in view, so the card has nothing
  *   to start. Each time the page comes into view it asks whether the access is still there.
  * - A button answers every tap: there is no 2-second wait between two taps. A tap beside the
  *   buttons opens the app that plays.
- * - With no session it says "Nothing playing". Without notification access it says "Allow
- *   notification access", and a tap asks for it.
+ * - With no session it shows the player that played last, with Play ([OwnCards.lastPlayed]), or
+ *   "Nothing playing" when none did. Without notification access it says "Allow notification
+ *   access", and a tap asks for it.
  */
 @Composable
 private fun MediaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val playing by (own?.playing ?: NO_SESSION).collectAsStateWithLifecycle()
     val allowed by (own?.mediaAllowed ?: ALLOWED).collectAsStateWithLifecycle()
-    val session = playing?.takeIf { allowed && OwnCards.shows(it) }
-    val spec: WidgetSpec = remember(session, allowed) {
-        when {
-            !allowed -> OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS)
-            session == null -> OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING)
-            else -> OwnCards.media(session)
-        }
-    }
+    val last by (own?.lastPlayer ?: NO_PLAYER).collectAsStateWithLifecycle()
+    val spec: WidgetSpec = remember(playing, allowed, last) { OwnCards.nowPlaying(allowed, playing, last) }
     val description = remember(spec) { OwnCards.said(spec) }
+    val app = (spec as? WidgetSpec.Media)?.app
     OwnCard(
         id = WidgetSource.MEDIA,
         height = height,
@@ -450,7 +484,7 @@ private fun MediaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
         description = description,
         actions = actions,
         cardTap = if (allowed) OwnTaps.OPEN else OwnTaps.ALLOW,
-        cardTapLabel = if (!allowed) "allow notification access" else if (session != null) "open ${session.app}" else "open the player",
+        cardTapLabel = if (!allowed) "allow notification access" else if (app != null) "open $app" else "open the player",
     )
 }
 

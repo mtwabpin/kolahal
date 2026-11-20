@@ -363,6 +363,10 @@ class WidgetWordsTest {
         val media = WidgetSpec.Media(base, title = "Song", artist = "Singer", app = "Player", playing = true, position = 0, positionAt = 0, speed = 1f, duration = 0)
         assertEquals("Now playing: Song, Singer, Player, playing", WidgetWords.description("Now playing", media, now, utc))
         assertEquals("Now playing: Player, paused", WidgetWords.description("Now playing", media.copy(title = null, artist = null, playing = false), now, utc))
+        // With nothing playing, the last player's track.
+        val last = media.copy(playing = false, lastPlayed = true)
+        assertEquals("Now playing: Song, Singer, Player, last played", WidgetWords.description("Now playing", last, now, utc))
+        assertEquals("Now playing: Player, last played", WidgetWords.description("Now playing", last.copy(title = null, artist = null), now, utc))
     }
 
     /** The design's numbers: 2 buttons at 2×1, 4 at 2×2 and at 4×1, 8 at 4×2. The boxes are those of a page 344 dp wide. */
@@ -465,6 +469,60 @@ class WidgetWordsTest {
         assertEquals(48, WidgetWords.mediaPlayDp(0, besideText = true, count = 1))
         // The words the buttons hand over are the ones the Now playing widget reads.
         assertEquals(listOf("prev", "toggle", "next"), listOf(WidgetWords.MEDIA_PREV, WidgetWords.MEDIA_TOGGLE, WidgetWords.MEDIA_NEXT))
+    }
+
+    /** The bar stands for the whole track: its ends are the start and the end, in whole milliseconds. */
+    @Test fun aSeekBarsPlaceIsATimeInTheTrack() {
+        assertEquals(0L, WidgetWords.seekTarget(0f, 185_000))
+        assertEquals(185_000L, WidgetWords.seekTarget(1f, 185_000))
+        assertEquals(92_500L, WidgetWords.seekTarget(0.5f, 185_000))
+        assertEquals(72_000L, WidgetWords.seekTarget(72f / 185, 185_000))
+        // Past either end is the end, and a place that isn't a number is the start.
+        assertEquals(185_000L, WidgetWords.seekTarget(1.2f, 185_000))
+        assertEquals(0L, WidgetWords.seekTarget(-0.3f, 185_000))
+        assertEquals(0L, WidgetWords.seekTarget(Float.NaN, 185_000))
+        // No length known: nowhere to go.
+        assertEquals(0L, WidgetWords.seekTarget(0.5f, 0))
+        assertEquals(0L, WidgetWords.seekTarget(0.5f, -1))
+        // A ten-hour book is a place to the second.
+        assertEquals(18_000_000.0, WidgetWords.seekTarget(0.5f, 36_000_000).toDouble(), 1_000.0)
+        // A screen reader hears the place and the length, as the card writes them.
+        assertEquals("1:12 of 3:05", WidgetWords.seekSaid(72f / 185, 185_000))
+        assertEquals("0:00 of 3:05", WidgetWords.seekSaid(0f, 185_000))
+        assertEquals("5:00:00 of 10:00:00", WidgetWords.seekSaid(0.5f, 36_000_000))
+        // On release the bar hands over the place in milliseconds.
+        assertEquals("seek 72000", WidgetWords.mediaSeek(72_000))
+    }
+
+    /** Only a track the player can seek in, with a known length, has a bar that moves it. */
+    @Test fun aMediaBarSeeksWhenThePlayerCan() {
+        assertFalse(WidgetWords.mediaSeeks(song))
+        assertTrue(WidgetWords.mediaSeeks(song.copy(canSeek = true)))
+        assertFalse("no length", WidgetWords.mediaSeeks(song.copy(canSeek = true, duration = 0)))
+        assertFalse("nothing playing", WidgetWords.mediaSeeks(song.copy(canSeek = true, lastPlayed = true)))
+    }
+
+    /** The cover takes its room from the texts, never a button, and the texts keep 96 dp. */
+    @Test fun aCoverFitsWhereTheTextsKeepTheirRoom() {
+        // 4×1 on a page 395 dp wide: three buttons, the 16 dp more for play or pause, and 187 dp of text.
+        assertEquals(187, WidgetWords.mediaTextDp(363, count = 3, playDp = WidgetWords.mediaPlayDp(363, besideText = true, count = 3)))
+        assertTrue(WidgetWords.mediaCoverFits(187))
+        // 4×1 on a page 344 dp wide: 136 dp of text would keep only 68.
+        assertEquals(136, WidgetWords.mediaTextDp(312, count = 3, playDp = WidgetWords.mediaPlayDp(312, besideText = true, count = 3)))
+        assertFalse(WidgetWords.mediaCoverFits(136))
+        // The edge: 56 dp of cover, 12 after it, and 96 of text.
+        assertTrue(WidgetWords.mediaCoverFits(164))
+        assertFalse(WidgetWords.mediaCoverFits(163))
+        // 2×1 has play or pause alone, and no room.
+        assertFalse(WidgetWords.mediaCoverFits(WidgetWords.mediaTextDp(161, count = 1, playDp = WidgetWords.mediaPlayDp(161, besideText = true, count = 1))))
+    }
+
+    /** A large media card with no cover keeps its title line. Any other large card has one. */
+    @Test fun aLargeCardHasItsTitleLine() {
+        assertTrue(WidgetWords.largeTitle(song, 363))
+        assertTrue(WidgetWords.largeTitle(song.copy(lastPlayed = true), 363))
+        assertTrue(WidgetWords.largeTitle(WidgetSpec.Stat(base, value = "1"), 363))
+        assertTrue(WidgetWords.largeTitle(null, 363))
     }
 
     private fun event(title: String, starts: Long, ends: Long? = null, allDay: Boolean = false, where: String? = null) =

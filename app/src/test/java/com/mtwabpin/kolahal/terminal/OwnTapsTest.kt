@@ -61,6 +61,25 @@ class OwnTapsTest {
         assertNull(OwnTaps.parse("media", "next 2"))
     }
 
+    /** The bar moves the track to a place in milliseconds, and Play with nothing playing starts the last track again. */
+    @Test fun mediaSeeksAndResumes() {
+        assertEquals(OwnTap.Seek(72_000), OwnTaps.parse("media", "seek 72000"))
+        assertEquals(OwnTap.Seek(0), OwnTaps.parse("media", OwnTaps.seek(0)))
+        assertEquals(OwnTap.Seek(36_000_000), OwnTaps.parse("media", OwnTaps.seek(36_000_000)))
+        assertEquals(OwnTap.Resume, OwnTaps.parse("media", "resume"))
+        assertEquals(OwnTap.Resume, OwnTaps.parse("media", OwnTaps.RESUME))
+        // A place is a whole number of milliseconds, and never before the start.
+        assertNull(OwnTaps.parse("media", "seek"))
+        assertNull(OwnTaps.parse("media", "seek -1"))
+        assertNull(OwnTaps.parse("media", "seek 1:12"))
+        assertNull(OwnTaps.parse("media", "seek 7.5"))
+        assertNull(OwnTaps.parse("media", "seek 72000 torch"))
+        assertNull(OwnTaps.parse("media", "resume now"))
+        // Other widgets have neither.
+        assertNull(OwnTaps.parse("todos", "seek 1000"))
+        assertNull(OwnTaps.parse("agenda", "resume"))
+    }
+
     @Test fun theAgendaOpensAnEvent() {
         assertEquals(OwnTap.OpenEvent(41), OwnTaps.parse("agenda", "event 41"))
         assertEquals(OwnTap.OpenEvent(41, 1_800_000_000_000L), OwnTaps.parse("agenda", "event 41 1800000000000"))

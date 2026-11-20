@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.terminal
 
 import android.content.Context
+import com.mtwabpin.kolahal.control.LastPlayer
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.productivity.Agenda
@@ -55,6 +56,8 @@ data class AgendaRead(val allowed: Boolean, val events: List<AgendaEvent>, val a
  *   notification access.
  * - [agenda]: the calendar's events, as last read.
  * - [mediaAllowed]: Kolahal has notification access, as last checked. Without it nothing can be in [playing].
+ * - [lastPlayer]: the player that [playing] showed last ([MediaRepository.lastPlayer]), for the
+ *   card to offer when nothing plays.
  */
 class OwnFeed(
     val todos: StateFlow<List<Todo>?>,
@@ -65,6 +68,7 @@ class OwnFeed(
     val agenda: StateFlow<AgendaRead>,
     val mediaAllowed: StateFlow<Boolean> = MutableStateFlow(true),
     val feeds: StateFlow<List<com.mtwabpin.kolahal.feeds.FeedInfo>?> = MutableStateFlow(null),
+    val lastPlayer: StateFlow<LastPlayer?> = MutableStateFlow(null),
 )
 
 /** What a tap inside a built-in card asks for. [OwnTaps.parse] makes one from the card's words. */
@@ -83,6 +87,12 @@ internal sealed interface OwnTap {
 
     /** One of the Now playing card's three buttons. */
     data class Media(val action: MediaRepository.Action) : OwnTap
+
+    /** Moves the track to [ms], in milliseconds: the Now playing card's bar. */
+    data class Seek(val ms: Long) : OwnTap
+
+    /** Plays the last player's track again, with nothing playing: the Now playing card's Play. */
+    data object Resume : OwnTap
 
     /** Opens the app that plays. */
     data object OpenPlayer : OwnTap
@@ -105,13 +115,13 @@ internal sealed interface OwnTap {
  * is never among them: the Shortcuts card sends the button's place in the list, and the view model
  * looks the command up.
  *
- * | Widget           | Words                                         |
- * |------------------|-----------------------------------------------|
- * | shortcuts        | `run <index>`, `edit`                         |
- * | todos            | `done #<id>`, `undo #<id>`, `open`            |
- * | reminders, notes | `open`                                        |
- * | media            | `prev`, `toggle`, `next`, `open`, `allow`     |
- * | agenda           | `event <id> [<begin>]`, `open`, `allow`       |
+ * | Widget           | Words                                                               |
+ * |------------------|---------------------------------------------------------------------|
+ * | shortcuts        | `run <index>`, `edit`                                               |
+ * | todos            | `done #<id>`, `undo #<id>`, `open`                                  |
+ * | reminders, notes | `open`                                                              |
+ * | media            | `prev`, `toggle`, `next`, `seek <ms>`, `resume`, `open`, `allow`    |
+ * | agenda           | `event <id> [<begin>]`, `open`, `allow`                             |
  */
 internal object OwnTaps {
     const val OPEN = "open"
@@ -120,9 +130,13 @@ internal object OwnTaps {
     const val PREV = "prev"
     const val TOGGLE = "toggle"
     const val NEXT = "next"
+    const val RESUME = "resume"
 
     /** The words of the Shortcuts button at [index], counted from 0. */
     fun run(index: Int): String = "run $index"
+
+    /** The words that move the playing track to [ms], in milliseconds. */
+    fun seek(ms: Long): String = "seek $ms"
 
     /** The words that mark the todo [id] done. */
     fun done(id: Long): String = "done #$id"
@@ -167,6 +181,8 @@ internal object OwnTaps {
                 PREV -> alone(OwnTap.Media(MediaRepository.Action.PREV))
                 TOGGLE -> alone(OwnTap.Media(MediaRepository.Action.TOGGLE))
                 NEXT -> alone(OwnTap.Media(MediaRepository.Action.NEXT))
+                "seek" -> arg?.toLongOrNull()?.takeIf { it >= 0 }?.let(OwnTap::Seek)
+                RESUME -> alone(OwnTap.Resume)
                 OPEN -> alone(OwnTap.OpenPlayer)
                 ALLOW -> alone(OwnTap.AllowNotifications)
                 else -> null
@@ -258,6 +274,7 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
         playing = media.nowPlaying,
         agenda = agenda.asStateFlow(),
         mediaAllowed = mediaAllowed.asStateFlow(),
+        lastPlayer = media.lastPlayer,
     )
 
     /**
@@ -331,8 +348,27 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
         scope.launch(taps) { runCatching { media.send(action) } }
     }
 
-    /** What plays now, for a tap that opens the player. */
-    val playing: NowPlaying? get() = media.nowPlaying.value
+    /** Moves the track that [OwnFeed.playing] shows to [ms], in milliseconds. */
+    fun seek(ms: Long) {
+        scope.launch(taps) { runCatching { media.seekTo(ms) } }
+    }
+
+    /**
+     * Plays the last player's track again ([MediaRepository.resume]). When nothing can be sent to it,
+     * [open] gets the player, so that its app opens instead.
+     */
+    fun resume(open: (LastPlayer) -> Unit) {
+        scope.launch(taps) {
+            val done = runCatching { media.resume() }.getOrDefault(MediaRepository.Resumed.NOTHING)
+            if (done == MediaRepository.Resumed.NOTHING) media.lastPlayer.value?.let(open)
+        }
+    }
+
+    /**
+     * The player the card shows, for a tap that opens it: the last player, which is the session's
+     * while one shows ([MediaRepository.lastPlayer]), else any session's.
+     */
+    val player: LastPlayer? get() = media.lastPlayer.value ?: media.nowPlaying.value?.let { LastPlayer(it.pkg, it.app) }
 
     /** The calendar event [id] that starts at [begin], as last read. Null when it is not among them. */
     fun event(id: Long, begin: Long?): AgendaEvent? = agenda.value.events.firstOrNull { it.id == id && (begin == null || it.begin == begin) }

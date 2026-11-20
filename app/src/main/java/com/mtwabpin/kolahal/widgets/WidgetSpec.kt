@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.widgets
 
+import android.graphics.Bitmap
 import androidx.compose.runtime.Immutable
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.Json
@@ -274,6 +275,11 @@ sealed interface WidgetSpec {
      * Times are in milliseconds. [position] was right at the moment [positionAt] (on the phone's clock,
      * `System.currentTimeMillis`), and moves at [speed] while [playing]. A [duration] of 0 or less
      * means it is not known.
+     * - [canSeek]: the player can move to a place in the track, so the bar takes a drag.
+     * - [cover]: the track's album art, small ([com.mtwabpin.kolahal.control.Covers]). It is never
+     *   changed once made, and the same picture is the same object.
+     * - [lastPlayed]: nothing plays. This is the player that played last, with its last track when
+     *   known, and Play starts it again.
      */
     data class Media(
         override val base: WidgetBase,
@@ -285,6 +291,9 @@ sealed interface WidgetSpec {
         val positionAt: Long,
         val speed: Float,
         val duration: Long,
+        val canSeek: Boolean = false,
+        val cover: Bitmap? = null,
+        val lastPlayed: Boolean = false,
     ) : WidgetSpec
 }
 

@@ -115,9 +115,10 @@ class WidgetGalleryTest {
     /**
      * One picture: [spec]'s card at [size], under [title], saved as `real-<name>-<size>.png`.
      * With [inView] the card is drawn as on the page in view: a wave moves and a picture loads.
-     * [badge] is the drawable of a built-in card's badge ([builtinBadge]).
+     * [badge] is the drawable of a built-in card's badge ([builtinBadge]). With [taps] the card
+     * takes taps, as on the page: a media card's bar is then a slider.
      */
-    private data class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null, val prefix: String = "real", val look: WidgetLook = WidgetLook.PLAIN) {
+    private data class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null, val prefix: String = "real", val look: WidgetLook = WidgetLook.PLAIN, val taps: Boolean = false) {
         val file get() = "$prefix-$name-${size.id}.png"
     }
 
@@ -130,12 +131,14 @@ class WidgetGalleryTest {
      * Every card in each look ([WidgetLook]), saved in `files/gallery-looks` as
      * `<look>-<name>-<size>.png`. Instrumentation arguments narrow it down: `looks` (a comma list
      * such as `tonal,shape`; all looks without it) and `names` (a comma list of card names, as in the
-     * file names; all cards without it).
+     * file names; all cards without it). With `light` set to `true` the cards are in the theme's
+     * light version.
      *
      *     adb pull /sdcard/Android/data/com.mtwabpin.kolahal.debug/files/gallery-looks
      */
     @Test fun everyLookIsDrawnAndSaved() {
         val args = InstrumentationRegistry.getArguments()
+        if (args.getString("light") == "true") Term.palette = Palettes.gruvboxMaterialLight
         val looks = args.getString("looks")?.split(',')?.mapNotNull { WidgetLook.named(it) }?.ifEmpty { null } ?: WidgetLook.entries
         val names = args.getString("names")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()
         val cards = (kinds() + readyMade()).filter { names == null || it.name in names }
@@ -242,6 +245,7 @@ class WidgetGalleryTest {
                                         note = null,
                                         badge = shot.badge,
                                         description = WidgetWords.description(shot.title, shot.spec, now, zone, clock24 = true),
+                                        onTap = if (shot.taps) ({ _: WidgetTap -> }) else null,
                                     )
                                 }
                             }
@@ -297,6 +301,12 @@ class WidgetGalleryTest {
             state = PlaybackState.STATE_PLAYING, position = 72_000, positionAt = nowMs, speed = 0f, duration = 185_000, idleSince = 0,
         ),
     )
+
+    /** The same track from a player that gives its cover and can seek: on the page its bar is a slider. */
+    private val mediaCover = media.copy(canSeek = true, cover = album())
+
+    /** The card with nothing playing: the player that played last, with Play. */
+    private val mediaLast = OwnCards.lastPlayed(com.mtwabpin.kolahal.control.LastPlayer("com.example.music", "Music", "Clair de lune", "Claude Debussy"))
 
     private val room = listOf(23.5f, 23.1f, 22.7f, 22.4f, 22.6f, 23.3f, 24.2f, 25.1f, 25.8f, 26.0f, 25.5f, 24.6f)
 
@@ -408,6 +418,7 @@ class WidgetGalleryTest {
             ),
         ),
         Shot("kind-media", WidgetSize.S4X1, "Now playing", media, badge = builtinBadge(WidgetSource.MEDIA)),
+        Shot("kind-media-cover", WidgetSize.S4X1, "Now playing", mediaCover, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
         Shot(
             "kind-image", WidgetSize.S2X2, "Photo of the day",
             WidgetSpec.Image(base("Photo of the day"), image = HILLS, alt = "Hills at sunrise", caption = "Sunrise over the ghats"),
@@ -492,6 +503,10 @@ class WidgetGalleryTest {
             ),
             Shot("shortcuts", WidgetSize.S4X1, "Shortcuts", checkNotNull(OwnCards.shortcuts(shortcuts)), badge = builtinBadge(WidgetSource.SHORTCUTS)),
             Shot("nowplaying", WidgetSize.S4X2, "Now playing", media, badge = builtinBadge(WidgetSource.MEDIA)),
+            Shot("nowplaying-cover", WidgetSize.S4X2, "Now playing", mediaCover, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
+            Shot("nowplaying-seek", WidgetSize.S4X2, "Now playing", media.copy(canSeek = true), badge = builtinBadge(WidgetSource.MEDIA), taps = true),
+            Shot("nowplaying-last", WidgetSize.S4X2, "Now playing", mediaLast, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
+            Shot("nowplaying-last", WidgetSize.S4X1, "Now playing", mediaLast, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
             Shot("todos", WidgetSize.S2X2, "Todos", OwnCards.todos(todos.mapIndexed { i, text -> Todo(i + 1L, text, done = false) }), badge = builtinBadge(WidgetSource.TODOS)),
             Shot("agenda", WidgetSize.S4X2, "Agenda", agenda, badge = builtinBadge(WidgetSource.AGENDA)),
             Shot("reminders", WidgetSize.S2X2, "Reminders", OwnCards.reminders(reminders, nowMs, zone, clock24 = true), badge = builtinBadge(WidgetSource.REMINDERS)),
@@ -578,6 +593,20 @@ class WidgetGalleryTest {
         lineTo(640f, 480f)
         lineTo(0f, 480f)
         close()
+    }
+
+    /** An album's cover, as a player sends it: a disc on a field of colour, at 512 pixels. */
+    private fun album(): Bitmap {
+        val p = Palettes.gruvboxMaterial
+        val picture = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(picture)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        canvas.drawColor(lerp(p.surface, p.warn, 0.7f).toArgb())
+        paint.color = lerp(p.bg, p.surface, 0.5f).toArgb()
+        canvas.drawCircle(256f, 256f, 180f, paint)
+        paint.color = lerp(p.surface, p.error, 0.8f).toArgb()
+        canvas.drawCircle(256f, 256f, 60f, paint)
+        return picture
     }
 
     /** A strip with two stick figures, as a comic has them. */

@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Context
 import android.content.Intent
 import android.provider.CalendarContract
+import com.mtwabpin.kolahal.control.LastPlayer
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -223,6 +224,9 @@ class WidgetActions internal constructor(
             // A checkbox and a media button answer every tap: no 2-second gate. Neither prints a line.
             is OwnTap.SetTodo -> ownData.setTodo(tap.id, tap.done)
             is OwnTap.Media -> ownData.media(tap.action)
+            is OwnTap.Seek -> ownData.seek(tap.ms)
+            // When Android can't hand Play to the last player, its app opens instead, where it can be played.
+            OwnTap.Resume -> ownData.resume(::openPlayer)
             // A command prints in the log, so quick taps on one item run it once, as for a header item.
             is OwnTap.Typed -> if (taps.allow("own:$id:$what")) host.runTyped(tap.command)
             is OwnTap.RunShortcut -> {
@@ -235,15 +239,17 @@ class WidgetActions internal constructor(
                 ownData.askShortcutsEditor()
                 host.openScreen(Screen.WIDGETS)
             }
-            OwnTap.OpenPlayer -> {
-                val playing = ownData.playing ?: return
-                val player = context.packageManager.getLaunchIntentForPackage(playing.pkg)
-                if (player != null) start(player) else host.io { logs.add(LogKind.ERROR, "Can't open ${playing.app}") }
-            }
+            OwnTap.OpenPlayer -> openPlayer(ownData.player ?: return)
             OwnTap.AllowNotifications -> host.requestNotificationAccess()
             OwnTap.AllowCalendar -> host.requestCalendar()
             is OwnTap.OpenEvent -> start(eventIntent(tap.id, ownData.event(tap.id, tap.begin)))
         }
+    }
+
+    /** Opens [player]'s app. When it has no screen to open, the log says so. */
+    private fun openPlayer(player: LastPlayer) {
+        val intent = context.packageManager.getLaunchIntentForPackage(player.pkg)
+        if (intent != null) start(intent) else host.io { logs.add(LogKind.ERROR, "Can't open ${player.app}") }
     }
 
     override fun ownShown(id: String) = ownData.shown(id)

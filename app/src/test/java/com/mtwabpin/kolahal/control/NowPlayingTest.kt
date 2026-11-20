@@ -3,10 +3,11 @@ package com.mtwabpin.kolahal.control
 import android.media.session.PlaybackState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** What the header's media line and its progress bar read from a session. */
+/** What the header's media line, its progress bar and the Now playing card read from a session. */
 class NowPlayingTest {
     private val at = 1_000_000L
 
@@ -112,5 +113,49 @@ class NowPlayingTest {
     @Test fun neverBeforeTheStart() {
         assertEquals(0L, np(position = 0).positionNow(at - 800))
         assertEquals(0L, np(position = 100).positionNow(at - 800))
+    }
+
+    /** A session with no state, or in an error, has nothing to control. Any other has a track. */
+    @Test fun aSessionWithAStateHasATrackToControl() {
+        val controllable = listOf(
+            PlaybackState.STATE_PLAYING, PlaybackState.STATE_PAUSED, PlaybackState.STATE_STOPPED,
+            PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING,
+        )
+        for (state in controllable) assertTrue("state $state", np(state = state).controllable)
+        assertFalse(np(state = PlaybackState.STATE_NONE).controllable)
+        assertFalse(np(state = PlaybackState.STATE_ERROR).controllable)
+    }
+
+    /**
+     * The last player is the session shown with a track, with that track. A session with nothing to
+     * control, or none, leaves it as it was: the card then offers it again.
+     */
+    @Test fun theLastPlayerIsTheLastSessionShownWithATrack() {
+        assertNull(LastPlayer.after(null, null))
+        val paused = np(state = PlaybackState.STATE_PAUSED)
+        val last = LastPlayer("com.example.player", "Player", "Song", "Band")
+        assertEquals(last, LastPlayer.after(null, paused))
+        assertEquals(last, LastPlayer.after(null, np()))
+        // Gone, or with no state: the last one stays.
+        assertEquals(last, LastPlayer.after(last, null))
+        assertEquals(last, LastPlayer.after(last, np(state = PlaybackState.STATE_NONE, title = "Other")))
+        assertEquals(last, LastPlayer.after(last, np(state = PlaybackState.STATE_ERROR)))
+        // A new track, or another player, takes its place. A track the player doesn't name has no title.
+        assertEquals(LastPlayer("com.example.player", "Player", "Next song", "Band"), LastPlayer.after(last, np(title = "Next song")))
+        assertEquals(LastPlayer("com.example.player", "Player", null, null), LastPlayer.after(last, np(title = null, artist = null)))
+        // After a restart only the package and the app's name are known.
+        assertEquals(LastPlayer("com.example.player", "Player", null, null), LastPlayer("com.example.player", "Player"))
+    }
+
+    /** A cover is the middle square of the art, never made larger than it is. */
+    @Test fun aCoverIsTheMiddleSquareOfTheArt() {
+        assertEquals(Triple(50, 0, 300), Covers.square(400, 300))
+        assertEquals(Triple(0, 50, 300), Covers.square(300, 400))
+        assertEquals(Triple(0, 0, 512), Covers.square(512, 512))
+        assertEquals(0, Covers.square(0, 300).third)
+        // 56 dp on a screen of 3 pixels a dp: 168 pixels.
+        assertEquals(168f / 512, Covers.scale(512, 168), 1e-6f)
+        assertEquals("a small picture keeps its size", 1f, Covers.scale(96, 168), 0f)
+        assertEquals(0f, Covers.scale(0, 168), 0f)
     }
 }

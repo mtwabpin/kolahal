@@ -68,11 +68,13 @@ object Stores {
      * The names say what you work on, so they stay on this phone.
      */
     val EDITOR = Prefs("editor", inBackup = false, toCloud = false, toNewPhone = false)
+    /** The app that played last, for the Now playing card: which app you listen with is not for the cloud. */
+    val MEDIA = Prefs("media", inBackup = false, toCloud = false)
 
     val PREFS = listOf(
         CONFIG, ALIASES, APPS, APP_USAGE, NOTIF_PREFS, SCRIPT_LIBRARY, SCRIPT_CATALOG, SCRIPT_SOURCES, OLD_UNLOCKS, LAUNCHER, OLD_LOGS,
         PICKED_CONTACTS, WALLPAPER_MATCH, CRASH, TRIGGERS, DAILY_SCHEDULE, SCRIPT_FOLDER, LIBRARY_UPDATES, WIDGETS,
-        TIPS, SCRIPTS_PAGE, AUTO_BACKUP, REMINDERS, EDITOR,
+        TIPS, SCRIPTS_PAGE, AUTO_BACKUP, REMINDERS, EDITOR, MEDIA,
     )
 
     // Key-value scopes ([KvStore]), all in kolahal.db. The database stays out of the cloud and goes to a new phone.

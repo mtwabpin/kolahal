@@ -17,6 +17,7 @@
     <exclude domain="sharedpref" path="logs.xml" />
     <exclude domain="sharedpref" path="app_usage.xml" />
     <exclude domain="sharedpref" path="unlocks.xml" />
+    <exclude domain="sharedpref" path="media.xml" />
     <exclude domain="sharedpref" path="picked_contacts.xml" />
     <!-- wallpaper match's wallpaper id: another phone's same number is someone's own wallpaper. -->
     <exclude domain="sharedpref" path="wallpaper_match.xml" />

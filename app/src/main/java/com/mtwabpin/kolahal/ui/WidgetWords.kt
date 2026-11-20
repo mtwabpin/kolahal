@@ -330,7 +330,13 @@ internal object WidgetWords {
                     add(spec.title)
                     add(spec.artist)
                     add(spec.app)
-                    add(if (spec.playing) "playing" else "paused")
+                    add(
+                        when {
+                            spec.lastPlayed -> "last played"
+                            spec.playing -> "playing"
+                            else -> "paused"
+                        },
+                    )
                 }
             }
         }
@@ -725,6 +731,28 @@ internal object WidgetWords {
     const val MEDIA_TOGGLE = "toggle"
     const val MEDIA_NEXT = "next"
 
+    /** The words of a media card's Play with nothing playing ([WidgetSpec.Media.lastPlayed]): it plays the last track again. */
+    const val MEDIA_RESUME = "resume"
+
+    /** The words that move a media card's track to [ms], in milliseconds: its bar hands them over on release. */
+    fun mediaSeek(ms: Long): String = "seek $ms"
+
+    /** What a media card says over the track with nothing playing ([WidgetSpec.Media.lastPlayed]). */
+    const val LAST_PLAYED = "Last played"
+
+    /** Whether a media card's bar moves the track: the player can seek, the length is known, and something is playing or paused. */
+    fun mediaSeeks(spec: WidgetSpec.Media): Boolean = spec.canSeek && spec.duration > 0 && !spec.lastPlayed
+
+    /** The place in a track [duration] long, in whole milliseconds, that a bar at [fraction] (0 to 1) stands for. */
+    fun seekTarget(fraction: Float, duration: Long): Long {
+        if (duration <= 0) return 0
+        val f = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
+        return Math.round(f.toDouble() * duration).coerceIn(0, duration)
+    }
+
+    /** A bar at [fraction] of a track [duration] long, as a screen reader hears it: "1:12 of 3:05". */
+    fun seekSaid(fraction: Float, duration: Long): String = "${mediaTime(seekTarget(fraction, duration))} of ${mediaTime(duration)}"
+
     /** The big line of a media card: the title, or the app's name when the player gives none. */
     fun mediaTitle(spec: WidgetSpec.Media): String = spec.title?.takeIf { it.isNotBlank() } ?: spec.app
 
@@ -756,6 +784,19 @@ internal object WidgetWords {
 
     /** The least width of a media card's texts beside its buttons, in dp. */
     private const val MEDIA_TEXT_DP = 96
+
+    /** A media card's cover is this wide ([com.mtwabpin.kolahal.control.Covers]), with this room after it, in dp. */
+    const val MEDIA_COVER_DP = com.mtwabpin.kolahal.control.Covers.COVER_DP
+    const val MEDIA_COVER_GAP_DP = 12
+
+    /**
+     * Whether a media card's cover fits before its texts, which are [textDp] wide without it. The
+     * cover takes its room from the texts, never from a button, and the texts keep [MEDIA_TEXT_DP].
+     */
+    fun mediaCoverFits(textDp: Int): Boolean = textDp - MEDIA_COVER_DP - MEDIA_COVER_GAP_DP >= MEDIA_TEXT_DP
+
+    /** The width of a media card's texts beside [count] buttons ([mediaButtons]), play or pause [playDp] wide, in a box [widthDp] wide. */
+    fun mediaTextDp(widthDp: Int, count: Int, playDp: Int): Int = widthDp - CONTROL_GAP_DP - playDp - (count - 1) * (CONTROL_DP + 4)
 
     /**
      * How many of a media card's three buttons a box [widthDp] wide has: 3 (previous, play or pause,
@@ -822,6 +863,13 @@ internal object WidgetWords {
         is WidgetSpec.Progress -> footer || if (spec.items.isEmpty() && spec.style == "ring") false else heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size
         else -> true
     }
+
+    /**
+     * Whether a large card, [widthDp] wide inside its padding, draws its title line over [spec]'s
+     * content. A media card with a cover that fits ([mediaCoverFits]) has none: the cover heads it,
+     * with the track beside it, where the badge and the title would be. Any other card has it.
+     */
+    fun largeTitle(spec: WidgetSpec?, widthDp: Int): Boolean = !(spec is WidgetSpec.Media && spec.cover != null && mediaCoverFits(widthDp))
 
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
     data class Footer(val text: String, val said: String, val failed: Boolean)

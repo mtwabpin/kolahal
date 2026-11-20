@@ -181,12 +181,22 @@ internal fun QuietLine(text: String, small: Boolean = false) {
 internal fun LevelBar(fraction: Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier, wavy: Boolean = false) {
     val target = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
     val shown by animateFloatAsState(target, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "level")
+    LevelBar({ shown }, moving, colour, modifier, wavy)
+}
+
+/**
+ * [LevelBar] at the level [level] gives while drawing, with no spring: a media slider's track,
+ * which follows a finger. A level that moves draws the bar again and composes nothing.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun LevelBar(level: () -> Float, moving: Boolean, colour: Color, modifier: Modifier = Modifier, wavy: Boolean = false) {
     val runs = moving && cardSeen()
     val waves = runs || wavy
     val line = if (moving || wavy) WAVE_LINE else BAR_LINE
     val stroke = with(LocalDensity.current) { Stroke(width = line.toPx(), cap = StrokeCap.Round) }
     LinearWavyProgressIndicator(
-        progress = { shown.coerceIn(0f, 1f) },
+        progress = { level().let { if (it.isNaN()) 0f else it.coerceIn(0f, 1f) } },
         modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
         color = colour,
         trackColor = colour.copy(alpha = 0.24f),

@@ -1,6 +1,7 @@
 package com.mtwabpin.kolahal.ui
 
 import android.media.session.PlaybackState
+import com.mtwabpin.kolahal.control.LastPlayer
 import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.sourceFile
@@ -167,6 +168,64 @@ class OwnCardsTest {
         assertEquals(0L, spec.duration)
     }
 
+    /** The card can move the track when the player can, and it has the session's cover. */
+    @Test fun nowPlayingCarriesSeekAndCover() {
+        assertFalse(OwnCards.media(session(PlaybackState.STATE_PLAYING)).canSeek)
+        assertTrue(OwnCards.media(session(PlaybackState.STATE_PLAYING).copy(canSeek = true)).canSeek)
+        assertNull(OwnCards.media(session(PlaybackState.STATE_PLAYING)).cover)
+        assertFalse(OwnCards.media(session(PlaybackState.STATE_PAUSED)).lastPlayed)
+        // The bar and the Play of a card with nothing playing send words the view model knows.
+        assertEquals(OwnTaps.RESUME, WidgetWords.MEDIA_RESUME)
+        assertEquals(OwnTap.Resume, OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.MEDIA_RESUME))
+        assertEquals(OwnTaps.seek(72_000), WidgetWords.mediaSeek(72_000))
+        assertEquals(OwnTap.Seek(72_000), OwnTaps.parse(WidgetSource.MEDIA, WidgetWords.mediaSeek(72_000)))
+    }
+
+    private val lastPlayer = LastPlayer("com.example.player", "Player", "So What", "Miles Davis")
+
+    /**
+     * What the card shows: without notification access it asks for it, whatever else is known. A
+     * session with a track is shown. With none, the player that played last, with Play. With none
+     * ever, "Nothing playing".
+     */
+    @Test fun nowPlayingChoosesWhatItShows() {
+        val playing = session(PlaybackState.STATE_PLAYING)
+        assertEquals(OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS), OwnCards.nowPlaying(allowed = false, playing, lastPlayer))
+        assertEquals(OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS), OwnCards.nowPlaying(allowed = false, null, null))
+        assertEquals(OwnCards.media(playing), OwnCards.nowPlaying(allowed = true, playing, lastPlayer))
+        assertEquals(OwnCards.media(session(PlaybackState.STATE_STOPPED)), OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_STOPPED), lastPlayer))
+        // No session, or one with nothing to control: the last player.
+        assertEquals(OwnCards.lastPlayed(lastPlayer), OwnCards.nowPlaying(allowed = true, null, lastPlayer))
+        assertEquals(OwnCards.lastPlayed(lastPlayer), OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_NONE), lastPlayer))
+        assertEquals(OwnCards.lastPlayed(lastPlayer), OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_ERROR), lastPlayer))
+        // Nothing ever played.
+        assertEquals(OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING), OwnCards.nowPlaying(allowed = true, null, null))
+        assertEquals(OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING), OwnCards.nowPlaying(allowed = true, session(PlaybackState.STATE_NONE), null))
+    }
+
+    /** With nothing playing, the last player's app and track, with Play alone: no position, no cover, nothing to seek. */
+    @Test fun theLastPlayerHasItsTrackAndPlay() {
+        val spec = OwnCards.lastPlayed(lastPlayer)
+        assertEquals("Now playing", spec.base.title)
+        assertTrue(spec.lastPlayed)
+        assertFalse(spec.playing)
+        assertEquals("So What", spec.title)
+        assertEquals("Miles Davis", spec.artist)
+        assertEquals("Player", spec.app)
+        assertEquals(0L, spec.duration)
+        assertFalse(spec.canSeek)
+        assertNull(spec.cover)
+        assertFalse(WidgetWords.mediaSeeks(spec))
+        assertEquals("Now playing: So What, Miles Davis, Player, last played", OwnCards.said(spec))
+        // After a restart the track is not known: the card names the app.
+        val restarted = OwnCards.lastPlayed(LastPlayer("com.example.player", "Player"))
+        assertNull(restarted.title)
+        assertEquals("Player", WidgetWords.mediaTitle(restarted))
+        assertEquals("Now playing: Player, last played", OwnCards.said(restarted))
+        // Blank words are no words.
+        assertNull(OwnCards.lastPlayed(LastPlayer("com.example.player", "Player", " ", "")).artist)
+    }
+
     /** The card keeps a paused session, however old. One with no state or in an error has nothing to control. */
     @Test fun nowPlayingShowsASessionThatCanBeControlled() {
         assertTrue(OwnCards.shows(session(PlaybackState.STATE_PLAYING)))
@@ -178,9 +237,9 @@ class OwnCardsTest {
         assertFalse(OwnCards.shows(null))
         assertEquals("Nothing playing", OwnCards.quiet(WidgetSource.MEDIA, OwnCards.NOTHING_PLAYING).empty)
         assertEquals("Allow notification access", OwnCards.quiet(WidgetSource.MEDIA, OwnCards.ALLOW_NOTIFICATIONS).empty)
-        // The card's own taps: its three buttons, the player, and the access.
-        val words = listOf(OwnTaps.PREV, OwnTaps.TOGGLE, OwnTaps.NEXT, OwnTaps.OPEN, OwnTaps.ALLOW)
-        assertEquals(listOf("prev", "toggle", "next", "open", "allow"), words)
+        // The card's own taps: its three buttons, Play with nothing playing, the player, and the access.
+        val words = listOf(OwnTaps.PREV, OwnTaps.TOGGLE, OwnTaps.NEXT, OwnTaps.RESUME, OwnTaps.OPEN, OwnTaps.ALLOW)
+        assertEquals(listOf("prev", "toggle", "next", "resume", "open", "allow"), words)
         assertTrue(words.all { OwnTaps.parse(WidgetSource.MEDIA, it) != null })
     }
 

@@ -278,7 +278,12 @@ internal fun WidgetCard(
                         ShapedCard(title, spec, polygon, side, box, onTap, stamp)
                     } else {
                         // A card with a note draws no content, so it has its title line. Bold, Split and Shape have none.
-                        val titled = !look.untitled() && WidgetWords.wideTitle(spec.takeIf { note == null }, heightDp, footer = footer != null)
+                        val shown = spec.takeIf { note == null }
+                        val titled = !look.untitled() && when (box) {
+                            // Inside the large card's padding, 16 dp each side.
+                            WidgetSizes.Box.LARGE -> WidgetWords.largeTitle(shown, widthDp - 32)
+                            else -> WidgetWords.wideTitle(shown, heightDp, footer = footer != null)
+                        }
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
                         CardLayout(title, spec, note, failure, footer.takeUnless { look.untitled() }, box, titled, onTap, stamp, badge, look, colours)
                     }
@@ -325,13 +330,14 @@ private fun ShapedCard(title: String, spec: WidgetSpec, polygon: RoundedPolygon,
 
 /**
  * The title, the badge, the content and the footer, placed for [box]. [titled] says whether a
- * wide box has its title line ([WidgetWords.wideTitle]).
+ * wide box has its title line ([WidgetWords.wideTitle]), and whether a large one has
+ * ([WidgetWords.largeTitle]).
  * - The title line starts with the badge: [badge] (a drawable), or the content's icon, or the
  *   first letter of the title ([WidgetWords.badgeLetter]). It is 24 dp in a large card and 20 dp
  *   in a wide one. A small card has no title line, so no badge.
  * - Large: the title line, the content, and the footer as the last line. The title line ends with
  *   "+3 more" from a list or an agenda ([LocalMoreNote]), or else with the script's note
- *   ([WidgetBase.note]).
+ *   ([WidgetBase.note]). A media card with a cover has no title line: its cover takes the badge's place.
  * - A cropped picture, large or wide, covers the whole card ([BleedImageCard]).
  * - Wide: the title line with "+3 more" (or the note, when there is no footer) and the footer at
  *   its end, then the content. Without the title line
@@ -370,20 +376,28 @@ private fun CardLayout(
     val setAction: (TitleAction?) -> Unit = remember { { action = it } }
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            TitleLine(title, spec, badge, 24.dp, type.titleSmall, colours) {
-                val a = action
-                val m = more
-                when {
-                    a != null -> TitleButton(a, colours, roleColour(spec?.base))
-                    m != null -> MoreNote(m, colours.muted)
-                    else -> TitleNote(spec?.base)
+            if (titled) {
+                TitleLine(title, spec, badge, 24.dp, type.titleSmall, colours) {
+                    val a = action
+                    val m = more
+                    when {
+                        a != null -> TitleButton(a, colours, roleColour(spec?.base))
+                        m != null -> MoreNote(m, colours.muted)
+                        else -> TitleNote(spec?.base)
+                    }
                 }
+                // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
+                // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
+                Spacer(Modifier.height(12.dp))
             }
-            // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
-            // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
-            Spacer(Modifier.height(12.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                CompositionLocalProvider(LocalMoreNote provides setMore, LocalTitleAction provides setAction) { CardBody(spec, note, failure, box, onTap, stamp) }
+                CompositionLocalProvider(
+                    LocalMoreNote provides setMore.takeIf { titled },
+                    LocalTitleAction provides setAction.takeIf { titled },
+                    LocalUntitled provides title.takeIf { !titled },
+                ) {
+                    CardBody(spec, note, failure, box, onTap, stamp)
+                }
             }
             if (footer != null) FooterLine(footer, colours.muted, Modifier.padding(top = 4.dp))
         }
