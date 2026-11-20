@@ -42,6 +42,99 @@ Sources: https://developer.android.com/ai/appfunctions ,
 https://android-developers.googleblog.com/2026/07/build-intelligent-android-apps-appfunctions.html ,
 https://developer.android.com/agents/skills/device-ai/appfunctions/skill
 
+* TODO Widgets: looks, placing anywhere, and a better Widgets screen
+Three parts in one ticket. Drafts of each were drawn on a design canvas and reviewed on 20 November
+2026. Checked against =0.5.15= (=db448ac1=). Paths are under =app/src/main/java/com/mtwabpin/kolahal/=.
+
+** What you see today
+- *One look.* Every widget Kolahal draws is the same card: =surfaceContainerHigh=, 28 dp corners,
+  a title line (=ui/WidgetKinds.kt=). Two Weather widgets can only look alike.
+- *Packed in order.* The widgets page lays widgets out with =WidgetFlow= (=ui/HostedWidgets.kt=,
+  rows from =WidgetLayout.rows=). Each widget takes the first free place in its row, and a row is
+  as tall as its tallest widget. Example: a clock half the page wide always sits on the left. It
+  can't sit on the right with space beside it, or in the middle.
+- *A plain Widgets screen* (=ui/WidgetsScreen.kt=). An Edit button turns on a mode where a tap
+  chooses a widget. The toolbar has Width and Height steppers, Move earlier, Move later, Square,
+  Remove and Done. "Options" shows only for a script that declares options, and "Edit shortcuts"
+  for Shortcuts: built-in widgets and scripts without options have nothing more. Moving a widget
+  five places down takes five taps.
+- *New widgets go last.* =WidgetHost.placeNew= adds them at the end of the page.
+
+** Part 1: looks
+- *Five looks*, for Kolahal's own widgets (a =PlacedWidget= with a =source=). An app's widget draws
+  itself and has none.
+  - *Plain*: today's card.
+  - *Tonal*: the card in its colour's container (primary, secondary or tertiary, from the script's
+    =color=), with chips and rows in a lighter tint of it.
+  - *Bold*: the main value at display size, in the accent colour. The title line goes.
+  - *Split*: the card in connected tiles: 28 dp corners outside, 8 dp inside, 4 dp apart.
+  - *Shape*: the main thing takes a =MaterialShapes= shape. At 1×1 and 2×2 that is the whole card.
+    At wider sizes the main value sits in a shape with the rest beside it; a list's rows have
+    their rank in small shapes. In buttons, toggles and media each button has a shape, and a
+    pressed one morphs.
+- *Each placed widget has its own look*: two Weather widgets for two cities can differ.
+- *Plain by default*, for new widgets and for every widget placed today. A script can't set or
+  suggest a look.
+- *A look may leave out minor fields*: Shape drops Weather's three smaller values, Bold a list's
+  third row. A screen reader still reads them.
+- *Stored* as an 8th field of the placed line (=WidgetCodec.encode=). =decode= reads fields by
+  position and ignores more, so an older Kolahal keeps the widget, and saving there drops the
+  look back to Plain.
+- *Build*: a =WidgetLook= passed to =KindBody=; each kind's body takes its container, shapes and
+  type from it. Bold's narrow type needs a variable font such as Roboto Flex; without one,
+  ExtraBold at a larger size. =ExpressiveOnlyTest= covers the files as usual.
+- *Tests*: the line round trip; a 7-field line reads as Plain; each kind draws at each look and box.
+
+** Part 2: placing widgets anywhere
+- *A position for each widget*: its column (0 to 11, twelfths of the page, as widths are) and its
+  top (dp from the top of the page, in 8 dp steps, as heights are). Fields 9 and 10 of the placed
+  line. =order= is still written, in reading order (top, then start), so an older Kolahal shows
+  the widgets in a sensible order.
+- *The update changes nothing you see*: at the first start, each widget gets the place
+  =WidgetFlow= gives it now.
+- *No overlap*: a widget dropped or grown onto others pushes them down just enough, and they push
+  what is under them. Gaps elsewhere stay where they are.
+- *Close gaps* (top bar of the Widgets screen) moves every widget up as far as it goes, in its own
+  columns: today's packed page in one tap.
+- *A new widget* goes into the first free space that fits, from the top, and is chosen at once so
+  it can be dragged.
+- *The widgets page* draws from the positions: a =WidgetGrid= layout in place of =WidgetFlow=, as
+  tall as its lowest widget. Columns run right to left in a right-to-left language. A screen
+  reader goes top first, then from the start.
+- *Other screen widths* keep the layout: columns are twelfths of the page; tops and heights are dp.
+- *Backups* carry the line, positions included. A restored app's widget that must be added again
+  keeps its place.
+
+** Part 3: the Widgets screen
+- *No Edit mode*: the screen is for arranging, so a tap always chooses a widget. The Edit button goes.
+- *A chosen widget* has an outline and drag handles on its right and bottom edges, each a 48 dp
+  touch target. Dragging a handle resizes it, in columns and 8 dp steps.
+- *Dragging*: a long-press lifts a widget. Twelve column guides show, a dashed box shows where it
+  will land, and widgets in the way move down as it moves. A Remove target shows at the top while
+  dragging; dropping a widget there asks first, as Remove does now.
+- *Toolbar for a Kolahal widget*: its name and "2×2 · Tonal"; Options (a script with options) or
+  Edit shortcuts (Shortcuts), Remove, Done; a *Look* row of five buttons; a *Size* row: 1×1, 2×1,
+  2×2, 4×1, 4×2, 4×4. One tap each. The Size row is the "six sizes as one-tap buttons" that
+  =docs/widgets-design.org= lists as not built; it replaces Square for these widgets.
+- *Toolbar for an app's widget*: as today: Width and Height steppers, and Square. No Look row.
+- *Move earlier and Move later go*. For TalkBack each card gets actions instead: Move up, Move
+  down (one row of the page), Move left, Move right (one column), Wider, Narrower, Taller, Shorter.
+- *Add widget* moves into the top bar, beside Close gaps, as the toolbar takes the bottom. An empty
+  page keeps its "Add a widget" action.
+- *A long-press on the widgets page* opens this screen with that widget chosen.
+
+** Order of work
+Each step ships on its own.
+1. Looks, with the toolbar's Look and Size rows. Nothing moves yet.
+2. Positions: the line's new fields, the move from today's layout, =WidgetGrid=, Close gaps, new
+   widgets in the first free space.
+3. The screen: dragging, handles, the Remove target, TalkBack actions; the Edit mode and the Move
+   buttons go.
+
+** Later
+- Dragging on the widgets page itself, as phone home screens do.
+- =widget look <name> <look>= at the prompt.
+
 * Code scan findings (12 November 2026)
 A read-only scan of 0.5.6-dev (=3485a339=): security, performance and architecture, plus Android
 lint. Nothing was run on a device, so all times are estimates. Line numbers are from that commit.
