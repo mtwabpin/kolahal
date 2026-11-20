@@ -1,6 +1,9 @@
 package com.mtwabpin.kolahal.ui
 
+import android.graphics.Typeface
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -8,9 +11,19 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.DeviceFontFamilyName
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.graphics.shapes.RoundedPolygon
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetSpec
 
 /**
  * The look of the card being drawn ([WidgetLook]). [SourceWidget] provides the placed widget's own;
@@ -135,3 +148,53 @@ object SplitCorners {
         return tile(row == 0 && col == 0, row == 0 && lastInRow, row == rows - 1 && lastInRow, row == rows - 1 && col == 0)
     }
 }
+
+/**
+ * The Material shape of a card that is one shape: the Shape look in a square box ([squareBox]).
+ * Null for a kind that keeps its card there, and for a progress with several bars.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+fun cardPolygon(spec: WidgetSpec?): RoundedPolygon? = when (spec) {
+    is WidgetSpec.Stat -> MaterialShapes.Cookie12Sided
+    is WidgetSpec.Countdown -> MaterialShapes.Sunny
+    is WidgetSpec.Progress -> if (spec.items.isEmpty()) MaterialShapes.Clover4Leaf else null
+    is WidgetSpec.Clock -> MaterialShapes.Cookie9Sided
+    is WidgetSpec.Chart -> MaterialShapes.Cookie12Sided
+    else -> null
+}
+
+/** The small shape of rank [index] in a list, in turn: a cookie, a clover, a sun. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+fun rankPolygon(index: Int): RoundedPolygon = when (index % 3) {
+    0 -> MaterialShapes.Cookie9Sided
+    1 -> MaterialShapes.Clover4Leaf
+    else -> MaterialShapes.Sunny
+}
+
+/** Whether this phone has a narrow sans-serif for Bold's big values. Android returns its default type for a name it lacks. */
+private val hasNarrow: Boolean by lazy {
+    runCatching { Typeface.create("sans-serif-condensed", Typeface.NORMAL) !== Typeface.DEFAULT }.getOrDefault(false)
+}
+
+/** Android's own narrow sans-serif, the condensed Roboto, in the weights Bold uses. */
+private val narrowFamily = FontFamily(
+    Font(DeviceFontFamilyName("sans-serif-condensed"), FontWeight.Black),
+    Font(DeviceFontFamilyName("sans-serif-condensed"), FontWeight.ExtraBold),
+    Font(DeviceFontFamilyName("sans-serif-condensed"), FontWeight.Bold),
+)
+
+/**
+ * The type of Bold's big value, [size] at most: narrow and black with tight letters, as the mockup's
+ * Roboto Flex at 45% width. Without a narrow type: ExtraBold, with letters a little tighter still.
+ * Digits are all one width, so a number that ticks does not shake. The line is no taller than the
+ * text, so a big number sits close to the words under it.
+ */
+fun boldValueStyle(size: TextUnit, weight: FontWeight = FontWeight.Black): TextStyle = TextStyle(
+    fontFamily = if (hasNarrow) narrowFamily else FontFamily.Default,
+    fontWeight = if (hasNarrow) weight else FontWeight.ExtraBold,
+    fontSize = size,
+    lineHeight = 1.em,
+    letterSpacing = if (hasNarrow) (-0.02).em else (-0.04).em,
+    fontFeatureSettings = "tnum",
+    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+)

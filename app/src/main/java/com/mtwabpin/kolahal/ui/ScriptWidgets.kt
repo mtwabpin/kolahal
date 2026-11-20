@@ -6,8 +6,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -50,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
+import androidx.graphics.shapes.RoundedPolygon
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,6 +68,7 @@ import com.mtwabpin.kolahal.terminal.WidgetFeed
 import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -210,7 +216,6 @@ internal fun WidgetCard(
     stamp: Long = 0,
     badge: Int? = null,
 ) {
-    val scheme = MaterialTheme.colorScheme
     BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
         val widthDp = maxWidth.value.toInt()
         val heightDp = maxHeight.value.toInt()
@@ -226,18 +231,62 @@ internal fun WidgetCard(
         } else {
             Modifier.semantics(mergeDescendants = true) {}
         }
+        val look = drawnLook(LocalWidgetLook.current, spec, note, footer)
+        val colours = lookColors(look, roleColour(spec?.base))
+        // The Shape look in a square box: the card is one Material shape, and the body sits in it.
+        val polygon = if (look == WidgetLook.SHAPE && squareBox(widthDp, heightDp)) cardPolygon(spec) else null
+        // Split's tiles and Shape's shape are the card: the frame itself draws nothing there.
+        val bare = look == WidgetLook.SPLIT || polygon != null
+        val side = min(maxWidth, maxHeight)
         Surface(
-            color = scheme.surfaceContainerHigh,
-            contentColor = scheme.onSurface,
-            shape = RoundedCornerShape(if (box == WidgetSizes.Box.SMALL) 24.dp else 28.dp),
+            color = if (bare) Color.Transparent else colours.card,
+            contentColor = colours.content,
+            shape = if (bare) RectangleShape else RoundedCornerShape(if (box == WidgetSizes.Box.SMALL) 24.dp else 28.dp),
             modifier = Modifier.fillMaxSize().testTag("widget-card"),
         ) {
             Box(Modifier.fillMaxSize().then(press).semantics { contentDescription = description }) {
-                CompositionLocalProvider(LocalCardLongPress provides onLongClick) {
-                    // A card with a note draws no content, so it has its title line.
-                    val titled = WidgetWords.wideTitle(spec.takeIf { note == null }, heightDp, footer = footer != null)
-                    CardLayout(title, spec, note, failure, footer, box, titled, onTap, stamp, badge)
+                // The bodies inside draw in the look the card has, which may be plainer than the one chosen.
+                CompositionLocalProvider(LocalCardLongPress provides onLongClick, LocalWidgetLook provides look) {
+                    if (polygon != null && spec != null) {
+                        ShapedCard(title, spec, polygon, side, box, onTap, stamp)
+                    } else {
+                        // A card with a note draws no content, so it has its title line. Bold, Split and Shape have none.
+                        val titled = !look.untitled() && WidgetWords.wideTitle(spec.takeIf { note == null }, heightDp, footer = footer != null)
+                        CardLayout(title, spec, note, failure, footer, box, titled, onTap, stamp, badge, look, colours)
+                    }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The look [chosen] for a card, as it can be drawn. A look shows only on content: a card with a
+ * [note] (loading, failed, off) or a [footer] (a failed run, old content) needs its title line to
+ * say so, and draws as Plain, or Tonal when that is the choice. A picture takes Tonal's colour alone.
+ */
+private fun drawnLook(chosen: WidgetLook, spec: WidgetSpec?, note: CardNote?, footer: WidgetWords.Footer?): WidgetLook = when {
+    chosen == WidgetLook.PLAIN || chosen == WidgetLook.TONAL -> chosen
+    note != null || spec == null || footer != null || spec is WidgetSpec.Image -> WidgetLook.PLAIN
+    else -> chosen
+}
+
+/**
+ * A card that is one Material shape ([cardPolygon]), [side] across, centred in its box. The shape
+ * is filled with the role's container; a single progress has an empty clover, which its body fills
+ * up to the level. The body draws a few short lines in it ([LocalCardShaped]), with the title from
+ * [LocalUntitled]. The shape clips the body, so a fill keeps to it.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ShapedCard(title: String, spec: WidgetSpec, polygon: RoundedPolygon, side: Dp, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
+    val shape = polygon.toShape()
+    val fill = if (spec is WidgetSpec.Progress) MaterialTheme.colorScheme.surfaceContainerHighest else lookColors(WidgetLook.SHAPE, roleColour(spec.base)).shapeFill
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // A little smaller than the box: the shape's points stay clear of the next card.
+        Box(Modifier.size(side - 8.dp).clip(shape).background(fill)) {
+            CompositionLocalProvider(LocalCardShaped provides true, LocalUntitled provides title) {
+                KindBody(spec, box, onTap, stamp)
             }
         }
     }
@@ -269,10 +318,16 @@ private fun CardLayout(
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
     badge: Int?,
+    look: WidgetLook,
+    colours: LookColors,
 ) {
     // A cropped picture covers the card. With a note (loading, failed) the card has its usual frame.
     if (spec is WidgetSpec.Image && spec.fit != "fit" && note == null && box != WidgetSizes.Box.SMALL) {
         BleedImageCard(title, spec, footer, box)
+        return
+    }
+    if (look.untitled()) {
+        UntitledLayout(title, spec, note, failure, box, onTap, stamp, look)
         return
     }
     val type = MaterialTheme.typography
@@ -281,21 +336,21 @@ private fun CardLayout(
     val setMore: (String?) -> Unit = remember { { more = it } }
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            TitleLine(title, spec, badge, 24.dp, type.titleSmall) { val m = more; if (m != null) MoreNote(m) else TitleNote(spec?.base) }
+            TitleLine(title, spec, badge, 24.dp, type.titleSmall, colours) { val m = more; if (m != null) MoreNote(m, colours.muted) else TitleNote(spec?.base) }
             // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
             // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
             Spacer(Modifier.height(12.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalMoreNote provides setMore) { CardBody(spec, note, failure, box, onTap, stamp) }
             }
-            if (footer != null) FooterLine(footer, Modifier.padding(top = 4.dp))
+            if (footer != null) FooterLine(footer, colours.muted, Modifier.padding(top = 4.dp))
         }
         WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium) {
+            if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium, colours) {
                 // The age or "Failed 10:42" says more than the note, and "+3 more" too: then the note waits.
                 val m = more
-                if (m != null) MoreNote(m) else if (footer == null) TitleNote(spec?.base)
-                if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
+                if (m != null) MoreNote(m, colours.muted) else if (footer == null) TitleNote(spec?.base)
+                if (footer != null) FooterLine(footer, colours.muted, Modifier.padding(start = 8.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalMoreNote provides setMore.takeIf { titled }, LocalUntitled provides title.takeIf { !titled }) {
@@ -305,6 +360,43 @@ private fun CardLayout(
         }
         // No room for a title or a footer: the content alone. A screen reader still hears both.
         WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
+    }
+}
+
+/**
+ * A card with no title line: Bold, Split, and Shape outside a square box. The body has the title
+ * ([LocalUntitled]) and places it as small text, and draws "+3 more" itself.
+ * - Split: no room around the body. Its tiles reach the card's edges.
+ * - Shape in a 1-row box: 8 dp around, so the main value's shape is nearly as tall as the card.
+ * - The others: the room of a Plain card, a little more at the top and bottom, as there is no title line.
+ */
+@Composable
+private fun UntitledLayout(
+    title: String,
+    spec: WidgetSpec?,
+    note: CardNote?,
+    failure: String?,
+    box: WidgetSizes.Box,
+    onTap: ((WidgetTap) -> Unit)?,
+    stamp: Long,
+    look: WidgetLook,
+) {
+    val room = when {
+        look == WidgetLook.SPLIT -> PaddingValues(0.dp)
+        box == WidgetSizes.Box.SMALL -> PaddingValues(8.dp)
+        look == WidgetLook.SHAPE && box == WidgetSizes.Box.WIDE -> PaddingValues(start = 8.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
+        box == WidgetSizes.Box.WIDE -> PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+        else -> PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+    }
+    Box(Modifier.fillMaxSize()) {
+        // Bold's progress: the card fills from the bottom up to the level, in the role's container.
+        if (look == WidgetLook.BOLD && spec is WidgetSpec.Progress && spec.items.isEmpty()) {
+            val level = WidgetWords.fraction(spec.value, spec.max)
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(level).background(roleContainer(roleColour(spec.base))))
+        }
+        Box(Modifier.fillMaxSize().padding(room)) {
+            CompositionLocalProvider(LocalUntitled provides title) { CardBody(spec, note, failure, box, onTap, stamp) }
+        }
     }
 }
 
@@ -328,16 +420,16 @@ private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: Widget
             caption?.let { Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = type.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (footer != null) FooterLine(footer, Modifier.padding(start = 8.dp))
+                if (footer != null) FooterLine(footer, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
 }
 
-/** "+3 more" at the end of a title line. */
+/** "+3 more" at the end of a title line, in the card's quiet text [colour]. */
 @Composable
-private fun MoreNote(text: String) {
-    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+private fun MoreNote(text: String, colour: Color) {
+    Text(text, style = MaterialTheme.typography.labelMedium, color = colour, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
 }
 
 /** The script's note at the end of the title line ([WidgetBase.note]): "Done today", in the card's colour. */
@@ -349,32 +441,38 @@ private fun TitleNote(base: WidgetBase?) {
 
 /**
  * A card's title line, [size] tall: the badge, the [title] in [style], and [end] at its end. A
- * badge with only the title's letter says the title again, so a screen reader skips it.
+ * badge with only the title's letter says the title again, so a screen reader skips it. The title
+ * is in the card's quiet text colour ([LookColors.muted]). On a Tonal card the badge is filled with
+ * the role's colour, as its container would hide a tint of it.
  */
 @Composable
-private fun TitleLine(title: String, spec: WidgetSpec?, badge: Int?, size: Dp, style: TextStyle, end: @Composable () -> Unit = {}) {
+private fun TitleLine(title: String, spec: WidgetSpec?, badge: Int?, size: Dp, style: TextStyle, colours: LookColors, end: @Composable () -> Unit = {}) {
     val icon = spec?.base?.icon
     val letter = if (badge == null && icon == null) WidgetWords.badgeLetter(title) else null
     Row(Modifier.height(size), verticalAlignment = Alignment.CenterVertically) {
         if (badge != null || icon != null || letter != null) {
-            Badge(icon ?: letter, badge, roleColour(spec?.base), badgeShape(spec), size, quiet = icon == null, wide = spec is WidgetSpec.Rows && spec.lead == null)
+            val tonal = LocalWidgetLook.current == WidgetLook.TONAL
+            Badge(
+                icon ?: letter, badge, roleColour(spec?.base), badgeShape(spec), size, quiet = icon == null, wide = spec is WidgetSpec.Rows && spec.lead == null,
+                onFill = colours.onAccent.takeIf { tonal },
+            )
             Spacer(Modifier.width(if (size >= 24.dp) 8.dp else 6.dp))
         }
-        Text(title, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(title, style = style, color = colours.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         end()
     }
 }
 
 /**
  * The card's small line: the age of its content, or "Failed 10:42". A failure is in the error
- * colour, and its words say it too.
+ * colour, and its words say it too. An age is in the card's quiet text [colour].
  */
 @Composable
-private fun FooterLine(footer: WidgetWords.Footer, modifier: Modifier = Modifier) {
+private fun FooterLine(footer: WidgetWords.Footer, colour: Color = MaterialTheme.colorScheme.onSurfaceVariant, modifier: Modifier = Modifier) {
     Text(
         footer.text,
         style = MaterialTheme.typography.labelSmall,
-        color = if (footer.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (footer.failed) MaterialTheme.colorScheme.error else colour,
         maxLines = 1,
         modifier = modifier,
     )
@@ -403,14 +501,16 @@ private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: 
 
 /**
  * The badge: [drawable] in its role's [colour], or else [text] (an icon name, an emoji or a letter), on a shape
- * tinted with that colour. A [quiet] badge is no part of what a screen reader hears.
+ * tinted with that colour. A [quiet] badge is no part of what a screen reader hears. With [onFill],
+ * the shape is filled with [colour] and what is on it is in [onFill].
  */
 @Composable
-private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, size: Dp, quiet: Boolean = false, wide: Boolean = false) {
+private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, size: Dp, quiet: Boolean = false, wide: Boolean = false, onFill: Color? = null) {
     val said = if (quiet) Modifier.clearAndSetSemantics {} else Modifier
-    Box(Modifier.size(width = if (wide) size * 1.4f else size, height = size).clip(shape).background(colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
+    val ink = onFill ?: colour
+    Box(Modifier.size(width = if (wide) size * 1.4f else size, height = size).clip(shape).background(if (onFill != null) colour else colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
         when {
-            drawable != null -> Icon(painterResource(drawable), contentDescription = null, tint = colour, modifier = Modifier.size(size * 2 / 3))
+            drawable != null -> Icon(painterResource(drawable), contentDescription = null, tint = ink, modifier = Modifier.size(size * 2 / 3))
             text != null -> WidgetIconText(
                 text,
                 when {
@@ -418,7 +518,7 @@ private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, si
                     size >= 32.dp -> MaterialTheme.typography.titleSmall
                     else -> MaterialTheme.typography.labelLarge
                 },
-                colour,
+                ink,
                 size = size * 2 / 3,
             )
         }
