@@ -638,7 +638,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
 /**
  * What starts a row of Split or Shape: its checkbox, or its icon, or else its rank. The rank is on
  * [shape], [side] across: the first in the role's colour, a row with a colour in that colour, the
- * others in the theme's highest surface. With [inShape], an icon sits on that shape too.
+ * others in the role's container ([roleContainer]). With [inShape], an icon sits on that shape too.
  */
 @Composable
 private fun RowMark(index: Int, row: WidgetSpec.Row, role: Color, shape: Shape, side: Dp, inShape: Boolean) {
@@ -652,7 +652,9 @@ private fun RowMark(index: Int, row: WidgetSpec.Row, role: Color, shape: Shape, 
         icon != null && !inShape -> WidgetIconText(icon, type.titleMedium, colour ?: colours.muted, size = 18.dp)
         else -> {
             val strong = colour != null || index == 0
-            val fill = if (icon != null) MaterialTheme.colorScheme.surfaceContainerHighest else colour ?: if (index == 0) role else MaterialTheme.colorScheme.surfaceContainerHighest
+            // The others are on the role's container: the card's highest surface is too close to the card to see.
+            val container = roleContainer(role)
+            val fill = if (icon != null) container else colour ?: if (index == 0) role else container
             Box(Modifier.size(side).background(fill, shape), contentAlignment = Alignment.Center) {
                 if (icon != null) WidgetIconText(icon, type.titleMedium, colour ?: role, size = side / 2)
                 else Text("${index + 1}", style = type.labelMedium.copy(fontWeight = FontWeight.ExtraBold), color = if (strong) colours.onAccent else colours.content, maxLines = 1)
