@@ -401,3 +401,325 @@ Each is a line or two, and safe to remove.
 - The three "needs usage access" messages are the same call; the duration formats differ on
   purpose; the Lua and JS functions are already checked against each other by =ApiDocsTest=.
 - =WidgetWords.agenda= handles a script's own agenda, so it isn't a copy of =Agenda.group=.
+
+* Code scan findings (20 November 2026)
+Three read-only scans of the widget code in 0.5.15 (the working tree before the release commit):
+how cards are drawn, the script widget pipeline, and the widgets page with Arrange widgets and the
+picker. Nothing was run on a device for them.
+
+- Paths are under =app/src/main/java/com/mtwabpin/kolahal/=.
+- Priority: =[#A]= a bug you can see, =[#B]= worth doing, =[#C]= polish or tidying.
+- /(checked)/: checked against the code again after the scan. The others rest on the scan's reading.
+- Fixed in 0.5.15 already: countdowns in Bold, Split and Shape said "today" and "hours" in small
+  letters; the paused and unavailable placeholders on the widgets page had small letters too.
+- Write what to do after =Remark:= (do it, skip it, or change it), and I'll follow that.
+
+- Remark:
+
+** Bugs you can see
+*** TODO [#A] Phones without app widgets (Android Go) can't start Kolahal /(checked)/
+- =widgets/WidgetHost.kt:56=: =val manager: AppWidgetManager = AppWidgetManager.getInstance(app)=.
+- Android returns no manager on a phone without the app-widget feature (Android Go's hardware list
+  leaves it out). The non-null type then throws when home starts, every time. Nothing in the manifest
+  keeps such phones from installing Kolahal. Not tried on a Go phone.
+- Fix: a nullable manager and a =supported= flag from =FEATURE_APP_WIDGETS=; without it, skip
+  hosting and show only Kolahal's own widgets in the picker, with a line saying why. Small.
+- Remark:
+
+*** TODO [#A] A restore to a new phone removes app widgets as "uninstalled" /(checked)/
+- =widgets/WidgetHost.kt:661-703=, the prune after start.
+- Widget ids belong to one phone, so after Android restores Kolahal every app widget's id is dead.
+  Those whose app Play hasn't reinstalled yet, and work-profile ones whose profile isn't set up yet,
+  are removed for good with "Removed 3 widgets whose app was uninstalled". Only the rest become
+  Add again rows.
+- Fix: notice a list that came from another install (an install id, as =ThisInstall= does for the
+  database) and turn every app widget into an Add again row instead. Later, handle
+  =ACTION_APPWIDGET_HOST_RESTORED= so they come back without Add again. Small, then medium.
+- Remark:
+
+*** TODO [#A] Split: an empty card has no card at all /(checked)/
+- =ui/ScriptWidgets.kt:240=: =val bare = look == WidgetLook.SPLIT || polygon != null=, and the empty
+  states draw =QuietLine= before any look.
+- With Split, "Nothing playing", "Nothing left today", "Nothing open" and a script list with no rows
+  show as a dim line straight on the page or the wallpaper, with no tile and no edge. Over a
+  wallpaper it is often unreadable, and the card seems gone.
+- Fix: the quiet line draws on one full tile in Split. Small.
+- Remark:
+
+*** TODO [#A] A handle drag that goes too far leaves widgets pushed down /(checked)/
+- =widgets/WidgetHost.kt:506-511= (=resizeTo= works on the list the last step left) and
+  =ui/WidgetsScreen.kt:569-591=.
+- Two half-width cards side by side: widening the left one by a slip of the finger pushes the right
+  one under it. Dragging back before letting go narrows the left one again, but the right one stays
+  below. The same with the bottom handle. Only Close gaps repairs it, and it also closes the gaps you
+  wanted.
+- Fix: work each step out from the list as it was when the handle went down, as a move already does,
+  and save once on release. Small.
+- Remark:
+
+*** TODO [#A] Other apps' widgets keep the old dark or light mode /(checked)/
+- =AndroidManifest.xml:78= (=configChanges= has =uiMode=), =ui/HostedWidgets.kt:103-113=.
+- With dark mode on a schedule, at sunset the log and Kolahal's cards turn dark but Calendar, Clock
+  and Keep widgets stay light until home happens to be rebuilt. After a new wallpaper, widgets with
+  wallpaper colours keep the old ones.
+- Fix: on a change of night mode or colours, bump a counter that is part of the hosted view's key, so
+  each app widget is drawn again once. Small.
+- Remark:
+
+*** TODO [#A] Quick toggles' title line comes and goes /(checked)/
+- =ui/WidgetWords.kt:593=: =is WidgetSpec.Buttons, is WidgetSpec.Toggles, is WidgetSpec.Text -> footer || heightDp >= TITLED_DP=.
+- A one-row toggles card gives its title line to the switches, but its content counts as old after
+  60 s. Away from the page it gains "3 min ago", which brings the title line back and squeezes the
+  switches; a second later the run lands and it all jumps back. In view, every minute or two.
+- Fix: only "Failed …" brings the title line back; an age is left out on a card that gave its line
+  away, as Bold, Split and Shape already do (TalkBack still says it). Toggles show their age only
+  after an hour. Small; api.mdx says otherwise today.
+- Remark:
+
+*** TODO [#A] A long tap link turns the card into "Widget unavailable" /(checked)/
+- =widgets/WidgetParser.kt:624= takes a tap's =url= with no length check; =widgets/WidgetSpec.kt:560=
+  reads it back capped at 4,000 characters and refuses the whole card.
+- =widget.show= returns true and nothing is logged, but the card says "Widget unavailable".
+  Example: a row that opens a translation of a long quote.
+- Fix: one link limit for pictures and taps, used by both; a longer link is an error. Small.
+- Remark:
+
+*** TODO [#B] Shape: a level near half draws its number in the wrong colour /(checked)/
+- =ui/WidgetKindLooks.kt:988=: the number changes colour at exactly 50%, but it sits below the middle.
+- Between about 37% and 51% the digits straddle the fill line in one colour: "47%" in the empty
+  part's colour on the full role colour, about 1.3:1 in Green. The battery card in Shape shows it.
+- Fix: draw the number twice, clipped at the fill line, or fill with the role's container colour and
+  always use the content colour. Small.
+- Remark:
+
+*** TODO [#B] Bold and Shape charts: the older bars are nearly invisible /(checked)/
+- =ui/WidgetKindLooks.kt:1280=: =val rest = MaterialTheme.colorScheme.surfaceContainerHighest=.
+- On the card's own surface that is about 1.1:1 in every theme, so Unlocks, Screen time and Habit
+  show one coloured pill and a ghost of the week.
+- Fix: the role colour at 40%, as Plain's older bars already are. Small.
+- Remark:
+
+*** TODO [#B] Small role-coloured text is too faint in light themes
+- =ui/WidgetBodies.kt:1350-1373= (the agenda's day headings), =ui/WidgetKinds.kt:270-278= (a stat's
+  change), =ui/WidgetKindLooks.kt:595=.
+- On a Tonal card in Green light, "TODAY" and "Up 2.4%" are about 3.2:1, and 2.6:1 on Tonal's tiles.
+- Fix: on Tonal, the words in the content colour with only the arrow or dot in the role colour, as
+  the ring's label already does. Small.
+- Remark:
+
+*** TODO [#B] A long trailing text hides a row's title
+- =ui/WidgetKinds.kt:548-550=, =ui/WidgetKindLooks.kt:630, 675=.
+- The trailing text is measured first. GitHub releases at 2×2 shows the tag and no repo name, and
+  the tag is cut mid-letter with no "…".
+- Fix: cap the trailing text at about 40% of the row, with "…". Small.
+- Remark:
+
+*** TODO [#B] Tappable rows drop under 44 dp in Shape and Bold
+- =ui/WidgetKindLooks.kt:585, 600, 804-808, 841=.
+- Shape packs Todos at 1×1 into two 30 dp rows with no gap, so a near miss ticks the next todo. In
+  Bold at 1×1 only the row's text is tappable.
+- Fix: rows with a tap are at least 44 dp in every look, and fewer fit. Small.
+- Remark:
+
+*** TODO [#B] Fixed text heights don't grow with the font size
+- =ui/WidgetKinds.kt:453-457, 520-547=; =ui/WidgetBodies.kt:1270-1275, 1326, 1366-1372=.
+- A two-line list row fits a 20 sp and a 16 sp line into 44 dp. From 1.3× font size the second line
+  loses its descenders, at 1.5× half of it; the narrow agenda clips at the first step.
+- Fix: work the heights out from the styles' line heights, today's values as the least, and count
+  rows with them. Medium. Worked out from the styles, not seen on a device.
+- Remark:
+
+*** TODO [#B] A countdown's moment text stays out of date
+- =ui/WidgetKinds.kt:794-799=, =ui/WidgetKindLooks.kt:1146-1155=.
+- The moment ("27 Dec", or "17:25" on the day) changes with the UTC day, not the local one: at 05:30
+  in India. Split's large card also keeps its first moment and label.
+- Fix: key on the local date, and on the moment and the label. Small.
+- Remark:
+
+*** TODO [#B] A failed card repeats the script's name, and the line /(checked)/
+- =script/ScriptWorker.kt:183= stores the log line, ="$name: $msg (tap to edit line N)"=, and a Lua
+  error already starts with =name:N:=.
+- The card says "weather: weather:12: attempt to index a nil value (line 12)"; at 2×1 only
+  "weather: weather:12: att…" fits. The widget template's own =error(why)= does the same.
+- Fix: keep the message without the name and Lua's prefix, plus "(line N)"; =error(why, 0)= in the
+  template. Small.
+- Remark:
+
+*** TODO [#B] A card stopped by an access switch can't lead to the fix
+- =script/ScriptWorker.kt:104-108, 223-230=, =ui/WidgetWords.kt:651-663=.
+- "Internet is off for this script" with "Failed 10:42"; the "tap to allow" goes, a tap only
+  refreshes and fails again, and the one log line that offers Allow is far up the log.
+- Fix: remember that the run was stopped by a switch; the card then says so and its tap opens
+  Scripts. A card tap never grants access. Small to medium.
+- Remark:
+
+*** TODO [#B] Emoji icons made of several characters are cut in half
+- =widgets/WidgetParser.kt:446-456=: the 4-character icon limit counts UTF-16 units.
+- =icon = "👩‍💻"= shows "👩…"; flags and skin tones the same.
+- Fix: cut at grapheme boundaries, keep one emoji whole, never add "…" to an icon. Small.
+- Remark:
+
+*** TODO [#B] An offline first run says "Nothing to show"
+- =ui/ScriptWidgets.kt:576-577, 738-761=.
+- Place Weather while offline: the loading shape turns for 20 s, then "Nothing to show", the words
+  for a script that cleared its widget. The run waits for a network and taps are dropped meanwhile.
+- Fix: "Waiting for network" when offline and the script goes online, else a still "Not loaded
+  yet". Small.
+- Remark:
+
+*** TODO [#B] An option changed in the Scripts sheet doesn't refresh the widgets
+- =terminal/ScriptActions.kt:360, 373-382=, =terminal/ScriptCommands.kt:460-468=.
+- Change weather's city in its Scripts sheet or with =script set=: the widget keeps the old city for
+  up to an hour. The same change in the widget's Options runs it at once.
+- Fix: both go through =setWidgetOption=, which runs the placed widgets that read it. Small.
+- Remark:
+
+*** TODO [#B] =allowed("widget")= says yes while this run's widget isn't placed /(checked)/
+- =script/HostApi.kt:146= reads the access switch, which is on while any widget of the script is placed.
+- With only a further widget placed, timer runs fill the first widget, which isn't there, so hn and
+  unlock-chart do their work for nothing. The guide says it "tells the same" as =widget.show=.
+- Fix: answer it as =widget.show= does. Small.
+- Remark:
+
+*** TODO [#B] A tap's args over 200 characters are cut, so the run gets other args
+- =widgets/WidgetParser.kt:620=.
+- =tap = { args = "open " .. url }= with a long link reaches the run with "…" in the middle of it.
+- Fix: refuse longer args with a message saying to keep the long part in =store=. Small.
+- Remark:
+
+*** TODO [#B] A further widget's option dialog shows the wrong default
+- =ui/WidgetOptionsSheet.kt:88-93=, =ui/ScriptDialogs.kt:295-320=.
+- Widget 2's city dialog says "Default: London" (the declared default), but Reset gives the script's
+  own value, Pune. The dialog's title uses the file name.
+- Fix: show "Script's value: Pune" for a further widget, titled with the sheet's name. Small.
+- Remark:
+
+*** TODO [#B] Importing your own backup on the same phone offers every app widget again
+- =widgets/WidgetModel.kt:435-442=.
+- Every app widget already on the page also shows under "Restored from backup"; Add again places a
+  second copy and pushes the first down.
+- Fix: skip an imported app widget when one with the same app and profile is already placed. Small.
+- Remark:
+
+*** TODO [#B] A locked private space's widget names its app /(checked)/
+- =ui/HostedWidgets.kt:94=, and =widgets ls=.
+- While the private space is locked, its widget's place reads "[Private space locked]
+  com.example.app", naming the app the private space hides.
+- Fix: leave the package out for a private-space widget while it is locked. Small.
+- Remark:
+
+*** TODO [#C] Smaller bugs
+- Pressing a Split or shaped card shades a sharp rectangle around its tiles or shape
+  (=ui/ScriptWidgets.kt:240-292=): clip the press to the shape.
+- Right to left: chart labels sit under the wrong ends, and the skip buttons point inward
+  (=ui/WidgetKinds.kt:877-962=, =ui/WidgetBodies.kt:1779-1952=).
+- A Lua list with a gap is refused as "not a table"; say "a list with a gap (a nil in the middle)".
+- =@widget stats= (no such kind) says "needs =@widget <kind>=" at run time; use the editor's words.
+- The placed check reads the switch and the row separately, so a run between the two writes can
+  keep content for a removed widget (=script/HostApi.kt:590-594=): one read.
+- Sizes are measured against the page's width now, so after rotation or on a foldable a 2×2 is
+  twice as tall (=widgets/WidgetHost.kt:470-487=): base the row on the shorter screen side.
+- Remark:
+
+** Easier to use
+*** TODO [#B] New app widgets start full width, and resizing ignores their least width /(checked)/
+- =widgets/WidgetHost.kt:250=: =span = old?.span ?: WidgetLayout.COLUMNS=.
+- The picker says "2×2" for a clock, but it lands 12 columns wide, under everything. Width − goes down
+  to a sixth of the page whatever the widget needs.
+- Fix: start at the widget's own cells × 3 columns, and stop at its least width. Small.
+- Remark:
+
+*** TODO [#B] An app widget's settings can't be changed without removing it
+- =widgets/WidgetBinder.kt:79-87=.
+- To pick another city or calendar, remove the widget, add it again, set it up, then move and resize
+  it back.
+- Fix: a Settings button in the toolbar for widgets that can be set up again. Small.
+- Remark:
+
+*** TODO [#B] Close gaps, a move and a resize can't be undone
+- =ui/WidgetsScreen.kt:308, 626-633=.
+- One tap on Close gaps packs the whole page with no way back; a drop that pushed widgets down can't
+  be reversed by dragging back.
+- Fix: a snackbar with Undo after each of them. Medium.
+- Remark:
+
+*** TODO [#B] The widgets page goes back to the top after Arrange widgets
+- =ui/HostedWidgets.kt:259-264=.
+- Resize a widget near the bottom of a long page, press Back: the page is at the top again.
+- Fix: keep the scroll position beside =homeOnWidgets=, and scroll to the chosen widget. Small.
+- Remark:
+
+*** TODO [#B] Dragging lines widgets up only by luck
+- =widgets/WidgetDrag.kt:44-45=: tops snap to 8 dp steps only.
+- A drop has to land within 4 dp of a neighbour's top to line up, so pages look ragged.
+- Fix: pull the top to a neighbour's top or bottom within about 16 dp, with the existing tick. Small.
+- Remark:
+
+*** TODO [#B] No way to refresh a card that has its own tap
+- =ui/ScriptWidgets.kt:787-808=.
+- A card that opens a link has no way to fetch now; typing the script's name fills only the first
+  widget.
+- Fix: Refresh in the Arrange widgets toolbar, beside Options, and as a TalkBack action. Small.
+- Remark:
+
+*** TODO [#B] The picker has no preview of Kolahal's own widgets
+- =ui/WidgetPickerScreen.kt:351-391=.
+- App widgets show a picture; Battery, Todos, Agenda and every script widget show only a name.
+- Fix: draw a small card at its starting size, from the user's data or the reference's sample.
+  Medium.
+- Remark:
+
+*** TODO [#C] Smaller ease-of-use items
+- TalkBack on Arrange widgets reads each Kolahal card twice, and an app widget's own buttons stay
+  reachable under the overlay (=ui/WidgetsScreen.kt:830-858=).
+- One screen has three names: "Arrange widgets", "Edit widgets" and "Widgets"; use "Arrange widgets".
+- App widgets' toolbar says "Looks are for Kolahal's own widgets." where the drag hint would help.
+- A paused app widget's placeholder is one line with blank space under it; draw it at full height.
+- The picker is blank while it loads; show a loading indicator.
+- Remark:
+
+** Performance
+*** TODO [#B] App widgets are built on the main thread in home's first frame
+- =ui/HostedWidgets.kt:97-113=, =widgets/WidgetHost.kt:62-72, 553-571=.
+- After a restart, the log's first frame waits for each app widget's details, its views and their
+  inflation, even when home opens on the log.
+- Fix: =setExecutor= so inflation happens off the main thread, and compose the hosted views a frame
+  after the log. Small. Not measured.
+- Remark:
+
+*** TODO [#B] Cards below the fold still run every minute
+- =ui/ScriptWidgets.kt:580, 690-714=.
+- With the page in view, a toggles or live-score card scrolled out of sight still asks for a run each
+  minute.
+- Fix: repeat the check only while the card is seen, as =refresh= already does. Small.
+- Remark:
+
+*** TODO [#C] Smaller performance items
+- Each widget run reads up to 32 KB to compare, writes its meta twice, and every card re-decodes
+  JSON that didn't change (=widgets/WidgetStates.kt:96-160=).
+- Todos, Notes and Reminders coming into view re-read all four stores, feeds with a join over every
+  item (=terminal/OwnWidgets.kt:235-277=).
+- Plot makes its paths on every draw; a Shape clock with no second hand still ticks each second; the
+  wide Shape clock recomposes its row each second (=ui/WidgetKinds.kt:912-962=,
+  =ui/WidgetBodies.kt:886, 1152-1156=).
+- Remark:
+
+** Architecture
+*** TODO [#B] A widget's fields are listed by hand in five places
+- =widgets/WidgetParser.kt:99-123=, =widgets/WidgetSpec.kt:390-682=, =script/ApiDocs.kt:48-61=, api.mdx.
+- The editor's one-line reference already lacks =lead=; =WidgetSpec.kt:241= still says agenda days
+  are 1 to 7; a field missed in =toMap= is dropped without a word.
+- Fix: one list of fields per kind, with tests that the round trip and ApiDocs cover each. Small.
+- Remark:
+
+*** TODO [#C] Smaller architecture items
+- The card's state (note, words, footer, when a run is due) lives in the composable; a pure
+  =ScriptCardState= with JVM tests would cover several items above (=ui/ScriptWidgets.kt:661-815=).
+- =WidgetHost= does five jobs; the picker holds the rules for placing a script's widget; the two
+  codecs repeat one rule; =WidgetOrder.move= is only used by tests.
+- Some parts skip the look's colours (the image caption, an open checkbox), and the clock helpers sit
+  in the agenda's section of =WidgetBodies.kt=.
+- Bold's clock and agenda use =asBold= instead of =boldValueStyle=, so their digits differ.
+- Levels glide in Plain but jump in Bold, Split and Shape.
+- Two comments still say the bar never waves, and a paused media bar thickens at once.
+- Remark:
