@@ -84,6 +84,17 @@ object WidgetSource {
      */
     fun builtinId(source: String?): String? = source?.takeIf { it.startsWith(BUILTIN) && isSource(it) }?.removePrefix(BUILTIN)
 
+    /** The kind of card the built-in widget [id] draws. Null for an id this version does not know. */
+    fun builtinKind(id: String): WidgetKind? = when (id) {
+        BATTERY -> WidgetKind.PROGRESS
+        SHORTCUTS -> WidgetKind.BUTTONS
+        MEDIA -> WidgetKind.MEDIA
+        TODOS, REMINDERS -> WidgetKind.LIST
+        AGENDA -> WidgetKind.AGENDA
+        NOTES -> WidgetKind.TEXT
+        else -> null
+    }
+
     /**
      * The name of the built-in widget [id], as the picker, the Widgets screen and `widgets ls` say
      * it: "Battery and network". Null for an id this version does not know.

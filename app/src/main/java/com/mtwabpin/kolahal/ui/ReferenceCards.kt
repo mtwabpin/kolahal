@@ -29,7 +29,10 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.widgets.WidgetJson
+import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLayout
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import java.time.ZoneId
 
@@ -41,20 +44,36 @@ import java.time.ZoneId
  * The card takes no touch: a layer over it catches each tap, and TalkBack reads it as its
  * description, with none of its buttons or rows. So it runs nothing, opens no link, and fetches
  * nothing ([LocalWidgetsShown] is false, and the picture example isn't here).
+ *
+ * A row of the looks ([WidgetLook]) above them draws every card in [look]: what the person who places
+ * the widget can choose. [onLook] gets a tap on it. A card whose kind doesn't offer that look draws
+ * Plain, and says so under it.
  */
-internal fun LazyListScope.widgetExamples(lang: ScriptLang, onExample: (String) -> Unit) {
+internal fun LazyListScope.widgetExamples(lang: ScriptLang, look: WidgetLook, onLook: (WidgetLook) -> Unit, onExample: (String) -> Unit) {
     item(key = "widget-examples") {
         Text(
             "Widgets · each kind of card, and the code that fills it",
             style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
         )
+        Text(
+            "Each placed widget has a look, chosen on the Widgets screen. See each kind in one:",
+            style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f),
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            GuiTheme {
+                ConnectedChoices(WidgetLook.entries.map { it.label }, look.label, tagPrefix = "example look ") { label ->
+                    onLook(WidgetLook.entries.first { it.label == label })
+                }
+            }
+        }
     }
-    items(ReferenceExamples.widgets, key = { "widget-example ${it.name}" }) { ex -> WidgetExample(ex, lang, onExample) }
+    items(ReferenceExamples.widgets, key = { "widget-example ${it.name}" }) { ex -> WidgetExample(ex, lang, look, onExample) }
 }
 
 @Composable
-private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, onExample: (String) -> Unit) {
+private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, look: WidgetLook, onExample: (String) -> Unit) {
     val context = LocalContext.current
     val clock24 = remember { Config.get(context)[Keys.CLOCK_24H] }
     val zone = remember { ZoneId.systemDefault() }
@@ -70,7 +89,7 @@ private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, onExam
             val pageDp = maxWidth.value.toInt()
             Box {
                 GuiTheme {
-                    CompositionLocalProvider(LocalWidgetsShown provides false) {
+                    CompositionLocalProvider(LocalWidgetsShown provides false, LocalWidgetLook provides look) {
                         // TalkBack reads the card as its description, with none of its buttons or rows.
                         val description = WidgetWords.description(title, spec, now, zone, clock24)
                         Box(Modifier.width(WidgetLayout.widthDp(pageDp, ex.size.span).dp).clearAndSetSemantics { contentDescription = description }) {
@@ -87,6 +106,22 @@ private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, onExam
                 // Over the card, so its buttons, rows and links never get a touch.
                 Box(Modifier.matchParentSize().clickable(onClickLabel = "Insert this example") { onExample(code) }.testTag("widget-example-cover"))
             }
+        }
+        // This kind has no such look: the card above is Plain.
+        val kind = WidgetJson.kindOf(spec)
+        if (look.drawnFor(kind) != look) {
+            val what = when (kind) {
+                WidgetKind.BUTTONS -> "buttons"
+                WidgetKind.TOGGLES -> "switches"
+                WidgetKind.MEDIA -> "media controls"
+                WidgetKind.IMAGE -> "a picture"
+                else -> "this kind"
+            }
+            Text(
+                "${look.label} changes nothing for $what, so this card is Plain.",
+                style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f),
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp),
+            )
         }
         ExampleCode(code)
     }

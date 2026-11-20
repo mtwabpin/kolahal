@@ -95,7 +95,9 @@ insert it at the cursor. An `@` line is inserted as a whole comment line.
 Under them are examples, each over its code in the script's language: the same examples as the
 scripting guide.
 
-- **Widgets** shows each kind of [widget](/scripting/api/#widgets) card as Kolahal draws it.
+- **Widgets** shows each kind of [widget](/scripting/api/#widgets) card as Kolahal draws it. The
+  **Look** row above them draws every card in one of the [looks](/guides/widgets/#looks) that the
+  person who places the widget can choose. A card whose kind has no such look stays Plain, and says so.
 - **Log lines** shows the lines that [`log`, `md.log` and `fmt`](/scripting/api/#output) make, as
   the log draws them.
 - Tap an example to put its code in at the cursor, on lines of its own. The cards and lines only

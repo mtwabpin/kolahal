@@ -216,6 +216,22 @@ class WidgetsScreenTest {
         assertEquals(WidgetLook.SHAPE, t.get(w.key)!!.look)
     }
 
+    /**
+     * The Look row offers only the looks that change the widget's kind: Shortcuts (buttons) has no
+     * Bold. A Bold stored for it is kept, but the card draws Plain and the row says so.
+     */
+    @Test fun theLookRowOffersOnlyLooksThatChangeTheKind() {
+        val (w, label) = placeBuiltin(WidgetSource.SHORTCUTS, WidgetSize.S4X1)
+        widgets.setLook(w.key, WidgetLook.BOLD)
+        show()
+        choose(label)
+        compose.onNodeWithTag("look Bold").assertDoesNotExist()
+        listOf("Plain", "Tonal", "Split", "Shape").forEach { compose.onNodeWithTag("look $it").assertExists() }
+        compose.onNodeWithTag("look Plain").assertIsOn()
+        compose.onNodeWithText("4×1 · Plain").assertExists()
+        assertEquals(WidgetLook.BOLD, t.get(w.key)!!.look)
+    }
+
     /** A tap on a size gives the widget that width and height, drawn so. */
     @Test fun aSizeTapChangesSpanAndHeight() {
         val (w, label) = placeBuiltin(WidgetSource.BATTERY)

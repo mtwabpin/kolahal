@@ -336,7 +336,8 @@ object WidgetJson {
 
     // ---- writing ----------------------------------------------------------------------------
 
-    private fun kindOf(spec: WidgetSpec): WidgetKind = when (spec) {
+    /** The kind of [spec]: what `kind` says in its description. */
+    fun kindOf(spec: WidgetSpec): WidgetKind = when (spec) {
         is WidgetSpec.Stat -> WidgetKind.STAT
         is WidgetSpec.Text -> WidgetKind.TEXT
         is WidgetSpec.Rows -> WidgetKind.LIST

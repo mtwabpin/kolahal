@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -245,6 +246,25 @@ class EditorBarsTest {
         compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
         val code = ReferenceExamples.widgets.single { it.name == "buttons" }.code(ScriptLang.LUA)
         assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
+    }
+
+    /**
+     * The reference's Look row draws the widget examples in another look. A kind that doesn't
+     * offer the look stays Plain and says so: buttons have no Bold.
+     */
+    @Test fun theWidgetExamplesCanBeSeenInEachLook() {
+        show()
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("example look Plain"))
+        compose.onNodeWithTag("example look Plain").assertIsOn()
+        compose.onNodeWithTag("example look Bold").performClick()
+        compose.onNodeWithTag("example look Bold").assertIsOn()
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example buttons"))
+        compose.onNode(hasText("Bold changes nothing for buttons, so this card is Plain.") and hasAnyAncestor(hasTestTag("widget-example buttons")), useUnmergedTree = true).assertExists()
+        // A kind that has Bold has no such note.
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example steps"))
+        compose.onNode(hasText("changes nothing", substring = true) and hasAnyAncestor(hasTestTag("widget-example steps")), useUnmergedTree = true).assertDoesNotExist()
     }
 
     /**

@@ -68,6 +68,7 @@ import com.mtwabpin.kolahal.terminal.WidgetFeed
 import com.mtwabpin.kolahal.terminal.WidgetScript
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
+import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSizes
@@ -267,8 +268,9 @@ internal fun WidgetCard(
  */
 private fun drawnLook(chosen: WidgetLook, spec: WidgetSpec?, note: CardNote?, footer: WidgetWords.Footer?): WidgetLook = when {
     chosen == WidgetLook.PLAIN || chosen == WidgetLook.TONAL -> chosen
-    note != null || spec == null || footer != null || spec is WidgetSpec.Image -> WidgetLook.PLAIN
-    else -> chosen
+    note != null || spec == null || footer != null -> WidgetLook.PLAIN
+    // A look this kind doesn't offer draws Plain ([WidgetLook.offeredFor]).
+    else -> chosen.drawnFor(WidgetJson.kindOf(spec))
 }
 
 /**

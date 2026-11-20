@@ -61,6 +61,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDoc
@@ -364,6 +365,8 @@ internal fun ApiReferenceSheet(
     onExample: (String) -> Unit,
 ) {
     val docs = remember(lang) { ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD } }
+    // The look the widget examples are drawn in. Plain each time the sheet opens.
+    var exampleLook by remember { mutableStateOf(WidgetLook.PLAIN) }
     TermSheet(onDismiss) {
         LazyColumn(Modifier.navigationBarsPadding().padding(vertical = 8.dp).testTag("apiref")) {
             item {
@@ -411,7 +414,7 @@ internal fun ApiReferenceSheet(
                 }
                 EntryDivider()
             }
-            widgetExamples(lang, onExample)
+            widgetExamples(lang, exampleLook, { exampleLook = it }, onExample)
             logExamples(lang, onExample)
             item {
                 Text(

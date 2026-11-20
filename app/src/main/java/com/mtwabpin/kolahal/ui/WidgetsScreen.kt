@@ -138,6 +138,7 @@ import com.mtwabpin.kolahal.widgets.WidgetDrag
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
+import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetOrder
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
@@ -322,6 +323,8 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         w = chosen,
                         label = labelOf(chosen) ?: chosen.provider,
                         size = widgets.sizeOf(chosen),
+                        // A built-in widget's kind is fixed; a script's is the one its @widget line names.
+                        kind = WidgetSource.builtinId(chosen.source)?.let(WidgetSource::builtinKind) ?: chosenRef?.let { scripts?.get(it.script)?.widget?.kind },
                         minHeight = remember(chosen.key, providersVersion) { widgets.minHeightOf(chosen) },
                         onLook = { widgets.setLook(chosen.key, it) },
                         onSize = { widgets.setSize(chosen.key, it) },
@@ -866,6 +869,7 @@ private fun WidgetToolbar(
     w: PlacedWidget,
     label: String,
     size: WidgetSize?,
+    kind: WidgetKind?,
     minHeight: Int,
     onLook: (WidgetLook) -> Unit,
     onSize: (WidgetSize) -> Unit,
@@ -877,6 +881,9 @@ private fun WidgetToolbar(
     onDone: () -> Unit,
 ) {
     val own = w.source != null
+    // Only the looks that change this kind of card ([WidgetLook.offeredFor]); one it doesn't offer draws Plain.
+    val looks = WidgetLook.offeredFor(kind)
+    val drawn = w.look.drawnFor(kind)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -888,7 +895,7 @@ private fun WidgetToolbar(
                     Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val shape = size?.label ?: "${WidgetLayout.spanLabel(w.span)} wide · ${w.heightDp} dp tall"
                     Text(
-                        if (own) "$shape · ${w.look.label}" else shape,
+                        if (own) "$shape · ${drawn.label}" else shape,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -906,7 +913,7 @@ private fun WidgetToolbar(
             }
             if (own) {
                 ToolbarLabel("Look")
-                ChoiceRow(WidgetLook.entries.map { it.label }, w.look.label, "look ") { onLook(WidgetLook.entries[it]) }
+                ChoiceRow(looks.map { it.label }, drawn.label, "look ") { onLook(looks[it]) }
                 ToolbarLabel("Size")
                 ChoiceRow(WidgetSize.entries.map { it.label }, size?.label, "size ") { onSize(WidgetSize.entries[it]) }
                 Text(

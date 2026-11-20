@@ -21,11 +21,33 @@ enum class WidgetLook(val id: String, val label: String) {
     SPLIT("split", "Split"),
     SHAPE("shape", "Shape");
 
+    /**
+     * The look a card of [kind] draws when this one is chosen: this one when the kind has it
+     * ([offeredFor]), else [PLAIN]. The chosen look is kept either way, so it comes back if the
+     * script shows a kind that has it.
+     */
+    fun drawnFor(kind: WidgetKind?): WidgetLook = if (this in offeredFor(kind)) this else PLAIN
+
     companion object {
         /** The look stored as [id], in any case. Null for anything else: a newer Kolahal's look reads as none. */
         fun named(id: String?): WidgetLook? {
             val wanted = id?.trim()?.lowercase() ?: return null
             return entries.firstOrNull { it.id == wanted }
+        }
+
+        private val withoutBold = entries - BOLD
+        private val plainAndTonal = listOf(PLAIN, TONAL)
+
+        /**
+         * The looks that change how a card of [kind] looks, so the only ones offered for it. All of
+         * them when the kind isn't known yet (a widget that has shown nothing).
+         * - A picture covers its card, so only the card's colour can change: Plain and Tonal.
+         * - Buttons, switches and media controls have no main value to make large: no Bold.
+         */
+        fun offeredFor(kind: WidgetKind?): List<WidgetLook> = when (kind) {
+            WidgetKind.IMAGE -> plainAndTonal
+            WidgetKind.BUTTONS, WidgetKind.TOGGLES, WidgetKind.MEDIA -> withoutBold
+            else -> entries
         }
     }
 }
