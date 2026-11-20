@@ -735,8 +735,8 @@ fun WidgetHost.listing(context: Context): List<Pair<String, String>> {
         // A script's further widget has its id after the name: "weather 2".
         val label = source?.let(WidgetSource::label) ?: label(w.id, w.provider)
         val state = when {
-            w.pending -> "pending re-add"
-            source == null && isPaused(w.profileSerial) -> "paused"
+            w.pending -> "Pending re-add"
+            source == null && isPaused(w.profileSerial) -> "Paused"
             else -> null
         }
         "${i + 1}. $label" to listOfNotNull(state, "${WidgetLayout.spanLabel(w.span)} × ${w.heightDp}dp", source?.substringBefore(':') ?: w.packageName).joinToString(" · ")

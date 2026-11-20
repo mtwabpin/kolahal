@@ -142,7 +142,7 @@ object WidgetSource {
 /**
  * A placed widget.
  * - [id] is the AppWidget id. It is null for an entry restored from a backup that must still be bound
- *   again ("pending re-add"), and for a widget Kolahal draws itself ([source]).
+ *   again ("Pending re-add"), and for a widget Kolahal draws itself ([source]).
  * - [provider] is a flattened ComponentName, or a source ([WidgetSource]).
  */
 data class PlacedWidget(
@@ -210,12 +210,15 @@ object WidgetLayout {
 
     fun resizeSpan(current: Int, delta: Int): Int = (current + delta).coerceIn(MIN_SPAN, COLUMNS)
 
-    /** Label for a span: "1/2", "2/3", "5/12" or "full". */
+    /** Label for a span: "1/2", "2/3", "5/12" or "Full". */
     fun spanLabel(span: Int): String {
-        if (span >= COLUMNS) return "full"
+        if (span >= COLUMNS) return "Full"
         val d = gcd(span, COLUMNS)
         return "${span / d}/${COLUMNS / d}"
     }
+
+    /** A widget's size as the Widgets screen writes it: "1/2 wide · 184 dp tall", or "Full width · 184 dp tall". */
+    fun sizeLine(span: Int, heightDp: Int): String = (if (span >= COLUMNS) "Full width" else "${spanLabel(span)} wide") + " · $heightDp dp tall"
 
     private tailrec fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 

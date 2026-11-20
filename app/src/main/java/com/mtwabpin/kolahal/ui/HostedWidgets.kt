@@ -91,7 +91,7 @@ internal fun HostedWidget(
     val widgets = remember { WidgetHost.get(context) }
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     if (pausedKind != null) {
-        placeholder(if (pausedKind == ProfileKind.PRIVATE) "private space locked" else "${pausedKind.label} profile paused")
+        placeholder(if (pausedKind == ProfileKind.PRIVATE) "Private space locked" else "${pausedKind.label.replaceFirstChar { it.titlecase() }} profile paused")
         return
     }
     val info = remember(id, providersVersion) { widgets.cachedInfo(id) }

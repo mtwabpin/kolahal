@@ -418,6 +418,8 @@ class StyledTextBlocksTest {
         assertEquals("kg", StyledText.capitalised("kg"))
         assertEquals("Été", StyledText.capitalised("été"))
         assertEquals("Bg", StyledText.capitalised("bg"))
+        assertEquals("v1.2", StyledText.capitalised("v1.2"))
+        assertEquals("x86 build", StyledText.capitalised("x86 build"))
         assertEquals("In 3 days", StyledText.capitalised("in 3 days"))
         assertEquals("Min left", StyledText.capitalised("min left"))
         assertEquals("min", StyledText.capitalised("min"))

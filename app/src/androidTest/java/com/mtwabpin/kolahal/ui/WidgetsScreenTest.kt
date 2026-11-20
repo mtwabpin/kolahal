@@ -275,14 +275,14 @@ class WidgetsScreenTest {
         choose(label)
         val h = w.heightDp
         val drawn = chosenCard().height.value
-        compose.onNodeWithText("full wide · $h dp tall").assertExists()
+        compose.onNodeWithText("Full width · $h dp tall").assertExists()
         compose.onNodeWithContentDescription("Increase height").performClick()
-        compose.onNodeWithText("full wide · ${h + 8} dp tall").assertExists()
+        compose.onNodeWithText("Full width · ${h + 8} dp tall").assertExists()
         assertEquals(h + 8, t.get(w.key)!!.heightDp)
         assertEquals(drawn + 8, chosenCard().height.value, 1f)
         compose.onNodeWithContentDescription("Decrease height").performClick()
         compose.onNodeWithContentDescription("Decrease height").performClick()
-        compose.onNodeWithText("full wide · ${h - 8} dp tall").assertExists()
+        compose.onNodeWithText("Full width · ${h - 8} dp tall").assertExists()
         assertEquals(h - 8, t.get(w.key)!!.heightDp)
         assertEquals(drawn - 8, chosenCard().height.value, 1f)
     }
@@ -300,7 +300,7 @@ class WidgetsScreenTest {
         val gap = WidgetLayout.GAP_DP.toFloat()
         assertEquals((page + gap) * 11 / 12 - gap, chosenCard().width.value, 1f)
         compose.onNodeWithContentDescription("Increase width").assertIsEnabled().performClick()
-        compose.onNodeWithText("full wide · ${w.heightDp} dp tall").assertExists()
+        compose.onNodeWithText("Full width · ${w.heightDp} dp tall").assertExists()
     }
 
     /** Square makes the widget as tall as the page is wide. */
@@ -313,7 +313,7 @@ class WidgetsScreenTest {
         val card = chosenCard()
         assertEquals(card.width.value, card.height.value, 1.5f)
         val h = t.get(w.key)!!.heightDp
-        compose.onNodeWithText("full wide · $h dp tall").assertExists()
+        compose.onNodeWithText("Full width · $h dp tall").assertExists()
     }
 
     /**
@@ -472,7 +472,7 @@ class WidgetsScreenTest {
         // Named by its provider's class, with no app to ask for a name.
         compose.onNodeWithText(fallback).assertExists()
         card(fallback).performClick()
-        compose.onNodeWithText("full wide · ${t.get("w$id")!!.heightDp} dp tall").assertExists()
+        compose.onNodeWithText("Full width · ${t.get("w$id")!!.heightDp} dp tall").assertExists()
         // On the widget and in the toolbar.
         compose.onAllNodesWithText(fallback).assertCountEquals(2)
     }
@@ -484,7 +484,7 @@ class WidgetsScreenTest {
         var readded: Pair<ProviderEntry, PlacedWidget>? = null
         show { e, w -> readded = e to w }
         compose.onNodeWithText("Restored from backup").performScrollTo()
-        compose.onNodeWithText("panel · 160dp").assertExists()
+        compose.onNodeWithText("Full width · 160 dp tall").assertExists()
         compose.onNodeWithText(t.label(clock)).assertExists()
         compose.onNodeWithText("Add again").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle {
@@ -498,12 +498,12 @@ class WidgetsScreenTest {
         val serial = widgets.serialOf(android.os.Process.myUserHandle())
         val pending = t.restore("com.example.kolahal.gone/.ClockWidget", serial, height = 120)
         show()
-        compose.onNodeWithText("app not installed").performScrollTo()
+        compose.onNodeWithText("App not installed").performScrollTo()
         compose.onNodeWithText("Add again").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Forget").performClick()
         compose.waitForIdle()
         assertNull(t.get(pending.key))
-        compose.onNodeWithText("app not installed").assertDoesNotExist()
+        compose.onNodeWithText("App not installed").assertDoesNotExist()
         compose.onNodeWithText("Restored from backup").assertDoesNotExist()
     }
 

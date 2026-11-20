@@ -896,7 +896,7 @@ private fun WidgetToolbar(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.heightIn(min = 48.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val shape = size?.label ?: "${WidgetLayout.spanLabel(w.span)} wide · ${w.heightDp} dp tall"
+                    val shape = size?.label ?: WidgetLayout.sizeLine(w.span, w.heightDp)
                     Text(
                         if (own) "$shape · ${drawn.label}" else shape,
                         style = MaterialTheme.typography.bodySmall,
@@ -1063,7 +1063,7 @@ private fun PendingRow(
         shapes = segShapes(index, count),
         leadingContent = { Icon(painterResource(R.drawable.ic_widgets), null, tint = MaterialTheme.colorScheme.primary) },
         overlineContent = { Text(w.packageName, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(if (found == null) "app not installed" else "${w.location} · ${w.heightDp}dp") },
+        supportingContent = { Text(if (found == null) "App not installed" else WidgetLayout.sizeLine(w.span, w.heightDp)) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { found?.let { onReAdd(it, w) } }, enabled = found != null) { Text("Add again") }

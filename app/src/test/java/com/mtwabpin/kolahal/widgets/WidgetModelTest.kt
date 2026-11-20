@@ -120,7 +120,9 @@ class WidgetModelTest {
     }
 
     @Test fun widthLabelsAndSteps() {
-        assertEquals("full", WidgetLayout.spanLabel(12))
+        assertEquals("Full", WidgetLayout.spanLabel(12))
+        assertEquals("Full width · 160 dp tall", WidgetLayout.sizeLine(12, 160))
+        assertEquals("1/2 wide · 184 dp tall", WidgetLayout.sizeLine(6, 184))
         assertEquals("1/2", WidgetLayout.spanLabel(6))
         assertEquals("2/3", WidgetLayout.spanLabel(8))
         assertEquals("1/6", WidgetLayout.spanLabel(2))

@@ -284,7 +284,7 @@ class BuiltInCommandsTest {
             check(run("unlocks 3").drop(1))
             assertEquals(31, run("unlocks 99").size)
             // One day: its count, large, and no bar.
-            assertTrue(Regex("\\d+ unlocks? today").matches(com.mtwabpin.kolahal.data.StyledText.plain(run("unlocks 0").single())))
+            assertTrue(Regex("\\d+ Unlocks? today").matches(com.mtwabpin.kolahal.data.StyledText.plain(run("unlocks 0").single())))
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $op")
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = null
@@ -341,7 +341,7 @@ class BuiltInCommandsTest {
             forgetSavedUnlocks()
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(8) }
             val short = run("unlocks month").map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
-            assertTrue(short[0], short[0].endsWith("in 9 days"))
+            assertTrue(short[0], short[0].endsWith("In 9 days"))
             assertEquals("9 of 30 days", short.last())
         } finally {
             shell("appops set ${context.packageName} GET_USAGE_STATS $op")
@@ -438,7 +438,7 @@ class BuiltInCommandsTest {
             widgets.restore("com.example.pctest/com.example.pctest.ClockWidget", serial, height = 120)
             assertEquals(listOf("1. ClockWidget"), run("widgets ls"))
             val line = logs.recent(1).single()
-            assertEquals("pending re-add · full × 120dp · com.example.pctest", line.ctx.values[LogContext.DESC])
+            assertEquals("Pending re-add · Full × 120dp · com.example.pctest", line.ctx.values[LogContext.DESC])
             assertEquals("widgets", line.ctx.values[LogContext.RUN])
         } finally {
             widgets.close()
