@@ -16,6 +16,7 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * The widget and log examples of the scripting guide (site/src/content/docs/scripting/api.mdx), for
@@ -331,7 +332,382 @@ internal object ReferenceExamples {
      * as it runs the guide's. [Widget.of] names the example it varies; every name is unique among all
      * the examples. The guide doesn't have these, so ReferenceExamplesTest doesn't look for them there.
      */
-    val variants: List<Widget> = listOf()
+    val variants: List<Widget> = listOf(
+        Widget(
+            "steps-change", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
+            lua = """
+            widget.show{
+              value = "8,120",
+              label = "steps today",
+              delta = "+12%",
+              trend = "up",
+              more = {
+                { value = "5.6 km", label = "walked" },
+                { value = "310", label = "kcal" },
+                { value = "42 min", label = "active" },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              value: "8,120",
+              label: "steps today",
+              delta: "+12%",
+              trend: "up",
+              more: [
+                { value: "5.6 km", label: "walked" },
+                { value: "310", label: "kcal" },
+                { value: "42 min", label: "active" },
+              ],
+            });
+            """,
+            of = "steps", variant = "with a change",
+        ) { _, _ ->
+            WidgetSpec.Stat(
+                WidgetBase(), value = "8,120", label = "steps today", delta = "+12%", trend = "up",
+                more = listOf(WidgetSpec.Small("5.6 km", "walked"), WidgetSpec.Small("310", "kcal"), WidgetSpec.Small("42 min", "active")),
+            )
+        },
+        Widget(
+            "steps-value", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
+            lua = """
+            widget.show{ value = "6,240" }
+            """,
+            js = """
+            widget.show({ value: "6,240" });
+            """,
+            of = "steps", variant = "value only",
+        ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240") },
+        Widget(
+            "text-long", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
+            lua = """
+            widget.show{ kind = "text", title = "Before you leave",
+              text = "Water the plants on the balcony before nine, while the sun is still low. "
+                .. "The basil needs a full glass; the cactus needs nothing until Sunday.\n"
+                .. "Call the plumber about the kitchen tap, and ask for the price first. "
+                .. "Bread and milk on the way home.",
+              caption = "left on the fridge" }
+            """,
+            js = """
+            widget.show({ kind: "text", title: "Before you leave",
+              text: "Water the plants on the balcony before nine, while the sun is still low. "
+                + "The basil needs a full glass; the cactus needs nothing until Sunday.\n"
+                + "Call the plumber about the kitchen tap, and ask for the price first. "
+                + "Bread and milk on the way home.",
+              caption: "left on the fridge" });
+            """,
+            of = "text", variant = "long text",
+        ) { _, _ ->
+            WidgetSpec.Text(
+                WidgetBase(title = "Before you leave"),
+                "Water the plants on the balcony before nine, while the sun is still low. " +
+                    "The basil needs a full glass; the cactus needs nothing until Sunday.\n" +
+                    "Call the plumber about the kitchen tap, and ask for the price first. " +
+                    "Bread and milk on the way home.",
+                "left on the fridge",
+            )
+        },
+        Widget(
+            "list-10", WidgetKind.LIST, WidgetSize.S4X2, "List",
+            lua = """
+            local things = { "Rice", "Lentils", "Onions", "Tomatoes", "Milk", "Bread", "Eggs", "Bananas", "Coffee", "Soap" }
+            local items = {}
+            for i, name in ipairs(things) do items[i] = { title = name } end
+            widget.show{ title = "Groceries", items = items }
+            """,
+            js = """
+            const things = ["Rice", "Lentils", "Onions", "Tomatoes", "Milk", "Bread", "Eggs", "Bananas", "Coffee", "Soap"];
+            widget.show({ title: "Groceries", items: things.map((name) => ({ title: name })) });
+            """,
+            of = "list", variant = "10 rows",
+        ) { _, _ ->
+            val things = listOf("Rice", "Lentils", "Onions", "Tomatoes", "Milk", "Bread", "Eggs", "Bananas", "Coffee", "Soap")
+            WidgetSpec.Rows(WidgetBase(title = "Groceries"), things.map { WidgetSpec.Row(it) })
+        },
+        Widget(
+            "list-lead", WidgetKind.LIST, WidgetSize.S4X2, "List",
+            lua = """
+            widget.show{
+              title = "Spent this week",
+              lead = { value = "3,420", unit = "₹", label = "in 4 payments" },
+              items = {
+                { title = "Groceries", trailing = "1,240" },
+                { title = "Fuel", trailing = "1,500" },
+                { title = "Lunch", trailing = "380" },
+                { title = "Books", trailing = "300" },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              title: "Spent this week",
+              lead: { value: "3,420", unit: "₹", label: "in 4 payments" },
+              items: [
+                { title: "Groceries", trailing: "1,240" },
+                { title: "Fuel", trailing: "1,500" },
+                { title: "Lunch", trailing: "380" },
+                { title: "Books", trailing: "300" },
+              ],
+            });
+            """,
+            of = "list", variant = "with a lead",
+        ) { _, _ ->
+            WidgetSpec.Rows(
+                WidgetBase(title = "Spent this week"),
+                listOf(
+                    WidgetSpec.Row("Groceries", trailing = "1,240"),
+                    WidgetSpec.Row("Fuel", trailing = "1,500"),
+                    WidgetSpec.Row("Lunch", trailing = "380"),
+                    WidgetSpec.Row("Books", trailing = "300"),
+                ),
+                lead = WidgetSpec.Lead("3,420", "₹", "in 4 payments"),
+            )
+        },
+        Widget(
+            "progress-bars", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
+            lua = """
+            widget.show{ kind = "progress", title = "Phone", items = {
+              { label = "Battery", value = 72, max = 100, text = "72%", color = "good" },
+              { label = "Storage", value = 96, max = 128, text = "96 / 128 GB", color = "warn" },
+              { label = "Data", value = 1.4, max = 2, text = "1.4 / 2 GB" },
+            } }
+            """,
+            js = """
+            widget.show({ kind: "progress", title: "Phone", items: [
+              { label: "Battery", value: 72, max: 100, text: "72%", color: "good" },
+              { label: "Storage", value: 96, max: 128, text: "96 / 128 GB", color: "warn" },
+              { label: "Data", value: 1.4, max: 2, text: "1.4 / 2 GB" },
+            ] });
+            """,
+            of = "progress", variant = "bars",
+        ) { _, _ ->
+            // With bars and no value, the ring's value is 0 of 1: the card draws the bars.
+            WidgetSpec.Progress(
+                WidgetBase(title = "Phone"), value = 0f, max = 1f,
+                items = listOf(
+                    WidgetSpec.Bar("Battery", 72f, 100f, "72%", Colour.GOOD),
+                    WidgetSpec.Bar("Storage", 96f, 128f, "96 / 128 GB", Colour.WARN),
+                    WidgetSpec.Bar("Data", 1.4f, 2f, "1.4 / 2 GB", null),
+                ),
+            )
+        },
+        Widget(
+            "chart-line", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
+            lua = """
+            widget.show{ kind = "chart", title = "Sleep", style = "line",
+              points = { 7.2, 6.8, 7.5, 6.1, 8, 7.4, 6.9, 7.8, 7.1, 6.5, 7.9, 8.2, 7, 7.6 },
+              value = "7.6 h", label = "slept last night", labels = { "2 weeks ago", "Today" } }
+            """,
+            js = """
+            widget.show({ kind: "chart", title: "Sleep", style: "line",
+              points: [7.2, 6.8, 7.5, 6.1, 8, 7.4, 6.9, 7.8, 7.1, 6.5, 7.9, 8.2, 7, 7.6],
+              value: "7.6 h", label: "slept last night", labels: ["2 weeks ago", "Today"] });
+            """,
+            of = "chart", variant = "line",
+        ) { _, _ ->
+            WidgetSpec.Chart(
+                WidgetBase(title = "Sleep"), listOf(7.2f, 6.8f, 7.5f, 6.1f, 8f, 7.4f, 6.9f, 7.8f, 7.1f, 6.5f, 7.9f, 8.2f, 7f, 7.6f), style = "line",
+                value = "7.6 h", label = "slept last night", labels = listOf("2 weeks ago", "Today"),
+            )
+        },
+        Widget(
+            "countdown-clock", WidgetKind.COUNTDOWN, WidgetSize.S2X1, "Countdown",
+            lua = """
+            -- three hours from now, on the hour
+            local t = os.date("*t")
+            widget.show{ kind = "countdown", title = "Train to Mumbai", label = "from platform 4", style = "clock",
+              to = os.time{ year = t.year, month = t.month, day = t.day, hour = t.hour + 3 } }
+            """,
+            js = """
+            // three hours from now, on the hour
+            const t = new Date();
+            widget.show({ kind: "countdown", title: "Train to Mumbai", label: "from platform 4", style: "clock",
+              to: new Date(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours() + 3).getTime() / 1000 });
+            """,
+            of = "countdown", variant = "near, as a clock",
+        ) { now, zone ->
+            val to = java.time.Instant.ofEpochSecond(now).atZone(zone).truncatedTo(ChronoUnit.HOURS).plusHours(3).toEpochSecond()
+            WidgetSpec.Countdown(WidgetBase(title = "Train to Mumbai"), to = to, label = "from platform 4", style = "clock")
+        },
+        Widget(
+            "buttons-1", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
+            lua = """
+            widget.show{ kind = "buttons", items = {
+              { label = "Log a coffee", icon = "coffee", tap = { args = "coffee" } },
+            } }
+            """,
+            js = """
+            widget.show({ kind: "buttons", items: [
+              { label: "Log a coffee", icon: "coffee", tap: { args: "coffee" } },
+            ] });
+            """,
+            of = "buttons", variant = "1 button",
+        ) { _, _ -> WidgetSpec.Buttons(WidgetBase(), listOf(WidgetSpec.Button("Log a coffee", WidgetTap(args = "coffee"), icon = "coffee"))) },
+        Widget(
+            "buttons-8", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
+            lua = """
+            -- a timer for each length: the most a buttons widget has
+            local items = {}
+            for i, m in ipairs{ 1, 2, 3, 5, 10, 15, 20, 30 } do
+              items[i] = { label = m .. " min", tap = { args = "timer " .. m } }
+            end
+            widget.show{ kind = "buttons", title = "Timer", items = items }
+            """,
+            js = """
+            // a timer for each length: the most a buttons widget has
+            const items = [1, 2, 3, 5, 10, 15, 20, 30].map((m) => ({ label: m + " min", tap: { args: "timer " + m } }));
+            widget.show({ kind: "buttons", title: "Timer", items: items });
+            """,
+            of = "buttons", variant = "8 buttons",
+        ) { _, _ ->
+            WidgetSpec.Buttons(WidgetBase(title = "Timer"), listOf(1, 2, 3, 5, 10, 15, 20, 30).map { WidgetSpec.Button("$it min", WidgetTap(args = "timer $it")) })
+        },
+        Widget(
+            "toggles-2", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
+            lua = """
+            -- each switch is a setting in the script's store: a tap flips it
+            if event and event.name == "action" then
+              store.set(args[1], store.get(args[1]) == "on" and "off" or "on")
+            end
+            widget.show{ kind = "toggles", title = "Reminders", items = {
+              { label = "Morning", on = store.get("Morning") == "on", tap = { args = "Morning" } },
+              { label = "Evening", on = store.get("Evening") == "on", tap = { args = "Evening" } },
+            } }
+            """,
+            js = """
+            // each switch is a setting in the script's store: a tap flips it
+            if (event && event.name === "action") {
+              store.set(args[0], store.get(args[0]) === "on" ? "off" : "on");
+            }
+            widget.show({ kind: "toggles", title: "Reminders", items: [
+              { label: "Morning", on: store.get("Morning") === "on", tap: { args: "Morning" } },
+              { label: "Evening", on: store.get("Evening") === "on", tap: { args: "Evening" } },
+            ] });
+            """,
+            of = "toggles", variant = "2 switches",
+        ) { _, _ ->
+            // Morning is on, Evening off. A switch counts as old after a minute when the code gives no staleAfter.
+            WidgetSpec.Toggles(
+                WidgetBase(title = "Reminders", staleAfter = 60),
+                listOf(
+                    WidgetSpec.Toggle("Morning", on = true, tap = WidgetTap(args = "Morning")),
+                    WidgetSpec.Toggle("Evening", on = false, tap = WidgetTap(args = "Evening")),
+                ),
+            )
+        },
+        Widget(
+            "toggles-4", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
+            lua = """
+            -- each switch is a setting in the script's store: a tap flips it
+            if event and event.name == "action" then
+              store.set(args[1], store.get(args[1]) == "on" and "off" or "on")
+            end
+            local items = {}
+            for i, name in ipairs{ "Morning", "Noon", "Evening", "Night" } do
+              items[i] = { label = name, on = store.get(name) == "on", tap = { args = name } }
+            end
+            widget.show{ kind = "toggles", title = "Reminders", items = items }
+            """,
+            js = """
+            // each switch is a setting in the script's store: a tap flips it
+            if (event && event.name === "action") {
+              store.set(args[0], store.get(args[0]) === "on" ? "off" : "on");
+            }
+            const items = ["Morning", "Noon", "Evening", "Night"].map((name) => ({ label: name, on: store.get(name) === "on", tap: { args: name } }));
+            widget.show({ kind: "toggles", title: "Reminders", items: items });
+            """,
+            of = "toggles", variant = "4 switches",
+        ) { _, _ ->
+            // Morning and Evening are on.
+            val on = setOf("Morning", "Evening")
+            WidgetSpec.Toggles(
+                WidgetBase(title = "Reminders", staleAfter = 60),
+                listOf("Morning", "Noon", "Evening", "Night").map { WidgetSpec.Toggle(it, on = it in on, tap = WidgetTap(args = it)) },
+            )
+        },
+        Widget(
+            "clock-4", WidgetKind.CLOCK, WidgetSize.S2X1, "Clock",
+            lua = """
+            widget.show{ kind = "clock", title = "Team", staleAfter = 604800, zones = {
+              { zone = "Asia/Kolkata", label = "Pune" },
+              { zone = "Europe/London" },
+              { zone = "America/New_York" },
+              { zone = "Asia/Tokyo" },
+            } }
+            """,
+            js = """
+            widget.show({ kind: "clock", title: "Team", staleAfter: 604800, zones: [
+              { zone: "Asia/Kolkata", label: "Pune" },
+              { zone: "Europe/London" },
+              { zone: "America/New_York" },
+              { zone: "Asia/Tokyo" },
+            ] });
+            """,
+            of = "clock", variant = "4 places",
+        ) { _, _ ->
+            WidgetSpec.Clock(
+                WidgetBase(title = "Team", staleAfter = 604800),
+                listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("Europe/London"), WidgetSpec.Zone("America/New_York"), WidgetSpec.Zone("Asia/Tokyo")),
+            )
+        },
+        Widget(
+            "agenda-empty", WidgetKind.AGENDA, WidgetSize.S4X2, "Agenda",
+            lua = """
+            widget.show{ kind = "agenda", title = "Plans", empty = "Nothing planned", events = {} }
+            """,
+            js = """
+            widget.show({ kind: "agenda", title: "Plans", empty: "Nothing planned", events: [] });
+            """,
+            of = "agenda", variant = "nothing planned",
+        ) { _, _ -> WidgetSpec.Agenda(WidgetBase(title = "Plans"), emptyList(), empty = "Nothing planned") },
+        Widget(
+            "agenda-week", WidgetKind.AGENDA, WidgetSize.S4X2, "Agenda",
+            lua = """
+            local t = os.date("*t")
+            -- a time on the day `day` days from today
+            local function at(day, hour, min)
+              return os.time{ year = t.year, month = t.month, day = t.day + day, hour = hour, min = min }
+            end
+            widget.show{ kind = "agenda", title = "This week", days = 4, events = {
+              { title = "Dentist", starts = at(1, 9, 30), ends = at(1, 10), where = "Main Street" },
+              { title = "Team lunch", starts = at(1, 13), ends = at(1, 14) },
+              { title = "Gym", starts = at(2, 7), ends = at(2, 8), color = "good" },
+              { title = "Call with Ravi", starts = at(2, 18) },
+              { title = "Mira's birthday", starts = at(3, 0), allDay = true, color = "accent" },
+              { title = "Flight to Delhi", starts = at(3, 21, 15), where = "Terminal 2", color = "warn" },
+            } }
+            """,
+            js = """
+            const t = new Date();
+            // a time on the day `day` days from today
+            const at = (day, hour, min = 0) => new Date(t.getFullYear(), t.getMonth(), t.getDate() + day, hour, min).getTime() / 1000;
+            widget.show({ kind: "agenda", title: "This week", days: 4, events: [
+              { title: "Dentist", starts: at(1, 9, 30), ends: at(1, 10), where: "Main Street" },
+              { title: "Team lunch", starts: at(1, 13), ends: at(1, 14) },
+              { title: "Gym", starts: at(2, 7), ends: at(2, 8), color: "good" },
+              { title: "Call with Ravi", starts: at(2, 18) },
+              { title: "Mira's birthday", starts: at(3, 0), allDay: true, color: "accent" },
+              { title: "Flight to Delhi", starts: at(3, 21, 15), where: "Terminal 2", color: "warn" },
+            ] });
+            """,
+            of = "agenda", variant = "a busy week",
+        ) { now, zone ->
+            val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
+            fun at(day: Long, hour: Int, min: Int = 0) = today.plusDays(day).atTime(hour, min).atZone(zone).toEpochSecond()
+            WidgetSpec.Agenda(
+                WidgetBase(title = "This week"),
+                listOf(
+                    WidgetSpec.Event("Dentist", at(1, 9, 30), ends = at(1, 10), where = "Main Street"),
+                    WidgetSpec.Event("Team lunch", at(1, 13), ends = at(1, 14)),
+                    WidgetSpec.Event("Gym", at(2, 7), ends = at(2, 8), color = Colour.GOOD),
+                    WidgetSpec.Event("Call with Ravi", at(2, 18)),
+                    WidgetSpec.Event("Mira's birthday", at(3, 0), allDay = true, color = Colour.ACCENT),
+                    WidgetSpec.Event("Flight to Delhi", at(3, 21, 15), where = "Terminal 2", color = Colour.WARN),
+                ),
+                days = 4,
+            )
+        },
+    )
 
     /** The variants of the guide's example [name] ([variants]), in their order. */
     fun variantsOf(name: String): List<Widget> = variants.filter { it.of == name }

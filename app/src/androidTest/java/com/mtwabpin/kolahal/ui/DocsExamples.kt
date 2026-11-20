@@ -40,16 +40,23 @@ object DocsExamples {
     /** The xkcd link of the log example's picture line. The gallery puts a drawing there. */
     const val COMIC = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png"
 
-    /** What an example needs before its code, to run here: Do Not Disturb on, five glasses of water so far. */
+    /**
+     * What an example needs before its code, to run here: Do Not Disturb on, five glasses of water so
+     * far, some reminders on.
+     */
     val luaBefore = mapOf(
         "toggles" to "device = { dnd = function() return \"priority\" end, setDnd = function() end }\n",
         "water" to "store.set(os.date(\"%Y-%m-%d\"), \"5\")\n",
+        "toggles-2" to "store.set(\"Morning\", \"on\")\n",
+        "toggles-4" to "store.set(\"Morning\", \"on\"); store.set(\"Evening\", \"on\")\n",
     )
 
     /** [luaBefore] for the JavaScript code. */
     val jsBefore = mapOf(
         "toggles" to "const device = { dnd: () => \"priority\", setDnd: () => {} };\n",
         "water" to "{ const d0 = new Date(); store.set(d0.getFullYear() + \"-\" + (d0.getMonth() + 1) + \"-\" + d0.getDate(), \"5\"); }\n",
+        "toggles-2" to "store.set(\"Morning\", \"on\");\n",
+        "toggles-4" to "store.set(\"Morning\", \"on\"); store.set(\"Evening\", \"on\");\n",
     )
 
     /** The options an example's code reads. */

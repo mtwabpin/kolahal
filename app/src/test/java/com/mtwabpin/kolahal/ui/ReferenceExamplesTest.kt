@@ -25,6 +25,22 @@ class ReferenceExamplesTest {
     }
 
     @Test fun eachExampleHasItsOwnName() {
-        for (names in listOf(ReferenceExamples.widgets.map { it.name }, ReferenceExamples.logs.map { it.name })) assertEquals(names.distinct(), names)
+        val widgets = (ReferenceExamples.widgets + ReferenceExamples.variants).map { it.name }
+        for (names in listOf(widgets, ReferenceExamples.logs.map { it.name })) assertEquals(names.distinct(), names)
+    }
+
+    /** A variant varies one of the guide's examples: same kind, same size, and a chip label of its own. */
+    @Test fun eachVariantVariesAGuideExample() {
+        val guide = ReferenceExamples.widgets.associateBy { it.name }
+        for (v in ReferenceExamples.variants) {
+            val of = guide[v.of]
+            assertTrue("${v.name} varies no guide example: ${v.of}", of != null && of.of == null)
+            assertEquals(v.name, of!!.kind, v.kind)
+            assertEquals(v.name, of.size, v.size)
+            assertTrue("${v.name} has no chip label", !v.variant.isNullOrBlank())
+        }
+        for ((of, variants) in ReferenceExamples.variants.groupBy { it.of }) {
+            assertEquals("labels of $of", variants.map { it.variant }.distinct(), variants.map { it.variant })
+        }
     }
 }

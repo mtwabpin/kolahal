@@ -12,7 +12,7 @@ import java.time.ZoneId
  * The editor reference draws each widget example from a card made in Kotlin
  * ([ReferenceExamples.Widget.spec]), not by running the example. Here each example's code runs, in
  * Lua and in JavaScript, and must hand `widget.show` that same card. So the card beside the code
- * is what the code makes.
+ * is what the code makes. The variants ([ReferenceExamples.variants]) run too.
  */
 @RunWith(AndroidJUnit4::class)
 class ReferenceCardsTest {
@@ -20,7 +20,7 @@ class ReferenceCardsTest {
 
     @Test fun eachExampleDrawsTheCardItsCodeMakes() {
         val zone = ZoneId.systemDefault()
-        for (ex in ReferenceExamples.widgets) for (lang in ScriptLang.entries) {
+        for (ex in ReferenceExamples.widgets + ReferenceExamples.variants) for (lang in ScriptLang.entries) {
             val before = (if (lang == ScriptLang.LUA) DocsExamples.luaBefore else DocsExamples.jsBefore)[ex.name].orEmpty()
             val shown = DocsExamples.shown(context, ex.name, ex.kind, ex.size, lang, before + ex.code(lang), DocsExamples.optionsOf[ex.name].orEmpty())
             assertEquals("${ex.name} in $lang", ex.spec(System.currentTimeMillis() / 1000, zone), shown)
