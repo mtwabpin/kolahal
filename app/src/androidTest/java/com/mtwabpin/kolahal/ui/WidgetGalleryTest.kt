@@ -42,6 +42,7 @@ import com.mtwabpin.kolahal.terminal.OwnData
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetLayout
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -114,7 +115,7 @@ class WidgetGalleryTest {
      * With [inView] the card is drawn as on the page in view: a wave moves and a picture loads.
      * [badge] is the drawable of a built-in card's badge ([builtinBadge]).
      */
-    private class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null, val prefix: String = "real") {
+    private data class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null, val prefix: String = "real", val look: WidgetLook = WidgetLook.PLAIN) {
         val file get() = "$prefix-$name-${size.id}.png"
     }
 
@@ -122,6 +123,22 @@ class WidgetGalleryTest {
 
     /** Every card is drawn, one after the other, and each is saved as a picture. */
     @Test fun everyCardIsDrawnAndSaved() = draw(kinds() + readyMade(), "gallery")
+
+    /**
+     * Every card in each look ([WidgetLook]), saved in `files/gallery-looks` as
+     * `<look>-<name>-<size>.png`. Instrumentation arguments narrow it down: `looks` (a comma list
+     * such as `tonal,shape`; all looks without it) and `names` (a comma list of card names, as in the
+     * file names; all cards without it).
+     *
+     *     adb pull /sdcard/Android/data/com.mtwabpin.kolahal.debug/files/gallery-looks
+     */
+    @Test fun everyLookIsDrawnAndSaved() {
+        val args = InstrumentationRegistry.getArguments()
+        val looks = args.getString("looks")?.split(',')?.mapNotNull { WidgetLook.named(it) }?.ifEmpty { null } ?: WidgetLook.entries
+        val names = args.getString("names")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()
+        val cards = (kinds() + readyMade()).filter { names == null || it.name in names }
+        draw(looks.flatMap { look -> cards.map { it.copy(prefix = look.id, look = look) } }, "gallery-looks")
+    }
 
     /**
      * The website's pictures of the scripting guide's widget examples: each example's Lua code runs
@@ -207,7 +224,7 @@ class WidgetGalleryTest {
                 GuiTheme {
                     val shot = shown
                     if (shot != null) key(shot) {
-                        CompositionLocalProvider(LocalWidgetsShown provides shot.inView) {
+                        CompositionLocalProvider(LocalWidgetsShown provides shot.inView, LocalWidgetLook provides shot.look) {
                             // The page's colour shows around the card's round corners.
                             Box(Modifier.testTag(SHOT).background(Term.bg).padding(MARGIN_DP.dp)) {
                                 Box(Modifier.width(WidgetLayout.widthDp(pageDp, shot.size.span).dp)) {

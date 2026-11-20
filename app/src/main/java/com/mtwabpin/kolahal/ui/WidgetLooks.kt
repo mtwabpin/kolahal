@@ -19,6 +19,21 @@ import com.mtwabpin.kolahal.widgets.WidgetLook
 val LocalWidgetLook = staticCompositionLocalOf { WidgetLook.PLAIN }
 
 /**
+ * True inside a card that is one Material shape: the Shape look in a square box ([squareBox]). The
+ * card frame draws the shape; the body draws a few short lines centred in it.
+ */
+val LocalCardShaped = staticCompositionLocalOf { false }
+
+/** Whether a box is square enough for the card to be one shape: a 1×1 or a 2×2. */
+fun squareBox(widthDp: Int, heightDp: Int): Boolean = heightDp > 0 && widthDp.toFloat() / heightDp in 0.75f..1.34f
+
+/**
+ * Whether the card frame leaves the title to the body: Bold, Split and Shape have no title line.
+ * The frame then gives the title through [LocalUntitled], for the body to place where it fits.
+ */
+fun WidgetLook.untitled(): Boolean = this == WidgetLook.BOLD || this == WidgetLook.SPLIT || this == WidgetLook.SHAPE
+
+/**
  * The colours a card draws with, for its look and its colour [role] ([roleColour]).
  * - [card]: the card's surface. Transparent for Split, whose tiles each have [tile], and for Shape
  *   in a square box, where the shape is the card ([shapeFill]).
