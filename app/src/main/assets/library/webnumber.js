@@ -48,7 +48,7 @@ const url = (options.url || "").trim();
 const path = (options.path || "").trim();
 const named = (options.label || "").trim();
 
-// The card's heading: the same words as its @title line.
+// The card's name: the same words as its @title line.
 const TITLE = "Web number";
 
 // Not set up yet. This is no failure, so the card says what to set. It has no tap of its own, so

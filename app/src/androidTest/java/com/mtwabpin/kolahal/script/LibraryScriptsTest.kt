@@ -829,7 +829,7 @@ class LibraryScriptsTest {
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(listOf(3.0, 1.0, "good", "Done today"), card().let { listOf(it["value"], (it["points"] as List<*>).last(), it["color"], it["note"]) })
         assertEquals(days(4, 2, 1, 0), store.get("days"))
-        // A second tap changes nothing.
+        // "done" again, from a card not yet drawn anew, changes nothing. (The card's tap is Undo now: habitsUndoTakesOnlyTodayBack.)
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
         assertEquals(3.0, card()["value"])
         assertEquals(days(4, 2, 1, 0), store.get("days"))
@@ -859,6 +859,150 @@ class LibraryScriptsTest {
         run("habit.lua", event = at("00:01"), before = luaKeepsShown)
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(1.0, card()["value"])
+    }
+
+    /**
+     * Habit's Undo: once today is done, a tap on the card takes the mark away. The streak, the dots
+     * and the habit's first day are then as they were before the mark, and the next tap marks today
+     * again. Only today changes: a streak longer than the card's 35 days keeps every day.
+     */
+    @Test fun habitsUndoTakesOnlyTodayBack() {
+        val today = LocalDate.now()
+        fun days(vararg back: Long) = back.joinToString(" ") { today.minusDays(it).toString() }
+        // The widget's days from the habit's first, [first] days back, the oldest first: 1 for a day done.
+        fun points(first: Long, vararg done: Long) = (first downTo 0L).map { if (it in done) 1.0 else 0.0 }
+        fun card() = shown() as Map<*, *>
+        fun parts(card: Map<*, *>) = listOf(card["value"], card["points"], card["color"], card["note"], card["tap"])
+        // A tap on the widget, as the widgets page starts it, with the label of the card's tap.
+        fun tap(label: String) = mapOf("name" to "action", "label" to label, "widget" to true)
+        val mark = mapOf("args" to "done", "label" to "Done today")
+        val undo = mapOf("args" to "undo", "label" to "Undo")
+
+        // A habit begun 10 days ago, done 4, 2 and 1 days back: 2 days in a row while today is open.
+        store.set("since", days(10))
+        store.set("days", days(4, 2, 1))
+        run("habit.lua", event = forWidget, before = luaKeepsShown)
+        val open = card()
+        assertEquals(listOf(2.0, points(10, 4, 2, 1), null, null, mark), parts(open))
+
+        // Done: 3 in a row, today's dot filled, and a tap on the card is Undo now.
+        run("habit.lua", "done", event = tap("Done today"), before = luaKeepsShown)
+        assertEquals(listOf(3.0, points(10, 4, 2, 1, 0), "good", "Done today", undo), parts(card()))
+
+        // Undo: the card is as it was before the mark, its days and its first day too, and nothing is logged.
+        run("habit.lua", "undo", event = tap("Undo"), before = luaKeepsShown)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(open, card())
+        assertEquals(days(4, 2, 1), store.get("days"))
+        assertEquals(days(10), store.get("since"))
+        // An undo with today open changes nothing.
+        run("habit.lua", "undo", event = tap("Undo"), before = luaKeepsShown)
+        assertEquals(open, card())
+        assertEquals(days(4, 2, 1), store.get("days"))
+        // The next tap marks today again.
+        run("habit.lua", "done", event = tap("Done today"), before = luaKeepsShown)
+        assertEquals(listOf(3.0, points(10, 4, 2, 1, 0), "good", "Done today", undo), parts(card()))
+
+        // 50 days in a row up to yesterday: a mark and an undo keep every one of them, and the card
+        // shows its 35 days, the last one open.
+        val fifty = (50 downTo 1L).joinToString(" ") { today.minusDays(it).toString() }
+        store.set("since", days(60))
+        store.set("days", fifty)
+        run("habit.lua", "done", event = tap("Done today"), before = luaKeepsShown)
+        assertEquals(51.0, card()["value"])
+        run("habit.lua", "undo", event = tap("Undo"), before = luaKeepsShown)
+        assertEquals(listOf(50.0, List(34) { 1.0 } + 0.0, mark), card().let { listOf(it["value"], it["points"], it["tap"]) })
+        assertEquals(fifty, store.get("days"))
+        assertEquals(days(60), store.get("since"))
+    }
+
+    /** Daily counter's Undo button, as the script sends it. */
+    private val counterUndo = mapOf("label" to "Undo", "color" to "muted", "tap" to mapOf("args" to "undo", "label" to "Undo"))
+
+    /** Daily counter's first button: today's [count], with a tap that adds one, said as [add]. */
+    private fun counterAdd(count: String, add: String = "Add 1 glass", icon: String? = "drop") =
+        listOfNotNull("label" to count, icon?.let { "icon" to it }, "tap" to mapOf("args" to "add", "label" to add)).toMap()
+
+    /**
+     * Daily counter with its target, 8 glasses of water: the first button shows "5 of 8", and a tap
+     * on it adds one; Undo takes one back, down to 0. At the target the card is in the good colour.
+     * Taps log nothing. Typed, it adds and logs today's count and the last 7 days. Each day starts
+     * at 0, and only the last 7 days are kept.
+     */
+    @Test fun counterCountsTowardItsTarget() {
+        val today = LocalDate.now()
+        fun card() = shown() as Map<*, *>
+        fun tap(label: String) = mapOf("name" to "action", "label" to label, "widget" to true)
+
+        // Placed: nothing counted yet today. The card is old after an hour, or at midnight if that comes first.
+        run("counter.lua", event = forWidget, before = luaKeepsShown)
+        assertEquals(emptyList<LogEntry>(), lines())
+        val placed = card()
+        assertEquals(
+            mapOf("title" to "Water", "icon" to "drop", "staleAfter" to placed["staleAfter"], "items" to listOf(counterAdd("0 of 8"), counterUndo)),
+            placed,
+        )
+        assertTrue("${placed["staleAfter"]}", (placed["staleAfter"] as Double) in 60.0..3_600.0)
+
+        // Three taps, then Undo: 2 of 8, kept for today. Nothing is logged.
+        repeat(3) { run("counter.lua", "add", event = tap("Add 1 glass"), before = luaKeepsShown) }
+        run("counter.lua", "undo", event = tap("Undo"), before = luaKeepsShown)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(listOf(null, listOf(counterAdd("2 of 8"), counterUndo)), card().let { listOf(it["color"], it["items"]) })
+        assertEquals("$today=2", store.get("days"))
+
+        // Undo down to 0, and once more: the count stays at 0, and nothing is kept.
+        repeat(3) { run("counter.lua", "undo", event = tap("Undo"), before = luaKeepsShown) }
+        assertEquals(listOf(counterAdd("0 of 8"), counterUndo), card()["items"])
+        assertNull(store.get("days"))
+
+        // The target reached: the good colour. Past it, the count goes on.
+        repeat(8) { run("counter.lua", "add", event = tap("Add 1 glass"), before = luaKeepsShown) }
+        assertEquals(listOf("good", listOf(counterAdd("8 of 8"), counterUndo)), card().let { listOf(it["color"], it["items"]) })
+        run("counter.lua", "add", event = tap("Add 1 glass"), before = luaKeepsShown)
+        assertEquals(listOf("good", listOf(counterAdd("9 of 8"), counterUndo)), card().let { listOf(it["color"], it["items"]) })
+
+        // Typed, it adds one and logs: today's count large, then each of the last 7 days with its bar,
+        // on the scale of the target. A day 9 days back is no longer kept.
+        store.set("days", "${today.minusDays(9)}=5 ${today.minusDays(2)}=7 $today=9")
+        run("counter.lua", "add")
+        fun name(back: Int) = if (back == 0) "Today" else today.minusDays(back.toLong()).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
+        val week = (6 downTo 0).map { back -> name(back) + "\t" + mapOf(2 to 7, 0 to 10).getOrDefault(back, 0) }
+        assertEquals(Triple("Water", (listOf("10 of 8 glasses Today") + week).joinToString("\n"), null), plainOnly())
+        assertEquals("${today.minusDays(2)}=7 $today=10", store.get("days"))
+
+        // A word it doesn't know.
+        run("counter.lua", "drink")
+        assertEquals(Triple("Usage: counter [add|undo]", null, StyledText.Colour.MUTED), only())
+    }
+
+    /**
+     * Without a target the first button shows the count with its unit, "1 cup", "3 cups", and the
+     * card is never in the good colour. With no unit it is the number alone. Each placed widget
+     * keeps its own count: a run for the second widget leaves the first one's alone.
+     */
+    @Test fun counterWithoutATargetAndForEachWidget() {
+        val today = LocalDate.now()
+        fun card() = shown() as Map<*, *>
+        val coffee = mapOf("name" to "Coffee", "unit" to "cups", "target" to "0", "icon" to "coffee")
+        val tap = mapOf("name" to "action", "label" to "Add 1 cup", "widget" to true)
+
+        run("counter.lua", "add", event = tap, options = coffee, before = luaKeepsShown)
+        assertEquals(
+            mapOf("title" to "Coffee", "icon" to "coffee", "items" to listOf(counterAdd("1 cup", "Add 1 cup", "coffee"), counterUndo)),
+            card() - "staleAfter",
+        )
+        repeat(2) { run("counter.lua", "add", event = tap, options = coffee, before = luaKeepsShown) }
+        assertEquals(listOf(null, listOf(counterAdd("3 cups", "Add 1 cup", "coffee"), counterUndo)), card().let { listOf(it["color"], it["items"]) })
+
+        // An empty target is no target either. With no unit and no icon, the count is the number alone.
+        run("counter.lua", event = forWidget, options = mapOf("name" to "Push-ups", "unit" to "", "target" to "", "icon" to ""), before = luaKeepsShown)
+        assertEquals(listOf("Push-ups", null, listOf(counterAdd("3", "Add 1", icon = null), counterUndo)), card().let { listOf(it["title"], it["icon"], it["items"]) })
+
+        // A second widget of the script, with its own options: its own count.
+        run("counter.lua", "add", event = tap + ("instance" to "2"), options = coffee, before = luaKeepsShown)
+        assertEquals(listOf(counterAdd("1 cup", "Add 1 cup", "coffee"), counterUndo), card()["items"])
+        assertEquals(listOf("$today=3", "$today=1"), listOf(store.get("days"), store.get("days2")))
     }
 
     /**
@@ -894,7 +1038,8 @@ class LibraryScriptsTest {
     /**
      * Placed on the widgets page, the new scripts that need no access fill their widget as it is
      * done for real: the run that placing asks for, in the `:script` process, stores what it shows.
-     * A tap's run on Habit streak then marks today done.
+     * A tap's run on Habit streak then marks today done, and a second one takes the mark back. On
+     * Daily counter, a tap on its count adds one and Undo takes it back.
      */
     @Test fun placedTheNewScriptsFillTheirWidgets() {
         val t = TestScriptWidgets("libw")
@@ -915,14 +1060,39 @@ class LibraryScriptsTest {
             assertNull(t.stored(habit.name).error)
             assertEquals(listOf("Exercise", "0", "Days in a row", null), chart().let { listOf(it.base.title, it.value, it.label, it.base.color) })
             assertEquals(WidgetTap(args = "done", label = "Done today"), chart().base.tap)
-            // A tap on the card, as the widgets page starts it.
-            val tap = workDataOf(
-                ScriptWorker.KEY_SCRIPT_ID to habit.id, ScriptWorker.KEY_INTERACTIVE to true,
-                ScriptWorker.KEY_ARGS to arrayOf("done"), ScriptWorker.KEY_EVENT to "{\"name\":\"action\",\"label\":\"Done today\",\"widget\":true}",
-            )
-            runBlocking { ScriptRun.run(context, tap) }
+            // A tap on a card, as the widgets page starts it: its script runs with the tap's words.
+            fun tap(id: Long, args: String, label: String) = runBlocking {
+                ScriptRun.run(
+                    context,
+                    workDataOf(
+                        ScriptWorker.KEY_SCRIPT_ID to id, ScriptWorker.KEY_INTERACTIVE to true,
+                        ScriptWorker.KEY_ARGS to arrayOf(args), ScriptWorker.KEY_EVENT to "{\"name\":\"action\",\"label\":\"$label\",\"widget\":true}",
+                    ),
+                )
+            }
+            tap(habit.id, "done", "Done today")
             assertNull(t.stored(habit.name).error)
             assertEquals(listOf("1", "Day in a row", StyledText.Colour.GOOD, 1f), chart().let { listOf(it.value, it.label, it.base.color, it.points.last()) })
+            assertEquals(WidgetTap(args = "undo", label = "Undo"), chart().base.tap)
+            // The second tap is Undo: the card is as it was placed.
+            tap(habit.id, "undo", "Undo")
+            assertNull(t.stored(habit.name).error)
+            assertEquals(listOf("0", "Days in a row", null, 0f), chart().let { listOf(it.value, it.label, it.base.color, it.points.last()) })
+            assertEquals(WidgetTap(args = "done", label = "Done today"), chart().base.tap)
+
+            val counter = t.place(t.create("counter", code("counter.lua")))
+            fun buttons() = t.stored(counter.name).spec as WidgetSpec.Buttons
+            assertNull(t.stored(counter.name).error)
+            val undo = WidgetSpec.Button("Undo", WidgetTap(args = "undo", label = "Undo"), color = StyledText.Colour.MUTED)
+            assertEquals(listOf(WidgetSpec.Button("0 of 8", WidgetTap(args = "add", label = "Add 1 glass"), icon = "drop"), undo), buttons().items)
+            assertEquals(listOf("Water", "drop", null), buttons().base.let { listOf(it.title, it.icon, it.color) })
+            tap(counter.id, "add", "Add 1 glass")
+            tap(counter.id, "add", "Add 1 glass")
+            assertNull(t.stored(counter.name).error)
+            assertEquals(listOf("2 of 8", "Undo"), buttons().items.map { it.label })
+            tap(counter.id, "undo", "Undo")
+            assertNull(t.stored(counter.name).error)
+            assertEquals(listOf("1 of 8", "Undo"), buttons().items.map { it.label })
         } finally {
             t.close()
         }

@@ -51,8 +51,9 @@ if (thing !== undefined) {
 const rows = things.map((t, i) => ({ title: t, done: ticked.has(t), tap: { args: `tick ${i + 1}` } }));
 const done = things.filter((t) => ticked.has(t)).length;
 
-// The card: its title counts the ticks. Once every thing is ticked, it is in the theme's good
-// colour. A card too small for every row shows the first ones, and "+2 more" on its title line.
+// The card: its title, over the rows of a large card, counts the ticks. Once every thing is
+// ticked, it is in the theme's good colour. A card too small for every row shows the first ones,
+// and "+2 more" under them.
 // Call widget.show in every run that a tap starts, even when nothing changed: the card shows
 // only what the script tells it.
 const placed = widget.show({

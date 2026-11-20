@@ -87,7 +87,7 @@ class LibraryTagsTest {
     /** The numbers on the chips when the page opens. A new script changes them: check that its tags are right, then change them here. */
     @Test fun theChipsOfTheLibrary() {
         assertEquals(
-            mapOf(TEMPLATE to 16, WIDGET to 26, COMMAND to 23, TIMER to 26, EVENT to 4, INTERNET to 31, OFFLINE to 16),
+            mapOf(TEMPLATE to 16, WIDGET to 27, COMMAND to 24, TIMER to 26, EVENT to 4, INTERNET to 31, OFFLINE to 17),
             LibraryTags.counts(library, emptyList()),
         )
         // The chips are in the order of LibraryTag.
@@ -126,13 +126,13 @@ class LibraryTagsTest {
      */
     @Test fun theScriptsThatWorkOffline() {
         val offline = listOf(
-            "charge-reminder", "countdown", "data-month", "habit", "night-dnd", "night-work", "quick-toggles", "screen-time-months", "screen-time",
+            "charge-reminder", "countdown", "counter", "data-month", "habit", "night-dnd", "night-work", "quick-toggles", "screen-time-months", "screen-time",
             "template-event-js", "template-event", "template-widget-list-js", "template-widget-list", "unlock-chart", "unused-apps", "world-clocks",
         )
         assertEquals(offline, named(OFFLINE))
         val saysNoNetwork = files.filter { (f, _) -> "No network" in f.readLines().first() }.map { it.first.nameWithoutExtension }
         assertEquals(emptyList<String>(), saysNoNetwork - offline.toSet())
-        assertEquals(12, saysNoNetwork.size)
+        assertEquals(13, saysNoNetwork.size)
     }
 
     /** A script that names the site it talks to has the Internet tag. */

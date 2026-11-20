@@ -42,7 +42,7 @@ end
 
 -- Its widget: today's count large, over the bars. The bars start at 0, so a quiet day is a short
 -- bar, not a missing one. The summary is what a screen reader says for the bars.
--- A tap runs this script again with "week" and turns home to the log. The heading is the same
+-- A tap runs this script again with "week" and turns home to the log. The card's name is the same
 -- words as its @title line.
 if widget then
   local said = {}

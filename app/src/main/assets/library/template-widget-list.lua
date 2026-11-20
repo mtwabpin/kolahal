@@ -64,8 +64,9 @@ for i, thing in ipairs(things) do
   rows[i] = { title = thing, done = ticked[thing] == true, tap = { args = "tick " .. i } }
 end
 
--- The card: its title counts the ticks. Once every thing is ticked, it is in the theme's good
--- colour. A card too small for every row shows the first ones, and "+2 more" on its title line.
+-- The card: its title, over the rows of a large card, counts the ticks. Once every thing is
+-- ticked, it is in the theme's good colour. A card too small for every row shows the first ones,
+-- and "+2 more" under them.
 -- Call widget.show in every run that a tap starts, even when nothing changed: the card shows
 -- only what the script tells it.
 local placed = widget.show{

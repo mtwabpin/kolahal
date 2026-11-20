@@ -48,7 +48,7 @@ if (!r.ok) return fail(`GitHub answered HTTP ${r.status}`);
 const repo = JSON.parse(r.body);
 
 // The card. Only value is needed. A typo in a field's name is an error that lists the fields.
-// - title: the card's heading. Without it: the @title line.
+// - title: the card's name. Without it: the @title line.
 // - icon: a name from the scripting guide's icon list, drawn in the card's colour, or an emoji.
 // - color: a role (accent, good, warn, bad…), never a colour value: the theme picks it.
 // - tap: what a tap on the card does. { url: … } opens a link; { args: … } runs this script

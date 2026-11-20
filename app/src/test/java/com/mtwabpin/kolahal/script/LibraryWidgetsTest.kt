@@ -47,7 +47,7 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "data-month.lua", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "screen-time-months.lua", "screen-time.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "unused-apps.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
+            listOf("aqi.js", "countdown.lua", "counter.lua", "cricket.js", "crypto.js", "data-month.lua", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "screen-time-months.lua", "screen-time.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "unused-apps.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
             withWidget,
         )
     }
@@ -128,16 +128,17 @@ class LibraryWidgetsTest {
 
     /**
      * The streak over five weeks of dots: a point for each of the last 35 days, the oldest first, 1
-     * for a day that is done and 0 for any other. Once today is done the card is in the good colour;
-     * before that it gives no colour. A screen reader hears how many of the days were done.
+     * for a day that is done and 0 for any other. Once today is done the card is in the good colour,
+     * and a tap on it is Undo; before that it gives no colour, and a tap marks today done. A screen
+     * reader hears how many of the days were done, and the tap's label: what a tap does.
      */
     @Test fun habit() {
-        fun days(streak: Double, days: List<Double>, color: String?, note: String? = null) = fromLua(
+        fun days(streak: Double, days: List<Double>, color: String?, note: String? = null, tap: Map<*, *> = luaTable("args" to "done", "label" to "Done today")) = fromLua(
             "habit.lua",
             luaTable(
                 "title" to "Exercise", "icon" to "check", "value" to streak, "label" to "Days in a row",
                 "points" to luaList(*days.toTypedArray()), "style" to "dots",
-                "color" to color, "note" to note, "tap" to luaTable("args" to "done", "label" to "Done today"),
+                "color" to color, "note" to note, "tap" to tap,
             ),
         ) as WidgetSpec.Chart
         val tap = WidgetTap(args = "done", label = "Done today")
@@ -152,9 +153,11 @@ class LibraryWidgetsTest {
             card,
         )
         assertEquals("Exercise: 3, Days in a row, Done on 29 of the last 35 days", WidgetWords.description("Exercise", card, 0, java.time.ZoneOffset.UTC))
-        // Done today: the good colour, and "Done today" as the note at a large card's foot.
-        val done = days(4.0, open.dropLast(1) + 1.0, color = "good", note = "Done today")
+        // Done today: the good colour, and "Done today" as the note at a large card's foot. A tap is Undo now.
+        val done = days(4.0, open.dropLast(1) + 1.0, color = "good", note = "Done today", tap = luaTable("args" to "undo", "label" to "Undo"))
         assertEquals(listOf("4", StyledText.Colour.GOOD, 1f, "Done today"), listOf(done.value, done.base.color, done.points.last(), done.base.note))
+        assertEquals(WidgetTap(args = "undo", label = "Undo"), done.base.tap)
+        assertEquals("Exercise, Done today: 4, Days in a row, Done on 30 of the last 35 days", WidgetWords.description("Exercise", done, 0, java.time.ZoneOffset.UTC))
         // A new habit: only today, and no dot for the days before its first.
         val new = days(0.0, listOf(0.0), color = null)
         assertEquals(listOf("0", listOf(0f), "dots"), listOf(new.value, new.points, new.style))
@@ -170,6 +173,55 @@ class LibraryWidgetsTest {
         assertEquals(emptyList<String>(), ScriptAccess.asksFor(code))
         assertEquals(listOf(ScriptAccess.WIDGET), ScriptAccess.items(code))
         assertEquals(false, ScriptMeta.postsNotifications(code))
+    }
+
+    /**
+     * Daily counter: two buttons. The first shows today's count, "5 of 8" toward a target or "3 cups"
+     * without one, and a tap on it adds one. Undo, in the muted colour, takes one back. Once the
+     * count reaches the target, the card is in the good colour. It is old after an hour, or at
+     * midnight, so a new day starts at 0.
+     */
+    @Test fun counter() {
+        fun card(count: String, add: String, color: String? = null, title: String = "Water", icon: String? = "drop") = fromLua(
+            "counter.lua",
+            luaTable(
+                "title" to title, "icon" to icon, "color" to color, "staleAfter" to 3_600.0,
+                "items" to luaList(
+                    luaTable("label" to count, "icon" to icon, "tap" to luaTable("args" to "add", "label" to add)),
+                    luaTable("label" to "Undo", "color" to "muted", "tap" to luaTable("args" to "undo", "label" to "Undo")),
+                ),
+            ),
+        ) as WidgetSpec.Buttons
+        val undo = WidgetSpec.Button("Undo", WidgetTap(args = "undo", label = "Undo"), color = StyledText.Colour.MUTED)
+        // With a target: 5 of 8.
+        val water = card("5 of 8", "Add 1 glass")
+        assertEquals(
+            WidgetSpec.Buttons(
+                WidgetBase(title = "Water", icon = "drop", staleAfter = 3_600),
+                listOf(WidgetSpec.Button("5 of 8", WidgetTap(args = "add", label = "Add 1 glass"), icon = "drop"), undo),
+            ),
+            water,
+        )
+        assertEquals("Water: 5 of 8, Undo", WidgetWords.description("Water", water, 0, java.time.ZoneOffset.UTC))
+        // The target reached: the good colour.
+        assertEquals(StyledText.Colour.GOOD, card("8 of 8", "Add 1 glass", color = "good").base.color)
+        // Without a target: the count with its unit, here a coffee counter with its own icon.
+        val coffee = card("3 cups", "Add 1 cup", title = "Coffee", icon = "coffee")
+        assertEquals(listOf("3 cups", "Undo"), coffee.items.map { it.label })
+        assertEquals(listOf("coffee", null), coffee.items.map { it.icon })
+        // No unit and no icon: the number alone.
+        val bare = card("4", "Add 1", title = "Counter", icon = null)
+        assertEquals(listOf(WidgetSpec.Button("4", WidgetTap(args = "add", label = "Add 1")), undo), bare.items)
+        assertEquals(WidgetBase(title = "Counter", staleAfter = 3_600), bare.base)
+    }
+
+    /** counter asks for nothing: its counts are in its own store. Its options start as a water counter with a target of 8. */
+    @Test fun counterAsksForNoAccess() {
+        val code = sourceFile("src/main/assets/library/counter.lua").readText()
+        assertEquals(emptyList<String>(), ScriptAccess.asksFor(code))
+        assertEquals(listOf(ScriptAccess.WIDGET), ScriptAccess.items(code))
+        assertEquals(false, ScriptMeta.postsNotifications(code))
+        assertEquals(mapOf("name" to "Water", "unit" to "glasses", "target" to "8", "icon" to "drop"), ScriptMeta.options(code).associate { it.name to it.default })
     }
 
     /** Screen time: today large, a bar a day for the days Android has data for, oldest first. */

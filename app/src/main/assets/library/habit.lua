@@ -4,7 +4,7 @@
 -- @usage [done|undo]
 -- @title Habit streak
 -- @author Kolahal
--- @version 1.2
+-- @version 1.3
 -- @widget chart 2x2
 -- @at 00:01
 -- @option name Exercise What you count
@@ -18,8 +18,8 @@
 --
 -- Its widget, once you placed it on the widgets page, shows the streak large: the days in a row
 -- that you did it. Under it is a dot for each day, a row for each week (five weeks at 4x2), so the
--- day you tend to skip shows. A tap on the widget marks today done. A tap by mistake: type
--- habit undo.
+-- day you tend to skip shows. A tap on the widget marks today done. Once today is done, a tap
+-- takes the mark away again, so a tap by mistake is easy to undo. habit undo does the same.
 -- It runs a minute after midnight, so the widget starts the new day with an open dot.
 --
 -- The days are kept in its own store. It needs no access.
@@ -99,8 +99,9 @@ local label = streak == 1 and "Day in a row" or "Days in a row"
 -- Its widget: the streak large, over a dot for each day since its first, the oldest first: 1 for a
 -- day you did it, 0 for any other. Kolahal lays the dots out as a calendar, with today's dot
 -- larger: a day done is a filled dot, and a day missed a ring. Once today is done, the widget is
--- in the theme's good colour, and its title line ends with "Done today". A tap runs this script
--- again with "done".
+-- in the theme's good colour, with "Done today" as the note at the foot of a large one. A tap runs this script
+-- again with "done", or with "undo" once today is done: a second tap takes the first one back.
+-- An undo changes only today, so the streak, the dots and the first day are as they were before.
 if widget then
   local points = {}
   for back = DAYS - 1, 0, -1 do
@@ -114,7 +115,7 @@ if widget then
     style = "dots",
     color = done[day(0)] and "good" or nil,
     note = done[day(0)] and "Done today" or nil,
-    tap = { args = "done", label = "Done today" },
+    tap = done[day(0)] and { args = "undo", label = "Undo" } or { args = "done", label = "Done today" },
   }
 end
 

@@ -1,6 +1,6 @@
 ---
 title: Script library
-description: The 43 ready-made Lua and JavaScript scripts bundled with Kolahal.
+description: The 48 ready-made Lua and JavaScript scripts bundled with Kolahal.
 ---
 
 import Cards from "../../../components/Cards.astro";
@@ -22,7 +22,7 @@ import clocks from "../../../assets/widgets/worldclocks-2x2.png";
 import toggles from "../../../assets/widgets/quicktoggles-4x1.png";
 import webnumber from "../../../assets/widgets/webnumber-2x1.png";
 
-Kolahal includes 43 ready-made scripts, 16 of them templates to start your own from. You can install one with a single tap in the script manager
+Kolahal includes 48 ready-made scripts, 16 of them templates to start your own from. You can install one with a single tap in the script manager
 (**Add script → From the library**), or from the prompt:
 
 ```sh
@@ -123,7 +123,7 @@ as editing, so the script still updates with Kolahal.
 Some scripts keep a status line (weather, countdown, cricket and others). To show it at the top of home,
 pin the script: run `script pin weather`, or long-press the line.
 
-Eighteen scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others),
+Twenty-three scripts have a [widget](#widgets) for the widgets page (weather, hn, countdown and others),
 and two [templates](#templates), each in Lua and in JavaScript, show how to make your own.
 
 None of the network scripts need an API key.
@@ -157,6 +157,7 @@ None of the network scripts need an API key.
 | [data-month](#data-month) | Lua | | | |
 | [unused-apps](#unused-apps) | Lua | | | |
 | [habit](#habit) | Lua | yes | daily 00:01 | |
+| [counter](#counter) | Lua | yes | | |
 | [world-clocks](#world-clocks) | Lua | | | |
 | [quick-toggles](#quick-toggles) | Lua | | | |
 | [night-dnd](#night-dnd) | Lua | | daily 23:00 and 07:00 | |
@@ -180,7 +181,7 @@ None of the network scripts need an API key.
 
 ## Widgets
 
-Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
+Twenty-three scripts have a [widget](/scripting/overview/#widgets): a card on the
 [widgets page](/guides/widgets/) that the script fills. To use one:
 
 1. Install the script.
@@ -207,7 +208,8 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [screen-time-months](#screen-time-months) | your screen time a day, over a bar for each month Android keeps | logs a row for each month, and home turns to the log |
 | [data-month](#data-month) | your mobile data this month, as a bar toward your plan | logs the month, and home turns to the log |
 | [unused-apps](#unused-apps) | the apps you haven't opened for 30 days, with the days and their size | logs the whole list, and home turns to the log |
-| [habit](#habit) | your streak in days, over a dot for each day, a row for each week | marks today done |
+| [habit](#habit) | your streak in days, over a dot for each day, a row for each week | marks today done; once today is done, takes the mark away again |
+| [counter](#counter) | today's count, toward a target if you set one, and **Undo** | on the count: adds one; on **Undo**: takes one back |
 | [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
 | [quick-toggles](#quick-toggles) | switches for Do Not Disturb and the work profile | on a switch: turns it on or off |
 | [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
@@ -305,7 +307,7 @@ script set headlines url https://example.com/feed.xml
 - Its `url` option is the feed's address. It starts as the front page of Hacker News.
 - It reads the feed every hour, and only while its widget is on the widgets page.
 - After you change the feed, the card shows it at the script's next run. To run it at once, tap the
-  card's heading.
+  card outside its headlines.
 - It logs no headlines. To read feeds in the log, with unread counts, use
   [`feed`](/guides/feeds/).
 
@@ -610,8 +612,10 @@ habit done                   # mark today done
 habit undo                   # take today's mark away
 ```
 
-- A tap on the card marks today done. The card then turns to the theme's good colour.
-- A tap by mistake: type `habit undo`.
+- A tap on the card marks today done. The card then turns to the theme's good colour, with
+  "Done today" at the foot of a large card.
+- Once today is done, a tap on the card takes the mark away again, so a tap by mistake is easy to
+  undo. The streak and the dots are then as they were before the mark. `habit undo` does the same.
 - While today is still open, the streak counts up to yesterday. A missed day starts it again at 0.
 - Its `name` option is the card's title: what you count (`script set habit name Read`).
 - It runs at 00:01, so the card starts the new day with an open dot.
@@ -619,6 +623,35 @@ habit undo                   # take today's mark away
   weeks beside it.
 - It counts one habit. For a second one, rename your copy (`script mv habit read`) and install
   habit again. Each copy has its own days and its own widget.
+
+## counter
+
+**Daily counter**: a [widget](#widgets) that counts something through the day, such as glasses of
+water, toward a target if you set one. Each day starts again at 0. It doesn't use the network, and
+it needs no access.
+
+```sh
+counter                      # today's count and the last 7 days
+counter add                  # add one
+counter undo                 # take one back
+```
+
+- The card has two buttons. The first shows today's count, and a tap on it adds one. **Undo** takes
+  one back, so a tap by mistake is easy to fix.
+- With a target, the count is "5 of 8", and the card turns to the theme's good colour once you
+  reach the target. Without one, it is the count with its unit: "5 glasses".
+- Its options say what it counts:
+  - `name`: the card's title (Water).
+  - `unit`: what you count it in (glasses). Leave it empty for a number alone.
+  - `target`: how many a day (8). `0` or nothing means no target.
+  - `icon`: an [icon name](/scripting/api/#icons) such as `drop` or `coffee`, or an emoji.
+- To count coffee instead: `script set counter name Coffee`, `script set counter unit cups`,
+  `script set counter target 0` and `script set counter icon coffee`. Then type `counter`: the card
+  shows the change at once.
+- To count two things, place the widget twice. For the second one, open **Arrange widgets**,
+  select it and tap **Options**. Each widget keeps its own count.
+- A button takes one tap in 2 seconds. A faster second tap is ignored.
+- Typed, `counter` logs today's count large, and the last 7 days, each with its bar.
 
 ## world-clocks
 
