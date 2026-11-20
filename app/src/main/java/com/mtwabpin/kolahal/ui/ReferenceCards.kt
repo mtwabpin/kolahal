@@ -7,7 +7,6 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -382,18 +381,17 @@ private fun ExampleChoices(choices: List<String>, selected: String, tagPrefix: S
     }
 }
 
-/** An example's code, in a rounded box. A line too long for the screen scrolls sideways. */
+/** An example's code, in a rounded box. A line too long for the screen wraps: a line that scrolled
+ * sideways hid its end with nothing to say there was more. */
 @Composable
 private fun CodeBlock(code: String) {
     Text(
         code,
         style = codeStyle().copy(fontSize = 12.sp, lineHeight = 18.sp),
-        softWrap = false,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .testTag("example-code"),
     )
