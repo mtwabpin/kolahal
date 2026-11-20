@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.terminal
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.AppRepository
+import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats.duration
@@ -15,8 +16,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * `usage-summary [week | month | year | full]`: the long view of screen time, from Android's
+ * `usage-summary [week | month | year | full] [<app>]`: the long view of screen time, from Android's
  * weeks, months and years ([UsageLevels]).
+ * - With an app after `week`, `month` or `year`: that app alone ([forApp]).
  * - Alone: a line for each level, with how far back it goes and the time a day in it.
  * - `week`, `month`, `year`: the time a day, unlocks a day and the total; a table with a row for
  *   each of Android's weeks, months or years, its total and its time a day; the change of the last
@@ -31,25 +33,24 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
 
     fun run(args: List<String>) {
         if (!com.mtwabpin.kolahal.usage.UsageAccess.granted(context)) return fix("Usage summary needs usage access — tap to allow it", "usage-access")
-        val levels = UsageLevels(context)
-        // Each level is read once, even by `full`. A year is filled from the months inside it, and a
-        // month from its weeks: Android deletes a removed app's history from some levels only.
-        val read = HashMap<Level, List<Bucket>>()
-        fun buckets(level: Level): List<Bucket> = read.getOrPut(level) {
-            val own = levels.read(level)
-            when (level) {
-                Level.YEARS -> UsageLevels.fill(own, buckets(Level.MONTHS))
-                Level.MONTHS -> UsageLevels.fill(own, buckets(Level.WEEKS))
-                else -> own
-            }
+        // Each level is read once, even by `full`, a year filled from its months ([UsageLevels.Reading]).
+        val reading = UsageLevels(context).Reading()
+        val buckets = reading::buckets
+        val level = when (args.firstOrNull()?.lowercase()) {
+            "week" -> Level.WEEKS
+            "month" -> Level.MONTHS
+            "year" -> Level.YEARS
+            else -> null
         }
+        // `usage-summary month youtube`: one app over the months.
+        if (level != null && args.size > 1) return forApp(args.drop(1), level, buckets(level))
         when (args.firstOrNull()?.lowercase()) {
-            null -> overview(::buckets)
+            null -> overview(buckets)
             "week" -> period(buckets(Level.WEEKS), Level.WEEKS)
             "month" -> period(buckets(Level.MONTHS), Level.MONTHS)
             "year" -> years(buckets(Level.YEARS))
             "full" -> {
-                overview(::buckets)
+                overview(buckets)
                 for (level in listOf(Level.WEEKS, Level.MONTHS, Level.YEARS)) {
                     rule(unit(level, 2))
                     if (level == Level.YEARS) years(buckets(level)) else period(buckets(level), level)
@@ -164,11 +165,57 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         return "${show(b.start)} – ${if (b.current) "now" else show(b.end)}"
     }
 
-    /** A row for each bucket, the oldest first: its dates, its total, and its time a day. */
-    private fun table(buckets: List<Bucket>, level: Level) {
+    /** A row for each bucket, the oldest first: its dates, its total, and its time a day; all apps', or with [pkg] that app's. */
+    private fun table(buckets: List<Bucket>, level: Level, pkg: String? = null) {
         val head = when (level) { Level.WEEKS -> "Week"; Level.MONTHS -> "Month"; Level.YEARS -> "Year"; Level.DAYS -> "Day" }
-        val rows = listOf(listOf(head, "Total", "A day")) + buckets.map { listOf(span(it, level), hours(it.total), duration(it.perDay)) }
+        val rows = listOf(listOf(head, "Total", "A day")) + buckets.map { b ->
+            listOf(span(b, level), hours(b.total(pkg)), duration(UsageLevels.perDay(listOf(b), pkg) ?: 0))
+        }
         out(StyledText.table(rows, header = true, align = "lrr"))
+    }
+
+    // ---- one app --------------------------------------------------------------------------
+
+    /**
+     * `usage-summary week | month | year <app>`: one app over Android's weeks, months or years.
+     * - Big numbers: its time a day, its total, and its share of all screen time.
+     * - A row for each, "0m" ones too: no time is a true answer, unlike a day Android has no data for.
+     * - Its change, and when it was last used.
+     * - The personal profile's app: Android gives Kolahal no other profile's use, as for `usage <app>`.
+     */
+    private fun forApp(words: List<String>, level: Level, buckets: List<Bucket>) {
+        val matches = apps.search(CommandParsing.withoutFlags(words), com.mtwabpin.kolahal.apps.ProfileKind.fromFlags(words))
+        val app = matches.firstOrNull { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL } ?: matches.firstOrNull()
+            ?: return error("No app matches '${CommandParsing.withoutFlags(words)}'")
+        if (app.profile.kind != com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL) {
+            return info("Screen time of ${app.profile.kind.label} apps isn't available: Android gives Kolahal only the personal profile's")
+        }
+        if (buckets.isEmpty()) return info("No usage recorded yet")
+        val pkg = app.pkg
+        val total = buckets.sumOf { it.total(pkg) }
+        if (total == 0L) return info("No use of ${app.label} recorded")
+        val big = mutableListOf<Pair<String, String>>()
+        UsageLevels.perDay(UsageLevels.counted(buckets), pkg)?.let { big += "≈${duration(it)}" to "a day" }
+        big += hours(total) to "total"
+        val all = buckets.sumOf { it.total }
+        if (all > 0) big += "${Math.round(total * 100.0 / all)}%" to "of screen time"
+        out(StyledText.stats(big), appContext(app))
+        table(buckets, level, pkg)
+        UsageLevels.change(buckets, pkg)?.let { percent ->
+            info("${coloured(change(percent), percent <= 0)} · ${span(buckets.last { !it.current }, level)}")
+        }
+        UsageLevels.lastUsed(buckets, pkg)?.let { info("Last used ${whenUsed(it)}") }
+    }
+
+    /** A moment in the past as the log says it: "today 1:22 AM", "yesterday 21:05", "Tue 17 Nov 9:00", with the year for another year. */
+    private fun whenUsed(ms: Long): String {
+        val t = Instant.ofEpochMilli(ms).atZone(zone)
+        val today = java.time.LocalDate.now(zone)
+        val day = t.toLocalDate()
+        val clock24 = com.mtwabpin.kolahal.data.Config.get(context)[com.mtwabpin.kolahal.data.Keys.CLOCK_24H]
+        val dayText = if (day == today || day == today.minusDays(1)) com.mtwabpin.kolahal.data.TimeFormats.dayLabel(day, today)
+        else day.format(com.mtwabpin.kolahal.data.TimeFormats.dayFormat(day.year, today.year))
+        return "$dayText ${t.format(com.mtwabpin.kolahal.data.TimeFormats.clockFormat(clock24))}"
     }
 
     /**

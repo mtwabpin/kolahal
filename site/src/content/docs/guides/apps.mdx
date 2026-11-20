@@ -148,6 +148,7 @@ unlocks month    # a column a day for 30 days, the trend, and a line per week
 usage-summary    # what Android keeps: days, weeks, months, years
 usage-summary month   # a row per month: its total and its time a day
 usage-summary full    # all of them: the overview, weeks, months and years
+usage-summary month youtube   # one app over the months
 ```
 
 `usage` needs **Usage access** (`usage-access`). To count unlocks, Kolahal uses usage access if you granted it.
@@ -183,6 +184,13 @@ reads them:
 - `usage-summary year` also has the top apps of each year, and the apps you used <em>less</em> or
   that are <em>new</em> since the year before, each with a chip.
 - `usage-summary full`: all of these, each part after a `── weeks ──` line.
+- With an app after `week`, `month` or `year`, such as `usage-summary month youtube`: that app
+  alone. Its time a day, its total and its share of all your screen time; a row for each week, month
+  or year, with "0m" where it wasn't used; its change, and when you last used it. As for `usage <app>`,
+  it works for the apps of your personal profile.
+
+Scripts read the same numbers with `usage.summary` ([API](/scripting/api/#usagesummaryperiod-app)),
+and the library's **screen-time-months** widget shows them as a bar a month.
 
 The output keeps to numbers and short labels. A `≈` marks Android's own totals: about right, not
 exact. Android starts each week, month and year where the one before ended, not on a Monday or the

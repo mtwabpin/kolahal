@@ -46,7 +46,7 @@ class LibraryWidgetsTest {
         val withWidget = sourceFile("src/main/assets/library").listFiles().orEmpty()
             .filter { ScriptMeta.widget(it.readText()) != null }.map { it.name }.sorted()
         assertEquals(
-            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "data-month.lua", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "screen-time.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "unused-apps.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
+            listOf("aqi.js", "countdown.lua", "cricket.js", "crypto.js", "data-month.lua", "exchange.js", "football.js", "forecast.js", "habit.lua", "headlines.js", "hn.lua", "quick-toggles.lua", "quote.js", "releases.lua", "screen-time-months.lua", "screen-time.lua", "template-widget-js.js", "template-widget-list-js.js", "template-widget-list.lua", "template-widget.lua", "unlock-chart.lua", "unused-apps.lua", "weather.lua", "webnumber.js", "world-clocks.lua", "xkcd.js"),
             withWidget,
         )
     }
@@ -183,6 +183,23 @@ class LibraryWidgetsTest {
         assertEquals("4h 12m", spec.value)
         assertEquals(listOf(252f, 190f, 300f, 252f), spec.points)
         assertEquals(WidgetTap(args = "today", label = "Show today's apps", toLog = true), spec.base.tap)
+    }
+
+    /** Screen time by month: the time a day large, a bar a month, the oldest first, the newest called "now". */
+    @Test fun screenTimeMonths() {
+        val tap = luaTable("args" to "months", "page" to "log", "label" to "Show the months")
+        val spec = fromLua(
+            "screen-time-months.lua",
+            luaTable(
+                "title" to "Screen time by month", "icon" to "timer", "value" to "≈1h 41m", "label" to "a day · 3 months",
+                "points" to luaList(58.0, 211.0, 124.0), "style" to "bars", "min" to 0.0,
+                "labels" to luaList("12 Aug", "now"), "summary" to "12 Aug 58m, 11 Sep 3h 31m, 12 Oct 2h 4m",
+                "staleAfter" to 3600.0, "tap" to tap,
+            ),
+        ) as WidgetSpec.Chart
+        assertEquals("≈1h 41m", spec.value)
+        assertEquals(listOf(58f, 211f, 124f), spec.points)
+        assertEquals(WidgetTap(args = "months", label = "Show the months", toLog = true), spec.base.tap)
     }
 
     /** Data this month: a bar toward the plan, red when the pace is over it; with no plan, or on Android 9, a number. */

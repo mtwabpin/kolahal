@@ -369,6 +369,9 @@ class Completer(private val context: Context, private val data: Data) {
                 4 if parts[1] == "every" -> words(INTERVALS - "off")
                 else -> emptyList()
             }
+            // `usage-summary month <app>`: after the period, the apps of the personal profile too.
+            "usage-summary" if parts.size >= 3 && parts[1].lowercase() in setOf("week", "month", "year") ->
+                appCompletions("$head ${parts[1].lowercase()}", parts.drop(2).joinToString(" ")) { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
             // `usage <app>`: a name gets the apps of the personal profile, whose use Android gives Kolahal.
             "usage" if arg.isNotEmpty() && arg.trim().toIntOrNull() == null -> appCompletions(head, arg) { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
             "data" -> if (parts.size == 2) words(listOf("today", "month")) else emptyList()

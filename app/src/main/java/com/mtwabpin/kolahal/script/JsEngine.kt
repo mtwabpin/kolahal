@@ -150,6 +150,7 @@ class JsEngine : ScriptEngine {
             function("days") { args -> toJs(data.usageDays(args.getOrNull(0))) }
             function("data") { args -> toJs(data.usageData(args.getOrNull(0))) }
             function("unused") { args -> toJs(data.usageUnused(args.getOrNull(0))) }
+            function("summary") { args -> toJs(data.usageSummary(args.getOrNull(0), args.getOrNull(1))) }
         }
         js.asyncFunction("sleep") { args -> host.sleepAsync((args.getOrNull(0) as? Number)?.toLong() ?: 0L) }
         js.define("rss") {

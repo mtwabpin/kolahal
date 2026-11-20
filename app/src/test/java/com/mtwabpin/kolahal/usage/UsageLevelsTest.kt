@@ -89,4 +89,25 @@ class UsageLevelsTest {
         assertEquals(listOf("duo"), UsageLevels.newApps(last, now).map { it.pkg })
         assertEquals(15 * 60_000L, UsageLevels.newApps(last, now).single().now)
     }
+
+    /** One app over the buckets: its time a day, its change, and when it was last used, a year knowing what its months know. */
+    @Test fun oneAppOverTheBuckets() {
+        val months = listOf(
+            Bucket(0, 30 * DAY_MS, mapOf("yt" to 30 * hour, "wa" to 30 * hour), null, current = false, lastUsed = mapOf("yt" to 10L)),
+            Bucket(30 * DAY_MS, 60 * DAY_MS, mapOf("yt" to 15 * hour), null, current = false, lastUsed = mapOf("yt" to 50L)),
+            Bucket(60 * DAY_MS, 70 * DAY_MS, emptyMap(), null, current = true),
+        )
+        assertEquals(hour, UsageLevels.perDay(months.take(1), "yt"))
+        // Half the time a day of the month before it.
+        assertEquals(-50L, UsageLevels.change(months, "yt"))
+        // An app with no time before has no change to say.
+        assertNull(UsageLevels.change(months, "duo"))
+        assertEquals(0L, months[2].total("yt"))
+        assertEquals(50L, UsageLevels.lastUsed(months, "yt"))
+        assertNull(UsageLevels.lastUsed(months, "duo"))
+        val year = Bucket(0, 70 * DAY_MS, mapOf("yt" to 10 * hour), null, current = true, lastUsed = mapOf("yt" to 5L))
+        val filled = UsageLevels.fill(listOf(year), months).single()
+        assertEquals(45 * hour, filled.total("yt"))
+        assertEquals(50L, filled.lastUsed["yt"])
+    }
 }

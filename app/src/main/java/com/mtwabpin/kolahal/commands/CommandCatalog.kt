@@ -144,7 +144,7 @@ object CommandCatalog {
         CommandSpec("storage", "storage", "Free space, the largest apps, and apps not opened for 30 days", short = "Storage and unused apps"),
         CommandSpec("usage", "usage [<days> | <app>]", "Screen time per app, or one app in detail", short = "Screen time per app", args = "<days> · <app>", aka = listOf("screentime")),
         CommandSpec(
-            "usage-summary", "usage-summary [week | month | year | full]",
+            "usage-summary", "usage-summary [week | month | year | full] [<app>]",
             "Screen time over Android's weeks, months and years. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the overview to see that level.",
             short = "Screen time over months", args = "week · month · year · full",
             uses = listOf(
@@ -152,6 +152,7 @@ object CommandCatalog {
                 "usage-summary week" to "a row a week: its total and its time a day; the change; the top apps",
                 "usage-summary month" to "the same, a row a month",
                 "usage-summary year" to "a row a year, its top apps, and apps used less or new",
+                "usage-summary month <app>" to "one app: a row a month, its share of screen time, when last used",
                 "usage-summary full" to "all of them",
             ),
         ),

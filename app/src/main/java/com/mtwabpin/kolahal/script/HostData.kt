@@ -248,6 +248,49 @@ internal class HostData(
         }
     }
 
+    /**
+     * `usage.summary(period, app?)`: screen time over Android's weeks, months or years, as
+     * `usage-summary` shows it ([com.mtwabpin.kolahal.usage.UsageLevels]). A year counts at least
+     * what its months hold.
+     * - [period]: "week", "month" or "year". [app]: a package, for that app alone; without it, all apps.
+     * - `{ perDay, rows, top }`: [perDay] the minutes a day over the rows that count (as the `≈`
+     *   number); [rows] oldest first, each `{ from, to, minutes, perDay, unlocks, current }`, with
+     *   [from] and [to] in seconds, its real dates, [unlocks] a day (nil for one app, or when Android
+     *   has none); [top] the 5 apps with the most time, `{ app, pkg, minutes }`, without [app] only.
+     * - Nil: see above.
+     */
+    fun usageSummary(period: Any?, app: Any?): Map<String, Any?>? {
+        val level = when (period) {
+            "week" -> com.mtwabpin.kolahal.usage.UsageLevels.Level.WEEKS
+            "month" -> com.mtwabpin.kolahal.usage.UsageLevels.Level.MONTHS
+            "year" -> com.mtwabpin.kolahal.usage.UsageLevels.Level.YEARS
+            else -> throw IllegalArgumentException("usage.summary: period must be \"week\", \"month\" or \"year\"")
+        }
+        val pkg = when (app) {
+            null -> null
+            is String -> app.trim().takeIf { it.isNotEmpty() && it.length <= MAX_TEXT }
+                ?: throw IllegalArgumentException("usage.summary: app must be a package name, such as \"com.google.android.youtube\"")
+            else -> throw IllegalArgumentException("usage.summary: app must be a package name, such as \"com.google.android.youtube\"")
+        }
+        if (!usageReady("usage.summary")) return null
+        val levels = com.mtwabpin.kolahal.usage.UsageLevels.Companion
+        val buckets = com.mtwabpin.kolahal.usage.UsageLevels(context).Reading().buckets(level)
+        val rows = buckets.map { b ->
+            mapOf(
+                "from" to b.start / 1000, "to" to b.end / 1000,
+                "minutes" to b.total(pkg) / 60_000,
+                "perDay" to (levels.perDay(listOf(b), pkg) ?: 0) / 60_000,
+                "unlocks" to if (pkg == null) levels.unlocksPerDay(listOf(b)) else null,
+                "current" to b.current,
+            )
+        }
+        val top = if (pkg != null) null else levels.top(buckets, MAX_SUMMARY_TOP).map { (p, ms) ->
+            val name = appNames[p] ?: com.mtwabpin.kolahal.apps.AppNames.android(context, p) ?: p
+            mapOf("app" to StyledText.strip(name).take(MAX_TEXT), "pkg" to p, "minutes" to ms / 60_000)
+        }
+        return mapOf("perDay" to levels.perDay(levels.counted(buckets), pkg)?.let { it / 60_000 }, "rows" to rows, "top" to top)
+    }
+
     companion object {
         /** `@uses usage`: screen time, data use and unused apps. */
         const val USAGE = "usage"
@@ -256,6 +299,8 @@ internal class HostData(
         const val DEFAULT_USAGE_APPS = 10
         /** `usage.days(n)`: n from 1 to [MAX_USAGE_DAYS]; without it, [DEFAULT_USAGE_DAYS]. */
         const val MAX_USAGE_DAYS = 30
+        /** `usage.summary`: how many top apps it gives. */
+        const val MAX_SUMMARY_TOP = 5
         const val DEFAULT_USAGE_DAYS = 7
         /** `usage.unused(days)`: days from 7 to 365; without it, [DEFAULT_UNUSED_DAYS]. Up to [MAX_UNUSED] apps. */
         const val DEFAULT_UNUSED_DAYS = 30L

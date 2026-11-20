@@ -153,6 +153,7 @@ None of the network scripts need an API key.
 | [charge-reminder](#charge-reminder) | Lua | | on charger and unplug | yes |
 | [unlock-chart](#unlock-chart) | Lua | | on unlock | |
 | [screen-time](#screen-time) | Lua | | | |
+| [screen-time-months](#screen-time-months) | Lua | | | |
 | [data-month](#data-month) | Lua | | | |
 | [unused-apps](#unused-apps) | Lua | | | |
 | [habit](#habit) | Lua | yes | daily 00:01 | |
@@ -203,6 +204,7 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [football](#football) | the followed match: the score, the minute, and the minutes played as a bar | runs `football live`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [screen-time](#screen-time) | today's screen time, over a bar for each of the last 7 days | logs today's apps, and home turns to the log |
+| [screen-time-months](#screen-time-months) | your screen time a day, over a bar for each month Android keeps | logs a row for each month, and home turns to the log |
 | [data-month](#data-month) | your mobile data this month, as a bar toward your plan | logs the month, and home turns to the log |
 | [unused-apps](#unused-apps) | the apps you haven't opened for 30 days, with the days and their size | logs the whole list, and home turns to the log |
 | [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
@@ -540,6 +542,18 @@ and usage access for Kolahal (`usage-access`).
 - A tap on the card logs the apps you used most today, each with its bar, and home turns to the
   log. `script run screen-time` logs them too.
 - The times are the ones the built-in [`usage`](/guides/apps/#screen-time-and-unlocks) command shows.
+
+## screen-time-months
+
+**Screen time by month**: a [widget](#widgets) with your screen time a day, large, over a bar for
+each month Android keeps (about 6), the oldest first. It doesn't use the network. It needs `@uses usage`
+("Your app usage") and usage access for Kolahal (`usage-access`). It works in Kolahal 0.5.15 and later.
+
+- The numbers are the ones `usage-summary month` shows: Android's own totals, about right, not exact.
+  Android starts each month where the one before ended, not on the 1st, so the dates are its own.
+- A tap on the card logs a row for each month (its dates, its total and its time a day), and home
+  turns to the log. `script run screen-time-months` logs them too.
+
 
 ## data-month
 

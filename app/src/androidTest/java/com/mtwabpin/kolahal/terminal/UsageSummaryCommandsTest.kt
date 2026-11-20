@@ -82,6 +82,40 @@ class UsageSummaryCommandsTest {
 
     /** Another word says how to use it. */
     @Test fun anUnknownWord() = withUsageAccess("allow") {
-        assertEquals(listOf("Usage: usage-summary [week | month | year | full]"), texts("usage-summary decade"))
+        assertEquals(listOf("Usage: usage-summary [week | month | year | full] [<app>]"), texts("usage-summary decade"))
+    }
+
+    /** One app over the months: its own numbers, or that it has none; a name that matches no app says so. */
+    @Test fun oneApp() = withUsageAccess("allow") {
+        val shown = texts("usage-summary month kolahal")
+        assertTrue(shown.toString(), shown.first().startsWith("No use of ") || shown.first().contains("of screen time"))
+        if (shown.first().contains("of screen time")) assertTrue(shown.toString(), shown.any { it.startsWith("Month\tTotal\tA day") })
+        assertEquals(listOf("No app matches 'zzqqxx'"), texts("usage-summary month zzqqxx"))
+    }
+
+    private fun lua(code: String, uses: Set<String> = setOf("usage")): String? {
+        val host = com.mtwabpin.kolahal.script.HostApi(context, "summarytest", scriptId = null, notifyEnabled = false,
+            grants = com.mtwabpin.kolahal.script.ScriptAccess.Grants(uses, uses.associateWith { true }, emptySet()))
+        return runCatching { kotlinx.coroutines.runBlocking { com.mtwabpin.kolahal.script.LuaEngine().run(code, "t", host, 20_000, true) } }
+            .exceptionOrNull()?.let { it.message ?: it.toString() }
+    }
+
+    /** `usage.summary` in a script: rows with their dates, nil without usage access, and a wrong period said so. */
+    @Test fun usageSummaryInAScript() {
+        withUsageAccess("allow") {
+            val code = """
+                local s = usage.summary("month")
+                assert(s, "nil with access")
+                for _, r in ipairs(s.rows) do
+                  assert(r.from < r.to and r.minutes >= 0 and r.perDay >= 0, "a row")
+                end
+                assert(s.top, "top for all apps")
+                local one = usage.summary("week", "com.android.settings")
+                assert(one and one.top == nil, "no top for one app")
+            """.trimIndent()
+            assertEquals(null, lua(code))
+            assertTrue(lua("usage.summary(\"decade\")").orEmpty(), lua("usage.summary(\"decade\")").orEmpty().contains("period must be"))
+        }
+        withUsageAccess("ignore") { assertEquals(null, lua("assert(usage.summary(\"year\") == nil)")) }
     }
 }

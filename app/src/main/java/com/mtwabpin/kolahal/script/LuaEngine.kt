@@ -204,6 +204,7 @@ class LuaEngine : ScriptEngine {
             "days" to { l: Lua -> l.pushValue(data.usageDays(l.args().firstOrNull())); 1 },
             "data" to { l: Lua -> l.pushValue(data.usageData(l.args().firstOrNull())); 1 },
             "unused" to { l: Lua -> l.pushValue(data.usageUnused(l.args().firstOrNull())); 1 },
+            "summary" to { l: Lua -> l.args().let { a -> l.pushValue(data.usageSummary(a.getOrNull(0), a.getOrNull(1))) }; 1 },
         )
         lua.global("sleep") { l ->
             host.sleep(l.toInteger(1))
