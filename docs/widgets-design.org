@@ -865,6 +865,10 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   value, unit, label }~: a big line over the rows (the Reminders card's next reminder). A small or
   a wide card shows the lead alone.
 - Phase 2 adds :: =done= (true or false) on an item draws a checkbox, for todos and habits.
+- 0.5.16 adds :: =range= ~{ low, high, value }~ on an item draws a 4 dp bar from its low to its
+  high, between its title and its =trailing= text, with a dot at =value=. The bars of the rows shown
+  share one scale and one column, so the forecast's days compare at a glance. Where a row is
+  narrow, its icon gives way first, then the bar; the texts stay.
 - When small :: 2×2 shows 3 rows without their second line.
 - Data :: Any script. Built-in: Todos, Reminders (phase 2).
 - Taps :: Each row, and the card.

@@ -48,7 +48,7 @@ object ApiDocs {
     private fun widgetFields(kind: WidgetKind): String = when (kind) {
         WidgetKind.STAT -> "value, label, unit, delta, trend, more, progress, moving"
         WidgetKind.TEXT -> "text, caption"
-        WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done }), empty"
+        WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done, range }; a range is { low, high, value }, drawn as a bar), empty"
         WidgetKind.PROGRESS -> "value, max, text, label, style, moving, or items for bars (each { label, value, max, text, color })"
         WidgetKind.CHART -> "points, style, min, max, value, label, labels, summary"
         WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style, reached"

@@ -561,6 +561,38 @@ class LibraryScriptsTest {
         assertNull(shown())
     }
 
+    /**
+     * Forecast's widget: a row a day by its short name, with its sky, its low and high, and its
+     * range for the bar. A run for the widget logs nothing; a typed one logs the days and fills the
+     * widget too. Its widget's description passes the real parser, ranges and all.
+     */
+    @Test fun forecastFillsItsWidgetWithRanges() {
+        val geo = """{"results":[{"name":"Pune","country_code":"IN","latitude":18.5,"longitude":73.8}]}"""
+        // Friday 20 November 2026 and the two days after it.
+        val days = """{"daily":{"time":["2026-11-20","2026-11-21","2026-11-22"],"weather_code":[0,61,95],
+            "temperature_2m_max":[30.6,28.2,26.4],"temperature_2m_min":[18.2,17.4,15.6],"precipitation_probability_max":[0,70,90]}}"""
+        val before = "const http = { get: async (url) => ({ ok: true, status: 200, body: url.includes('geocoding') ? " +
+            "${Json.stringify(geo)} : ${Json.stringify(days.replace("\n", ""))} }) };\n" + jsKeepsShown
+        fun day(title: String, icon: String, detail: String, low: Int, high: Int) = mapOf(
+            "title" to title, "icon" to icon, "detail" to detail, "trailing" to "$low–$high°",
+            "range" to mapOf("low" to low.toDouble(), "high" to high.toDouble()),
+        )
+        val card = mapOf(
+            "title" to "Pune, IN", "icon" to "sun",
+            "items" to listOf(day("Fri", "sun", "clear", 18, 31), day("Sat", "rain", "rain", 17, 28), day("Sun", "storm", "thunderstorm", 16, 26)),
+            "tap" to mapOf("args" to "", "page" to "log"),
+        )
+        run("forecast.js", event = forWidget, before = before)
+        assertEquals(emptyList<LogEntry>(), lines())
+        assertEquals(card, shown())
+        // Typed, it logs the days, still as today and tomorrow, and fills the widget the same.
+        run("forecast.js", before = before)
+        val logged = lines().single().shownText.lines()
+        assertEquals("Pune, IN", logged[0])
+        assertEquals(listOf("Today", "Tomorrow", "Sun"), logged.drop(1).map { it.substringBefore(' ') })
+        assertEquals(card, shown())
+    }
+
     /** The index large in its band's colour, with the band under it; the 24-hour figure and PM2.5 beside it; the other readings in a table. */
     @Test fun aqiLeadsWithBigNumbers() {
         val hours = { v: Int -> List(24) { v }.joinToString(",", "[", "]") }

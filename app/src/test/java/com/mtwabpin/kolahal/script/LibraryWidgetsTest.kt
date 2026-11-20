@@ -637,28 +637,31 @@ class LibraryWidgetsTest {
         assertEquals(300f, (spec(999L) as WidgetSpec.Progress).value)
     }
 
+    /** A row a day by its short name, with its sky, its low and its high, and its range for the bar. */
     @Test fun forecast() {
+        fun day(title: String, icon: String, detail: String, low: Long, high: Long) =
+            mapOf("title" to title, "icon" to icon, "detail" to detail, "trailing" to "$low–$high°", "range" to mapOf("low" to low, "high" to high))
         val spec = parse(
             "forecast.js",
             mapOf(
                 "title" to "Pune, IN",
-                "items" to listOf(
-                    mapOf("title" to "Today", "icon" to "☀️", "detail" to "clear", "trailing" to "18–30°"),
-                    mapOf("title" to "Tomorrow", "icon" to "🌧️", "detail" to "rain", "trailing" to "17–28°"),
-                    mapOf("title" to "Mon", "icon" to "⛈️", "detail" to "thunderstorm", "trailing" to "16–26°"),
-                ),
+                "icon" to "sun",
+                "items" to listOf(day("Fri", "sun", "clear", 18, 30), day("Sat", "rain", "rain", 17, 28), day("Sun", "storm", "thunderstorm", 16, 26)),
                 "tap" to jsToLog,
             ),
         ) as WidgetSpec.Rows
-        assertEquals(WidgetBase(title = "Pune, IN", tap = toLog), spec.base)
+        assertEquals(WidgetBase(title = "Pune, IN", icon = "sun", tap = toLog), spec.base)
         assertEquals(
             listOf(
-                WidgetSpec.Row("Today", detail = "Clear", trailing = "18–30°", icon = "☀️"),
-                WidgetSpec.Row("Tomorrow", detail = "Rain", trailing = "17–28°", icon = "🌧️"),
-                WidgetSpec.Row("Mon", detail = "Thunderstorm", trailing = "16–26°", icon = "⛈️"),
+                WidgetSpec.Row("Fri", detail = "Clear", trailing = "18–30°", icon = "sun", range = WidgetSpec.Range(18f, 30f)),
+                WidgetSpec.Row("Sat", detail = "Rain", trailing = "17–28°", icon = "rain", range = WidgetSpec.Range(17f, 28f)),
+                WidgetSpec.Row("Sun", detail = "Thunderstorm", trailing = "16–26°", icon = "storm", range = WidgetSpec.Range(16f, 26f)),
             ),
             spec.items,
         )
+        // A day's low and high as JavaScript's Math.round gives them, a double, read the same.
+        val doubles = parse("forecast.js", mapOf("items" to listOf(mapOf("title" to "Fri", "range" to mapOf("low" to 18.0, "high" to 30.0))))) as WidgetSpec.Rows
+        assertEquals(WidgetSpec.Range(18f, 30f), doubles.items.single().range)
     }
 
     /** Every symbol forecast.js has for the sky fits an icon whole: none is cut with "…". */

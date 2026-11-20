@@ -4,8 +4,8 @@
 // @usage [<city>]
 // @title 3-day forecast
 // @author Kolahal
-// @version 1.0
-// @requires 0.5.9
+// @version 1.1
+// @requires 0.5.16
 // @widget list 2x2
 // @at 07:00
 // @option city "" Default city; empty: London
@@ -84,11 +84,11 @@ const where = [place.name, place.country_code].filter(Boolean).join(", ");
 // The place is the title; one row per day under it.
 const rows = [];
 for (let i = 0; i < d.time.length; i++) {
-  const label = names[i] || WEEKDAYS[new Date(d.time[i] + "T12:00:00Z").getUTCDay()];
+  const day = WEEKDAYS[new Date(d.time[i] + "T12:00:00Z").getUTCDay()];
   const hi = Math.round(d.temperature_2m_max[i]);
   const lo = Math.round(d.temperature_2m_min[i]);
   const rain = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
-  rows.push({ label, code: d.weather_code[i], lo, hi, rain });
+  rows.push({ label: names[i] || day, day, code: d.weather_code[i], lo, hi, rain });
 }
 
 // WMO weather codes -> a symbol for the sky.
@@ -129,13 +129,20 @@ if (!quiet) {
   });
 }
 
-// Its widget, in the same runs: one row a day, with its sky and its low and high. A tap runs
-// forecast again and turns home to the log, for the bars.
+// Its widget, in the same runs: one row a day, with its sky, its low and high, and a bar from the
+// one to the other, all on one scale. The days have their short names, so a 2×2 card has room for
+// the bars. A tap runs forecast again and turns home to the log.
 if (typeof widget !== "undefined" && !line) {
   widget.show({
     title: where,
     icon: rows.length ? skyIcon(rows[0].code) : "cloud",
-    items: rows.map((r) => ({ title: r.label, icon: skyIcon(r.code), detail: describe(r.code), trailing: `${r.lo}–${r.hi}°` })),
+    items: rows.map((r) => ({
+      title: r.day,
+      icon: skyIcon(r.code),
+      detail: describe(r.code),
+      trailing: `${r.lo}–${r.hi}°`,
+      range: { low: r.lo, high: r.hi },
+    })),
     tap: { args: "", page: "log" },
   });
 }

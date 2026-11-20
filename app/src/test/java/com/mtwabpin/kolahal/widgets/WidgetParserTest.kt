@@ -88,8 +88,8 @@ class WidgetParserTest {
     @Test fun aListNeedsItsItemsAndEachItemItsTitle() {
         assertTrue(refused(emptyMap(), WidgetKind.LIST)!!.startsWith("widget: items is needed: a list of rows"))
         assertEquals("widget: item 2 of items: title is needed: the row's text", refused(mapOf("items" to listOf(mapOf("title" to "a"), mapOf("detail" to "b"))), WidgetKind.LIST))
-        assertEquals("widget: items must be a list of { title, detail, trailing, icon, color, tap, done }, not 'rows'", refused(mapOf("items" to "rows"), WidgetKind.LIST))
-        assertEquals("widget: item 1 of items: must be { title, detail, trailing, icon, color, tap, done }, not 'a row'", refused(mapOf("items" to listOf("a row")), WidgetKind.LIST))
+        assertEquals("widget: items must be a list of { title, detail, trailing, icon, color, tap, done, range }, not 'rows'", refused(mapOf("items" to "rows"), WidgetKind.LIST))
+        assertEquals("widget: item 1 of items: must be { title, detail, trailing, icon, color, tap, done, range }, not 'a row'", refused(mapOf("items" to listOf("a row")), WidgetKind.LIST))
     }
 
     /** An empty Lua table arrives as an empty map: it has no keys to tell a list from a table. */
@@ -308,7 +308,7 @@ class WidgetParserTest {
         assertEquals(spec, WidgetJson.decode(WidgetJson.encode(spec)))
         // Only an event has it. Anywhere else it is an unknown field, as before.
         assertEquals("widget: an agenda widget has no field 'id'; use kind, title, icon, color, tap, staleAfter, refresh, note, events, days, empty", refused(mapOf("id" to 1, "events" to rows), WidgetKind.AGENDA))
-        assertEquals("widget: item 1 of items: no field 'id'; use title, detail, trailing, icon, color, tap, done", refused(mapOf("items" to listOf(mapOf("id" to 1, "title" to "a"))), WidgetKind.LIST))
+        assertEquals("widget: item 1 of items: no field 'id'; use title, detail, trailing, icon, color, tap, done, range", refused(mapOf("items" to listOf(mapOf("id" to 1, "title" to "a"))), WidgetKind.LIST))
     }
 
     /** `days` is held between 1 and 7. */
@@ -633,7 +633,7 @@ class WidgetParserTest {
             refused(mapOf("text" to "a", "value" to 1), WidgetKind.TEXT),
         )
         assertEquals(
-            "widget: item 2 of items: no field 'subtitle'; use title, detail, trailing, icon, color, tap, done",
+            "widget: item 2 of items: no field 'subtitle'; use title, detail, trailing, icon, color, tap, done, range",
             refused(mapOf("items" to listOf(mapOf("title" to "a"), mapOf("title" to "b", "subtitle" to "c"))), WidgetKind.LIST),
         )
         assertEquals("widget: item 1 of more: no field 'unit'; use value, label", refused(mapOf("value" to 1, "more" to listOf(mapOf("value" to 2, "unit" to "km")))))
@@ -1016,7 +1016,7 @@ class WidgetParserTest {
         assertEquals(emptySet<String>(), WidgetParser.FIELDS intersect (ApiDocs.luaKeywords + listOf("status", "notify")).toSet())
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("kind", "title", "icon", "color", "tap", "staleAfter", "refresh", "args", "url", "label", "page", "value", "more", "text", "caption", "items", "empty", "detail", "trailing")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("max", "style", "moving", "points", "min", "labels", "summary", "to", "from", "reached")))
-        assertTrue(WidgetParser.FIELDS.containsAll(listOf("done", "on", "zones", "zone", "seconds", "events", "starts", "ends", "allDay", "where", "days")))
+        assertTrue(WidgetParser.FIELDS.containsAll(listOf("done", "range", "low", "high", "on", "zones", "zone", "seconds", "events", "starts", "ends", "allDay", "where", "days")))
         assertTrue(WidgetParser.FIELDS.containsAll(listOf("image", "alt", "fit", "id")))
         assertTrue(WidgetParser.FIELDS.all { Regex("[a-z][A-Za-z]*").matches(it) })
     }
@@ -1028,6 +1028,7 @@ class WidgetParserTest {
             refused(mapOf("nope" to 1), WidgetKind.STAT), refused(mapOf("nope" to 1), WidgetKind.TEXT), refused(mapOf("nope" to 1), WidgetKind.LIST),
             refused(mapOf("value" to 1, "tap" to mapOf("nope" to 1))), refused(mapOf("value" to 1, "more" to listOf(mapOf("nope" to 1)))),
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.LIST),
+            refused(mapOf("items" to listOf(mapOf("title" to "a", "range" to mapOf("nope" to 1)))), WidgetKind.LIST),
             refused(mapOf("nope" to 1), WidgetKind.PROGRESS), refused(mapOf("nope" to 1), WidgetKind.CHART), refused(mapOf("nope" to 1), WidgetKind.COUNTDOWN),
             refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.PROGRESS),
             refused(mapOf("nope" to 1), WidgetKind.BUTTONS), refused(mapOf("items" to listOf(mapOf("nope" to 1))), WidgetKind.BUTTONS),

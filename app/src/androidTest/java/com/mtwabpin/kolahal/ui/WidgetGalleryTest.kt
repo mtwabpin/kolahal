@@ -312,6 +312,16 @@ class WidgetGalleryTest {
     /** The habit card as habit.lua fills it, done today: five days in a row. */
     private val habit = WidgetSpec.Chart(base("Exercise", "check", Colour.GOOD).copy(note = "Done today"), habitDays, style = "dots", value = "5", label = "Days in a row")
 
+    /** Three days as forecast.js sends them: each with its sky, its low and high, and a bar from the one to the other. */
+    private val forecast = WidgetSpec.Rows(
+        base("Pune", "sun", Colour.INFO),
+        listOf(
+            WidgetSpec.Row("Sat", detail = "Clear", trailing = "22–31°", icon = "sun", range = WidgetSpec.Range(22f, 31f)),
+            WidgetSpec.Row("Sun", detail = "Overcast", trailing = "21–30°", icon = "cloud", range = WidgetSpec.Range(21f, 30f)),
+            WidgetSpec.Row("Mon", detail = "Rain", trailing = "20–27°", icon = "rain", range = WidgetSpec.Range(20f, 27f)),
+        ),
+    )
+
     /** One or two cards for each kind, with the mockup's examples. */
     private fun kinds(): List<Shot> = listOf(
         Shot(
@@ -443,17 +453,8 @@ class WidgetGalleryTest {
             Shot("weather", WidgetSize.S1X1, "Pune", weather),
             Shot("aqi", WidgetSize.S2X2, "US AQI · Pune", aqi),
             Shot("aqi", WidgetSize.S1X1, "US AQI · Pune", aqi),
-            Shot(
-                "forecast", WidgetSize.S2X2, "Pune",
-                WidgetSpec.Rows(
-                    base("Pune", "sun", Colour.INFO),
-                    listOf(
-                        WidgetSpec.Row("Sat", trailing = "22–31°", icon = "sun"),
-                        WidgetSpec.Row("Sun", trailing = "21–30°", icon = "cloud"),
-                        WidgetSpec.Row("Mon", trailing = "20–27°", icon = "rain"),
-                    ),
-                ),
-            ),
+            Shot("forecast", WidgetSize.S2X2, "Pune", forecast),
+            Shot("forecast", WidgetSize.S4X2, "Pune", forecast),
             // The larger card has a start, for its bar: 55% of the wait is over.
             Shot("countdown-date", WidgetSize.S2X2, "Goa trip", goa.copy(from = now - 44 * 86_400)),
             Shot("countdown-date", WidgetSize.S2X1, "Goa trip", goa),

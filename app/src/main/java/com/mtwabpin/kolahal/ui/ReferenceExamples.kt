@@ -469,6 +469,40 @@ internal object ReferenceExamples {
                 lead = WidgetSpec.Lead("3,420", "₹", "In 4 payments"),
             )
         },
+        // The guide's example of a row's range, without its comment.
+        Widget(
+            "list-ranges", WidgetKind.LIST, WidgetSize.S4X2, "List",
+            lua = """
+            widget.show{
+              title = "Pune",
+              items = {
+                { title = "Today", trailing = "22–31°", range = { low = 22, high = 31, value = 27 } },
+                { title = "Sun", trailing = "21–30°", range = { low = 21, high = 30 } },
+                { title = "Mon", trailing = "20–27°", range = { low = 20, high = 27 } },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              title: "Pune",
+              items: [
+                { title: "Today", trailing: "22–31°", range: { low: 22, high: 31, value: 27 } },
+                { title: "Sun", trailing: "21–30°", range: { low: 21, high: 30 } },
+                { title: "Mon", trailing: "20–27°", range: { low: 20, high: 27 } },
+              ],
+            });
+            """,
+            of = "list", variant = "With ranges",
+        ) { _, _ ->
+            WidgetSpec.Rows(
+                WidgetBase(title = "Pune"),
+                listOf(
+                    WidgetSpec.Row("Today", trailing = "22–31°", range = WidgetSpec.Range(22f, 31f, 27f)),
+                    WidgetSpec.Row("Sun", trailing = "21–30°", range = WidgetSpec.Range(21f, 30f)),
+                    WidgetSpec.Row("Mon", trailing = "20–27°", range = WidgetSpec.Range(20f, 27f)),
+                ),
+            )
+        },
         Widget(
             "progress-bars", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
             lua = """

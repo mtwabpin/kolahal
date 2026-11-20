@@ -199,6 +199,89 @@ class WidgetWordsTest {
         assertEquals("a value that is no number is left out", 1f to 2f, WidgetWords.scale(listOf(1f, Float.NaN, 2f), null, null, bars = false))
     }
 
+    // ---- a list's ranges -------------------------------------------------------------------
+
+    private val days = listOf(WidgetSpec.Range(22f, 31f), WidgetSpec.Range(21f, 30f), WidgetSpec.Range(20f, 27f))
+
+    /** One scale for the rows shown: from the lowest low to the highest high. Each range sits on it from 0 to 1. */
+    @Test fun rangesShareOneScale() {
+        val scale = WidgetWords.rangeScale(days)!!
+        assertEquals(20f to 31f, scale)
+        val sat = WidgetWords.rangePlace(days[0], scale)
+        assertEquals(2f / 11, sat.start, 1e-6f)
+        assertEquals(1f, sat.end, 1e-6f)
+        val mon = WidgetWords.rangePlace(days[2], scale)
+        assertEquals(0f, mon.start, 1e-6f)
+        assertEquals(7f / 11, mon.end, 1e-6f)
+        assertNull("no value, no dot", mon.value)
+        // A row without a range has no say in the scale, and rows without any have none.
+        assertEquals(20f to 31f, WidgetWords.rangeScale(days + null))
+        assertNull(WidgetWords.rangeScale(listOf(null, null)))
+        assertNull(WidgetWords.rangeScale(emptyList()))
+    }
+
+    /** A range of one number sits at its place, as a dot. A scale of one number puts everything in the middle. */
+    @Test fun aRangeOfOneNumber() {
+        val scale = WidgetWords.rangeScale(listOf(WidgetSpec.Range(20f, 30f), WidgetSpec.Range(25f, 25f)))!!
+        val place = WidgetWords.rangePlace(WidgetSpec.Range(25f, 25f), scale)
+        assertEquals(0.5f, place.start, 1e-6f)
+        assertEquals(0.5f, place.end, 1e-6f)
+        val alone = WidgetSpec.Range(25f, 25f, 25f)
+        assertEquals(WidgetWords.RangePlace(0.5f, 0.5f, 0.5f), WidgetWords.rangePlace(alone, WidgetWords.rangeScale(listOf(alone))!!))
+    }
+
+    /** A single row is its own scale: its bar is full. */
+    @Test fun aSingleRowFillsItsTrack() {
+        val price = WidgetSpec.Range(94_100f, 97_900f)
+        assertEquals(WidgetWords.RangePlace(0f, 1f, null), WidgetWords.rangePlace(price, WidgetWords.rangeScale(listOf(price))!!))
+    }
+
+    /** A value is a dot at its place on the scale. */
+    @Test fun aValueIsADotOnTheScale() {
+        val price = WidgetSpec.Range(94_100f, 97_900f, 97_420f)
+        val place = WidgetWords.rangePlace(price, WidgetWords.rangeScale(listOf(price))!!)
+        assertEquals(3_320f / 3_800, place.value!!, 1e-4f)
+        // On a list's scale, the value sits where its number is: today is at 27°, on 20° to 31°.
+        val today = WidgetSpec.Range(22f, 31f, 27f)
+        assertEquals(7f / 11, WidgetWords.rangePlace(today, WidgetWords.rangeScale(days.drop(1) + today)!!).value!!, 1e-6f)
+        // Numbers as large as a float holds: the scale's length is counted in doubles.
+        val huge = WidgetSpec.Range(-3e38f, 3e38f, 0f)
+        assertEquals(WidgetWords.RangePlace(0f, 1f, 0.5f), WidgetWords.rangePlace(huge, WidgetWords.rangeScale(listOf(huge))!!))
+    }
+
+    /** The bars take what the words and the numbers leave, up to half the row. The icons go first; then the bars. */
+    @Test fun aBarFitsOrTheRowHasNone() {
+        // A 2×2 forecast: no room with the icons, room without them.
+        assertEquals(WidgetWords.RangeFit(57f, marks = false), WidgetWords.rangeFit(145f, 29f, 47f, 28f))
+        // A 4×2 one: room for both, and the bar takes half the row.
+        assertEquals(WidgetWords.RangeFit(173.5f, marks = true), WidgetWords.rangeFit(347f, 41f, 47f, 28f))
+        // Too narrow even without the icons: no bars, and the icons stay.
+        assertNull(WidgetWords.rangeFit(100f, 29f, 47f, 28f))
+        // Without trailing texts, one gap.
+        assertEquals(WidgetWords.RangeFit(100f, marks = true), WidgetWords.rangeFit(200f, 50f, 0f, 0f))
+        // A bar is never shorter than RANGE_MIN_DP: half of a row 94 dp wide is too short.
+        assertEquals(WidgetWords.RangeFit(48f, marks = true), WidgetWords.rangeFit(96f, 0f, 0f, 0f))
+        assertNull(WidgetWords.rangeFit(94f, 0f, 0f, 0f))
+    }
+
+    /** A row says its range only when it has no trailing text: there, the numbers are said already. */
+    @Test fun aRangeHasWordsWhereTheRowHasNoNumbers() {
+        assertEquals("from 22 to 31", WidgetWords.rangeWords(WidgetSpec.Range(22f, 31f)))
+        assertEquals("27, from 22 to 31", WidgetWords.rangeWords(WidgetSpec.Range(22f, 31f, 27f)))
+        assertEquals("from -3.5 to 4", WidgetWords.rangeWords(WidgetSpec.Range(-3.5f, 4f)))
+        val now = at(day = 20, hour = 0)
+        val rows = WidgetSpec.Rows(
+            base,
+            items = listOf(
+                WidgetSpec.Row("Sat", trailing = "22–31°", range = WidgetSpec.Range(22f, 31f)),
+                WidgetSpec.Row("BTC", range = WidgetSpec.Range(94_100f, 97_900f, 97_420f)),
+            ),
+        )
+        assertEquals("Prices: Sat, 22–31°, BTC, 97420, from 94100 to 97900", WidgetWords.description("Prices", rows, now, utc))
+        assertNull(WidgetWords.rowRange(rows.items[0]))
+        assertEquals("97420, from 94100 to 97900", WidgetWords.rowRange(rows.items[1]))
+    }
+
     @Test fun aCardIsOneSentenceForAScreenReader() {
         val now = at(day = 20, hour = 0)
         val weather = WidgetSpec.Stat(

@@ -840,7 +840,7 @@ When every row fits, the rows grow to fill the card.
 | `empty` | text, up to 60 | What the card says with no rows: `Nothing new`. |
 | `lead` | `{ value, unit, label }` | A big line over the rows: `value` (needed, up to 24) big, its `unit` (up to 12) small, and `label` (up to 60) under them: the next reminder, or the total of the rows. A small or a wide card shows the lead alone, and counts the rows as "+3 more". |
 
-Each row is `{ title, detail, trailing, icon, color, tap, done }`. Only `title` is needed.
+Each row is `{ title, detail, trailing, icon, color, tap, done, range }`. Only `title` is needed.
 
 | Field | Value | What it is |
 | --- | --- | --- |
@@ -851,9 +851,51 @@ Each row is `{ title, detail, trailing, icon, color, tap, done }`. Only `title` 
 | `color` | a role | The colour of its icon, or of a dot in front when it has no icon. The `trailing` text stays dim. |
 | `tap` | an action | What a tap on the row does ([Taps](#taps)). |
 | `done` | true or false | The row has a checkbox in front: ticked with `true`, empty with `false`. Without it, the row has none. |
+| `range` | `{ low, high, value }` | A bar from `low` to `high`, between the row's text and its `trailing` text, in the row's colour or the card's. `value` is a dot on the bar. Needs Kolahal 0.5.16. |
 
 A checkbox is for a todo or a habit. It only shows a state: Kolahal doesn't change it. Give the
 row a `tap` with `args`, and let that run change the thing and call `widget.show` again.
+
+A range is for numbers that compare at a glance: each day's lowest and highest temperature, or a
+price's low and high of the day, with `value` where it is now.
+
+- `low` and `high` are numbers, and both are needed. `low` above `high` is an error.
+- `value` is a number. One outside the range is held at its nearer end.
+- The bars are all on one scale: from the lowest `low` to the highest `high` of the rows the card
+  shows. So they line up and compare.
+- Give the numbers in `trailing` too. The bar is drawn beside them, never in their place. A screen
+  reader says the row's texts; a row with a range and no `trailing` says "from 22 to 31".
+- A bar is at least 48dp long. Where a row is too narrow for that, the icons go first, and then
+  the bars. The texts stay.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- each day from its low to its high, on one scale; a dot for the temperature now
+widget.show{
+  title = "Pune",
+  items = {
+    { title = "Today", trailing = "22–31°", range = { low = 22, high = 31, value = 27 } },
+    { title = "Sun", trailing = "21–30°", range = { low = 21, high = 30 } },
+    { title = "Mon", trailing = "20–27°", range = { low = 20, high = 27 } },
+  },
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// each day from its low to its high, on one scale; a dot for the temperature now
+widget.show({
+  title: "Pune",
+  items: [
+    { title: "Today", trailing: "22–31°", range: { low: 22, high: 31, value: 27 } },
+    { title: "Sun", trailing: "21–30°", range: { low: 21, high: 30 } },
+    { title: "Mon", trailing: "20–27°", range: { low: 20, high: 27 } },
+  ],
+});
+```
+</TabItem>
+</Tabs>
 
 **`progress`**: how far along something is, as a ring, a bar, or several bars. It needs `value` or
 `items`.
@@ -1256,6 +1298,7 @@ What a description keeps, and what it refuses.
 | `widget.show` and `widget.clear` in one run | 20 calls | later calls change nothing |
 | A text | the number in its field's table | cut, with "…" at its end |
 | `list`: `items` | 12 rows | the first 12 are kept |
+| `list`: a row's `range` | `value` from `low` to `high` | held at the nearer end; `low` above `high` is an error |
 | `stat`: `more` | 3 smaller values | the first 3 are kept |
 | `progress`: `items` | 4 bars | the first 4 are kept |
 | `chart`: `points` | 60 numbers | the last 60 are kept: the newest |

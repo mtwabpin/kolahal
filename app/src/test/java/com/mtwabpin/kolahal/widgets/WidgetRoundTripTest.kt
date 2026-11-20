@@ -51,6 +51,9 @@ class WidgetRoundTripTest {
                 // A row with a checkbox, ticked and not. "Not ticked" must not come back as "no checkbox".
                 mapOf("title" to "Buy milk", "done" to false, "tap" to mapOf("args" to "done 1")),
                 mapOf("title" to "Call home", "done" to true),
+                // A row with a range, and one with a value on it.
+                mapOf("title" to "Sat", "trailing" to "22–31°", "range" to mapOf("low" to 22, "high" to 31)),
+                mapOf("title" to "BTC", "range" to mapOf("low" to 94_100.5, "high" to 97_900, "value" to 97_420)),
             ),
             "empty" to "Nothing new",
         ),

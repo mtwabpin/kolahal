@@ -195,6 +195,71 @@ internal object WidgetWords {
     }
 
     /**
+     * The scale of a list's ranges ([WidgetSpec.Row.range]): from the lowest low to the highest high
+     * of [ranges], those of the rows the card shows. A row without a range is left out. Null when no
+     * row has one.
+     */
+    fun rangeScale(ranges: List<WidgetSpec.Range?>): Pair<Float, Float>? {
+        val real = ranges.filterNotNull()
+        if (real.isEmpty()) return null
+        return real.minOf { it.low } to real.maxOf { it.high }
+    }
+
+    /** Where a range sits on its scale ([rangePlace]): its two ends and its value, each from 0 (the scale's low) to 1 (its high). */
+    data class RangePlace(val start: Float, val end: Float, val value: Float?)
+
+    /**
+     * Where [range] sits on [scale] ([rangeScale]). A scale of one number has no length: everything
+     * on it sits in the middle.
+     */
+    fun rangePlace(range: WidgetSpec.Range, scale: Pair<Float, Float>): RangePlace {
+        val (low, high) = scale
+        // In doubles: the length of a scale of very large numbers is more than a float holds.
+        val length = high.toDouble() - low.toDouble()
+        fun at(v: Float): Float = if (length > 0) ((v.toDouble() - low) / length).coerceIn(0.0, 1.0).toFloat() else 0.5f
+        return RangePlace(at(range.low), at(range.high), range.value?.let(::at))
+    }
+
+    /** A range bar is at least this long, in dp. A shorter one says too little: the rows then draw none. */
+    const val RANGE_MIN_DP = 48
+
+    /** The room on each side of a range bar, in dp. */
+    const val RANGE_GAP_DP = 6
+
+    /** How a list's rows draw their range bars ([rangeFit]): the bars' length, in dp, and whether the rows keep their icons. */
+    data class RangeFit(val barDp: Float, val marks: Boolean)
+
+    /**
+     * The length of a list's range bars, in rows [roomDp] wide. All the bars have one length and one
+     * place, so they line up: between the words and the trailing texts.
+     * - [wordsDp] is the widest title, [trailingDp] the widest trailing text (0 for none), and
+     *   [markDp] what a row's icon takes, with its gap (0 for none).
+     * - A bar takes the room that is left, up to half the row, and needs [RANGE_MIN_DP].
+     * - The icons give way first. The words and the numbers never do: when even that leaves too
+     *   little room, there is no bar, and this is null.
+     */
+    fun rangeFit(roomDp: Float, wordsDp: Float, trailingDp: Float, markDp: Float): RangeFit? {
+        val gaps = RANGE_GAP_DP * if (trailingDp > 0f) 2 else 1
+        val left = roomDp - wordsDp - trailingDp - gaps
+        fun bar(free: Float) = minOf(free, roomDp / 2).takeIf { it >= RANGE_MIN_DP }
+        bar(left - markDp)?.let { return RangeFit(it, marks = true) }
+        if (markDp > 0f) bar(left)?.let { return RangeFit(it, marks = false) }
+        return null
+    }
+
+    /** A range in words, for a screen reader: "from 22 to 31", or with its value "27, from 22 to 31". */
+    fun rangeWords(range: WidgetSpec.Range): String {
+        val span = "from ${num(range.low)} to ${num(range.high)}"
+        return range.value?.let { "${num(it)}, $span" } ?: span
+    }
+
+    /**
+     * What a screen reader says for [row]'s range: [rangeWords] when the row has no trailing text,
+     * else nothing. The bar is drawn beside the row's numbers, and those are said already.
+     */
+    fun rowRange(row: WidgetSpec.Row): String? = row.range?.takeIf { row.trailing == null }?.let(::rangeWords)
+
+    /**
      * The whole card in one sentence, for a screen reader: "Weather: 24°C, Sunny, 68% humidity".
      * It has everything in the description, also what a small card leaves out. A countdown is said
      * in words ("5 hours"), never as a running clock.
@@ -219,7 +284,7 @@ internal object WidgetWords {
                 is WidgetSpec.Rows -> {
                     spec.lead?.let { add(listOfNotNull(joined(it.value, it.unit), it.label).joinToString(", ")) }
                     if (spec.items.isEmpty() && spec.lead == null) add(spec.empty ?: NOTHING)
-                    spec.items.forEach { r -> add(listOfNotNull(r.title, r.detail, r.trailing, doneWord(r.done)).joinToString(", ")) }
+                    spec.items.forEach { r -> add(listOfNotNull(r.title, r.detail, r.trailing, rowRange(r), doneWord(r.done)).joinToString(", ")) }
                 }
                 is WidgetSpec.Progress -> {
                     if (spec.items.isEmpty()) add(spec.text ?: percent(spec.value, spec.max))

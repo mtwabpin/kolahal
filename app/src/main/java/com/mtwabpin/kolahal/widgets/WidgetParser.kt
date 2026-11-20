@@ -103,7 +103,8 @@ object WidgetParser {
     private val TEXT = listOf("text", "caption")
     private val LIST = listOf("items", "empty", "lead")
     private val LEAD = listOf("value", "unit", "label")
-    private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap", "done")
+    private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap", "done", "range")
+    private val RANGE = listOf("low", "high", "value")
     private val PROGRESS = listOf("value", "max", "text", "label", "style", "items", "moving")
     private val BAR = listOf("label", "value", "max", "text", "color")
     private val CHART = listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
@@ -130,7 +131,7 @@ object WidgetParser {
      * switch on access items ([com.mtwabpin.kolahal.script.ScriptMeta.setsStatus]). A test checks this.
      */
     val FIELDS: Set<String> = (
-        COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + PROGRESS + BAR + CHART + COUNTDOWN +
+        COMMON + TAP + STAT + SMALL + TEXT + LIST + ROW + RANGE + PROGRESS + BAR + CHART + COUNTDOWN +
             BUTTONS + BUTTON + TOGGLES + TOGGLE + CLOCK + ZONE + AGENDA + EVENT + IMAGE
         ).toSet()
 
@@ -249,6 +250,7 @@ object WidgetParser {
                     color = r.colour(),
                     tap = r.tap(),
                     done = r.flagOrNull("done"),
+                    range = r.table("range", "{ ${RANGE.joinToString()} }", RANGE)?.let(::range),
                 )
             },
             empty = t.label("empty", MAX_LABEL),
@@ -260,6 +262,17 @@ object WidgetParser {
                 )
             },
         )
+    }
+
+    /**
+     * A row's range: from `low` to `high`, both needed, and `value`, a number between them that the
+     * bar marks. A low above the high is an error. A value outside the range is held at its nearer end.
+     */
+    private fun range(r: Table): WidgetSpec.Range {
+        val low = r.number("low", "a number") ?: r.fail("low is needed: the lowest number of the range")
+        val high = r.number("high", "a number") ?: r.fail("high is needed: the highest number of the range")
+        if (low > high) r.fail("low must not be above high")
+        return WidgetSpec.Range(float(low), float(high), r.number("value", "a number")?.coerceIn(low, high)?.let(::float))
     }
 
     /**

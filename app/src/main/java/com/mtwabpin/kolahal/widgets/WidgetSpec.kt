@@ -135,7 +135,8 @@ sealed interface WidgetSpec {
 
     /**
      * One row of [Rows]. With [done] (true or false) the row has a checkbox, ticked or not, for a todo
-     * or a habit. With null it has none.
+     * or a habit. With null it has none. With a [range], the row has a bar from its low to its high,
+     * on one scale with the other rows' bars.
      */
     data class Row(
         val title: String,
@@ -145,7 +146,15 @@ sealed interface WidgetSpec {
         val color: StyledText.Colour? = null,
         val tap: WidgetTap? = null,
         val done: Boolean? = null,
+        val range: Range? = null,
     )
+
+    /**
+     * A row's range: from [low] to [high], such as a day's lowest and highest temperature. [value]
+     * is a number between them that the bar marks with a dot, such as a price now. The parser keeps
+     * [low] at most [high], and [value] between them.
+     */
+    data class Range(val low: Float, val high: Float, val value: Float? = null)
 
     /**
      * The big line over a list's rows: a [value] with a small [unit] and a [label] under it, such as
@@ -298,7 +307,8 @@ sealed interface WidgetSpec {
  *   is brought into it. The parser has done both already, so this changes nothing it wrote.
  * - Where `widget.show` refuses and does not cut, this refuses too: no buttons or more than
  *   [MAX_BUTTONS], no switches or more than [MAX_TOGGLES], a switch whose tap is not `{ args }`,
- *   no zones, a zone that `java.time.ZoneId.of` does not know.
+ *   no zones, a zone that `java.time.ZoneId.of` does not know, a row's range whose low is above
+ *   its high.
  * - A kind only Kolahal fills (`media`) is never written and never read: [encode] gives "" for it,
  *   and [decode] gives null. So the :script process can't hand one to the main process.
  * - Unknown keys are skipped.
@@ -421,6 +431,7 @@ object WidgetJson {
                     fields(
                         "title" to it.title, "detail" to it.detail, "trailing" to it.trailing, "icon" to it.icon,
                         "color" to it.color?.role, "tap" to it.tap?.let(::tapMap), "done" to it.done,
+                        "range" to it.range?.let { r -> fields("low" to number(r.low), "high" to number(r.high), "value" to number(r.value)) },
                     )
                 },
                 "empty" to spec.empty,
@@ -597,7 +608,10 @@ object WidgetJson {
                 base,
                 items = (m.list("items") ?: odd()).take(MAX_ROWS).map {
                     val r = obj(it)
-                    WidgetSpec.Row(r.needStyled("title"), r.styled("detail")?.let(StyledText::capitalised), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
+                    WidgetSpec.Row(
+                        r.needStyled("title"), r.styled("detail")?.let(StyledText::capitalised), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"),
+                        r["range"]?.let { range(obj(it)) },
+                    )
                 },
                 empty = m.text("empty")?.let(StyledText::capitalised),
                 lead = m["lead"]?.let(::obj)?.let { WidgetSpec.Lead(it.needText("value"), it.text("unit"), it.text("label")?.let(StyledText::capitalised)) },
@@ -687,4 +701,12 @@ object WidgetJson {
 
     /** A bar's or a ring's full scale. It must be more than nothing, or the card would divide by zero. */
     private fun scale(max: Float): Float = if (max > 0f) max else odd()
+
+    /** A row's range. A low above the high is refused, as `widget.show` refuses it. A value outside the range is brought into it. */
+    private fun range(m: Map<*, *>): WidgetSpec.Range {
+        val low = m.number("low") ?: odd()
+        val high = m.number("high") ?: odd()
+        if (low > high) odd()
+        return WidgetSpec.Range(low, high, m.number("value")?.coerceIn(low, high))
+    }
 }
