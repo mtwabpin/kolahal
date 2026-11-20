@@ -497,7 +497,8 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
     // Which widget of which script: a script can have several on the page ([WidgetRef]).
     val ref = WidgetSource.scriptRef(w.source)
     val builtin = WidgetSource.builtinId(w.source)
-    GuiTheme {
+    // Every card inside draws in the widget's own look ([LocalWidgetLook]).
+    GuiTheme { CompositionLocalProvider(LocalWidgetLook provides w.look) {
         if (ref != null) {
             ScriptWidget(ref, height, actions, feed)
         } else if (builtin == WidgetSource.BATTERY) {
@@ -519,7 +520,7 @@ internal fun SourceWidget(w: PlacedWidget, height: Dp, actions: WidgetCardAction
                 onLongClick = arrange,
             )
         }
-    }
+    } }
 }
 
 /**

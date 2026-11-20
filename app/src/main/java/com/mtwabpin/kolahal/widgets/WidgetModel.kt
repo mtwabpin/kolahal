@@ -143,7 +143,18 @@ data class PlacedWidget(
     val location: String = WidgetLocation.PANEL,
     /** Its width, in twelfths of the page ([WidgetLayout.COLUMNS]). Narrower widgets sit side by side. */
     val span: Int = WidgetLayout.COLUMNS,
+    /** How Kolahal draws it ([WidgetLook]). An app's widget draws itself, so it is always [WidgetLook.PLAIN]. */
+    val look: WidgetLook = WidgetLook.PLAIN,
+    /**
+     * Its first column on the page: 0 until [WidgetLayout.COLUMNS] − [span], from the start edge.
+     * [WidgetPlacement.UNPLACED] until it has a place ([WidgetPlacement.placeMissing]).
+     */
+    val column: Int = WidgetPlacement.UNPLACED,
+    /** Its top edge, in dp from the top of the page. [WidgetPlacement.UNPLACED] until it has a place. */
+    val topDp: Int = WidgetPlacement.UNPLACED,
 ) {
+    /** Whether it has a place on the page: a [column] and a [topDp]. */
+    val positioned: Boolean get() = column >= 0 && topDp >= 0
     /** The source, for a widget Kolahal draws itself: `script:weather`. Null for an app's widget. */
     val source: String? get() = provider.takeIf(WidgetSource::isSource)
     /** An app's widget that must be bound again. A widget with a [source] needs no id, so it is never pending. */
@@ -279,10 +290,16 @@ object WidgetOrder {
 }
 
 /**
- * Stores one record per line in SharedPreferences: `id|provider|serial|height|order|location|span`.
+ * Stores one record per line in SharedPreferences:
+ * `id|provider|serial|height|order|location|span|look|column|top`.
  * - A pending entry has `-` as its id. So has a widget Kolahal draws itself: its provider field holds
  *   its source (`script:weather`, see [WidgetSource]).
  * - Lines saved before widths existed have no span. They are full width.
+ * - Lines saved before looks and places (0.5.14 and older) have neither: the look is
+ *   [WidgetLook.PLAIN], and [start] gives each widget the place it had ([WidgetPlacement.placeMissing]).
+ *   An older Kolahal reads fields by position and ignores the last three.
+ * - [PlacedWidget.order] is still written, in reading order, so an older Kolahal shows the widgets
+ *   in a sensible order.
  * - A height or a width outside what the widget may have is brought inside it ([WidgetLayout.minDp],
  *   [WidgetLayout.minSpan]). A saved line and a backup's entry follow the same rule.
  * - Flattened ComponentNames never contain `|`, and a source with one is refused.
@@ -291,14 +308,27 @@ object WidgetOrder {
  */
 object WidgetCodec {
     fun encode(all: List<PlacedWidget>): String = all.joinToString("\n") {
-        listOf(it.id?.toString() ?: "-", it.provider, it.profileSerial, it.heightDp, it.order, it.location, it.span).joinToString("|")
+        listOf(it.id?.toString() ?: "-", it.provider, it.profileSerial, it.heightDp, it.order, it.location, it.span, it.look.id, it.column, it.topDp).joinToString("|")
     }
+
+    /** The look stored for a widget: only one Kolahal draws ([sourced]) has one; an app's widget draws itself. */
+    private fun lookOf(raw: Any?, sourced: Boolean): WidgetLook =
+        if (sourced) WidgetLook.named(raw?.toString()) ?: WidgetLook.PLAIN else WidgetLook.PLAIN
+
+    /** A stored place: a whole number from 0, else [WidgetPlacement.UNPLACED]. Too large a column is brought inside the page. */
+    private fun columnOf(raw: Long?, span: Int): Int =
+        raw?.takeIf { it >= 0 }?.toInt()?.coerceAtMost(WidgetLayout.COLUMNS - span) ?: WidgetPlacement.UNPLACED
+
+    private fun topOf(raw: Long?): Int = raw?.takeIf { it in 0..WidgetPlacement.MAX_TOP_DP }?.toInt() ?: WidgetPlacement.UNPLACED
 
     fun decode(text: String?): List<PlacedWidget> = text.orEmpty().lineSequence().mapNotNull { line ->
         val f = line.split('|')
         if (f.size < 6 || f[1].isBlank()) return@mapNotNull null
         val source = WidgetSource.isSource(f[1])
         if (!source && !f[1].contains('/')) return@mapNotNull null
+        val span = f.getOrNull(6)?.toIntOrNull()?.coerceIn(WidgetLayout.minSpan(source), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS
+        val column = columnOf(f.getOrNull(8)?.toLongOrNull(), span)
+        val top = topOf(f.getOrNull(9)?.toLongOrNull())
         PlacedWidget(
             // A source has no AppWidget id, whatever the line says.
             id = if (source) null else f[0].toIntOrNull(),
@@ -308,7 +338,11 @@ object WidgetCodec {
             heightDp = (f[3].toIntOrNull() ?: 0).coerceIn(WidgetLayout.minDp(source), WidgetLayout.MAX_DP),
             order = f[4].toIntOrNull() ?: 0,
             location = WidgetLocation.of(f[5]),
-            span = f.getOrNull(6)?.toIntOrNull()?.coerceIn(WidgetLayout.minSpan(source), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS,
+            span = span,
+            look = lookOf(f.getOrNull(7), source),
+            // A place needs both numbers: with one missing, the widget gets a place again at start.
+            column = if (top >= 0) column else WidgetPlacement.UNPLACED,
+            topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
         )
     }.toList()
 
@@ -317,13 +351,15 @@ object WidgetCodec {
      * the one-time changes for older versions:
      * - Widgets placed on home before 0.3.1 move onto the page ([WidgetOrder.onePage]).
      * - Status cards ([WidgetSource.OLD_STATUS], up to 0.5.8) are dropped: [decode] can't read them.
+     * - Widgets saved without a place (up to 0.5.14) get the one they had: the order and the rows
+     *   of the old page ([WidgetPlacement.placeMissing]). So the page looks the same after the update.
      *
      * When [Start.changed], the list is saved again at once. So each change happens once, and so
      * does its [Start.note].
      */
     fun start(text: String?): Start {
         val saved = decode(text)
-        val widgets = WidgetOrder.onePage(saved)
+        val widgets = WidgetPlacement.placeMissing(WidgetOrder.onePage(saved))
         val statusCards = text.orEmpty().lineSequence().count { it.split('|').getOrNull(1)?.startsWith(WidgetSource.OLD_STATUS) == true }
         return Start(widgets, changed = widgets != saved || statusCards > 0, statusCards = statusCards)
     }
@@ -347,6 +383,9 @@ object WidgetCodec {
             "location" to it.location,
             "order" to it.order,
             "span" to it.span,
+            "look" to it.look.id,
+            "column" to it.column,
+            "top" to it.topDp,
         )
     }
 
@@ -365,6 +404,9 @@ object WidgetCodec {
             else -> null
         }
         val sourced = WidgetSource.isSource(provider)
+        val span = num("span")?.toInt()?.coerceIn(WidgetLayout.minSpan(sourced), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS
+        val column = columnOf(num("column"), span)
+        val top = topOf(num("top"))
         PlacedWidget(
             id = null,
             provider = provider,
@@ -372,7 +414,10 @@ object WidgetCodec {
             heightDp = (num("height")?.toInt() ?: 0).coerceIn(WidgetLayout.minDp(sourced), WidgetLayout.MAX_DP),
             order = num("order")?.toInt() ?: 0,
             location = WidgetLocation.of(m["location"]),
-            span = num("span")?.toInt()?.coerceIn(WidgetLayout.minSpan(sourced), WidgetLayout.COLUMNS) ?: WidgetLayout.COLUMNS,
+            span = span,
+            look = lookOf(m["look"], sourced),
+            column = if (top >= 0) column else WidgetPlacement.UNPLACED,
+            topDp = if (column >= 0) top else WidgetPlacement.UNPLACED,
         )
     }
 

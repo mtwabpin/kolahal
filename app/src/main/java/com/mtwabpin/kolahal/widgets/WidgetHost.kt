@@ -230,8 +230,12 @@ class WidgetHost private constructor(context: Context) {
                     heightDp = old?.heightDp?.coerceAtLeast(minHeightDp(info)) ?: defaultHeightDp(info),
                     order = old?.order ?: WidgetOrder.nextOrder(all),
                     span = old?.span ?: WidgetLayout.COLUMNS,
+                    column = old?.column ?: WidgetPlacement.UNPLACED,
+                    topDp = old?.topDp ?: WidgetPlacement.UNPLACED,
                 )
-                all.filterNot { it.key == old?.key } + placed
+                val rest = all.filterNot { it.key == old?.key }
+                // A restored entry keeps the place it had, and widgets in the way move down. A new one goes into the first free space.
+                if (placed.positioned) WidgetPlacement.settle(rest + placed, placed.key) else WidgetPlacement.add(rest, placed)
             }
             inFlight -= id
         }
@@ -327,13 +331,16 @@ class WidgetHost private constructor(context: Context) {
         update { all ->
             val source = pick(all)?.takeIf { s -> WidgetSource.isSource(s) && all.none { it.source == s } } ?: return@update all
             added = source
-            all + PlacedWidget(
-                id = null,
-                provider = source,
-                profileSerial = runCatching { serialOf(Process.myUserHandle()) }.getOrDefault(0L),
-                heightDp = WidgetSizes.heightDp(size, pageWidthDp()).coerceIn(WidgetLayout.minDp(sourced = true), WidgetLayout.MAX_DP),
-                order = WidgetOrder.nextOrder(all),
-                span = size.span,
+            WidgetPlacement.add(
+                all,
+                PlacedWidget(
+                    id = null,
+                    provider = source,
+                    profileSerial = runCatching { serialOf(Process.myUserHandle()) }.getOrDefault(0L),
+                    heightDp = WidgetSizes.heightDp(size, pageWidthDp()).coerceIn(WidgetLayout.minDp(sourced = true), WidgetLayout.MAX_DP),
+                    order = WidgetOrder.nextOrder(all),
+                    span = size.span,
+                ),
             )
         }
         return added
@@ -419,8 +426,45 @@ class WidgetHost private constructor(context: Context) {
         if (moved || placedOf(to).isNotEmpty()) follow(to)
     }
 
-    fun move(key: String, direction: Int) = update { WidgetOrder.move(it, key, direction) }
+    /** Moves the widget [key] one row up (−1) or down (+1). The Widgets screen's Move earlier and Move later, until dragging replaces them. */
+    fun move(key: String, direction: Int) = nudge(key, 0, direction.coerceIn(-1, 1))
 
+    /** Moves the widget [key] to [column] and [topDp] on the page. Widgets in the way move down ([WidgetPlacement.moveTo]). */
+    fun moveTo(key: String, column: Int, topDp: Int) = update { WidgetPlacement.moveTo(it, key, column, topDp) }
+
+    /**
+     * Moves the widget [key] by [columns] sideways and [rows] up or down, a row being one cell of the
+     * page: a screen reader's Move up, Move down, Move left and Move right.
+     */
+    fun nudge(key: String, columns: Int, rows: Int) = update { WidgetPlacement.nudge(it, key, columns, rows, rowDp()) }
+
+    /** Moves every widget up as far as it goes: no space left between widgets ([WidgetPlacement.closeGaps]). */
+    fun closeGaps() = update { WidgetPlacement.closeGaps(it) }
+
+    /** Sets how Kolahal draws the widget [key]. An app's widget draws itself, so it keeps [WidgetLook.PLAIN]. */
+    fun setLook(key: String, look: WidgetLook) = update { all ->
+        all.map { if (it.key == key && it.source != null && it.look != look) it.copy(look = look) else it }
+    }
+
+    /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */
+    fun setSize(key: String, size: WidgetSize) {
+        val w = _widgets.value.firstOrNull { it.key == key } ?: return
+        val span = size.span.coerceAtLeast(WidgetLayout.minSpan(w.source != null))
+        val height = WidgetLayout.clampHeight(WidgetSizes.heightDp(size, pageWidthDp()), minHeightOf(w))
+        update { WidgetPlacement.resize(it, key, span, height) }
+    }
+
+    /**
+     * The size in [WidgetSize] that the widget [key] has now, if it is one of them on this page.
+     * Null for any other size.
+     */
+    fun sizeOf(w: PlacedWidget): WidgetSize? {
+        val page = pageWidthDp()
+        return WidgetSize.entries.firstOrNull { it.span == w.span && WidgetSizes.heightDp(it, page) == w.heightDp }
+    }
+
+    /** One row of the page: as tall as one cell is wide ([WidgetSizes.heightDp] of a 1×1). */
+    fun rowDp(): Int = WidgetSizes.heightDp(WidgetSize.S1X1, pageWidthDp())
 
     fun resize(key: String, deltaDp: Int) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
@@ -432,7 +476,18 @@ class WidgetHost private constructor(context: Context) {
         val w = _widgets.value.firstOrNull { it.key == key } ?: return
         // A widget Kolahal draws itself is at least one cell wide.
         val span = WidgetLayout.resizeSpan(w.span, delta).coerceAtLeast(WidgetLayout.minSpan(w.source != null))
-        if (span != w.span) update { all -> all.map { if (it.key == key) it.copy(span = span) else it } }
+        if (span != w.span) update { WidgetPlacement.resize(it, key, span, w.heightDp) }
+    }
+
+    /**
+     * Sets the widget [key]'s width and height at once, as a drag on its handles does: [span] in
+     * columns, [heightDp] in dp. Both are kept within the widget's limits. Widgets in the way move down.
+     */
+    fun resizeTo(key: String, span: Int, heightDp: Int) {
+        val w = _widgets.value.firstOrNull { it.key == key } ?: return
+        val s = span.coerceIn(WidgetLayout.minSpan(w.source != null), WidgetLayout.COLUMNS)
+        val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
+        if (s != w.span || h != w.heightDp) update { WidgetPlacement.resize(it, key, s, h) }
     }
 
     /** Makes the widget as tall as it is wide on the widgets page, or as close as the widget allows. */
@@ -450,7 +505,7 @@ class WidgetHost private constructor(context: Context) {
 
     private fun setHeight(w: PlacedWidget, heightDp: Int) {
         val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
-        if (h != w.heightDp) update { all -> all.map { if (it.key == w.key) it.copy(heightDp = h) else it } }
+        if (h != w.heightDp) update { WidgetPlacement.resize(it, w.key, w.span, h) }
     }
 
     // ---- providers ------------------------------------------------------------------------
@@ -638,7 +693,8 @@ class WidgetHost private constructor(context: Context) {
      * it is placed as it comes, and the scripts' `widget` access follows ([syncAccess]).
      */
     fun importWidgets(list: List<Map<String, Any?>>) {
-        update { WidgetCodec.mergePending(it, WidgetOrder.onePage(WidgetCodec.fromExport(list))) }
+        // Imported widgets without a place, or whose place is taken, go into the first free space.
+        update { all -> WidgetPlacement.placeImported(all, WidgetCodec.mergePending(all, WidgetOrder.onePage(WidgetCodec.fromExport(list)))) }
         syncAccess()
     }
 

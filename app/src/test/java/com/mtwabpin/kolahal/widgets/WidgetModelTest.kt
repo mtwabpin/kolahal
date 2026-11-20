@@ -224,7 +224,9 @@ class WidgetModelTest {
         assertEquals(listOf("com.a/.W5", "script:weather", "builtin:battery"), start.widgets.map { it.provider })
         // The others keep their id, size, width and order.
         assertEquals(listOf(5, null, null), start.widgets.map { it.id })
-        assertEquals(listOf(listOf(120, 12, 0), listOf(96, 6, 2), listOf(88, 6, 4)), start.widgets.map { listOf(it.heightDp, it.span, it.order) })
+        assertEquals(listOf(listOf(120, 12), listOf(96, 6), listOf(88, 6)), start.widgets.map { listOf(it.heightDp, it.span) })
+        // Each gets the place the old page gave it, and the order follows the page from the top.
+        assertEquals(listOf(listOf(0, 0, 0), listOf(0, 128, 1), listOf(6, 128, 2)), start.widgets.map { listOf(it.column, it.topDp, it.order) })
         assertEquals(2, start.statusCards)
         assertTrue(start.changed)
         assertEquals("Status cards are gone: 2 removed from the widgets page. Status lines still show at the top of home.", start.note)
@@ -238,7 +240,7 @@ class WidgetModelTest {
 
         // No list yet, or one with no Status card: nothing to do.
         assertEquals(WidgetCodec.Start(emptyList(), changed = false, statusCards = 0), WidgetCodec.start(null))
-        assertFalse(WidgetCodec.start("-|script:weather|0|96|0|panel|6").changed)
+        assertFalse(WidgetCodec.start("-|script:weather|0|96|0|panel|6|plain|0|0").changed)
     }
 
     /** Widgets placed on home before 0.3.1 still move onto the page at start, beside the Status cards' removal. */
@@ -279,7 +281,7 @@ class WidgetModelTest {
     @Test fun sourceLinesRoundTrip() {
         val all = listOf(w(5, 0), script("weather", order = 1), PlacedWidget(null, "builtin:todos", 0L, 72, 2, span = 12), w(null, 3))
         val text = WidgetCodec.encode(all)
-        assertTrue(text.lines().contains("-|script:weather|0|96|1|panel|6"))
+        assertTrue(text.lines().contains("-|script:weather|0|96|1|panel|6|plain|-1|-1"))
         assertEquals(all, WidgetCodec.decode(text))
         // A source has no AppWidget id, whatever the line says.
         assertNull(WidgetCodec.decode("7|script:weather|0|96|1|panel|6").single().id)
@@ -426,7 +428,7 @@ class WidgetModelTest {
         assertEquals("s:builtin:battery", battery.key)
         val all = listOf(w(5, 0), battery, script("weather", order = 2))
         val text = WidgetCodec.encode(all)
-        assertTrue(text.lines().contains("-|builtin:battery|0|88|1|panel|6"))
+        assertTrue(text.lines().contains("-|builtin:battery|0|88|1|panel|6|plain|-1|-1"))
         assertEquals(all, WidgetCodec.decode(text))
         assertEquals(listOf("w5", "s:builtin:battery", "s:script:weather"), WidgetOrder.inLocation(all, WidgetLocation.PANEL).map { it.key })
         val moved = WidgetOrder.move(all, battery.key, -1)
@@ -458,7 +460,7 @@ class WidgetModelTest {
         assertEquals("builtin:todos", todos.provider)
         val all = listOf(battery.copy(order = 0), todos, script("weather", order = 2))
         // As it is stored on the phone.
-        assertTrue(WidgetCodec.encode(all).lines().contains("-|builtin:todos|0|184|1|panel|12"))
+        assertTrue(WidgetCodec.encode(all).lines().contains("-|builtin:todos|0|184|1|panel|12|plain|-1|-1"))
         assertEquals(all, WidgetCodec.decode(WidgetCodec.encode(all)))
         // As a backup carries it.
         val exported = WidgetCodec.export(all)
