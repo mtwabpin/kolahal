@@ -143,32 +143,108 @@ a command or dials a number when you tap it.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-log("neovim/neovim", "Nvim 0.11.4", { url = "https://github.com/neovim/neovim/releases" })
-log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C")
-log("Kolahal on GitHub", { url = "https://github.com/mtwabpin/kolahal" })
--- A list: each story a title with its points under it, and a small space between the stories.
+log(
+  "neovim/neovim",
+  "Nvim 0.11.4",
+  {
+    url = "https://github.com/neovim/neovim/releases",
+  }
+)
+
+log(
+  "Pune, IN",
+  "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"
+)
+
+log(
+  "Kolahal on GitHub",
+  {
+    url = "https://github.com/mtwabpin/kolahal",
+  }
+)
+
+-- A list: each story a title with its
+-- points under it, and a small space
+-- between the stories.
 local stories = {
-  { title = "A launcher that is a terminal", points = 128, link = "https://example.com/1" },
-  { title = "Lua 5.5 is out", points = 342, link = "https://example.com/2" },
+  {
+    title = "A launcher that is a terminal",
+    points = 128,
+    link = "https://example.com/1",
+  },
+  {
+    title = "Lua 5.5 is out",
+    points = 342,
+    link = "https://example.com/2",
+  },
 }
-for _, s in ipairs(stories) do log(s.title, s.points .. " points", { url = s.link, gap = true }) end
-log("Your code is 4821", { copy = "4821" })
+
+for _, s in ipairs(stories) do
+  log(
+    s.title,
+    s.points .. " points",
+    { url = s.link, gap = true }
+  )
+end
+
+log(
+  "Your code is 4821",
+  { copy = "4821" }
+)
 log("xkcd #327", { image = "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" })
 print("print() also logs", 42)   -- arguments joined with tabs
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-log("neovim/neovim", "Nvim 0.11.4", { url: "https://github.com/neovim/neovim/releases" });
-log("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C");
-log("Kolahal on GitHub", { url: "https://github.com/mtwabpin/kolahal" });
-// A list: each story a title with its points under it, and a small space between the stories.
+log(
+  "neovim/neovim",
+  "Nvim 0.11.4",
+  {
+    url: "https://github.com/neovim/neovim/releases",
+  },
+);
+
+log(
+  "Pune, IN",
+  "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C",
+);
+
+log(
+  "Kolahal on GitHub",
+  {
+    url: "https://github.com/mtwabpin/kolahal",
+  },
+);
+
+// A list: each story a title with its
+// points under it, and a small space
+// between the stories.
 const stories = [
-  { title: "A launcher that is a terminal", points: 128, link: "https://example.com/1" },
-  { title: "Lua 5.5 is out", points: 342, link: "https://example.com/2" },
+  {
+    title: "A launcher that is a terminal",
+    points: 128,
+    link: "https://example.com/1",
+  },
+  {
+    title: "Lua 5.5 is out",
+    points: 342,
+    link: "https://example.com/2",
+  },
 ];
-for (const s of stories) log(s.title, `${s.points} points`, { url: s.link, gap: true });
-log("Your code is 4821", { copy: "4821" });
+
+for (const s of stories) {
+  log(
+    s.title,
+    `${s.points} points`,
+    { url: s.link, gap: true },
+  );
+}
+
+log(
+  "Your code is 4821",
+  { copy: "4821" },
+);
 log("xkcd #327", { image: "https://imgs.xkcd.com/comics/exploits_of_a_mom.png" });
 console.log("console.log also logs", 42);  // arguments joined with spaces
 console.error("logged as an error line");
@@ -219,16 +295,40 @@ text from the web inside `md.log`, so that it still shows exactly as written.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-local item = { title = "Show HN: Kolahal, a launcher", link = "https://example.com/hn" }
-md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119")
-md.log("**HN** " .. md.escape(item.title), nil, { url = item.link })
+local item = {
+  title = "Show HN: Kolahal, a launcher",
+  link = "https://example.com/hn",
+}
+
+md.log(
+  "**3** new releases",
+  "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119"
+)
+
+md.log(
+  "**HN** " .. md.escape(item.title),
+  nil,
+  { url = item.link }
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-const item = { title: "Show HN: Kolahal, a launcher", link: "https://example.com/hn" };
-md.log("**3** new releases", "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119");
-md.log("**HN** " + md.escape(item.title), null, { url: item.link });
+const item = {
+  title: "Show HN: Kolahal, a launcher",
+  link: "https://example.com/hn",
+};
+
+md.log(
+  "**3** new releases",
+  "- neovim `v0.11.4`\n- termux ~~v0.118~~ v0.119",
+);
+
+md.log(
+  "**HN** " + md.escape(item.title),
+  null,
+  { url: item.link },
+);
 ```
 </TabItem>
 </Tabs>
@@ -280,18 +380,64 @@ Where styles work:
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-local item = { score = 128, title = "A launcher that is a terminal", link = "https://example.com/1" }
-log(fmt.bold(item.score) .. " · " .. item.title, nil, { url = item.link })
-log("Today", fmt.list({ "standup " .. fmt.code("10:00"), "review" }, true))
-log("BTC 67,120 USD " .. fmt.color("good", "▲ 1.2%"))
+local item = {
+  score = 128,
+  title = "A launcher that is a terminal",
+  link = "https://example.com/1",
+}
+
+log(
+  fmt.bold(item.score) .. " · "
+    .. item.title,
+  nil,
+  { url = item.link }
+)
+
+log(
+  "Today",
+  fmt.list(
+    {
+      "standup " .. fmt.code("10:00"),
+      "review",
+    },
+    true
+  )
+)
+
+log(
+  "BTC 67,120 USD "
+    .. fmt.color("good", "▲ 1.2%")
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-const item = { score: 128, title: "A launcher that is a terminal", link: "https://example.com/1" };
-log(`${fmt.bold(item.score)} · ${item.title}`, null, { url: item.link });
-log("Today", fmt.list([`standup ${fmt.code("10:00")}`, "review"], true));
-log(`BTC 67,120 USD ${fmt.color("good", "▲ 1.2%")}`);
+const item = {
+  score: 128,
+  title: "A launcher that is a terminal",
+  link: "https://example.com/1",
+};
+
+log(
+  `${fmt.bold(item.score)} · ${item.title}`,
+  null,
+  { url: item.link },
+);
+
+log(
+  "Today",
+  fmt.list(
+    [
+      `standup ${fmt.code("10:00")}`,
+      "review",
+    ],
+    true,
+  ),
+);
+
+log(
+  `BTC 67,120 USD ${fmt.color("good", "▲ 1.2%")}`,
+);
 ```
 </TabItem>
 </Tabs>
@@ -316,20 +462,48 @@ log(`BTC 67,120 USD ${fmt.color("good", "▲ 1.2%")}`);
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-log("Prices in USD", fmt.table({
-  { "Coin", "Price", "24h" },
-  { "BTC", "64,210", fmt.color("good", "▲ 2.1%") },
-  { "ETH", "3,118", fmt.color("bad", "▼ 0.8%") },
-}, { header = true, align = "lrr" }))
+log(
+  "Prices in USD",
+  fmt.table(
+    {
+      { "Coin", "Price", "24h" },
+      {
+        "BTC",
+        "64,210",
+        fmt.color("good", "▲ 2.1%"),
+      },
+      {
+        "ETH",
+        "3,118",
+        fmt.color("bad", "▼ 0.8%"),
+      },
+    },
+    { header = true, align = "lrr" }
+  )
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-log("Prices in USD", fmt.table([
-  ["Coin", "Price", "24h"],
-  ["BTC", "64,210", fmt.color("good", "▲ 2.1%")],
-  ["ETH", "3,118", fmt.color("bad", "▼ 0.8%")],
-], { header: true, align: "lrr" }));
+log(
+  "Prices in USD",
+  fmt.table(
+    [
+      ["Coin", "Price", "24h"],
+      [
+        "BTC",
+        "64,210",
+        fmt.color("good", "▲ 2.1%"),
+      ],
+      [
+        "ETH",
+        "3,118",
+        fmt.color("bad", "▼ 0.8%"),
+      ],
+    ],
+    { header: true, align: "lrr" },
+  ),
+);
 ```
 </TabItem>
 </Tabs>
@@ -354,16 +528,42 @@ line does what a tap on the line does (opens its `url`, if it has one).
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-local item = { title = "A launcher that is a terminal", comments = "https://example.com/c", link = "https://example.com/1" }
-log(item.title .. " · " .. fmt.link("138 comments", item.comments), { url = item.link })
-md.log("New in [neovim](https://github.com/neovim/neovim/releases)")
+local item = {
+  title = "A launcher that is a terminal",
+  comments = "https://example.com/c",
+  link = "https://example.com/1",
+}
+
+log(
+  item.title .. " · "
+    .. fmt.link(
+      "138 comments",
+      item.comments
+    ),
+  { url = item.link }
+)
+
+md.log(
+  "New in [neovim](https://github.com/neovim/neovim/releases)"
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-const item = { title: "A launcher that is a terminal", comments: "https://example.com/c", link: "https://example.com/1" };
-log(`${item.title} · ${fmt.link("138 comments", item.comments)}`, { url: item.link });
-md.log("New in [neovim](https://github.com/neovim/neovim/releases)");
+const item = {
+  title: "A launcher that is a terminal",
+  comments: "https://example.com/c",
+  link: "https://example.com/1",
+};
+
+log(
+  `${item.title} · ${fmt.link("138 comments", item.comments)}`,
+  { url: item.link },
+);
+
+md.log(
+  "New in [neovim](https://github.com/neovim/neovim/releases)",
+);
 ```
 </TabItem>
 </Tabs>
@@ -382,14 +582,26 @@ as [`fmt.color`](#styles-fmt) takes it. `fmt.tag(text)` uses the accent colour.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-log(fmt.tag("bad", "LIVE") .. " IND v NZ")
-log("neovim/neovim " .. fmt.tag("v0.12.0") .. " " .. fmt.tag("warn", "pre-release"))
+log(
+  fmt.tag("bad", "LIVE") .. " IND v NZ"
+)
+
+log(
+  "neovim/neovim " .. fmt.tag("v0.12.0")
+    .. " "
+    .. fmt.tag("warn", "pre-release")
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-log(`${fmt.tag("bad", "LIVE")} IND v NZ`);
-log(`neovim/neovim ${fmt.tag("v0.12.0")} ${fmt.tag("warn", "pre-release")}`);
+log(
+  `${fmt.tag("bad", "LIVE")} IND v NZ`,
+);
+
+log(
+  `neovim/neovim ${fmt.tag("v0.12.0")} ${fmt.tag("warn", "pre-release")}`,
+);
 ```
 </TabItem>
 </Tabs>
@@ -422,16 +634,64 @@ and the texts after them.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-log("Pune · AQI 168", "Unhealthy\n" .. fmt.bar(168, { max = 300, color = "bad" }))
-log("Unlocks", fmt.bars({ { "Mon", 42 }, { "Tue", 21 } }, { color = "good" }))
-log("Pune · 3 days", fmt.ranges({ { "Today", 23, 31 }, { "Tomorrow", 22, 30 } }, { unit = "°", color = "warn" }))
+log(
+  "Pune · AQI 168",
+  "Unhealthy\n"
+    .. fmt.bar(
+      168,
+      { max = 300, color = "bad" }
+    )
+)
+
+log(
+  "Unlocks",
+  fmt.bars(
+    { { "Mon", 42 }, { "Tue", 21 } },
+    { color = "good" }
+  )
+)
+
+log(
+  "Pune · 3 days",
+  fmt.ranges(
+    {
+      { "Today", 23, 31 },
+      { "Tomorrow", 22, 30 },
+    },
+    { unit = "°", color = "warn" }
+  )
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-log("Pune · AQI 168", "Unhealthy\n" + fmt.bar(168, { max: 300, color: "bad" }));
-log("Unlocks", fmt.bars([["Mon", 42], ["Tue", 21]], { color: "good" }));
-log("Pune · 3 days", fmt.ranges([["Today", 23, 31], ["Tomorrow", 22, 30]], { unit: "°", color: "warn" }));
+log(
+  "Pune · AQI 168",
+  "Unhealthy\n"
+    + fmt.bar(
+      168,
+      { max: 300, color: "bad" },
+    ),
+);
+
+log(
+  "Unlocks",
+  fmt.bars(
+    [["Mon", 42], ["Tue", 21]],
+    { color: "good" },
+  ),
+);
+
+log(
+  "Pune · 3 days",
+  fmt.ranges(
+    [
+      ["Today", 23, 31],
+      ["Tomorrow", 22, 30],
+    ],
+    { unit: "°", color: "warn" },
+  ),
+);
 ```
 </TabItem>
 </Tabs>
@@ -453,12 +713,26 @@ the others are smaller. They sit side by side and wrap when the screen is narrow
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-log("Pune", fmt.stats({ { "25°C", "☀️ Sunny" }, { "36%", "humidity" }, { "9 km/h", "wind" } }))
+log(
+  "Pune",
+  fmt.stats({
+    { "25°C", "☀️ Sunny" },
+    { "36%", "humidity" },
+    { "9 km/h", "wind" },
+  })
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-log("Pune", fmt.stats([["25°C", "☀️ Sunny"], ["36%", "humidity"], ["9 km/h", "wind"]]));
+log(
+  "Pune",
+  fmt.stats([
+    ["25°C", "☀️ Sunny"],
+    ["36%", "humidity"],
+    ["9 km/h", "wind"],
+  ]),
+);
 ```
 </TabItem>
 </Tabs>
@@ -484,7 +758,16 @@ if event and event.name == "action" then
   if args[1] == "snooze" then store.set("until", tostring(os.time() + tonumber(args[2]) * 60)) end
   return log("Snoozed for " .. args[2] .. " min")
 end
-log("Battery at 92%", "Unplug the charger.", { actions = { { "Snooze 30 min", "snooze 30" }, { "Not today", "snooze 720" } } })
+log(
+  "Battery at 92%",
+  "Unplug the charger.",
+  {
+    actions = {
+      { "Snooze 30 min", "snooze 30" },
+      { "Not today", "snooze 720" },
+    },
+  }
+)
 ```
 </TabItem>
 <TabItem label="JavaScript">
@@ -493,7 +776,16 @@ if (event && event.name === "action") {
   if (args[0] === "snooze") store.set("until", String(Date.now() + Number(args[1]) * 60000));
   return log(`Snoozed for ${args[1]} min`);
 }
-log("Battery at 92%", "Unplug the charger.", { actions: [["Snooze 30 min", "snooze 30"], ["Not today", "snooze 720"]] });
+log(
+  "Battery at 92%",
+  "Unplug the charger.",
+  {
+    actions: [
+      ["Snooze 30 min", "snooze 30"],
+      ["Not today", "snooze 720"],
+    ],
+  },
+);
 ```
 </TabItem>
 </Tabs>
@@ -688,7 +980,12 @@ widget.show{
   kind = "stat",
   value = "6,240",
   label = "Steps today",
-  more = { { value = "4.1 km", label = "walked" } },
+  more = {
+    {
+      value = "4.1 km",
+      label = "walked",
+    },
+  },
 }
 ```
 </TabItem>
@@ -701,7 +998,12 @@ widget.show({
   kind: "stat",
   value: "6,240",
   label: "Steps today",
-  more: [{ value: "4.1 km", label: "walked" }],
+  more: [
+    {
+      value: "4.1 km",
+      label: "walked",
+    },
+  ],
 });
 ```
 </TabItem>
@@ -971,26 +1273,62 @@ widget.show{
   kind = "list",
   title = "Reading list",
   items = {
-    { title = "Kolahal's guide", trailing = "docs", tap = { url = "https://mtwabpin.github.io/kolahal/" } },
-    { title = "No link here", detail = "A row needs only its title" },
+    {
+      title = "Kolahal's guide",
+      trailing = "docs",
+      tap = {
+        url = "https://mtwabpin.github.io/kolahal/",
+      },
+    },
+    {
+      title = "No link here",
+      detail = "A row needs only its title",
+    },
   },
   empty = "Nothing to read",
 }
 
 -- text: a few lines, and a caption
-widget.show{ kind = "text", title = "Word of the day",
+widget.show{
+  kind = "text",
+  title = "Word of the day",
   text = "serendipity\nFinding something good without looking for it.",
-  caption = "From Wiktionary" }
+  caption = "From Wiktionary",
+}
 
 -- progress: in the warning colour
-widget.show{ kind = "progress", title = "Pune air", value = 168, max = 300, text = "168", label = "Unhealthy", color = "warn" }
+widget.show{
+  kind = "progress",
+  title = "Pune air",
+  value = 168,
+  max = 300,
+  text = "168",
+  label = "Unhealthy",
+  color = "warn",
+}
 
 -- chart: seven days as bars
-widget.show{ kind = "chart", title = "Unlocks", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
-  value = 8, label = "Unlocks today", labels = { "Sun", "Today" } }
+widget.show{
+  kind = "chart",
+  title = "Unlocks",
+  points = { 12, 30, 0, 45, 7, 1, 8 },
+  style = "bars",
+  value = 8,
+  label = "Unlocks today",
+  labels = { "Sun", "Today" },
+}
 
 -- countdown: Kolahal counts the days
-widget.show{ kind = "countdown", title = "Goa trip", to = os.time{ year = 2026, month = 12, day = 20, hour = 0 } }
+widget.show{
+  kind = "countdown",
+  title = "Goa trip",
+  to = os.time({
+    year = 2026,
+    month = 12,
+    day = 20,
+    hour = 0,
+  }),
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
@@ -1000,26 +1338,61 @@ widget.show({
   kind: "list",
   title: "Reading list",
   items: [
-    { title: "Kolahal's guide", trailing: "docs", tap: { url: "https://mtwabpin.github.io/kolahal/" } },
-    { title: "No link here", detail: "A row needs only its title" },
+    {
+      title: "Kolahal's guide",
+      trailing: "docs",
+      tap: {
+        url: "https://mtwabpin.github.io/kolahal/",
+      },
+    },
+    {
+      title: "No link here",
+      detail: "A row needs only its title",
+    },
   ],
   empty: "Nothing to read",
 });
 
 // text: a few lines, and a caption
-widget.show({ kind: "text", title: "Word of the day",
+widget.show({
+  kind: "text",
+  title: "Word of the day",
   text: "serendipity\nFinding something good without looking for it.",
-  caption: "From Wiktionary" });
+  caption: "From Wiktionary",
+});
 
 // progress: in the warning colour
-widget.show({ kind: "progress", title: "Pune air", value: 168, max: 300, text: "168", label: "Unhealthy", color: "warn" });
+widget.show({
+  kind: "progress",
+  title: "Pune air",
+  value: 168,
+  max: 300,
+  text: "168",
+  label: "Unhealthy",
+  color: "warn",
+});
 
 // chart: seven days as bars
-widget.show({ kind: "chart", title: "Unlocks", points: [12, 30, 0, 45, 7, 1, 8], style: "bars",
-  value: 8, label: "Unlocks today", labels: ["Sun", "Today"] });
+widget.show({
+  kind: "chart",
+  title: "Unlocks",
+  points: [12, 30, 0, 45, 7, 1, 8],
+  style: "bars",
+  value: 8,
+  label: "Unlocks today",
+  labels: ["Sun", "Today"],
+});
 
 // countdown: Kolahal counts the days
-widget.show({ kind: "countdown", title: "Goa trip", to: new Date(2026, 11, 20).getTime() / 1000 });
+widget.show({
+  kind: "countdown",
+  title: "Goa trip",
+  to: new Date(
+    2026,
+    11,
+    20,
+  ).getTime() / 1000,
+});
 ```
 </TabItem>
 </Tabs>
@@ -1165,69 +1538,197 @@ needed.
 <TabItem label="Lua">
 ```lua
 -- buttons: each one runs this script again with its own arguments
-widget.show{ kind = "buttons", items = {
-  { label = "Start", icon = "play", tap = { args = "start" } },
-  { label = "Stop", icon = "pause", color = "bad", tap = { args = "stop" } },
-  { label = "Help", tap = { url = "https://example.com/help" } },
-} }
+widget.show{
+  kind = "buttons",
+  items = {
+    {
+      label = "Start",
+      icon = "play",
+      tap = { args = "start" },
+    },
+    {
+      label = "Stop",
+      icon = "pause",
+      color = "bad",
+      tap = { args = "stop" },
+    },
+    {
+      label = "Help",
+      tap = {
+        url = "https://example.com/help",
+      },
+    },
+  },
+}
 
 -- toggles: the script changes the thing, then reports the new state
--- (the script needs @uses dnd)
-if event and event.name == "action" and args[1] == "dnd" then
-  device.setDnd(device.dnd() == "off" and "on" or "off")
+-- The script needs @uses dnd.
+if event and event.name == "action"
+    and args[1] == "dnd" then
+  device.setDnd(
+    device.dnd() == "off" and "on"
+      or "off"
+  )
 end
-widget.show{ kind = "toggles", items = {
-  { label = "Do Not Disturb", on = device.dnd() ~= "off", tap = { args = "dnd" } },
-} }
+
+widget.show{
+  kind = "toggles",
+  items = {
+    {
+      label = "Do Not Disturb",
+      on = device.dnd() ~= "off",
+      tap = { args = "dnd" },
+    },
+  },
+}
 
 -- clock: Kolahal moves the clocks
-widget.show{ kind = "clock", title = "Clocks", staleAfter = 604800, zones = {
-  { zone = "Asia/Kolkata", label = "Pune" },
-  { zone = "America/New_York" },
-} }
+widget.show{
+  kind = "clock",
+  title = "Clocks",
+  staleAfter = 604800,
+  zones = {
+    {
+      zone = "Asia/Kolkata",
+      label = "Pune",
+    },
+    { zone = "America/New_York" },
+  },
+}
 
 -- agenda: lunch tomorrow and a trip the day after, in the days from today to the day after tomorrow
 local t = os.date("*t")
-local lunch = os.time{ year = t.year, month = t.month, day = t.day + 1, hour = 13 }
-local trip = os.time{ year = t.year, month = t.month, day = t.day + 2, hour = 0 }
-widget.show{ kind = "agenda", title = "Plans", days = 3, empty = "Nothing planned", events = {
-  { title = "Lunch with Asha", starts = lunch, ends = lunch + 3600, where = "Cafe Goodluck" },
-  { title = "Goa trip", starts = trip, allDay = true, color = "good" },
-} }
+local lunch = os.time({
+  year = t.year,
+  month = t.month,
+  day = t.day + 1,
+  hour = 13,
+})
+local trip = os.time({
+  year = t.year,
+  month = t.month,
+  day = t.day + 2,
+  hour = 0,
+})
+
+widget.show{
+  kind = "agenda",
+  title = "Plans",
+  days = 3,
+  empty = "Nothing planned",
+  events = {
+    {
+      title = "Lunch with Asha",
+      starts = lunch,
+      ends = lunch + 3600,
+      where = "Cafe Goodluck",
+    },
+    {
+      title = "Goa trip",
+      starts = trip,
+      allDay = true,
+      color = "good",
+    },
+  },
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
 // buttons: each one runs this script again with its own arguments
-widget.show({ kind: "buttons", items: [
-  { label: "Start", icon: "play", tap: { args: "start" } },
-  { label: "Stop", icon: "pause", color: "bad", tap: { args: "stop" } },
-  { label: "Help", tap: { url: "https://example.com/help" } },
-] });
+widget.show({
+  kind: "buttons",
+  items: [
+    {
+      label: "Start",
+      icon: "play",
+      tap: { args: "start" },
+    },
+    {
+      label: "Stop",
+      icon: "pause",
+      color: "bad",
+      tap: { args: "stop" },
+    },
+    {
+      label: "Help",
+      tap: {
+        url: "https://example.com/help",
+      },
+    },
+  ],
+});
 
 // toggles: the script changes the thing, then reports the new state
-// (the script needs @uses dnd)
-if (event && event.name === "action" && args[0] === "dnd") {
-  device.setDnd(device.dnd() === "off" ? "on" : "off");
+// The script needs @uses dnd.
+if (event && event.name === "action"
+    && args[0] === "dnd") {
+  device.setDnd(
+    device.dnd() === "off"
+      ? "on"
+      : "off",
+  );
 }
-widget.show({ kind: "toggles", items: [
-  { label: "Do Not Disturb", on: device.dnd() !== "off", tap: { args: "dnd" } },
-] });
+
+widget.show({
+  kind: "toggles",
+  items: [
+    {
+      label: "Do Not Disturb",
+      on: device.dnd() !== "off",
+      tap: { args: "dnd" },
+    },
+  ],
+});
 
 // clock: Kolahal moves the clocks
-widget.show({ kind: "clock", title: "Clocks", staleAfter: 604800, zones: [
-  { zone: "Asia/Kolkata", label: "Pune" },
-  { zone: "America/New_York" },
-] });
+widget.show({
+  kind: "clock",
+  title: "Clocks",
+  staleAfter: 604800,
+  zones: [
+    {
+      zone: "Asia/Kolkata",
+      label: "Pune",
+    },
+    { zone: "America/New_York" },
+  ],
+});
 
 // agenda: lunch tomorrow and a trip the day after, in the days from today to the day after tomorrow
 const t = new Date();
-const lunch = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1, 13).getTime() / 1000;
-const trip = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 2).getTime() / 1000;
-widget.show({ kind: "agenda", title: "Plans", days: 3, empty: "Nothing planned", events: [
-  { title: "Lunch with Asha", starts: lunch, ends: lunch + 3600, where: "Cafe Goodluck" },
-  { title: "Goa trip", starts: trip, allDay: true, color: "good" },
-] });
+const lunch = new Date(
+  t.getFullYear(),
+  t.getMonth(),
+  t.getDate() + 1,
+  13,
+).getTime() / 1000;
+const trip = new Date(
+  t.getFullYear(),
+  t.getMonth(),
+  t.getDate() + 2,
+).getTime() / 1000;
+
+widget.show({
+  kind: "agenda",
+  title: "Plans",
+  days: 3,
+  empty: "Nothing planned",
+  events: [
+    {
+      title: "Lunch with Asha",
+      starts: lunch,
+      ends: lunch + 3600,
+      where: "Cafe Goodluck",
+    },
+    {
+      title: "Goa trip",
+      starts: trip,
+      allDay: true,
+      color: "good",
+    },
+  ],
+});
 ```
 </TabItem>
 </Tabs>
@@ -1380,24 +1881,38 @@ colour.
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-widget.show{ kind = "list", title = "Bills", items = {
-  {
-    title = fmt.bold("Rent") .. " to Asha",
-    detail = "Due in " .. fmt.color("warn", "2 days"),
-    trailing = fmt.strike("520") .. " 480",
+widget.show{
+  kind = "list",
+  title = "Bills",
+  items = {
+    {
+      title = fmt.bold("Rent")
+        .. " to Asha",
+      detail = "Due in "
+        .. fmt.color("warn", "2 days"),
+      trailing = fmt.strike("520")
+        .. " 480",
+    },
   },
-} }
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-widget.show({ kind: "list", title: "Bills", items: [
-  {
-    title: fmt.bold("Rent") + " to Asha",
-    detail: "Due in " + fmt.color("warn", "2 days"),
-    trailing: fmt.strike("520") + " 480",
-  },
-] });
+widget.show({
+  kind: "list",
+  title: "Bills",
+  items: [
+    {
+      title: fmt.bold("Rent")
+        + " to Asha",
+      detail: "Due in "
+        + fmt.color("warn", "2 days"),
+      trailing: fmt.strike("520")
+        + " 480",
+    },
+  ],
+});
 ```
 </TabItem>
 </Tabs>
@@ -1450,18 +1965,27 @@ This widget counts glasses of water. A tap adds one.
 -- @option goal 8 Glasses a day
 
 local today = os.date("%Y-%m-%d")
-local n = tonumber(store.get(today) or "0")
-if event and event.name == "action" and args[1] == "add" then
+local n = tonumber(
+  store.get(today) or "0"
+)
+if event and event.name == "action"
+    and args[1] == "add" then
   n = n + 1
   store.set(today, tostring(n))
 end
 local goal = tonumber(options.goal) or 8
+
 widget.show{
   kind = "progress",
-  value = n, max = goal,
+  value = n,
+  max = goal,
   text = n .. " / " .. goal,
-  color = n >= goal and "good" or "accent",
-  tap = { args = "add", label = "add a glass" },
+  color = n >= goal and "good"
+    or "accent",
+  tap = {
+    args = "add",
+    label = "add a glass",
+  },
 }
 ```
 </TabItem>
@@ -1474,17 +1998,23 @@ widget.show{
 const d = new Date();
 const today = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 let n = Number(store.get(today) || "0");
-if (event && event.name === "action" && args[0] === "add") {
+if (event && event.name === "action"
+    && args[0] === "add") {
   n += 1;
   store.set(today, String(n));
 }
 const goal = Number(options.goal) || 8;
+
 widget.show({
   kind: "progress",
-  value: n, max: goal,
+  value: n,
+  max: goal,
   text: `${n} / ${goal}`,
   color: n >= goal ? "good" : "accent",
-  tap: { args: "add", label: "add a glass" },
+  tap: {
+    args: "add",
+    label: "add a glass",
+  },
 });
 ```
 </TabItem>
