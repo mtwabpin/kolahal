@@ -94,6 +94,24 @@ class ScriptPageTest {
         assertEquals(emptyMap<String, SharedCopy>(), ScriptPage.sharedCopies(scripts, emptyList()) { _, _ -> null })
     }
 
+    /**
+     * With the same name in two sources, a copy is compared with the list of the source it was
+     * installed from, and its card names a source you added.
+     */
+    @Test fun aSharedCopyFollowsItsOwnSource() {
+        val scripts = listOf(script(1, "tide"), script(2, "moon"))
+        val latest = listOf(sharedEntry("tide"), sharedEntry("tide").copy(source = "alice/scripts", sha256 = "sha-alice"), sharedEntry("moon"))
+        val from = mapOf("tide" to "alice/scripts", "moon" to ScriptCatalog.SOURCE)
+        val copies = ScriptPage.sharedCopies(scripts, latest, sourceOf = from::get) { s, entry ->
+            ScriptCatalog.Copy(edited = false, newer = entry != null, source = from.getValue(s.name))
+        }
+        assertEquals("alice/scripts", copies.getValue("tide").entry?.source)
+        assertEquals("sha-alice", copies.getValue("tide").entry?.sha256)
+        assertEquals(ScriptCatalog.SOURCE, copies.getValue("moon").entry?.source)
+        assertEquals("alice/scripts", ScriptCopy.of(copies.getValue("tide")).addedSource)
+        assertNull(ScriptCopy.of(copies.getValue("moon")).addedSource)
+    }
+
     /** A library copy has a library script's name and language. Then come the copies from Get more scripts. The rest are yours. */
     @Test fun copiesAreLibraryCopiesThenSharedOnes() {
         val list = infos(

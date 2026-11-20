@@ -80,8 +80,8 @@ The script manager (`scripts`, or the **Scripts** tab in Settings;
 [its parts, numbered](/getting-started/parts/#scripts-tab)) shows one card per script. A card
 shows:
 
-- the script's title and file. The file of a script from Get more scripts says "shared"; one of
-  yours says "yours".
+- the script's title and file. The file of a script from Get more scripts says "shared" (or the name of
+  [a source you added](#your-own-scripts-repository)); one of yours says "yours".
 - how it runs and how its last run went (red if it failed),
 - **Run**, for a command,
 - its on/off switch,
@@ -559,7 +559,8 @@ Updates:
 
 In the terminal:
 
-- `script get` lists the scripts.
+- `script get` lists the scripts, with the source of those from a
+  [source you added](#your-own-scripts-repository).
 - `script get <name>` installs or updates one. A script that asks for access arrives switched
   off, with a line naming what it asks for. Tap the line (or type `script on <name>`) to switch it
   on and allow that.
@@ -574,6 +575,49 @@ template for a command, a timer, an API key, an event and fetching from the web,
 JavaScript (the JavaScript one ends in `-js`). `template-logs` shows every kind of line a script can
 log, next to the code that makes it. Install one and [rename it](#renaming-a-script) to make it yours.
 See [Templates](/scripting/library/#templates).
+
+### Your own scripts repository
+
+Get more scripts can also list scripts from other repositories, yours or someone else's. Tap
+**Sources** at the top of Get more scripts to see them:
+
+- Each source shows its name, the address Kolahal reads, how many scripts it has, when it was last
+  read, and why it couldn't be read, if it couldn't.
+- kolahal-scripts is always first, and stays.
+- **Add source** takes a GitHub repository as `owner/name`, or an `https://` link to an
+  `index.json`. Before you add it, the dialog shows the address it reads, for example
+  `https://owner.github.io/name/index.json`.
+- **Remove** takes a source off the list. Scripts you installed from it stay.
+
+Kolahal doesn't check the scripts of a source you add: only kolahal-scripts is reviewed. Only add
+repositories you trust. The rest works as for kolahal-scripts:
+
+- A script from a source you added names that source, in Get more scripts and on its card.
+- Installing it shows what it uses, and you choose what it can use.
+- Each file must match the checksum in its list, or it isn't installed.
+- Its updates come from the source you installed it from.
+- When two sources have a script with the same name, Get more scripts shows both. One that is
+  installed from the other source says so.
+- A source that can't be read shows why, and the other sources' scripts still show.
+
+To make a repository of your own:
+
+1. Open [kolahal-scripts-template](https://github.com/mtwabpin/kolahal-scripts-template) and tap
+   **Use this template**.
+2. In your new repository, go to **Settings → Pages** and set the source to **GitHub Actions**.
+3. Add each script as `scripts/<name>/<name>.lua` (or `.js`), and push. The repository's GitHub
+   Action checks the scripts and publishes the list.
+4. In Kolahal, add `owner/name` in **Sources**.
+
+In the terminal:
+
+- `script sources` lists the sources.
+- `script source add <owner/name or link>` adds one, and says that Kolahal doesn't check its scripts.
+- `script source rm <name>` removes one.
+- `script get <name>` installs from the first source that has the name. `script get <source>/<name>`
+  picks the source, for example `script get owner/name/tide`.
+
+The sources you added are part of the [backup file](/guides/backup/).
 
 ## Renaming a script
 

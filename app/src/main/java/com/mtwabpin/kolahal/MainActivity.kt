@@ -232,6 +232,7 @@ class MainActivity : ComponentActivity() {
                         Screen.SETTINGS -> SettingsOverHome(vm)
                         Screen.SCRIPTS -> ScriptsScreen(vm)
                         Screen.GET_SCRIPTS -> com.mtwabpin.kolahal.ui.GetScriptsScreen(vm)
+                        Screen.SCRIPT_SOURCES -> com.mtwabpin.kolahal.ui.ScriptSourcesScreen(vm)
                         Screen.SCRIPT_LIBRARY -> com.mtwabpin.kolahal.ui.ScriptLibraryScreen(vm)
                         Screen.FEEDS -> FeedsScreen(vm)
                         Screen.SETUP -> SetupScreen(vm)

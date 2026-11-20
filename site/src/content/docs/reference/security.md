@@ -30,6 +30,10 @@ Kolahal is young, and its code is still being reviewed. Treat it as beta softwar
   to your local network.
 - **Imported scripts start switched off.** A script from a file, a folder or a backup asks for permission before it runs.
   If an update asks for more (including internet access), the new access starts off.
+- **Only kolahal-scripts is reviewed.** Get more scripts can also read
+  [sources you add](/scripting/overview/#your-own-scripts-repository). Kolahal doesn't check their scripts, so only add
+  repositories you trust. A script from one still shows what it uses before you install it, and must match the checksum
+  in its list.
 - **A script never holds your keys.** `secrets.get` gives the script a placeholder. The real value goes only to the
   sites that its `@secret` line names, over https. Values are encrypted with a key kept in Android's
   Keystore, and they are not included in backups ([API keys and other secrets](/scripting/overview/#api-keys-and-other-secrets)).

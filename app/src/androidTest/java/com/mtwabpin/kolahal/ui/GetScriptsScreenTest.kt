@@ -2,7 +2,16 @@ package com.mtwabpin.kolahal.ui
 
 import android.app.Application
 import android.content.Context
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
@@ -24,6 +33,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.ScriptCatalog
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -77,8 +87,16 @@ class GetScriptsScreenTest {
     private val newer = Shared("gsnewer", ScriptLang.LUA, "From the future", "Needs a newer Kolahal", "di", "1.0", emptyList(), code = "log(1)\n", requires = "99.0")
     private val taken = Shared("help", ScriptLang.LUA, "Help me", "Its name is a command's", "ed", "1.0", emptyList(), code = "log(2)\n")
 
+    // A source of one's own, as `owner/name`. Its list is kept as if read a moment ago.
+    private val other = (ScriptSources.parse("gsowner/gsscripts") as ScriptSources.Parsed.Ok).source
+    private val tideOther = tide.copy(title = "Tide tables", desc = "High and low water, another way", author = "gu", code = tide.code + "-- tables\n")
+    private val moon = Shared("gsmoon", ScriptLang.LUA, "Moon phase", "Tonight's moon", "gu", "1.0", listOf("sky"), code = "log('full moon')\n")
+
     @After fun tearDown() {
-        listOf(tide, joke, clip, newer).forEach { s ->
+        // Adding it first makes sure its list is forgotten too, also when the test only kept its list.
+        catalog.add(other)
+        catalog.remove(other.name)
+        listOf(tide, joke, clip, newer, moon).forEach { s ->
             scripts.byName(s.name)?.let { scripts.delete(it.id) }
             catalog.forget(s.name)
         }
@@ -122,6 +140,21 @@ class GetScriptsScreenTest {
         cacheFile.writeText(JSONObject().put("format", 1).put("scripts", JSONArray(shared.map { it.json() })).toString())
         prefs.edit { putLong("fetched", System.currentTimeMillis()) }
         assertEquals(shared.map { it.name }, catalog.cached()?.map { it.name })
+    }
+
+    private fun json(vararg shared: Shared) = JSONObject().put("format", 1).put("scripts", JSONArray(shared.map { it.json() })).toString()
+
+    /** [source]'s list as read a moment ago, and [source] added. */
+    private fun listedIn(source: ScriptSources.Source, vararg shared: Shared) {
+        catalog.keep(source, json(*shared))
+        catalog.add(source)
+        assertEquals(shared.map { it.name }, catalog.cached(source)?.map { it.name })
+    }
+
+    /** Saves [node] as [file] in the app's external files, under sources-shots, to look at. */
+    private fun shot(node: SemanticsNodeInteraction, file: String) {
+        val out = checkNotNull(app.getExternalFilesDir("sources-shots")) { "no external files" }
+        File(out, file).outputStream().use { node.captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     /** The screen, opened as Scripts opens it; [downloaded] code is there as if fetched for the sheet. */
@@ -228,9 +261,9 @@ class GetScriptsScreenTest {
         compose.waitForText("Tide times")
         compose.runOnUiThread {
             val shared = vm.scriptActions._shared
-            shared.value = ScriptActions.SharedScripts(shared.value.entries, error = "HTTP 503 from mtwabpin.github.io")
+            shared.value = ScriptActions.SharedScripts(shared.value.sources.map { it.copy(error = "HTTP 503 from mtwabpin.github.io") })
         }
-        compose.waitForText("Can't read the list: HTTP 503 from mtwabpin.github.io")
+        compose.waitForText("Can't read ${ScriptCatalog.SOURCE}: HTTP 503 from mtwabpin.github.io")
         compose.onNodeWithText("Try again").assertExists()
         compose.onNodeWithText("Tide times").assertExists()
     }
@@ -336,5 +369,128 @@ class GetScriptsScreenTest {
         compose.onNodeWithText("Replace").performClick()
         compose.waitUntil(5_000) { scripts.byName(tide.name)?.code == tide.code }
         compose.waitForText("The next high and low tide · Installed")
+    }
+
+    // ---- sources of one's own ----------------------------------------------------------
+
+    /** The scripts of a source you added show after kolahal-scripts', each saying where it is from. A name in both shows twice. */
+    @Test fun aSourceYouAddedListsItsScriptsWithItsName() {
+        listed(tide, joke)
+        listedIn(other, tideOther, moon)
+        show()
+        compose.waitForNode(row("Tide times", "gstide.lua · command", "The next high and low tide"))
+        compose.waitForNode(row("Tide tables", "High and low water, another way · From gsowner/gsscripts"))
+        compose.waitForNode(row("Moon phase", "Tonight's moon · From gsowner/gsscripts"))
+        compose.onNodeWithText("Shared in ${ScriptCatalog.SOURCE} and 1 source you added").assertExists()
+        compose.onNodeWithText("Every script in ${ScriptCatalog.SOURCE} is reviewed", substring = true).assertExists()
+        shot(compose.onRoot(), "get-more-scripts-two-sources.png")
+    }
+
+    /** A name installed from one source says so in the other, and its sheet says where it came from. */
+    @Test fun aNameInstalledFromAnotherSourceSaysSo() {
+        catalog.install(tide.entry(), tide.code)
+        listed(tide)
+        listedIn(other, tideOther)
+        show()
+        compose.waitForNode(row("Tide times", "The next high and low tide · Installed"))
+        compose.waitForNode(row("Tide tables", "High and low water, another way · From gsowner/gsscripts · Installed from ${ScriptCatalog.SOURCE}"))
+        compose.onNodeWithText("Tide tables").performClick()
+        compose.waitForText("You installed gstide from ${ScriptCatalog.SOURCE}.")
+        compose.onNodeWithText("From: gsowner/gsscripts, a source you added").assertExists()
+    }
+
+    /** A script from a source you added installs from there, and updates follow that source. */
+    @Test fun aScriptFromASourceYouAddedRemembersIt() {
+        listed(tide)
+        listedIn(other, moon)
+        show(moon)
+        compose.waitForText("Moon phase")
+        compose.onNodeWithText("Moon phase").performClick()
+        compose.waitForText("From: gsowner/gsscripts, a source you added")
+        tapWhenEnabled("Install")
+        compose.waitForText("Installed gsmoon.lua")
+        assertEquals(other.name, catalog.installedFrom(moon.name))
+        compose.waitForText("Tonight's moon · From gsowner/gsscripts · Installed")
+    }
+
+    /** A source that can't be read says why, and the other sources' scripts still show. */
+    @Test fun aSourceThatCantBeReadDoesntHideTheOthers() {
+        listed(tide)
+        listedIn(other, moon)
+        val vm = show()
+        compose.waitForText("Moon phase")
+        compose.runOnUiThread {
+            val shared = vm.scriptActions._shared
+            shared.value = ScriptActions.SharedScripts(
+                shared.value.sources.map { if (it.source == other) it.copy(entries = emptyList(), error = "HTTP 404 from gsowner.github.io") else it },
+            )
+        }
+        compose.waitForText("Can't read gsowner/gsscripts: HTTP 404 from gsowner.github.io")
+        compose.onNodeWithText("Tide times").assertExists()
+        compose.onNodeWithText("Moon phase").assertDoesNotExist()
+    }
+
+    /** Sources, in the top bar, opens the list of sources. */
+    @Test fun sourcesOpensFromTheTopBar() {
+        listed(tide)
+        val vm = show()
+        compose.onNode(hasText("Sources") and hasClickAction()).performClick()
+        compose.waitUntil(5_000) { vm.screen.value == Screen.SCRIPT_SOURCES }
+    }
+
+    /** The Sources page, opened as Get more scripts opens it. */
+    private fun showSources(): TerminalViewModel {
+        lateinit var vm: TerminalViewModel
+        compose.runOnUiThread {
+            vm = vms.terminal(app)
+            vm.openScreen(Screen.GET_SCRIPTS)
+            vm.openScreen(Screen.SCRIPT_SOURCES)
+        }
+        compose.setContent { ScriptSourcesScreen(vm) }
+        compose.waitUntil(5_000) { vm.scriptActions.sharedScripts.value.let { !it.loading && it.sources.isNotEmpty() } }
+        return vm
+    }
+
+    /** kolahal-scripts comes first and stays; a source you added shows its address, its scripts and when it was read, and Remove takes it off. */
+    @Test fun theSourcesPageListsEachAndRemovesOne() {
+        listed(tide, joke)
+        listedIn(other, tideOther, moon)
+        showSources()
+        compose.waitForNode(hasText(ScriptCatalog.SOURCE) and hasText(ScriptSources.DEFAULT.index) and hasText("Reviewed · 2 scripts · read just now"))
+        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("https://gsowner.github.io/gsscripts/index.json") and hasText("2 scripts · read just now"))
+        // Only the one you added can be removed.
+        assertEquals(1, compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().size)
+        shot(compose.onRoot(), "sources.png")
+        compose.onNodeWithContentDescription("Remove").performClick()
+        compose.waitForText("Removed gsowner/gsscripts")
+        compose.onNodeWithText("gsowner/gsscripts").assertDoesNotExist()
+        assertEquals(emptyList<String>(), catalog.added())
+    }
+
+    /** Add source shows the address it will read and the warning, then adds the source and reads it. */
+    @Test fun addingASourceShowsWhatItReadsAndWarns() {
+        listed(tide)
+        // Its list is kept already, so adding it reads nothing online.
+        catalog.keep(other, json(moon))
+        showSources()
+        compose.onNodeWithText("Add source", useUnmergedTree = true).performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("gsowner/gsscripts")
+        compose.waitForText("Reads https://gsowner.github.io/gsscripts/index.json")
+        compose.onNodeWithText("Kolahal doesn't check scripts from it. Only add repositories you trust.").assertExists()
+        shot(compose.onNode(isDialog()), "add-source.png")
+        compose.onNode(hasText("Add") and hasClickAction()).performClick()
+        compose.waitForText("Added gsowner/gsscripts · 1 script")
+        assertEquals(listOf(other.index), catalog.added())
+        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("1 script · read just now"))
+    }
+
+    /** What isn't a source says why, and can't be added. */
+    @Test fun anAddressThatIsntASourceSaysWhy() {
+        listed(tide)
+        showSources()
+        compose.onNodeWithText("Add source", useUnmergedTree = true).performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("http://example.com/index.json")
+        compose.waitForText("Only https:// links")
+        compose.onNode(hasText("Add") and hasClickAction()).assertIsNotEnabled()
     }
 }

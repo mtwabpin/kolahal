@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.terminal
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandParsing
 import android.content.Context
+import android.text.format.DateUtils
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.LogKind
@@ -22,6 +23,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.SecretStore
 
 /**
@@ -186,6 +188,8 @@ class ScriptCommands(
             }
             // This uses the network, so run it outside the serial command queue.
             "get" -> background("script get") { getShared(args.drop(1)) }
+            "sources" -> listSources()
+            "source" -> source(args.drop(1))
             "secret", "secrets" -> withScript(target) { s -> secret(s, args.drop(2)) }
             "set", "option", "options" -> withScript(target) { s -> option(s, args.drop(2)) }
             "access" -> withScript(target) { listAccess(it) }
@@ -232,48 +236,71 @@ class ScriptCommands(
     }
 
     /**
-     * `script get [<name>] [--refresh] [--replace]`:
-     * - without a name, lists the scripts shared in kolahal-scripts;
-     * - with a name, installs or updates that script. A new script that asks for nothing
-     *   ([ScriptAccess.asksFor]: the internet, or anything with `@uses`) is switched on. One that
-     *   asks is installed off, with a line naming what it asks for: a tap switches it on and allows
-     *   that, as `script on` does. You see the access before anything is allowed.
+     * `script get [<name>|<source>/<name>] [--refresh] [--replace]`:
+     * - without a name, lists the scripts of every source, with the source of those not from
+     *   kolahal-scripts. A source that can't be read says why; the others still list.
+     * - with a name, installs or updates that script, from the first source that has it, or from
+     *   the source named. A new script that asks for nothing ([ScriptAccess.asksFor]: the internet,
+     *   or anything with `@uses`) is switched on. One that asks is installed off, with a line naming
+     *   what it asks for: a tap switches it on and allows that, as `script on` does. You see the
+     *   access before anything is allowed.
      */
     private fun getShared(args: List<String>) {
         val catalog = ScriptCatalog(context)
         val refresh = "--refresh" in args
         val replace = "--replace" in args
-        val name = args.firstOrNull { !it.startsWith("--") }?.lowercase()?.substringBefore('.')
-        val entries = catalog.entries(refresh)
-        if (name == null) {
+        // `name`, `name.lua` or `source/name`: the script's name in lowercase, without its extension.
+        val ref = args.firstOrNull { !it.startsWith("--") }?.let { word ->
+            val name = word.substringAfterLast('/').lowercase().substringBefore('.')
+            if ('/' in word) "${word.substringBeforeLast('/')}/$name" else name
+        }
+        val sources = catalog.sources()
+        if (ref == null) {
+            val listings = catalog.listings(refresh)
+            val entries = listings.flatMap { it.entries }
             val installed = scripts.all()
-            info("Shared scripts from ${ScriptCatalog.SOURCE} — 'script get <name>' installs one")
-            if (entries.isEmpty()) info("None yet")
+            info("Shared scripts from ${sources.joinToString(", ") { it.name }} — 'script get <name>' installs one")
+            listings.forEach { l -> l.error?.let { error("Can't read ${l.source.name}: $it") } }
+            if (entries.isEmpty() && listings.none { it.error != null }) info("None yet")
             entries.forEach { e ->
                 val state = when (catalog.state(e, installed)) {
                     ScriptCatalog.State.NOT_INSTALLED -> ""
                     ScriptCatalog.State.INSTALLED -> " " + StyledText.tag(StyledText.Colour.GOOD, "installed")
                     ScriptCatalog.State.UPDATE_AVAILABLE -> " " + StyledText.tag(StyledText.Colour.WARN, "update")
                     ScriptCatalog.State.MODIFIED -> " " + StyledText.tag(StyledText.Colour.MUTED, "edited")
-                    ScriptCatalog.State.NAME_TAKEN -> " " + StyledText.tag(StyledText.Colour.BAD, "name taken")
+                    ScriptCatalog.State.NAME_TAKEN -> " " + StyledText.tag(
+                        StyledText.Colour.BAD,
+                        catalog.installedFrom(e.name)?.takeIf { it != e.source }?.let { "installed from $it" } ?: "name taken",
+                    )
                     ScriptCatalog.State.NEEDS_NEWER -> " " + StyledText.tag(StyledText.Colour.BAD, "needs Kolahal ${e.requires}")
                 }
                 val desc = listOfNotNull(
+                    e.source.takeIf { it != ScriptCatalog.SOURCE }?.let { "from $it" },
                     e.title, e.version.ifBlank { null }?.let { "v$it" }, e.author.ifBlank { null }?.let { "by $it" }, e.desc.ifBlank { null },
                 )
-                out("${e.name}.${e.lang.ext}$state", LogContext.of(LogContext.COMMAND to "script get ${e.name}", LogContext.DESC to desc.joinToString(" · ")) + LogContext.ITEM)
+                val get = "script get ${ScriptSources.ref(entries, e)}"
+                out("${e.name}.${e.lang.ext}$state", LogContext.of(LogContext.COMMAND to get, LogContext.DESC to desc.joinToString(" · ")) + LogContext.ITEM)
             }
             return
         }
-        val entry = entries.firstOrNull { it.name == name }
-            ?: (if (refresh) null else catalog.entries(refresh = true).firstOrNull { it.name == name })
-            ?: return error("No shared script '$name' — 'script get' lists them")
+        if ('/' in ref && ScriptSources.find(sources, ref.substringBeforeLast('/')) == null) {
+            return error("No source '${ref.substringBeforeLast('/')}' — 'script sources' lists them")
+        }
+        fun find(fresh: Boolean): ScriptCatalog.Entry? {
+            val listings = catalog.listings(fresh)
+            return ScriptSources.pick(listings.flatMap { it.entries }, ref, sources)
+        }
+        val entry = find(refresh) ?: (if (refresh) null else find(true))
+            ?: return error("No shared script '$ref' — 'script get' lists them")
         when (catalog.state(entry, scripts.all())) {
             ScriptCatalog.State.NEEDS_NEWER -> return error("${entry.name} needs Kolahal ${entry.requires} or newer")
-            ScriptCatalog.State.NAME_TAKEN -> return error(ScriptNames.clash(context, entry.name) ?: "You have your own script named ${entry.name}")
+            ScriptCatalog.State.NAME_TAKEN -> return error(
+                catalog.installedFrom(entry.name)?.takeIf { it != entry.source }?.let { "You installed ${entry.name} from $it" }
+                    ?: ScriptNames.clash(context, entry.name) ?: "You have your own script named ${entry.name}",
+            )
             ScriptCatalog.State.INSTALLED -> return info("${entry.name} is installed and up to date")
             ScriptCatalog.State.MODIFIED -> if (!replace) {
-                return error("You edited ${entry.name}: 'script get ${entry.name} --replace' replaces it (export it first to keep a copy)")
+                return error("You edited ${entry.name}: 'script get $ref --replace' replaces it (export it first to keep a copy)")
             }
             else -> Unit
         }
@@ -289,7 +316,7 @@ class ScriptCommands(
             s.intervalMin.takeIf { it > 0 }?.let { "every ${CommandParsing.formatInterval(it)}" },
             s.atTimes.takeIf { it.isNotEmpty() }?.let { "daily at ${it.joinToString(", ")}" },
         )
-        val installed = "Installed ${s.name}.${s.lang.ext} from ${ScriptCatalog.SOURCE}" + timer.joinToString("") { " · $it" }
+        val installed = "Installed ${s.name}.${s.lang.ext} from ${entry.source}" + timer.joinToString("") { " · $it" }
         if (s.enabled) {
             info(installed, scriptCtx(s))
             return
@@ -299,6 +326,60 @@ class ScriptCommands(
             "${s.name} asks to use: ${asks.joinToString()} — tap to switch it on and allow that, or 'script on ${s.name}'",
             LogContext.of(LogContext.SCRIPT to s.name, LogContext.RUN to "script on ${s.name}"),
         )
+    }
+
+    /**
+     * `script sources`: the sources of Get more scripts in order, each with its address, how many
+     * scripts it had when it was last read, and the error of its last read. Nothing is downloaded.
+     */
+    private fun listSources() {
+        info("Sources of Get more scripts, in order — 'script source add <owner/name>' adds one")
+        ScriptCatalog(context).kept().forEach { l ->
+            val facts = listOfNotNull(
+                l.source.index,
+                if (l.source.builtIn) "reviewed" else "not checked by Kolahal",
+                l.readAt?.let { ScriptSources.scriptCount(l.entries.size) },
+                l.readAt?.let { "read " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) } ?: "not read yet",
+                l.error?.let { "can't read it: $it" },
+            )
+            val tag = if (l.error != null) " " + StyledText.tag(StyledText.Colour.BAD, "error") else ""
+            out("${l.source.name}$tag", LogContext.of(LogContext.DESC to facts.joinToString(" · ")) + LogContext.ITEM)
+        }
+    }
+
+    /**
+     * - `script source add <owner/name or link>` adds a source at the end, says that Kolahal
+     *   doesn't check its scripts, and reads its list.
+     * - `script source rm <name>` removes one. The scripts installed from it stay.
+     */
+    private fun source(args: List<String>) {
+        val catalog = ScriptCatalog(context)
+        val what = args.drop(1).joinToString(" ").trim()
+        when (args.firstOrNull()) {
+            "add" -> {
+                if (what.isEmpty()) return error("Usage: script source add <owner/name or https://…/index.json>")
+                val source = when (val p = ScriptSources.parse(what)) {
+                    is ScriptSources.Parsed.Bad -> return error(p.why)
+                    is ScriptSources.Parsed.Ok -> p.source
+                }
+                if (!catalog.add(source)) return info("${source.name} is a source already")
+                info("Added ${source.name} — reads ${source.index}")
+                info(StyledText.tag(StyledText.Colour.WARN, "warning") + " Kolahal doesn't check scripts from ${source.name}. Only add repositories you trust.")
+                // Reading it uses the network, so it runs outside the serial command queue.
+                background("script source add") {
+                    val read = catalog.listing(source)
+                    if (read.error != null) error("Can't read ${source.name}: ${read.error}")
+                    else info("${source.name} has ${ScriptSources.scriptCount(read.entries.size)} — 'script get' lists them")
+                }
+            }
+            "rm", "remove" -> {
+                if (what.isEmpty()) return error("Usage: script source rm <name>")
+                if (ScriptSources.find(catalog.sources(), what)?.builtIn == true) return error("${ScriptCatalog.SOURCE} can't be removed")
+                val removed = catalog.remove(what) ?: return error("No source '$what' — 'script sources' lists them")
+                info("Removed ${removed.name} — scripts you installed from it stay")
+            }
+            else -> error("Usage: script source add <owner/name or https://…/index.json> · script source rm <name>")
+        }
     }
 
     /**
@@ -574,6 +655,6 @@ class ScriptCommands(
         }
 
         /** The subcommands that can follow `script`, for completion. */
-        val SUBCOMMANDS = listOf("ls", "lib", "install", "new", "edit", "run", "every", "at", "notify", "on", "off", "get", "access", "allow", "deny", "pin", "unpin", "secret", "set", "triggers", "mv", "rm", "cat", "diff", "dir", "export", "import")
+        val SUBCOMMANDS = listOf("ls", "lib", "install", "new", "edit", "run", "every", "at", "notify", "on", "off", "get", "sources", "source", "access", "allow", "deny", "pin", "unpin", "secret", "set", "triggers", "mv", "rm", "cat", "diff", "dir", "export", "import")
     }
 }

@@ -109,7 +109,7 @@ internal fun ScriptSheet(
         }
         title?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
         Text(
-            listOfNotNull(if (s.lang == ScriptLang.LUA) "Lua" else "JavaScript", byLine, if (isCommand) "command" else null, desc)
+            listOfNotNull(if (s.lang == ScriptLang.LUA) "Lua" else "JavaScript", byLine, copy?.addedSource?.let { "from $it" }, if (isCommand) "command" else null, desc)
                 .joinToString(" · "),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -421,7 +421,7 @@ class ScriptActionsTest {
         actions.loadSharedScripts()
         waitUntil("the list is read") { !actions.sharedScripts.value.loading }
         val shared = actions.sharedScripts.value
-        assertNull(shared.error)
+        assertEquals(emptyList<Any>(), shared.failed)
         assertEquals(listOf("sa-shared"), shared.entries.map { it.name })
         assertEquals("Shared test", shared.entries.single().title)
     }

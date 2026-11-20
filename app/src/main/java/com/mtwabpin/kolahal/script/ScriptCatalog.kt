@@ -12,12 +12,16 @@ import com.mtwabpin.kolahal.data.sha256Hex
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Scripts shared in the kolahal-scripts repository. Used by Scripts → Get more scripts, and by `script get`.
- * The repository's GitHub Action checks every script. It publishes index.json, with each file's
- * SHA-256, on GitHub Pages. This class reads the list only when asked and keeps it for an hour.
- * It installs a script only when the downloaded file matches the list.
+ * Scripts shared in kolahal-scripts and in the sources the user added ([ScriptSources]). Used by
+ * Scripts → Get more scripts, and by `script get`.
+ * - Each repository's GitHub Action checks its scripts. It publishes index.json, with each file's
+ *   SHA-256, on GitHub Pages. Only kolahal-scripts is reviewed before a script is added.
+ * - This class reads each list only when asked and keeps it for an hour. A source that can't be
+ *   read keeps its last list, with the error, and the other sources still show.
+ * - It installs a script only when the downloaded file matches its list.
  */
 class ScriptCatalog(private val context: Context) {
     data class Entry(
@@ -37,6 +41,8 @@ class ScriptCatalog(private val context: Context) {
         val at: List<String>,
         val requires: String?,
         val sha256: String,
+        /** The name of the source that lists it ([ScriptSources.Source.name]). */
+        val source: String = SOURCE,
     )
 
     enum class State {
@@ -46,28 +52,91 @@ class ScriptCatalog(private val context: Context) {
         UPDATE_AVAILABLE,
         /** You edited the copy installed from here. It is never replaced without asking. */
         MODIFIED,
-        /** One of your own scripts, a built-in command or an app already has the name. */
+        /**
+         * One of your own scripts, a built-in command or an app already has the name, or you
+         * installed a script of that name from another source ([installedFrom]).
+         */
         NAME_TAKEN,
         /** Its `@requires` names a newer Kolahal. */
         NEEDS_NEWER,
     }
 
     private val prefs by lazy { Stores.SCRIPT_CATALOG.open(context) }
-    private val cacheFile get() = File(context.filesDir, "script-catalog.json")
+    private val sourcePrefs by lazy { Stores.SCRIPT_SOURCES.open(context) }
 
-    /** The list from the last download, or null when there is none yet. */
-    fun cached(): List<Entry>? {
-        val file = cacheFile.takeIf { it.exists() } ?: return null
+    // ---- sources ---------------------------------------------------------------------------
+
+    /** The addresses of the sources the user added, in the order added. */
+    fun added(): List<String> = sourcePrefs.getString(ADDED, null)
+        ?.let { runCatching { (Json.parse(it) as? List<*>)?.map { a -> a.toString() } }.getOrNull() }.orEmpty()
+
+    private fun setAdded(list: List<String>) =
+        sourcePrefs.edit(commit = true) { if (list.isEmpty()) remove(ADDED) else putString(ADDED, Json.stringify(list)) }
+
+    /** Every source in order: kolahal-scripts first. */
+    fun sources(): List<ScriptSources.Source> = ScriptSources.list(added())
+
+    /** Adds [source] at the end. False when it is a source already. */
+    fun add(source: ScriptSources.Source): Boolean = synchronized(LOCK) {
+        val before = added()
+        val after = ScriptSources.adding(before, source)
+        if (after == before) return false
+        setAdded(after)
+        true
+    }
+
+    /** Removes the added source that [name] means ([ScriptSources.find]) and forgets its list. Null when there is none. */
+    fun remove(name: String): ScriptSources.Source? = synchronized(LOCK) {
+        val source = ScriptSources.find(sources(), name)?.takeUnless { it.builtIn } ?: return null
+        setAdded(ScriptSources.removing(added(), source.name))
+        cacheFile(source).delete()
+        Parsed.byFile.remove(cacheFile(source).path)
+        prefs.edit { remove(fetchedKey(source)) }
+        Errors.byIndex.remove(source.index)
+        source
+    }
+
+    /** Adds the sources of a backup's [saved] list that aren't here yet. What isn't a source goes into [skipped]. */
+    fun restore(saved: List<*>, skipped: MutableList<String>) = synchronized(LOCK) {
+        setAdded(ScriptSources.fromBackup(added(), saved, skipped))
+    }
+
+    // ---- the lists -------------------------------------------------------------------------
+
+    /**
+     * One source's list: its scripts, when it was last read, and why the last try failed (null when
+     * it didn't). A list that can't be read again keeps the scripts it had.
+     */
+    data class Listing(val source: ScriptSources.Source, val entries: List<Entry>, val readAt: Long?, val error: String?)
+
+    private fun cacheFile(s: ScriptSources.Source) =
+        File(context.filesDir, if (s.builtIn) "script-catalog.json" else "script-catalog-${sha256Hex(s.index.toByteArray()).take(16)}.json")
+
+    private fun fetchedKey(s: ScriptSources.Source) = if (s.builtIn) "fetched" else "fetched:${s.index}"
+
+    private fun readAt(s: ScriptSources.Source) = prefs.getLong(fetchedKey(s), 0).takeIf { it > 0 }
+
+    /** Every source's list from the last download, in source order. Null when no list is kept yet. */
+    fun cached(): List<Entry>? = sources().mapNotNull { cached(it) }.takeIf { it.isNotEmpty() }?.flatten()
+
+    /** [source]'s list from the last download, or null when there is none yet. */
+    fun cached(source: ScriptSources.Source): List<Entry>? {
+        val file = cacheFile(source).takeIf { it.exists() } ?: return null
         // The Scripts screen asks at each change to the scripts (a run, a save). The list is parsed
         // again only when the file changed: a new download.
         val stamp = file.lastModified() to file.length()
-        Parsed.last?.takeIf { it.first == stamp }?.let { return it.second }
-        return runCatching { shared(parse(file.readText())) }.getOrNull()?.also { Parsed.last = stamp to it }
+        Parsed.byFile[file.path]?.takeIf { it.first == stamp }?.let { return it.second }
+        return runCatching { parse(file.readText(), source) }.getOrNull()?.also { Parsed.byFile[file.path] = stamp to it }
     }
 
-    /** The list parsed last, with its file's time and size: one for the whole app. */
+    /** Each list parsed last, by its file, with the file's time and size: one for the whole app. */
     private object Parsed {
-        @Volatile var last: Pair<Pair<Long, Long>, List<Entry>>? = null
+        val byFile = ConcurrentHashMap<String, Pair<Pair<Long, Long>, List<Entry>>>()
+    }
+
+    /** Why each source's last read failed, by its address, until it is read again: one for the whole app. */
+    private object Errors {
+        val byIndex = ConcurrentHashMap<String, String>()
     }
 
     /** The names of the scripts that come with the app ([ScriptLibrary]). */
@@ -80,24 +149,51 @@ class ScriptCatalog(private val context: Context) {
      */
     private fun shared(entries: List<Entry>): List<Entry> = entries.filter { it.name !in libraryNames }
 
-    /** The list. Returns the copy kept for an hour, or downloads it now when [refresh] is true or there is no copy. */
-    fun entries(refresh: Boolean = false): List<Entry> {
-        if (!refresh && System.currentTimeMillis() - prefs.getLong("fetched", 0) < KEEP_MS) cached()?.let { return it }
-        val raw = get(INDEX_URL, MAX_INDEX).toString(Charsets.UTF_8)
-        val entries = shared(parse(raw))
-        cacheFile.writeText(raw)
-        Parsed.last = null
-        prefs.edit { putLong("fetched", System.currentTimeMillis()) }
-        return entries
+    /** Each source's list as kept, without going online: for `script sources`. */
+    fun kept(): List<Listing> = sources().map { Listing(it, cached(it).orEmpty(), readAt(it), Errors.byIndex[it.index]) }
+
+    /** Each source's list, in source order ([listing]). */
+    fun listings(refresh: Boolean = false): List<Listing> = sources().map { listing(it, refresh) }
+
+    /**
+     * [source]'s list: the copy kept for an hour, or a download when [refresh] is true or there is
+     * no copy. When the download fails, the listing has the copy kept (if any) and the error.
+     */
+    fun listing(source: ScriptSources.Source, refresh: Boolean = false): Listing {
+        if (!refresh && System.currentTimeMillis() - prefs.getLong(fetchedKey(source), 0) < KEEP_MS) {
+            cached(source)?.let { return Listing(source, it, readAt(source), null) }
+        }
+        return try {
+            val raw = get(source.index, MAX_INDEX).toString(Charsets.UTF_8)
+            val entries = parse(raw, source)
+            keep(source, raw)
+            Errors.byIndex.remove(source.index)
+            Listing(source, entries, readAt(source), null)
+        } catch (e: Exception) {
+            val why = e.message ?: e.javaClass.simpleName
+            Errors.byIndex[source.index] = why
+            Listing(source, cached(source).orEmpty(), readAt(source), why)
+        }
     }
 
-    private fun parse(raw: String): List<Entry> {
-        val root = Json.parse(raw) as? Map<*, *> ?: throw IOException("the script list isn't readable")
-        if ((root["format"] as? Number)?.toInt() != FORMAT) throw IOException("the script list is newer than this Kolahal: update it")
+    /** Keeps [raw] as [source]'s list, read now. */
+    @androidx.annotation.VisibleForTesting
+    internal fun keep(source: ScriptSources.Source, raw: String) {
+        cacheFile(source).writeText(raw)
+        Parsed.byFile.remove(cacheFile(source).path)
+        prefs.edit(commit = true) { putLong(fetchedKey(source), System.currentTimeMillis()) }
+    }
+
+    private fun parse(raw: String, source: ScriptSources.Source): List<Entry> {
+        val root = runCatching { Json.parse(raw) }.getOrNull() as? Map<*, *> ?: throw IOException("its index.json isn't a script list")
+        val format = (root["format"] as? Number)?.toInt()
+        if (format != FORMAT) {
+            throw IOException(if (format != null && format > FORMAT) "its script list is newer than this Kolahal: update it" else "its index.json isn't a script list")
+        }
         fun Map<*, *>.str(key: String) = this[key]?.toString()?.takeIf { it.isNotBlank() }
         fun Map<*, *>.list(key: String) = (this[key] as? List<*>).orEmpty().map { it.toString() }
         // Keep one entry per name, because the screen uses the name as the list key.
-        return (root["scripts"] as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().mapNotNull { m ->
+        return shared((root["scripts"] as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().mapNotNull { m ->
             val name = m.str("name")?.takeIf(ScriptNames.NAME::matches) ?: return@mapNotNull null
             val lang = m.str("lang")?.let(ScriptLang::of) ?: return@mapNotNull null
             // Accept only a file in the script's own folder, never a path that leaves scripts/.
@@ -119,13 +215,15 @@ class ScriptCatalog(private val context: Context) {
                 at = m.list("at"),
                 requires = m.str("requires"),
                 sha256 = sha,
+                source = source.name,
             )
-        }.distinctBy { it.name }
+        }.distinctBy { it.name })
     }
 
-    /** Downloads [e]'s file and checks it against the list. Throws when it doesn't match (the list changed, so refresh it). */
+    /** Downloads [e]'s file from its source and checks it against the list. Throws when it doesn't match (the list changed, so refresh it). */
     fun download(e: Entry): String {
-        val bytes = get(BASE_URL + e.path, MAX_SCRIPT)
+        val source = sources().firstOrNull { it.name == e.source } ?: throw IOException("${e.source} isn't one of your sources")
+        val bytes = get(source.base + e.path, MAX_SCRIPT)
         if (sha256Hex(bytes) != e.sha256) throw IOException("${e.name} doesn't match the script list; refresh it and try again")
         return bytes.toString(Charsets.UTF_8)
     }
@@ -135,6 +233,7 @@ class ScriptCatalog(private val context: Context) {
         val mine = installed.firstOrNull { it.name == e.name }
             ?: return if (ScriptNames.clash(context, e.name) != null) State.NAME_TAKEN else State.NOT_INSTALLED
         val origin = origin(e.name) ?: return State.NAME_TAKEN
+        if (origin.source != e.source) return State.NAME_TAKEN
         return when {
             mine.code != origin.code -> State.MODIFIED
             origin.sha256 != e.sha256 -> State.UPDATE_AVAILABLE
@@ -147,8 +246,8 @@ class ScriptCatalog(private val context: Context) {
      * - A new script gets the timers it suggests. With [switchOn], it is switched on: [allow] gives
      *   the answers for what it declares, and anything not in [allow] is allowed, as `script on`
      *   does. Without it, the script stays off and nothing it declares is decided yet.
-     * - Over the copy installed from here, it updates the code. Anything newly declared starts off,
-     *   with a line to allow it.
+     * - Over the copy installed from the same source, it updates the code. Anything newly declared
+     *   starts off, with a line to allow it.
      * [replace] lets it overwrite a copy you edited.
      */
     fun install(e: Entry, code: String, allow: Map<String, Boolean> = emptyMap(), replace: Boolean = false, switchOn: Boolean = true): Script {
@@ -169,12 +268,13 @@ class ScriptCatalog(private val context: Context) {
             }
         } else {
             val origin = origin(e.name) ?: throw IllegalStateException("you have your own script named ${e.name}")
+            if (origin.source != e.source) throw IllegalStateException("you installed ${e.name} from ${origin.source}")
             if (existing.lang != e.lang) throw IllegalStateException("your ${e.name} is a ${existing.lang.ext} script")
             if (existing.code != origin.code && !replace) throw IllegalStateException("you edited ${e.name}; replace it to install this version")
             repo.saveCode(existing.id, code)
             existing
         }
-        prefs.edit { putString("installed:${e.name}", Json.stringify(mapOf("sha256" to e.sha256, "code" to code))) }
+        prefs.edit { putString("installed:${e.name}", Json.stringify(mapOf("sha256" to e.sha256, "code" to code, "source" to e.source))) }
         return repo.byId(script.id)!!.also {
             ScriptScheduler.sync(context, it)
             // A script left off asks for its secrets when it is switched on.
@@ -182,18 +282,22 @@ class ScriptCatalog(private val context: Context) {
         }
     }
 
-    /** What is known of a copy installed from here: whether you [edited] it, and whether the list has a [newer] version. */
-    data class Copy(val edited: Boolean, val newer: Boolean)
+    /**
+     * What is known of a copy installed from here: whether you [edited] it, whether its source's
+     * list has a [newer] version, and the [source] it came from.
+     */
+    data class Copy(val edited: Boolean, val newer: Boolean, val source: String = SOURCE)
 
     /**
      * Your copy [s] compared with what was installed from here and with [latest], its entry in the list
      * (null when the list isn't kept, or no longer has it). Null when [s] wasn't installed from here.
-     * A version that needs a newer Kolahal doesn't count as newer.
+     * A version that needs a newer Kolahal doesn't count as newer, nor one of another source.
      */
     fun copy(s: Script, latest: Entry?): Copy? {
         val origin = origin(s.name) ?: return null
-        val newer = latest != null && latest.sha256 != origin.sha256 && (latest.requires == null || !ScriptMeta.isNewer(latest.requires, BuildConfig.VERSION_NAME))
-        return Copy(edited = s.code != origin.code, newer = newer)
+        val newer = latest != null && latest.source == origin.source && latest.sha256 != origin.sha256 &&
+            (latest.requires == null || !ScriptMeta.isNewer(latest.requires, BuildConfig.VERSION_NAME))
+        return Copy(edited = s.code != origin.code, newer = newer, source = origin.source)
     }
 
     /** What was recorded when [name] was installed from here, as stored. Undo after an update puts it back with [record]. */
@@ -205,15 +309,19 @@ class ScriptCatalog(private val context: Context) {
     /** Forgets that [name] was installed from here, because it was renamed or deleted. */
     fun forget(name: String) = prefs.edit { remove("installed:$name") }
 
-    private class Origin(val sha256: String, val code: String)
+    /** The source that [name] was installed from. Null when it wasn't installed from Get more scripts. */
+    fun installedFrom(name: String): String? = origin(name)?.source
+
+    /** A copy installed from here. A record from before sources has no source: it came from kolahal-scripts. */
+    private class Origin(val sha256: String, val code: String, val source: String)
 
     /** What was installed from here under [name], if anything. */
     private fun origin(name: String): Origin? {
         val m = prefs.getString("installed:$name", null)?.let { runCatching { Json.parse(it) as? Map<*, *> }.getOrNull() } ?: return null
-        return Origin(m["sha256"]?.toString() ?: return null, m["code"]?.toString() ?: return null)
+        return Origin(m["sha256"]?.toString() ?: return null, m["code"]?.toString() ?: return null, m["source"]?.toString() ?: SOURCE)
     }
 
-    /** Downloads [url]. Allows public addresses only, and at most [max] bytes. */
+    /** Downloads [url], at most [max] bytes. */
     private fun get(url: String, max: Long): ByteArray {
         val request = Request.Builder().url(url).header("User-Agent", "Kolahal/${BuildConfig.VERSION_NAME}").build()
         Net.client.newCall(request).execute().use { resp ->
@@ -225,9 +333,11 @@ class ScriptCatalog(private val context: Context) {
     }
 
     companion object {
+        /** kolahal-scripts' name ([ScriptSources.DEFAULT]). */
         const val SOURCE = "kolahal-scripts"
-        const val BASE_URL = "https://mtwabpin.github.io/kolahal-scripts/"
-        private const val INDEX_URL = BASE_URL + "index.json"
+        /** The key of the added sources' addresses in [Stores.SCRIPT_SOURCES]. */
+        private const val ADDED = "added"
+        private val LOCK = Any()
         /** The index.json `format` that this Kolahal reads. */
         private const val FORMAT = 1
         private const val KEEP_MS = 60 * 60 * 1000L

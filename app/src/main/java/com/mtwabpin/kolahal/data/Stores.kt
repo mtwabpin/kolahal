@@ -34,6 +34,8 @@ object Stores {
     val NOTIF_PREFS = Prefs("notif_prefs", inBackup = true)
     val SCRIPT_LIBRARY = Prefs("script_library", inBackup = true)
     val SCRIPT_CATALOG = Prefs("script_catalog", inBackup = true)
+    /** The sources added to Get more scripts: a backup has them in a section of their own, added to what is here. */
+    val SCRIPT_SOURCES = Prefs("script_sources", inBackup = false)
     /** How often you unlock, from before 0.5.7 (now in the [UNLOCKS] scope): not for the cloud. */
     val OLD_UNLOCKS = Prefs("unlocks", inBackup = true, toCloud = false)
     /** Home's own state: the first run's tour, one-time moves, the pinned status lines. */
@@ -68,7 +70,7 @@ object Stores {
     val EDITOR = Prefs("editor", inBackup = false, toCloud = false, toNewPhone = false)
 
     val PREFS = listOf(
-        CONFIG, ALIASES, APPS, APP_USAGE, NOTIF_PREFS, SCRIPT_LIBRARY, SCRIPT_CATALOG, OLD_UNLOCKS, LAUNCHER, OLD_LOGS,
+        CONFIG, ALIASES, APPS, APP_USAGE, NOTIF_PREFS, SCRIPT_LIBRARY, SCRIPT_CATALOG, SCRIPT_SOURCES, OLD_UNLOCKS, LAUNCHER, OLD_LOGS,
         PICKED_CONTACTS, WALLPAPER_MATCH, CRASH, TRIGGERS, DAILY_SCHEDULE, SCRIPT_FOLDER, LIBRARY_UPDATES, WIDGETS,
         TIPS, SCRIPTS_PAGE, AUTO_BACKUP, REMINDERS, EDITOR,
     )

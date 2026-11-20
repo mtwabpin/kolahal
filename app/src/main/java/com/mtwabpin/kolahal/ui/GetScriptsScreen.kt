@@ -36,16 +36,26 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.script.ScriptSources
+import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** A shared script's key in the list: the same name can be in two sources. */
+private val ScriptCatalog.Entry.key get() = "$source/$name"
+
+/** Where a shared script stands, and the other source its name was installed from, if that is why it is taken. */
+private data class SharedState(val state: ScriptCatalog.State, val takenBy: String? = null)
+
 /**
- * Scripts → Get more scripts: the scripts shared in kolahal-scripts.
- * - The list is searchable.
+ * Scripts → Get more scripts: the scripts shared in kolahal-scripts and in the sources you added.
+ * - The list is searchable. A script from a source you added says which one.
  * - Each script has a sheet that shows what it does, what it uses and its code, before install.
- * - The list is fetched from GitHub only when this screen opens (cached for an hour) or on refresh.
+ * - The lists are read only when this screen opens (each kept for an hour) or on refresh. A source
+ *   that can't be read says why, and the others still show.
+ * - Sources, in the top bar, adds and removes sources.
  */
 @Composable
 fun GetScriptsScreen(vm: TerminalViewModel) {
@@ -57,39 +67,49 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
 
     // The state of each script: installed, edited, has an update, and so on. The name checks read
     // the app list, so this runs off the main thread.
-    val states by produceState(emptyMap(), shared.entries, scripts) {
-        value = withContext(Dispatchers.IO) { shared.entries.associate { it.name to vm.scriptActions.scriptCatalog.state(it, scripts) } }
+    val states by produceState(emptyMap<String, SharedState>(), shared.entries, scripts) {
+        value = withContext(Dispatchers.IO) {
+            val catalog = vm.scriptActions.scriptCatalog
+            shared.entries.associate { e ->
+                val state = catalog.state(e, scripts)
+                e.key to SharedState(state, if (state == ScriptCatalog.State.NAME_TAKEN) catalog.installedFrom(e.name)?.takeIf { it != e.source } else null)
+            }
+        }
     }
     val shown = remember(shared.entries, query) { ScriptCatalog.found(shared.entries, query) }
+    val added = shared.sources.count { !it.source.builtIn }
 
     GuiTheme {
         val snackbar = rememberNoticeSnackbar(vm)
 
         GuiListPage(
             title = { Text("Get more scripts") },
-            subtitle = { Text("Shared in ${ScriptCatalog.SOURCE} on GitHub") },
+            subtitle = { Text(if (added == 0) "Shared in ${ScriptCatalog.SOURCE} on GitHub" else "Shared in ${ScriptCatalog.SOURCE} and ${ScriptSources.sourceCount(added)} you added") },
             onBack = vm::closeScreen,
             snackbar = snackbar,
             actions = {
                 LabeledIconButton(R.drawable.ic_refresh, "Refresh the list", onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }, enabled = !shared.loading)
+                TextButton(shapes = ButtonDefaults.shapes(), onClick = { vm.openScreen(Screen.SCRIPT_SOURCES) }) { Text("Sources") }
             },
         ) {
             item(key = "search") {
                 SearchField(query, { query = it }, "Search by name, author or tag", Modifier.fillMaxWidth().padding(bottom = 8.dp))
             }
             if (shared.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp)) }
-            shared.error?.let { error ->
+            if (!shared.loading && shared.failed.isNotEmpty()) {
                 item(key = "error") {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Text("Can't read the list: $error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        shared.failed.forEach { l ->
+                            Text("Can't read ${l.source.name}: ${l.error}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        }
                         TextButton(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.loadSharedScripts(refresh = true) }) { Text("Try again") }
                     }
                 }
             }
-            itemsIndexed(shown, key = { _, e -> e.name }) { i, e ->
-                SharedRow(e, states[e.name], i, shown.size) { open = e.name }
+            itemsIndexed(shown, key = { _, e -> e.key }) { i, e ->
+                SharedRow(e, states[e.key], i, shown.size) { open = e.key }
             }
-            if (!shared.loading && shown.isEmpty() && shared.error == null) {
+            if (!shared.loading && shown.isEmpty() && shared.failed.isEmpty()) {
                 item(key = "none") {
                     Text(
                         if (query.isBlank()) "No scripts shared yet." else "No script matches “$query”.",
@@ -101,15 +121,17 @@ fun GetScriptsScreen(vm: TerminalViewModel) {
             }
             item(key = "about") {
                 PageHint(
-                    "Every script here is reviewed before it is added. When you install one, you choose what it can " +
+                    (if (added == 0) "Every script here is reviewed before it is added. "
+                    else "Every script in ${ScriptCatalog.SOURCE} is reviewed before it is added. Kolahal doesn't check scripts from sources you added. ") +
+                        "When you install one, you choose what it can " +
                         "use; its Access switches change that later. Kolahal's own scripts are under Add script → From " +
                         "the library. Share your own at github.com/mtwabpin/${ScriptCatalog.SOURCE}.",
                 )
             }
         }
 
-        open?.let { name -> shared.entries.firstOrNull { it.name == name } }?.let { e ->
-            SharedSheet(vm, e, states[e.name], onDismiss = { open = null })
+        open?.let { key -> shared.entries.firstOrNull { it.key == key } }?.let { e ->
+            SharedSheet(vm, e, states[e.key], onDismiss = { open = null })
         }
     }
 }
@@ -122,17 +144,21 @@ private fun runs(e: ScriptCatalog.Entry): String = buildList {
     if (e.on.isNotEmpty()) add("on ${e.on.joinToString(", ")}")
 }.joinToString(" · ")
 
-private fun stateLabel(state: ScriptCatalog.State?, e: ScriptCatalog.Entry): String? = when (state) {
+private fun stateLabel(state: SharedState?, e: ScriptCatalog.Entry): String? = when (state?.state) {
     ScriptCatalog.State.INSTALLED -> "Installed"
     ScriptCatalog.State.UPDATE_AVAILABLE -> "Update to ${e.version}"
     ScriptCatalog.State.MODIFIED -> "Installed, edited"
-    ScriptCatalog.State.NAME_TAKEN -> "Name taken"
+    ScriptCatalog.State.NAME_TAKEN -> state.takenBy?.let { "Installed from $it" } ?: "Name taken"
     ScriptCatalog.State.NEEDS_NEWER -> "Needs Kolahal ${e.requires}"
     else -> null
 }
 
+/** The source to name for [e]: one the user added. Null for kolahal-scripts. */
+private fun addedSource(e: ScriptCatalog.Entry): String? = e.source.takeIf { it != ScriptCatalog.SOURCE }
+
 @Composable
-private fun SharedRow(e: ScriptCatalog.Entry, state: ScriptCatalog.State?, index: Int, count: Int, onClick: () -> Unit) {
+private fun SharedRow(e: ScriptCatalog.Entry, shared: SharedState?, index: Int, count: Int, onClick: () -> Unit) {
+    val state = shared?.state
     SegmentedListItem(
         onClick = onClick,
         shapes = segShapes(index, count),
@@ -147,7 +173,7 @@ private fun SharedRow(e: ScriptCatalog.Entry, state: ScriptCatalog.State?, index
         },
         supportingContent = {
             Text(
-                listOfNotNull(e.desc.ifBlank { null }, stateLabel(state, e)).joinToString(" · "),
+                listOfNotNull(e.desc.ifBlank { null }, addedSource(e)?.let { "From $it" }, stateLabel(shared, e)).joinToString(" · "),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 color = if (state == ScriptCatalog.State.UPDATE_AVAILABLE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -158,9 +184,10 @@ private fun SharedRow(e: ScriptCatalog.Entry, state: ScriptCatalog.State?, index
 
 /** The sheet for one shared script: what it is, how it runs, what it uses, its code, and Install or Update. */
 @Composable
-private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: ScriptCatalog.State?, onDismiss: () -> Unit) {
-    var asking by remember(e.name) { mutableStateOf(false) }
-    var confirmReplace by remember(e.name) { mutableStateOf(false) }
+private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, shared: SharedState?, onDismiss: () -> Unit) {
+    val state = shared?.state
+    var asking by remember(e.key) { mutableStateOf(false) }
+    var confirmReplace by remember(e.key) { mutableStateOf(false) }
     // Download the file and check it against the list, so the user can read it before installing.
     val code by produceState<Result<String>?>(null, e.sha256) { value = runCatching { vm.scriptActions.sharedScriptCode(e) } }
 
@@ -187,6 +214,7 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
             Fact("Keys", keys.joinToString(", ") { "${it.name} (you set it; sent only to ${it.hosts.joinToString()})" })
         }
         if (e.tags.isNotEmpty()) Fact("Tags", e.tags.joinToString(", "))
+        addedSource(e)?.let { Fact("From", "$it, a source you added") }
 
         Spacer(Modifier.height(16.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -206,7 +234,7 @@ private fun SharedSheet(vm: TerminalViewModel, e: ScriptCatalog.Entry, state: Sc
                 }
                 ScriptCatalog.State.INSTALLED -> FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {}, enabled = false) { Text("Installed") }
                 ScriptCatalog.State.NAME_TAKEN -> Text(
-                    "One of your scripts, a command or an app already has the name ${e.name}.",
+                    shared?.takenBy?.let { "You installed ${e.name} from $it." } ?: "One of your scripts, a command or an app already has the name ${e.name}.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )

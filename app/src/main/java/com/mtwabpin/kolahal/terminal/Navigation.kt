@@ -37,6 +37,7 @@ class Navigation(private val scripts: ScriptActions, private val host: Host) {
         }
         if (screen == Screen.SCRIPTS || screen == Screen.SCRIPT_LIBRARY || screen == Screen.GET_SCRIPTS) scripts.refreshScripts()
         if (screen == Screen.GET_SCRIPTS) scripts.loadSharedScripts()
+        if (screen == Screen.SCRIPT_SOURCES && scripts.sharedScripts.value.sources.isEmpty()) scripts.loadSharedScripts()
         if (screen == Screen.SETUP || screen == Screen.ONBOARDING) host.refreshSetup()
     }
 

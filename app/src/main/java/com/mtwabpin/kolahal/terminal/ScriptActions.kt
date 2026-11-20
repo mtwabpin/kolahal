@@ -24,6 +24,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.script.ScriptNames
 import com.mtwabpin.kolahal.script.ScriptOptions
 import com.mtwabpin.kolahal.script.ScriptScheduler
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.SecretStore
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetRef
@@ -406,22 +407,59 @@ class ScriptActions(
 
     val scriptCatalog by lazy { ScriptCatalog(context) }
 
-    /** The shared scripts, whether they are loading, and the error if they couldn't be read. */
-    data class SharedScripts(val entries: List<ScriptCatalog.Entry> = emptyList(), val loading: Boolean = false, val error: String? = null)
+    /**
+     * The shared scripts of every source, in source order, and whether they are loading.
+     * [sources] has each source's own list, when it was read and its error if it couldn't be read.
+     */
+    data class SharedScripts(
+        val entries: List<ScriptCatalog.Entry> = emptyList(),
+        val loading: Boolean = false,
+        val sources: List<ScriptCatalog.Listing> = emptyList(),
+    ) {
+        constructor(sources: List<ScriptCatalog.Listing>) : this(sources.flatMap { it.entries }, sources = sources)
+
+        /** The sources that couldn't be read. */
+        val failed: List<ScriptCatalog.Listing> get() = sources.filter { it.error != null }
+    }
 
     @androidx.annotation.VisibleForTesting internal val _shared = MutableStateFlow(SharedScripts())
     val sharedScripts: StateFlow<SharedScripts> = _shared.asStateFlow()
 
     /**
-     * Loads the list. It uses the cached copy (kept for an hour), or GitHub when [refresh] is true.
-     * If loading fails, the list keeps what it had.
+     * Loads every source's list. Each uses its cached copy (kept for an hour), or its address when
+     * [refresh] is true. A source that can't be read keeps what it had, with the error.
      */
     fun loadSharedScripts(refresh: Boolean = false) {
-        _shared.value = _shared.value.copy(loading = true, error = null)
+        _shared.value = _shared.value.copy(loading = true)
         scope.launch(Dispatchers.IO) {
-            _shared.value = runCatching { SharedScripts(scriptCatalog.entries(refresh)) }.getOrElse {
-                SharedScripts(_shared.value.entries.ifEmpty { scriptCatalog.cached().orEmpty() }, error = it.reason())
-            }
+            _shared.value = SharedScripts(scriptCatalog.listings(refresh))
+        }
+    }
+
+    /**
+     * Adds [source] to Get more scripts and reads its list. Says how many scripts it has, or why
+     * it can't be read (it stays added). One that is a source already is only said.
+     */
+    fun addSource(source: ScriptSources.Source) {
+        io {
+            if (!scriptCatalog.add(source)) return@io notice("${source.name} is a source already")
+            _shared.value = SharedScripts(scriptCatalog.kept()).copy(loading = true)
+            val read = scriptCatalog.listing(source)
+            _shared.value = SharedScripts(scriptCatalog.kept().map { if (it.source == source) read else it })
+            notice(
+                if (read.error != null) "Added ${source.name} · can't read it: ${read.error}"
+                else "Added ${source.name} · ${ScriptSources.scriptCount(read.entries.size)}",
+                error = read.error != null,
+            )
+        }
+    }
+
+    /** Removes the added source [source]. Its scripts that you installed stay. Undo adds it again. */
+    fun removeSource(source: ScriptSources.Source) {
+        io {
+            scriptCatalog.remove(source.name) ?: return@io
+            _shared.value = SharedScripts(scriptCatalog.kept())
+            notice("Removed ${source.name}", undo = { addSource(source) })
         }
     }
 

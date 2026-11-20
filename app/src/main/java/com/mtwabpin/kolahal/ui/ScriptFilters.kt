@@ -203,17 +203,23 @@ internal object ScriptPage {
 
     /**
      * The copies from Get more scripts among [scripts], by name.
-     * - [latest]: the list kept from Get more scripts. Empty when none is kept.
+     * - [latest]: the lists kept from Get more scripts, of every source. Empty when none is kept.
+     * - [sourceOf]: the source a script was installed from ([ScriptCatalog.installedFrom]). Its
+     *   entry is looked for in that source's list only.
      * - [copyOf]: how a script compares with what was installed and with its entry in the list
      *   ([ScriptCatalog.copy]). Null for a script that wasn't installed from there.
      */
     fun sharedCopies(
         scripts: List<Script>,
         latest: List<ScriptCatalog.Entry>,
+        sourceOf: (String) -> String? = { ScriptCatalog.SOURCE },
         copyOf: (Script, ScriptCatalog.Entry?) -> ScriptCatalog.Copy?,
     ): Map<String, SharedCopy> {
-        val byName = latest.associateBy { it.name }
-        return scripts.mapNotNull { s -> copyOf(s, byName[s.name])?.let { s.name to SharedCopy(it, byName[s.name]) } }.toMap()
+        val byKey = latest.associateBy { it.source to it.name }
+        return scripts.mapNotNull { s ->
+            val entry = byKey[(sourceOf(s.name) ?: ScriptCatalog.SOURCE) to s.name]
+            copyOf(s, entry)?.let { s.name to SharedCopy(it, entry) }
+        }.toMap()
     }
 
     /**

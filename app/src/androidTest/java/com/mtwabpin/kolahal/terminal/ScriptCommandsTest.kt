@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.CommandRunner
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TerminalUiStub
+import com.mtwabpin.kolahal.waitUntil
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogRepository
@@ -14,6 +15,8 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptAccess
+import com.mtwabpin.kolahal.script.ScriptCatalog
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ScriptLibrary
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.script.SecretStore
@@ -226,6 +229,98 @@ class ScriptCommandsTest {
         val said = run("script frobnicate x").single()
         assertTrue(said, said.startsWith("Usage: script [ls|lib|install|new|") && said.endsWith("] <name>"))
         for (sub in listOf("set", "dir", "export", "import")) assertTrue("$sub: $said", "|$sub|" in said || "|$sub]" in said)
+    }
+
+    /** A source of one's own, as `owner/name`. */
+    private val source = (ScriptSources.parse("sctestowner/scripts") as ScriptSources.Parsed.Ok).source
+
+    /** A shared script in a list, with a checksum that is never downloaded. */
+    private fun listed(vararg names: String) = org.json.JSONObject().put("format", 1).put(
+        "scripts",
+        org.json.JSONArray(names.map { n ->
+            org.json.JSONObject().put("name", n).put("lang", "lua").put("path", "scripts/$n/$n.lua").put("title", "Title of $n").put("sha256", "d".repeat(64))
+        }),
+    ).toString()
+
+    /** Lines logged after [from] (a background run's too) whose plain text is [text], once there is one. */
+    private fun waitForLine(from: Long, text: String) = run {
+        var found: List<com.mtwabpin.kolahal.data.LogEntry> = emptyList()
+        waitUntil("a line '$text'") {
+            found = logs.recent(400, afterId = from).filter { com.mtwabpin.kolahal.data.StyledText.plain(it.text) == text }
+            found.isNotEmpty()
+        }
+        found
+    }
+
+    /**
+     * `script source add` adds a source with a warning and reads it; `script sources` lists it after
+     * kolahal-scripts; `script source rm` removes it, and kolahal-scripts can't be removed.
+     */
+    @Test fun sourcesAreAddedListedAndRemoved() {
+        val catalog = ScriptCatalog(context)
+        try {
+            // Its list as read a moment ago, so adding it reads nothing online.
+            catalog.keep(source, listed("sctestmoon"))
+            val from = logs.maxId()
+            val added = run("script source add sctestowner/scripts")
+            assertEquals("Added sctestowner/scripts — reads https://sctestowner.github.io/scripts/index.json", added[0])
+            assertEquals(
+                "warning Kolahal doesn't check scripts from sctestowner/scripts. Only add repositories you trust.",
+                com.mtwabpin.kolahal.data.StyledText.plain(added[1]),
+            )
+            waitForLine(from, "sctestowner/scripts has 1 script — 'script get' lists them")
+            assertEquals(listOf(source.index), catalog.added())
+            assertEquals(listOf("sctestowner/scripts is a source already"), run("script source add https://sctestowner.github.io/scripts/index.json"))
+
+            val listed = lines("script sources").drop(1)
+            assertEquals(listOf(ScriptCatalog.SOURCE, "sctestowner/scripts"), listed.map { com.mtwabpin.kolahal.data.StyledText.plain(it.text) })
+            val desc = listed[1].ctx.values[LogContext.DESC].orEmpty()
+            assertTrue(desc, desc.startsWith("${source.index} · not checked by Kolahal · 1 script · read "))
+
+            assertEquals(listOf("${ScriptCatalog.SOURCE} can't be removed"), run("script source rm ${ScriptCatalog.SOURCE}"))
+            assertEquals(listOf("No source 'nobody/here' — 'script sources' lists them"), run("script source rm nobody/here"))
+            assertEquals(listOf("Removed sctestowner/scripts — scripts you installed from it stay"), run("script source rm sctestowner/scripts"))
+            assertEquals(emptyList<String>(), catalog.added())
+            assertEquals(listOf("Only https:// links"), run("script source add http://example.com/index.json"))
+        } finally {
+            catalog.add(source)
+            catalog.remove(source.name)
+        }
+    }
+
+    /**
+     * `script get` lists every source's scripts; one that another source has first is called by
+     * `source/name`, and names its source. A source that isn't there says so.
+     */
+    @Test fun scriptGetListsEverySource() {
+        val catalog = ScriptCatalog(context)
+        val cache = java.io.File(context.filesDir, "script-catalog.json")
+        val prefs = Stores.SCRIPT_CATALOG.open(context)
+        val hadCache = cache.takeIf { it.exists() }?.readBytes()
+        val hadFetched = prefs.getLong("fetched", -1).takeIf { it >= 0 }
+        try {
+            catalog.keep(ScriptSources.DEFAULT, listed("sctestsun"))
+            catalog.keep(source, listed("sctestsun", "sctestmoon"))
+            catalog.add(source)
+            val from = logs.maxId()
+            run("script get")
+            // The moon comes last, so once it is there, both suns are too.
+            val moon = waitForLine(from, "sctestmoon.lua")
+            val rows = waitForLine(from, "sctestsun.lua") + moon
+            assertEquals(
+                listOf("script get sctestsun", "script get sctestowner/scripts/sctestsun", "script get sctestmoon"),
+                rows.map { it.ctx.values[LogContext.COMMAND] },
+            )
+            assertEquals(listOf("Title of sctestsun", "from sctestowner/scripts · Title of sctestsun", "from sctestowner/scripts · Title of sctestmoon"), rows.map { it.ctx.values[LogContext.DESC] })
+            val missing = logs.maxId()
+            run("script get nobody/here/sctestsun")
+            waitForLine(missing, "No source 'nobody/here' — 'script sources' lists them")
+        } finally {
+            catalog.add(source)
+            catalog.remove(source.name)
+            if (hadCache != null) cache.writeBytes(hadCache) else cache.delete()
+            prefs.edit().apply { if (hadFetched != null) putLong("fetched", hadFetched) else remove("fetched") }.commit()
+        }
     }
 
     /** The list says each script's timer, kind, events and switch; triggers name known and unknown events. */

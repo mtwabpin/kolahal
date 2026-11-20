@@ -131,7 +131,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val scriptDescriptions get() = this@TerminalViewModel.scriptDescriptions
         override val statusNames get() = _lines.value.mapTo(HashSet()) { it.name }
         override val libraryNames get() = this@TerminalViewModel.libraryNames
-        override val sharedNames get() = scriptActions.sharedScripts.value.entries.map { it.name }
+        override val sharedNames get() = scriptActions.sharedScripts.value.entries.let { all -> all.map { com.mtwabpin.kolahal.script.ScriptSources.ref(all, it) } }
+        override val scriptSources get() = scriptActions.scriptCatalog.added().map(com.mtwabpin.kolahal.script.ScriptSources::nameOf)
         // The same lists as the widget cards and the header ([OwnData]): read again at each write.
         override val feeds get() = ownData.feed.feeds.value.orEmpty()
         override val todos get() = ownData.feed.todos.value.orEmpty()

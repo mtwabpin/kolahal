@@ -157,6 +157,37 @@ class BackupAndLibraryTest {
     }
 
     /**
+     * The sources added to Get more scripts travel in a backup, by address. An import adds those that
+     * aren't here, after the ones here, and lists them to look at.
+     */
+    @Test fun scriptSourcesTravelInBackups() {
+        val catalog = com.mtwabpin.kolahal.script.ScriptCatalog(context)
+        fun source(text: String) = (com.mtwabpin.kolahal.script.ScriptSources.parse(text) as com.mtwabpin.kolahal.script.ScriptSources.Parsed.Ok).source
+        val owner = source("bkowner/scripts")
+        val site = source("https://bk.example/k/index.json")
+        val here = source("bkhere/scripts")
+        val file = File(context.cacheDir, "kolahal-backup-sources.json")
+        try {
+            catalog.add(owner)
+            catalog.add(site)
+            Backup(context).export(Uri.fromFile(file))
+            assertEquals(listOf(owner.index, site.index), (com.mtwabpin.kolahal.script.Json.parse(file.readText()) as Map<*, *>)["scriptSources"])
+            catalog.remove(owner.name)
+            catalog.remove(site.name)
+            catalog.add(here)
+            val result = Backup(context).import(Uri.fromFile(file))
+            assertEquals(listOf(here.index, owner.index, site.index), catalog.added())
+            assertTrue(result.review.toString(), result.review.containsAll(listOf("script source bkowner/scripts", "script source bk.example/k")))
+            // Imported again, nothing is new.
+            assertTrue(Backup(context).import(Uri.fromFile(file)).review.none { it.startsWith("script source") })
+            assertEquals(listOf(here.index, owner.index, site.index), catalog.added())
+        } finally {
+            listOf(owner, site, here).forEach { catalog.remove(it.name) }
+            file.delete()
+        }
+    }
+
+    /**
      * A restored line may not run a command on a tap, open an app's shortcut or screen, or dial a
      * number, nor open a contact URI from anywhere but the contacts app.
      */

@@ -157,7 +157,10 @@ See [Productivity](/guides/productivity/), and [Text editor](/guides/text-editor
 | `script ls` | list scripts with their timers, flags and last result (plain `script` does the same) |
 | `script lib` | show the bundled [library](/scripting/library/) |
 | `script install <name> [--replace]` | install or update a library script; `--replace` overwrites a copy you edited |
-| `script get [<name>] [--refresh] [--replace]` | list the [shared scripts](/scripting/overview/#getting-scripts-from-others), or install or update one; one that asks for access arrives switched off |
+| `script get [<name>\|<source>/<name>] [--refresh] [--replace]` | list the [shared scripts](/scripting/overview/#getting-scripts-from-others) of every source, or install or update one; a name goes to the first source that has it; one that asks for access arrives switched off |
+| `script sources` | list the [sources](/scripting/overview/#your-own-scripts-repository) of Get more scripts, with their addresses, how many scripts each has and when it was read |
+| `script source add <owner/name\|link>` | add a source: a GitHub repository as `owner/name`, or an `https://` link to an `index.json`. Kolahal doesn't check its scripts |
+| `script source rm <name>` | remove a source you added; the scripts you installed from it stay |
 | `script new <name>[.lua\|.js] [lua\|js] [--cmd]` | create a script from a template and open the editor |
 | `script edit <name>` | open the editor |
 | `script run <name> [<words>]` | run now; the words become its `args`, as when you run it by name |

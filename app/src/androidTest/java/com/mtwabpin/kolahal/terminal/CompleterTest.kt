@@ -262,6 +262,7 @@ class CompleterReviewTest {
         override val reminders = emptyList<com.mtwabpin.kolahal.productivity.Reminder>()
         override val libraryNames get() = library
         override val sharedNames get() = shared
+        override val scriptSources = listOf("alice/scripts")
     })
 
     @get:Rule val configReset = ConfigReset()
@@ -381,6 +382,10 @@ class CompleterReviewTest {
     @Test fun scriptSubcommandsOfferWhatTheyTake() {
         assertEquals(listOf("script install xkcd"), lines("script install x"))
         assertEquals(listOf("script get moon"), lines("script get m"))
+        assertEquals(listOf("script sources", "script source"), lines("script sour"))
+        assertEquals(listOf("script source add", "script source rm"), lines("script source "))
+        assertEquals(listOf("script source rm alice/scripts"), lines("script source rm "))
+        assertTrue(lines("script sources ").isEmpty())
         assertTrue(lines("script ls ").isEmpty())
         assertEquals(listOf("script on offb"), lines("script on "))
         assertEquals(listOf("script off ona", "script off pinc", "script off stad"), lines("script off "))

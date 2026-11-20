@@ -5,7 +5,9 @@ import android.net.Uri
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.script.Files
 import com.mtwabpin.kolahal.script.Json
+import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptImport
+import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.script.ScriptScheduler
 import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.InstantRun
@@ -27,7 +29,8 @@ import com.mtwabpin.kolahal.widgets.Shortcuts
  *   "data":    { ... },                                     // everything else: [FullBackup]
  *   "font":    { "name": "...", "base64": "..." },          // an imported terminal font
  *   "widgets": [ ... ],                                     // so the app can offer to add them again
- *   "themes":  { "mine": { "background": "#0B0D0B", ... } } }   // made in the theme builder
+ *   "themes":  { "mine": { "background": "#0B0D0B", ... } },    // made in the theme builder
+ *   "scriptSources": [ "https://owner.github.io/name/index.json" ] }   // added to Get more scripts
  * ```
  */
 class Backup(private val context: Context) {
@@ -71,6 +74,8 @@ class Backup(private val context: Context) {
             "widgets" to runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets() }.getOrDefault(emptyList()),
             // Themes made in the theme builder: the name, mapped to colours by role as "#RRGGBB".
             "themes" to CustomThemes.themes.value.mapValues { (_, colors) -> colors.mapValues { CustomThemes.hex(it.value) } },
+            // The sources added to Get more scripts, by address. Their lists aren't kept: they are read again.
+            "scriptSources" to ScriptCatalog(context).added(),
         )
         val text = Json.stringify(data)
         val mb = utf8Size(text) / (1024 * 1024)
@@ -91,7 +96,7 @@ class Backup(private val context: Context) {
         val full: Boolean = false,
         /**
          * What from the file is worth a look: where searches go, what gestures run, aliases that run code
-         * or change settings, and the commands behind the Shortcuts widget's buttons.
+         * or change settings, the commands behind the Shortcuts widget's buttons, and new sources of Get more scripts.
          */
         val review: List<String> = emptyList(),
         /** The file is from a newer Kolahal ([VERSION] is lower than its format). What this version doesn't know was skipped. */
@@ -189,6 +194,11 @@ class Backup(private val context: Context) {
                 }.onFailure { skipped += "font" }
             } else skipped += "font"
         }
+        // Sources of Get more scripts that aren't here yet are added after the ones here, and listed for a look.
+        val catalog = ScriptCatalog(context)
+        val sourcesBefore = catalog.added().toSet()
+        (root["scriptSources"] as? List<*>)?.let { catalog.restore(it, skipped) }
+        val newSources = (catalog.added() - sourcesBefore).map { "script source ${ScriptSources.nameOf(it)}" }
         (root["widgets"] as? List<*>)?.let { list ->
             @Suppress("UNCHECKED_CAST")
             runCatching { com.mtwabpin.kolahal.widgets.WidgetHost.get(context).importWidgets(list.filterIsInstance<Map<String, Any?>>()) }
@@ -212,7 +222,7 @@ class Backup(private val context: Context) {
         // that the file brought is listed, whatever it runs ([Shortcuts.review]).
         val shortcuts = Shortcuts.review(shortcutsBefore, runCatching { Shortcuts.read(context) }.getOrDefault(emptyList()))
         val review = listOf(Keys.SEARCH_URL, Keys.GESTURE_DOUBLE_TAP, Keys.GESTURE_SWIPE_DOWN, Keys.GESTURE_SWIPE_UP)
-            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases + shortcuts
+            .filterNot(config::isDefault).map { "${it.key} = ${config.display(it)}" } + sensitiveAliases + shortcuts + newSources
         return Result(settings, aliases, count, disabled, skipped, restored, full = data != null, review = review, newer = newer)
     }
 

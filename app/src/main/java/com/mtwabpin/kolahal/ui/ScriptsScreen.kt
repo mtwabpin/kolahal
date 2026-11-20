@@ -89,6 +89,7 @@ internal fun codesOf(scripts: List<Script>): List<Triple<String, ScriptLang, Str
  * - [lib]: the library script, for a library copy.
  * - [shared]: the shared script in the list kept from Get more scripts, for a shared copy. Null when
  *   the list isn't kept or no longer has it.
+ * - [from]: the source of a shared copy ([ScriptCatalog.Copy.source]).
  */
 internal data class ScriptCopy(
     val source: ScriptSource,
@@ -96,7 +97,11 @@ internal data class ScriptCopy(
     val edited: Boolean,
     val lib: LibRow? = null,
     val shared: ScriptCatalog.Entry? = null,
+    val from: String? = null,
 ) {
+    /** The source to name on its card and sheet: one the user added. Null for kolahal-scripts, which is "shared". */
+    val addedSource: String? get() = from?.takeIf { source == ScriptSource.SHARED && it != ScriptCatalog.SOURCE }
+
     /** Whether Update or Reset can bring the source's version: the copy differs, and the source is known. */
     val canRestore get() = state != CopyState.UP_TO_DATE && (lib != null || shared != null)
 
@@ -112,7 +117,7 @@ internal data class ScriptCopy(
 
         /** A copy from Get more scripts. */
         fun of(shared: SharedCopy) =
-            ScriptCopy(ScriptSource.SHARED, CopyState.of(newer = shared.copy.newer, edited = shared.copy.edited), shared.copy.edited, shared = shared.entry)
+            ScriptCopy(ScriptSource.SHARED, CopyState.of(newer = shared.copy.newer, edited = shared.copy.edited), shared.copy.edited, shared = shared.entry, from = shared.copy.source)
     }
 }
 
@@ -227,7 +232,7 @@ fun ScriptsScreen(vm: TerminalViewModel) {
     val shared by produceState(emptyMap<String, SharedCopy>(), codesOf(scripts)) {
         value = withContext(Dispatchers.IO) {
             val catalog = vm.scriptActions.scriptCatalog
-            ScriptPage.sharedCopies(scripts, latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()), copyOf = catalog::copy)
+            ScriptPage.sharedCopies(scripts, latest = runCatching { catalog.cached().orEmpty() }.getOrDefault(emptyList()), sourceOf = catalog::installedFrom, copyOf = catalog::copy)
         }
     }
 

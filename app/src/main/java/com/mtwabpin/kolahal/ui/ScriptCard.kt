@@ -74,9 +74,9 @@ private val LINE_ICON = 14.dp
 /**
  * The card for one script. The card uses the theme colour when the script is on, and is faded when
  * it is off.
- * - Compact: a dot (on, failed, off), the title, the file name and where it came from (shared or
- *   yours), Run for a command, the details arrow, the switch, and one line about how it runs and how
- *   its last run went.
+ * - Compact: a dot (on, failed, off), the title, the file name and where it came from (shared, a
+ *   source you added, or yours), Run for a command, the details arrow, the switch, and one line
+ *   about how it runs and how its last run went.
  * - A pill beside that line offers what needs doing: "New version · Update", "Edited · Reset" or
  *   "Add key".
  * - Expanded: see [ScriptDetails]. Then a line of its own tells each problem with its button, so
@@ -166,7 +166,7 @@ internal fun ScriptCard(
                         )
                         val from = when (copy?.source) {
                             ScriptSource.LIBRARY -> null
-                            ScriptSource.SHARED -> "shared"
+                            ScriptSource.SHARED -> copy.addedSource ?: "shared"
                             else -> "yours"
                         }
                         if (from != null) Text(" · $from", style = MaterialTheme.typography.labelSmall, color = colors.outline, maxLines = 1)

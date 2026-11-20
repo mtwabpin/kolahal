@@ -59,8 +59,10 @@ class Completer(private val context: Context, private val data: Data) {
         val logSources: List<String> get() = emptyList()
         /** The script names in the bundled library (`script install`). */
         val libraryNames: List<String> get() = emptyList()
-        /** The names of the shared scripts, as far as they are known (`script get`). */
+        /** The names of the shared scripts, as far as they are known (`script get`). `source/name` for one that another source has first. */
         val sharedNames: List<String> get() = emptyList()
+        /** The names of the sources added to Get more scripts (`script source rm`). */
+        val scriptSources: List<String> get() = emptyList()
     }
 
     private val config = Config.get(context)
@@ -387,7 +389,14 @@ class Completer(private val context: Context, private val data: Data) {
                 } else {
                     val sub = parts[1]
                     val prefix = parts.getOrNull(2).orEmpty()
-                    if (parts.size == 3) {
+                    if (sub == "source") {
+                        // `script source add|rm`, then the added sources to remove.
+                        when (parts.size) {
+                            3 -> words(listOf("add", "rm")).map { it.copy(replacement = it.replacement + " ") }
+                            4 if parts[2] == "rm" -> words(data.scriptSources, R.drawable.ic_download)
+                            else -> emptyList()
+                        }
+                    } else if (parts.size == 3) {
                         // The script names that the subcommand takes:
                         // - a library or shared script to install;
                         // - a script to switch on or off, or to pin or unpin;
@@ -754,7 +763,7 @@ class Completer(private val context: Context, private val data: Data) {
         private val FEED_ID_SUBCOMMANDS = setOf("rm", "remove", "url", "read", "all", "open", "notify", "every", "fetch", "refresh", "on", "off")
 
         /** `script <sub>`: the subcommands that take no script name. */
-        private val SCRIPT_NO_NAME = setOf("ls", "lib", "triggers", "dir", "export", "import", "new")
+        private val SCRIPT_NO_NAME = setOf("ls", "lib", "sources", "triggers", "dir", "export", "import", "new")
 
         /** Timer intervals offered for `script every`. `feed every` gets the same, without "off". */
         private val INTERVALS = listOf("15m", "30m", "1h", "2h", "6h", "12h", "1d", "off")

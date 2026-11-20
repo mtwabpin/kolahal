@@ -16,6 +16,7 @@ the system file picker. The file contains:
 - aliases
 - hidden apps, custom labels and pinned favourites
 - every script with its code, timers, notification flag and on/off state
+- the [sources you added](/scripting/overview/#your-own-scripts-repository) to Get more scripts (their addresses only)
 - **everything else** under `data`:
   - todos, notes and reminders
   - feed subscriptions, with their items and read state
@@ -60,6 +61,8 @@ When you import a file:
 - It also lists each shortcut that the file brought for the
   [Shortcuts widget](/guides/widgets/#shortcuts), for example `shortcut Torch = torch`. A button
   of that widget runs its command at one tap.
+- Sources of Get more scripts that the phone doesn't have yet are added after its own, and listed
+  for you to check. Sources already on the phone stay.
 - Timer intervals under 15 minutes are raised to 15, because that is Android's minimum.
 
 Hidden apps and labels are saved per component and profile. They only carry over to a new phone if those match.

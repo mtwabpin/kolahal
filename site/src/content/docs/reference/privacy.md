@@ -30,8 +30,9 @@ Kolahal itself makes network requests in exactly five cases:
 3. **Currency conversion** with `= 100 usd in eur`: a request to open.er-api.com for the base
    currency. The result is cached for six hours.
 4. **Getting scripts**: when you open Get more scripts, refresh it or run `script get`, Kolahal downloads the list of
-   shared scripts from mtwabpin.github.io (and keeps it for an hour). It also downloads the file of a script you look at
-   or install.
+   shared scripts from mtwabpin.github.io and from each
+   [source you added](/scripting/overview/#your-own-scripts-repository) (and keeps each for an hour).
+   It also downloads the file of a script you look at or install.
 5. **Updates**, in the full build only, and only when you run them. `update` asks GitHub for the
    latest release, and `update install` downloads its APK from GitHub. Nothing checks in the background.
 
