@@ -100,6 +100,13 @@ The scripts are in =app/src/main/assets/library/=. The user's guide is
   =WidgetAge= in =terminal/WidgetActions.kt=. The built-in widgets are in =terminal/OwnWidgets.kt=
   (their data and taps) and =ui/OwnWidgets.kt= (their cards), and the bodies of the phase 2 kinds
   in =ui/WidgetBodies.kt=.
+- *Looks and places* (0.5.15). Each widget Kolahal draws has a look (=WidgetLook=: Plain, Tonal,
+  Bold, Split, Shape), and every widget has a column and a top on the page (=WidgetPlacement=), so
+  it can sit anywhere. The page is laid out by =WidgetGrid= instead of =WidgetFlow=. The Widgets
+  screen has no Edit mode: a tap chooses a widget, a long-press drags it, handles resize it, and
+  the toolbar has a Look row and the six sizes as one-tap buttons. The plan is the item "Widgets:
+  looks, placing anywhere, and a better Widgets screen" in =docs/tasks.org=. Where this document
+  speaks of page order and rows, the page now uses places.
 
 ** Not built yet
 
@@ -110,7 +117,6 @@ From phases 1 and 2:
   at its next run. World clocks says so: tap the card.
 - =widget add <script>= and =widget rm <script>=. =widget add= opens the picker.
 - Library scripts that you haven't added, in the picker. It lists the scripts you have.
-- The six sizes as one-tap buttons in the Widgets screen's toolbar.
 - The "Widget" pill and filter chip in Scripts.
 - A widget preview in the script editor.
 
