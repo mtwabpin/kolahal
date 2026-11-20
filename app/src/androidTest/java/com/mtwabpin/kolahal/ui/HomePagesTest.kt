@@ -86,4 +86,46 @@ class HomePagesTest {
             compose.onNodeWithContentDescription("Add a widget").assertExists()
         }
     }
+
+    /**
+     * Back from a screen returns to the home page it was opened from, not to home's first page:
+     * Arrange widgets, opened from the widgets page, goes back there. Home still goes to the first page.
+     */
+    @Test fun backFromAScreenReturnsToThePageItWasOpenedFrom() {
+        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("intro_shown", true).commit()
+        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_START, "on")
+        config.set(Keys.SELECTOR_RAIL, "on")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var vm: TerminalViewModel
+            scenario.onActivity {
+                vm = ViewModelProvider(it)[TerminalViewModel::class.java]
+                vm.onHomePressed()
+            }
+            waitFor(shown = true)
+            // Away from the first page: typing brings up the log.
+            instrumentation.runOnMainSync { vm.onInputChange(TextFieldValue("x")) }
+            waitFor(shown = false)
+            // A screen opened from the log returns to the log.
+            instrumentation.runOnMainSync { vm.openScreen(Screen.WIDGETS) }
+            compose.waitForIdle()
+            instrumentation.runOnMainSync { vm.closeScreen() }
+            waitFor(shown = false)
+            // From the widgets page, back to the widgets page.
+            instrumentation.runOnMainSync { vm.onHomePressed() }
+            waitFor(shown = true)
+            instrumentation.runOnMainSync { vm.openScreen(Screen.WIDGETS) }
+            compose.waitForIdle()
+            instrumentation.runOnMainSync { vm.closeScreen() }
+            waitFor(shown = true)
+            // Home from a screen goes to home's first page, whatever page was open before.
+            instrumentation.runOnMainSync { vm.onInputChange(TextFieldValue("x")) }
+            waitFor(shown = false)
+            instrumentation.runOnMainSync { vm.openScreen(Screen.WIDGETS) }
+            compose.waitForIdle()
+            instrumentation.runOnMainSync { vm.onHomePressed() }
+            waitFor(shown = true)
+        }
+    }
 }

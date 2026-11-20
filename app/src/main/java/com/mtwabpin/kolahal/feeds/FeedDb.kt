@@ -19,8 +19,12 @@ import com.mtwabpin.kolahal.data.Singleton
 class FeedDb private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, NAME, null, VERSION) {
 
+    // WAL from the moment it opens, as [com.mtwabpin.kolahal.data.Db] does: both processes open it.
+    init {
+        setWriteAheadLoggingEnabled(true)
+    }
+
     override fun onConfigure(db: SQLiteDatabase) {
-        db.enableWriteAheadLogging()
         db.setForeignKeyConstraintsEnabled(true)
     }
 

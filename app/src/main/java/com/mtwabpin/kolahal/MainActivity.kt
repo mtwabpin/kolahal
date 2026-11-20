@@ -378,6 +378,7 @@ class MainActivity : ComponentActivity() {
  * - With `widgets.start`, the widgets page is home's first page instead. Home opens on it, and Back
  *   and Home return to it. A key typed there brings up the log and shows the key in it.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // LocalBringIntoViewSpec
 @androidx.compose.runtime.Composable
 private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime.Composable () -> Unit) {
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -390,9 +391,23 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     val widgetsFirst = androidx.compose.runtime.remember(version) { Keys.widgetsFirst(vm.config) }
     // The page that home opens on, and that Home and Back return to.
     val homePage = if (widgetsFirst) 1 - terminalPage else terminalPage
-    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = homePage) { 2 }
+    // Home is laid out again each time a screen closes. It opens on the page it showed before
+    // (vm.homeOnWidgets): Back from Arrange widgets returns to the widgets page.
+    val startPage = when (vm.homeOnWidgets) {
+        true -> 1 - terminalPage
+        false -> terminalPage
+        null -> homePage
+    }
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = startPage) { 2 }
+    androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
+        androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { vm.homeOnWidgets = it != terminalPage }
+    }
     val homePresses by vm.homePresses.collectAsStateWithLifecycle()
+    // A Home press, or a change of the page's side, returns to home's first page. Not the first run:
+    // that is home appearing again, on the page it had.
+    val firstRun = androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicBoolean(true) }
     androidx.compose.runtime.LaunchedEffect(homePresses, side, widgetsFirst) {
+        if (firstRun.getAndSet(false)) return@LaunchedEffect
         if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -422,6 +437,11 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     // The pager's own scrolling takes touches before its children do, so the app selector got none.
     // Our detector runs after the children instead. A swipe that the selector or a log line already
     // consumed never turns the page.
+    // The page turns only when Kolahal turns it. When home is laid out again, Android gives the prompt
+    // the focus, and the pager would bring it into view: Back from Arrange widgets ended on the log.
+    // The pages get the usual behaviour back, so the log's own list still scrolls to what has the focus.
+    val pageFocusSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides StayOnPage) {
     androidx.compose.foundation.pager.HorizontalPager(
         state = pager,
         beyondViewportPageCount = 1,
@@ -448,14 +468,23 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
             }
         },
     ) { page ->
-        if (page == terminalPage) {
-            androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
-        } else {
-            // The pager keeps this page composed beside the log. Its cards move and ask for runs only
-            // while the pager has settled on it.
-            androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalWidgetsShown provides (pager.settledPage == page)) {
-                com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
+            if (page == terminalPage) {
+                androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalTerminalShown provides (pager.currentPage == terminalPage)) { terminal() }
+            } else {
+                // The pager keeps this page composed beside the log. Its cards move and ask for runs only
+                // while the pager has settled on it.
+                androidx.compose.runtime.CompositionLocalProvider(com.mtwabpin.kolahal.ui.LocalWidgetsShown provides (pager.settledPage == page)) {
+                    com.mtwabpin.kolahal.ui.WidgetPanel(vm)
+                }
             }
         }
     }
+    }
+}
+
+/** Home's pager never scrolls to bring something into view: it moves only when Kolahal turns it. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private object StayOnPage : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
 }

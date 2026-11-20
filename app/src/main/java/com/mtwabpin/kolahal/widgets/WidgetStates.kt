@@ -56,6 +56,16 @@ object WidgetStates {
     /** The name of the widget that changed, in [ACTION_CHANGED]. Absent: any of them may have changed. */
     const val EXTRA_NAME = "name"
 
+    /**
+     * The last state [read] gave for each widget, in this process. A card drawn again (home came back
+     * to the widgets page) starts with it, so it shows its content in its look at once instead of
+     * loading first. It is only a first value: the card reads the database again and takes what it finds.
+     */
+    private val lastRead = java.util.concurrent.ConcurrentHashMap<String, WidgetState>()
+
+    /** [name]'s state as [read] last gave it in this process. Null before the first read, and after [forget]. */
+    fun lastRead(name: String): WidgetState? = lastRead[name]
+
     /** Moves when a change named no widget, so a card with no entry in [versions] yet reads again too. */
     private val everyone = MutableStateFlow(0)
 
@@ -108,6 +118,7 @@ object WidgetStates {
 
     /** Removes everything kept for the one widget [name]: when it is taken off the page. */
     fun forget(context: Context, name: String) {
+        lastRead.remove(name)
         runCatching { KvStore(context, Stores.WIDGET).set(name, null) }
         runCatching { KvStore(context, Stores.WIDGET_META).set(name, null) }
         announce(context, name)
@@ -125,6 +136,7 @@ object WidgetStates {
             // Every further widget's key starts with the name and the separator. A longer name does not.
             store.deleteStartingWith(WidgetRef.further(script))
         }
+        lastRead.keys.removeIf { it == script || it.startsWith(WidgetRef.further(script)) }
         // It is not known here which widgets the script has, so every card looks again.
         announce(context, null)
     }
@@ -145,7 +157,7 @@ object WidgetStates {
         val raw = KvStore(context, Stores.WIDGET).get(name)
         val meta = meta(context, name)
         WidgetState(WidgetJson.decode(raw), raw != null, meta.set, meta.tried, meta.error)
-    }.getOrDefault(WidgetState(null, false))
+    }.getOrDefault(WidgetState(null, false)).also { lastRead[name] = it }
 
     private data class Meta(val set: Long = 0, val tried: Long = 0, val error: String? = null)
 

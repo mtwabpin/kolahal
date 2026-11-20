@@ -1354,6 +1354,13 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     val contacts get() = com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).contacts
 
 
+    /**
+     * Whether home showed the widgets page (true) or the log (false) when it was last on screen.
+     * Home is laid out again when a screen closes, so it opens on that page: Back from Arrange
+     * widgets returns to the widgets page. Null: home's own first page. A Home press forgets it.
+     */
+    @Volatile var homeOnWidgets: Boolean? = null
+
     private val _homePresses = MutableStateFlow(0)
     /** Goes up by one on every Home press while already home. Then the widgets pager returns to the terminal. */
     val homePresses: StateFlow<Int> = _homePresses.asStateFlow()
@@ -1421,6 +1428,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Pressing Home while already home resets the prompt. */
     fun onHomePressed() {
         settingsCategory.value = null
+        homeOnWidgets = null
         _homePresses.value++
         _editing.value?.let { return }
         val fromOtherScreen = screen.value != Screen.TERMINAL

@@ -14,8 +14,10 @@ class Db internal constructor(context: Context, name: String) :
     /** The app's database. Tests open one of their own by name. */
     private constructor(context: Context) : this(context, NAME)
 
-    override fun onConfigure(db: SQLiteDatabase) {
-        db.enableWriteAheadLogging()
+    // WAL from the moment it opens. Turned on only after opening (onConfigure), Android first tried
+    // to set its default mode, and logged "database is locked" when the other process had it open.
+    init {
+        setWriteAheadLoggingEnabled(true)
     }
 
     override fun onCreate(db: SQLiteDatabase) {

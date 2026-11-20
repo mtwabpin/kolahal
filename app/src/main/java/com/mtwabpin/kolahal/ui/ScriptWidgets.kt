@@ -253,7 +253,8 @@ internal fun WidgetCard(
                     } else {
                         // A card with a note draws no content, so it has its title line. Bold, Split and Shape have none.
                         val titled = !look.untitled() && WidgetWords.wideTitle(spec.takeIf { note == null }, heightDp, footer = footer != null)
-                        CardLayout(title, spec, note, failure, footer, box, titled, onTap, stamp, badge, look, colours)
+                        // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
+                        CardLayout(title, spec, note, failure, footer.takeUnless { look.untitled() }, box, titled, onTap, stamp, badge, look, colours)
                     }
                 }
             }
@@ -263,12 +264,14 @@ internal fun WidgetCard(
 
 /**
  * The look [chosen] for a card, as it can be drawn. A look shows only on content: a card with a
- * [note] (loading, failed, off) or a [footer] (a failed run, old content) needs its title line to
- * say so, and draws as Plain, or Tonal when that is the choice. A picture takes Tonal's colour alone.
+ * [note] (loading, failed, off) or a failed run ("Failed 10:42") needs its title line to say so,
+ * and draws as Plain, or Tonal when that is the choice. Old content keeps the look: a card whose
+ * content counts as old after a minute (Quick toggles) would change its look on most visits, until
+ * its run fills it again. A look the kind doesn't offer draws Plain.
  */
 private fun drawnLook(chosen: WidgetLook, spec: WidgetSpec?, note: CardNote?, footer: WidgetWords.Footer?): WidgetLook = when {
     chosen == WidgetLook.PLAIN || chosen == WidgetLook.TONAL -> chosen
-    note != null || spec == null || footer != null -> WidgetLook.PLAIN
+    note != null || spec == null || footer?.failed == true -> WidgetLook.PLAIN
     // A look this kind doesn't offer draws Plain ([WidgetLook.offeredFor]).
     else -> chosen.drawnFor(WidgetJson.kindOf(spec))
 }
@@ -659,7 +662,9 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     val key = ref.key
     val context = LocalContext.current.applicationContext
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    var state by remember(key) { mutableStateOf<WidgetState?>(null) }
+    // It starts with the state read last time (WidgetStates.lastRead): a card drawn again shows in its
+    // look at once, not as a loading card that then changes.
+    var state by remember(key) { mutableStateOf(WidgetStates.lastRead(key)) }
     // The state is read once, and again when this widget's own number moves ([WidgetStates.versionOf]):
     // another widget's change reads nothing here. Only while home is on screen, and off the main thread.
     LaunchedEffect(key, lifecycle) {
