@@ -181,9 +181,6 @@ internal fun sourceTitle(provider: String, scripts: Map<String, WidgetScript>): 
     return provider.substringAfter(':')
 }
 
-/** How a size is written on the screen: "2×1". */
-private val WidgetSize.label: String get() = id.replace('x', '×')
-
 /**
  * A widget held after a long-press, and moved by the finger. Positions are in pixels on the page,
  * from its top left; [window] is the finger in the window.

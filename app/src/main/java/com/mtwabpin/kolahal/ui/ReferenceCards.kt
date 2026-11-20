@@ -1,6 +1,12 @@
 package com.mtwabpin.kolahal.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
@@ -14,7 +20,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +37,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptLang
@@ -72,17 +85,49 @@ internal fun LazyListScope.widgetExamples(lang: ScriptLang, look: WidgetLook, on
     items(ReferenceExamples.widgets, key = { "widget-example ${it.name}" }) { ex -> WidgetExample(ex, lang, look, onExample) }
 }
 
+/**
+ * One of the guide's widget examples ([ex]), with what an author can try on it, each one tap:
+ * - its variants ([ReferenceExamples.variantsOf]): another number of rows or switches, another style.
+ *   The card, the code, Copy and a tap all follow the one chosen.
+ * - its size: the sizes its kind is made for ([WidgetKind.sizes]).
+ * - Copy puts the code on the clipboard; a tap on the panel puts it in the script.
+ */
 @Composable
 private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, look: WidgetLook, onExample: (String) -> Unit) {
     val context = LocalContext.current
     val clock24 = remember { Config.get(context)[Keys.CLOCK_24H] }
     val zone = remember { ZoneId.systemDefault() }
     val now = remember { System.currentTimeMillis() / 1000 }
-    val spec = remember(ex) { ex.spec(now, zone) }
-    val title = spec.base.title ?: ex.title
-    val code = ex.code(lang)
+    val versions = remember(ex) { listOf(ex) + ReferenceExamples.variantsOf(ex.name) }
+    var chosen by rememberSaveable(ex.name) { mutableIntStateOf(0) }
+    val shown = versions[chosen.coerceIn(versions.indices)]
+    var size by rememberSaveable(ex.name) { mutableStateOf(ex.size) }
+    val spec = remember(shown) { shown.spec(now, zone) }
+    val title = spec.base.title ?: shown.title
+    val code = shown.code(lang)
     ExamplePanel("widget-example ${ex.name}", onClick = { onExample(code) }) {
-        Text(ex.heading, style = Term.code.copy(color = Term.fg), modifier = Modifier.padding(horizontal = 12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp, end = 4.dp)) {
+            Text(ex.heading, style = Term.code.copy(color = Term.fg), modifier = Modifier.weight(1f))
+            GuiTheme {
+                LabeledIconButton(R.drawable.ic_content_copy, "Copy code", onClick = {
+                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("${ex.name} example", code))
+                    // Android 13 and later show their own "copied" confirmation.
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                }, modifier = Modifier.testTag("copy ${ex.name}"))
+            }
+        }
+        GuiTheme {
+            Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (versions.size > 1) {
+                    ConnectedChoices(versions.map { it.variant ?: GUIDE }, shown.variant ?: GUIDE, tagPrefix = "variant ${ex.name} ") { label ->
+                        chosen = versions.indexOfFirst { (it.variant ?: GUIDE) == label }.coerceAtLeast(0)
+                    }
+                }
+                ConnectedChoices(ex.kind.sizes.map { it.label }, size.label, tagPrefix = "size ${ex.name} ") { label ->
+                    size = ex.kind.sizes.first { it.label == label }
+                }
+            }
+        }
         // With the panel's margin, the page's: in a sheet as wide as the screen, the card is as wide
         // as on the widgets page.
         BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = (WidgetLayout.GAP_DP - PANEL_MARGIN_DP).dp, vertical = 6.dp)) {
@@ -92,10 +137,10 @@ private fun WidgetExample(ex: ReferenceExamples.Widget, lang: ScriptLang, look: 
                     CompositionLocalProvider(LocalWidgetsShown provides false, LocalWidgetLook provides look) {
                         // TalkBack reads the card as its description, with none of its buttons or rows.
                         val description = WidgetWords.description(title, spec, now, zone, clock24)
-                        Box(Modifier.width(WidgetLayout.widthDp(pageDp, ex.size.span).dp).clearAndSetSemantics { contentDescription = description }) {
+                        Box(Modifier.width(WidgetLayout.widthDp(pageDp, size.span).dp).clearAndSetSemantics { contentDescription = description }) {
                             WidgetCard(
                                 title = title,
-                                height = WidgetSizes.heightDp(ex.size, pageDp).dp,
+                                height = WidgetSizes.heightDp(size, pageDp).dp,
                                 spec = spec,
                                 note = null,
                                 description = description,
@@ -233,3 +278,6 @@ private fun ExamplePanel(tag: String, onClick: () -> Unit, content: @Composable 
 @Composable
 private fun ExampleCode(code: String) =
     Text(code, style = Term.code.copy(color = Term.dim, fontSize = Term.code.fontSize * 0.85f), modifier = Modifier.padding(horizontal = 12.dp))
+
+/** The chip of a guide's example among its variants: the example as the scripting guide has it. */
+private const val GUIDE = "As in the guide"

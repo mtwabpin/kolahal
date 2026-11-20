@@ -15,6 +15,9 @@ enum class WidgetSize(val id: String, val cells: Int, val rows: Int) {
     /** Its width in the page's columns. */
     val span get() = cells * 3
 
+    /** How the screens write it: "2×1". */
+    val label: String get() = id.replace('x', '×')
+
     companion object {
         /** The size written as "2x1", in any case; "2×1" works too. Null for anything else. */
         fun named(id: String?): WidgetSize? {

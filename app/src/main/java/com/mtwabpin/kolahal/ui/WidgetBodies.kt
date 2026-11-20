@@ -138,6 +138,9 @@ import kotlin.math.sin
 /** A button or a switch grows with its cell up to this height. A taller cell leaves room around it. */
 private val MAX_CONTROL = 64.dp
 
+/** The widest a button or a switch gets: one switch on a 4×1 card sits in the middle instead of stretching across it. */
+private val MAX_CONTROL_WIDTH = 200.dp
+
 /** From this width, a button has its icon and its label side by side. */
 private val SIDE_BY_SIDE = 104.dp
 
@@ -200,7 +203,8 @@ private fun Modifier.tapLabel(label: String?): Modifier = if (label == null) thi
 /**
  * Lays [count] buttons or switches out as a grid ([WidgetWords.grid]): fewer of them in a small
  * box, never smaller ones. [cell] draws item `index` to fill a cell `width` by `height`.
- * - The grid sits in the middle of the box.
+ * - The grid sits in the middle of the box. A cell is at most [MAX_CONTROL_WIDTH] wide, so a single item
+ *   on a wide card doesn't stretch across it.
  * - A box lower than one row (a large font makes the card's title line taller) does not press the
  *   row under 48 dp. The row keeps its height and reaches down into the card's padding.
  * - With nothing to lay out it says "Nothing to show": a built-in card can have no buttons yet.
@@ -214,11 +218,12 @@ private fun ControlGrid(count: Int, maxColumns: Int, cell: @Composable (index: I
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val grid = WidgetWords.grid(count, maxWidth.value.toInt(), maxHeight.value.toInt(), maxColumns)
         val gap = WidgetWords.CONTROL_GAP_DP.dp
-        val width = (maxWidth - gap * (grid.columns - 1)) / grid.columns
+        val width = ((maxWidth - gap * (grid.columns - 1)) / grid.columns).coerceAtMost(MAX_CONTROL_WIDTH)
+        val rowWidth = width * grid.columns + gap * (grid.columns - 1)
         val height = ((maxHeight - gap * (grid.rows - 1)) / grid.rows).coerceIn(WidgetWords.CONTROL_DP.dp, MAX_CONTROL)
         val all = height * grid.rows + gap * (grid.rows - 1)
         // Measured with no limit on its height, and kept at the top when it is taller than the box.
-        Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true).height(all), verticalArrangement = Arrangement.spacedBy(gap)) {
+        Column(Modifier.width(rowWidth).wrapContentHeight(Alignment.Top, unbounded = true).height(all), verticalArrangement = Arrangement.spacedBy(gap)) {
             for (row in 0 until grid.rows) {
                 Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     for (column in 0 until grid.columns) {

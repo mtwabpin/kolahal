@@ -36,6 +36,7 @@ import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.waitForText
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -252,6 +253,34 @@ class EditorBarsTest {
      * The reference's Look row draws the widget examples in another look. A kind that doesn't
      * offer the look stays Plain and says so: buttons have no Bold.
      */
+    @Test fun aWidgetExampleCopiesItsCodeAndChangesSize() {
+        show()
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example toggles"))
+        // Only the sizes the kind is made for; the example's own is chosen.
+        listOf("2×1", "2×2", "4×1").forEach { compose.onNodeWithTag("size toggles $it").assertExists() }
+        compose.onNodeWithTag("size toggles 4×2").assertDoesNotExist()
+        compose.onNodeWithTag("size toggles 4×1").assertIsOn()
+        fun cardWidth() = compose.onNode(hasTestTag("widget-card") and hasAnyAncestor(hasTestTag("widget-example toggles")), useUnmergedTree = true)
+            .fetchSemanticsNode().size.width
+        val wide = cardWidth()
+        compose.onNodeWithTag("size toggles 2×1").performClick()
+        compose.onNodeWithTag("size toggles 2×1").assertIsOn()
+        compose.waitForIdle()
+        assertTrue("the card got narrower", cardWidth() < wide)
+        // Copy puts the code on the clipboard and nothing in the script.
+        compose.onNodeWithTag("copy toggles").performClick()
+        compose.waitForIdle()
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        var copied: String? = null
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            copied = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
+        }
+        assertEquals(ReferenceExamples.widgets.single { it.name == "toggles" }.code(ScriptLang.LUA), copied)
+        assertEquals(code, text())
+    }
+
     @Test fun theWidgetExamplesCanBeSeenInEachLook() {
         show()
         compose.onNodeWithContentDescription("API reference").performClick()
@@ -297,7 +326,10 @@ class EditorBarsTest {
             compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag(tag))
             // The tree that TalkBack reads.
             val acting = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
-            assertEquals(tag, listOf(cover), acting.map { it.config.getOrNull(SemanticsProperties.TestTag) })
+                .map { it.config.getOrNull(SemanticsProperties.TestTag) }
+            // The example's own controls (Copy, its sizes and variants) act; nothing of the card or the lines does.
+            val controls = listOf("copy ", "size ", "variant ")
+            assertEquals(tag, listOf(cover), acting.filterNot { t -> t != null && controls.any { t.startsWith(it) } })
         }
     }
 

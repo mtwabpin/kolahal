@@ -364,6 +364,11 @@ class WidgetGalleryTest {
                 listOf(WidgetSpec.Toggle("Lamp", on = true, tap = WidgetTap(args = "lamp")), WidgetSpec.Toggle("Fan", on = false, tap = WidgetTap(args = "fan"))),
             ),
         ),
+        // One switch on a wide card: it sits in the middle, no wider than a switch gets.
+        Shot(
+            "kind-toggle-one", WidgetSize.S4X1, "Home",
+            WidgetSpec.Toggles(base("Home"), listOf(WidgetSpec.Toggle("Do Not Disturb", on = true, tap = WidgetTap(args = "dnd")))),
+        ),
         Shot(
             "kind-clock", WidgetSize.S2X1, "Clocks",
             WidgetSpec.Clock(base("Clocks", colour = Colour.LINK), listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("Europe/London", "London"))),
