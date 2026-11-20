@@ -1740,7 +1740,7 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                 Column(Modifier.weight(1f)) {
                     Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (fraction != null && tall >= TWO_LINES) LevelBar(fraction, moving = false, colour, Modifier.padding(top = 4.dp))
+                    if (fraction != null && tall >= TWO_LINES) LevelBar(fraction, moving = spec.playing, colour, Modifier.padding(top = 4.dp))
                 }
                 Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
                 val count = WidgetWords.mediaButtons(width, besideText = true)
@@ -1753,7 +1753,7 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (fraction != null && tall >= MEDIA_BAR_FROM) {
                         Spacer(Modifier.weight(1f))
-                        LevelBar(fraction, moving = false, colour)
+                        LevelBar(fraction, moving = spec.playing, colour)
                         if (tall >= MEDIA_TIMES_FROM) Row(Modifier.fillMaxWidth()) {
                             MediaPosition(spec, now)
                             Spacer(Modifier.weight(1f))
@@ -1884,7 +1884,7 @@ private fun SplitMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
                 ) {
                     Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (fraction != null && boxHeight >= TWO_LINES + 16.dp) LevelBar(fraction, moving = false, role, Modifier.padding(top = 6.dp))
+                    if (fraction != null && boxHeight >= TWO_LINES + 16.dp) LevelBar(fraction, moving = spec.playing, role, Modifier.padding(top = 6.dp))
                 }
                 var at = 1
                 if (count >= 3) MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, role, mirrored = true, size = Modifier.width(56.dp).fillMaxHeight(), tile = SplitCorners.inRow(at++, tiles))
@@ -1908,7 +1908,7 @@ private fun SplitMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
                 Text(title, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                 if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.weight(1f))
-                if (fraction != null) LevelBar(fraction, moving = false, role)
+                if (fraction != null) LevelBar(fraction, moving = spec.playing, role)
             }
             Row(Modifier.fillMaxWidth().height(SPLIT_MEDIA_ROW), horizontalArrangement = Arrangement.spacedBy(gap)) {
                 val bottom = { first: Boolean, last: Boolean -> SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = last, bottomStart = first) }
@@ -1945,7 +1945,7 @@ private fun ShapeMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
         val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
         val step by remember(spec) { derivedStateOf { WidgetWords.mediaFraction(spec, now.value)?.let(WidgetWords::barStep) } }
         val fraction = step
-        val bar: @Composable (Modifier) -> Unit = { m -> if (fraction != null) LevelBar(fraction, moving = false, role, m, wavy = spec.playing) }
+        val bar: @Composable (Modifier) -> Unit = { m -> if (fraction != null) LevelBar(fraction, moving = spec.playing, role, m) }
         val prevNext: @Composable () -> Unit = {
             MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, role, mirrored = true)
             MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap, role)

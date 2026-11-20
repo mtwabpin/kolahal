@@ -46,6 +46,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 private const val DURATION = 10_000L
+/** The rows at the foot of the line that the bar may draw in: the 2 dp bar, and the wave above it. */
+private const val BAR_BAND = 12
 
 /** The header's media line: what it says, what its taps do, and how far along its bar is. */
 @RunWith(AndroidJUnit4::class)
@@ -74,12 +76,37 @@ class NowPlayingLineTest {
         }
     }
 
-    /** How much of the line's width the bar's filled part takes, 0 to 1, read from its pixels. */
+    /** The bottom rows of the line, where its bar is drawn: flat, or as a wave while it plays. */
+    private fun barRows(height: Int): IntRange = (height - BAR_BAND).coerceAtLeast(0) until height
+
+    /**
+     * How much of the line's width the bar's filled part takes, 0 to 1, read from its pixels: a
+     * column counts when the accent is anywhere in the bar's rows, flat or on the wave.
+     */
     private fun filled(): Float {
         compose.waitForIdle()
         val pixels = compose.onNodeWithTag("header-media").captureToImage().toPixelMap()
-        val row = pixels.height - 2
-        return (0 until pixels.width).count { pixels[it, row] == Term.prompt }.toFloat() / pixels.width
+        val rows = barRows(pixels.height)
+        return (0 until pixels.width).count { x -> rows.any { y -> pixels[x, y] == Term.prompt } }.toFloat() / pixels.width
+    }
+
+    /** The rows of the bar's band that have the accent in them: more for a wave than for a flat bar. */
+    private fun accentRows(): Int {
+        compose.waitForIdle()
+        val pixels = compose.onNodeWithTag("header-media").captureToImage().toPixelMap()
+        return barRows(pixels.height).count { y -> (0 until pixels.width).any { x -> pixels[x, y] == Term.prompt } }
+    }
+
+    /** While it plays, the played part is a wave, as media players draw it; paused, a flat line. */
+    @Test fun whilePlayingTheBarIsAWave() {
+        var np by mutableStateOf(track(position = DURATION / 2))
+        show { np }
+        compose.mainClock.advanceTimeBy(300)
+        val wave = accentRows()
+        np = paused(position = DURATION / 2)
+        compose.mainClock.advanceTimeBy(300)
+        val flat = accentRows()
+        assertTrue("the wave ( rows) is taller than the flat bar ( rows)", wave > flat)
     }
 
     /** Real time for the position (it reads the wall clock), then the line's next look at it. */

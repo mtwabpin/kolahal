@@ -1,6 +1,16 @@
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.foundation.background
+import kotlin.math.sin
+import kotlin.math.PI
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -157,7 +167,12 @@ internal fun NowPlayingLine(
         Spacer(Modifier.height(barAbove))
         // The playback progress bar. When the width changes, it redraws at once, without waiting for the
         // next pixel of progress.
-        ProgressTrack({ progress }, Modifier.onSizeChanged { barWidth[0] = it.width; progress = np.progressNow() })
+        // While it plays and the log is on screen, the filled part is a moving wave, as media players draw it.
+        ProgressTrack(
+            { progress },
+            Modifier.onSizeChanged { barWidth[0] = it.width; progress = np.progressNow() },
+            moving = np.playing && LocalTerminalShown.current,
+        )
     }
 }
 
@@ -177,9 +192,15 @@ internal fun ProgressTrack(fraction: Float, fill: Color = Term.prompt) = Progres
  *   measured again.
  * - The fill has the same width as a child with `fillMaxWidth(fraction)`: whole pixels, from the
  *   start side.
+ * - With [moving], the filled part is a wave that runs along, as media players draw it while they
+ *   play ([WaveTrack]).
  */
 @Composable
-internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier, fill: Color = Term.prompt) {
+internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier, fill: Color = Term.prompt, moving: Boolean = false) {
+    if (moving) {
+        WaveTrack(fraction, modifier, fill)
+        return
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -193,3 +214,59 @@ internal fun ProgressTrack(fraction: () -> Float, modifier: Modifier = Modifier,
             }
     )
 }
+
+/**
+ * [ProgressTrack] while something plays: the filled part is a wave that runs along, the rest the
+ * usual flat line.
+ * - The wave reaches into the room above and below the bar (the header's bar spacing), so the
+ *   header keeps its height.
+ * - Only the drawing changes from frame to frame: the phase is read while drawing, so nothing is
+ *   rebuilt or measured again. It moves only while this is shown: the caller passes [ProgressTrack]
+ *   `moving` only while the log is on screen, and frames stop while home is hidden.
+ * - With the phone's animations off, the wave stands still.
+ */
+@Composable
+private fun WaveTrack(fraction: () -> Float, modifier: Modifier, fill: Color) {
+    val phase by rememberInfiniteTransition(label = "wave").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(WAVE_PERIOD_MS, easing = LinearEasing)),
+        label = "phase",
+    )
+    val track = Term.dim.copy(alpha = 0.25f)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .drawBehind {
+                val line = size.height
+                val mid = size.height / 2
+                val amplitude = WAVE_AMPLITUDE.toPx()
+                val wavelength = WAVE_LENGTH.toPx()
+                val end = (size.width * fraction()).coerceIn(0f, size.width)
+                val rtl = layoutDirection == LayoutDirection.Rtl
+                fun x(at: Float) = if (rtl) size.width - at else at
+                // The rest of the track, flat.
+                if (end < size.width) drawLine(track, Offset(x(end), mid), Offset(x(size.width), mid), strokeWidth = line, cap = StrokeCap.Round)
+                if (end <= 0f) return@drawBehind
+                // The played part, as a wave that moves towards the end.
+                val shift = phase * wavelength
+                val path = Path()
+                var at = 0f
+                val step = 1.5.dp.toPx()
+                while (true) {
+                    val y = mid + amplitude * sin(2 * PI.toFloat() * (at - shift) / wavelength)
+                    if (at == 0f) path.moveTo(x(at), y) else path.lineTo(x(at), y)
+                    if (at >= end) break
+                    at = (at + step).coerceAtMost(end)
+                }
+                drawPath(path, fill, style = Stroke(width = line, cap = StrokeCap.Round))
+            }
+    )
+}
+
+/** How long the wave takes to move by one wavelength. */
+private const val WAVE_PERIOD_MS = 1200
+/** The wave's height either side of the bar, and its length. */
+private val WAVE_AMPLITUDE = 1.5.dp
+private val WAVE_LENGTH = 16.dp
