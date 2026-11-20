@@ -1099,20 +1099,21 @@ Each place is `{ zone, label }`. `zone` is needed.
   "Same time", or "Here" for your phone's own time zone. A place whose day isn't your day says so
   too: "10 h 30 min behind · Yesterday".
 - Where there is little room, the card writes it shorter: "−5:30", or "−10:30 −1" for a place on
-  the day before. Where even that doesn't fit, only the day shows: "+1" or "−1". A screen reader
-  always hears the difference in words.
+  the day before. On a one-line label where even that doesn't fit, only the day shows: "+1" or
+  "−1". A screen reader always hears the difference in words.
 - Kolahal writes each time in 12-hour or 24-hour form, as the header does
   ([`clock.24h`](/reference/config/)).
 - A small card shows the first place only. A wide one shows as many as fit, side by side.
 - A large card has a row for each place. A row with room (three places in a 2×2 card) has the
   difference under the place's name.
-- A 4×2 card, or any large card as wide, also has a strip of the day for each place, in the Plain
-  and Tonal looks. Each strip is your day from 00 to 24, shaded by the time at that place: night
-  (before 06:00 and from 22:00), day, and working hours (09:00 to 18:00). A line across the strips
-  marks the time now.
+- A 4×2 card, or any large card as wide, with two places or more also has a strip of the day for
+  each place, in the Plain and Tonal looks. One place keeps its big time. Each strip is your day
+  from 00 to 24, shaded by the time at that place: night (before 06:00 and from 22:00), day, and
+  working hours (09:00 to 18:00). A line across the strips marks the time now.
 - Tap a strip to move the line to that hour: every place then shows its time at that hour of your
-  day. Tap the line again, or tap **Now** on the card's title line, to go back to now. Leaving the
-  widgets page goes back to now too. A tap on a strip doesn't run the script.
+  day, from 00:00 to 23:00. Tap the line again, or tap **Now** on the card's title line, to go back
+  to now. Leaving the widgets page, or a new day, goes back to now too. A tap on a strip doesn't run
+  the script.
 - A clock never gets old. Give it a long `staleAfter`, such as a week (604800), so the widgets
   page doesn't run the script each hour for nothing.
 

@@ -1051,6 +1051,8 @@ private fun ClockStrips(
     LaunchedEffect(seen) { if (!seen) picked = null }
     LifecycleStartEffect(Unit) { onStopOrDispose { picked = null } }
     val today by remember(here, now) { derivedStateOf { Instant.ofEpochMilli(now.value).atZone(here).toLocalDate() } }
+    // A new day starts at now: an hour picked yesterday would be one of today's without a word.
+    LaunchedEffect(today) { picked = null }
     // The moment shown: the hour picked, or now.
     val moment = remember(here, now) { derivedStateOf { picked?.let { WidgetWords.hourMoment(today, it, here) } ?: now.value } }
     val ticking = remember(places, here, format, moment) { derivedStateOf { WidgetWords.zoneTimesOf(places, moment.value, here, format) } }
@@ -1096,7 +1098,8 @@ private fun ClockStrips(
             DayStrips(
                 zones, today, here, row, gap, role,
                 at = { WidgetWords.stripAt(minute.value * 60_000, today, here) },
-                onPick = if (tappable) { { h: Int -> picked = if (h == picked) null else h } } else null,
+                onPick = if (tappable) { { h: Int? -> picked = h } } else null,
+                picking = picked != null,
             )
             HourMarks(clock24, markStyle, Modifier.padding(top = MARKS_GAP_DP.dp))
         }
@@ -1114,10 +1117,11 @@ private fun ClockStrips(
  * - It is no item for a screen reader: the card's description says what it shows.
  */
 @Composable
-private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: Int, gapDp: Int, role: Color, at: () -> Float, onPick: ((Int) -> Unit)?) {
+private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: Int, gapDp: Int, role: Color, at: () -> Float, onPick: ((Int?) -> Unit)?, picking: Boolean = false) {
     val strips = remember(zones, day, here) { zones.map { WidgetWords.dayStrip(day, here, it) } }
     val scheme = MaterialTheme.colorScheme
-    val colours = lookColors()
+    // The card's own colours: on Tonal the card is tinted by this card's role, not the theme's accent.
+    val colours = lookColors(role = role)
     val shades = remember(scheme.surface, colours.card, role) { stripShades(scheme.surface, colours.card, role) }
     val outline = scheme.outlineVariant
     val ink = scheme.onSurface
@@ -1126,6 +1130,8 @@ private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: 
     val longPress = LocalCardLongPress.current
     val haptics = LocalHapticFeedback.current
     val pick by rememberUpdatedState(onPick)
+    val picked by rememberUpdatedState(picking)
+    val lineAt by rememberUpdatedState(at)
     val taps = if (onPick == null) Modifier else Modifier.pointerInput(rtl, longPress) {
         detectTapGestures(
             onLongPress = longPress?.let { press ->
@@ -1134,7 +1140,13 @@ private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: 
                     press()
                 }
             },
-            onTap = { tap -> pick?.invoke(WidgetWords.hourAt(tap.x, size.width.toFloat(), rtl)) },
+            onTap = { tap ->
+                // A tap on the line, with an hour picked, goes back to now; anywhere else picks the nearest hour, 00:00 to 23:00.
+                val along = lineAt().coerceIn(0f, 1f)
+                val lineX = size.width * if (rtl) 1f - along else along
+                if (picked && kotlin.math.abs(tap.x - lineX) <= 12.dp.toPx()) pick?.invoke(null)
+                else pick?.invoke(WidgetWords.hourAt(tap.x, size.width.toFloat(), rtl).coerceAtMost(23))
+            },
         )
     }
     val height = (rowDp * strips.size + gapDp * (strips.size - 1)).dp
@@ -1505,7 +1517,7 @@ private fun PlaceLabel(time: WidgetWords.ZoneTime, style: TextStyle = MaterialTh
     val measurer = rememberTextMeasurer()
     val lines = remember(time) { WidgetWords.placeLines(time) }
     // A dot before words, a space before a number.
-    fun gapBefore(words: String) = if (words.first().isLetter()) " · " else " "
+    fun gapBefore(words: String) = if (words.first() in "+−±") " " else " · "
     BoxWithConstraints {
         val room = constraints.maxWidth
         val words = remember(lines, time.label, style, room, measurer) {

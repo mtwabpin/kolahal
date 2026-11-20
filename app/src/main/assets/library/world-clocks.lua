@@ -10,7 +10,8 @@
 --
 -- Its widget, once you placed it on the widgets page, shows the time in each place. Kolahal moves
 -- the clocks itself. So this script runs only when you place the widget, when you tap it, and once
--- in a week. After you change its zones option, tap the widget: it then shows the new places.
+-- in a week. After you change its zones option, tap the widget's title: it then shows the new
+-- places. At 4x2 a tap on the day strips picks an hour instead.
 --
 -- A zone is a name such as Asia/Kolkata, Europe/London or UTC. The place's name on the widget is
 -- the last part of the zone's name ("New York" for America/New_York). To pick the name yourself,

@@ -537,7 +537,7 @@ internal object WidgetWords {
             val there = moment.atZone(id)
             val day = there.toLocalDate()
             val ahead = (there.offset.totalSeconds - local.offset.totalSeconds) / 60
-            val isHere = id.normalized() == home
+            val isHere = id.normalized() == home || id.rules == here.rules
             when {
                 day.isAfter(today) -> ZoneTime(zoneLabel(zone), there.format(format), "tomorrow", "+1", ahead, isHere)
                 day.isBefore(today) -> ZoneTime(zoneLabel(zone), there.format(format), "yesterday", "${MINUS}1", ahead, isHere)

@@ -105,6 +105,8 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
         }
         WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
             val line = with(LocalDensity.current) { type.titleLarge.lineHeight.toDp() }
+            // Beside the words, the dots keep their room: seven days of 12 to 24 dp each. The words give way first.
+            val dotsWidth = min(maxWidth * 0.6f, DotCalendar.DAYS * 24.dp).coerceAtLeast(DotCalendar.DAYS * 12.dp)
             if (!words || maxHeight - line >= STRIP_MIN) {
                 Column(Modifier.fillMaxSize()) {
                     if (words) ValueLine(value, label, type.titleLarge, type.bodySmall, muted)
@@ -112,12 +114,11 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                 }
             } else {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                    // The dots keep their room, seven days of at least 12 dp: the words give way first.
                     Column(Modifier.padding(end = 12.dp).weight(1f, fill = false)) {
                         if (value != null) BigText(value, type.titleLarge)
                         if (label != null) Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Dots(spec, colour, weeks = false, Modifier.width(min(maxWidth * 0.6f, DotCalendar.DAYS * 24.dp).coerceAtLeast(DotCalendar.DAYS * 12.dp)).fillMaxHeight())
+                    Dots(spec, colour, weeks = false, Modifier.width(dotsWidth).fillMaxHeight())
                 }
             }
         }
