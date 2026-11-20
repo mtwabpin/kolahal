@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -112,11 +112,12 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                 }
             } else {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.padding(end = 12.dp).widthIn(max = 120.dp)) {
+                    // The dots keep their room, seven days of at least 12 dp: the words give way first.
+                    Column(Modifier.padding(end = 12.dp).weight(1f, fill = false)) {
                         if (value != null) BigText(value, type.titleLarge)
                         if (label != null) Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Dots(spec, colour, weeks = false, Modifier.weight(1f).fillMaxHeight())
+                    Dots(spec, colour, weeks = false, Modifier.width(min(maxWidth * 0.6f, DotCalendar.DAYS * 24.dp).coerceAtLeast(DotCalendar.DAYS * 12.dp)).fillMaxHeight())
                 }
             }
         }
@@ -178,12 +179,19 @@ internal fun Dots(spec: WidgetSpec.Chart, colour: Color, weeks: Boolean, modifie
         return
     }
     val today = rememberToday()
+    // The last point is the day the content was set: a card that hasn't run since midnight keeps its
+    // days under their own weekdays, and has no today's mark until the run brings today. Today when not known.
+    val setAt = LocalContentSetAt.current
+    val last = remember(setAt, today) {
+        if (setAt > 0) minOf(java.time.Instant.ofEpochMilli(setAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate(), today) else today
+    }
+    val lastIsToday = last == today
     val locale = Locale.getDefault()
     val first = remember(locale) { DotCalendar.firstDay(locale) }
-    val column = DotCalendar.column(today.dayOfWeek, first)
+    val column = DotCalendar.column(last.dayOfWeek, first)
     val yesNo = remember(points) { DotCalendar.yesNo(points) }
     val grown = animateFloatAsState(
-        if (yesNo && points.last() == 1f) 1f else 0f,
+        if (yesNo && lastIsToday && points.last() == 1f) 1f else 0f,
         if (cardSeen()) MaterialTheme.motionScheme.fastSpatialSpec<Float>() else snap<Float>(),
         label = "today",
     )
@@ -192,20 +200,28 @@ internal fun Dots(spec: WidgetSpec.Chart, colour: Color, weeks: Boolean, modifie
     BoxWithConstraints(modifier) {
         if (!weeks) {
             val cells = remember(points.size) { DotCalendar.strip(points.size) }
-            DotsCanvas(spec, cells, rows = 1, later = IntRange.EMPTY, yesNo, grown, paint, Modifier.fillMaxSize())
+            DotsCanvas(spec, cells, rows = 1, later = IntRange.EMPTY, yesNo, lastIsToday, grown, paint, Modifier.fillMaxSize())
             return@BoxWithConstraints
         }
         val letters = with(LocalDensity.current) { MaterialTheme.typography.labelSmall.lineHeight.toDp() }
-        // The days' letters only where a week still fits under them.
-        val lettered = maxHeight - letters >= WEEK_MIN
+        val need = DotCalendar.weeks(points.size, column)
+        fun fit(room: Dp) = (room / WEEK_MIN).toInt().coerceIn(1, need)
+        // The days' letters only where they cost no week.
+        val lettered = maxHeight - letters >= WEEK_MIN && fit(maxHeight - letters) == fit(maxHeight)
         val room = if (lettered) maxHeight - letters else maxHeight
-        val rows = (room / WEEK_MIN).toInt().coerceIn(1, DotCalendar.weeks(points.size, column))
+        val rows = fit(room)
+        // This week alone would show no day before its first: the last seven days in one row instead.
+        if (rows == 1 && need > 1) {
+            val strip = remember(points.size) { DotCalendar.strip(points.size) }
+            DotsCanvas(spec, strip, rows = 1, later = IntRange.EMPTY, yesNo, lastIsToday, grown, paint, Modifier.fillMaxSize())
+            return@BoxWithConstraints
+        }
         // The rows share the room, but none is taller than a day is wide.
         val row = min(room / rows, maxWidth / DotCalendar.DAYS)
         val cells = remember(points.size, column, rows) { DotCalendar.cells(points.size, column, rows) }
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-            if (lettered) DayLetters(first, column, locale, looks.muted, looks.content, Modifier.height(letters))
-            DotsCanvas(spec, cells, rows, DotCalendar.later(column), yesNo, grown, paint, Modifier.fillMaxWidth().height(row * rows))
+            if (lettered) DayLetters(first, if (lastIsToday) column else -1, locale, looks.muted, looks.content, Modifier.height(letters))
+            DotsCanvas(spec, cells, rows, DotCalendar.later(column), yesNo, lastIsToday, grown, paint, Modifier.fillMaxWidth().height(row * rows))
         }
     }
 }
@@ -236,7 +252,7 @@ private fun DayLetters(first: DayOfWeek, today: Int, locale: Locale, quiet: Colo
  * the last row. Only the drawing reads [grown], so today's spring draws again and composes nothing.
  */
 @Composable
-private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, rows: Int, later: IntRange, yesNo: Boolean, grown: State<Float>, paint: DotPaint, modifier: Modifier) {
+private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, rows: Int, later: IntRange, yesNo: Boolean, lastIsToday: Boolean, grown: State<Float>, paint: DotPaint, modifier: Modifier) {
     val points = spec.points
     // The sizes' scale: the chart's own, or else the points shown.
     val scale = remember(points, cells, spec.min, spec.max) { WidgetWords.scale(cells.map { points[it.index] }, spec.min, spec.max, bars = false) }
@@ -257,7 +273,7 @@ private fun DotsCanvas(spec: WidgetSpec.Chart, cells: List<DotCalendar.Cell>, ro
         for (cell in cells) {
             val v = points[cell.index]
             val at = centre(cell.row, cell.column)
-            val today = cell.index == points.lastIndex
+            val today = lastIsToday && cell.index == points.lastIndex
             when {
                 yesNo && today -> todayMark(at, dot, grown.value, paint, path, matrix)
                 yesNo && v == 1f -> drawCircle(paint.on, dot / 2, at)

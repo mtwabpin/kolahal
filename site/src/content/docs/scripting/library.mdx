@@ -207,7 +207,7 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [screen-time-months](#screen-time-months) | your screen time a day, over a bar for each month Android keeps | logs a row for each month, and home turns to the log |
 | [data-month](#data-month) | your mobile data this month, as a bar toward your plan | logs the month, and home turns to the log |
 | [unused-apps](#unused-apps) | the apps you haven't opened for 30 days, with the days and their size | logs the whole list, and home turns to the log |
-| [habit](#habit) | your streak in days, over a dot for each of the last 35 days | marks today done |
+| [habit](#habit) | your streak in days, over a dot for each day, a row for each week | marks today done |
 | [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
 | [quick-toggles](#quick-toggles) | switches for Do Not Disturb and the work profile | on a switch: turns it on or off |
 | [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
@@ -599,10 +599,10 @@ each with the days since and its size: to tidy up. It doesn't use the network. I
 ## habit
 
 **Habit streak**: a [widget](#widgets) for one thing you do every day. It shows your streak large:
-the days in a row that you did it. Under it is a dot for each of the last 35 days, a row for each
-week: a filled dot for a day you did it, and a ring for a day you didn't. So the day you tend to skip
-shows. A new habit starts with today's dot alone; the days before it began have none. It doesn't use
-the network, and it needs no access.
+the days in a row that you did it. Under it is a dot for each day, a row for each week (five weeks
+at 4x2): a filled dot for a day you did it, and a ring for a day you didn't. So the day you tend to
+skip shows. A new habit starts with today's dot alone; the days before it began have none. It
+doesn't use the network, and it needs no access.
 
 ```sh
 habit                        # the streak and the last 7 days

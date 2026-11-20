@@ -845,11 +845,13 @@ class LibraryScriptsTest {
         assertEquals(Triple("Usage: habit [done|undo]", null, StyledText.Colour.MUTED), only())
 
         // Yesterday was missed: the streak starts again, with "day" for one.
+        // A habit begun 30 days ago: day 40 is before its first, so it has no dot.
+        store.set("since", days(30))
         store.set("days", days(40, 30, 3, 2))
         run("habit.lua", before = luaKeepsShown)
         assertEquals("0 Days in a row", plainOnly().second!!.lines().first())
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
-        assertEquals(listOf(1.0, "Day in a row", points(30, 3, 2, 0)), card().let { listOf(it["value"], it["label"], it["points"]) })
+        assertEquals(listOf(1.0, "Day in a row", points(30, 30, 3, 2, 0)), card().let { listOf(it["value"], it["label"], it["points"]) })
         // Only the streak's days and the widget's 35 days are kept: the day 40 days ago is gone.
         assertEquals(days(30, 3, 2, 0), store.get("days"))
 

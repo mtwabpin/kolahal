@@ -1275,7 +1275,7 @@ removed in 0.5.9.
 
 *** 19. Habit streak                                             :phase2:built:
 
-- Shows :: Your streak in days, a dot for each of the last 35 days (a chart of dots, since 0.5.16;
+- Shows :: Your streak in days, a dot for each day, a row for each week (five at 4x2; a chart of dots, since 0.5.16;
   before, bars for the last 7 days), and a "Done today" button.
 - Sizes :: 2×1, 2×2.
 - Data :: A new script. Its own days in =store=. No access.

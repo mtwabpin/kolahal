@@ -362,8 +362,10 @@ class ScriptWidgetCardTest {
             }
         }
         val least = with(compose.density) { 12.dp.toPx() }
+        // Seven days of at least 12 dp each, and as tall as one: the words give way, not the dots.
         compose.waitFor("no room for the dots at twice the font size") {
-            compose.onAllNodes(hasTestTag("widget-dots"), useUnmergedTree = true).fetchSemanticsNodes().singleOrNull()?.let { it.size.height >= least } == true
+            compose.onAllNodes(hasTestTag("widget-dots"), useUnmergedTree = true).fetchSemanticsNodes().singleOrNull()
+                ?.let { it.size.height >= least && it.size.width >= 7 * least } == true
         }
     }
 

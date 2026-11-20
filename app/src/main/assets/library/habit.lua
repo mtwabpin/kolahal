@@ -1,6 +1,6 @@
--- habit.lua — one thing you do every day: your streak, over a dot for each day of the last five weeks. No network.
+-- habit.lua — one thing you do every day: your streak, over a dot for each day, a row for each week. No network.
 -- @command
--- @desc A daily habit's streak, over a dot for each day of the last five weeks: a widget. habit [done|undo]
+-- @desc A daily habit's streak, over a dot for each day, a row for each week: a widget. habit [done|undo]
 -- @usage [done|undo]
 -- @title Habit streak
 -- @author Kolahal
@@ -17,7 +17,7 @@
 --   habit undo                  take today's mark away
 --
 -- Its widget, once you placed it on the widgets page, shows the streak large: the days in a row
--- that you did it. Under it is a dot for each of the last 35 days, a row for each week, so the
+-- that you did it. Under it is a dot for each day, a row for each week (five weeks at 4x2), so the
 -- day you tend to skip shows. A tap on the widget marks today done. A tap by mistake: type
 -- habit undo.
 -- It runs a minute after midnight, so the widget starts the new day with an open dot.
@@ -34,7 +34,7 @@ if word ~= nil and word ~= "done" and word ~= "undo" then
   return log(fmt.color("muted", "Usage: habit [done|undo]"))
 end
 
--- The days its widget shows: five weeks.
+-- The days its widget can show: five weeks, at 4x2.
 local DAYS = 35
 
 -- The day that was `back` days before today, as "2026-11-14". Noon keeps clear of the hour that a
@@ -56,6 +56,12 @@ local since = store.get("since")
 if not since then
   for d in pairs(done) do if not since or d < since then since = d end end
   since = since or day(0)
+  store.set("since", since)
+end
+-- A first day after today (the clock was ahead, or a flight crossed the date line) would hide every
+-- day: today is the first then.
+if since > day(0) then
+  since = day(0)
   store.set("since", since)
 end
 

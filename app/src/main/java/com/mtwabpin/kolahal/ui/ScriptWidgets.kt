@@ -132,6 +132,13 @@ internal val LocalMoreNote = compositionLocalOf<((String?) -> Unit)?> { null }
 internal val LocalUntitled = compositionLocalOf<String?> { null }
 
 /**
+ * When the card's content was set, in milliseconds since 1970, or 0 when not known. A chart of dots
+ * takes its last day from it, so yesterday's days stay under their own weekdays until the next run
+ * brings today's.
+ */
+internal val LocalContentSetAt = compositionLocalOf { 0L }
+
+/**
  * Hands [text] ("+3 more", or null for nothing left out) to the title line ([LocalMoreNote]). It is
  * written after the content is drawn, and taken back when the content leaves the card.
  */
@@ -863,7 +870,7 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     }
     val onLongClick: (() -> Unit)? = remember(actions) { actions?.let { a -> { a.longPress() } } }
     val onTap: ((WidgetTap) -> Unit)? = remember(actions, key) { actions?.let { a -> { t: WidgetTap -> a.tap(key, t) } } }
-    WidgetCard(
+    CompositionLocalProvider(LocalContentSetAt provides (s?.setAt ?: 0L)) { WidgetCard(
         title = title,
         height = height,
         spec = spec,
@@ -884,7 +891,7 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
         // The time of the last run that ended, whether it showed something or failed. A switch that
         // waits for its script stops waiting when this moves.
         stamp = s?.let { WidgetAge.last(it.setAt, it.triedAt) } ?: 0L,
-    )
+    ) }
 }
 
 /** The Battery and network card's pure parts: what it draws and says for the device's [Status]. */
