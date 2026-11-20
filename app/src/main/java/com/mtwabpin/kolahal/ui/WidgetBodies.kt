@@ -2293,7 +2293,7 @@ private fun rememberSeek(spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?):
  *   doesn't turn, and the card takes no tap.
  * - It follows a finger. On release it hands `seek <ms>` to [onTap] ([WidgetWords.mediaSeek]), and
  *   stays at that place until the player answers ([Seek.held]). A tap on it moves the track there too.
- * - A screen reader hears a slider at "1:12 of 3:05" ([WidgetWords.seekSaid]), which it can move.
+ * - A screen reader hears a slider at "1:12 of 3:05", the place the times show, which it can move.
  * - [under] is drawn along its foot, under the bar: the times.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -2311,18 +2311,27 @@ private fun SeekBar(
     // Where the player is, or the place chosen, while no finger moves it. Material's own slider sets its value so.
     if (!slider.isDragging) slider.value = seek.held ?: fraction
     val source = remember { MutableInteractionSource() }
+    // A press held on the bar opens what the card's long-press opens, as on the card's buttons, and then seeks nothing.
+    val press = cardPress(source)
+    // For a screen reader: the place the times under the bar show, the player's or the finger's. The bar's own
+    // value is rounded to its step, which on a long track is seconds off. Read only by the semantics.
+    val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
     val colors = SliderDefaults.colors(thumbColor = role)
     val duration = spec.duration
     Box(modifier.fillMaxWidth().height(SEEK_HEIGHT)) {
         Slider(
             state = slider,
-            onValueChange = { slider.value = it },
+            onValueChange = { if (!press.held) slider.value = it },
             onValueChangeFinished = {
-                seek.held = slider.value
-                onTap(WidgetTap(args = WidgetWords.mediaSeek(WidgetWords.seekTarget(slider.value, duration))))
+                press.click {
+                    seek.held = slider.value
+                    onTap(WidgetTap(args = WidgetWords.mediaSeek(WidgetWords.seekTarget(slider.value, duration))))
+                }
             },
             // An item of its own inside the card, which says where the track is.
-            modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) { stateDescription = WidgetWords.seekSaid(slider.value, duration) },
+            modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) {
+                stateDescription = "${WidgetWords.mediaTime(positionAt(spec, now.value, seek))} of ${WidgetWords.mediaTime(duration)}"
+            },
             colors = colors,
             interactionSource = source,
             thumb = { SliderDefaults.Thumb(source, isVertical = false, colors = colors, thumbSize = SEEK_HANDLE) },

@@ -463,11 +463,11 @@ class MediaRepository private constructor(private val context: Context) {
             session.transportControls.play()
             return Resumed.SESSION
         }
-        if (Build.VERSION.SDK_INT >= 33) {
-            // Empty when no app would take the key. It needs notification access, as the sessions do.
-            val taker = runCatching { manager.mediaKeyEventSessionPackageName }.getOrNull()
-            if (taker != null && taker != last.pkg) return Resumed.NOTHING
-        }
+        // Without its session, a Play key goes to whichever app Android picks. Only from Android 13 can
+        // Kolahal tell that it is the last player's; before that, or when it can't tell, the app opens instead.
+        if (Build.VERSION.SDK_INT < 33) return Resumed.NOTHING
+        val taker = runCatching { manager.mediaKeyEventSessionPackageName }.getOrNull()
+        if (taker != last.pkg) return Resumed.NOTHING
         val audio = context.getSystemService(AudioManager::class.java) ?: return Resumed.NOTHING
         val at = SystemClock.uptimeMillis()
         audio.dispatchMediaKeyEvent(KeyEvent(at, at, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
