@@ -141,7 +141,8 @@ if (typeof widget !== "undefined" && !line) {
       icon: skyIcon(r.code),
       detail: describe(r.code),
       trailing: `${r.lo}–${r.hi}°`,
-      range: { low: r.lo, high: r.hi },
+      // A day the service sent without a low or a high has no bar, rather than failing the card.
+      range: Number.isFinite(r.lo) && Number.isFinite(r.hi) && r.lo <= r.hi ? { low: r.lo, high: r.hi } : undefined,
     })),
     tap: { args: "", page: "log" },
   });

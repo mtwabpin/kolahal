@@ -254,10 +254,11 @@ internal object WidgetWords {
     }
 
     /**
-     * What a screen reader says for [row]'s range: [rangeWords] when the row has no trailing text,
-     * else nothing. The bar is drawn beside the row's numbers, and those are said already.
+     * What a screen reader says for [row]'s range: [rangeWords] when the row has no trailing text, or
+     * when the range has a value, which only its dot shows. Else nothing: the bar is drawn beside the
+     * row's numbers, and those are said already.
      */
-    fun rowRange(row: WidgetSpec.Row): String? = row.range?.takeIf { row.trailing == null }?.let(::rangeWords)
+    fun rowRange(row: WidgetSpec.Row): String? = row.range?.takeIf { row.trailing == null || it.value != null }?.let(::rangeWords)
 
     /**
      * The whole card in one sentence, for a screen reader: "Weather: 24°C, Sunny, 68% humidity".

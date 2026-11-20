@@ -742,7 +742,7 @@ private fun RowWords(
  * - without, [start].
  */
 @Composable
-private fun lookBars(rows: List<WidgetSpec.Row>, width: Dp, start: Dp, checked: Dp, side: Dp, gap: Dp, style: TextStyle, inShape: Boolean): RangeBars? {
+private fun lookBars(rows: List<WidgetSpec.Row>, width: Dp, start: Dp, checked: Dp, side: Dp, gap: Dp, style: TextStyle, inShape: Boolean, details: Boolean): RangeBars? {
     if (rows.none { it.range != null }) return null
     val type = MaterialTheme.typography
     val icon = if (inShape) side else iconWidth(rows, type.titleMedium)
@@ -755,7 +755,8 @@ private fun lookBars(rows: List<WidgetSpec.Row>, width: Dp, start: Dp, checked: 
     return rangeBars(
         rows,
         room = width - bare,
-        words = widestText(rows.map { it.title }, style),
+        // A row's second line sits under its title, in the same column: it must fit too.
+        words = maxOf(widestText(rows.map { it.title }, style), widestText(if (details) rows.mapNotNull { it.detail } else emptyList(), type.bodySmall)),
         trailing = widestText(rows.mapNotNull { it.trailing }, type.labelMedium.copy(fontWeight = FontWeight.Bold)),
         mark = rows.maxOf { marked(it) } - bare,
     )
@@ -796,7 +797,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                 val more = items.size - fit
                 val count = 1 + (if (lead != null) 1 else 0) + fit
                 // A row's words start 10 dp in, after its mark: a check at 6 dp, or a rank at 10 dp. Its end has 16 dp.
-                val bars = lookBars(items.take(fit), maxWidth - 16.dp, start = 10.dp, checked = 34.dp, side = 24.dp, gap = 10.dp, rowStyle, inShape = false)
+                val bars = lookBars(items.take(fit), maxWidth - 16.dp, start = 10.dp, checked = 34.dp, side = 24.dp, gap = 10.dp, rowStyle, inShape = false, details = details)
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
                     // The last tile takes what is left, so the tiles reach the card's bottom.
                     Tile(SplitCorners.inColumn(0, count), c.tile, Modifier.fillMaxWidth().then(if (count == 1) Modifier.weight(1f) else Modifier.height(40.dp))) {
@@ -827,7 +828,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                 val more = items.size - (if (lead != null) 0 else fit)
                 val head = min(maxWidth * 0.32f, 120.dp)
                 // The rows' tiles are what the title's tile leaves. A row's words start 8 dp in, after its mark; its end has 14 dp.
-                val bars = if (lead != null) null else lookBars(items.take(fit), maxWidth - head - gap - 14.dp, start = 8.dp, checked = 34.dp, side = 22.dp, gap = 8.dp, rowStyle, inShape = false)
+                val bars = if (lead != null) null else lookBars(items.take(fit), maxWidth - head - gap - 14.dp, start = 8.dp, checked = 34.dp, side = 22.dp, gap = 8.dp, rowStyle, inShape = false, details = false)
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     Tile(SplitCorners.inRow(0, 2), c.tile, Modifier.fillMaxHeight().width(head)) {
                         Column(Modifier.align(Alignment.CenterStart).padding(horizontal = 12.dp)) {
@@ -916,7 +917,7 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
         val leadSide = minOf(leadHeight, 64.dp)
         val style = if (box == WidgetSizes.Box.SMALL) type.bodySmall.copy(fontWeight = FontWeight.SemiBold) else rowStyle
         // A row's words start 10 dp after its shape, or after its checkbox.
-        val bars = lookBars(items.take(fit), maxWidth, start = 0.dp, checked = 28.dp, side = mark, gap = 10.dp, style, inShape = true)
+        val bars = lookBars(items.take(fit), maxWidth, start = 0.dp, checked = 28.dp, side = mark, gap = 10.dp, style, inShape = true, details = details)
         Column(Modifier.fillMaxSize()) {
             if (large) {
                 Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {

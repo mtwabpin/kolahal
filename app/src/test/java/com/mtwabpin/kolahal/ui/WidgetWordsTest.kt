@@ -275,11 +275,14 @@ class WidgetWordsTest {
             items = listOf(
                 WidgetSpec.Row("Sat", trailing = "22–31°", range = WidgetSpec.Range(22f, 31f)),
                 WidgetSpec.Row("BTC", range = WidgetSpec.Range(94_100f, 97_900f, 97_420f)),
+                WidgetSpec.Row("Pune", trailing = "22–31°", range = WidgetSpec.Range(22f, 31f, 27f)),
             ),
         )
-        assertEquals("Prices: Sat, 22–31°, BTC, 97420, from 94100 to 97900", WidgetWords.description("Prices", rows, now, utc))
+        assertEquals("Prices: Sat, 22–31°, BTC, 97420, from 94100 to 97900, Pune, 22–31°, 27, from 22 to 31", WidgetWords.description("Prices", rows, now, utc))
         assertNull(WidgetWords.rowRange(rows.items[0]))
         assertEquals("97420, from 94100 to 97900", WidgetWords.rowRange(rows.items[1]))
+        // A value is shown only by its dot, so it is said even beside the numbers.
+        assertEquals("27, from 22 to 31", WidgetWords.rowRange(rows.items[2]))
     }
 
     @Test fun aCardIsOneSentenceForAScreenReader() {

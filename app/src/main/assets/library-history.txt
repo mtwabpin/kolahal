@@ -89,6 +89,7 @@ forecast.js 368da97ae4237ed8
 forecast.js 3e471f066589bf04
 forecast.js 44a71e880ecd9c7d
 forecast.js 4520a4efeda04e5f
+forecast.js 535b0e2593dc3e0f
 forecast.js 58d33e2e22b2dfaa
 forecast.js 5e86d4d3ba6e0f6c
 forecast.js 5fca0ded0fe7c940

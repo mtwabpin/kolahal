@@ -491,7 +491,7 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, 
         // All rows drawn: they share the height, so a short list fills the card.
         val rowHeight = if (fill) WidgetWords.rowHeight(items.size, shown, maxHeight.value, rowDp, ROW_GAP_DP).dp else rowDp.dp
         val rows = items.take(shown)
-        val (bars, ends) = listBars(rows, maxWidth)
+        val (bars, ends) = listBars(rows, maxWidth, details)
         ReportMore(if (more > 0) "+$more more" else null)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
             rows.forEachIndexed { i, row ->
@@ -609,11 +609,14 @@ private val RANGE_ROW_PAD = 8.dp
  * - Without bars, the rows keep [ROW_PAD].
  */
 @Composable
-private fun listBars(rows: List<WidgetSpec.Row>, width: Dp): Pair<RangeBars?, Dp> {
+private fun listBars(rows: List<WidgetSpec.Row>, width: Dp, details: Boolean): Pair<RangeBars?, Dp> {
     if (rows.none { it.range != null }) return null to ROW_PAD
     val type = MaterialTheme.typography
     val icon = iconWidth(rows, type.titleMedium) + 10.dp
-    val words = widestText(rows.map { it.title }, type.bodyMedium)
+    // A row's second line sits under its title, in the same column: it must fit too.
+    val titles = widestText(rows.map { it.title }, type.bodyMedium)
+    val seconds = widestText(if (details) rows.mapNotNull { it.detail } else emptyList(), type.bodySmall)
+    val words = maxOf(titles, seconds)
     val trailing = widestText(rows.mapNotNull { it.trailing }, type.labelLarge)
     fun mark(r: WidgetSpec.Row) = when {
         r.icon != null -> icon
