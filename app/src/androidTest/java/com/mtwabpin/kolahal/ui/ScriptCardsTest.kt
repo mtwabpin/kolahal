@@ -250,7 +250,9 @@ class ScriptCardsTest {
         assertTrue("no question asked", compose.onAllNodes(isDialog()).fetchSemanticsNodes().isEmpty())
         compose.waitForText("countdown.lua is updated")
         compose.onNodeWithText("Undo").performClick()
-        compose.waitFor("the older copy back") { scripts.byId(s.id)!!.code == old }
+        // Undo puts the code back, then the original it was installed from: its notice comes after both.
+        compose.waitForText("countdown.lua is as it was")
+        assertEquals(old, scripts.byId(s.id)!!.code)
         assertEquals(ScriptLibrary.State.UPDATE_AVAILABLE, library.state(entry, scripts.all()))
     }
 
