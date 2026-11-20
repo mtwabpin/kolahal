@@ -152,7 +152,7 @@ class LibraryWidgetsTest {
             card,
         )
         assertEquals("Exercise: 3, Days in a row, Done on 29 of the last 35 days", WidgetWords.description("Exercise", card, 0, java.time.ZoneOffset.UTC))
-        // Done today: the good colour, and the title line ends with "Done today".
+        // Done today: the good colour, and "Done today" as the note at a large card's foot.
         val done = days(4.0, open.dropLast(1) + 1.0, color = "good", note = "Done today")
         assertEquals(listOf("4", StyledText.Colour.GOOD, 1f, "Done today"), listOf(done.value, done.base.color, done.points.last(), done.base.note))
         // A new habit: only today, and no dot for the days before its first.

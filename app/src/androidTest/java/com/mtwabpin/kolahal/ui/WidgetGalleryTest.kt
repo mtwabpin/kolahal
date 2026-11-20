@@ -115,10 +115,9 @@ class WidgetGalleryTest {
     /**
      * One picture: [spec]'s card at [size], under [title], saved as `real-<name>-<size>.png`.
      * With [inView] the card is drawn as on the page in view: a wave moves and a picture loads.
-     * [badge] is the drawable of a built-in card's badge ([builtinBadge]). With [taps] the card
-     * takes taps, as on the page: a media card's bar is then a slider.
+     * With [taps] the card takes taps, as on the page: a media card's bar is then a slider.
      */
-    private data class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val badge: Int? = null, val prefix: String = "real", val look: WidgetLook = WidgetLook.PLAIN, val taps: Boolean = false) {
+    private data class Shot(val name: String, val size: WidgetSize, val title: String, val spec: WidgetSpec, val inView: Boolean = false, val prefix: String = "real", val look: WidgetLook = WidgetLook.PLAIN, val taps: Boolean = false) {
         val file get() = "$prefix-$name-${size.id}.png"
     }
 
@@ -205,7 +204,6 @@ class WidgetGalleryTest {
                                         height = WidgetSizes.heightDp(shot.size, pageDp).dp,
                                         spec = shot.spec,
                                         note = null,
-                                        badge = shot.badge,
                                         description = WidgetWords.description(shot.title, shot.spec, now, zone, clock24 = true),
                                     )
                                 }
@@ -243,7 +241,6 @@ class WidgetGalleryTest {
                                         height = WidgetSizes.heightDp(shot.size, pageDp).dp,
                                         spec = shot.spec,
                                         note = null,
-                                        badge = shot.badge,
                                         description = WidgetWords.description(shot.title, shot.spec, now, zone, clock24 = true),
                                         onTap = if (shot.taps) ({ _: WidgetTap -> }) else null,
                                     )
@@ -417,8 +414,8 @@ class WidgetGalleryTest {
                 listOf(WidgetSpec.Event("IND v NZ", at(0, 19, 30)), WidgetSpec.Event("AUS v ENG", at(1, 14, 0)), WidgetSpec.Event("SA v PAK", at(1, 19, 30))),
             ),
         ),
-        Shot("kind-media", WidgetSize.S4X1, "Now playing", media, badge = builtinBadge(WidgetSource.MEDIA)),
-        Shot("kind-media-cover", WidgetSize.S4X1, "Now playing", mediaCover, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
+        Shot("kind-media", WidgetSize.S4X1, "Now playing", media),
+        Shot("kind-media-cover", WidgetSize.S4X1, "Now playing", mediaCover, taps = true),
         Shot(
             "kind-image", WidgetSize.S2X2, "Photo of the day",
             WidgetSpec.Image(base("Photo of the day"), image = HILLS, alt = "Hills at sunrise", caption = "Sunrise over the ghats"),
@@ -479,8 +476,8 @@ class WidgetGalleryTest {
                 "quote", WidgetSize.S2X2, "Quote of the day",
                 WidgetSpec.Text(base("Quote of the day", "quote"), "Simplicity is prerequisite for reliability.", "Edsger W. Dijkstra"),
             ),
-            Shot("battery", WidgetSize.S2X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
-            Shot("battery", WidgetSize.S1X1, BatteryCards.title(battery), BatteryCards.spec(battery), badge = builtinBadge(WidgetSource.BATTERY)),
+            Shot("battery", WidgetSize.S2X1, BatteryCards.title(battery), BatteryCards.spec(battery)),
+            Shot("battery", WidgetSize.S1X1, BatteryCards.title(battery), BatteryCards.spec(battery)),
             Shot(
                 "unlocks", WidgetSize.S2X2, "Unlocks",
                 WidgetSpec.Chart(base("Unlocks", "unlock", Colour.INFO), week, style = "bars", min = 0f, max = 71f, value = "46", label = "unlocks today", labels = ago),
@@ -501,16 +498,16 @@ class WidgetGalleryTest {
                     ),
                 ),
             ),
-            Shot("shortcuts", WidgetSize.S4X1, "Shortcuts", checkNotNull(OwnCards.shortcuts(shortcuts)), badge = builtinBadge(WidgetSource.SHORTCUTS)),
-            Shot("nowplaying", WidgetSize.S4X2, "Now playing", media, badge = builtinBadge(WidgetSource.MEDIA)),
-            Shot("nowplaying-cover", WidgetSize.S4X2, "Now playing", mediaCover, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
-            Shot("nowplaying-seek", WidgetSize.S4X2, "Now playing", media.copy(canSeek = true), badge = builtinBadge(WidgetSource.MEDIA), taps = true),
-            Shot("nowplaying-last", WidgetSize.S4X2, "Now playing", mediaLast, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
-            Shot("nowplaying-last", WidgetSize.S4X1, "Now playing", mediaLast, badge = builtinBadge(WidgetSource.MEDIA), taps = true),
-            Shot("todos", WidgetSize.S2X2, "Todos", OwnCards.todos(todos.mapIndexed { i, text -> Todo(i + 1L, text, done = false) }), badge = builtinBadge(WidgetSource.TODOS)),
-            Shot("agenda", WidgetSize.S4X2, "Agenda", agenda, badge = builtinBadge(WidgetSource.AGENDA)),
-            Shot("reminders", WidgetSize.S2X2, "Reminders", OwnCards.reminders(reminders, nowMs, zone, clock24 = true), badge = builtinBadge(WidgetSource.REMINDERS)),
-            Shot("notes", WidgetSize.S2X1, "Notes", checkNotNull(OwnCards.notes(listOf(Note(1, "Parcel comes Tuesday. The gate code is with the guard.", nowMs)))), badge = builtinBadge(WidgetSource.NOTES)),
+            Shot("shortcuts", WidgetSize.S4X1, "Shortcuts", checkNotNull(OwnCards.shortcuts(shortcuts))),
+            Shot("nowplaying", WidgetSize.S4X2, "Now playing", media),
+            Shot("nowplaying-cover", WidgetSize.S4X2, "Now playing", mediaCover, taps = true),
+            Shot("nowplaying-seek", WidgetSize.S4X2, "Now playing", media.copy(canSeek = true), taps = true),
+            Shot("nowplaying-last", WidgetSize.S4X2, "Now playing", mediaLast, taps = true),
+            Shot("nowplaying-last", WidgetSize.S4X1, "Now playing", mediaLast, taps = true),
+            Shot("todos", WidgetSize.S2X2, "Todos", OwnCards.todos(todos.mapIndexed { i, text -> Todo(i + 1L, text, done = false) })),
+            Shot("agenda", WidgetSize.S4X2, "Agenda", agenda),
+            Shot("reminders", WidgetSize.S2X2, "Reminders", OwnCards.reminders(reminders, nowMs, zone, clock24 = true)),
+            Shot("notes", WidgetSize.S2X1, "Notes", checkNotNull(OwnCards.notes(listOf(Note(1, "Parcel comes Tuesday. The gate code is with the guard.", nowMs))))),
             Shot(
                 "worldclocks", WidgetSize.S2X2, "World clocks",
                 WidgetSpec.Clock(

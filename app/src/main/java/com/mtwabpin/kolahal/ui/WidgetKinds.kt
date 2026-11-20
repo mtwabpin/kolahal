@@ -164,6 +164,16 @@ internal fun QuietLine(text: String, small: Boolean = false) {
 }
 
 /**
+ * The card's name ([LocalUntitled]), small, over content that doesn't say what it is: a large
+ * list or text, or what a card says in place of its content. Nothing when the card gives no name.
+ */
+@Composable
+internal fun CardName(modifier: Modifier = Modifier) {
+    val name = LocalUntitled.current ?: return
+    Text(cardText(name), style = MaterialTheme.typography.labelMedium, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)
+}
+
+/**
  * A bar from 0 to 1 in [colour]. It moves to a new value on the theme's spring.
  * - With [moving], and while the widgets page is in view, it is a wave that moves: something is
  *   in progress.
@@ -260,6 +270,7 @@ internal fun BoldText(text: String, size: TextUnit, colour: Color, modifier: Mod
  *   first smaller value. The others go between them, as many as fit. A box under 150 dp has no
  *   room for that column: the label goes under the value, and a bar takes the label's place.
  * - Large: the value and its label at the top. The smaller values and the bar are at the bottom.
+ * - With no label, the card's name ([LocalUntitled]) is its label: there is no title line.
  */
 @Composable
 private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
@@ -271,10 +282,11 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
     // Plain, or Tonal: the same layout, with chips and quiet text in the Tonal card's colours.
     val muted = lookColors(look).muted
+    val label = spec.label ?: LocalUntitled.current
     if (box == WidgetSizes.Box.SMALL) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             BigText(WidgetWords.joined(spec.value, spec.unit), valueStyle(box))
-            spec.label?.let { Text(cardText(it), style = type.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            label?.let { Text(cardText(it), style = type.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         return
     }
@@ -294,9 +306,9 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     if (large) {
         Column(Modifier.fillMaxSize()) {
             value(Modifier)
-            if (spec.label != null || hasChange) Row(verticalAlignment = Alignment.CenterVertically) {
-                spec.label?.let { Text(cardText(it), style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
-                if (hasChange) ChangeText(spec.trend, spec.delta, colour, type.titleSmall, Modifier.padding(start = if (spec.label != null) 8.dp else 0.dp))
+            if (label != null || hasChange) Row(verticalAlignment = Alignment.CenterVertically) {
+                label?.let { Text(cardText(it), style = type.bodyMedium, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
+                if (hasChange) ChangeText(spec.trend, spec.delta, colour, type.titleSmall, Modifier.padding(start = if (label != null) 8.dp else 0.dp))
             }
             Spacer(Modifier.weight(1f))
             if (spec.more.isNotEmpty()) {
@@ -321,7 +333,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
         val first = spec.more.firstOrNull()
         // A smaller value between the big one and the end column needs about 64 dp, after 112 dp
         // for the big one and 96 dp for the column.
-        val column = if (side && (spec.label != null || first != null)) 96.dp else 0.dp
+        val column = if (side && (label != null || first != null)) 96.dp else 0.dp
         val between = if (side) spec.more.drop(1) else spec.more
         val half = maxWidth / 2
         val beside = ((maxWidth - 112.dp - column) / 64.dp).toInt().coerceIn(0, between.size)
@@ -329,14 +341,14 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     value(Modifier)
-                    if (!side && spec.progress == null) spec.label?.let {
+                    if (!side && spec.progress == null) label?.let {
                         Text(cardText(it), style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 between.take(beside).forEach { SmallValue(it, muted, Modifier.padding(start = 12.dp).widthIn(max = 72.dp)) }
                 if (column > 0.dp) {
                     Column(Modifier.padding(start = 12.dp).widthIn(max = half), horizontalAlignment = Alignment.End) {
-                        spec.label?.let {
+                        label?.let {
                             // Over a smaller value the label is the column's heading. Alone it is a quiet note, on up to two lines.
                             if (first != null) Text(cardText(it), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             else Text(cardText(it), style = type.bodySmall, color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
@@ -391,6 +403,7 @@ internal fun SmallValue(small: WidgetSpec.Small, muted: Color, modifier: Modifie
 /**
  * `text`: a few lines, cut with "…" where the box ends, and a caption under them. A small box has no
  * caption. A large box has the text in bold, as the mockup has it: there it is the card's main thing.
+ * A large box has the card's name over the text ([CardName]): "Word of the day".
  */
 @Composable
 private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
@@ -406,6 +419,7 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
         WidgetSizes.Box.LARGE -> type.titleMedium.copy(fontWeight = FontWeight.Bold)
     }
     Column(Modifier.fillMaxSize()) {
+        if (box == WidgetSizes.Box.LARGE) CardName(Modifier.padding(bottom = 4.dp))
         // The text gets the height that is left, and its last line that fits ends in "…".
         Text(cardText(spec.text), style = style, color = MaterialTheme.colorScheme.onSurface, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).fillMaxWidth())
         if (box != WidgetSizes.Box.SMALL) spec.caption?.let {
@@ -426,21 +440,29 @@ private fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
  *   keep their height, as the mockup's Reminders card has them.
  * - A narrow list (under 200 dp) leaves the second lines out.
  * - Rows with a range have a bar between their words and their trailing text ([RangeBars]).
- * - "+3 more" is at the end of the card's title line ([ReportMore]). A card without one has the
- *   line under the rows.
+ * - "+3 more" is the line under the rows.
+ * - A large list has the card's name over its rows ([CardName]): "Groceries".
  * - The lead: in a large box, the big value and its label over the rows. A small or a wide box
- *   has room for the lead alone, and counts the rows as "+3 more".
+ *   has room for the lead alone.
  */
 @Composable
 private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     val lead = spec.lead
     val look = LocalWidgetLook.current
     when {
+        lead == null && spec.items.isEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
+            // An empty large list says which list it is over its words ("All read"), as it does over its rows.
+            CardName()
+            Box(Modifier.weight(1f).fillMaxWidth()) { QuietLine(spec.empty ?: WidgetWords.NOTHING) }
+        }
         lead == null && spec.items.isEmpty() -> QuietLine(spec.empty ?: WidgetWords.NOTHING)
         look.untitled() -> RowsLook(spec, box, onTap, look)
+        lead == null && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
+            CardName(Modifier.padding(bottom = 8.dp))
+            Box(Modifier.weight(1f).fillMaxWidth()) { RowList(spec.items, onTap, roleColour(spec.base)) }
+        }
         lead == null -> RowList(spec.items, onTap, roleColour(spec.base))
         box != WidgetSizes.Box.LARGE -> {
-            ReportMore(if (spec.items.isNotEmpty()) "+${spec.items.size} more" else null)
             Box(Modifier.fillMaxSize(), contentAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.Center else Alignment.CenterStart) {
                 LeadLine(lead, valueStyle(box), centred = box == WidgetSizes.Box.SMALL)
             }
@@ -476,7 +498,6 @@ private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) 
  */
 @Composable
 private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, role: Color, fill: Boolean = true) {
-    val inTitle = LocalMoreNote.current != null
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val details = maxWidth >= 200.dp && items.any { it.detail != null }
         val rowDp = when {
@@ -485,19 +506,17 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, 
             else -> 32
         }
         val heightDp = maxHeight.value.toInt()
-        val moreDp = if (inTitle) 0 else MORE_DP
-        val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, moreDp, ROW_GAP_DP)
+        val shown = WidgetWords.rowsShown(items.size, heightDp, rowDp, MORE_DP, ROW_GAP_DP)
         val more = items.size - shown
         // All rows drawn: they share the height, so a short list fills the card.
         val rowHeight = if (fill) WidgetWords.rowHeight(items.size, shown, maxHeight.value, rowDp, ROW_GAP_DP).dp else rowDp.dp
         val rows = items.take(shown)
         val (bars, ends) = listBars(rows, maxWidth, details)
-        ReportMore(if (more > 0) "+$more more" else null)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp)) {
             rows.forEachIndexed { i, row ->
                 key(i) { ListRow(row, rowHeight, details, segmentShape(i, shown), onTap, bars, ends, role) }
             }
-            if (!inTitle && WidgetWords.showsMore(items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
+            if (WidgetWords.showsMore(items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
                 Text(
                     "+$more more",
                     style = MaterialTheme.typography.labelMedium,
@@ -854,7 +873,8 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
                 }
             }
         } else {
-            val label = spec.label.takeIf { box == WidgetSizes.Box.LARGE }
+            // With no label, the card's name says what the ring is.
+            val label = (spec.label ?: untitled).takeIf { box == WidgetSizes.Box.LARGE }
             val labelRoom = if (label != null) 24.dp else 0.dp
             val side = min(maxWidth, maxHeight - labelRoom).coerceAtLeast(24.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -896,7 +916,7 @@ private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Col
     Column(Modifier.fillMaxSize(), verticalArrangement = if (large) Arrangement.SpaceBetween else Arrangement.Center) {
         Row {
             BigText(spec.text ?: WidgetWords.percent(spec.value, spec.max), valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
-            if (box != WidgetSizes.Box.SMALL) spec.label?.let {
+            if (box != WidgetSizes.Box.SMALL) (spec.label ?: LocalUntitled.current)?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodySmall,
@@ -1007,8 +1027,18 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
         verticalArrangement = if (large) Arrangement.Top else Arrangement.Center,
         horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start,
     ) {
-        CountdownValue(count, large, box)
-        if (bar == null || large) spec.label?.let {
+        // With no label, the card's name says what the wait is for: "Goa trip".
+        val label = spec.label ?: LocalUntitled.current
+        if (!small && !large && bar != null && label != null) {
+            // A wide card's bar takes the line under the number: the label goes at the end of the number's line.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { CountdownValue(count, large, box) }
+                Text(label, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp).widthIn(max = 160.dp))
+            }
+        } else {
+            CountdownValue(count, large, box)
+        }
+        if (bar == null || large) label?.let {
             // A small box has room for two short lines: "to 20 / December".
             Text(it, style = if (large) type.bodyMedium else type.bodySmall, color = muted, maxLines = if (small) 2 else 1, overflow = TextOverflow.Ellipsis, textAlign = if (small) TextAlign.Center else TextAlign.Start)
         }
@@ -1068,7 +1098,8 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
     val muted = colours.muted
     val bars = spec.style == "bars"
     val value = spec.value
-    val label = spec.label
+    // With no label, the card's name says what the chart is.
+    val label = spec.label ?: LocalUntitled.current
     // The ring around the line's last dot is in the card's colour.
     val surface = colours.card
     when (box) {

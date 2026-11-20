@@ -454,7 +454,7 @@ class WidgetWordsTest {
 
     /** A narrow card has fewer media buttons, never smaller ones. Play or pause is always there. */
     @Test fun aNarrowMediaCardHasFewerButtons() {
-        // Beside the texts: 4×1 has all three, also with its badge. 2×1 has play or pause alone.
+        // Beside the texts: 4×1 has all three. 2×1 has play or pause alone.
         assertEquals(3, WidgetWords.mediaButtons(312, besideText = true))
         assertEquals(3, WidgetWords.mediaButtons(260, besideText = true))
         assertEquals(1, WidgetWords.mediaButtons(136, besideText = true))
@@ -886,41 +886,6 @@ class WidgetWordsTest {
         // The largest card of a phone stays under the cache: 8 bytes for each pixel of its place.
         val full = WidgetWords.pictureSize(1080, 1200)
         assertTrue(full.maxPixels * 4 <= 12 * 1024 * 1024)
-    }
-
-    /** A button is never under 48 dp. So a wide card too low leaves out its title line, not a button. */
-    @Test fun aWideCardOfButtonsLeavesOutItsTitleLineWhenLow() {
-        val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))
-        val toggles = WidgetSpec.Toggles(base, items = listOf(WidgetSpec.Toggle("A", on = true, tap = go)))
-        assertTrue(WidgetWords.wideTitle(buttons, 100))
-        // A card of one row (92 dp) gives the title's line to its buttons.
-        assertFalse(WidgetWords.wideTitle(buttons, 92))
-        assertFalse(WidgetWords.wideTitle(toggles, 80))
-        // A media card's first line is the track, so it never has the title line.
-        assertFalse(WidgetWords.wideTitle(song, 120))
-        // Any other kind, and a card with no content, has it.
-        assertTrue(WidgetWords.wideTitle(WidgetSpec.Stat(base, value = "1"), 72))
-        assertTrue(WidgetWords.wideTitle(null, 72))
-    }
-
-    /** A text and named bars give the title's line to their content when they need it, but never while there is a footer to show. */
-    @Test fun aWideCardLeavesOutItsTitleWhenItsContentNeedsTheLine() {
-        val text = WidgetSpec.Text(base, text = "Carry an umbrella")
-        // Two lines and a caption need 56 dp under the 20 dp title line and the 24 dp of padding.
-        assertFalse(WidgetWords.wideTitle(text, 92))
-        assertTrue(WidgetWords.wideTitle(text, 100))
-        fun bars(n: Int) = WidgetSpec.Progress(base, value = 0f, items = List(n) { WidgetSpec.Bar(label = "Disk $it", value = 1f, max = 1f, text = null, color = null) })
-        // Two named bars need 60 dp: 92 dp less padding and title leaves 48.
-        assertFalse(WidgetWords.wideTitle(bars(2), 92))
-        assertTrue(WidgetWords.wideTitle(bars(1), 92))
-        assertTrue(WidgetWords.wideTitle(bars(2), 104))
-        // One bar alone, or a ring: the title stays.
-        assertTrue(WidgetWords.wideTitle(WidgetSpec.Progress(base, value = 1f), 72))
-        // "Failed 10:42" is in the title line, so a card with a footer keeps it.
-        val buttons = WidgetSpec.Buttons(base, items = listOf(WidgetSpec.Button("A", go)))
-        assertTrue(WidgetWords.wideTitle(buttons, 92, footer = true))
-        assertTrue(WidgetWords.wideTitle(text, 92, footer = true))
-        assertTrue(WidgetWords.wideTitle(bars(2), 92, footer = true))
     }
 
     @Test fun anAgeIsShortOnTheCardAndInWholeWordsForAScreenReader() {

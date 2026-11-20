@@ -788,18 +788,17 @@ Every kind takes these fields. All are optional.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `kind` | a kind's name | The card to draw. Without it: the kind on the `@widget` line. |
-| `title` | text, up to 40 characters | The card's small heading. Without it: the script's `@title`, or its name. |
-| `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's colour; or an emoji or a letter. Without it, a large card's badge is the first letter of the title. |
-| `color` | a role | The colour of the badge, the bar, the ring or the chart: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
+| `title` | text, up to 40 characters | The card's name. A card has no title line: the name shows small where the content doesn't say what it is, over a large list or text, or as the label of a number, a bar, a ring, a chart or a countdown that has none. A screen reader always says it. Without it: the script's `@title`, or its name. |
+| `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's colour by the Bold, Split and Shape looks; or an emoji or a letter. |
+| `color` | a role | The colour of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
-| `note` | text, up to 16 characters | A few words at the end of the title line, in the card's colour: `Done today`. A list's "+3 more" and the content's age ("2 h ago", "Failed 10:42") come first: then the note waits. Needs Kolahal 0.5.11. |
+| `note` | text, up to 16 characters | A few words in the card's colour on a large card's last line, before the content's age: `Done today`. A wide or small card has no room for that line; a screen reader still says the note. Needs Kolahal 0.5.11. |
 
-A wide card under 100dp tall gives its title line to its content when the content needs the room:
-buttons, switches, a `text`, and bars with their names. A card one row high (`2x1`, `4x1`) is
-under 100dp on most phones. The age and "Failed 10:42" are on the title line, so a card with one of
-them to show keeps the line. A screen reader always says the title.
+No card has a title line: the content has the card's room. A large card's last line has the note
+and the content's age or "Failed 10:42". A wide or small card has no room for that line, and a
+screen reader says them all the same.
 
 ### Icons
 
@@ -839,7 +838,7 @@ A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's
 | `text` | text, up to 500 | Needed. It keeps its line breaks. |
 | `caption` | text, up to 60 | A line under it: an author, a source. |
 
-**`list`**: rows. The card shows as many rows as fit, and says "+3 more" at the end of its title line.
+**`list`**: rows. The card shows as many rows as fit, and says "+3 more" under them.
 When every row fits, the rows grow to fill the card.
 
 | Field | Value | What it is |
@@ -1049,9 +1048,7 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
 
 - A small card shows fewer buttons, never smaller ones. So put the important ones first.
-- A button is at least 48dp tall. A wide card under 100dp tall leaves out its title line to keep
-  that room, unless it has an age or "Failed 10:42" to show (see above). The same goes for
-  `toggles`.
+- A button is at least 48dp tall. The same goes for `toggles`.
 - A button can't run a terminal command. In a run that a button starts, the script can use
   [`launcher.run`](#launcherruncommand), under its rules.
 
@@ -1123,8 +1120,8 @@ Each place is `{ zone, label }`. `zone` is needed.
   from 00 to 24, shaded by the time at that place: night (before 06:00 and from 22:00), day, and
   working hours (09:00 to 18:00). A line across the strips marks the time now.
 - Tap a strip to move the line to that hour: every place then shows its time at that hour of your
-  day, from 00:00 to 23:00. Tap the line again, or tap **Now** on the card's title line, to go back
-  to now. Leaving the widgets page, or a new day, goes back to now too. A tap on a strip doesn't run
+  day, from 00:00 to 23:00. Tap the line again, or tap **Now** under the strips, to go back to
+  now. Leaving the widgets page, or a new day, goes back to now too. A tap on a strip doesn't run
   the script.
 - A clock never gets old. Give it a long `staleAfter`, such as a week (604800), so the widgets
   page doesn't run the script each hour for nothing.

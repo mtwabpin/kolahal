@@ -182,7 +182,7 @@ class ScriptWidgetCardTest {
         )
         show(name)
         // The arrow before the change is drawn, not written: the description says "up 2".
-        draws(name, "Weather", "☀", "24", "°C", "2", "Sunny", "68%", "Humidity", "12", "km/h")
+        draws(name, "24", "°C", "2", "Sunny", "68%", "Humidity", "12", "km/h")
         says(name, "Weather: 24°C, Sunny, up 2, 68% humidity, 12 km/h, 40%")
         // Current content has no footer.
         assertTrue(texts(name).toString(), texts(name).none { it.endsWith("ago") || it.startsWith("Failed") })
@@ -190,11 +190,15 @@ class ScriptWidgetCardTest {
         compose.onAllNodes(inCard(name) and hasClickAction()).assertCountEquals(0)
     }
 
-    /** A note ends the title line, and a screen reader hears it after the title. */
-    @Test fun aNoteEndsTheTitleLine() {
+    /**
+     * A large card has the script's note at its foot, and a screen reader hears it after the title.
+     * No title line: the label says what the number is, so the title isn't drawn.
+     */
+    @Test fun aNoteIsAtTheFootOfALargeCard() {
         val name = kept("note", WidgetSpec.Stat(WidgetBase(title = "Exercise", note = "Done today"), "5", label = "days in a row"))
         show(name)
-        draws(name, "Exercise", "Done today", "5", "Days in a row")
+        draws(name, "Done today", "5", "Days in a row")
+        assertFalse(texts(name).toString(), "Exercise" in texts(name))
         says(name, "Exercise, Done today: 5, Days in a row")
     }
 
@@ -261,7 +265,7 @@ class ScriptWidgetCardTest {
         )
         val bar = kept("bar", WidgetSpec.Progress(WidgetBase(), 3f, 5f, text = "3 of 5", label = "chapters", style = "bar"))
         show(ring, bars, bar)
-        draws(ring, "Battery", "68%", "Charging")
+        draws(ring, "68%", "Charging")
         says(ring, "Battery: 68%, Charging")
         draws(bars, "Disk", "Photos", "30%", "Music", "5 GB")
         says(bars, "Disk: Photos 30%, Music 5 GB")
@@ -280,7 +284,7 @@ class ScriptWidgetCardTest {
             WidgetSpec.Chart(WidgetBase(title = "Rain"), listOf(0f, 2.5f), style = "bars", value = "2.5 mm", summary = "More rain than yesterday"),
         )
         show(steps, told)
-        draws(steps, "Steps", "5,204", "Today", "Mon", "Thu")
+        draws(steps, "5,204", "Today", "Mon", "Thu")
         says(steps, "Steps: 5,204, Today, 4 values, from 1 to 5, the latest 5")
         draws(told, "Rain", "2.5 mm")
         says(told, "Rain: 2.5 mm, More rain than yesterday")
@@ -309,7 +313,7 @@ class ScriptWidgetCardTest {
         val open = WidgetSpec.Chart(WidgetBase(title = "Exercise"), days, style = "dots", value = "4", label = "days in a row")
         val habit = kept("dots", open)
         show(habit)
-        draws(habit, "Exercise", "4", "Days in a row")
+        draws(habit, "4", "Days in a row")
         says(habit, "Exercise: 4, Days in a row, Done on 27 of the last 35 days")
         val before = inAccent(habit)
         assertTrue("no dots in the card's colour", before > 0)
@@ -401,7 +405,7 @@ class ScriptWidgetCardTest {
         val past = kept("countdown-past", WidgetSpec.Countdown(WidgetBase(title = "Since"), to = now - 5 * day - 3_600, label = "the move"))
         show(trip, reached, past)
         // The number and its unit are two texts: the number big, the unit small.
-        draws(trip, "Trip", "3", "days", "To Goa")
+        draws(trip, "3", "days", "To Goa")
         says(trip, "Trip: 3 days, To Goa")
         draws(reached, "Launch", "Lift-off")
         says(reached, "Launch: Lift-off")
@@ -425,8 +429,8 @@ class ScriptWidgetCardTest {
         draws(ran, ran, "Nothing to show")
         says(ran, "$ran: Nothing to show")
         says(new, "$new: loading")
-        // The title, and its first letter in the badge: no other text while it loads.
-        assertEquals(listOf("W", new), texts(new))
+        // The card's name alone while it loads.
+        assertEquals(listOf(new), texts(new))
     }
 
     /** Content that can't be read, and a built-in widget this version doesn't know, say "Widget unavailable". */
@@ -462,8 +466,8 @@ class ScriptWidgetCardTest {
         says(quick, "Score: 136/8. Updated 5 minutes ago")
         draws(current, "Weather", "24")
         says(current, "Weather: 24")
-        // The badge's letter, the title and the value: no age.
-        assertEquals(listOf("W", "Weather", "24"), texts(current))
+        // The value, and the title as its label, as it has none: no age.
+        assertEquals(listOf("24", "Weather"), texts(current))
     }
 
     /** After a run that failed, the footer says when. What the widget showed stays; with nothing kept, the card has the error's first line. */
@@ -593,8 +597,8 @@ class ScriptWidgetCardTest {
         draws(first, "London", "First")
         draws(second, "Tokyo", "Second")
         // With no title of its own, a card has its script's name. A further widget's has its id too.
-        draws(first, first)
-        draws(second, "$first 2")
+        compose.waitFor("$first's card says ${said(first)}") { said(first).startsWith("$first: ") }
+        compose.waitFor("$second's card says ${said(second, "go on")}") { said(second, "go on").startsWith("$first 2: ") }
         compose.onNode(hasTestTag("widget:$third")).assertExists()
         // The first widget's card does not draw the second one's content, and the other way round.
         assertFalse(texts(first).toString(), texts(first).contains("Tokyo"))
@@ -720,7 +724,7 @@ class ScriptWidgetCardTest {
         val asked = Asked()
         val timer = kept("buttons", timerButtons)
         show(timer, actions = asked)
-        draws(timer, "Timer", "Start", "Stop", "Help")
+        draws(timer, "Start", "Stop", "Help")
         compose.onNode(cardOf(timer)).assertContentDescriptionEquals("Timer: Start, Stop, Help")
         compose.onNode(inCard(timer) and hasText("Start") and hasClickLabel("start the timer")).performClick()
         compose.onNode(inCard(timer) and hasText("Stop") and hasClickAction()).performClick()
@@ -736,7 +740,7 @@ class ScriptWidgetCardTest {
     @Test fun buttonsTakeNoTapsWhileArranging() {
         val timer = kept("buttons-still", timerButtons)
         show(timer)
-        draws(timer, "Timer", "Start", "Stop", "Help")
+        draws(timer, "Start", "Stop", "Help")
         compose.onAllNodes(inCard(timer) and hasClickAction() and isEnabled()).assertCountEquals(0)
     }
 
@@ -758,7 +762,7 @@ class ScriptWidgetCardTest {
         )
         val quick = kept("toggles", switches(dnd = false, work = true))
         show(quick, actions = asked)
-        draws(quick, "Quick", "Do Not Disturb", "Work", "Torch")
+        draws(quick, "Do Not Disturb", "Work", "Torch")
         fun switch(label: String) = inCard(quick) and hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
         fun isOn(on: Boolean) = SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, if (on) ToggleableState.On else ToggleableState.Off)
         val working = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "working")
@@ -831,7 +835,7 @@ class ScriptWidgetCardTest {
         fun times(zone: String) = listOf(-60L, 0L, 60L).map { Instant.now().plusSeconds(it).atZone(ZoneId.of(zone)).format(clock) }
         // Tall enough for a row for each place.
         show(world, height = 240.dp, actions = asked)
-        draws(world, "World", "Pune", "New York", "UTC")
+        draws(world, "Pune", "New York", "UTC")
         for (zone in listOf("Asia/Kolkata", "America/New_York", "UTC")) {
             assertTrue("${texts(world)} has none of ${times(zone)}", texts(world).any { it in times(zone) })
         }
@@ -845,8 +849,8 @@ class ScriptWidgetCardTest {
 
     /**
      * A 4×2 clock: under each place its difference from the phone's time, and a strip of the day
-     * for each place. A tap on a strip moves every place's time to that hour, and the title line then
-     * has the hour and a "Now" button that brings back now. A second tap on the line does that too.
+     * for each place. A tap on a strip moves every place's time to that hour, and the line under the
+     * strips then has the hour and a "Now" button that brings back now. A second tap on the line does that too.
      * None of these taps is the card's own. A screen reader hears each difference in whole words.
      */
     @Test fun aWideClockShowsDifferencesAndDayStrips() {
@@ -856,7 +860,7 @@ class ScriptWidgetCardTest {
         val world = kept("clock-strips", WidgetSpec.Clock(WidgetBase(title = "World"), zones))
         // A 4×2 card: two rows on a page 380 dp wide.
         show(world, width = 380.dp, height = 192.dp, actions = asked, inView = true)
-        draws(world, "World", "Home", "Kathmandu", "New York", "Here")
+        draws(world, "Home", "Kathmandu", "New York", "Here")
         // Each place's words, in the forms the card picks from: it writes the longest that fits whole.
         // The minute may turn between the drawing and the check, either way round.
         fun places(at: Long) = WidgetWords.zoneTimes(zones, at, here, clock)
@@ -881,7 +885,7 @@ class ScriptWidgetCardTest {
         tapHour()
         val picked = WidgetWords.hourMoment(LocalDate.now(here), hour, here)
         draws(world, *timesAt(picked).toTypedArray(), "At ${Instant.ofEpochMilli(picked).atZone(here).format(clock)}", "Now")
-        // "Now" on the title line brings back now, and the button goes.
+        // "Now" under the strips brings back now, and the button goes.
         fun backToNow() {
             compose.waitFor("$world's card still has its “Now” button") { compose.onAllNodes(inCard(world) and hasText("Now")).fetchSemanticsNodes().isEmpty() }
             compose.waitFor("${texts(world)} isn't now") { around().any { texts(world).containsAll(it.map { p -> p.time }) } }
@@ -925,13 +929,13 @@ class ScriptWidgetCardTest {
         show(plans, quiet, height = 280.dp, actions = asked)
         val standup = today.plusDays(1).atTime(9, 30).format(clock)
         // The day headings are in capitals.
-        draws(plans, "Plans", "TODAY", "all day", "Holiday", "TOMORROW", standup, "Standup")
+        draws(plans, "TODAY", "all day", "Holiday", "TOMORROW", standup, "Standup")
         assertEquals(emptyList<String>(), texts(plans).filter { it == "Ended" || it == "Too far" })
         assertEquals("Plans: Today, all day Holiday, Tomorrow, $standup Standup", said(plans))
         compose.onNode(inCard(plans) and hasText("Standup") and hasClickLabel("open event")).performClick()
         compose.runOnIdle { assertEquals(listOf("tap $plans open 7"), asked.all.toList()) }
         // With every event over, it says its own words for that.
-        draws(quiet, "Plans", "Nothing planned")
+        draws(quiet, "Nothing planned")
         assertEquals("Plans: Nothing planned", said(quiet))
     }
 

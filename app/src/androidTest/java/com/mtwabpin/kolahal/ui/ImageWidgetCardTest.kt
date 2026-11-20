@@ -137,7 +137,7 @@ class ImageWidgetCardTest {
         assertEquals("the picture is as big as the card", card, place)
     }
 
-    /** A picture that fits keeps the card's frame: the title line, and room around the picture. */
+    /** A picture that fits keeps the card's frame: room around the picture. */
     @Test fun aFittedPictureKeepsTheCardsFrame() {
         downloaded(800, 400)
         show(picture.copy(fit = "fit"), shown = true)
@@ -213,13 +213,13 @@ class ImageWidgetCardTest {
         says("Comic: A graph of sleep, Monday")
     }
 
-    /** A low, wide card has its title line and the picture. Its caption has no room either. */
+    /** A low, wide card has the picture alone: no title line, and no room for its caption. */
     @Test fun aLowCardHasNoCaption() {
         downloaded(900, 300)
         show(picture.copy(fit = "fit"), shown = true, width = 320.dp, height = 120.dp)
         compose.waitFor("the picture isn't drawn; the card draws ${texts()}") { hasPicture() }
-        // The badge's letter and the title: no caption.
-        assertEquals(listOf("C", "Comic"), texts())
+        // No title and no caption: the card says them to a screen reader.
+        assertEquals(emptyList<String>(), texts())
         says("Comic: A graph of sleep, Monday")
     }
 

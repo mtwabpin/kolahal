@@ -8,29 +8,21 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -47,11 +39,9 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -77,7 +67,6 @@ import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
-import com.mtwabpin.kolahal.widgets.WidgetState
 import com.mtwabpin.kolahal.widgets.WidgetStates
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.Dispatchers
@@ -118,16 +107,9 @@ internal fun cardSeen(): Boolean = LocalWidgetsShown.current && LocalCardOnScree
 internal val LocalCardLongPress = compositionLocalOf<(() -> Unit)?> { null }
 
 /**
- * Where a kind's content says "+3 more" when the card has a title line: the line shows it at its
- * end ([TitleLine]), and the content keeps no room for a line of its own. Null where the card has
- * no title line (a small card, a wide card that gave its line away): there the content draws the
- * line itself. Use it with [ReportMore]. An agenda with nothing left out puts today's date there.
- */
-internal val LocalMoreNote = compositionLocalOf<((String?) -> Unit)?> { null }
-
-/**
- * The card's title, given to the content of a wide card that has no title line, so it can show the
- * title where it fits (a ring card writes it beside the ring). Null when the title line shows it.
+ * The card's title, given to its content. No card has a title line, so the content shows the title
+ * small where it doesn't say what it is itself ([CardName]): a list, a text, a countdown, a number
+ * with no label. A ring card writes it beside the ring. Null in a small Plain or Tonal box.
  */
 internal val LocalUntitled = compositionLocalOf<String?> { null }
 
@@ -137,40 +119,6 @@ internal val LocalUntitled = compositionLocalOf<String?> { null }
  * brings today's.
  */
 internal val LocalContentSetAt = compositionLocalOf { 0L }
-
-/**
- * Hands [text] ("+3 more", or null for nothing left out) to the title line ([LocalMoreNote]). It is
- * written after the content is drawn, and taken back when the content leaves the card.
- */
-@Composable
-internal fun ReportMore(text: String?) {
-    val note = LocalMoreNote.current ?: return
-    LaunchedEffect(note, text) { note(text) }
-    DisposableEffect(note) { onDispose { note(null) } }
-}
-
-/**
- * A button at the end of a large card's title line that the content puts there: a clock's "Now".
- * [note] is a short text before it ("At 15:00"), and [onClick] what a tap on it does.
- */
-internal class TitleAction(val label: String, val note: String?, val onClick: () -> Unit)
-
-/**
- * Where a kind's content puts a [TitleAction] on a large card's title line. Null where the card
- * has no such line: there the content has no button. Use it with [ReportTitleAction].
- */
-internal val LocalTitleAction = compositionLocalOf<((TitleAction?) -> Unit)?> { null }
-
-/**
- * Hands [action] (null for none) to the title line ([LocalTitleAction]). It is put there after the
- * content is drawn, and taken back when the content leaves the card.
- */
-@Composable
-internal fun ReportTitleAction(action: TitleAction?) {
-    val report = LocalTitleAction.current ?: return
-    LaunchedEffect(report, action) { report(action) }
-    DisposableEffect(report) { onDispose { report(null) } }
-}
 
 /** What a card shows when it has no content to draw. */
 internal enum class CardNote {
@@ -218,17 +166,15 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
 /**
  * The card of a script widget, [height] tall and as wide as it is given. Call it inside [GuiTheme].
  * - It has its own opaque surface, so its text reads over any wallpaper.
- * - It draws [spec] for the box it gets ([WidgetSizes.box]): large and wide have a title line
- *   on top ([CardLayout]), small has the content only.
+ * - It draws [spec] for the box it gets ([WidgetSizes.box]), with no title line ([CardLayout]):
+ *   the content names the card small where it needs to.
  * - With a [note], it shows that and not the content. [failure] is the text of [CardNote.FAILED].
- * - [footer] is the content's age, or "Failed 10:42". Large has it as its last line, wide at the
- *   end of the title's line. Small has no room for it.
+ * - [footer] is the content's age, or "Failed 10:42": a large card's last line. Wide and small have
+ *   no room for it.
  * - [description] is the whole card for a screen reader, in one item. Rows with their own tap are
  *   items of their own inside it.
  * - [onClick] is a tap on the card and [onLongClick] a long-press. [onTap] gets the own action of a
  *   row, a button, a switch or an event. With all three null the card takes no touches (the Widgets screen).
- * - [badge] is a drawable for the badge of a large card: a built-in card has one. Without it the
- *   badge is the content's icon, or the first letter of [title].
  * - [stamp] is a number that changes when the content was filled again, also with the same
  *   description: a script's card gives the time of its last run. A switch that waits for its script
  *   watches it ([KindBody]).
@@ -248,7 +194,6 @@ internal fun WidgetCard(
     onLongClick: (() -> Unit)? = null,
     onTap: ((WidgetTap) -> Unit)? = null,
     stamp: Long = 0,
-    badge: Int? = null,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
         val widthDp = maxWidth.value.toInt()
@@ -284,14 +229,8 @@ internal fun WidgetCard(
                     if (polygon != null && spec != null) {
                         ShapedCard(title, spec, polygon, side, box, onTap, stamp)
                     } else {
-                        // A card with a note draws no content, so it has its title line. Bold, Split and Shape have none.
-                        val shown = spec.takeIf { note == null }
-                        val titled = !look.untitled() && when (box) {
-                            WidgetSizes.Box.LARGE -> true
-                            else -> WidgetWords.wideTitle(shown, heightDp, footer = footer != null)
-                        }
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
-                        CardLayout(title, spec, note, failure, footer.takeUnless { look.untitled() }, box, titled, onTap, stamp, badge, look, colours)
+                        CardLayout(title, spec, note, failure, footer.takeUnless { look.untitled() }, box, onTap, stamp, look, colours)
                     }
                 }
             }
@@ -335,19 +274,13 @@ private fun ShapedCard(title: String, spec: WidgetSpec, polygon: RoundedPolygon,
 }
 
 /**
- * The title, the badge, the content and the footer, placed for [box]. [titled] says whether the
- * card has its title line: a wide box by [WidgetWords.wideTitle], a large one always, in a look
- * that has one.
- * - The title line starts with the badge: [badge] (a drawable), or the content's icon, or the
- *   first letter of the title ([WidgetWords.badgeLetter]). It is 24 dp in a large card and 20 dp
- *   in a wide one. A small card has no title line, so no badge.
- * - Large: the title line, the content, and the footer as the last line. The title line ends with
- *   "+3 more" from a list or an agenda ([LocalMoreNote]), or else with the script's note
- *   ([WidgetBase.note]). A media card with a cover has no title line: its cover takes the badge's place.
+ * The content and the footer, placed for [box]. No card has a title line: the content names the
+ * card small where it needs to ([LocalUntitled]), as the looks without one have always done.
+ * - Large: the content, and under it the foot line ([FootLine]): the script's note and the age of
+ *   the content, or "Failed 10:42".
+ * - Wide and small: the content alone. There is no room for the foot line; a screen reader still
+ *   hears the note and the age.
  * - A cropped picture, large or wide, covers the whole card ([BleedImageCard]).
- * - Wide: the title line with "+3 more" (or the note, when there is no footer) and the footer at
- *   its end, then the content. Without the title line
- *   there is no place for the footer. A screen reader still hears both.
  */
 @Composable
 private fun CardLayout(
@@ -357,10 +290,8 @@ private fun CardLayout(
     failure: String?,
     footer: WidgetWords.Footer?,
     box: WidgetSizes.Box,
-    titled: Boolean,
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
-    badge: Int?,
     look: WidgetLook,
     colours: LookColors,
 ) {
@@ -373,64 +304,43 @@ private fun CardLayout(
         UntitledLayout(title, spec, note, failure, box, onTap, stamp, look)
         return
     }
-    val type = MaterialTheme.typography
-    // "+3 more" from the content, for the end of the title line ([LocalMoreNote]).
-    var more by remember { mutableStateOf<String?>(null) }
-    val setMore: (String?) -> Unit = remember { { more = it } }
-    // A button from the content for the end of a large card's title line ([LocalTitleAction]).
-    var action by remember { mutableStateOf<TitleAction?>(null) }
-    val setAction: (TitleAction?) -> Unit = remember { { action = it } }
     when (box) {
-        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            if (titled) {
-                TitleLine(title, spec, badge, 24.dp, type.titleSmall, colours) {
-                    val a = action
-                    val m = more
-                    when {
-                        a != null -> TitleButton(a, colours, roleColour(spec?.base))
-                        m != null -> MoreNote(m, colours.muted)
-                        else -> TitleNote(spec?.base)
-                    }
-                }
-                // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
-                // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
-                Spacer(Modifier.height(12.dp))
-            }
+        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                CompositionLocalProvider(
-                    LocalMoreNote provides setMore.takeIf { titled },
-                    LocalTitleAction provides setAction.takeIf { titled },
-                    LocalUntitled provides title.takeIf { !titled },
-                ) {
-                    CardBody(spec, note, failure, box, onTap, stamp)
-                }
+                CompositionLocalProvider(LocalUntitled provides title) { CardBody(spec, note, failure, box, onTap, stamp) }
             }
-            if (footer != null) FooterLine(footer, colours.muted, Modifier.padding(top = 4.dp))
+            FootLine(spec?.base?.takeIf { note == null }, footer, colours.muted)
         }
-        WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            if (titled) TitleLine(title, spec, badge, 20.dp, type.labelMedium, colours) {
-                // The age or "Failed 10:42" says more than the note, and "+3 more" too: then the note waits.
-                val m = more
-                if (m != null) MoreNote(m, colours.muted) else if (footer == null) TitleNote(spec?.base)
-                if (footer != null) FooterLine(footer, colours.muted, Modifier.padding(start = 8.dp))
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                CompositionLocalProvider(LocalMoreNote provides setMore.takeIf { titled }, LocalUntitled provides title.takeIf { !titled }) {
-                    CardBody(spec, note, failure, box, onTap, stamp)
-                }
-            }
+        WidgetSizes.Box.WIDE -> Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            CompositionLocalProvider(LocalUntitled provides title) { CardBody(spec, note, failure, box, onTap, stamp) }
         }
-        // No room for a title or a footer: the content alone. A screen reader still hears both.
+        // No room for a foot line: the content alone. A screen reader still hears the note and the age.
         WidgetSizes.Box.SMALL -> Box(Modifier.fillMaxSize().padding(8.dp)) { CardBody(spec, note, failure, box, onTap, stamp) }
     }
 }
 
 /**
- * A card with no title line: Bold, Split, and Shape outside a square box. The body has the title
- * ([LocalUntitled]) and places it as small text, and draws "+3 more" itself.
+ * A large card's last line: the script's note ([WidgetBase.note], "Done today", in the card's
+ * colour), then the content's age or "Failed 10:42" ([FooterLine]) in [muted]. Nothing without either.
+ */
+@Composable
+private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Color) {
+    val note = base?.note
+    if (note == null && footer == null) return
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (note != null) {
+            Text(note, style = MaterialTheme.typography.labelMedium, color = roleColour(base), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        }
+        if (footer != null) FooterLine(footer, muted, Modifier.padding(start = if (note != null) 8.dp else 0.dp))
+    }
+}
+
+/**
+ * A Bold, Split or Shape card outside a square box. As no card has a title line, the body has the
+ * title ([LocalUntitled]) and places it as small text where it needs to, and draws "+3 more" itself.
  * - Split: no room around the body. Its tiles reach the card's edges.
  * - Shape in a 1-row box: 8 dp around, so the main value's shape is nearly as tall as the card.
- * - The others: the room of a Plain card, a little more at the top and bottom, as there is no title line.
+ * - The others: the room of a large Plain card.
  */
 @Composable
 private fun UntitledLayout(
@@ -488,65 +398,6 @@ private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: Widget
     }
 }
 
-/** "+3 more" at the end of a title line, in the card's quiet text [colour]. */
-@Composable
-private fun MoreNote(text: String, colour: Color) {
-    Text(text, style = MaterialTheme.typography.labelMedium, color = colour, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
-}
-
-/**
- * A [TitleAction] at the end of a title line: its note in the card's quiet text, and a small tonal
- * button as a widget's buttons have: a tint of the card's [role] colour on Plain, the look's tile
- * on Tonal, with the label in the text colour. The button is as tall as the line, and its touch
- * area is 48 dp all the same.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun TitleButton(action: TitleAction, colours: LookColors, role: Color) {
-    action.note?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colours.muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp)) }
-    val container = if (LocalWidgetLook.current == WidgetLook.TONAL) colours.tile else role.copy(alpha = 0.2f)
-    FilledTonalButton(
-        onClick = action.onClick,
-        shapes = ButtonDefaults.shapes(),
-        modifier = Modifier.padding(start = 8.dp).heightIn(min = 24.dp),
-        colors = ButtonDefaults.filledTonalButtonColors(containerColor = container, contentColor = colours.content),
-        contentPadding = PaddingValues(horizontal = 12.dp),
-    ) {
-        Text(action.label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1, softWrap = false)
-    }
-}
-
-/** The script's note at the end of the title line ([WidgetBase.note]): "Done today", in the card's colour. */
-@Composable
-private fun TitleNote(base: WidgetBase?) {
-    val note = base?.note ?: return
-    Text(note, style = MaterialTheme.typography.labelMedium, color = roleColour(base), maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
-}
-
-/**
- * A card's title line, [size] tall: the badge, the [title] in [style], and [end] at its end. A
- * badge with only the title's letter says the title again, so a screen reader skips it. The title
- * is in the card's quiet text colour ([LookColors.muted]). On a Tonal card the badge is filled with
- * the role's colour, as its container would hide a tint of it.
- */
-@Composable
-private fun TitleLine(title: String, spec: WidgetSpec?, badge: Int?, size: Dp, style: TextStyle, colours: LookColors, end: @Composable () -> Unit = {}) {
-    val icon = spec?.base?.icon
-    val letter = if (badge == null && icon == null) WidgetWords.badgeLetter(title) else null
-    Row(Modifier.height(size), verticalAlignment = Alignment.CenterVertically) {
-        if (badge != null || icon != null || letter != null) {
-            val tonal = LocalWidgetLook.current == WidgetLook.TONAL
-            Badge(
-                icon ?: letter, badge, roleColour(spec?.base), badgeShape(spec), size, quiet = icon == null, wide = spec is WidgetSpec.Rows && spec.lead == null,
-                onFill = colours.onAccent.takeIf { tonal },
-            )
-            Spacer(Modifier.width(if (size >= 24.dp) 8.dp else 6.dp))
-        }
-        Text(title, style = style, color = colours.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        end()
-    }
-}
-
 /**
  * The card's small line: the age of its content, or "Failed 10:42". A failure is in the error
  * colour, and its words say it too. An age is in the card's quiet text [colour].
@@ -568,72 +419,41 @@ private fun FooterLine(footer: WidgetWords.Footer, colour: Color = MaterialTheme
 private fun CardBody(spec: WidgetSpec?, note: CardNote?, failure: String?, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?, stamp: Long) {
     val small = box == WidgetSizes.Box.SMALL
     when {
-        note == CardNote.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        note == CardNote.LOADING -> Named(small) {
             // The shape changes form for as long as it is drawn. So it is drawn only while the card can be seen.
             // The card's description says "loading", so the shape itself is no item for a screen reader.
             if (cardSeen()) LoadingIndicator(Modifier.size(if (box == WidgetSizes.Box.LARGE) 48.dp else 36.dp).clearAndSetSemantics {})
         }
-        note == CardNote.FAILED -> QuietLine(failure ?: WidgetWords.NOTHING, small)
-        note == CardNote.NOTHING -> QuietLine(WidgetWords.NOTHING, small)
-        note == CardNote.UNAVAILABLE -> QuietLine(WidgetWords.UNAVAILABLE, small)
-        note == CardNote.REMOVED -> QuietLine(WidgetWords.REMOVED, small)
-        note == CardNote.OFF -> QuietLine(WidgetWords.OFF, small)
-        note == CardNote.NO_WIDGET -> QuietLine(WidgetWords.NO_WIDGET, small)
+        note == CardNote.FAILED -> NoteLine(failure ?: WidgetWords.NOTHING, small)
+        note == CardNote.NOTHING -> NoteLine(WidgetWords.NOTHING, small)
+        note == CardNote.UNAVAILABLE -> NoteLine(WidgetWords.UNAVAILABLE, small)
+        note == CardNote.REMOVED -> NoteLine(WidgetWords.REMOVED, small)
+        note == CardNote.OFF -> NoteLine(WidgetWords.OFF, small)
+        note == CardNote.NO_WIDGET -> NoteLine(WidgetWords.NO_WIDGET, small)
         note == null && spec != null -> KindBody(spec, box, onTap, stamp)
     }
 }
 
-/**
- * The badge: [drawable] in its role's [colour], or else [text] (an icon name, an emoji or a letter), on a shape
- * tinted with that colour. A [quiet] badge is no part of what a screen reader hears. With [onFill],
- * the shape is filled with [colour] and what is on it is in [onFill].
- */
+/** What a card says in place of its content ([QuietLine]), under its name ([Named]). */
 @Composable
-private fun Badge(text: String?, drawable: Int?, colour: Color, shape: Shape, size: Dp, quiet: Boolean = false, wide: Boolean = false, onFill: Color? = null) {
-    val said = if (quiet) Modifier.clearAndSetSemantics {} else Modifier
-    val ink = onFill ?: colour
-    Box(Modifier.size(width = if (wide) size * 1.4f else size, height = size).clip(shape).background(if (onFill != null) colour else colour.copy(alpha = 0.3f)).then(said), contentAlignment = Alignment.Center) {
-        when {
-            drawable != null -> Icon(painterResource(drawable), contentDescription = null, tint = ink, modifier = Modifier.size(size * 2 / 3))
-            text != null -> WidgetIconText(
-                text,
-                when {
-                    size >= 40.dp -> MaterialTheme.typography.titleMedium
-                    size >= 32.dp -> MaterialTheme.typography.titleSmall
-                    else -> MaterialTheme.typography.labelLarge
-                },
-                ink,
-                size = size * 2 / 3,
-            )
-        }
-    }
+private fun NoteLine(text: String, small: Boolean) {
+    Named(small) { QuietLine(text, small) }
 }
 
 /**
- * The badge's shape, as the mockup draws it: a cookie for a card about a number (stat, chart,
- * progress, countdown), a wide round pill for a list, and a rounded square for the others.
+ * [content], in the middle of the card, under the card's name ([CardName]) where there is room: no
+ * title line says which card is loading or failed. A small card has the content alone.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun badgeShape(spec: WidgetSpec?): Shape {
-    // Material's own pill is slanted. A list's badge is a plain round pill, 1.4 times as wide as tall (Badge).
-    if (spec is WidgetSpec.Rows && spec.lead == null) return RoundedCornerShape(50)
-    return when (spec) {
-        // A list that starts with a big line (Reminders) gets the cookie of a number, as a stat does.
-        is WidgetSpec.Rows -> MaterialShapes.Cookie9Sided
-        is WidgetSpec.Stat -> MaterialShapes.Cookie9Sided
-        is WidgetSpec.Text -> MaterialShapes.Square
-        is WidgetSpec.Progress -> MaterialShapes.Cookie9Sided
-        is WidgetSpec.Chart -> MaterialShapes.Cookie9Sided
-        is WidgetSpec.Countdown -> MaterialShapes.Cookie9Sided
-        is WidgetSpec.Buttons -> MaterialShapes.Clover4Leaf
-        is WidgetSpec.Toggles -> MaterialShapes.Slanted
-        is WidgetSpec.Clock -> MaterialShapes.Square
-        is WidgetSpec.Agenda -> MaterialShapes.Square
-        is WidgetSpec.Image -> MaterialShapes.Square
-        is WidgetSpec.Media -> MaterialShapes.Square
-        null -> MaterialShapes.Circle
-    }.toShape()
+private fun Named(small: Boolean, content: @Composable () -> Unit) {
+    if (small || LocalUntitled.current == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        CardName()
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { content() }
+    }
 }
 
 /** A tap on a card whose description has no action: the view model reads it as "refresh". */
@@ -996,7 +816,6 @@ private fun BatteryWidget(height: Dp, actions: WidgetCardActions?) {
         modifier = Modifier.testTag("widget:${WidgetSource.builtin(WidgetSource.BATTERY)}"),
         onClick = onClick,
         onClickLabel = "battery settings",
-        badge = builtinBadge(WidgetSource.BATTERY),
         onLongClick = onLongClick,
     )
 }

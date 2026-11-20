@@ -821,37 +821,6 @@ internal object WidgetWords {
      */
     fun tooSoon(last: Long?, now: Long): Boolean = last != null && now - last in 0 until TAP_WINDOW_MS
 
-    /** What a wide card takes from its height for its padding (24 dp) and its title line (20 dp), in dp. */
-    const val WIDE_CHROME_DP = 44
-
-    /**
-     * A wide card this tall has room for its title line over two lines of text and a caption
-     * (56 dp), or over a row of buttons with a little room around them, in dp. A card of one row
-     * (92 dp on most phones) is lower.
-     */
-    const val TITLED_DP = WIDE_CHROME_DP + 56
-
-    /**
-     * Whether a wide card [heightDp] tall draws its title line over [spec]'s content. The line has
-     * the badge, the title and the footer. A card with a [footer] ("Failed 10:42", "2 h ago")
-     * always has it: a card has no other place for the footer. A screen reader hears the title
-     * either way.
-     * - Buttons, switches and a text leave the line out under [TITLED_DP]: a button needs 48 dp, and
-     *   a text would get one line.
-     * - Bars with their names leave it out when it would cost them their names.
-     * - A single ring (`style = "ring"`) leaves it out: it writes the title beside itself.
-     * - A media card never has it. Its own first line is the track's title, and "Now playing" over
-     *   that says nothing new.
-     * - Any other kind has it.
-     */
-    fun wideTitle(spec: WidgetSpec?, heightDp: Int, footer: Boolean = false): Boolean = when (spec) {
-        is WidgetSpec.Buttons, is WidgetSpec.Toggles, is WidgetSpec.Text -> footer || heightDp >= TITLED_DP
-        is WidgetSpec.Media -> false
-        // A single ring writes the title beside itself, as the mockup has it (RingBody).
-        is WidgetSpec.Progress -> footer || if (spec.items.isEmpty() && spec.style == "ring") false else heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size
-        else -> true
-    }
-
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
     data class Footer(val text: String, val said: String, val failed: Boolean)
 

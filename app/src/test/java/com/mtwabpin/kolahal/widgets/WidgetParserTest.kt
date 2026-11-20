@@ -47,7 +47,7 @@ class WidgetParserTest {
         assertEquals("widget: value is needed: the big value, as text or a number", refused(mapOf("label" to "unlocks")))
     }
 
-    /** Any card can have a note at the end of its title line: a few words, cut at 16 characters. */
+    /** Any card can have a note, at the foot of a large card: a few words, cut at 16 characters. */
     @Test fun aNoteIsAFewWordsForTheTitleLine() {
         assertEquals(WidgetBase(note = "Done today"), parse(mapOf("value" to "5", "note" to "Done today")).base)
         assertEquals("Waiting since 1…", parse(mapOf("value" to "5", "note" to "Waiting since 10:42")).base.note)

@@ -42,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -1036,8 +1037,8 @@ private const val MARKS_GAP_DP = 2
  * under the strips ([HourMarks]).
  * - One line crosses all the strips at the moment shown ([DayStrips]).
  * - A tap on a strip moves the line to the nearest hour, and every place's time and difference
- *   follow. The title line then has that hour and a "Now" button ([ReportTitleAction]). The
- *   button, a second tap on the line, or leaving the page or home brings back now.
+ *   follow. The line under the strips then has that hour and a Now button ([PickedHour]) in place
+ *   of the hours. Now, a second tap on the line, or leaving the page or home brings back now.
  * - Taps only: a sideways drag turns the page. [tappable] false takes no tap at all.
  * - A row too low for two lines has the difference beside the name, in the form that fits.
  * - A screen reader hears the card's description: each place, its time now and its difference.
@@ -1075,7 +1076,6 @@ private fun ClockStrips(
     val at = remember(hour, today, here, clock24) {
         hour?.let { "At " + Instant.ofEpochMilli(WidgetWords.hourMoment(today, it, here)).atZone(here).format(TimeFormats.clockFormat(clock24)) }
     }
-    ReportTitleAction(remember(at) { at?.let { TitleAction("Now", it) { picked = null } } })
 
     val type = MaterialTheme.typography
     val nameStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
@@ -1112,7 +1112,36 @@ private fun ClockStrips(
                 onPick = if (tappable) { { h: Int? -> picked = h } } else null,
                 picking = picked != null,
             )
-            HourMarks(clock24, markStyle, Modifier.padding(top = MARKS_GAP_DP.dp))
+            // No title line: while an hour is picked, the hour and Now take the hours' line, and its gap.
+            if (at != null) PickedHour(at, linesDp(markStyle) + MARKS_GAP_DP, role) { picked = null }
+            else HourMarks(clock24, markStyle, Modifier.padding(top = MARKS_GAP_DP.dp))
+        }
+    }
+}
+
+/**
+ * The line under a large clock's strips while a tap has picked an hour ([ClockStrips]): the hour
+ * ("At 15:00") and a small Now button that brings back now ([onNow]), [heightDp] tall as the hours'
+ * line and its gap are. The button is a tonal one as a widget's buttons are, and Compose gives its
+ * touch area 48 dp all the same.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PickedHour(at: String, heightDp: Int, role: Color, onNow: () -> Unit) {
+    val looks = lookColors()
+    Row(Modifier.fillMaxWidth().height(heightDp.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(at, style = MaterialTheme.typography.labelSmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        val container = if (LocalWidgetLook.current == WidgetLook.TONAL) looks.tile else role.copy(alpha = 0.2f)
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            FilledTonalButton(
+                onClick = onNow,
+                shapes = ButtonDefaults.shapes(),
+                modifier = Modifier.height(heightDp.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(containerColor = container, contentColor = looks.content),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+            ) {
+                Text("Now", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1, softWrap = false)
+            }
         }
     }
 }
@@ -1585,9 +1614,7 @@ private val AGENDA_PLACES = 200.dp
  *   row is as tall as a tap row needs, or as the heading and the event's line need, whichever is
  *   more: 44 dp. So a 4x2 card has two events of today and one of tomorrow, as the mockup has
  *   them, and every event keeps a 44 dp tap. A tap on the heading is a tap on that event.
- * - "+3 more" is at the end of the card's title line ([ReportMore]). When nothing is left out, a
- *   card 200 dp wide or more has today's date there ("Sat 14 Nov"). A card without a title line
- *   has "+3 more" under the events.
+ * - "+3 more" is the line under the events.
  * - With nothing to show it says the description's `empty` text.
  */
 @Composable
@@ -1607,8 +1634,6 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     }
     val colour = roleColour(spec.base)
     val muted = lookColors().muted
-    val inTitle = LocalMoreNote.current != null
-    val date = remember(minute, zone) { java.time.Instant.ofEpochMilli(minute.time).atZone(zone).format(TimeFormats.dayFormat()) }
     // Tonal puts each event on a tile of its own, 2 dp from the next, as a list's rows are.
     val tile = if (look == WidgetLook.TONAL) lookColors().tile else null
     val gapDp = if (tile != null) ROW_GAP_DP else 0
@@ -1620,11 +1645,9 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
         val headedDp = maxOf(rowDp, AGENDA_HEAD_DP + if (narrow) AGENDA_NARROW_LINE_DP else AGENDA_LINE_DP)
         val heightDp = maxHeight.value.toInt()
         val total = days.sumOf { it.lines.size }
-        val moreDp = if (inTitle) 0 else AGENDA_MORE_DP
+        val moreDp = AGENDA_MORE_DP
         // Each row takes its gap too, and the last one has none after it.
         val shown = WidgetWords.agendaShown(days.map { it.lines.size }, heightDp + gapDp, headedDp - rowDp, rowDp + gapDp, moreDp)
-        // Today's date only on a wide card (4x2): on a narrower one it would take the title's room.
-        ReportMore(if (shown < total) "+${total - shown} more" else date.takeIf { places })
         // The time column is as wide as the longest time in this form, so the titles line up.
         val timeWidth = if (clock24) 48.dp else 68.dp
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gapDp.dp)) {
@@ -1647,7 +1670,7 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
                     }
                 }
             }
-            if (!inTitle && shown < total && usedDp + AGENDA_MORE_DP <= heightDp) {
+            if (shown < total && usedDp + AGENDA_MORE_DP <= heightDp) {
                 Text("+${total - shown} more", style = MaterialTheme.typography.labelMedium, color = muted, maxLines = 1, modifier = Modifier.height(AGENDA_MORE_DP.dp).wrapContentHeight())
             }
         }

@@ -225,21 +225,20 @@ class NowPlayingCardTest {
     }
 
     /**
-     * The player's art is the face of play or pause, under its icon, and the card keeps its title
-     * line. Without art the button keeps its colour.
+     * The player's art is the face of play or pause, under its icon. Without art the button keeps its
+     * colour. The card has no title line: the track says what it is.
      */
     @Test fun theArtFillsPlayOrPause() {
         playing.value = track(canSeek = true)
         show(Asked())
         compose.waitForNode(inCard and hasText("Gymnopédie No. 1"))
         assertEquals(0, covers())
-        compose.onNode(inCard and hasText("Now playing")).assertExists()
+        compose.onAllNodes(inCard and hasText("Now playing")).assertCountEquals(0)
 
         playing.value = track(canSeek = true, cover = art())
         compose.waitFor("no cover is drawn") { covers() == 1 }
         // The track is paused: the art is under Play's icon.
         compose.onNode(hasTestTag("media-cover") and hasAnyDescendant(hasContentDescription("Play")), useUnmergedTree = true).assertExists()
-        compose.onNode(inCard and hasText("Now playing")).assertExists()
         compose.onNode(inCard and hasText("Gymnopédie No. 1")).assertExists()
         compose.onNode(seekBar).assert(says("1:12 of 3:05"))
     }

@@ -658,7 +658,7 @@ can't run it.
 |--------------------------+--------------------------------------------------------------------------------------------------------|
 | The card                 | A =Surface= with large round corners (28 dp; 24 dp for 1×1).                                           |
 | The icon badge           | Clipped to a =MaterialShapes= shape with =toShape()=: a cookie for a card about a number (stat, chart, progress, countdown, and a list that starts with a big line), a wide round pill (1.4 times as wide as tall) for a list, and a rounded square for the others, as the mockup draws them. Every large card has one: a built-in card has its own icon, and a card with no =icon= has the first letter of its title. |
-| The large card's frame  | 16 dp at the sides, 10 dp at the top and bottom, and 12 dp between the title line and the content, so a list doesn't sit on the title. A 4×2 card still fits three 44 dp rows. |
+| The large card's frame  | 16 dp at the sides and 14 dp at the top and bottom. No card has a title line since 21 November 2026: the content names the card small where it needs to, and the note and the age are the last line. |
 | List rows                | Each row in a lightly tinted container: 16 dp corners at the ends of the list, 4 dp between rows, 2 dp apart. A plain =Row=, so a row can be as low as 32 dp. A clock's rows in a large card too. |
 | Buttons                  | =FilledTonalButton= and =FilledTonalIconButton= with their =shapes= argument, so they change shape when pressed. Rows of them in a =ButtonGroup=. |
 | Toggles                  | =ToggleButton=: round when off, squarer and filled when on. Off is a light tint of the text colour. A tall one says "On" or "Off" under its label. |
@@ -957,9 +957,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Shows :: Events under "Today", "Tomorrow" and dates. Each has its time and title.
 - Layout :: A day's heading is at the top of its first event's row. That row is 44 dp: the
   heading's 16 and the event's line of 28. So every event keeps its 44 dp tap, and a 4×2 card
-  shows two events of today and one of tomorrow, as the mockup has them. With nothing left out,
-  the title line of a card 200 dp wide or more (4×2) ends with today's date ("Tue 17 Nov")
-  instead of "+3 more".
+  shows two events of today and one of tomorrow, as the mockup has them. "+3 more" is the line
+  under the events (today's date at the end of the title line went with the title line, 21 Nov 2026).
 - Fields :: =events= (needed; the first 20 are kept): each ~{ title, starts, ends, allDay, where,
   color, tap }~, with =title= and =starts= (a time in seconds) needed. =days=: how many days to
   show (3 by default). =empty=: what to say with no events.
