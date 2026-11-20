@@ -795,7 +795,8 @@ internal fun rowPress(row: WidgetSpec.Row, onTap: ((WidgetTap) -> Unit)?): Modif
  * `progress`: how far along something is.
  * - A ring with its text in the middle, or a bar. With no `style`, a wide box gets the bar and the
  *   others get the ring.
- * - With `items`, it is several bars, each with its label and its text while there is room.
+ * - With `items`, it is several bars, each with its label and its text while there is room. A large
+ *   card has its name over them ([CardName]).
  * - With `moving`, the ring and the bars are waves while the page is in view.
  */
 @Composable
@@ -804,6 +805,11 @@ private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     val look = LocalWidgetLook.current
     when {
         look.untitled() -> ProgressLook(spec, box, look, colour)
+        spec.items.isNotEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
+            // Each bar says what it is: a large card says what they are together over them, as a list does ("Disk").
+            CardName(Modifier.padding(bottom = 8.dp))
+            Box(Modifier.weight(1f).fillMaxWidth()) { BarsBody(spec, colour) }
+        }
         spec.items.isNotEmpty() -> BarsBody(spec, colour)
         spec.style == "ring" || (spec.style != "bar" && box != WidgetSizes.Box.WIDE) -> RingBody(spec, box, colour)
         else -> BarBody(spec, box, colour)

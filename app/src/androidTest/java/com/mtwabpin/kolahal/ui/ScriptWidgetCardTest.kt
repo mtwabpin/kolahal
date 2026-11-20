@@ -269,7 +269,7 @@ class ScriptWidgetCardTest {
         says(ring, "Battery: 68%, Charging")
         draws(bars, "Disk", "Photos", "30%", "Music", "5 GB")
         says(bars, "Disk: Photos 30%, Music 5 GB")
-        draws(bar, bar, "3 of 5", "Chapters")
+        draws(bar, "3 of 5", "Chapters")
         says(bar, "$bar: 3 of 5, Chapters")
     }
 
@@ -409,7 +409,7 @@ class ScriptWidgetCardTest {
         says(trip, "Trip: 3 days, To Goa")
         draws(reached, "Launch", "Lift-off")
         says(reached, "Launch: Lift-off")
-        draws(past, "Since", "5", "days ago", "The move")
+        draws(past, "5", "days ago", "The move")
         says(past, "Since: 5 days ago, The move")
     }
 

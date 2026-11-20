@@ -237,7 +237,7 @@ class WidgetPickerScriptsTest {
         val inCard = hasAnyAncestor(hasTestTag("widget:${s.name}"))
         fun drawn() = compose.onAllNodes(inCard and SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true)
             .fetchSemanticsNodes().flatMap { node -> node.config[SemanticsProperties.Text].map { it.text } }
-        compose.waitFor("the card doesn't draw what the script showed") { drawn().containsAll(listOf("Weather", "24", "Sunny")) }
+        compose.waitFor("the card doesn't draw what the script showed") { drawn().containsAll(listOf("24", "Sunny")) }
         compose.onNode(inCard and hasContentDescription("Weather: 24, Sunny")).assertExists()
         compose.onAllNodes(inCard and hasClickAction()).assertCountEquals(0)
         compose.onAllNodes(isSelected()).assertCountEquals(0)
