@@ -252,7 +252,7 @@ sealed interface WidgetSpec {
         val tap: WidgetTap? = null,
     )
 
-    /** Kind `agenda`: up to 20 events by day, for [days] days from today (1 to 7). [empty] is what to say with no events. */
+    /** Kind `agenda`: up to 20 events by day, for [days] days from today (1 to 14). [empty] is what to say with no events. */
     data class Agenda(override val base: WidgetBase, val events: List<Event>, val days: Int = 3, val empty: String? = null) : WidgetSpec
 
     /**

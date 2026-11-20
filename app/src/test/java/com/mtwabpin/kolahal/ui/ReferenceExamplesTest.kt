@@ -24,6 +24,18 @@ class ReferenceExamplesTest {
         assertEquals(ReferenceExamples.fmt.size, ReferenceExamples.fmt.map { it.name }.distinct().size)
     }
 
+    /**
+     * Each widget example and variant names its kind in `widget.show`, in both languages, and it is
+     * the kind the reference files it under. The reference shows no `@widget` line, so the code must
+     * draw its card under any script's line.
+     */
+    @Test fun eachWidgetExampleNamesItsKind() {
+        for (ex in ReferenceExamples.widgets + ReferenceExamples.variants) {
+            assertTrue("${ex.name} in Lua", "kind = \"${ex.kind.id}\"" in ex.code(ScriptLang.LUA))
+            assertTrue("${ex.name} in JavaScript", "kind: \"${ex.kind.id}\"" in ex.code(ScriptLang.JS))
+        }
+    }
+
     @Test fun eachExampleHasItsOwnName() {
         val widgets = (ReferenceExamples.widgets + ReferenceExamples.variants).map { it.name }
         for (names in listOf(widgets, ReferenceExamples.logs.map { it.name })) assertEquals(names.distinct(), names)

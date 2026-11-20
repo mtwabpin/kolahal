@@ -22,6 +22,8 @@ import java.time.temporal.ChronoUnit
  * The widget and log examples of the scripting guide (site/src/content/docs/scripting/api.mdx), for
  * the script editor's API reference: each one's code in Lua and in JavaScript, and what it draws.
  * - The code is the guide's, as it is there. ReferenceExamplesTest checks that the guide has it.
+ * - Each widget example's `widget.show` names its kind. The reference shows no `@widget` line, so
+ *   the code draws the same card under any script's line.
  * - [Widget.spec] is the card and [Log.lines] the lines, made here: the reference runs no script to
  *   draw them. Device tests (ReferenceCardsTest, ReferenceLinesTest) run both codes and check that
  *   they make this card and these lines.
@@ -68,6 +70,7 @@ internal object ReferenceExamples {
             "steps", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
             lua = """
             widget.show{
+              kind = "stat",
               value = "6,240",
               label = "Steps today",
               more = { { value = "4.1 km", label = "walked" } },
@@ -75,6 +78,7 @@ internal object ReferenceExamples {
             """,
             js = """
             widget.show({
+              kind: "stat",
               value: "6,240",
               label: "Steps today",
               more: [{ value: "4.1 km", label: "walked" }],
@@ -98,6 +102,7 @@ internal object ReferenceExamples {
             "list", WidgetKind.LIST, WidgetSize.S4X2, "List",
             lua = """
             widget.show{
+              kind = "list",
               title = "Reading list",
               items = {
                 { title = "Kolahal's guide", trailing = "docs", tap = { url = "https://mtwabpin.github.io/kolahal/" } },
@@ -108,6 +113,7 @@ internal object ReferenceExamples {
             """,
             js = """
             widget.show({
+              kind: "list",
               title: "Reading list",
               items: [
                 { title: "Kolahal's guide", trailing: "docs", tap: { url: "https://mtwabpin.github.io/kolahal/" } },
@@ -304,6 +310,7 @@ internal object ReferenceExamples {
             end
             local goal = tonumber(options.goal) or 8
             widget.show{
+              kind = "progress",
               value = n, max = goal,
               text = n .. " / " .. goal,
               color = n >= goal and "good" or "accent",
@@ -320,6 +327,7 @@ internal object ReferenceExamples {
             }
             const goal = Number(options.goal) || 8;
             widget.show({
+              kind: "progress",
               value: n, max: goal,
               text: `${'$'}{n} / ${'$'}{goal}`,
               color: n >= goal ? "good" : "accent",
@@ -343,6 +351,7 @@ internal object ReferenceExamples {
             "steps-change", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
             lua = """
             widget.show{
+              kind = "stat",
               value = "8,120",
               label = "Steps today",
               delta = "+12%",
@@ -356,6 +365,7 @@ internal object ReferenceExamples {
             """,
             js = """
             widget.show({
+              kind: "stat",
               value: "8,120",
               label: "Steps today",
               delta: "+12%",
@@ -377,10 +387,10 @@ internal object ReferenceExamples {
         Widget(
             "steps-value", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
             lua = """
-            widget.show{ value = "6,240" }
+            widget.show{ kind = "stat", value = "6,240" }
             """,
             js = """
-            widget.show({ value: "6,240" });
+            widget.show({ kind: "stat", value: "6,240" });
             """,
             of = "steps", variant = "Value only",
         ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240") },
@@ -419,11 +429,11 @@ internal object ReferenceExamples {
             local things = { "Rice", "Lentils", "Onions", "Tomatoes", "Milk", "Bread", "Eggs", "Bananas", "Coffee", "Soap" }
             local items = {}
             for i, name in ipairs(things) do items[i] = { title = name } end
-            widget.show{ title = "Groceries", items = items }
+            widget.show{ kind = "list", title = "Groceries", items = items }
             """,
             js = """
             const things = ["Rice", "Lentils", "Onions", "Tomatoes", "Milk", "Bread", "Eggs", "Bananas", "Coffee", "Soap"];
-            widget.show({ title: "Groceries", items: things.map((name) => ({ title: name })) });
+            widget.show({ kind: "list", title: "Groceries", items: things.map((name) => ({ title: name })) });
             """,
             of = "list", variant = "10 rows",
         ) { _, _ ->
@@ -434,6 +444,7 @@ internal object ReferenceExamples {
             "list-lead", WidgetKind.LIST, WidgetSize.S4X2, "List",
             lua = """
             widget.show{
+              kind = "list",
               title = "Spent this week",
               lead = { value = "3,420", unit = "₹", label = "In 4 payments" },
               items = {
@@ -446,6 +457,7 @@ internal object ReferenceExamples {
             """,
             js = """
             widget.show({
+              kind: "list",
               title: "Spent this week",
               lead: { value: "3,420", unit: "₹", label: "In 4 payments" },
               items: [
@@ -474,6 +486,7 @@ internal object ReferenceExamples {
             "list-ranges", WidgetKind.LIST, WidgetSize.S4X2, "List",
             lua = """
             widget.show{
+              kind = "list",
               title = "Pune",
               items = {
                 { title = "Today", trailing = "22–31°", range = { low = 22, high = 31, value = 27 } },
@@ -484,6 +497,7 @@ internal object ReferenceExamples {
             """,
             js = """
             widget.show({
+              kind: "list",
               title: "Pune",
               items: [
                 { title: "Today", trailing: "22–31°", range: { low: 22, high: 31, value: 27 } },

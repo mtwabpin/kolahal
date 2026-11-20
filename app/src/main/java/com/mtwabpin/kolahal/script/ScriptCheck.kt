@@ -49,7 +49,7 @@ object ScriptCheck {
         "reminders" to Regex("""(?<![.\w])reminders\s*\.\s*list\b"""),
         "calendar" to Regex("""(?<![.\w])calendar\s*\.\s*events\b"""),
         "feeds" to Regex("""(?<![.\w])feeds\s*\.\s*unread\b"""),
-        "usage" to Regex("""(?<![.\w])usage\s*\.\s*(today|days|data|unused)\b"""),
+        "usage" to Regex("""(?<![.\w])usage\s*\.\s*(today|days|data|summary|unused)\b"""),
     )
 
     private val directive = Regex("""^\s*(--|//)\s*@(\w+)\b[ \t]*(.*)$""")

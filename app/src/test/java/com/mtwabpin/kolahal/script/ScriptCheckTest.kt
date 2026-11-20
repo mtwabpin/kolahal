@@ -23,6 +23,7 @@ class ScriptCheckTest {
         assertEquals(listOf(ScriptCheck.Issue(1, "clipboard.get needs a `-- @uses clipboard` line")), lua("log(clipboard.get())"))
         assertTrue(lua("-- @uses clipboard\nlog(clipboard.get())").isEmpty())
         assertEquals("launcher.run needs a `// @uses commands` line", ScriptCheck.check("launcher.run('torch')", ScriptLang.JS).single().text)
+        assertEquals("usage.summary needs a `-- @uses usage` line", lua("log(usage.summary(\"month\"))").single().text)
     }
 
     /** A run reads `@uses` in any case, with tabs too: so does the check. */

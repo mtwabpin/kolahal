@@ -37,21 +37,26 @@ object ApiDocs {
 
     /**
      * What `widget.show` does, the same words for Lua and JavaScript. The editor shows the start
-     * on one line, so what the call does and returns comes first, and the fields of each kind after.
+     * on one line, so what the call does and returns comes first. Then comes `kind`, which a script
+     * may leave out: the parser ([com.mtwabpin.kolahal.widgets.WidgetParser.parse]) then takes the
+     * kind of the `@widget` line. The fields of each kind come last.
      */
     private val WIDGET_SHOW = "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
+        "kind is the card to draw; without it, the kind on the @widget line. " +
         WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
-        "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link), staleAfter, refresh (seconds), note (a few words at the end of the title line). " +
+        "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
+        "page = \"log\" turns home to the log after the run), staleAfter, refresh (seconds), note (a few words at the end of the title line). " +
         "An unknown field is an error"
 
     /** The fields of a [kind] widget, as the reference lists them. Only the kinds a script can use are asked for. */
     private fun widgetFields(kind: WidgetKind): String = when (kind) {
-        WidgetKind.STAT -> "value, label, unit, delta, trend, more, progress, moving"
+        WidgetKind.STAT -> "value, label, unit, delta, trend (up, down or flat), more, progress, moving"
         WidgetKind.TEXT -> "text, caption"
-        WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done, range }; a range is { low, high, value }, drawn as a bar), empty"
-        WidgetKind.PROGRESS -> "value, max, text, label, style, moving, or items for bars (each { label, value, max, text, color })"
-        WidgetKind.CHART -> "points, style, min, max, value, label, labels, summary"
-        WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style, reached"
+        WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done, range }; a range is { low, high, value }, drawn as a bar), empty, " +
+            "lead ({ value, unit, label }, a big line over the rows)"
+        WidgetKind.PROGRESS -> "value, max, text, label, style (ring or bar), moving, or items for bars (each { label, value, max, text, color })"
+        WidgetKind.CHART -> "points, style (line, bars or dots), min, max, value, label, labels, summary"
+        WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style (days or clock), reached"
         WidgetKind.BUTTONS -> "items (1 to 8, each { label, icon, color, tap })"
         WidgetKind.TOGGLES -> "items (1 to 6, each { label, icon, on, tap }; the tap is { args }, and the run shows the new state)"
         WidgetKind.CLOCK -> "zones (each { zone, label }; a zone is a name such as Asia/Kolkata), seconds"
@@ -61,8 +66,9 @@ object ApiDocs {
     }
 
     val all: List<ApiDoc> = listOf(
-        ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again, ctx.gap = true puts a small space above it to start a new item of a list. line.set(title, body?, ctx?) changes it in place while the script runs"),
-        ApiDoc("logs", "logs(titles)", "Append one title line per item: logs({ \"a\", \"b\" }) or logs(\"a\", \"b\")"),
+        ApiDoc("log", "log(title, body?, ctx?) -> line", "Append a line to the terminal: the title bold, the body muted under it; ctx.url makes it a tappable link, ctx.copy is what Copy text copies, ctx.image shows an image under it, ctx.actions puts up to 3 buttons under it that run this script again, ctx.gap = true puts a small space above it to start a new item of a list, ctx.mono = \"1\" keeps it in the terminal font. line.set(title, body?, ctx?) changes it in place while the script runs"),
+        ApiDoc("logs", "logs(titles)", "Append one title line per item: logs({ \"a\", \"b\" }) or logs(\"a\", \"b\")", LUA),
+        ApiDoc("logs", "logs(titles)", "Append one title line per item: logs([\"a\", \"b\"]) or logs(\"a\", \"b\")", JS),
         ApiDoc("md", "md", "Markdown lines: log, escape", kind = NS),
         ApiDoc("md.log", "md.log(title, body?, ctx?) -> line", "Like log, reading Markdown: **bold**, *italic*, ~~strike~~, ++underline++, `code`, [text](https://…) links; lists (- item, 1. item) in the body"),
         ApiDoc("md.escape", "md.escape(text) -> string", "Text with Markdown marks escaped, to show web text literally in md.log"),
@@ -79,23 +85,23 @@ object ApiDocs {
         ApiDoc("fmt.link", "fmt.link(text, url) -> string", "Text that opens url when tapped; a line can have several. Web links only, like ctx.url"),
         ApiDoc("fmt.bar", "fmt.bar(value, {max?, color?}) -> string", "A bar as wide as the line, for a body: value out of max (1 by default), in a colour role"),
         ApiDoc("fmt.bars", "fmt.bars(rows, {max?, color?, unit?}) -> string", "A bar for each row { label, value, text? }, all on one scale, for a body"),
-        ApiDoc("fmt.ranges", "fmt.ranges(rows, {min?, max?, color?, unit?}) -> string", "A bar from low to high for each row { label, low, high }, all on one scale, for a body: a forecast's days"),
+        ApiDoc("fmt.ranges", "fmt.ranges(rows, {min?, max?, color?, unit?}) -> string", "A bar from low to high for each row { label, low, high, lowText?, highText? }, all on one scale, for a body: a forecast's days"),
         ApiDoc("fmt.stats", "fmt.stats(items) -> string", "A line of big numbers for a body, each item { value, label }: the first big, the rest smaller, each label under its number. Up to 5"),
         ApiDoc("fmt.plain", "fmt.plain(text) -> string", "The text without its styles, for anything other than the log"),
         ApiDoc("notify", "notify(title, body, ctx?) -> bool", "Post a notification if enabled for the script; ctx.url opens on tap"),
-        ApiDoc("status", "status(text, opts?)", "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) clears it"),
+        ApiDoc("status", "status(text, opts?)", "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.color (a role: good, warn, bad…) is the bar's colour, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) or status(null) clears it"),
         // Every `@uses` item is named, from the list itself: a new item can't be left out here.
         ApiDoc("allowed", "allowed(what) -> bool", "Whether this script may use `what`: internet, header, widget (true once you placed its widget), ${ScriptMeta.USES.joinToString(", ")} or an @on event"),
         ApiDoc("widget", "widget", "This script's widget on the widgets page: show, clear", kind = NS),
-        ApiDoc("widget.show", "widget.show{ value, label, … } -> bool", WIDGET_SHOW, LUA),
-        ApiDoc("widget.show", "widget.show({ value, label, … }) -> bool", WIDGET_SHOW, JS),
+        ApiDoc("widget.show", "widget.show{ kind, title, … } -> bool", WIDGET_SHOW, LUA),
+        ApiDoc("widget.show", "widget.show({ kind, title, … }) -> bool", WIDGET_SHOW, JS),
         ApiDoc("widget.clear", "widget.clear()", "Remove the widget's content; its card then has nothing to show"),
         ApiDoc("sleep", "sleep(ms)", "Pause up to 5000 ms", LUA),
         ApiDoc("sleep", "await sleep(ms)", "Pause up to 5000 ms (async)", JS),
         ApiDoc("print", "print(...)", "Log the values joined by tabs", LUA),
         ApiDoc("args", "args", "Arguments when run as a command (list of strings)", kind = VALUE),
         ApiDoc("argline", "argline", "Arguments joined by spaces", kind = VALUE),
-        ApiDoc("event", "event", "What started this run, an @on event, an @at time, a button under its line or a tap on its widget (action), a pinned status line's refresh or the widgets page asking for new content (widget) (event.name, time, label, app, title, text, level…); nil/null otherwise", kind = VALUE),
+        ApiDoc("event", "event", "What started this run, an @on event, an @at time, a button under its line or a tap on its widget (action), a pinned status line's refresh or the widgets page asking for new content (widget) (event.name, time, label, widget, instance, app, title, text, level…); nil/null otherwise", kind = VALUE),
         ApiDoc("options", "options", "Its @option values by name, as text: your value if set, otherwise the default (options.city)", kind = VALUE),
 
         ApiDoc("http", "http", "HTTP client: get, cached, request", kind = NS),
@@ -120,23 +126,23 @@ object ApiDocs {
         ApiDoc("secrets.get", "secrets.get(name) -> string?", "A placeholder for the value you set for an @secret name, filled in only in requests to its site; nil/null until you set it"),
 
         ApiDoc("clipboard", "clipboard", "Clipboard: get, set", kind = NS),
-        ApiDoc("clipboard.get", "clipboard.get() -> string?", "Clipboard text; usually nil in timers"),
-        ApiDoc("clipboard.set", "clipboard.set(text)", "Copy text to the clipboard"),
+        ApiDoc("clipboard.get", "clipboard.get() -> string?", "Clipboard text; usually nil/null in timers (needs @uses clipboard)"),
+        ApiDoc("clipboard.set", "clipboard.set(text)", "Copy text to the clipboard (needs @uses clipboard)"),
 
         ApiDoc("device", "device", "Device info: battery, network, unlocks; Do Not Disturb, the work profile", kind = NS),
         ApiDoc("device.battery", "device.battery() -> { level, charging }", "Battery percent and charging state"),
         ApiDoc("device.network", "device.network() -> string", "\"wifi\", \"cell\", \"eth\", \"vpn\", \"net\" or \"offline\""),
         ApiDoc("device.unlocks", "device.unlocks(days?) -> number | list", "Today's unlock count; with days (1 to 30), a list of the counts of the last days instead, the oldest first and today's last"),
         ApiDoc("device.dnd", "device.dnd() -> string?", "Do Not Disturb: \"off\", \"priority\", \"alarms\" or \"none\" (needs @uses dnd)"),
-        ApiDoc("device.setDnd", "device.setDnd(mode) -> bool", "Set Do Not Disturb to \"off\", \"on\", \"alarms\" or \"none\"; false without Do Not Disturb access (needs @uses dnd)"),
+        ApiDoc("device.setDnd", "device.setDnd(mode) -> bool", "Set Do Not Disturb to \"off\", \"on\" (or \"priority\"), \"alarms\" or \"none\"; false without Do Not Disturb access (needs @uses dnd)"),
         ApiDoc("device.work", "device.work() -> string?", "The work profile: \"on\" or \"paused\"; nil/null without one (needs @uses work)"),
-        ApiDoc("device.setWork", "device.setWork(on) -> bool", "Resume (true) or pause (false) the work profile; false if Android refuses (needs @uses work)"),
+        ApiDoc("device.setWork", "device.setWork(on) -> bool", "Resume (true or \"on\") or pause (false or \"off\") the work profile; false if Android refuses (needs @uses work)"),
 
         ApiDoc("apps", "apps", "Installed apps: list", kind = NS),
-        ApiDoc("apps.list", "apps.list() -> [{ label, pkg, profile }]", "Launchable apps across profiles"),
+        ApiDoc("apps.list", "apps.list() -> [{ label, pkg, profile }]", "Launchable apps across profiles (needs @uses apps)"),
 
         ApiDoc("notifications", "notifications", "Recent notifications: recent", kind = NS),
-        ApiDoc("notifications.recent", "notifications.recent(n?=20) -> [{ pkg, app, title, text, time }]", "Newest first, up to 50 (needs notification access)"),
+        ApiDoc("notifications.recent", "notifications.recent(n?=20) -> [{ pkg, app, title, text, time }]", "Newest first, up to 50 (needs @uses notifications and notification access)"),
 
         ApiDoc("todos", "todos", "Your to-do list: list, setDone", kind = NS),
         ApiDoc("todos.list", "todos.list() -> [{ id, text, done }]", "Your todos, the open ones first, as the todo command lists them; up to 200 (needs @uses todos)"),
@@ -153,7 +159,7 @@ object ApiDocs {
         ApiDoc("usage", "usage", "Your screen time, data use and unused apps", kind = NS),
         ApiDoc("usage.today", "usage.today(n?=10) -> { total, apps = [{ app, pkg, minutes }] }", "Today's screen time in minutes since midnight, and the n apps used most, biggest first, up to 30 (needs @uses usage)"),
         ApiDoc("usage.days", "usage.days(n?=7) -> [minutes]", "The screen time of each of the last n days (1 to 30), oldest first, only the days Android has data for (needs @uses usage)"),
-        ApiDoc("usage.data", "usage.data(since?) -> { mobile, wifi }", "The bytes of mobile and Wi-Fi data used since a time in seconds (by default, midnight); mobile is nil on Android 9 (needs @uses usage)"),
+        ApiDoc("usage.data", "usage.data(since?) -> { mobile, wifi }", "The bytes of mobile and Wi-Fi data used since a time in seconds (by default, midnight); \"month\" gives your data plan's month instead, adding since, plan, pace and daysLeft; mobile is nil/null on Android 9 (needs @uses usage)"),
         ApiDoc("usage.unused", "usage.unused(days?=30) -> [{ app, pkg, days, bytes }]", "The apps not opened for days days or more (7 to 365), up to 50; days is nil when no use is recorded (needs @uses usage)"),
         ApiDoc("usage.summary", "usage.summary(period, app?) -> { perDay, rows = [{ from, to, minutes, perDay, unlocks, current }], top }", "Screen time over Android's weeks, months or years (\"week\", \"month\", \"year\"), all apps or one package, oldest first, as usage-summary shows it (needs @uses usage)"),
 
