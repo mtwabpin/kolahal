@@ -91,7 +91,7 @@ reminders, what is playing. Kolahal draws them as cards, in the theme's colours.
 | **Now playing** | the track with its cover, the artist and the app, with previous, play or pause, and next | on a button: does that. On the bar: moves in the track. On the card: opens the player |
 | **Todos** | your open todos, each with a checkbox | on a row: marks the todo done. On the card: runs `todo` |
 | **Agenda** | your calendar's events for today and the next days | on an event: opens it in your calendar app. On the card: runs `agenda` |
-| **Reminders** | the next reminder and the two after it, with the time to each | runs `reminders` |
+| **Reminders** | the time to the next reminder, with its text, and the reminders after it | runs `reminders` |
 | **Notes** | your newest note, or the newest three in a taller card | runs `notes` |
 
 <Cards items={[
@@ -118,9 +118,9 @@ The card lists your open [todos](/guides/productivity/#todos), the oldest first.
 
 ### Reminders and Notes
 
-- **Reminders** shows your next three [reminders](/guides/productivity/#reminders). Each row has
-  the text, when it is due, how it repeats, and the time to it ("in 25m"). The time counts down
-  by the minute.
+- **Reminders** shows the time to your next [reminder](/guides/productivity/#reminders) in large
+  type ("42 min"), with its text, when it is due and how it repeats. The reminders after it are
+  rows, each with its text and when it is due. The time counts down by the minute.
 - **Notes** shows your newest [note](/guides/productivity/#notes). A taller card shows the newest
   three, each on one line.
 
@@ -206,13 +206,15 @@ A [script](/scripting/overview/#widgets) can have a widget too: a card that Kola
 script tells it. For example the weather, a feed's headlines, or your unlocks of the last 7 days.
 
 - The picker lists these in the **Kolahal** group, after Kolahal's own: a row for each of your scripts
-  that has a widget, with its kind and the size it starts with. Eighteen
+  that has a widget, with its kind and the size it starts with. Many
   [library scripts](/scripting/library/#widgets) have one. To make your own, start from a
   [widget template](/scripting/library/#templates).
 - A script's [status line](/scripting/overview/#status-lines) is not a widget. It shows at the top
   of home.
 - You can place a script's widget more than once ([below](#the-same-widget-more-than-once)).
 - The card is drawn in the theme's colours.
+- The card's labels start with a capital, whatever the script wrote. Units, versions and names
+  such as "iOS" stay as written ([Capitals in a widget](/scripting/api/#capitals-in-a-widget)).
 - A tap does what the script chose: it runs the script again, opens a link, or refreshes the card.
 - A long-press opens **Arrange widgets**. There you move and resize the card like any other widget,
   and choose its [look](#looks). It can be as small as a quarter of the page wide.
@@ -371,5 +373,5 @@ See also the [command reference](/reference/commands/#widgets) and
 
 Work-profile widgets work like any other widget. They have a **work** badge in the picker.
 
-While the work profile is paused, or the private space is locked, these widgets show a dim **paused** placeholder.
-They come back when you turn work apps on.
+While the work profile is paused, or the private space is locked, these widgets show a dim placeholder that says
+"Work profile paused" or "Private space locked". They come back when you turn work apps on.

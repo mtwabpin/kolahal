@@ -160,6 +160,7 @@ See [Widgets](/guides/widgets/).
 | `widgets.page` | choice: `left` `right` `off` | `left` | a widgets page next to the terminal. Swipe sideways on the home screen to reach it |
 | `widgets.start` | bool | `off` | start on the widgets page. Home opens on it, and Home and Back return to it. Swipe sideways to see the log. Needs the app selector (`selector.rail`) |
 | `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's colour |
+| `widgets.agenda-days` | choice: `auto` `1` `3` `7` `14` | `auto` | the days the Agenda widget shows from today. `auto` looks up to 14 days ahead and shows as many events as the card fits |
 
 ## Keyboard and key bar
 

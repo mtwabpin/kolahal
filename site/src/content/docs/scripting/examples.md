@@ -7,7 +7,7 @@ Each example is a complete script. To use one:
 
 1. Create a script with `script new <name>` (add `.js` for JavaScript).
 2. Paste the code into the editor.
-3. Save with `Ctrl+S` or **save**.
+3. Save with `Ctrl+S` or **Save**.
 
 ## Battery log (Lua, timer)
 

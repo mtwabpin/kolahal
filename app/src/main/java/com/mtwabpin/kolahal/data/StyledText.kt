@@ -261,7 +261,7 @@ object StyledText {
      * [text] with its first letter a capital, as a label that stands on its own starts: "unlocks
      * today" is "Unlocks today". Styles and a link's address are skipped. A text whose first visible
      * character is no small letter stays as it is ("3 days ago", "(beta)"), and so does a first word
-     * with a capital or a digit inside ("iOS", "eSIM", "v1.2"), or a unit symbol ("km/h", "kg").
+     * with a capital or a digit inside ("iOS", "macOS", "eSIM", "v1.2"), or a unit symbol ("km/h", "kg").
      */
     fun capitalised(text: String): String {
         var i = 0
@@ -274,7 +274,7 @@ object StyledText {
                 cp == LINK_TEXT -> address = false
                 address || cp in BASE..LAST || Character.isWhitespace(cp) -> {}
                 !Character.isLowerCase(cp) -> return text
-                i + n < text.length && Character.isUpperCase(text.codePointAt(i + n)) -> return text
+                hasCapitalInside(text, i) -> return text
                 hasDigit(text, i) -> return text
                 unitLike(text, i) -> return text
                 else -> return text.substring(0, i) + String(Character.toChars(Character.toTitleCase(cp))) + text.substring(i + n)
@@ -283,6 +283,9 @@ object StyledText {
         }
         return text
     }
+
+    /** Whether the word that starts at [from] in [text] has a capital after its first letter: a name written so ("iOS", "macOS", "eBay"). */
+    private fun hasCapitalInside(text: String, from: Int): Boolean = text.substring(from).takeWhile { it.isLetterOrDigit() }.drop(1).any { it.isUpperCase() }
 
     /** Whether the word that starts at [from] in [text] has a digit: a version or a code ("v1.2", "x86"). */
     private fun hasDigit(text: String, from: Int): Boolean = text.substring(from).takeWhile { it.isLetterOrDigit() }.any { it.isDigit() }

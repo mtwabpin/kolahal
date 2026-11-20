@@ -414,6 +414,8 @@ class StyledTextBlocksTest {
         assertEquals("Unlocks today", StyledText.capitalised("Unlocks today"))
         assertEquals("3 days ago", StyledText.capitalised("3 days ago"))
         assertEquals("iOS 18", StyledText.capitalised("iOS 18"))
+        assertEquals("macOS and eBay keep their capitals inside", "macOS update", StyledText.capitalised("macOS update"))
+        assertEquals("eBay orders", StyledText.capitalised("eBay orders"))
         assertEquals("km/h", StyledText.capitalised("km/h"))
         assertEquals("kg", StyledText.capitalised("kg"))
         assertEquals("Été", StyledText.capitalised("été"))

@@ -29,7 +29,7 @@ script run hn              # run it now
 script every hn 30m        # and every 30 minutes
 ```
 
-The fastest way to start is the [script library](/scripting/library/). `script lib` lists 36
+The fastest way to start is the [script library](/scripting/library/). `script lib` lists its
 ready-made scripts. `script install weather` installs one, with useful timers already set.
 
 ## Lua or JavaScript?
@@ -80,8 +80,8 @@ The script manager (`scripts`, or the **Scripts** tab in Settings;
 [its parts, numbered](/getting-started/parts/#scripts-tab)) shows one card per script. A card
 shows:
 
-- the script's title and file. The file of a script from Get more scripts says "shared" (or the name of
-  [a source you added](#your-own-scripts-repository)); one of yours says "yours".
+- the script's title and file. The file of a script from Get more scripts says "Shared" (or the name of
+  [a source you added](#your-own-scripts-repository)); one of yours says "Yours".
 - how it runs and how its last run went (red if it failed),
 - **Run**, for a command,
 - its on/off switch,
@@ -213,9 +213,10 @@ script says what to show. Kolahal draws it, in the theme's colours.
 
 local b = device.battery()
 widget.show{
+  kind = "progress",
   value = b.level or 0, max = 100,
   text = (b.level or "?") .. "%",
-  label = b.charging and "charging" or "on battery",
+  label = b.charging and "Charging" or "On battery",
 }
 ```
 
@@ -247,7 +248,7 @@ isn't logged ([when a widget's script runs](/scripting/api/#when-a-widgets-scrip
 A script with no timer is a good widget. It runs only when you look at it or tap it, so it uses no
 battery in the background.
 
-Widgets need Kolahal 0.5.8 or newer. Eighteen [library](/scripting/library/#widgets) scripts have one,
+Widgets need Kolahal 0.5.8 or newer. Many [library](/scripting/library/#widgets) scripts have one,
 for example weather, hn and countdown. Two [templates](/scripting/library/#templates) are a start
 for your own: **template-widget** and **template-widget-list**.
 
@@ -361,8 +362,8 @@ Scripts run in a separate `:script` process. If an engine crashes, the home scre
 ## What a script may use
 
 Some things need permission. A script can use your notifications, the clipboard, the list of your
-apps, running commands, Do Not Disturb, the work profile and your own lists (todos, notes,
-reminders, the calendar, feeds) and your app usage only if it asks for them with a `@uses` line at the top:
+apps, running commands, Do Not Disturb, your own lists (todos, notes, reminders, the calendar,
+feeds), your app usage and the work profile only if it asks for them with a `@uses` line at the top:
 
 ```lua
 -- @uses notifications, clipboard
@@ -375,13 +376,13 @@ reminders, the calendar, feeds) and your app usage only if it asks for them with
 | `apps` | [`apps.list`](/scripting/api/#appslist) |
 | `commands` | [`launcher.run`](/scripting/api/#launcherruncommand): terminal commands, and other scripts by name, when you start the script from the prompt |
 | `dnd` | [`device.dnd` and `device.setDnd`](/scripting/api/#devicednd--devicesetdndmode): reading and setting Do Not Disturb |
-| `work` | [`device.work` and `device.setWork`](/scripting/api/#devicework--devicesetworkon): reading, pausing and resuming the work profile |
 | `todos` | [`todos.list`](/scripting/api/#todoslist) and [`todos.setDone`](/scripting/api/#todossetdoneid-done): reading your todos, and marking one done or open again |
 | `notes` | [`notes.list`](/scripting/api/#noteslistn): reading your notes |
 | `reminders` | [`reminders.list`](/scripting/api/#reminderslist): reading the reminders that are set |
 | `calendar` | [`calendar.events`](/scripting/api/#calendareventsdays): reading the events of the next days from the phone's calendar. Kolahal also needs Android's calendar permission |
 | `feeds` | [`feeds.unread`](/scripting/api/#feedsunreadn): reading the unread items of the feeds you follow |
-| `usage` | [`usage.today`](/scripting/api/#usagetodayn), [`usage.days`](/scripting/api/#usagedaysn), [`usage.data`](/scripting/api/#usagedatasince), [`usage.unused`](/scripting/api/#usageunuseddays): your screen time, data use and the apps you don't open |
+| `usage` | [`usage.today`](/scripting/api/#usagetodayn), [`usage.days`](/scripting/api/#usagedaysn), [`usage.data`](/scripting/api/#usagedatasince), [`usage.unused`](/scripting/api/#usageunuseddays), [`usage.summary`](/scripting/api/#usagesummaryperiod-app): your screen time, data use and the apps you don't open |
+| `work` | [`device.work` and `device.setWork`](/scripting/api/#devicework--devicesetworkon): reading, pausing and resuming the work profile |
 
 - If a script calls one of these without its `@uses` line, it stops with an error. The error says
   what to add.

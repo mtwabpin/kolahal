@@ -314,7 +314,7 @@ internal object ReferenceExamples {
               value = n, max = goal,
               text = n .. " / " .. goal,
               color = n >= goal and "good" or "accent",
-              tap = { args = "add", label = "Add a glass" },
+              tap = { args = "add", label = "add a glass" },
             }
             """,
             js = """
@@ -331,12 +331,12 @@ internal object ReferenceExamples {
               value: n, max: goal,
               text: `${'$'}{n} / ${'$'}{goal}`,
               color: n >= goal ? "good" : "accent",
-              tap: { args: "add", label: "Add a glass" },
+              tap: { args: "add", label: "add a glass" },
             });
             """,
         ) { _, _ ->
             // Five glasses of eight so far today.
-            WidgetSpec.Progress(WidgetBase(color = Colour.ACCENT, tap = WidgetTap(args = "add", label = "Add a glass")), value = 5f, max = 8f, text = "5 / 8")
+            WidgetSpec.Progress(WidgetBase(color = Colour.ACCENT, tap = WidgetTap(args = "add", label = "add a glass")), value = 5f, max = 8f, text = "5 / 8")
         },
     )
 

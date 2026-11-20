@@ -75,6 +75,7 @@ object DocsExamples {
             local res = http.cached("https://example.com/today.json", 3600)
             local today = json.decode(res.body)
             widget.show{
+              kind = "image",
               image = today.url,                 -- "https://example.com/pictures/1432.jpg"
               alt = today.description,           -- "Hills at sunrise"
               caption = today.title,

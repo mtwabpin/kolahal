@@ -16,10 +16,10 @@ it, numbered.
 - The title shows `name.lua`, with `*` while there are unsaved changes.
 - Next to the title are icon buttons: **Find** (magnifier), **API reference** (question mark),
   **Save**, **Run** (play) and **Close** (×). Run saves first. TalkBack reads each button's name.
-- A long press on **Run** (or `Ctrl+Shift+R`) opens **Run with**. Type words for its
-  [`args`](/scripting/api/#args-and-argline), as when the script runs as a command. If the script
-  has [`@on`](/scripting/overview/#event-triggers) or `@at` lines, you can also pick an event to
-  simulate, with sample values (a charger at 64%, a message from Alice).
+- A long press on **Run** (or `Ctrl+Shift+R`) opens **Run with**. Type words in **Arguments**: the
+  script gets them in [`args`](/scripting/api/#args-and-argline), as when it runs as a command. If
+  the script has [`@on`](/scripting/overview/#event-triggers) or `@at` lines, you can also pick an
+  event under **Simulate event**, with sample values (a charger at 64%, a message from Alice).
 - A message line above the symbol bar shows what a button did:
   - **Saved** (or **No changes to save**),
   - **Saved · running…**, then the run's result (`Ran in 812ms · 3 lines below`),
