@@ -260,7 +260,7 @@ class ScriptCardsTest {
         try {
             show(details = false)
             val card = hasTestTag("script-card") and hasText("scpills.lua")
-            compose.waitForNode(card and hasText(" · yours"))
+            compose.waitForNode(card and hasText(" · Yours"))
             compose.onNode(hasScrollToNodeAction()).performScrollToNode(card)
             compose.onNode(pill("scpills.lua") and hasText("Add key")).performClick()
             compose.onNodeWithText("SCP_KEY for scpills").assertExists()
@@ -281,7 +281,7 @@ class ScriptCardsTest {
         .config[androidx.compose.ui.semantics.SemanticsProperties.Text].map { it.text }
 
     /** The text of [scpills]'s summary line: the one after its file. */
-    private fun summary() = cardTexts().let { it[it.indexOf(" · yours") + 1] }
+    private fun summary() = cardTexts().let { it[it.indexOf(" · Yours") + 1] }
 
     /** Opens [scpills]'s details from the closed list, and scrolls to [text]. */
     private fun openDetails(text: String) {
@@ -299,7 +299,7 @@ class ScriptCardsTest {
         scripts.recordRun(s.id, "error: HTTP 401: invalid key")
         try {
             show(details = false)
-            compose.waitForNode(scCard and hasText(" · yours"))
+            compose.waitForNode(scCard and hasText(" · Yours"))
             // Closed: the summary has both, with the pill.
             assertTrue(summary(), summary().startsWith("Manual · Failed "))
             assertTrue(summary(), summary().endsWith(" · Needs SCP_KEY"))

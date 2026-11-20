@@ -82,7 +82,7 @@ internal fun ScriptSheet(
     val title = info.title
     // `@version` and `@author`, if the script has them: v1.2 · by Someone
     val byLine = remember(info) {
-        listOfNotNull(info.version?.let { "v$it" }, info.author?.let { "by $it" }).joinToString(" · ").ifEmpty { null }
+        listOfNotNull(info.version?.let { "v$it" }, info.author?.let { "By $it" }).joinToString(" · ").ifEmpty { null }
     }
     val access = info.accessItems
     val notifies = info.notifies
@@ -109,7 +109,7 @@ internal fun ScriptSheet(
         }
         title?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
         Text(
-            listOfNotNull(if (s.lang == ScriptLang.LUA) "Lua" else "JavaScript", byLine, copy?.addedSource?.let { "from $it" }, if (isCommand) "command" else null, desc)
+            listOfNotNull(if (s.lang == ScriptLang.LUA) "Lua" else "JavaScript", byLine, copy?.addedSource?.let { "From $it" }, if (isCommand) "Command" else null, desc)
                 .joinToString(" · "),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

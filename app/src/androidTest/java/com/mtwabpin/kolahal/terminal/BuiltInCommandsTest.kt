@@ -277,7 +277,7 @@ class BuiltInCommandsTest {
             assertEquals(listOf("Counting unlocks only while the launcher is running", "Tap here to allow usage access for accurate counts"), without.take(2))
             assertEquals("usage-access", logs.recent(10).single { it.text == without[1] }.ctx.values[LogContext.RUN])
             // Big numbers first: today, a day's average, the total.
-            assertTrue(without[2], Regex("\\d+ unlocks? today · \\d+ a day · \\d+ in 3 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(without[2])))
+            assertTrue(without[2], Regex("\\d+ Unlocks? today · \\d+ A day · \\d+ In 3 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(without[2])))
             check(without.drop(3))
 
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
@@ -305,7 +305,7 @@ class BuiltInCommandsTest {
         try {
             shell("appops set ${context.packageName} GET_USAGE_STATS allow")
             val lines = run("unlocks 7")
-            assertTrue(lines[0], Regex("\\d+ unlocks? today · \\d+ a day · \\d+ in 2 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(lines[0])))
+            assertTrue(lines[0], Regex("\\d+ Unlocks? today · \\d+ A day · \\d+ In 2 days").matches(com.mtwabpin.kolahal.data.StyledText.plain(lines[0])))
             assertEquals(listOf("Yesterday", "Today"), lines.drop(1).dropLast(1).map { it.substringBefore("  ").trim() })
             // And why there are only two.
             assertEquals("2 of 7 days", lines.last())
@@ -330,7 +330,7 @@ class BuiltInCommandsTest {
             com.mtwabpin.kolahal.usage.UsageHistory.firstDayForTests = { today.minusDays(40) }
             val month = run("unlocks month")
             val plain = month.map { com.mtwabpin.kolahal.data.StyledText.plain(it) }
-            assertTrue(plain[0], Regex("\\d+ unlocks? today · \\d+ a day · [\\d,]+ in 30 days").matches(plain[0]))
+            assertTrue(plain[0], Regex("\\d+ Unlocks? today · \\d+ A day · [\\d,]+ In 30 days").matches(plain[0]))
             val chart = com.mtwabpin.kolahal.data.StyledText.lines(month.single { com.mtwabpin.kolahal.data.StyledText.lines(it).any { l -> l.columns != null } }).single().columns!!
             assertEquals(30, chart.heights.size)
             assertTrue(plain.toString(), "── by week ──" in plain)

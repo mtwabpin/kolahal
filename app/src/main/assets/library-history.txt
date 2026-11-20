@@ -17,7 +17,9 @@ charge-reminder.lua 9a8fd5df7dcf90f9
 charge-reminder.lua ec9a7f9fd147680a
 charge-reminder.lua f6a66b5cad3f430a
 charge-reminder.lua fadfc6e10e9123e7
+charge-reminder.lua ff8af478318577af
 countdown.lua 0b9c570f9006c84d
+countdown.lua 10686cbf8fac9d11
 countdown.lua 11c73f5e72149097
 countdown.lua 2b31b03827d7375f
 countdown.lua 2d9b72f1a91b549a
@@ -35,6 +37,7 @@ countdown.lua ebe3745821ff306f
 countdown.lua f82a17cd65b4d3fd
 cricket.js 211cd5b39c08819e
 cricket.js 419948ca930cee94
+cricket.js 855b72e131759099
 cricket.js d907db1f453cdd6b
 cricket.js dd0ff998c45a47c8
 cricket.js e1da3a0e5b33f281
@@ -55,6 +58,7 @@ crypto.js cae5d7986303ddda
 crypto.js d83be4f8ca5f1c3a
 data-month.lua 06af475e35624383
 data-month.lua 27f18b29804ef784
+data-month.lua 81937717813f5256
 data-month.lua a6ea3a475c79010a
 exchange.js 1acf4b149d2f1824
 exchange.js 1ecef54f1aac51f8
@@ -74,6 +78,7 @@ exchange.js e46d14f1eb642d4f
 football.js 0eae300a9d6af343
 football.js 31f8b60d1fa5618d
 football.js 53a4b1afdb897b76
+football.js aea1ac82574e2d7c
 football.js d11b2bef9b04fc03
 football.js f676f6de549205fd
 forecast.js 10da580a645d7176
@@ -94,6 +99,7 @@ forecast.js e2877222519432a7
 forecast.js e3628f4961e6fceb
 forecast.js e8c59a32d5867cd9
 forecast.js f3abc8b522ad3687
+habit.lua 5a6347b0129bac70
 habit.lua 68c427244de980fe
 habit.lua 7bb2637fed5fc9a3
 habit.lua a8724f60ab4b78ae
@@ -182,10 +188,13 @@ releases.lua c9510e74ea35cf22
 releases.lua d90cc1b7b42dcf71
 releases.lua dd263f6d062f3725
 releases.lua e4ba66eeeddedf65
+releases.lua e836b4f6ecc8f1ef
 releases.lua ec8d032d79acc000
 screen-time.lua a732d6e386f683ec
+screen-time.lua cb20fefba01d4a11
 screen-time.lua ff87da24de179f83
 screen-time-months.lua 32a8a4d52fe9b6d4
+screen-time-months.lua db29ff4f9c62738d
 sun.js 1263e8a14e78da70
 sun.js 22c69d371fab1098
 sun.js 2c143fb181931a42
@@ -221,10 +230,17 @@ template-timer.lua 0c68e84c129225a4
 template-timer.lua 5145a5c61ecd8c73
 template-timer.lua d9b29f717c37ae2c
 template-widget-js.js 88e92d287c4e4365
+template-widget-js.js 9159070cd76f6768
+template-widget-js.js b12161a170b760fa
+template-widget-js.js bcde8ed391e5c575
 template-widget-list-js.js 985575481309d264
 template-widget-list.lua 2f1e101f92df9e48
 template-widget.lua 4be2b8ad14d5fb1f
+template-widget.lua 8f823571156e01e0
+template-widget.lua d647691c3b07e52b
+template-widget.lua ef1a223cc14bb22f
 unlock-chart.lua 0b20ace19e4ceab2
+unlock-chart.lua 991d1ba6f4558f05
 unlock-chart.lua bebea0e4b919078c
 unused-apps.lua 2112bec10fbe4042
 unused-apps.lua c1c5618eff96f1d3
@@ -237,6 +253,7 @@ weather.lua 5892242f20f61307
 weather.lua 5e9eaf36cb98a4be
 weather.lua 6c7e726827e7bb75
 weather.lua 6cfe91e4243fcbe7
+weather.lua 81cf1415d268b0dd
 weather.lua 9455c13ffb57463b
 weather.lua a96c095e26d77d44
 weather.lua e10119b75310166b

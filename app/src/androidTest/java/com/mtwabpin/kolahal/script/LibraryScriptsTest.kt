@@ -67,14 +67,14 @@ class LibraryScriptsTest {
         status.set(name, null)
     }
 
-    /** The widget counts to the nearest date: its label is "to 20 December", and its bar starts on the day it was saved. */
+    /** The widget counts to the nearest date: its label is "To 20 December", and its bar starts on the day it was saved. */
     @Test fun countdownsWidgetSaysToTheDay() {
         val today = LocalDate.now()
         val trip = today.plusDays(30)
         run("countdown.lua", "add $trip Trip", before = luaKeepsShown)
         val shown = shown() as Map<*, *>
         val day = trip.format(java.time.format.DateTimeFormatter.ofPattern(if (trip.year == today.year) "d MMMM" else "d MMMM yyyy", java.util.Locale.ENGLISH))
-        assertEquals("to $day", shown["label"])
+        assertEquals("To $day", shown["label"])
         assertEquals("Trip", shown["title"])
         assertEquals(today.atStartOfDay(java.time.ZoneId.systemDefault()).toEpochSecond().toDouble(), shown["from"])
     }
@@ -91,18 +91,18 @@ class LibraryScriptsTest {
         // Its name is the title, coloured by how near: this week's in the warning colour, today's in
         // the good one, past ones muted. Under it, big numbers: the days, then the date.
         run("countdown.lua", "add ${today.plusDays(3)} Soon")
-        assertEquals(Triple("Soon", "3 days to go · ${shown(today.plusDays(3))}\n$saved", StyledText.Colour.WARN), plainOnly())
+        assertEquals(Triple("Soon", "3 Days to go · ${shown(today.plusDays(3))}\n$saved", StyledText.Colour.WARN), plainOnly())
         val big = StyledText.lines(lines().single().ctx.body!!).first().stats!!
-        assertEquals(listOf("3", "days to go"), big.first().let { s -> listOf(s.value, s.label).map { p -> p.joinToString("") { it.text } } })
+        assertEquals(listOf("3", "Days to go"), big.first().let { s -> listOf(s.value, s.label).map { p -> p.joinToString("") { it.text } } })
         assertEquals(StyledText.Colour.WARN, big.first().value.single().colour)
         run("countdown.lua", "add $today Now")
         assertEquals(Triple("Now", "Today · ${shown(today)}\n$saved", StyledText.Colour.GOOD), plainOnly())
         run("countdown.lua", "add ${today.minusDays(10)} Past")
-        assertEquals(Triple("Past", "10 days ago · ${shown(today.minusDays(10))}\n$saved", StyledText.Colour.MUTED), plainOnly())
+        assertEquals(Triple("Past", "10 Days ago · ${shown(today.minusDays(10))}\n$saved", StyledText.Colour.MUTED), plainOnly())
         run("countdown.lua", "add ${today.plusDays(30)} Trip")
-        assertEquals(Triple("Trip", "30 days to go · ${shown(today.plusDays(30))}\n$saved", null), plainOnly())
+        assertEquals(Triple("Trip", "30 Days to go · ${shown(today.plusDays(30))}\n$saved", null), plainOnly())
         run("countdown.lua", today.plusDays(1).toString())
-        assertEquals("1 day to go · ${shown(today.plusDays(1))}", plainOnly().second)
+        assertEquals("1 Day to go · ${shown(today.plusDays(1))}", plainOnly().second)
 
         run("countdown.lua")
         // The next one in big numbers, then a table: the number `rm` takes, the countdown, its date and when it is.
@@ -141,7 +141,7 @@ class LibraryScriptsTest {
 
         // A date on its own is counted, not saved.
         run("countdown.lua", "${today.plusDays(5)}")
-        assertEquals(Triple("${today.plusDays(5)}", "5 days to go · ${shown(today.plusDays(5))}", StyledText.Colour.WARN), plainOnly())
+        assertEquals(Triple("${today.plusDays(5)}", "5 Days to go · ${shown(today.plusDays(5))}", StyledText.Colour.WARN), plainOnly())
         // Not saved: the list still has the three left.
         run("countdown.lua")
         assertEquals(3, StyledText.lines(lines().single().ctx.body!!).count { it.row?.header == false })
@@ -173,18 +173,18 @@ class LibraryScriptsTest {
         run("countdown.lua", "add yearly $wedding Wedding")
         val (title, body) = plainOnly()
         assertEquals("Wedding · ${next(wedding).year - wedding.year}th", title)
-        assertTrue(body, body!!.startsWith("${days(wedding)} days to go") && body.endsWith(yearly))
+        assertTrue(body, body!!.startsWith("${days(wedding)} Days to go") && body.endsWith(yearly))
 
         // Its day has passed this year: next year's, the 31st.
         val birthday = today.minusDays(3).minusYears(30)
         run("countdown.lua", "add yearly $birthday Asha")
         assertEquals("Asha · 31st", plainOnly().first)
-        assertTrue(plainOnly().second, plainOnly().second!!.startsWith("${days(birthday)} days to go"))
+        assertTrue(plainOnly().second, plainOnly().second!!.startsWith("${days(birthday)} Days to go"))
 
         // No year: every year, with no count.
         val party = today.plusDays(2)
         run("countdown.lua", "add ${party.format(java.time.format.DateTimeFormatter.ofPattern("MM-dd"))} Party")
-        assertEquals(Triple("Party", "2 days to go · ${party.dayOfMonth} ${party.format(java.time.format.DateTimeFormatter.ofPattern("MMM EEEE", java.util.Locale.ENGLISH))}\n$yearly", StyledText.Colour.WARN), plainOnly())
+        assertEquals(Triple("Party", "2 Days to go · ${party.dayOfMonth} ${party.format(java.time.format.DateTimeFormatter.ofPattern("MMM EEEE", java.util.Locale.ENGLISH))}\n$yearly", StyledText.Colour.WARN), plainOnly())
 
         // Listed by when each comes next, with "every" and the day as the date.
         run("countdown.lua")
@@ -279,7 +279,7 @@ class LibraryScriptsTest {
         assertEquals("Pune", e.text)
         val stats = StyledText.lines(e.ctx.body!!).single().stats!!
         assertEquals(listOf("25°C", "36%", "← 9 km/h", "3"), stats.map { s -> s.value.joinToString("") { it.text } })
-        assertEquals(listOf("☀️ Sunny", "humidity", "wind", "UV"), stats.map { s -> s.label.joinToString("") { it.text } })
+        assertEquals(listOf("☀️ Sunny", "Humidity", "Wind", "UV"), stats.map { s -> s.label.joinToString("") { it.text } })
         assertNull(status.get(name))
         run("weather.lua", before = luaStandIns(answer.replace("+25", "-3")))
         assertEquals("Pune: ☀️ -3°C", status.get(name))
@@ -357,7 +357,7 @@ class LibraryScriptsTest {
             assertEquals(
                 file,
                 mapOf(
-                    "title" to "kolahal", "icon" to "star", "value" to 1234.0, "label" to "stars",
+                    "title" to "kolahal", "icon" to "star", "value" to 1234.0, "label" to "Stars",
                     "more" to listOf(mapOf("value" to 56.0, "label" to "forks"), mapOf("value" to 7.0, "label" to "open issues")),
                     "tap" to mapOf("url" to "https://github.com/mtwabpin/kolahal", "label" to "Open the project"),
                 ),
@@ -368,7 +368,7 @@ class LibraryScriptsTest {
             run(file, before = net + keeps)
             val (numbers, hint) = lines()
             assertEquals(file, "mtwabpin/kolahal", numbers.text)
-            assertEquals(file, listOf("1234" to "stars", "56" to "forks", "7" to "open issues"), bigNumbers(numbers.ctx.body!!))
+            assertEquals(file, listOf("1234" to "Stars", "56" to "Forks", "7" to "Open issues"), bigNumbers(numbers.ctx.body!!))
             assertEquals(file, "https://github.com/mtwabpin/kolahal", numbers.ctx.url)
             assertTrue(file, StyledText.plain(hint.text).startsWith("To see the card: tap + on the widgets page"))
             shown()
@@ -587,7 +587,7 @@ class LibraryScriptsTest {
               {"team":{"displayName":"New Zealand","shortDisplayName":"New Zealand","abbreviation":"NZ"},"score":"299/8"}]}]}]}]}"""
         run("cricket.js", "India", before = standIns(panel.replace("\n", "")))
         val e = lines().single()
-        assertEquals(listOf("237/4" to "India · 40 overs", "64" to "to win", "60" to "balls left"), bigNumbers(e.ctx.body!!))
+        assertEquals(listOf("237/4" to "India · 40 overs", "64" to "To win", "60" to "Balls left"), bigNumbers(e.ctx.body!!))
         // The summary said the same, so it goes.
         assertTrue(e.ctx.body!!, !StyledText.plain(e.ctx.body!!).contains("require"))
     }
@@ -600,7 +600,7 @@ class LibraryScriptsTest {
         run("football.js", "Arsenal", before = standIns(board.replace("\n", "")))
         val e = lines().single()
         assertEquals("LIVE Arsenal v Chelsea", StyledText.plain(e.text))
-        assertEquals(listOf("2–1" to "ARS v CHE", "67'" to "minute"), bigNumbers(e.ctx.body!!))
+        assertEquals(listOf("2–1" to "ARS v CHE", "67'" to "Minute"), bigNumbers(e.ctx.body!!))
     }
 
     /** Typed, the quote is on screen; the notification is for its daily time. */
@@ -620,9 +620,9 @@ class LibraryScriptsTest {
             val first = StyledText.lines(only().second!!).first().stats!!.first()
             return listOf(first.value, first.label).joinToString(" ") { s -> s.joinToString("") { it.text } }
         }
-        assertEquals("11h 0m of daylight today", length(39_570))
-        assertEquals("10h 50m of daylight today", length(39_000))
-        assertEquals("10h 59m of daylight today", length(39_569))
+        assertEquals("11h 0m Of daylight today", length(39_570))
+        assertEquals("10h 50m Of daylight today", length(39_000))
+        assertEquals("10h 59m Of daylight today", length(39_569))
     }
 
     @Test fun releasesWatchesAndListsRepos() {
@@ -708,8 +708,8 @@ class LibraryScriptsTest {
             mapOf(
                 "items" to listOf(
                     release("mtwabpin/kolahal", "3 days ago"),
-                    mapOf("title" to "neovim/neovim", "detail" to "no releases yet"),
-                    mapOf("title" to "termux/termux-app", "detail" to "couldn't read its releases", "color" to "bad"),
+                    mapOf("title" to "neovim/neovim", "detail" to "No releases yet"),
+                    mapOf("title" to "termux/termux-app", "detail" to "Couldn't read its releases", "color" to "bad"),
                 ),
                 "empty" to empty, "icon" to "code", "staleAfter" to 21_600.0,
             ),
@@ -722,7 +722,7 @@ class LibraryScriptsTest {
         run("releases.lua", event = forWidget, before = feeds)
         assertEquals(
             listOf(
-                release("mtwabpin/kolahal", "3 days ago"), release("x/today", "today"), release("x/yesterday", "yesterday"),
+                release("mtwabpin/kolahal", "3 days ago"), release("x/today", "Today"), release("x/yesterday", "Yesterday"),
                 release("x/months", "2 months ago"), release("x/years", "2 years ago"),
                 mapOf("title" to "x/undated", "trailing" to "First", "tap" to mapOf("url" to "https://github.com/x/undated/releases/1")),
             ),
@@ -769,7 +769,7 @@ class LibraryScriptsTest {
 
         // Nothing is done yet.
         run("habit.lua", before = luaKeepsShown)
-        assertEquals(Triple("Exercise", "0 days in a row\n${week()}", null), plainOnly())
+        assertEquals(Triple("Exercise", "0 Days in a row\n${week()}", null), plainOnly())
         assertEquals(listOf(0.0, List(7) { 0.0 }, null), card().let { listOf(it["value"], it["points"], it["color"]) })
 
         // Two days in a row up to yesterday, and one before a missed day: the streak is 2 while today is open.
@@ -779,7 +779,7 @@ class LibraryScriptsTest {
         val first = today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
         assertEquals(
             mapOf(
-                "title" to "Exercise", "icon" to "check", "value" to 2.0, "label" to "days in a row",
+                "title" to "Exercise", "icon" to "check", "value" to 2.0, "label" to "Days in a row",
                 "points" to listOf(0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0), "style" to "bars", "min" to 0.0, "max" to 1.0,
                 "labels" to listOf(first, "Today"),
                 "summary" to (6 downTo 0).joinToString(", ") { back ->
@@ -803,20 +803,20 @@ class LibraryScriptsTest {
 
         // Typed, it marks and unmarks today too, and logs the streak and the week.
         run("habit.lua", "undo", before = luaKeepsShown)
-        assertEquals(Triple("Exercise", "2 days in a row\n${week(4, 2, 1)}", null), plainOnly())
+        assertEquals(Triple("Exercise", "2 Days in a row\n${week(4, 2, 1)}", null), plainOnly())
         assertEquals(listOf(2.0, null, null), card().let { listOf(it["value"], it["color"], it["note"]) })
         assertEquals(days(4, 2, 1), store.get("days"))
         run("habit.lua", "done", options = mapOf("name" to "Read"))
-        assertEquals(Triple("Read", "3 days in a row\n${week(4, 2, 1, 0)}", null), plainOnly())
+        assertEquals(Triple("Read", "3 Days in a row\n${week(4, 2, 1, 0)}", null), plainOnly())
         run("habit.lua", "skip")
         assertEquals(Triple("Usage: habit [done|undo]", null, StyledText.Colour.MUTED), only())
 
         // Yesterday was missed: the streak starts again, with "day" for one.
         store.set("days", days(40, 3, 2))
         run("habit.lua", before = luaKeepsShown)
-        assertEquals("0 days in a row", plainOnly().second!!.lines().first())
+        assertEquals("0 Days in a row", plainOnly().second!!.lines().first())
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
-        assertEquals(listOf(1.0, "day in a row"), card().let { listOf(it["value"], it["label"]) })
+        assertEquals(listOf(1.0, "Day in a row"), card().let { listOf(it["value"], it["label"]) })
         // Only the streak's days and the last 7 days are kept: the day 40 days ago is gone.
         assertEquals(days(3, 2, 0), store.get("days"))
 
@@ -878,7 +878,7 @@ class LibraryScriptsTest {
             val habit = t.place(t.create("habit", code("habit.lua")))
             fun chart() = t.stored(habit.name).spec as WidgetSpec.Chart
             assertNull(t.stored(habit.name).error)
-            assertEquals(listOf("Exercise", "0", "days in a row", null), chart().let { listOf(it.base.title, it.value, it.label, it.base.color) })
+            assertEquals(listOf("Exercise", "0", "Days in a row", null), chart().let { listOf(it.base.title, it.value, it.label, it.base.color) })
             assertEquals(WidgetTap(args = "done", label = "Done today"), chart().base.tap)
             // A tap on the card, as the widgets page starts it.
             val tap = workDataOf(
@@ -887,7 +887,7 @@ class LibraryScriptsTest {
             )
             runBlocking { ScriptRun.run(context, tap) }
             assertNull(t.stored(habit.name).error)
-            assertEquals(listOf("1", "day in a row", StyledText.Colour.GOOD, 1f), chart().let { listOf(it.value, it.label, it.base.color, it.points.last()) })
+            assertEquals(listOf("1", "Day in a row", StyledText.Colour.GOOD, 1f), chart().let { listOf(it.value, it.label, it.base.color, it.points.last()) })
         } finally {
             t.close()
         }
@@ -902,7 +902,7 @@ class LibraryScriptsTest {
         assertEquals(true, status.get(name)?.startsWith("Charging since "))
         // Unplugged still below 30%: the warning colour; under it, big numbers (the battery, what it added, how long) and the bar.
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"))
-        assertEquals(Triple("Unplugged at 20%", "20% battery · +5% added · 0m charging\n15%\t20%", StyledText.Colour.WARN), plainOnly())
+        assertEquals(Triple("Unplugged at 20%", "20% Battery · +5% Added · 0m Charging\n15%\t20%", StyledText.Colour.WARN), plainOnly())
         // A bar under it, in the same colour, from where the charge started (15%) to where it is (20%).
         val bar = StyledText.lines(lines().single().ctx.body!!).last().meter!!
         assertEquals(0.15f, bar.from, 0.001f)
@@ -911,7 +911,7 @@ class LibraryScriptsTest {
         assertNull(status.get(name))
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 20, "plug" to "ac"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 90, "plug" to "ac"))
-        assertEquals(Triple("Unplugged at 90%", "90% battery · +70% added · 0m charging\n20%\t90%", StyledText.Colour.GOOD), plainOnly())
+        assertEquals(Triple("Unplugged at 90%", "90% Battery · +70% Added · 0m Charging\n20%\t90%", StyledText.Colour.GOOD), plainOnly())
 
         run("charge-reminder.lua")
         val (title, body) = only()
@@ -921,7 +921,7 @@ class LibraryScriptsTest {
         // Its low option: 20% is fine above 10%.
         run("charge-reminder.lua", event = mapOf("name" to "charger", "level" to 15, "plug" to "usb"), options = mapOf("low" to "10"))
         run("charge-reminder.lua", event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb"), options = mapOf("low" to "10"))
-        assertEquals(Triple("Unplugged at 20%", "20% battery · +5% added · 0m charging\n15%\t20%", StyledText.Colour.GOOD), plainOnly())
+        assertEquals(Triple("Unplugged at 20%", "20% Battery · +5% Added · 0m Charging\n15%\t20%", StyledText.Colour.GOOD), plainOnly())
     }
 
     private val nm = context.getSystemService(android.app.NotificationManager::class.java)

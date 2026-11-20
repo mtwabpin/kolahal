@@ -285,7 +285,7 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
             val now = System.currentTimeMillis()
             val allowed = runCatching { Agenda.hasPermission(context) }.getOrDefault(false)
             if (!AgendaTurns.due(agenda.value, allowed, now)) return@launch
-            val events = if (allowed) runCatching { Agenda.query(context, LocalDate.now(), AGENDA_DAYS) }.getOrDefault(emptyList()) else emptyList()
+            val events = if (allowed) runCatching { Agenda.query(context, LocalDate.now(), AGENDA_READ_DAYS) }.getOrDefault(emptyList()) else emptyList()
             agenda.value = AgendaRead(allowed, events, now)
         }
     }
@@ -360,7 +360,13 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
     }
 
     companion object {
-        /** The Agenda widget shows as many days as the `agenda` command does. */
-        const val AGENDA_DAYS = ProductivityCommands.DEFAULT_AGENDA_DAYS
+        /**
+         * The days the Agenda widget reads from the calendar: the most it can show. The card shows
+         * fewer when widgets.agenda-days says so, with no new read when that setting changes.
+         */
+        const val AGENDA_READ_DAYS = 14
+
+        /** The days the Agenda card shows for widgets.agenda-days: "auto" looks as far as it reads. */
+        fun agendaDays(setting: String): Int = setting.toIntOrNull()?.coerceIn(1, AGENDA_READ_DAYS) ?: AGENDA_READ_DAYS
     }
 }

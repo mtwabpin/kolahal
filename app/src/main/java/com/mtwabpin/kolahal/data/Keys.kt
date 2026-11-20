@@ -174,6 +174,7 @@ object Keys {
      */
     fun widgetsFirst(c: Config): Boolean = c[WIDGETS_START] && c[WIDGETS_PAGE] != "off" && c[SELECTOR_RAIL]
     val WIDGETS_WALLPAPER = ConfigKey.Num("widgets.wallpaper", 0, 0..100, "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's colour")
+    val AGENDA_WIDGET_DAYS = ConfigKey.Choice("widgets.agenda-days", "auto", listOf("auto", "1", "3", "7", "14"), "Days the Agenda widget shows from today: auto looks ahead up to 14 days, as many events as the card fits")
 
     val GESTURE_DOUBLE_TAP = ConfigKey.Text("gesture.double-tap", if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) "lock" else "none", "Double-tap empty log space: $GESTURE_ACTIONS, quick (quick actions) or none")
     val GESTURE_SWIPE_DOWN = ConfigKey.Text("gesture.swipe-down", "shade", "Swipe down on the header: $GESTURE_ACTIONS, quick or none")
@@ -266,6 +267,7 @@ object Keys {
         WIDGETS_PAGE,
         WIDGETS_START,
         WIDGETS_WALLPAPER,
+        AGENDA_WIDGET_DAYS,
     )
 
     /**

@@ -153,14 +153,14 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
                     value = words,
                     onValueChange = { words = it },
                     singleLine = true,
-                    label = { Text("args") },
-                    placeholder = { Text("words after its name", style = Term.phoneText.copy(color = Term.dim)) },
+                    label = { Text("Arguments") },
+                    placeholder = { Text("Words after its name", style = Term.phoneText.copy(color = Term.dim)) },
                     textStyle = Term.phoneText.copy(color = Term.fg),
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
                     modifier = Modifier.fillMaxWidth().testTag("run-args"),
                 )
                 if (events.isNotEmpty()) {
-                    Text("simulate event", style = Term.phoneText.copy(color = Term.dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                    Text("Simulate event", style = Term.phoneText.copy(color = Term.dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                     (listOf<Pair<String, String?>?>(null) + events).forEach { e ->
                         Text(
                             (if (e == chosen) "● " else "○ ") + when {
@@ -179,9 +179,9 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
             TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                 val args = com.mtwabpin.kolahal.commands.CommandParsing.tokenize(words.text)
                 onRun(args, chosen?.let { com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(it.first, it.second) })
-            }) { Text("run", style = Term.phoneText.copy(color = Term.prompt)) }
+            }) { Text("Run", style = Term.phoneText.copy(color = Term.prompt)) }
         },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("cancel", style = Term.phoneText.copy(color = Term.fg)) } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel", style = Term.phoneText.copy(color = Term.fg)) } },
     )
 }
 
@@ -259,7 +259,7 @@ internal fun FindBar(
             BarField(
                 value = query,
                 onValueChange = onQuery,
-                placeholder = "find",
+                placeholder = "Find",
                 imeAction = ImeAction.Search,
                 onAction = onNext,
                 onKey = { e ->
@@ -281,7 +281,7 @@ internal fun FindBar(
                 BarField(
                     value = replacement,
                     onValueChange = onReplacement,
-                    placeholder = "replace with",
+                    placeholder = "Replace with",
                     imeAction = ImeAction.Done,
                     onAction = onReplace,
                     onKey = { e ->

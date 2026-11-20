@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.ui
 
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.data.TimeFormats
+import com.mtwabpin.kolahal.widgets.WidgetParser
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import java.time.Instant
 import java.time.LocalDate
@@ -18,7 +19,7 @@ import kotlin.math.roundToInt
  */
 internal object WidgetWords {
     const val NOTHING = "Nothing to show"
-    const val UNAVAILABLE = "widget unavailable"
+    const val UNAVAILABLE = "Widget unavailable"
 
     /** What a card says when no script has its name any more. */
     const val REMOVED = "Script removed"
@@ -437,7 +438,7 @@ internal object WidgetWords {
     fun agenda(spec: WidgetSpec.Agenda, now: Long, zone: ZoneId, clock24: Boolean, locale: Locale = Locale.getDefault()): List<AgendaDay> {
         fun at(seconds: Long) = Instant.ofEpochSecond(seconds).atZone(zone)
         val today = at(now).toLocalDate()
-        val last = today.plusDays(spec.days.coerceIn(1, 7) - 1L)
+        val last = today.plusDays(spec.days.coerceIn(WidgetParser.MIN_DAYS, WidgetParser.MAX_DAYS) - 1L)
         val clock = TimeFormats.clockFormat(clock24, locale)
         val byDay = java.util.TreeMap<LocalDate, MutableList<WidgetSpec.Event>>()
         for (event in spec.events) {
@@ -631,7 +632,7 @@ internal object WidgetWords {
             return if (today) Footer("Failed $time", "Failed at $time", failed = true)
             else Footer("Failed ${age(triedAt, now)}", "Failed ${age(triedAt, now, whole = true)}", failed = true)
         }
-        return if (hasContent && old) Footer(age(setAt, now), "Updated ${age(setAt, now, whole = true)}", failed = false) else null
+        return if (hasContent && old) Footer(age(setAt, now).replaceFirstChar { it.titlecase() }, "Updated ${age(setAt, now, whole = true)}", failed = false) else null
     }
 
     /** The first line of an error with something on it, for a card with nothing else to show. */

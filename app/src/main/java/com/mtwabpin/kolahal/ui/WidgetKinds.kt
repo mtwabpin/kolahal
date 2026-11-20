@@ -352,13 +352,17 @@ internal fun ChangeText(trend: String?, delta: String?, colour: Color, style: Te
     }
 }
 
-/** One of a stat's smaller values, over its label in [muted]. With [centred], both are centred. */
+/**
+ * One of a stat's smaller values, over its label in [muted]. With [centred], both are centred.
+ * - The label starts with a capital here, on a line of its own. Where a look writes it after the
+ *   value on one line ("62% humidity"), it keeps the script's case.
+ */
 @Composable
 internal fun SmallValue(small: WidgetSpec.Small, muted: Color, modifier: Modifier = Modifier, centred: Boolean = false) {
     Column(modifier, horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start) {
         Text(small.value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
         small.label?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(StyledText.capitalised(it), style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -836,7 +840,7 @@ private fun CountdownValue(count: State<WidgetWords.Count>, large: Boolean, box:
     val type = MaterialTheme.typography
     val now = count.value
     Row {
-        BigText(now.value, if (large) type.displayMedium else valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
+        BigText(StyledText.capitalised(now.value), if (large) type.displayMedium else valueStyle(box), Modifier.weight(1f, fill = false).alignByBaseline())
         now.unit?.let {
             val unitStyle = if (large) type.titleLarge.copy(fontWeight = FontWeight.Bold) else type.titleMedium
             Text(it, style = unitStyle, color = lookColors().muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 4.dp).alignByBaseline())

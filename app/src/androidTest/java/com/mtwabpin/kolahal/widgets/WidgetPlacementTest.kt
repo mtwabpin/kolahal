@@ -34,7 +34,7 @@ class WidgetPlacementTest {
     @After fun tearDown() = t.close()
 
     private val code = "-- @widget stat 2x1\nwidget.show{ value = 7, label = 'kept' }"
-    private val seven = WidgetSpec.Stat(WidgetBase(), "7", label = "kept")
+    private val seven = WidgetSpec.Stat(WidgetBase(), "7", label = "Kept")
     private val nothing = WidgetState(null, false)
 
     private fun now(s: Script) = scripts.byId(s.id)!!
@@ -45,7 +45,7 @@ class WidgetPlacementTest {
     /** The placed list as saved, which the next start reads. */
     private fun saved() = WidgetCodec.decode(Stores.WIDGETS.open(context).getString("placed", null))
 
-    /** Placing adds one entry at the end of the page, at the size of the `@widget` line, and the run it asks for fills the widget. */
+    /** Placing adds one entry in the first free space of the page, at the size of the `@widget` line, and the run it asks for fills the widget. */
     @Test fun placingAddsAnEntryAndTurnsTheAccessOn() {
         val s = t.create("-a", code)
         assertFalse(on(s))
@@ -55,9 +55,10 @@ class WidgetPlacementTest {
         val placed = t.place(s)
         val w = t.entry(s.name)!!
         assertEquals(
-            PlacedWidget(id = null, provider = "script:${s.name}", profileSerial = host.serialOf(Process.myUserHandle()), heightDp = w.heightDp, order = last, span = 6),
+            PlacedWidget(id = null, provider = "script:${s.name}", profileSerial = host.serialOf(Process.myUserHandle()), heightDp = w.heightDp, order = last, span = 6, column = w.column, topDp = w.topDp),
             w,
         )
+        assertTrue("it has a place on the page at once", w.positioned)
         assertEquals("s:script:${s.name}", w.key)
         assertFalse("it needs no id, so it never waits to be added again", w.pending)
         assertTrue("${w.heightDp}dp", w.heightDp >= WidgetSizes.MIN_ROW_DP)

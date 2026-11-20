@@ -54,7 +54,7 @@ if widget then
   widget.show{
     title = "Screen time", icon = "timer",
     value = duration(today.total),
-    label = "screen time today",
+    label = "Screen time today",
     points = days,
     style = "bars",
     min = 0,

@@ -26,6 +26,7 @@ object SettingTitles {
         "widgets.page" to "Widgets page (swipe sideways)",
         "widgets.start" to "Start on the widgets page",
         "widgets.wallpaper" to "Transparency (%)",
+        "widgets.agenda-days" to "Agenda days",
         "log.time" to "Times",
         "log.dim" to "Dim older output",
         "log.spacing" to "Space between output groups (dp)",

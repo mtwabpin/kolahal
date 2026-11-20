@@ -1234,7 +1234,7 @@ private fun PlaceAndDay(time: WidgetWords.ZoneTime) {
     val type = MaterialTheme.typography
     Column {
         Text(time.label, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(time.day ?: WidgetWords.SAME_DAY, style = type.bodySmall, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text((time.day ?: WidgetWords.SAME_DAY).replaceFirstChar { it.titlecase() }, style = type.bodySmall, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

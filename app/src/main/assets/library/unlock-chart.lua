@@ -50,7 +50,7 @@ if widget then
   widget.show{
     title = "Unlocks", icon = "unlock",
     value = today,
-    label = today == 1 and "unlock today" or "unlocks today",
+    label = today == 1 and "Unlock today" or "Unlocks today",
     points = days,
     style = "bars",
     min = 0,

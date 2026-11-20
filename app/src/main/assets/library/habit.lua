@@ -74,7 +74,7 @@ end
 
 local name = (options.name or ""):gsub("^%s+", ""):gsub("%s+$", "")
 if name == "" then name = "Habit" end
-local label = streak == 1 and "day in a row" or "days in a row"
+local label = streak == 1 and "Day in a row" or "Days in a row"
 
 -- Its widget: the streak large, over the bars. A day you did it is a full bar, and any other day
 -- is an empty one. Once today is done, the widget is in the theme's good colour, and its title

@@ -31,7 +31,7 @@ import java.io.File
  * own options. Each is removed by itself, and all follow a rename and come back from a backup.
  *
  * The script shows its `city` option as the value, and which widget the run was for as the label:
- * the id of a further widget, or "first".
+ * the id of a further widget, or "first", which the card shows as "First".
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetInstancesTest {
@@ -75,7 +75,7 @@ class WidgetInstancesTest {
         val first = WidgetRef(s.name)
         val second = t.placeAnother(s)
         options.set(s.name, "city", "Tokyo", second.id)
-        assertEquals("London:none" to "first", shown(first))
+        assertEquals("London:none" to "First", shown(first))
         assertEquals("London:none" to "2", shown(second))
         val tried = t.stored(first).triedAt to t.stored(second).triedAt
 
@@ -87,7 +87,7 @@ class WidgetInstancesTest {
             vm.widgetActions.tap(first.key, go)
         }
         waitUntil("the tap on the second card didn't fill the second widget", 30_000) { shown(second) == ("Tokyo:go" to "2") }
-        waitUntil("the tap on the first card didn't fill the first widget", 30_000) { shown(first) == ("London:go" to "first") }
+        waitUntil("the tap on the first card didn't fill the first widget", 30_000) { shown(first) == ("London:go" to "First") }
         // Each run's end is noted for the card that was tapped.
         waitUntil("the runs' ends weren't noted", 30_000) { t.stored(first).triedAt > tried.first && t.stored(second).triedAt > tried.second }
         assertNull(t.stored(second).error)
@@ -105,7 +105,7 @@ class WidgetInstancesTest {
         assertEquals(setOf("", "2"), WidgetStates.placedIds(context, s.name))
         assertTrue(on(s))
         // The run that placing asked for filled the widget it was for. The second follows the script's options.
-        assertEquals("London" to "first", shown(first))
+        assertEquals("London" to "First", shown(first))
         assertEquals("London" to "2", shown(second))
         assertTrue(t.stored(second).triedAt > 0)
 
@@ -114,13 +114,13 @@ class WidgetInstancesTest {
         t.refresh(s, second)
         t.refresh(s, first)
         assertEquals("Tokyo" to "2", shown(second))
-        assertEquals("London" to "first", shown(first))
+        assertEquals("London" to "First", shown(first))
 
         // The script's own value: the first widget has it, and the second keeps its own.
         options.set(s.name, "city", "Paris")
         t.refresh(s, first)
         t.refresh(s, second)
-        assertEquals("Paris" to "first", shown(first))
+        assertEquals("Paris" to "First", shown(first))
         assertEquals("Tokyo" to "2", shown(second))
         // Reset for the widget: it follows the script again.
         options.set(s.name, "city", null, second.id)
@@ -131,7 +131,7 @@ class WidgetInstancesTest {
         options.set(s.name, "city", "Oslo")
         val before = t.stored(second)
         t.run(s)
-        assertEquals("Oslo" to "first", shown(first))
+        assertEquals("Oslo" to "First", shown(first))
         assertEquals(before, t.stored(second))
 
         // `widgets ls` tells them apart.
@@ -178,7 +178,7 @@ class WidgetInstancesTest {
         // The first widget, its content and the script's own options stay.
         assertEquals(setOf(""), WidgetStates.placedIds(context, s.name))
         assertTrue(on(s))
-        assertEquals("Paris" to "first", shown(first))
+        assertEquals("Paris" to "First", shown(first))
         assertEquals(mapOf("city" to "Paris"), scope(first))
         // A run for the widget that is gone keeps nothing.
         t.run(s, widget = true, id = "2")
@@ -221,7 +221,7 @@ class WidgetInstancesTest {
         assertEquals(6, host.placedOf(s.name).size)
         assertEquals(setOf("", "2", "3", "4", "5", "6"), WidgetStates.placedIds(context, s.name))
         // Every one got its own run.
-        assertEquals(listOf("first", "2", "3", "4", "5", "6"), host.placedOf(s.name).map { shown(it)?.second })
+        assertEquals(listOf("First", "2", "3", "4", "5", "6"), host.placedOf(s.name).map { shown(it)?.second })
         // One is removed: its id is free again.
         host.remove(t.entry(WidgetRef(s.name, "4"))!!.key)
         assertEquals(WidgetRef(s.name, "4"), host.placeAnother(s, WidgetSize.S2X1))
@@ -250,7 +250,7 @@ class WidgetInstancesTest {
         assertEquals(emptyList<WidgetRef>(), host.placedOf(s.name))
         assertEquals(listOf(entries[0].copy(provider = "script:$to"), entries[1].copy(provider = "script:$to#2")), listOf(t.entry(first2), t.entry(second2)))
         // What each showed, and the copies of the list, are under the new name.
-        assertEquals("London" to "first", shown(first2))
+        assertEquals("London" to "First", shown(first2))
         assertEquals("Tokyo" to "2", shown(second2))
         assertEquals(nothing, t.stored(WidgetRef(s.name)))
         assertEquals(nothing, t.stored(second))
@@ -265,7 +265,7 @@ class WidgetInstancesTest {
         options.set(to, "city", "Rome", "2")
         t.refresh(now(s), second2)
         assertEquals("Rome" to "2", shown(second2))
-        assertEquals("London" to "first", shown(first2))
+        assertEquals("London" to "First", shown(first2))
     }
 
     /** A script whose name is the start of another's keeps its own: nothing of `name_x` moves or goes with `name`. */
@@ -329,7 +329,7 @@ class WidgetInstancesTest {
             assertTrue(on(s))
             t.refresh(now(s), first)
             t.refresh(now(s), second)
-            assertEquals("Paris" to "first", shown(first))
+            assertEquals("Paris" to "First", shown(first))
             assertEquals("Tokyo" to "2", shown(second))
         } finally {
             file.delete()
@@ -352,10 +352,10 @@ class WidgetInstancesTest {
 
         // A run on its timer and a run for the widget both fill it, in the `:script` process too.
         t.run(s)
-        assertEquals("London" to "first", shown(first))
+        assertEquals("London" to "First", shown(first))
         WidgetStates.forget(context, s.name)
         t.refresh(s, first)
-        assertEquals("London" to "first", shown(first))
+        assertEquals("London" to "First", shown(first))
         // With no row, no further widget counts as placed.
         t.run(s, widget = true, id = "2")
         assertEquals(nothing, t.stored(WidgetRef(s.name, "2")))
@@ -365,7 +365,7 @@ class WidgetInstancesTest {
         host.settle()
         assertEquals(setOf(""), WidgetStates.placedIds(context, s.name))
         assertTrue(on(s))
-        assertEquals("London" to "first", shown(first))
+        assertEquals("London" to "First", shown(first))
     }
 
     /**

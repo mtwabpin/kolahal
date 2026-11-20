@@ -96,7 +96,7 @@ internal fun HostedWidget(
     }
     val info = remember(id, providersVersion) { widgets.cachedInfo(id) }
     if (info == null) {
-        placeholder("widget unavailable")
+        placeholder(WidgetWords.UNAVAILABLE)
         return
     }
     val longPress by rememberUpdatedState(onLongPress)

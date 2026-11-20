@@ -166,8 +166,8 @@ internal fun ScriptCard(
                         )
                         val from = when (copy?.source) {
                             ScriptSource.LIBRARY -> null
-                            ScriptSource.SHARED -> copy.addedSource ?: "shared"
-                            else -> "yours"
+                            ScriptSource.SHARED -> copy.addedSource ?: "Shared"
+                            else -> "Yours"
                         }
                         if (from != null) Text(" · $from", style = MaterialTheme.typography.labelSmall, color = colors.outline, maxLines = 1)
                     }

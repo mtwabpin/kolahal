@@ -9,9 +9,11 @@ import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.terminal.OwnTap
+import com.mtwabpin.kolahal.terminal.OwnData
 import com.mtwabpin.kolahal.terminal.OwnTaps
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.Shortcuts
+import com.mtwabpin.kolahal.widgets.WidgetParser
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import org.junit.Assert.assertEquals
@@ -217,6 +219,21 @@ class OwnCardsTest {
         assertEquals("event 1 ${at(14, 17)}", standup.tap?.args)
         assertEquals(OwnTap.OpenEvent(1, at(14, 17)), OwnTaps.parse(WidgetSource.AGENDA, standup.tap!!.args!!))
         assertTrue(spec.events.all { it.tap?.url == null && it.tap?.label == "open event" })
+    }
+
+    /** The Agenda card shows the days widgets.agenda-days says. Auto looks as far ahead as Kolahal reads the calendar. */
+    @Test fun theAgendaShowsTheDaysChosen() {
+        assertEquals(OwnData.AGENDA_READ_DAYS, OwnData.agendaDays("auto"))
+        assertEquals(1, OwnData.agendaDays("1"))
+        assertEquals(7, OwnData.agendaDays("7"))
+        assertEquals(OwnData.AGENDA_READ_DAYS, OwnData.agendaDays("99"))
+        // A script's agenda may show as many days as the built-in one reads.
+        assertEquals(OwnData.AGENDA_READ_DAYS, WidgetParser.MAX_DAYS)
+        val now = at(14, 16, 5)
+        val events = listOf(timed(1, "Standup", at(14, 17), at(14, 18)), timed(2, "Dentist", at(20, 10), at(20, 11)))
+        assertEquals(listOf("Standup"), OwnCards.agenda(events, zone, now, OwnData.agendaDays("3")).events.map { it.title })
+        assertEquals(listOf("Standup", "Dentist"), OwnCards.agenda(events, zone, now, OwnData.agendaDays("auto")).events.map { it.title })
+        assertEquals("No events in the next 14 days", OwnCards.agenda(emptyList(), zone, now, OwnData.agendaDays("auto")).empty)
     }
 
     /** The calendar keeps an all-day event at midnight UTC. The card puts it at midnight where the phone is. */

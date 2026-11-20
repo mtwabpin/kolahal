@@ -73,6 +73,7 @@ class WidgetsScreenTest {
 
     @After fun tearDown() {
         config.reset(Keys.WIDGETS_PAGE)
+        config.reset(Keys.AGENDA_WIDGET_DAYS)
         t.close()
         widgets.releaseViews(compose.activity)
     }
@@ -176,6 +177,21 @@ class WidgetsScreenTest {
         compose.onNode(isSelected() and hasClickLabel("change $label")).assertExists()
         compose.onNodeWithContentDescription("Done").assertExists()
         assertNull(widgets.toChoose.value)
+    }
+
+    /** The Agenda has a Days row: Auto at first, and a tap saves another count. Other widgets have none. */
+    @Test fun theAgendaHasADaysRow() {
+        val (_, agenda) = placeBuiltin(WidgetSource.AGENDA)
+        val (_, battery) = placeBuiltin(WidgetSource.BATTERY)
+        show()
+        choose(agenda)
+        listOf("Auto", "1", "3", "7", "14").forEach { compose.onNodeWithTag("days $it").assertExists() }
+        compose.onNodeWithTag("days Auto").assertIsOn()
+        compose.onNodeWithTag("days 7").performClick()
+        compose.onNodeWithTag("days 7").assertIsOn()
+        assertEquals("7", config[Keys.AGENDA_WIDGET_DAYS])
+        choose(battery)
+        compose.onNodeWithTag("days Auto").assertDoesNotExist()
     }
 
     /** One of Kolahal's own widgets has a Look row and a Size row; an app's widget has steps and Square. */
@@ -452,7 +468,7 @@ class WidgetsScreenTest {
         widgets.place(id, clock.info)
         val fallback = clock.flat.substringAfterLast('.')
         show()
-        compose.onNodeWithText("widget unavailable").assertExists()
+        compose.onNodeWithText("Widget unavailable").assertExists()
         // Named by its provider's class, with no app to ask for a name.
         compose.onNodeWithText(fallback).assertExists()
         card(fallback).performClick()

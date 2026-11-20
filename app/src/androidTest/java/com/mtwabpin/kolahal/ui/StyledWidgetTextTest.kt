@@ -99,11 +99,11 @@ class StyledWidgetTextTest {
             ),
         )
         assertEquals(FontWeight.Bold, text("BTC").spanStyles.single().item.fontWeight)
-        assertEquals(colourOf(StyledText.Colour.GOOD), text("up 1.2%").spanStyles.single().item.color)
+        assertEquals(colourOf(StyledText.Colour.GOOD), text("Up 1.2%").spanStyles.single().item.color)
         val end = text("67,000 67,120")
         assertEquals(TextDecoration.LineThrough, end.spanStyles.single().item.textDecoration)
         assertEquals(0 to 6, end.spanStyles.single().let { it.start to it.end })
-        assertEquals(listOf("Prices: BTC, up 1.2%, 67,000 67,120"), said())
+        assertEquals(listOf("Prices: BTC, Up 1.2%, 67,000 67,120"), said())
     }
 
     /** A stat's label keeps its styles. Its value, like every other text, is plain. */

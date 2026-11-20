@@ -108,9 +108,9 @@ local function dayMonth(t)
   return text
 end
 
--- The date in words, for the widget: "to 20 December", with the year when it isn't this one.
+-- The date in words, for the widget: "To 20 December", with the year when it isn't this one.
 local function toDay(t)
-  local text = "to " .. tonumber(os.date("%d", t)) .. " " .. os.date("%B", t)
+  local text = "To " .. tonumber(os.date("%d", t)) .. " " .. os.date("%B", t)
   if os.date("%Y", t) ~= os.date("%Y") then text = text .. " " .. os.date("%Y", t) end
   return text
 end

@@ -177,15 +177,17 @@ bar for the position.
 
 ### Agenda
 
-The card shows the events of your phone's calendar for today and the next two days, under
-"Today", "Tomorrow" and the date. The [`agenda`](/guides/productivity/#agenda) command reads the
-same calendar.
+The card shows the events of your phone's calendar from today, under "Today", "Tomorrow" and the
+date. By default (Auto) it looks up to 14 days ahead and shows as many events as the card fits.
+To show only a few days, choose 1, 3, 7 or 14 under **Days** when you tap the card in **Arrange
+widgets**, or in **Settings → Widgets → Agenda days**. The [`agenda`](/guides/productivity/#agenda)
+command reads the same calendar.
 
 - Each event has its time in front. An all-day event says "all day" and comes first in its day.
   One that goes on says "now".
 - A tap on an event opens it in your calendar app. A tap elsewhere runs `agenda`.
 - An event that has ended leaves the card by itself.
-- With no event in these days, the card says "No events in the next 3 days".
+- With no event in these days, the card says so: "No events in the next 14 days".
 - It needs the calendar permission. Without it, the card says "Allow calendar access", and a tap
   asks for it.
 - Kolahal reads the calendar when the widgets page comes into view, and every 15 minutes while you

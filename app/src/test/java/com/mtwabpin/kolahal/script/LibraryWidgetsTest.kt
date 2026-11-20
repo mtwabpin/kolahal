@@ -144,16 +144,16 @@ class LibraryWidgetsTest {
             WidgetSpec.Chart(
                 WidgetBase(title = "Exercise", tap = tap),
                 points = listOf(1f, 0f, 1f, 1f, 1f, 1f, 0f), style = "bars", min = 0f, max = 1f,
-                value = "4", label = "days in a row", labels = listOf("Sun", "Today"), summary = open,
+                value = "4", label = "Days in a row", labels = listOf("Sun", "Today"), summary = open,
             ),
-            week(4.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, label = "days in a row", summary = open, color = null),
+            week(4.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, label = "Days in a row", summary = open, color = null),
         )
-        val done = week(5.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, label = "days in a row", summary = open.replace("not yet", "done"), color = "good", note = "Done today") as WidgetSpec.Chart
+        val done = week(5.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, label = "Days in a row", summary = open.replace("not yet", "done"), color = "good", note = "Done today") as WidgetSpec.Chart
         // Done today: the good colour, and the title line ends with "Done today".
         assertEquals(listOf("5", StyledText.Colour.GOOD, 1f, "Done today"), listOf(done.value, done.base.color, done.points.last(), done.base.note))
         // No day is done yet: every bar is at the bottom of the scale.
         val none = "Sun missed, Mon missed, Tue missed, Wed missed, Thu missed, Fri missed, Today not yet"
-        val new = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, label = "days in a row", summary = none, color = null) as WidgetSpec.Chart
+        val new = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, label = "Days in a row", summary = none, color = null) as WidgetSpec.Chart
         assertEquals(listOf("0", List(7) { 0f }, 0f, 1f), listOf(new.value, new.points, new.min, new.max))
     }
 
@@ -250,8 +250,8 @@ class LibraryWidgetsTest {
                     luaTable("title" to "neovim/neovim", "trailing" to "v0.11.4", "detail" to "3 days ago", "tap" to luaTable("url" to "https://github.com/neovim/neovim/releases/tag/v0.11.4")),
                     // A release with no tag in its link has its name at the end. A long name is cut. With no date it has no second line.
                     luaTable("title" to "a/named", "trailing" to "Kolahal 0.5.8: widgets from scripts", "tap" to luaTable("url" to "https://github.com/a/named/releases/1")),
-                    luaTable("title" to "a/new", "detail" to "no releases yet"),
-                    luaTable("title" to "a/gone", "detail" to "couldn't read its releases", "color" to "bad"),
+                    luaTable("title" to "a/new", "detail" to "No releases yet"),
+                    luaTable("title" to "a/gone", "detail" to "Couldn't read its releases", "color" to "bad"),
                 ),
                 "empty" to empty, "staleAfter" to 21_600.0,
             ),
@@ -262,8 +262,8 @@ class LibraryWidgetsTest {
                 items = listOf(
                     WidgetSpec.Row("neovim/neovim", detail = "3 days ago", trailing = "v0.11.4", tap = WidgetTap(url = "https://github.com/neovim/neovim/releases/tag/v0.11.4")),
                     WidgetSpec.Row("a/named", trailing = "Kolahal 0.5.8: widgets …", tap = WidgetTap(url = "https://github.com/a/named/releases/1")),
-                    WidgetSpec.Row("a/new", detail = "no releases yet"),
-                    WidgetSpec.Row("a/gone", detail = "couldn't read its releases", color = StyledText.Colour.BAD),
+                    WidgetSpec.Row("a/new", detail = "No releases yet"),
+                    WidgetSpec.Row("a/gone", detail = "Couldn't read its releases", color = StyledText.Colour.BAD),
                 ),
                 empty = empty,
             ),
@@ -319,13 +319,13 @@ class LibraryWidgetsTest {
             WidgetSpec.Chart(
                 WidgetBase(title = "Unlocks", tap = tap),
                 points = listOf(12f, 30f, 0f, 45f, 7f, 1f, 8f), style = "bars", min = 0f, max = 45f,
-                value = "8", label = "unlocks today", labels = listOf("Sun", "Today"),
+                value = "8", label = "Unlocks today", labels = listOf("Sun", "Today"),
                 summary = "Sun 12, Mon 30, Tue 0, Wed 45, Thu 7, Fri 1, Today 8",
             ),
-            week(12.0, 30.0, 0.0, 45.0, 7.0, 1.0, 8.0, max = 45.0, label = "unlocks today", summary = "Sun 12, Mon 30, Tue 0, Wed 45, Thu 7, Fri 1, Today 8"),
+            week(12.0, 30.0, 0.0, 45.0, 7.0, 1.0, 8.0, max = 45.0, label = "Unlocks today", summary = "Sun 12, Mon 30, Tue 0, Wed 45, Thu 7, Fri 1, Today 8"),
         )
         // A week with no unlocks: the script gives 1 as the top of the scale, so it stays above the bottom (0).
-        val none = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, max = 1.0, label = "unlocks today", summary = "Sun 0, Mon 0, Tue 0, Wed 0, Thu 0, Fri 0, Today 0") as WidgetSpec.Chart
+        val none = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, max = 1.0, label = "Unlocks today", summary = "Sun 0, Mon 0, Tue 0, Wed 0, Thu 0, Fri 0, Today 0") as WidgetSpec.Chart
         assertEquals("0", none.value)
         assertEquals(listOf(0f, 1f), listOf(none.min, none.max))
     }
@@ -450,14 +450,14 @@ class LibraryWidgetsTest {
         val spec = fromLua(
             "countdown.lua",
             luaTable(
-                "title" to "Wedding anniversary · 26th", "label" to "to 15 June 2027", "style" to "days", "reached" to "Today",
+                "title" to "Wedding anniversary · 26th", "label" to "To 15 June 2027", "style" to "days", "reached" to "Today",
                 "to" to 1_812_997_800.0, "from" to 1_781_461_800.0, "tap" to luaToLog,
             ),
         )
         assertEquals(
             WidgetSpec.Countdown(
                 WidgetBase(title = "Wedding anniversary · 26th", tap = toLog),
-                to = 1_812_997_800, from = 1_781_461_800, label = "to 15 June 2027", style = "days", reached = "Today",
+                to = 1_812_997_800, from = 1_781_461_800, label = "To 15 June 2027", style = "days", reached = "Today",
             ),
             spec,
         )
@@ -649,9 +649,9 @@ class LibraryWidgetsTest {
         assertEquals(WidgetBase(title = "Pune, IN", tap = toLog), spec.base)
         assertEquals(
             listOf(
-                WidgetSpec.Row("Today", detail = "clear", trailing = "18–30°", icon = "☀️"),
-                WidgetSpec.Row("Tomorrow", detail = "rain", trailing = "17–28°", icon = "🌧️"),
-                WidgetSpec.Row("Mon", detail = "thunderstorm", trailing = "16–26°", icon = "⛈️"),
+                WidgetSpec.Row("Today", detail = "Clear", trailing = "18–30°", icon = "☀️"),
+                WidgetSpec.Row("Tomorrow", detail = "Rain", trailing = "17–28°", icon = "🌧️"),
+                WidgetSpec.Row("Mon", detail = "Thunderstorm", trailing = "16–26°", icon = "⛈️"),
             ),
             spec.items,
         )

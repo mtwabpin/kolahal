@@ -51,7 +51,7 @@ class WidgetSpecJsonTest {
         roundTrip(
             WidgetSpec.Stat(
                 fullBase, value = "23°", label = "Paris", unit = "C", delta = "+2.4%", trend = "up",
-                more = listOf(WidgetSpec.Small("12°", "low"), WidgetSpec.Small("68%", null), WidgetSpec.Small("", "")),
+                more = listOf(WidgetSpec.Small("12°", "Low"), WidgetSpec.Small("68%", null), WidgetSpec.Small("", "")),
                 progress = 0.68f, moving = true,
             )
         )
@@ -62,7 +62,7 @@ class WidgetSpecJsonTest {
     @Test fun textRoundTrips() {
         roundTrip(text)
         roundTrip(WidgetSpec.Text(fullBase, text = "First line\nSecond \"quoted\" line \\ with a slash\n\tand a tab — 日本語 👨‍👩‍👧", caption = "An author"))
-        roundTrip(WidgetSpec.Text(bare, text = "x".repeat(500), caption = "c".repeat(60)))
+        roundTrip(WidgetSpec.Text(bare, text = "x".repeat(500), caption = "C" + "c".repeat(59)))
     }
 
     @Test fun listRoundTrips() {
@@ -132,7 +132,7 @@ class WidgetSpecJsonTest {
         roundTrip(picture)
         roundTrip(WidgetSpec.Image(fullBase, image = "https://example.com/comics/a%20b.png?size=2x&v=3#top", alt = "A \"graph\" — 日本語 👨‍👩‍👧", caption = "Monday", fit = "fit"))
         roundTrip(picture.copy(fit = "crop"))
-        roundTrip(picture.copy(image = "https://example.com/" + "x".repeat(WidgetJson.MAX_PICTURE_LINK - 20), alt = "a".repeat(200), caption = "c".repeat(60)))
+        roundTrip(picture.copy(image = "https://example.com/" + "x".repeat(WidgetJson.MAX_PICTURE_LINK - 20), alt = "a".repeat(200), caption = "C" + "c".repeat(59)))
         assertEquals(setOf("v", "kind", "image", "alt"), (Json.parse(WidgetJson.encode(picture)) as Map<*, *>).keys)
         assertEquals("image", (Json.parse(WidgetJson.encode(picture)) as Map<*, *>)["kind"])
     }
@@ -222,12 +222,12 @@ class WidgetSpecJsonTest {
 
     private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
     private fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
-    private val styled = "a " + bold("b") + " " + good("c")
+    private val styled = "A " + bold("b") + " " + good("c")
 
     /** The fields that may be styled come back with their styles. */
     @Test fun styledFieldsRoundTrip() {
-        roundTrip(WidgetSpec.Text(fullBase, text = styled + "\n" + bold("second line"), caption = good("who")))
-        roundTrip(WidgetSpec.Rows(bare, items = listOf(WidgetSpec.Row(styled, detail = bold("d"), trailing = good("+2%")), WidgetSpec.Row("plain"))))
+        roundTrip(WidgetSpec.Text(fullBase, text = styled + "\n" + bold("second line"), caption = good("Who")))
+        roundTrip(WidgetSpec.Rows(bare, items = listOf(WidgetSpec.Row(styled, detail = bold("D"), trailing = good("+2%")), WidgetSpec.Row("plain"))))
         roundTrip(stat.copy(label = styled))
         roundTrip(picture.copy(caption = styled))
         // Every style a card draws, on one piece.
@@ -248,9 +248,9 @@ class WidgetSpecJsonTest {
         assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + "x", read.caption)
         val table = StyledText.table(listOf(listOf("a", "b")), header = true) + "\n" + StyledText.bar(0.5) + "\n" + StyledText.stats(listOf("1" to "one"))
         val row = (WidgetJson.decode(changed(rows) { put("items", listOf(mapOf("title" to table, "detail" to link, "trailing" to StyledText.item(1) + "x"))) }) as WidgetSpec.Rows).items.single()
-        assertEquals(WidgetSpec.Row("a\tb\n1 one", detail = "see " + bold("here"), trailing = "• x"), row)
-        assertEquals("a\tb", (WidgetJson.decode(changed(stat) { put("label", StyledText.table(listOf(listOf("a", "b")), header = false)) }) as WidgetSpec.Stat).label)
-        assertEquals("go", (WidgetJson.decode(changed(picture) { put("caption", StyledText.link("https://evil.example", "go")) }) as WidgetSpec.Image).caption)
+        assertEquals(WidgetSpec.Row("a\tb\n1 One", detail = "See " + bold("here"), trailing = "• x"), row)
+        assertEquals("A\tb", (WidgetJson.decode(changed(stat) { put("label", StyledText.table(listOf(listOf("a", "b")), header = false)) }) as WidgetSpec.Stat).label)
+        assertEquals("Go", (WidgetJson.decode(changed(picture) { put("caption", StyledText.link("https://evil.example", "go")) }) as WidgetSpec.Image).caption)
         // A style left open is closed, and only the first 32 styled pieces keep their styles.
         assertEquals(bold("open"), (WidgetJson.decode(changed(text) { put("text", StyledText.open(StyledText.Style.BOLD) + "open") }) as WidgetSpec.Text).text)
         val many = (WidgetJson.decode(changed(text) { put("text", (1..50).joinToString(" ") { bold("w$it") }) }) as WidgetSpec.Text).text
@@ -352,7 +352,7 @@ class WidgetSpecJsonTest {
         assertNull(WidgetJson.decode(changed(agenda) { remove("events") }))
         fun days(v: Any?) = (WidgetJson.decode(changed(agenda) { put("days", v) }) as WidgetSpec.Agenda).days
         assertEquals(1, days(0))
-        assertEquals(7, days(99))
+        assertEquals(14, days(99))
         assertEquals(3, days(null))
         assertEquals(4, days(4))
     }
@@ -529,7 +529,7 @@ class WidgetSpecJsonTest {
         val points = WidgetJson.decode(changed(chart) { put("points", (1..100).toList()) }) as WidgetSpec.Chart
         assertEquals((41..100).map { it.toFloat() }, points.points)
         val labels = WidgetJson.decode(changed(chart) { put("labels", listOf("a", "b", "c")) }) as WidgetSpec.Chart
-        assertEquals(listOf("a", "b"), labels.labels)
+        assertEquals(listOf("A", "B"), labels.labels)
     }
 
     /** What a field has when the stored form leaves it out. */

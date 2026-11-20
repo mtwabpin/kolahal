@@ -135,7 +135,7 @@ class SetupScreenTest {
             val row = row(check).assertIsDisplayed()
             when {
                 check.ok -> {
-                    row.assert(hasContentDescription("done"))
+                    row.assert(hasContentDescription("Done"))
                     fixButton(check).assertDoesNotExist()
                 }
                 check.fix == null -> {

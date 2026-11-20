@@ -78,7 +78,7 @@ object WidgetParser {
 
     /** An agenda shows [DEFAULT_DAYS] days from today, or `days` of them: [MIN_DAYS] to [MAX_DAYS]. */
     const val MIN_DAYS = 1
-    const val MAX_DAYS = 7
+    const val MAX_DAYS = 14
     const val DEFAULT_DAYS = 3
 
     /** A toggles widget without `staleAfter` is old after this many seconds: the thing it switches can change elsewhere. */
@@ -192,7 +192,7 @@ object WidgetParser {
             WidgetKind.TEXT -> WidgetSpec.Text(
                 base,
                 text = t.need("text", MAX_TEXT, "the text to show", lines = true, styled = true),
-                caption = t.text("caption", MAX_CAPTION, styled = true),
+                caption = t.label("caption", MAX_CAPTION, styled = true),
             )
             WidgetKind.LIST -> rows(t, base)
             WidgetKind.PROGRESS -> progress(t, base)
@@ -218,14 +218,14 @@ object WidgetParser {
         base,
         image = t.picture("image"),
         alt = t.need("alt", MAX_ALT, ALT_IS).ifEmpty { t.fail("alt is needed: $ALT_IS") },
-        caption = t.text("caption", MAX_CAPTION, styled = true),
+        caption = t.label("caption", MAX_CAPTION, styled = true),
         fit = t.choice("fit", listOf("crop", "fit")),
     )
 
     private fun stat(t: Table, base: WidgetBase) = WidgetSpec.Stat(
         base,
         value = t.need("value", MAX_VALUE, "the big value, as text or a number"),
-        label = t.text("label", MAX_LABEL, styled = true),
+        label = t.label("label", MAX_LABEL, styled = true),
         unit = t.text("unit", MAX_UNIT),
         delta = t.text("delta", MAX_DELTA),
         trend = t.choice("trend", TRENDS),
@@ -243,7 +243,7 @@ object WidgetParser {
             items = t.items("items", MAX_ITEMS, "{ ${ROW.joinToString()} }", ROW).map { r ->
                 WidgetSpec.Row(
                     title = r.need("title", MAX_ROW_TITLE, "the row's text", styled = true),
-                    detail = r.text("detail", MAX_DETAIL, styled = true),
+                    detail = r.label("detail", MAX_DETAIL, styled = true),
                     trailing = r.text("trailing", MAX_SHORT, styled = true),
                     icon = r.icon(),
                     color = r.colour(),
@@ -251,12 +251,12 @@ object WidgetParser {
                     done = r.flagOrNull("done"),
                 )
             },
-            empty = t.text("empty", MAX_LABEL),
+            empty = t.label("empty", MAX_LABEL),
             lead = t.table("lead", "{ value, unit, label }", LEAD)?.let { l ->
                 WidgetSpec.Lead(
                     value = l.need("value", MAX_SHORT, "the big value, as text or a number"),
                     unit = l.text("unit", MAX_UNIT),
-                    label = l.text("label", MAX_LABEL),
+                    label = l.label("label", MAX_LABEL),
                 )
             },
         )
@@ -281,7 +281,7 @@ object WidgetParser {
             base,
             items = t.items("items", MAX_BUTTONS, shape, BUTTON).map { b ->
                 WidgetSpec.Button(
-                    label = b.need("label", MAX_SHORT, "the button's text"),
+                    label = StyledText.capitalised(b.need("label", MAX_SHORT, "the button's text")),
                     tap = b.tap() ?: b.fail("tap is needed: what the button does, { args } or { url }"),
                     icon = b.icon(),
                     color = b.colour(),
@@ -301,7 +301,7 @@ object WidgetParser {
         return WidgetSpec.Toggles(
             base.copy(staleAfter = base.staleAfter ?: TOGGLES_STALE),
             items = t.items("items", MAX_TOGGLES, shape, TOGGLE).map { s ->
-                val label = s.need("label", MAX_SHORT, "the switch's text")
+                val label = StyledText.capitalised(s.need("label", MAX_SHORT, "the switch's text"))
                 val on = s.flagOrNull("on") ?: s.fail("on is needed: true or false, the state now")
                 val tap = s.tap() ?: s.fail("tap is needed: { args }, the arguments that switch it")
                 if (tap.args == null) s.fail("tap must be { args }, not { url }: a switch runs this script again")
@@ -332,7 +332,7 @@ object WidgetParser {
                 WidgetSpec.Event(title, starts, ends, allDay = e.flag("allDay"), where = e.text("where", MAX_LABEL), color = e.colour(), tap = e.tap())
             },
             days = t.number("days", "a number of days, from $MIN_DAYS to $MAX_DAYS")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
-            empty = t.text("empty", MAX_LABEL),
+            empty = t.label("empty", MAX_LABEL),
         )
     }
 
@@ -354,11 +354,11 @@ object WidgetParser {
             value = float((t.number("value", "a number") ?: 0.0).coerceIn(0.0, top)),
             max = float(top),
             text = t.text("text", MAX_SHORT),
-            label = t.text("label", MAX_LABEL),
+            label = t.label("label", MAX_LABEL),
             style = t.choice("style", listOf("ring", "bar")),
             items = bars.map { (b, value, own) ->
                 val barTop = own ?: scale
-                WidgetSpec.Bar(b.text("label", MAX_BAR_LABEL), float(value.coerceIn(0.0, barTop)), float(barTop), b.text("text", MAX_SHORT), b.colour())
+                WidgetSpec.Bar(b.label("label", MAX_BAR_LABEL), float(value.coerceIn(0.0, barTop)), float(barTop), b.text("text", MAX_SHORT), b.colour())
             },
             moving = t.flag("moving"),
         )
@@ -380,8 +380,8 @@ object WidgetParser {
             min = min,
             max = max,
             value = t.text("value", MAX_VALUE),
-            label = t.text("label", MAX_LABEL),
-            labels = t.texts("labels", 2, MAX_POINT_LABEL),
+            label = t.label("label", MAX_LABEL),
+            labels = t.texts("labels", 2, MAX_POINT_LABEL).map(StyledText::capitalised),
             summary = t.text("summary", MAX_SUMMARY),
         )
     }
@@ -395,9 +395,9 @@ object WidgetParser {
             base,
             to = to,
             from = from,
-            label = t.text("label", MAX_LABEL),
+            label = t.label("label", MAX_LABEL),
             style = t.choice("style", listOf("days", "clock")),
-            reached = t.text("reached", MAX_LABEL),
+            reached = t.label("reached", MAX_LABEL),
         )
     }
 
@@ -436,6 +436,12 @@ object WidgetParser {
          */
         fun text(key: String, max: Int, lines: Boolean = false, styled: Boolean = false): String? =
             textOrEmpty(key, max, lines, styled)?.takeIf { it.isNotEmpty() }
+
+        /**
+         * A text that stands on its own on the card: a label, a caption, a row's second line. It starts
+         * with a capital, as all of Kolahal's text does ([StyledText.capitalised]), whatever the script wrote.
+         */
+        fun label(key: String, max: Int, styled: Boolean = false): String? = text(key, max, styled = styled)?.let(StyledText::capitalised)
 
         /**
          * The `icon` field: a name from [WidgetIcons] ("sun"), or a text cut to [MAX_ICON]

@@ -45,7 +45,7 @@ if event.name == "unplug" then
   if since and level and from then
     detail = string.format("%+d%% in %s", math.floor(level - from), minutes(since))
   elseif since then
-    detail = "after " .. minutes(since)
+    detail = "After " .. minutes(since)
   end
   store.set("last", os.date("%H:%M") .. " · " .. line .. (detail and (" (" .. detail .. ")") or ""))
   -- Below the low mark in the warning colour, otherwise the good one; how much it added under it,

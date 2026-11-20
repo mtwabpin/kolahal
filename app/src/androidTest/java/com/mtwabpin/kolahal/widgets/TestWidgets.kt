@@ -87,8 +87,8 @@ class TestWidgets {
     }
 
     /** A widget restored from a backup on another phone: waiting to be added again. */
-    fun restore(provider: String, serial: Long, height: Int, order: Int = 90, span: Int = WidgetLayout.COLUMNS): PlacedWidget {
-        host.importWidgets(listOf(mapOf("provider" to provider, "profile" to serial, "height" to height, "order" to order, "span" to span)))
+    fun restore(provider: String, serial: Long, height: Int, order: Int = 90, span: Int = WidgetLayout.COLUMNS, column: Int? = null, top: Int? = null): PlacedWidget {
+        host.importWidgets(listOf(mapOf("provider" to provider, "profile" to serial, "height" to height, "order" to order, "span" to span, "column" to column, "top" to top)))
         return host.widgets.value.single { it.pending && it.provider == provider && it.order == order }
     }
 

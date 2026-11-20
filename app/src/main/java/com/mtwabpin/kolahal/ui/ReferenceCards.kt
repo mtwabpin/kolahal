@@ -266,7 +266,7 @@ internal fun WidgetExampleView(ex: ReferenceExamples.Widget, variant: Int, lang:
     var look by remember(ex) { mutableStateOf(WidgetLook.PLAIN) }
     val code = shown.code(lang)
     Scaffold(
-        topBar = { ReferenceBar(ex.heading, ReferenceSearch.kindLine(ex.kind), onBack, code = true) },
+        topBar = { ReferenceBar(ex.heading, ex.line, onBack, code = true) },
         bottomBar = { CopyInsertBar(code, "${ex.name} example") { onInsert(code) } },
         containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.testTag("widget-view ${ex.name}"),

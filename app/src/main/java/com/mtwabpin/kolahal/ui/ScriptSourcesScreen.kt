@@ -99,7 +99,7 @@ private fun SourceRow(l: ScriptCatalog.Listing, index: Int, count: Int, onRemove
     val facts = listOfNotNull(
         if (l.source.builtIn) "Reviewed" else null,
         l.readAt?.let { ScriptSources.scriptCount(l.entries.size) },
-        l.readAt?.let { "read ${relative(it)}" } ?: "Not read yet",
+        l.readAt?.let { "Read ${relative(it)}" } ?: "Not read yet",
     ).joinToString(" · ")
     SegmentedListItem(
         onClick = {},

@@ -59,7 +59,7 @@ const placed = widget.show({
   title: repo.name,
   icon: "star",
   value: repo.stargazers_count,
-  label: repo.stargazers_count === 1 ? "star" : "stars",
+  label: repo.stargazers_count === 1 ? "Star" : "Stars",
   more: [
     { value: repo.forks_count, label: "forks" },
     { value: repo.open_issues_count, label: "open issues" },

@@ -137,7 +137,7 @@ class ScriptSheetTest {
     @Test fun theSheetSaysWhatTheScriptIs() {
         create("-- @command\n-- @title Sheet test\n-- @desc Says hello\n-- @version 1.2\n-- @author Tester\nlocal x = 1")
         openSheet()
-        compose.onNodeWithText("Lua · v1.2 · by Tester · command · Says hello").assertExists()
+        compose.onNodeWithText("Lua · v1.2 · By Tester · Command · Says hello").assertExists()
         compose.onNodeWithText("Never run").assertExists()
         compose.onNodeWithText("Runs on its timers and events, and from the prompt").assertExists()
     }

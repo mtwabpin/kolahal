@@ -80,7 +80,7 @@ internal fun StatusDot(ok: Boolean, informational: Boolean) {
         modifier = Modifier.size(32.dp).background(color.copy(alpha = 0.18f), CircleShape),
     ) {
         if (ok) {
-            Icon(painterResource(R.drawable.ic_check), contentDescription = "done", tint = color, modifier = Modifier.size(20.dp))
+            Icon(painterResource(R.drawable.ic_check), contentDescription = "Done", tint = color, modifier = Modifier.size(20.dp))
         } else {
             Text(if (informational) "–" else "!", color = color, style = MaterialTheme.typography.titleMedium)
         }

@@ -1,5 +1,8 @@
 package com.mtwabpin.kolahal.ui
 
+import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.Config
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -475,11 +478,16 @@ private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?)
     val (minute, zoneChanges) = rememberNow()
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
-    val spec: WidgetSpec? = remember(read, zone) {
+    // The days it shows: widgets.agenda-days, or with Auto as many as it reads, so the card fills.
+    val context = LocalContext.current.applicationContext
+    val config = remember(context) { Config.get(context) }
+    val version by config.version.collectAsStateWithLifecycle()
+    val days = remember(config, version) { OwnData.agendaDays(config[Keys.AGENDA_WIDGET_DAYS]) }
+    val spec: WidgetSpec? = remember(read, zone, days) {
         when {
             !known -> null
             !read.allowed -> OwnCards.quiet(WidgetSource.AGENDA, OwnCards.ALLOW_CALENDAR)
-            else -> OwnCards.agenda(read.events, zone, read.at, OwnData.AGENDA_DAYS)
+            else -> OwnCards.agenda(read.events, zone, read.at, days)
         }
     }
     // The agenda's words tell the time, so they are made again by the minute, as its body is drawn:

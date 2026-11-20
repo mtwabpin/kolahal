@@ -60,7 +60,7 @@ local placed = widget.show{
   title = repo.name,
   icon = "star",
   value = repo.stargazers_count,
-  label = repo.stargazers_count == 1 and "star" or "stars",
+  label = repo.stargazers_count == 1 and "Star" or "Stars",
   more = {
     { value = repo.forks_count, label = "forks" },
     { value = repo.open_issues_count, label = "open issues" },

@@ -49,7 +49,7 @@ local function indexOf(list, value)
   return nil
 end
 
--- How long ago a feed's date was ("2026-11-01T12:34:56Z"): "today", "3 days ago", "2 months ago".
+-- How long ago a feed's date was ("2026-11-01T12:34:56Z"): "Today", "3 days ago", "2 months ago".
 -- Nil when it isn't such a date. It counts whole days, and noon keeps clear of a clock change.
 local function age(date)
   local y, m, d = (date or ""):match("^(%d%d%d%d)-(%d%d)-(%d%d)")
@@ -58,8 +58,8 @@ local function age(date)
   local today = os.time({ year = now.year, month = now.month, day = now.day, hour = 12 })
   local that = os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
   local days = math.floor(os.difftime(today, that) / 86400 + 0.5)
-  if days <= 0 then return "today" end
-  if days == 1 then return "yesterday" end
+  if days <= 0 then return "Today" end
+  if days == 1 then return "Yesterday" end
   if days < 60 then return days .. " days ago" end
   if days < 730 then return math.floor(days / 30) .. " months ago" end
   return math.floor(days / 365) .. " years ago"
@@ -122,10 +122,10 @@ if widget and (quiet or allowed("widget")) then
         tap = link and { url = link } or nil,
       }
     elseif read then
-      rows[i] = { title = repo, detail = "no releases yet" }
+      rows[i] = { title = repo, detail = "No releases yet" }
     else
       -- One repo that can't be read (renamed, removed) doesn't hide the others.
-      rows[i] = { title = repo, detail = "couldn't read its releases", color = "bad" }
+      rows[i] = { title = repo, detail = "Couldn't read its releases", color = "bad" }
       failed, why = failed + 1, why or tostring(feed)
     end
   end

@@ -71,13 +71,14 @@ class WidgetBinderTest {
     @Test fun addingAgainKeepsTheRestoredSizeAndPlace() {
         val clock = t.clocks(unconfigured = true).first()
         t.allowBinding(clock)
-        val pending = t.restore(clock.flat, clock.serial, height = 200, order = 70, span = 6)
+        val pending = t.restore(clock.flat, clock.serial, height = 200, order = 70, span = 6, column = 6, top = 120)
         withBinder { scenario, binder ->
             scenario.onActivity { binder.add(clock, replacing = pending.key) }
             val w = added.single()
             assertEquals(200, w.heightDp)
             assertEquals(6, w.span)
-            assertEquals(70, w.order)
+            // Its place is its column and its top; the order follows from them.
+            assertEquals(6 to 120, w.column to w.topDp)
             assertNull(t.get(pending.key))
         }
     }

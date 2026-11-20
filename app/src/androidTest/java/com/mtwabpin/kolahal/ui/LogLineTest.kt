@@ -386,7 +386,7 @@ class LogLineTest {
         show { Line(row(big)); Line(row(words)) }
         val stats = compose.onAllNodes(androidx.compose.ui.test.hasTestTag("log-stats"), useUnmergedTree = true).fetchSemanticsNodes()
         assertEquals(2, stats.size)
-        assertEquals(listOf("42 unlocks today"), stats[0].config[SemanticsProperties.ContentDescription])
+        assertEquals(listOf("42 Unlocks today"), stats[0].config[SemanticsProperties.ContentDescription])
         // The words before the block are text; nothing of the block shows as text.
         assertTrue(compose.onAllNodes(hasText("42", substring = true)).fetchSemanticsNodes().isEmpty())
         compose.onNode(hasText("Screen time")).assertExists()

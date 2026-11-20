@@ -56,7 +56,7 @@ class UsageSummaryCommandsTest {
         for (word in listOf("week", "month")) {
             val shown = texts("usage-summary $word")
             if (shown.size == 1 && shown.single().startsWith("No usage recorded")) continue
-            assertTrue(shown.first(), Regex("≈(\\d+h )?\\d+m a day .*total").containsMatchIn(shown.first()))
+            assertTrue(shown.first(), Regex("≈(\\d+h )?\\d+m A day .*Total").containsMatchIn(shown.first()))
             assertTrue(shown.toString(), shown.none { it.startsWith("Android's") })
             // A row for each week or month, with its total and its time a day.
             val head = if (word == "week") "Week" else "Month"
@@ -75,7 +75,7 @@ class UsageSummaryCommandsTest {
     @Test fun years() = withUsageAccess("allow") {
         val shown = texts("usage-summary year")
         if (shown.size == 1 && shown.single().startsWith("No usage recorded")) return@withUsageAccess
-        assertTrue(shown.first(), shown.first().contains("total"))
+        assertTrue(shown.first(), shown.first().contains("Total"))
         val rows = shown.first { it.startsWith("Year\tTotal\tA day") }.lines().drop(1)
         assertTrue(rows.toString(), rows.isNotEmpty() && rows.all { Regex("\\w+ \\d{4} – (\\w+ \\d{4}|now)\t.+\t.+").matches(it) })
     }

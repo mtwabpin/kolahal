@@ -254,9 +254,9 @@ class StyledTextBlocksTest {
         val lines = StyledText.lines(body)
         val stats = lines[1].stats!!
         assertEquals(listOf("24°", "60%", "12"), stats.map { s -> s.value.joinToString("") { it.text } })
-        assertEquals(listOf("Pune, clear", "humidity", ""), stats.map { s -> s.label.joinToString("") { it.text } })
+        assertEquals(listOf("Pune, clear", "Humidity", ""), stats.map { s -> s.label.joinToString("") { it.text } })
         assertEquals(StyledText.Colour.GOOD, stats[1].value.single().colour)
-        assertEquals("Now\n24° Pune, clear · 60% humidity · 12\nlater", StyledText.plain(body))
+        assertEquals("Now\n24° Pune, clear · 60% Humidity · 12\nlater", StyledText.plain(body))
         assertTrue(StyledText.hasBlock(body))
         assertEquals("Now" to StyledText.stats(listOf("24°" to "Pune, clear", StyledText.colour(StyledText.Colour.GOOD, "60%") to "humidity", "12" to "")) + "\nlater", StyledText.splitAtBlocks(body))
         // Up to 5; a value is one line.
@@ -406,5 +406,25 @@ class StyledTextBlocksTest {
         assertTrue(StyledText.has(near))
         assertFalse(StyledText.hasMarker("a${near}b"))
         assertEquals("a${near}b", StyledText.inline("a${near}b"))
+    }
+
+    /** A label that stands on its own starts with a capital: its first visible letter, past styles and a link's address. */
+    @Test fun aLabelStartsWithACapital() {
+        assertEquals("Unlocks today", StyledText.capitalised("unlocks today"))
+        assertEquals("Unlocks today", StyledText.capitalised("Unlocks today"))
+        assertEquals("3 days ago", StyledText.capitalised("3 days ago"))
+        assertEquals("iOS 18", StyledText.capitalised("iOS 18"))
+        assertEquals("km/h", StyledText.capitalised("km/h"))
+        assertEquals("kg", StyledText.capitalised("kg"))
+        assertEquals("Été", StyledText.capitalised("été"))
+        assertEquals("Bg", StyledText.capitalised("bg"))
+        assertEquals("In 3 days", StyledText.capitalised("in 3 days"))
+        assertEquals("Min left", StyledText.capitalised("min left"))
+        assertEquals("min", StyledText.capitalised("min"))
+        assertEquals(" mph ", StyledText.capitalised(" mph "))
+        assertEquals("", StyledText.capitalised(""))
+        assertEquals(" É", StyledText.capitalised(" é"))
+        assertEquals(StyledText.plain(StyledText.capitalised(StyledText.link("https://x.org", "read more"))), "Read more")
+        assertEquals(StyledText.linkTexts(StyledText.capitalised(StyledText.link("https://x.org", "read more"))), listOf("Read more" to "https://x.org"))
     }
 }

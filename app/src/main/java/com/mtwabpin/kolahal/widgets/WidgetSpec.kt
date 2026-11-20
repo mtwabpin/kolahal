@@ -580,7 +580,7 @@ object WidgetJson {
             WidgetKind.STAT -> WidgetSpec.Stat(
                 base,
                 value = m.needText("value"),
-                label = m.styled("label"),
+                label = m.styled("label")?.let(StyledText::capitalised),
                 unit = m.text("unit"),
                 delta = m.text("delta"),
                 trend = m.oneOf("trend", "up", "down", "flat"),
@@ -588,26 +588,26 @@ object WidgetJson {
                 progress = m.number("progress")?.coerceIn(0f, 1f),
                 moving = m.flag("moving"),
             )
-            WidgetKind.TEXT -> WidgetSpec.Text(base, m.needStyled("text"), m.styled("caption"))
+            WidgetKind.TEXT -> WidgetSpec.Text(base, m.needStyled("text"), m.styled("caption")?.let(StyledText::capitalised))
             WidgetKind.LIST -> WidgetSpec.Rows(
                 base,
                 items = (m.list("items") ?: odd()).take(MAX_ROWS).map {
                     val r = obj(it)
-                    WidgetSpec.Row(r.needStyled("title"), r.styled("detail"), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
+                    WidgetSpec.Row(r.needStyled("title"), r.styled("detail")?.let(StyledText::capitalised), r.styled("trailing"), r.text("icon"), r.colour("color"), r.tap("tap"), r.flagOrNull("done"))
                 },
-                empty = m.text("empty"),
-                lead = m["lead"]?.let(::obj)?.let { WidgetSpec.Lead(it.needText("value"), it.text("unit"), it.text("label")) },
+                empty = m.text("empty")?.let(StyledText::capitalised),
+                lead = m["lead"]?.let(::obj)?.let { WidgetSpec.Lead(it.needText("value"), it.text("unit"), it.text("label")?.let(StyledText::capitalised)) },
             )
             WidgetKind.PROGRESS -> WidgetSpec.Progress(
                 base,
                 value = m.number("value") ?: odd(),
                 max = scale(m.number("max") ?: 1f),
                 text = m.text("text"),
-                label = m.text("label"),
+                label = m.text("label")?.let(StyledText::capitalised),
                 style = m.oneOf("style", "ring", "bar"),
                 items = m.list("items").orEmpty().take(MAX_BARS).map {
                     val b = obj(it)
-                    WidgetSpec.Bar(b.text("label"), b.number("value") ?: odd(), scale(b.number("max") ?: 1f), b.text("text"), b.colour("color"))
+                    WidgetSpec.Bar(b.text("label")?.let(StyledText::capitalised), b.number("value") ?: odd(), scale(b.number("max") ?: 1f), b.text("text"), b.colour("color"))
                 },
                 moving = m.flag("moving"),
             )
@@ -618,23 +618,23 @@ object WidgetJson {
                 min = m.number("min"),
                 max = m.number("max"),
                 value = m.text("value"),
-                label = m.text("label"),
-                labels = m.list("labels").orEmpty().take(MAX_LABELS).map { (it as? String)?.takeIf { s -> s.length <= MAX_TEXT && !StyledText.hasMarker(s) } ?: odd() },
+                label = m.text("label")?.let(StyledText::capitalised),
+                labels = m.list("labels").orEmpty().take(MAX_LABELS).map { (it as? String)?.takeIf { s -> s.length <= MAX_TEXT && !StyledText.hasMarker(s) } ?: odd() }.map(StyledText::capitalised),
                 summary = m.text("summary"),
             )
             WidgetKind.COUNTDOWN -> WidgetSpec.Countdown(
                 base,
                 to = m.seconds("to") ?: odd(),
                 from = m.seconds("from"),
-                label = m.text("label"),
+                label = m.text("label")?.let(StyledText::capitalised),
                 style = m.oneOf("style", "days", "clock"),
-                reached = m.text("reached"),
+                reached = m.text("reached")?.let(StyledText::capitalised),
             )
             WidgetKind.BUTTONS -> WidgetSpec.Buttons(
                 base,
                 items = m.counted("items", MAX_BUTTONS).map {
                     val b = obj(it)
-                    WidgetSpec.Button(b.needText("label"), b.tap("tap") ?: odd(), b.text("icon"), b.colour("color"))
+                    WidgetSpec.Button(StyledText.capitalised(b.needText("label")), b.tap("tap") ?: odd(), b.text("icon"), b.colour("color"))
                 },
             )
             WidgetKind.TOGGLES -> WidgetSpec.Toggles(
@@ -643,7 +643,7 @@ object WidgetJson {
                     val t = obj(it)
                     // A switch runs its script. It never opens a link.
                     val tap = t.tap("tap")?.takeIf { tap -> tap.args != null } ?: odd()
-                    WidgetSpec.Toggle(t.needText("label"), t.flagOrNull("on") ?: odd(), tap, t.text("icon"))
+                    WidgetSpec.Toggle(StyledText.capitalised(t.needText("label")), t.flagOrNull("on") ?: odd(), tap, t.text("icon"))
                 },
             )
             WidgetKind.CLOCK -> WidgetSpec.Clock(
@@ -666,14 +666,14 @@ object WidgetJson {
                     )
                 },
                 days = m.number("days")?.toInt()?.coerceIn(MIN_DAYS, MAX_DAYS) ?: DEFAULT_DAYS,
-                empty = m.text("empty"),
+                empty = m.text("empty")?.let(StyledText::capitalised),
             )
             WidgetKind.IMAGE -> WidgetSpec.Image(
                 base,
                 image = m.picture("image"),
                 // The card shows this text when it has no picture, so a blank one is no text at all.
                 alt = m.needText("alt").also { if (it.isBlank()) odd() },
-                caption = m.styled("caption"),
+                caption = m.styled("caption")?.let(StyledText::capitalised),
                 fit = m.oneOf("fit", "crop", "fit"),
             )
             // Not reached: `media` is not among the kinds looked up above.

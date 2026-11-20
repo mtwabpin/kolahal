@@ -174,7 +174,7 @@ class ScriptWidgetCardTest {
         )
         show(name)
         // The arrow before the change is drawn, not written: the description says "up 2".
-        draws(name, "Weather", "☀", "24", "°C", "2", "Sunny", "68%", "humidity", "12", "km/h")
+        draws(name, "Weather", "☀", "24", "°C", "2", "Sunny", "68%", "Humidity", "12", "km/h")
         says(name, "Weather: 24°C, Sunny, up 2, 68% humidity, 12 km/h, 40%")
         // Current content has no footer.
         assertTrue(texts(name).toString(), texts(name).none { it.endsWith("ago") || it.startsWith("Failed") })
@@ -186,8 +186,8 @@ class ScriptWidgetCardTest {
     @Test fun aNoteEndsTheTitleLine() {
         val name = kept("note", WidgetSpec.Stat(WidgetBase(title = "Exercise", note = "Done today"), "5", label = "days in a row"))
         show(name)
-        draws(name, "Exercise", "Done today", "5", "days in a row")
-        says(name, "Exercise, Done today: 5, days in a row")
+        draws(name, "Exercise", "Done today", "5", "Days in a row")
+        says(name, "Exercise, Done today: 5, Days in a row")
     }
 
     /** A card of one cell has room for the value and its label only. A screen reader still hears everything. */
@@ -224,8 +224,8 @@ class ScriptWidgetCardTest {
         val empty = kept("list-empty", WidgetSpec.Rows(WidgetBase(title = "Inbox"), emptyList(), empty = "All read"))
         val bare = kept("list-bare", WidgetSpec.Rows(WidgetBase(title = "Inbox"), emptyList()))
         show(todo, long, empty, bare)
-        draws(todo, "Todo", "🛒", "Buy milk", "today", "2", "Call mum")
-        says(todo, "Todo: Buy milk, today, 2, Call mum")
+        draws(todo, "Todo", "🛒", "Buy milk", "Today", "2", "Call mum")
+        says(todo, "Todo: Buy milk, Today, 2, Call mum")
 
         draws(long, "Stories", "Story 1")
         val rows = texts(long).filter { it.startsWith("Story ") }
@@ -253,12 +253,12 @@ class ScriptWidgetCardTest {
         )
         val bar = kept("bar", WidgetSpec.Progress(WidgetBase(), 3f, 5f, text = "3 of 5", label = "chapters", style = "bar"))
         show(ring, bars, bar)
-        draws(ring, "Battery", "68%", "charging")
-        says(ring, "Battery: 68%, charging")
-        draws(bars, "Disk", "photos", "30%", "music", "5 GB")
-        says(bars, "Disk: photos 30%, music 5 GB")
-        draws(bar, bar, "3 of 5", "chapters")
-        says(bar, "$bar: 3 of 5, chapters")
+        draws(ring, "Battery", "68%", "Charging")
+        says(ring, "Battery: 68%, Charging")
+        draws(bars, "Disk", "Photos", "30%", "Music", "5 GB")
+        says(bars, "Disk: Photos 30%, Music 5 GB")
+        draws(bar, bar, "3 of 5", "Chapters")
+        says(bar, "$bar: 3 of 5, Chapters")
     }
 
     /** `chart`: its headline and the labels of its first and last point. The plot is said in words. */
@@ -272,8 +272,8 @@ class ScriptWidgetCardTest {
             WidgetSpec.Chart(WidgetBase(title = "Rain"), listOf(0f, 2.5f), style = "bars", value = "2.5 mm", summary = "More rain than yesterday"),
         )
         show(steps, told)
-        draws(steps, "Steps", "5,204", "today", "Mon", "Thu")
-        says(steps, "Steps: 5,204, today, 4 values, from 1 to 5, the latest 5")
+        draws(steps, "Steps", "5,204", "Today", "Mon", "Thu")
+        says(steps, "Steps: 5,204, Today, 4 values, from 1 to 5, the latest 5")
         draws(told, "Rain", "2.5 mm")
         says(told, "Rain: 2.5 mm, More rain than yesterday")
     }
@@ -287,12 +287,12 @@ class ScriptWidgetCardTest {
         val past = kept("countdown-past", WidgetSpec.Countdown(WidgetBase(title = "Since"), to = now - 5 * day - 3_600, label = "the move"))
         show(trip, reached, past)
         // The number and its unit are two texts: the number big, the unit small.
-        draws(trip, "Trip", "3", "days", "to Goa")
-        says(trip, "Trip: 3 days, to Goa")
+        draws(trip, "Trip", "3", "days", "To Goa")
+        says(trip, "Trip: 3 days, To Goa")
         draws(reached, "Launch", "Lift-off")
         says(reached, "Launch: Lift-off")
-        draws(past, "Since", "5", "days ago", "the move")
-        says(past, "Since: 5 days ago, the move")
+        draws(past, "Since", "5", "days ago", "The move")
+        says(past, "Since: 5 days ago, The move")
     }
 
     /** A widget that was cleared, or whose run showed nothing, says so. One that no run has filled yet says nothing: it loads. */
@@ -315,7 +315,7 @@ class ScriptWidgetCardTest {
         assertEquals(listOf("W", new), texts(new))
     }
 
-    /** Content that can't be read, and a built-in widget this version doesn't know, say "widget unavailable". */
+    /** Content that can't be read, and a built-in widget this version doesn't know, say "Widget unavailable". */
     @Test fun whatCantBeReadIsUnavailable() {
         // Set just now, as `widget.show` leaves it, and then not what Kolahal reads: another kind, another format.
         val broken = kept("broken", WidgetSpec.Stat(WidgetBase(title = "Weather"), "24"))
@@ -324,12 +324,12 @@ class ScriptWidgetCardTest {
         KvStore(context, Stores.WIDGET).set(newer, "{\"v\":2,\"kind\":\"stat\",\"value\":\"24\"}")
         showSources(WidgetSource.script(broken), WidgetSource.script(newer), WidgetSource.BUILTIN + "wcard-nosuch")
         for (name in listOf(broken, newer)) {
-            draws(name, name, "widget unavailable")
-            says(name, "$name: widget unavailable")
+            draws(name, name, "Widget unavailable")
+            says(name, "$name: ${WidgetWords.UNAVAILABLE}")
         }
         for (what in listOf("wcard-nosuch")) {
-            val card = hasContentDescription("$what: widget unavailable") and hasAnyAncestor(hasTestTag("widget-card"))
-            compose.onNode(card).assert(hasText(what) and hasText("widget unavailable"))
+            val card = hasContentDescription("$what: ${WidgetWords.UNAVAILABLE}") and hasAnyAncestor(hasTestTag("widget-card"))
+            compose.onNode(card).assert(hasText(what) and hasText("Widget unavailable"))
         }
     }
 
@@ -476,8 +476,8 @@ class ScriptWidgetCardTest {
         // The third has nothing kept: its card is the one that asks for a run.
         showSources("script:$first", "script:$second", "script:$third", actions = asked, inView = true)
 
-        draws(first, "London", "first")
-        draws(second, "Tokyo", "second")
+        draws(first, "London", "First")
+        draws(second, "Tokyo", "Second")
         // With no title of its own, a card has its script's name. A further widget's has its id too.
         draws(first, first)
         draws(second, "$first 2")

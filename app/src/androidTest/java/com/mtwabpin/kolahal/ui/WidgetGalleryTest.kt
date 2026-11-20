@@ -38,7 +38,7 @@ import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.terminal.OwnData
+import com.mtwabpin.kolahal.terminal.ProductivityCommands
 import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.WidgetBase
@@ -419,7 +419,7 @@ class WidgetGalleryTest {
             AgendaEvent(3, "Mum's birthday", today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), today.plusDays(2).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), allDay = true, calendar = 3),
         )
         // As read at the start of the day. Without the ends, no event drops out or says "now" at the hour of the run.
-        val agenda = OwnCards.agenda(calendar, zone, today.atStartOfDay(zone).toInstant().toEpochMilli(), OwnData.AGENDA_DAYS).let { a -> a.copy(events = a.events.map { it.copy(ends = null) }) }
+        val agenda = OwnCards.agenda(calendar, zone, today.atStartOfDay(zone).toInstant().toEpochMilli(), ProductivityCommands.DEFAULT_AGENDA_DAYS).let { a -> a.copy(events = a.events.map { it.copy(ends = null) }) }
         val reminders = listOf(Reminder(1, nowMs + 42 * 60_000, "Call the bank"), Reminder(2, at(1, 7, 0) * 1000, "Water plants"), Reminder(3, at(3, 9, 0) * 1000, "Pay rent"))
         val shortcuts = listOf(Shortcut("torch", "torch", "torch"), Shortcut("dnd", "dnd", "moon"), Shortcut("todo", "todo", "check"), Shortcut("maps", "maps", "pin"))
         return listOf(

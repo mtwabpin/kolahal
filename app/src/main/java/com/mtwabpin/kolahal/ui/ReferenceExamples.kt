@@ -47,11 +47,17 @@ internal object ReferenceExamples {
         /** The card that the code makes at [now] (seconds) in [zone]. */
         val spec: (now: Long, zone: ZoneId) -> WidgetSpec,
     ) {
-        /** What the reference calls it: the kind, and what else it shows. */
-        val heading: String get() = when (name) {
-            "styles" -> "list, with styles"
-            "water" -> "progress, with a tap"
-            else -> kind.id
+        /** What the reference calls it: the kind, as `kind` names it in the code. */
+        val heading: String get() = kind.id
+
+        /**
+         * The line under its name in the reference: what the kind shows, or for the two examples that
+         * show something more, what that is.
+         */
+        val line: String get() = when (name) {
+            "styles" -> "Rows with styles: bold, a colour, struck-through text"
+            "water" -> "A tap that adds a glass, kept in the store"
+            else -> ReferenceSearch.kindLine(kind)
         }
 
         fun code(lang: ScriptLang): String = (if (lang == ScriptLang.LUA) lua else js).trimIndent()
@@ -63,31 +69,31 @@ internal object ReferenceExamples {
             lua = """
             widget.show{
               value = "6,240",
-              label = "steps today",
+              label = "Steps today",
               more = { { value = "4.1 km", label = "walked" } },
             }
             """,
             js = """
             widget.show({
               value: "6,240",
-              label: "steps today",
+              label: "Steps today",
               more: [{ value: "4.1 km", label: "walked" }],
             });
             """,
-        ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240", label = "steps today", more = listOf(WidgetSpec.Small("4.1 km", "walked"))) },
+        ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240", label = "Steps today", more = listOf(WidgetSpec.Small("4.1 km", "walked"))) },
         Widget(
             "text", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
             lua = """
             widget.show{ kind = "text", title = "Word of the day",
               text = "serendipity\nFinding something good without looking for it.",
-              caption = "from Wiktionary" }
+              caption = "From Wiktionary" }
             """,
             js = """
             widget.show({ kind: "text", title: "Word of the day",
               text: "serendipity\nFinding something good without looking for it.",
-              caption: "from Wiktionary" });
+              caption: "From Wiktionary" });
             """,
-        ) { _, _ -> WidgetSpec.Text(WidgetBase(title = "Word of the day"), "serendipity\nFinding something good without looking for it.", "from Wiktionary") },
+        ) { _, _ -> WidgetSpec.Text(WidgetBase(title = "Word of the day"), "serendipity\nFinding something good without looking for it.", "From Wiktionary") },
         Widget(
             "list", WidgetKind.LIST, WidgetSize.S4X2, "List",
             lua = """
@@ -133,16 +139,16 @@ internal object ReferenceExamples {
             "chart", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
             lua = """
             widget.show{ kind = "chart", title = "Unlocks", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
-              value = 8, label = "unlocks today", labels = { "Sun", "Today" } }
+              value = 8, label = "Unlocks today", labels = { "Sun", "Today" } }
             """,
             js = """
             widget.show({ kind: "chart", title: "Unlocks", points: [12, 30, 0, 45, 7, 1, 8], style: "bars",
-              value: 8, label: "unlocks today", labels: ["Sun", "Today"] });
+              value: 8, label: "Unlocks today", labels: ["Sun", "Today"] });
             """,
         ) { _, _ ->
             WidgetSpec.Chart(
                 WidgetBase(title = "Unlocks"), listOf(12f, 30f, 0f, 45f, 7f, 1f, 8f), style = "bars",
-                value = "8", label = "unlocks today", labels = listOf("Sun", "Today"),
+                value = "8", label = "Unlocks today", labels = listOf("Sun", "Today"),
             )
         },
         Widget(
@@ -261,7 +267,7 @@ internal object ReferenceExamples {
             widget.show{ kind = "list", title = "Bills", items = {
               {
                 title = fmt.bold("Rent") .. " to Asha",
-                detail = "due in " .. fmt.color("warn", "2 days"),
+                detail = "Due in " .. fmt.color("warn", "2 days"),
                 trailing = fmt.strike("520") .. " 480",
               },
             } }
@@ -270,7 +276,7 @@ internal object ReferenceExamples {
             widget.show({ kind: "list", title: "Bills", items: [
               {
                 title: fmt.bold("Rent") + " to Asha",
-                detail: "due in " + fmt.color("warn", "2 days"),
+                detail: "Due in " + fmt.color("warn", "2 days"),
                 trailing: fmt.strike("520") + " 480",
               },
             ] });
@@ -281,7 +287,7 @@ internal object ReferenceExamples {
                 listOf(
                     WidgetSpec.Row(
                         StyledText.wrap(StyledText.Style.BOLD, "Rent") + " to Asha",
-                        detail = "due in " + StyledText.colour(Colour.WARN, "2 days"),
+                        detail = "Due in " + StyledText.colour(Colour.WARN, "2 days"),
                         trailing = StyledText.wrap(StyledText.Style.STRIKE, "520") + " 480",
                     ),
                 ),
@@ -338,7 +344,7 @@ internal object ReferenceExamples {
             lua = """
             widget.show{
               value = "8,120",
-              label = "steps today",
+              label = "Steps today",
               delta = "+12%",
               trend = "up",
               more = {
@@ -351,7 +357,7 @@ internal object ReferenceExamples {
             js = """
             widget.show({
               value: "8,120",
-              label: "steps today",
+              label: "Steps today",
               delta: "+12%",
               trend: "up",
               more: [
@@ -361,10 +367,10 @@ internal object ReferenceExamples {
               ],
             });
             """,
-            of = "steps", variant = "with a change",
+            of = "steps", variant = "With a change",
         ) { _, _ ->
             WidgetSpec.Stat(
-                WidgetBase(), value = "8,120", label = "steps today", delta = "+12%", trend = "up",
+                WidgetBase(), value = "8,120", label = "Steps today", delta = "+12%", trend = "up",
                 more = listOf(WidgetSpec.Small("5.6 km", "walked"), WidgetSpec.Small("310", "kcal"), WidgetSpec.Small("42 min", "active")),
             )
         },
@@ -376,7 +382,7 @@ internal object ReferenceExamples {
             js = """
             widget.show({ value: "6,240" });
             """,
-            of = "steps", variant = "value only",
+            of = "steps", variant = "Value only",
         ) { _, _ -> WidgetSpec.Stat(WidgetBase(), value = "6,240") },
         Widget(
             "text-long", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
@@ -386,7 +392,7 @@ internal object ReferenceExamples {
                 .. "The basil needs a full glass; the cactus needs nothing until Sunday.\n"
                 .. "Call the plumber about the kitchen tap, and ask for the price first. "
                 .. "Bread and milk on the way home.",
-              caption = "left on the fridge" }
+              caption = "Left on the fridge" }
             """,
             js = """
             widget.show({ kind: "text", title: "Before you leave",
@@ -394,9 +400,9 @@ internal object ReferenceExamples {
                 + "The basil needs a full glass; the cactus needs nothing until Sunday.\n"
                 + "Call the plumber about the kitchen tap, and ask for the price first. "
                 + "Bread and milk on the way home.",
-              caption: "left on the fridge" });
+              caption: "Left on the fridge" });
             """,
-            of = "text", variant = "long text",
+            of = "text", variant = "Long text",
         ) { _, _ ->
             WidgetSpec.Text(
                 WidgetBase(title = "Before you leave"),
@@ -404,7 +410,7 @@ internal object ReferenceExamples {
                     "The basil needs a full glass; the cactus needs nothing until Sunday.\n" +
                     "Call the plumber about the kitchen tap, and ask for the price first. " +
                     "Bread and milk on the way home.",
-                "left on the fridge",
+                "Left on the fridge",
             )
         },
         Widget(
@@ -429,7 +435,7 @@ internal object ReferenceExamples {
             lua = """
             widget.show{
               title = "Spent this week",
-              lead = { value = "3,420", unit = "₹", label = "in 4 payments" },
+              lead = { value = "3,420", unit = "₹", label = "In 4 payments" },
               items = {
                 { title = "Groceries", trailing = "1,240" },
                 { title = "Fuel", trailing = "1,500" },
@@ -441,7 +447,7 @@ internal object ReferenceExamples {
             js = """
             widget.show({
               title: "Spent this week",
-              lead: { value: "3,420", unit: "₹", label: "in 4 payments" },
+              lead: { value: "3,420", unit: "₹", label: "In 4 payments" },
               items: [
                 { title: "Groceries", trailing: "1,240" },
                 { title: "Fuel", trailing: "1,500" },
@@ -450,7 +456,7 @@ internal object ReferenceExamples {
               ],
             });
             """,
-            of = "list", variant = "with a lead",
+            of = "list", variant = "With a lead",
         ) { _, _ ->
             WidgetSpec.Rows(
                 WidgetBase(title = "Spent this week"),
@@ -460,7 +466,7 @@ internal object ReferenceExamples {
                     WidgetSpec.Row("Lunch", trailing = "380"),
                     WidgetSpec.Row("Books", trailing = "300"),
                 ),
-                lead = WidgetSpec.Lead("3,420", "₹", "in 4 payments"),
+                lead = WidgetSpec.Lead("3,420", "₹", "In 4 payments"),
             )
         },
         Widget(
@@ -479,7 +485,7 @@ internal object ReferenceExamples {
               { label: "Data", value: 1.4, max: 2, text: "1.4 / 2 GB" },
             ] });
             """,
-            of = "progress", variant = "bars",
+            of = "progress", variant = "Bars",
         ) { _, _ ->
             // With bars and no value, the ring's value is 0 of 1: the card draws the bars.
             WidgetSpec.Progress(
@@ -496,18 +502,18 @@ internal object ReferenceExamples {
             lua = """
             widget.show{ kind = "chart", title = "Sleep", style = "line",
               points = { 7.2, 6.8, 7.5, 6.1, 8, 7.4, 6.9, 7.8, 7.1, 6.5, 7.9, 8.2, 7, 7.6 },
-              value = "7.6 h", label = "slept last night", labels = { "2 weeks ago", "Today" } }
+              value = "7.6 h", label = "Slept last night", labels = { "2 weeks ago", "Today" } }
             """,
             js = """
             widget.show({ kind: "chart", title: "Sleep", style: "line",
               points: [7.2, 6.8, 7.5, 6.1, 8, 7.4, 6.9, 7.8, 7.1, 6.5, 7.9, 8.2, 7, 7.6],
-              value: "7.6 h", label: "slept last night", labels: ["2 weeks ago", "Today"] });
+              value: "7.6 h", label: "Slept last night", labels: ["2 weeks ago", "Today"] });
             """,
-            of = "chart", variant = "line",
+            of = "chart", variant = "Line",
         ) { _, _ ->
             WidgetSpec.Chart(
                 WidgetBase(title = "Sleep"), listOf(7.2f, 6.8f, 7.5f, 6.1f, 8f, 7.4f, 6.9f, 7.8f, 7.1f, 6.5f, 7.9f, 8.2f, 7f, 7.6f), style = "line",
-                value = "7.6 h", label = "slept last night", labels = listOf("2 weeks ago", "Today"),
+                value = "7.6 h", label = "Slept last night", labels = listOf("2 weeks ago", "Today"),
             )
         },
         Widget(
@@ -515,19 +521,19 @@ internal object ReferenceExamples {
             lua = """
             -- three hours from now, on the hour
             local t = os.date("*t")
-            widget.show{ kind = "countdown", title = "Train to Mumbai", label = "from platform 4", style = "clock",
+            widget.show{ kind = "countdown", title = "Train to Mumbai", label = "From platform 4", style = "clock",
               to = os.time{ year = t.year, month = t.month, day = t.day, hour = t.hour + 3 } }
             """,
             js = """
             // three hours from now, on the hour
             const t = new Date();
-            widget.show({ kind: "countdown", title: "Train to Mumbai", label: "from platform 4", style: "clock",
+            widget.show({ kind: "countdown", title: "Train to Mumbai", label: "From platform 4", style: "clock",
               to: new Date(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours() + 3).getTime() / 1000 });
             """,
-            of = "countdown", variant = "near, as a clock",
+            of = "countdown", variant = "Near, as a clock",
         ) { now, zone ->
             val to = java.time.Instant.ofEpochSecond(now).atZone(zone).truncatedTo(ChronoUnit.HOURS).plusHours(3).toEpochSecond()
-            WidgetSpec.Countdown(WidgetBase(title = "Train to Mumbai"), to = to, label = "from platform 4", style = "clock")
+            WidgetSpec.Countdown(WidgetBase(title = "Train to Mumbai"), to = to, label = "From platform 4", style = "clock")
         },
         Widget(
             "buttons-1", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
@@ -658,7 +664,7 @@ internal object ReferenceExamples {
             js = """
             widget.show({ kind: "agenda", title: "Plans", empty: "Nothing planned", events: [] });
             """,
-            of = "agenda", variant = "nothing planned",
+            of = "agenda", variant = "Nothing planned",
         ) { _, _ -> WidgetSpec.Agenda(WidgetBase(title = "Plans"), emptyList(), empty = "Nothing planned") },
         Widget(
             "agenda-week", WidgetKind.AGENDA, WidgetSize.S4X2, "Agenda",
@@ -690,7 +696,7 @@ internal object ReferenceExamples {
               { title: "Flight to Delhi", starts: at(3, 21, 15), where: "Terminal 2", color: "warn" },
             ] });
             """,
-            of = "agenda", variant = "a busy week",
+            of = "agenda", variant = "A busy week",
         ) { now, zone ->
             val today = java.time.Instant.ofEpochSecond(now).atZone(zone).toLocalDate()
             fun at(day: Long, hour: Int, min: Int = 0) = today.plusDays(day).atTime(hour, min).atZone(zone).toEpochSecond()

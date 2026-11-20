@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.graphics.shapes.RoundedPolygon
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
@@ -1075,7 +1076,7 @@ internal fun CountdownLook(spec: WidgetSpec.Countdown, box: WidgetSizes.Box, loo
 @Composable
 private fun BoldCount(count: State<WidgetWords.Count>, size: TextUnit, colour: Color) {
     val left = count.value
-    BoldValue(left.value, left.unit, size, colour)
+    BoldValue(StyledText.capitalised(left.value), left.unit, size, colour)
 }
 
 /** The time left as a value in [style], its unit in [unitStyle] after it, or under it when [stacked]. Only this is drawn again at a tick. */
@@ -1084,12 +1085,12 @@ private fun CountWords(count: State<WidgetWords.Count>, style: TextStyle, unitSt
     val left = count.value
     if (stacked) {
         Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-            BigText(left.value, style)
+            BigText(StyledText.capitalised(left.value), style)
             left.unit?.let { Text(it, style = unitStyle, color = unitColour, maxLines = 1, softWrap = false) }
         }
     } else {
         Row(modifier) {
-            BigText(left.value, style, Modifier.weight(1f, fill = false).alignByBaseline())
+            BigText(StyledText.capitalised(left.value), style, Modifier.weight(1f, fill = false).alignByBaseline())
             left.unit?.let { Text(it, style = unitStyle, color = unitColour, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 6.dp).alignByBaseline()) }
         }
     }
@@ -1147,7 +1148,7 @@ private fun SplitCountdown(spec: WidgetSpec.Countdown, box: WidgetSizes.Box, cou
                 derivedStateOf {
                     if (count.value.unit?.startsWith("day") == true) {
                         val left = kotlin.math.abs(spec.to - now.longValue)
-                        listOf("%02d".format((left % 86_400) / 3_600) to "hours", "%02d".format((left % 3_600) / 60) to "minutes")
+                        listOf("%02d".format((left % 86_400) / 3_600) to "Hours", "%02d".format((left % 3_600) / 60) to "Minutes")
                     } else {
                         listOfNotNull(moment?.let { it to (spec.label ?: "") })
                     }

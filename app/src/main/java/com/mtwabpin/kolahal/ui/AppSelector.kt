@@ -656,7 +656,7 @@ fun AppSelector(
                     .width(STRIP_W)
                     .height(with(density) { zoneHPx.toDp() })
                     .testTag("app-selector")
-                    .semantics { contentDescription = "app selector: slide along the edge to a letter, then onto the list to pick an app" }
+                    .semantics { contentDescription = "App selector: slide along the edge to a letter, then onto the list to pick an app" }
                     // At most 200dp: Android ignores exclusion beyond 200dp per edge.
                     .systemGestureExclusion { c ->
                         val h = c.size.height.toFloat()

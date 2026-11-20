@@ -57,11 +57,11 @@ if widget then
       title = "Screen time by month", icon = "timer",
       -- ≈: Android's own totals, about right, as usage-summary says.
       value = "≈" .. duration(s.perDay),
-      label = "a day · " .. #rows .. (#rows == 1 and " month" or " months"),
+      label = "A day · " .. #rows .. (#rows == 1 and " month" or " months"),
       points = points,
       style = "bars",
       min = 0,
-      labels = { day(rows[1].from), last.current and "now" or day(last.from) },
+      labels = { day(rows[1].from), last.current and "Now" or day(last.from) },
       summary = table.concat(said, ", "),
       -- Months move slowly: a new look when the card shows after an hour.
       staleAfter = 60 * 60,

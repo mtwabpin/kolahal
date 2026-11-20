@@ -137,7 +137,7 @@ class ScriptEditorTest {
         compose.onNodeWithContentDescription("Run").performTouchInput { longClick() }
         compose.onNodeWithTag("run-args").performTextInput("one \"two three\"")
         compose.onNodeWithText("○ charger").performClick()
-        compose.onNodeWithText("run").performClick()
+        compose.onNodeWithText("Run").performClick()
         compose.waitUntil(3_000) { ran != null }
         assertEquals(listOf("one", "two three"), ran!!.first)
         assertEquals("charger", ran!!.second?.get("name"))

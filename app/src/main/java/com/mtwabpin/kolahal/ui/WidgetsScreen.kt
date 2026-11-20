@@ -224,6 +224,7 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
     val version by vm.config.version.collectAsStateWithLifecycle()
     // With widgets.page off, no page next to the terminal shows the widgets, so this screen says so.
     val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
+    val agendaDays = remember(version) { vm.config[Keys.AGENDA_WIDGET_DAYS] }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     // A widget just placed, or long-pressed on the widgets page, is chosen as the screen shows.
     val toChoose by widgets.toChoose.collectAsStateWithLifecycle()
@@ -339,6 +340,9 @@ fun WidgetsScreen(vm: TerminalViewModel, onReAdd: (ProviderEntry, PlacedWidget) 
                         },
                         onRemove = { confirmRemove = chosen },
                         onDone = { selected = null },
+                        // The Agenda card: how many days it shows (widgets.agenda-days).
+                        agendaDays = if (chosen.source == WidgetSource.builtin(WidgetSource.AGENDA)) agendaDays else null,
+                        onAgendaDays = { vm.setConfig(Keys.AGENDA_WIDGET_DAYS, it) },
                     )
                 }
             },
@@ -876,6 +880,8 @@ private fun WidgetToolbar(
     edit: ToolbarEdit?,
     onRemove: () -> Unit,
     onDone: () -> Unit,
+    agendaDays: String? = null,
+    onAgendaDays: (String) -> Unit = {},
 ) {
     val own = w.source != null
     // Only the looks that change this kind of card ([WidgetLook.offeredFor]); one it doesn't offer draws Plain.
@@ -913,6 +919,12 @@ private fun WidgetToolbar(
                 ChoiceRow(looks.map { it.label }, drawn.label, "look ") { onLook(looks[it]) }
                 ToolbarLabel("Size")
                 ChoiceRow(WidgetSize.entries.map { it.label }, size?.label, "size ") { onSize(WidgetSize.entries[it]) }
+                if (agendaDays != null) {
+                    ToolbarLabel("Days")
+                    val choices = Keys.AGENDA_WIDGET_DAYS.choices
+                    val labels = choices.map { it.replaceFirstChar(Char::titlecase) }
+                    ChoiceRow(labels, labels.getOrNull(choices.indexOf(agendaDays)), "days ") { onAgendaDays(choices[it]) }
+                }
                 Text(
                     "Drag to move. Drag an edge to resize.",
                     style = MaterialTheme.typography.bodySmall,

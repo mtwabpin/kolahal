@@ -67,7 +67,7 @@ internal object ReferenceSearch {
         return Results(
             functions = ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD && has(it.name, it.signature, it.doc) },
             directives = ApiDocs.directives.filter { has("@${it.name}", it.args, it.doc) },
-            widgets = allWidgets.filter { has(it.heading, it.variant, it.title, kindLine(it.kind), it.code(lang)) },
+            widgets = allWidgets.filter { has(it.heading, it.variant, it.title, it.line, it.code(lang)) },
             logs = ReferenceExamples.logs.filter { ex ->
                 has(ex.heading, ex.code(lang), *ex.lines.flatMap { listOfNotNull(it.text, it.body) }.map(StyledText::plain).toTypedArray())
             },

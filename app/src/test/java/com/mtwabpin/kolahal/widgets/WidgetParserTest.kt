@@ -57,7 +57,7 @@ class WidgetParserTest {
 
     @Test fun aTextKeepsItsLineBreaks() {
         val spec = parse(mapOf("text" to "  one\r\ntwo  ", "caption" to "a\nb"), WidgetKind.TEXT)
-        assertEquals(WidgetSpec.Text(WidgetBase(), text = "one\ntwo", caption = "a b"), spec)
+        assertEquals(WidgetSpec.Text(WidgetBase(), text = "one\ntwo", caption = "A b"), spec)
         assertEquals("widget: text is needed: the text to show", refused(mapOf("caption" to "x"), WidgetKind.TEXT))
     }
 
@@ -76,7 +76,7 @@ class WidgetParserTest {
             WidgetSpec.Rows(
                 WidgetBase(),
                 items = listOf(
-                    WidgetSpec.Row("Story", detail = "by pg", trailing = "120", icon = "Y", color = StyledText.Colour.WARN, tap = WidgetTap(url = "https://example.com/1")),
+                    WidgetSpec.Row("Story", detail = "By pg", trailing = "120", icon = "Y", color = StyledText.Colour.WARN, tap = WidgetTap(url = "https://example.com/1")),
                     WidgetSpec.Row("Another"),
                 ),
                 empty = "Nothing new",
@@ -159,7 +159,7 @@ class WidgetParserTest {
         // A command is no action: a description can't plant one.
         assertEquals("widget: item 1 of items: tap: no field 'command'; use args, url, label, page", refused(mapOf("items" to listOf(mapOf("label" to "A", "tap" to mapOf("command" to "torch")))), WidgetKind.BUTTONS))
         // The label is cut at 24.
-        assertEquals("x".repeat(23) + "…", buttons(button("x".repeat(40), "a")).items.single().label)
+        assertEquals("X" + "x".repeat(22) + "…", buttons(button("x".repeat(40), "a")).items.single().label)
     }
 
     // ---- toggles --------------------------------------------------------------------------
@@ -312,16 +312,16 @@ class WidgetParserTest {
     }
 
     /** `days` is held between 1 and 7. */
-    @Test fun anAgendasDaysAreOneToSeven() {
+    @Test fun anAgendasDaysAreOneToFourteen() {
         fun days(v: Any?) = agenda("events" to emptyList<Any>(), "days" to v).days
         assertEquals(1, days(1))
-        assertEquals(7, days(7))
+        assertEquals(14, days(14))
         assertEquals(1, days(0))
         assertEquals(1, days(-3))
-        assertEquals(7, days(30))
+        assertEquals(14, days(30))
         assertEquals(2, days(2.9))
         assertEquals(3, days(null))
-        assertEquals("widget: days must be a number of days, from 1 to 7, not 'week'", refused(mapOf("events" to emptyList<Any>(), "days" to "week"), WidgetKind.AGENDA))
+        assertEquals("widget: days must be a number of days, from 1 to 14, not 'week'", refused(mapOf("events" to emptyList<Any>(), "days" to "week"), WidgetKind.AGENDA))
     }
 
     @Test fun anAgendaRefusesWhatItCantRead() {
@@ -357,7 +357,7 @@ class WidgetParserTest {
         // The texts are cut as any text is. A line break in them becomes a space.
         val long = image("image" to "https://example.com/a.png", "alt" to "a".repeat(300), "caption" to "c\n" + "c".repeat(100))
         assertEquals("a".repeat(199) + "…", long.alt)
-        assertEquals("c " + "c".repeat(57) + "…", long.caption)
+        assertEquals("C " + "c".repeat(57) + "…", long.caption)
     }
 
     @Test fun anImageNeedsAnHttpsLinkAndItsWords() {
@@ -488,7 +488,7 @@ class WidgetParserTest {
         assertEquals(
             WidgetSpec.Chart(
                 WidgetBase(), points = listOf(3f, 12f, 9.5f), style = "bars", min = 0f, max = 20f,
-                value = "9", label = "unlocks today", labels = listOf("6 days ago", "today"), summary = "Fewer than yesterday",
+                value = "9", label = "Unlocks today", labels = listOf("6 days ago", "Today"), summary = "Fewer than yesterday",
             ),
             chart(
                 "points" to listOf(3, 12L, 9.5), "style" to "bars", "min" to 0, "max" to 20,
@@ -514,9 +514,9 @@ class WidgetParserTest {
     /** Two labels: under the first point and under the last. An empty first one keeps the second in its place. */
     @Test fun aChartHasTwoLabels() {
         assertEquals(listOf("Mon", "Tue"), chart("points" to listOf(1), "labels" to listOf("Mon", "Tue", "Wed")).labels)
-        assertEquals(listOf("", "today"), chart("points" to listOf(1), "labels" to listOf("", "today")).labels)
+        assertEquals(listOf("", "Today"), chart("points" to listOf(1), "labels" to listOf("", "today")).labels)
         assertEquals(listOf("1", "7"), chart("points" to listOf(1), "labels" to listOf(1, 7.0)).labels)
-        assertEquals(listOf("x".repeat(15) + "…"), chart("points" to listOf(1), "labels" to listOf("x".repeat(40))).labels)
+        assertEquals(listOf("X" + "x".repeat(14) + "…"), chart("points" to listOf(1), "labels" to listOf("x".repeat(40))).labels)
     }
 
     @Test fun whatAChartRefuses() {
@@ -538,7 +538,7 @@ class WidgetParserTest {
 
     @Test fun aCountdownWithAllItsFields() {
         assertEquals(
-            WidgetSpec.Countdown(WidgetBase(title = "Goa trip"), to = 1_797_705_000, from = 1_790_000_000, label = "to go", style = "days", reached = "Today"),
+            WidgetSpec.Countdown(WidgetBase(title = "Goa trip"), to = 1_797_705_000, from = 1_790_000_000, label = "To go", style = "days", reached = "Today"),
             countdown("title" to "Goa trip", "to" to 1_797_705_000, "from" to 1_790_000_000, "label" to "to go", "style" to "days", "reached" to "Today"),
         )
         assertEquals(WidgetSpec.Countdown(WidgetBase(), to = 0), countdown("to" to 0))
@@ -658,7 +658,7 @@ class WidgetParserTest {
         assertEquals("x".repeat(199) + "…", spec.base.tap!!.args)
         val text = parse(mapOf("text" to long, "caption" to long), WidgetKind.TEXT) as WidgetSpec.Text
         assertEquals("x".repeat(499) + "…", text.text)
-        assertEquals("x".repeat(59) + "…", text.caption)
+        assertEquals("X" + "x".repeat(58) + "…", text.caption)
         // At the limit, nothing is cut.
         assertEquals("y".repeat(40), stat("title" to "y".repeat(40)).base.title)
         assertEquals("☀️🌧", stat("icon" to "☀️🌧").base.icon)
@@ -832,7 +832,7 @@ class WidgetParserTest {
         ) as WidgetSpec.Stat
         assertEquals("key •••", stat.value)
         assertEquals("•••", stat.base.title)
-        assertEquals("key •••", stat.label)
+        assertEquals("Key •••", stat.label)
         assertEquals(listOf(WidgetSpec.Small("•••", "key •••")), stat.more)
         assertEquals(WidgetTap(args = "key •••", label = "•••"), stat.base.tap)
         val text = WidgetParser.parse(mapOf("text" to "a\n$split", "caption" to coloured), WidgetKind.TEXT, text = mask, link = { it })
@@ -861,9 +861,9 @@ class WidgetParserTest {
     @Test fun aFewFieldsKeepTheirStyles() {
         val styled = "a " + bold("b") + " " + good("c")
         val text = parse(mapOf("text" to styled, "caption" to italic("who")), WidgetKind.TEXT) as WidgetSpec.Text
-        assertEquals(WidgetSpec.Text(WidgetBase(), text = styled, caption = italic("who")), text)
+        assertEquals(WidgetSpec.Text(WidgetBase(), text = styled, caption = italic("Who")), text)
         val rows = parse(mapOf("items" to listOf(mapOf("title" to styled, "detail" to bold("d"), "trailing" to good("+2%")))), WidgetKind.LIST) as WidgetSpec.Rows
-        assertEquals(WidgetSpec.Row(styled, detail = bold("d"), trailing = good("+2%")), rows.items.single())
+        assertEquals(WidgetSpec.Row(styled, detail = bold("D"), trailing = good("+2%")), rows.items.single())
         assertEquals(good("Sunny"), stat("label" to good("Sunny")).label)
         assertEquals(bold("Monday"), image("image" to "https://example.com/a.png", "alt" to "a", "caption" to bold("Monday")).caption)
         assertEquals(
@@ -871,9 +871,9 @@ class WidgetParserTest {
             WidgetParser.STYLED,
         )
         // Underline and strike stay, and every colour role.
-        val lines = StyledText.wrap(StyledText.Style.UNDERLINE, "u") + StyledText.wrap(StyledText.Style.STRIKE, "s")
+        val lines = StyledText.wrap(StyledText.Style.UNDERLINE, "U") + StyledText.wrap(StyledText.Style.STRIKE, "s")
         assertEquals(lines, stat("label" to lines).label)
-        StyledText.Colour.entries.forEach { assertEquals(StyledText.colour(it, "x"), stat("label" to StyledText.colour(it, "x")).label) }
+        StyledText.Colour.entries.forEach { assertEquals(StyledText.colour(it, "X"), stat("label" to StyledText.colour(it, "X")).label) }
     }
 
     /** Every other text is plain: its styles are taken out, as before. */
@@ -891,15 +891,15 @@ class WidgetParserTest {
         )
         val rows = parse(mapOf("items" to listOf(mapOf("title" to "t", "icon" to bold("i"))), "empty" to s), WidgetKind.LIST) as WidgetSpec.Rows
         assertEquals("i", rows.items.single().icon)
-        assertEquals("bg", rows.empty)
+        assertEquals("Bg", rows.empty)
         assertEquals("bg", image("image" to "https://example.com/a.png", "alt" to s).alt)
-        assertEquals("bg", progress("value" to 1, "text" to s, "label" to s).label)
+        assertEquals("Bg", progress("value" to 1, "text" to s, "label" to s).label)
         val chart = parse(mapOf("points" to listOf(1), "value" to s, "label" to s, "labels" to listOf(s, s), "summary" to s), WidgetKind.CHART) as WidgetSpec.Chart
-        assertEquals(listOf("bg", "bg", "bg", "bg", "bg"), listOf(chart.value, chart.label, chart.summary) + chart.labels)
+        assertEquals(listOf("bg", "Bg", "bg", "Bg", "Bg"), listOf(chart.value, chart.label, chart.summary) + chart.labels)
         val buttons = parse(mapOf("items" to listOf(mapOf("label" to s, "tap" to mapOf("args" to "x")))), WidgetKind.BUTTONS) as WidgetSpec.Buttons
-        assertEquals("bg", buttons.items.single().label)
+        assertEquals("Bg", buttons.items.single().label)
         val agenda = agenda("events" to listOf(mapOf("title" to s, "starts" to 5, "where" to s)), "empty" to s)
-        assertEquals(listOf("bg", "bg", "bg"), listOf(agenda.events.single().title, agenda.events.single().where, agenda.empty))
+        assertEquals(listOf("bg", "bg", "Bg"), listOf(agenda.events.single().title, agenda.events.single().where, agenda.empty))
     }
 
     /** What only the log draws loses its marks and keeps its words, also in a field that may be styled: no link, no tag, no table. */
@@ -914,13 +914,13 @@ class WidgetParserTest {
         assertEquals("a\tb\nOvers\t40/50\n• one", body.text)
         assertFalse(StyledText.has(body.text))
         // A one-line field has them on one line.
-        assertEquals("a\tb Overs\t40/50 • one", stat("label" to table).label)
+        assertEquals("A\tb Overs\t40/50 • one", stat("label" to table).label)
     }
 
     /** A limit counts what shows, not the marks. A cut ends in "…" and leaves no style open. */
     @Test fun aStyledTextIsCutByWhatShows() {
         // 60 characters show: nothing is cut, though the marks make the text longer.
-        val whole = (1..30).joinToString("") { bold("a") + "b" }
+        val whole = (1..30).joinToString("") { bold("A") + "b" }
         assertEquals(60, StyledText.plain(whole).length)
         val kept = stat("label" to whole).label!!
         assertEquals(StyledText.inline(whole), kept)
@@ -934,7 +934,7 @@ class WidgetParserTest {
         // Line breaks: kept in a text's lines, a space anywhere else. The styles go on over them.
         val two = parse(mapOf("text" to bold("one\r\ntwo"), "caption" to good("a\nb")), WidgetKind.TEXT) as WidgetSpec.Text
         assertEquals(bold("one") + "\n" + bold("two"), two.text)
-        assertEquals(good("a") + " " + good("b"), two.caption)
+        assertEquals(good("A") + " " + good("b"), two.caption)
         // Many styled pieces: the first 32 keep their styles, and the words all stay.
         val many = (1..40).joinToString(" ") { bold("w$it") }
         val text = (parse(mapOf("text" to many), WidgetKind.TEXT) as WidgetSpec.Text).text
@@ -961,10 +961,10 @@ class WidgetParserTest {
         val mask = { s: String -> s.replace("SECRET", "•••") }
         fun label(given: String) = (WidgetParser.parse(mapOf("value" to 1, "label" to given), WidgetKind.STAT, text = mask, link = { it }) as WidgetSpec.Stat).label
         // Whole, inside a styled piece and outside one: masked, and the styles stay.
-        assertEquals(bold("key •••") + " ok", label(bold("key SECRET") + " ok"))
-        assertEquals(good("a") + " ••• " + italic("b"), label(good("a") + " SECRET " + italic("b")))
+        assertEquals(bold("Key •••") + " ok", label(bold("key SECRET") + " ok"))
+        assertEquals(good("A") + " ••• " + italic("b"), label(good("a") + " SECRET " + italic("b")))
         // Split by a mark: the styles are dropped, and the plain text is masked.
-        assertEquals("key ••• ok", label("key SEC" + bold("RET") + " " + good("ok")))
+        assertEquals("Key ••• ok", label("key SEC" + bold("RET") + " " + good("ok")))
         assertEquals("•••", label(good("SEC") + italic("RET")))
         assertEquals("•••", label("SEC" + StyledText.link("https://example.com", "RET")))
         assertEquals("••• and •••", label(bold("SECRET") + " and S" + good("ECRET")))
@@ -980,7 +980,7 @@ class WidgetParserTest {
         assertEquals(listOf("1", bold("b") + " c", "b c"), seen)
         // A masked text is cut after the mask, by what shows.
         val long = label(bold("x".repeat(57) + "SECRET"))!!
-        assertEquals(bold("x".repeat(57) + "•••"), long)
+        assertEquals(bold("X" + "x".repeat(56) + "•••"), long)
     }
 
     /** What a script may write passes the stored form too: a styled description reads back as it was made. */

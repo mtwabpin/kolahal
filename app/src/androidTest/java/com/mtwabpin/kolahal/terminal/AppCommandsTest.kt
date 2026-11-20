@@ -399,7 +399,7 @@ class AppCommandsTest {
             }
             listed = true
             // Big numbers: the time today, or a day's average and the total.
-            val big = if (said == "today") "$duration screen time today" else "$duration a day · $duration in ${said.removePrefix("last ")}"
+            val big = if (said == "today") "$duration Screen time today" else "$duration A day · $duration In ${said.removePrefix("last ")}"
             assertTrue(first, Regex(big).matches(first))
             val rows = shown.drop(1)
             // Up to 12 apps by name, then "Other apps" for the rest when it adds up to a minute.
@@ -430,7 +430,7 @@ class AppCommandsTest {
             val label = settings().label
             val duration = "(\\d+h )?\\d+m"
             val first = com.mtwabpin.kolahal.data.StyledText.plain(shown.first().text)
-            assertTrue(first, Regex("$duration ${Regex.escape(label)} today · \\d+ opens? · $duration longest").matches(first))
+            assertTrue(first, Regex("$duration ${Regex.escape(label)} today · \\d+ Opens? · $duration Longest").matches(first))
             assertEquals(settings().pkg, shown.first().ctx.pkg)
             assertTrue(shown[1].text, shown[1].text == "In use now" || shown[1].text == "Not used today" || shown[1].text.startsWith("Last used "))
             // A line a day for 7 days, then their average.

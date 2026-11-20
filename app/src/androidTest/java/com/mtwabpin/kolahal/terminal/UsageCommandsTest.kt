@@ -56,7 +56,7 @@ class UsageCommandsTest {
     @Test fun dataToday() = withUsageAccess("allow") {
         val shown = lines("data today")
         val first = StyledText.plain(shown.first().text)
-        assertTrue(first, Regex("($size mobile today · )?$size Wi-Fi today").matches(first))
+        assertTrue(first, Regex("($size Mobile today · )?$size Wi-Fi today").matches(first))
         val rest = shown.drop(1).map { StyledText.plain(it.text) }
         assertTrue(rest.toString(), rest.firstOrNull() == "No data used" || rest.firstOrNull()?.startsWith("App\tMobile\tWi-Fi") == true)
     }
@@ -80,7 +80,7 @@ class UsageCommandsTest {
     @Test fun storage() = withUsageAccess("allow") {
         val shown = lines("storage")
         val first = StyledText.plain(shown.first().text)
-        assertTrue(first, Regex("$size free · $size used of $size").matches(first))
+        assertTrue(first, Regex("$size Free · $size Used of $size").matches(first))
         val texts = shown.map { StyledText.plain(it.text) }
         val largest = texts.indexOf("Largest apps")
         assertTrue(texts.toString(), largest > 0)

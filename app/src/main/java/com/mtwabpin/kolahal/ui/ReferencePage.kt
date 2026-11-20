@@ -148,7 +148,7 @@ internal fun ReferencePage(
                             }
                             RefTab.WIDGETS -> RefList(state, bottom) {
                                 items(ReferenceExamples.widgets, key = { it.name }) { ex ->
-                                    WidgetExampleRow(ex, AnnotatedString(ex.heading), AnnotatedString(ReferenceSearch.kindLine(ex.kind))) { opened = Opened.Widget(ex, 0) }
+                                    WidgetExampleRow(ex, AnnotatedString(ex.heading), AnnotatedString(ex.line)) { opened = Opened.Widget(ex, 0) }
                                 }
                             }
                             RefTab.LOGS -> RefList(state, bottom) {
@@ -408,7 +408,7 @@ private fun Results(
             item { ResultsHead(RefTab.WIDGETS, found.widgets.size) }
             items(found.widgets, key = { "widget ${it.name}" }) { w ->
                 val name = w.heading + (w.variant?.let { " · $it" } ?: "")
-                val line = ReferenceSearch.lineWith(w.code(lang), words) ?: ReferenceSearch.kindLine(w.kind)
+                val line = ReferenceSearch.lineWith(w.code(lang), words) ?: w.line
                 WidgetExampleRow(w, marked(name, words), marked(line, words)) { onWidget(w) }
             }
         }

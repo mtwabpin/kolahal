@@ -44,12 +44,12 @@ if widget then
   if mobile == nil then
     -- Android 9: no mobile data. The Wi-Fi data as a number: there is no plan to show a bar toward.
     widget.show{ kind = "stat", title = "Wi-Fi this month", icon = "wifi", value = gb(month.wifi), unit = "GB",
-      label = "since " .. sinceText, staleAfter = 30 * 60, tap = tap }
+      label = "Since " .. sinceText, staleAfter = 30 * 60, tap = tap }
   elseif plan then
     widget.show{
       title = "Data this month", icon = "wifi",
       value = mobile / GB, max = plan / GB,
-      text = gb(mobile), label = "of " .. math.floor(plan / GB) .. " GB",
+      text = gb(mobile), label = "Of " .. math.floor(plan / GB) .. " GB",
       -- Red when the pace for the month goes over the plan.
       color = month.pace > plan and "bad" or nil,
       staleAfter = 30 * 60,
@@ -58,7 +58,7 @@ if widget then
   else
     -- No plan: the data as a number, with no bar that would stand for nothing.
     widget.show{ kind = "stat", title = "Data this month", icon = "wifi", value = gb(mobile), unit = "GB",
-      label = "mobile since " .. sinceText, staleAfter = 30 * 60, tap = tap }
+      label = "Mobile since " .. sinceText, staleAfter = 30 * 60, tap = tap }
   end
 end
 

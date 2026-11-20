@@ -254,8 +254,53 @@ object StyledText {
      */
     fun stats(items: List<Pair<String, String>>): String {
         if (items.isEmpty()) return ""
-        return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) -> char(CELL) + part(value) + char(CELL) + part(label) }
+        return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) -> char(CELL) + part(value) + char(CELL) + part(capitalised(label)) }
     }
+
+    /**
+     * [text] with its first letter a capital, as a label that stands on its own starts: "unlocks
+     * today" is "Unlocks today". Styles and a link's address are skipped. A text whose first visible
+     * character is no small letter stays as it is ("3 days ago", "(beta)"), and so does a first word
+     * with a capital inside ("iOS", "eSIM"), or a unit symbol ("km/h", "kg").
+     */
+    fun capitalised(text: String): String {
+        var i = 0
+        var address = false
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            val n = Character.charCount(cp)
+            when {
+                cp == LINK -> address = true
+                cp == LINK_TEXT -> address = false
+                address || cp in BASE..LAST || Character.isWhitespace(cp) -> {}
+                !Character.isLowerCase(cp) -> return text
+                i + n < text.length && Character.isUpperCase(text.codePointAt(i + n)) -> return text
+                unitLike(text, i) -> return text
+                else -> return text.substring(0, i) + String(Character.toChars(Character.toTitleCase(cp))) + text.substring(i + n)
+            }
+            i += n
+        }
+        return text
+    }
+
+    /**
+     * Whether [text] from [from] on is a unit, which keeps its small letters as everywhere else: a
+     * unit symbol and nothing more ("kg", "mph"), or a first word with a slash ("km/h", "m/s per day").
+     * A label that only starts with such a word is a label: "in 3 days" is "In 3 days".
+     */
+    private fun unitLike(text: String, from: Int): Boolean {
+        val word = text.substring(from).takeWhile { it.isLetter() || it == '/' }
+        if ('/' in word) return true
+        return word in UNITS && text.substring(from + word.length).none { it.isLetterOrDigit() }
+    }
+
+    /** Unit symbols written in small letters. */
+    private val UNITS = setOf(
+        "mm", "cm", "m", "km", "mi", "ft", "in", "mg", "g", "kg", "lb", "lbs", "oz", "ml", "l",
+        "kcal", "cal", "kj", "mph", "kph", "kmh", "ms", "s", "min", "h", "hr", "hrs",
+        "kb", "mb", "gb", "tb", "kbps", "mbps", "gbps", "hz", "khz", "mhz", "ghz",
+        "mah", "wh", "kwh", "bpm", "rpm", "psi", "hpa", "mbar", "ppm", "dpi", "px", "dp", "sp", "pt", "fps",
+    )
 
     /** The most columns a column chart keeps ([columns]): the newest ones. */
     const val COLUMNS_MAX = 62

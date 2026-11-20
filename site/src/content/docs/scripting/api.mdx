@@ -684,7 +684,7 @@ Widgets need Kolahal 0.5.8 or newer. To start from a widget that works, install 
 
 widget.show{
   value = "6,240",
-  label = "steps today",
+  label = "Steps today",
   more = { { value = "4.1 km", label = "walked" } },
 }
 ```
@@ -696,7 +696,7 @@ widget.show{
 
 widget.show({
   value: "6,240",
-  label: "steps today",
+  label: "Steps today",
   more: [{ value: "4.1 km", label: "walked" }],
 });
 ```
@@ -913,14 +913,14 @@ widget.show{
 -- text: a few lines, and a caption
 widget.show{ kind = "text", title = "Word of the day",
   text = "serendipity\nFinding something good without looking for it.",
-  caption = "from Wiktionary" }
+  caption = "From Wiktionary" }
 
 -- progress: in the warning colour
 widget.show{ kind = "progress", title = "Pune air", value = 168, max = 300, text = "168", label = "Unhealthy", color = "warn" }
 
 -- chart: seven days as bars
 widget.show{ kind = "chart", title = "Unlocks", points = { 12, 30, 0, 45, 7, 1, 8 }, style = "bars",
-  value = 8, label = "unlocks today", labels = { "Sun", "Today" } }
+  value = 8, label = "Unlocks today", labels = { "Sun", "Today" } }
 
 -- countdown: Kolahal counts the days
 widget.show{ kind = "countdown", title = "Goa trip", to = os.time{ year = 2026, month = 12, day = 20, hour = 0 } }
@@ -941,14 +941,14 @@ widget.show({
 // text: a few lines, and a caption
 widget.show({ kind: "text", title: "Word of the day",
   text: "serendipity\nFinding something good without looking for it.",
-  caption: "from Wiktionary" });
+  caption: "From Wiktionary" });
 
 // progress: in the warning colour
 widget.show({ kind: "progress", title: "Pune air", value: 168, max: 300, text: "168", label: "Unhealthy", color: "warn" });
 
 // chart: seven days as bars
 widget.show({ kind: "chart", title: "Unlocks", points: [12, 30, 0, 45, 7, 1, 8], style: "bars",
-  value: 8, label: "unlocks today", labels: ["Sun", "Today"] });
+  value: 8, label: "Unlocks today", labels: ["Sun", "Today"] });
 
 // countdown: Kolahal counts the days
 widget.show({ kind: "countdown", title: "Goa trip", to: new Date(2026, 11, 20).getTime() / 1000 });
@@ -1054,7 +1054,7 @@ times and the days.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `events` | a list of events | Needed. The first 20 are kept. It can be empty. |
-| `days` | a number, 1 to 7 | How many days to show, from today. Without it: 3. |
+| `days` | a number, 1 to 14 | How many days to show, from today. Without it: 3. |
 | `empty` | text, up to 60 | What the card says with no events: `Nothing planned`. |
 
 Each event is `{ title, starts, ends, allDay, where, color, tap }`. `title` and `starts` are
@@ -1239,7 +1239,7 @@ What a description keeps, and what it refuses.
 | `toggles`: `items` | 1 to 6 switches | an error, as for none |
 | `clock`: `zones` | 1 to 4 places | the first 4 are kept; none is an error |
 | `agenda`: `events` | 20 events | the first 20 are kept |
-| `agenda`: `days` | 1 to 7 | held between 1 and 7 |
+| `agenda`: `days` | 1 to 14 | held between 1 and 14 |
 | `image`: `image` | 2000 characters | an error: a link is never cut |
 | `image`: the picture's file | 10 MB | not shown; the card keeps its `alt` |
 | `staleAfter` | 60 to 604800 seconds | held between them |
@@ -1248,6 +1248,19 @@ What a description keeps, and what it refuses.
 | A tap's `label` | 24 characters | cut |
 | Taps on one card, row, button, switch or event | one run in 2 seconds | the tap is ignored |
 | A switch that waits for its run | 10 seconds | it shows the state it had |
+
+### Capitals in a widget
+
+A card's labels start with a capital, as the rest of Kolahal's text does, whatever the script
+writes: `label = "unlocks today"` shows "Unlocks today". This goes for each `label`, `caption`,
+`detail`, `empty` and `reached`, a chart's `labels`, the labels of buttons and switches, and the
+labels of [`fmt.stats`](#styles-fmt) in the log. Titles, `trailing`, units and place names stay as
+written. A label that starts with a digit or a sign ("3 days ago") stays as it is, and so do a
+first word with a capital inside ("iOS") and a label that is a unit ("kg", "km/h").
+
+The label of a smaller value in `more` gets its capital only where a look puts it under its value.
+Where a look writes it after the value on one line, it stays as written, so write it as part of a
+phrase: `{ value = "62%", label = "humidity" }` shows "62% humidity".
 
 ### Styles in a widget
 
@@ -1280,7 +1293,7 @@ colour.
 widget.show{ kind = "list", title = "Bills", items = {
   {
     title = fmt.bold("Rent") .. " to Asha",
-    detail = "due in " .. fmt.color("warn", "2 days"),
+    detail = "Due in " .. fmt.color("warn", "2 days"),
     trailing = fmt.strike("520") .. " 480",
   },
 } }
@@ -1291,7 +1304,7 @@ widget.show{ kind = "list", title = "Bills", items = {
 widget.show({ kind: "list", title: "Bills", items: [
   {
     title: fmt.bold("Rent") + " to Asha",
-    detail: "due in " + fmt.color("warn", "2 days"),
+    detail: "Due in " + fmt.color("warn", "2 days"),
     trailing: fmt.strike("520") + " 480",
   },
 ] });
@@ -2067,7 +2080,7 @@ widget.show({ events: calendar.events(7), days: 7, empty: "A free week" });
 </TabItem>
 </Tabs>
 
-An `agenda` widget keeps the first 20 events and shows 7 days at most
+An `agenda` widget keeps the first 20 events and shows 14 days at most
 ([Limits](#limits)).
 
 ### feeds.unread(n?)
@@ -2147,7 +2160,7 @@ when Android doesn't tell. An app installed less than `days` ago is not in the l
 -- @widget stat
 
 local today = usage.today(3)
-widget.show{ value = today.total .. " min", label = "screen time today" }
+widget.show{ value = today.total .. " min", label = "Screen time today" }
 ```
 
 ### usage.summary(period, app?)
@@ -2177,7 +2190,7 @@ local s = usage.summary("month")
 if s then
   local points = {}
   for i, r in ipairs(s.rows) do points[i] = r.perDay end
-  widget.show{ value = (s.perDay or 0) .. " min", label = "a day", points = points, style = "bars" }
+  widget.show{ value = (s.perDay or 0) .. " min", label = "A day", points = points, style = "bars" }
 end
 ```
 

@@ -456,8 +456,8 @@ class GetScriptsScreenTest {
         listed(tide, joke)
         listedIn(other, tideOther, moon)
         showSources()
-        compose.waitForNode(hasText(ScriptCatalog.SOURCE) and hasText(ScriptSources.DEFAULT.index) and hasText("Reviewed · 2 scripts · read just now"))
-        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("https://gsowner.github.io/gsscripts/index.json") and hasText("2 scripts · read just now"))
+        compose.waitForNode(hasText(ScriptCatalog.SOURCE) and hasText(ScriptSources.DEFAULT.index) and hasText("Reviewed · 2 scripts · Read just now"))
+        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("https://gsowner.github.io/gsscripts/index.json") and hasText("2 scripts · Read just now"))
         // Only the one you added can be removed.
         assertEquals(1, compose.onAllNodesWithContentDescription("Remove").fetchSemanticsNodes().size)
         shot(compose.onRoot(), "sources.png")
@@ -481,7 +481,7 @@ class GetScriptsScreenTest {
         compose.onNode(hasText("Add") and hasClickAction()).performClick()
         compose.waitForText("Added gsowner/gsscripts · 1 script")
         assertEquals(listOf(other.index), catalog.added())
-        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("1 script · read just now"))
+        compose.waitForNode(hasText("gsowner/gsscripts") and hasText("1 script · Read just now"))
     }
 
     /** What isn't a source says why, and can't be added. */
