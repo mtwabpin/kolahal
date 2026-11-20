@@ -47,6 +47,23 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
     /** What is playing. A script can't see that and may not send media commands, so only Kolahal fills it. */
     MEDIA("media", WidgetSize.S4X1, script = false);
 
+    /**
+     * The sizes this kind is drawn well at (docs/widgets-design.org, the catalog). A card draws for any
+     * box it gets; these are the ones each kind is made for, and the ones the editor's reference offers.
+     */
+    val sizes: List<WidgetSize>
+        get() = when (this) {
+            STAT -> listOf(WidgetSize.S1X1, WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1)
+            TEXT -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1, WidgetSize.S4X2)
+            LIST -> listOf(WidgetSize.S2X2, WidgetSize.S4X2, WidgetSize.S4X4)
+            PROGRESS, COUNTDOWN -> listOf(WidgetSize.S1X1, WidgetSize.S2X1, WidgetSize.S2X2)
+            CHART -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X2)
+            BUTTONS -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1, WidgetSize.S4X2)
+            TOGGLES, CLOCK -> listOf(WidgetSize.S2X1, WidgetSize.S2X2, WidgetSize.S4X1)
+            AGENDA, IMAGE -> listOf(WidgetSize.S2X2, WidgetSize.S4X2, WidgetSize.S4X4)
+            MEDIA -> listOf(WidgetSize.S2X1, WidgetSize.S4X1, WidgetSize.S4X2)
+        }
+
     companion object {
         /** The kinds a script's widget can have, in the order the docs list them. */
         val forScripts: List<WidgetKind> = entries.filter { it.script }

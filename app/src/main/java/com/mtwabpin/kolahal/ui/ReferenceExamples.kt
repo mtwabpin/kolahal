@@ -37,6 +37,12 @@ internal object ReferenceExamples {
         val title: String,
         val lua: String,
         val js: String,
+        /**
+         * For a variant ([variants]): the name of the guide's example it varies, and what it shows
+         * differently ("4 switches"), for its chip in the reference. Null for the guide's examples.
+         */
+        val of: String? = null,
+        val variant: String? = null,
         /** The card that the code makes at [now] (seconds) in [zone]. */
         val spec: (now: Long, zone: ZoneId) -> WidgetSpec,
     ) {
@@ -318,6 +324,17 @@ internal object ReferenceExamples {
             WidgetSpec.Progress(WidgetBase(color = Colour.ACCENT, tap = WidgetTap(args = "add", label = "Add a glass")), value = 5f, max = 8f, text = "5 / 8")
         },
     )
+
+    /**
+     * More versions of some of the guide's examples, for the reference only: another number of rows
+     * or switches, another style. Each is real code in both languages, and ReferenceCardsTest runs it
+     * as it runs the guide's. [Widget.of] names the example it varies; every name is unique among all
+     * the examples. The guide doesn't have these, so ReferenceExamplesTest doesn't look for them there.
+     */
+    val variants: List<Widget> = listOf()
+
+    /** The variants of the guide's example [name] ([variants]), in their order. */
+    fun variantsOf(name: String): List<Widget> = variants.filter { it.of == name }
 
     /**
      * One line a log example makes: its title and body, as `log` stores them, and what its context
