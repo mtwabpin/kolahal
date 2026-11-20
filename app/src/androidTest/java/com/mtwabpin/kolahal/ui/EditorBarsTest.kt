@@ -14,6 +14,8 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -279,6 +281,34 @@ class EditorBarsTest {
         }
         assertEquals(ReferenceExamples.widgets.single { it.name == "toggles" }.code(ScriptLang.LUA), copied)
         assertEquals(code, text())
+    }
+
+    /**
+     * An example's variants: a chip for each, the guide's example first. The chosen one is drawn,
+     * and Copy and a tap take its code. Pictures of the panels go to the app's files ("reference"),
+     * to look at.
+     */
+    @Test fun aWidgetExampleShowsItsVariants() {
+        show()
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.waitForText("API reference · Lua")
+        val out = checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("reference"))
+        out.listFiles()?.forEach { it.delete() }
+        fun picture(name: String) = java.io.File(out, "$name.png").outputStream().use {
+            compose.onNodeWithTag("widget-example toggles").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example toggles"))
+        compose.onNodeWithTag("variant toggles As in the guide").assertIsOn()
+        picture("toggles-guide")
+        compose.onNodeWithTag("variant toggles 4 switches").performClick()
+        compose.onNodeWithTag("variant toggles 4 switches").assertIsOn()
+        compose.waitForIdle()
+        picture("toggles-4")
+        // A tap on the card puts the chosen variant's code in.
+        cursorAt(10)
+        compose.onNode(hasTestTag("widget-example-cover") and hasAnyAncestor(hasTestTag("widget-example toggles"))).performClick()
+        val code = ReferenceExamples.variantsOf("toggles").single { it.variant == "4 switches" }.code(ScriptLang.LUA)
+        assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
     }
 
     @Test fun theWidgetExamplesCanBeSeenInEachLook() {

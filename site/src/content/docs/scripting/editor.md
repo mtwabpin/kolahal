@@ -98,6 +98,9 @@ scripting guide.
 - **Widgets** shows each kind of [widget](/scripting/api/#widgets) card as Kolahal draws it. The
   **Look** row above them draws every card in one of the [looks](/guides/widgets/#looks) that the
   person who places the widget can choose. A card whose kind has no such look stays Plain, and says so.
+- Each widget example has **Copy**, which puts its code on the clipboard, a row of the sizes its
+  kind is made for, and, for most kinds, a row of variants: more rows or switches, another style.
+  The card, its code and **Copy** follow what you choose.
 - **Log lines** shows the lines that [`log`, `md.log` and `fmt`](/scripting/api/#output) make, as
   the log draws them.
 - Tap an example to put its code in at the cursor, on lines of its own. The cards and lines only
