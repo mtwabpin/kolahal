@@ -1,0 +1,8 @@
+What's new:
+• Place widgets anywhere on the page: drag them, resize them by their edges.
+• Five looks for Kolahal's widgets: Plain, Tonal, Bold, Split, Shape.
+• Now playing's bar moves as a wave while a track plays.
+• The script reference is a page of its own, with one search.
+• Add script repositories of your own in Get more scripts → Sources.
+• Rosé Pine theme.
+• Screen time for one app over the months.
