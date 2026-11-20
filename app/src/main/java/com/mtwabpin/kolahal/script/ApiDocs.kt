@@ -5,7 +5,7 @@ import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 
 /**
- * The script API as data. The editor uses it for completion, inline docs and the reference sheet.
+ * The script API as data. The editor uses it for completion, inline docs and the reference page.
  * Keep it in sync with the bindings in [LuaEngine] and [JsEngine]. ApiDocsTest checks the names.
  */
 data class ApiDoc(

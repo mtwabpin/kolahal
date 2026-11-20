@@ -87,32 +87,51 @@ As you type, the editor suggests [API](/scripting/api/) names such as `http.get`
 description. This is only a quick reminder. The [API reference](/scripting/api/) has the full
 details and examples.
 
-**API reference** (the question mark in the top bar) lists the whole API. It also lists every `@` line a script can start with:
-[`@command`](/scripting/overview/#command-scripts), `@desc`, `@on`, `@uses`, `@every` and the
-others, as in [describing a script](/scripting/overview/#describing-a-script). Tap an entry to
-insert it at the cursor. An `@` line is inserted as a whole comment line.
+## Reference
 
-Under them are examples, each over its code in the script's language: the same examples as the
-scripting guide.
+**API reference** (the question mark in the top bar) opens the reference: a page over the code,
+for the script's language. **Back** returns to the script, with the text and the cursor as they
+were.
 
-- **Widgets** shows each kind of [widget](/scripting/api/#widgets) card as Kolahal draws it. The
-  **Look** row above them draws every card in one of the [looks](/guides/widgets/#looks) that the
-  person who places the widget can choose. A card whose kind has no such look stays Plain, and says so.
-- Each widget example has **Copy**, which puts its code on the clipboard, a row of the sizes its
-  kind is made for, and, for most kinds, a row of variants: more rows or switches, another style.
-  The card, its code and **Copy** follow what you choose.
-- **Log lines** shows the lines that [`log`, `md.log` and `fmt`](/scripting/api/#output) make, as
-  the log draws them.
-- Tap an example to put its code in at the cursor, on lines of its own. The cards and lines only
-  show: a tap on a button, a row or a link inserts the example too.
-- Each example is on a panel of its own: its name, what it makes, and its code.
+At the top is one search field, then a tab for each part:
 
-Each `fmt` function's entry in the list also shows what it makes, as the log draws it: a bold
-word for `fmt.bold`, a row of tags for `fmt.tag`. A tap on it picks the function.
+- **Functions** lists the whole API, in groups: each namespace (`http`, `store`, `fmt`…) under its
+  own line, and the functions outside a namespace (`log`, `print`, `args`) under **Globals**. The
+  chips above the list show one group; **All** shows them all. Each `fmt` function also shows what
+  it makes, as the log draws it: a bold word for `fmt.bold`, a row of tags for `fmt.tag`.
+- **Directives** lists every `@` line a script can start with:
+  [`@command`](/scripting/overview/#command-scripts), `@desc`, `@on`, `@uses`, `@every` and the
+  others, as in [describing a script](/scripting/overview/#describing-a-script). The language's
+  keywords are at the end.
+- **Widgets** has a row for each kind of [widget](/scripting/api/#widgets) card, with a small
+  picture of it.
+- **Log lines** has a row for each example of the lines that
+  [`log`, `md.log` and `fmt`](/scripting/api/#output) make.
+- **Icons** shows every [widget icon](/scripting/api/#icons) with its name, in groups.
 
-After them, **Icons** shows every [widget icon](/scripting/api/#icons) with its name, in
-groups. Tap one to insert its name at the cursor, in quotes unless the cursor is already after a
-quote.
+Tap a function to insert it at the cursor, ready for its arguments. An `@` line goes in as a whole
+comment line, above the cursor's line. An icon's name goes in quotes, unless the cursor is already
+after a quote.
+
+Tap a widget or log example to open it. Its view shows the card or the lines as Kolahal draws
+them, then its code in the script's language: the same examples as the scripting guide.
+
+- **Example** picks the guide's example or a variant of it: more rows or switches, another style.
+  Only kinds with variants have it.
+- **Size** picks one of the sizes the kind is made for.
+- **Look** draws the card in one of the [looks](/guides/widgets/#looks) that the person who places
+  the widget can choose. Only the looks that change this kind of card are offered.
+- **Copy** puts the code on the clipboard. **Insert** puts it in at the cursor, on lines of its
+  own, and returns to the script. Both take the code of what you chose.
+
+The card and the lines only show: a tap on one of their buttons or links does nothing. TalkBack
+reads a card as its description.
+
+Typing in the search looks in every tab at once: names, signatures, descriptions, example code and
+icon names. The results come in groups by tab, with how many each has, and the words found are
+marked. A tap on a result does what it does in its tab. **Back** from an example opened there
+returns to the results; clearing the search returns to the tabs.
+
 
 ## Editing elsewhere
 

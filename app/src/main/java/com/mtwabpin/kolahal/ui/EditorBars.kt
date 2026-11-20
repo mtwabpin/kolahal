@@ -10,11 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -55,17 +52,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.R
-import com.mtwabpin.kolahal.data.ScriptLang
-import com.mtwabpin.kolahal.script.ApiDoc
-import com.mtwabpin.kolahal.script.ApiDocs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -345,120 +337,3 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
     ) }
 }
 
-/**
- * The full API reference for the script's language, followed by its `@` lines (directives) and
- * the icons a widget can name.
- * - Tapping an entry inserts it at the cursor.
- * - A directive is inserted as a whole comment line ([onDirective]).
- * - An icon gives its name to [onIcon].
- * - Code (signatures, directives, keywords, icon names) is in the code font; the words about it are in the phone's font.
- */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-internal fun ApiReferenceSheet(
-    lang: ScriptLang,
-    onDismiss: () -> Unit,
-    onPick: (ApiDoc) -> Unit,
-    onDirective: (String) -> Unit,
-    onIcon: (String) -> Unit,
-    /** A tap on a widget or log example: its code, to insert. */
-    onExample: (String) -> Unit,
-) {
-    val docs = remember(lang) { ApiDocs.forLang(lang).filter { it.kind != ApiDoc.Kind.KEYWORD } }
-    // The look the widget examples are drawn in. Plain each time the sheet opens.
-    var exampleLook by remember { mutableStateOf(WidgetLook.PLAIN) }
-    TermSheet(onDismiss) {
-        LazyColumn(Modifier.navigationBarsPadding().padding(vertical = 8.dp).testTag("apiref")) {
-            item {
-                Text(
-                    "API reference · ${if (lang == ScriptLang.LUA) "Lua" else "JavaScript"}",
-                    style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-            items(docs) { d ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clickable { onPick(d) }
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                ) {
-                    Text(d.signature, style = Term.code.copy(color = if (d.kind == ApiDoc.Kind.NAMESPACE) Term.info else Term.fg))
-                    Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
-                    // A fmt function: what it makes, as the log draws it. A tap on it picks the entry too.
-                    ReferenceExamples.fmtSample(d.name)?.let { sample ->
-                        LinesPreview(sample, "Insert ${d.name}", cover = "fmt-sample ${d.name}", Modifier.padding(top = 6.dp), source = false) { onPick(d) }
-                    }
-                }
-                EntryDivider()
-            }
-            item {
-                Text(
-                    "Directives · comment lines at the top",
-                    style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-                )
-            }
-            items(ApiDocs.directives) { d ->
-                val comment = if (lang == ScriptLang.LUA) "--" else "//"
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clickable { onDirective("$comment @${d.name}" + if (d.args.isEmpty()) "\n" else " ") }
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                ) {
-                    Text("$comment @${d.name} ${d.args}".trimEnd(), style = Term.code.copy(color = Term.fg))
-                    Text(d.doc, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
-                }
-                EntryDivider()
-            }
-            widgetExamples(lang, exampleLook, { exampleLook = it }, onExample)
-            logExamples(lang, onExample)
-            item {
-                Text(
-                    "Icons · for a widget's icon, such as icon = \"sun\"",
-                    style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-                )
-            }
-            items(com.mtwabpin.kolahal.widgets.WidgetIcons.GROUPS) { (group, names) ->
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Text(group, style = Term.phoneText.copy(color = Term.dim, fontSize = Term.phoneText.fontSize * 0.85f))
-                    androidx.compose.foundation.layout.FlowRow {
-                        names.forEach { name ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .heightIn(min = 48.dp)
-                                    .clickable(onClickLabel = "Insert $name") { onIcon(name) }
-                                    .padding(end = 14.dp)
-                                    .testTag("icon $name"),
-                            ) {
-                                widgetIconDrawable(name)?.let { Icon(painterResource(it), null, tint = Term.fg, modifier = Modifier.padding(end = 6.dp)) }
-                                Text(name, style = Term.code.copy(color = Term.fg))
-                            }
-                        }
-                    }
-                }
-            }
-            item {
-                val small = Term.phoneText.fontSize * 0.85f
-                Text(
-                    androidx.compose.ui.text.buildAnnotatedString {
-                        append("Keywords: ")
-                        withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) { append(ApiDocs.keywords(lang).joinToString(" ")) }
-                    },
-                    style = Term.phoneText.copy(color = Term.dim, fontSize = small),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        }
-    }
-}
-
-/** A thin line under an entry of the API reference, so each entry reads as one at a glance. */
-@Composable
-private fun EntryDivider() =
-    androidx.compose.material3.HorizontalDivider(color = Term.dim.copy(alpha = 0.2f), modifier = Modifier.padding(horizontal = 16.dp))

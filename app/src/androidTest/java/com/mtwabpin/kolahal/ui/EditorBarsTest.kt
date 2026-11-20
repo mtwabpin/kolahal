@@ -14,6 +14,8 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
@@ -43,7 +45,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The script editor's find and replace bar, Go to line, the API reference and the symbol bar. */
+/** The script editor's find and replace bar, Go to line, the reference page and the symbol bar. */
 @RunWith(AndroidJUnit4::class)
 class EditorBarsTest {
     @get:Rule val compose = createComposeRule()
@@ -69,7 +71,8 @@ class EditorBarsTest {
         }
     }
 
-    private fun editor() = compose.onNodeWithTag("editor").fetchSemanticsNode().config
+    // The unmerged tree: under the reference page, TalkBack (the merged tree) skips the code.
+    private fun editor() = compose.onNodeWithTag("editor", useUnmergedTree = true).fetchSemanticsNode().config
     private fun text() = editor()[SemanticsProperties.EditableText].text
     private fun selection() = editor()[SemanticsProperties.TextSelectionRange]
 
@@ -207,15 +210,53 @@ class EditorBarsTest {
         compose.waitUntil(3_000) { selection() == TextRange(offset) }
     }
 
-    /** A function picked from the API reference goes in at the cursor, ready for its arguments. */
+    /** Opens the reference page. */
+    private fun openReference() {
+        compose.onNodeWithContentDescription("API reference").performClick()
+        compose.onNodeWithTag("reference").assertExists()
+    }
+
+    private fun tab(label: String) = compose.onNodeWithTag("tab $label").performClick()
+
+    /** The list of the tab in view. */
+    private fun list() = compose.onNodeWithTag("reference-list")
+
+    private fun referenceClosed() = compose.onNodeWithTag("reference").assertDoesNotExist()
+
+    /** Opens the Widgets tab and [name]'s view. */
+    private fun openWidget(name: String) {
+        tab("Widgets")
+        list().performScrollToNode(hasTestTag("widget-row $name"))
+        compose.onNodeWithTag("widget-row $name").performClick()
+        compose.onNodeWithTag("widget-view $name").assertExists()
+    }
+
+    /** [text] somewhere in the card or lines of the example's view, as drawn. */
+    private fun inPreview(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("example-preview")), useUnmergedTree = true)
+
+    private fun clipboard(): String? {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        var copied: String? = null
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            copied = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
+        }
+        return copied
+    }
+
+    private fun pressBack() {
+        androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()).pressBack()
+        compose.waitForIdle()
+    }
+
+    /** A function picked from the reference goes in at the cursor, ready for its arguments, and the page closes. */
     @Test fun theReferenceInsertsAFunctionAtTheCursor() {
         show()
         cursorAt(10)
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasText("log(title, body?, ctx?) -> line"))
+        openReference()
+        compose.onNodeWithText("Lua").assertExists()
+        list().performScrollToNode(hasText("log(title, body?, ctx?) -> line"))
         compose.onNodeWithText("log(title, body?, ctx?) -> line").performClick()
-        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
+        referenceClosed()
         assertEquals("apple pie\nlog(banana apple\nApple cider", text())
     }
 
@@ -224,142 +265,175 @@ class EditorBarsTest {
         show()
         // Inside the second line.
         cursorAt(13)
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasText("-- @command"))
+        openReference()
+        tab("Directives")
+        list().performScrollToNode(hasText("-- @command"))
         compose.onNodeWithText("-- @command").performClick()
         assertEquals("apple pie\n-- @command\nbanana apple\nApple cider", text())
     }
 
-    /**
-     * The reference shows each widget example as its card, over its code. A tap on the card, even on
-     * one of its buttons, runs nothing and opens nothing: the example goes in, on lines of its own.
-     */
-    @Test fun aWidgetExampleShowsItsCardAndGoesInOnATap() {
+    /** Each tab shows its own list; the chosen tab is marked. */
+    @Test fun theTabsSwitch() {
         show()
-        // The start of the second line.
-        cursorAt(10)
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example buttons"))
-        fun inExample(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("widget-example buttons")), useUnmergedTree = true)
-        // The card is drawn, with its buttons.
-        inExample("Start").assertExists()
-        inExample("Stop").performClick()
-        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
-        val code = ReferenceExamples.widgets.single { it.name == "buttons" }.code(ScriptLang.LUA)
-        assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
+        openReference()
+        compose.onNodeWithTag("tab Functions").assertIsSelected()
+        compose.onNodeWithTag("namespace All").assertExists()
+        for ((label, tag) in listOf("Widgets" to "widget-row steps", "Log lines" to "log-row log", "Icons" to "icon sun")) {
+            tab(label)
+            compose.onNodeWithTag("tab $label").assertIsSelected()
+            compose.onNodeWithTag("tab Functions").assertIsNotSelected()
+            compose.onNodeWithTag(tag).assertExists()
+            compose.onNodeWithTag("namespace All").assertDoesNotExist()
+        }
+        tab("Directives")
+        compose.onNodeWithText("-- @command").assertExists()
+    }
+
+    /** A namespace's chip shows only that group, from its top; All shows them all again. */
+    @Test fun aNamespaceChipShowsItsGroup() {
+        show()
+        openReference()
+        compose.onNodeWithText("log(title, body?, ctx?) -> line").assertExists()
+        compose.onNodeWithTag("namespaces").performScrollToNode(hasTestTag("namespace store"))
+        compose.onNodeWithTag("namespace store").performClick()
+        compose.onNodeWithTag("namespace store").assertIsSelected()
+        compose.onNodeWithText("Persistent", substring = true).assertExists()
+        compose.onNodeWithText("store.get", substring = true).assertExists()
+        compose.onNodeWithText("log(title, body?, ctx?) -> line").assertDoesNotExist()
+        compose.onNodeWithText("http.get", substring = true).assertDoesNotExist()
+        compose.onNodeWithTag("namespaces").performScrollToNode(hasTestTag("namespace All"))
+        compose.onNodeWithTag("namespace All").performClick()
+        compose.onNodeWithText("log(title, body?, ctx?) -> line").assertExists()
     }
 
     /**
-     * The reference's Look row draws the widget examples in another look. A kind that doesn't
-     * offer the look stays Plain and says so: buttons have no Bold.
+     * A widget example opens in a view of its own, with its card drawn. A tap on the card, even on
+     * one of its buttons, runs nothing and puts nothing in; Insert puts the example in, on lines of
+     * its own, and closes the page.
      */
+    @Test fun aWidgetExampleShowsItsCardAndGoesInWithInsert() {
+        show()
+        // The start of the second line.
+        cursorAt(10)
+        openReference()
+        openWidget("buttons")
+        inPreview("Start").assertExists()
+        inPreview("Stop").performClick()
+        compose.onNodeWithTag("widget-view buttons").assertExists()
+        assertEquals(code, text())
+        compose.onNodeWithTag("example-insert").performClick()
+        referenceClosed()
+        val example = ReferenceExamples.widgets.single { it.name == "buttons" }.code(ScriptLang.LUA)
+        assertEquals("apple pie\n$example\nbanana apple\nApple cider", text())
+    }
+
+    /** Only the sizes the kind is made for, its own chosen; another size redraws the card. Copy puts the code on the clipboard and nothing in the script. */
     @Test fun aWidgetExampleCopiesItsCodeAndChangesSize() {
         show()
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example toggles"))
-        // Only the sizes the kind is made for; the example's own is chosen.
+        openReference()
+        openWidget("toggles")
         listOf("2×1", "2×2", "4×1").forEach { compose.onNodeWithTag("size toggles $it").assertExists() }
         compose.onNodeWithTag("size toggles 4×2").assertDoesNotExist()
         compose.onNodeWithTag("size toggles 4×1").assertIsOn()
-        fun cardWidth() = compose.onNode(hasTestTag("widget-card") and hasAnyAncestor(hasTestTag("widget-example toggles")), useUnmergedTree = true)
+        fun cardWidth() = compose.onNode(hasTestTag("widget-card") and hasAnyAncestor(hasTestTag("example-preview")), useUnmergedTree = true)
             .fetchSemanticsNode().size.width
         val wide = cardWidth()
         compose.onNodeWithTag("size toggles 2×1").performClick()
         compose.onNodeWithTag("size toggles 2×1").assertIsOn()
         compose.waitForIdle()
         assertTrue("the card got narrower", cardWidth() < wide)
-        // Copy puts the code on the clipboard and nothing in the script.
-        compose.onNodeWithTag("copy toggles").performClick()
+        compose.onNodeWithTag("example-copy").performClick()
         compose.waitForIdle()
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
-        var copied: String? = null
-        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            copied = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
-        }
-        assertEquals(ReferenceExamples.widgets.single { it.name == "toggles" }.code(ScriptLang.LUA), copied)
+        assertEquals(ReferenceExamples.widgets.single { it.name == "toggles" }.code(ScriptLang.LUA), clipboard())
+        compose.onNodeWithTag("widget-view toggles").assertExists()
         assertEquals(code, text())
     }
 
     /**
-     * An example's variants: a chip for each, the guide's example first. The chosen one is drawn,
-     * and Copy and a tap take its code. Pictures of the panels go to the app's files ("reference"),
+     * An example's variants: a choice for each, the guide's example first. The chosen one is drawn,
+     * and Copy and Insert take its code. Pictures of the view go to the app's files ("reference"),
      * to look at.
      */
     @Test fun aWidgetExampleShowsItsVariants() {
         show()
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
+        cursorAt(10)
+        openReference()
         val out = checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("reference"))
-        out.listFiles()?.forEach { it.delete() }
         fun picture(name: String) = java.io.File(out, "$name.png").outputStream().use {
-            compose.onNodeWithTag("widget-example toggles").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            compose.onNodeWithTag("reference").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example toggles"))
+        openWidget("toggles")
         compose.onNodeWithTag("variant toggles As in the guide").assertIsOn()
-        picture("toggles-guide")
+        picture("view-toggles-guide")
         compose.onNodeWithTag("variant toggles 4 switches").performClick()
         compose.onNodeWithTag("variant toggles 4 switches").assertIsOn()
         compose.waitForIdle()
-        picture("toggles-4")
-        // A tap on the card puts the chosen variant's code in.
-        cursorAt(10)
-        compose.onNode(hasTestTag("widget-example-cover") and hasAnyAncestor(hasTestTag("widget-example toggles"))).performClick()
-        val code = ReferenceExamples.variantsOf("toggles").single { it.variant == "4 switches" }.code(ScriptLang.LUA)
-        assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
+        picture("view-toggles-4")
+        val example = ReferenceExamples.variantsOf("toggles").single { it.variant == "4 switches" }.code(ScriptLang.LUA)
+        compose.onNodeWithTag("example-copy").performClick()
+        compose.waitForIdle()
+        assertEquals(example, clipboard())
+        compose.onNodeWithTag("example-insert").performClick()
+        assertEquals("apple pie\n$example\nbanana apple\nApple cider", text())
     }
 
-    @Test fun theWidgetExamplesCanBeSeenInEachLook() {
+    /** The Look row offers only the looks of the example's kind: switches have no Bold, a stat does. */
+    @Test fun aWidgetExampleOffersItsKindsLooks() {
         show()
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("example look Plain"))
-        compose.onNodeWithTag("example look Plain").assertIsOn()
-        compose.onNodeWithTag("example look Bold").performClick()
-        compose.onNodeWithTag("example look Bold").assertIsOn()
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example buttons"))
-        compose.onNode(hasText("Bold changes nothing for buttons, so this card is Plain.") and hasAnyAncestor(hasTestTag("widget-example buttons")), useUnmergedTree = true).assertExists()
-        // A kind that has Bold has no such note.
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("widget-example steps"))
-        compose.onNode(hasText("changes nothing", substring = true) and hasAnyAncestor(hasTestTag("widget-example steps")), useUnmergedTree = true).assertDoesNotExist()
+        openReference()
+        openWidget("toggles")
+        listOf("Plain", "Tonal", "Split", "Shape").forEach { compose.onNodeWithTag("look toggles $it").assertExists() }
+        compose.onNodeWithTag("look toggles Bold").assertDoesNotExist()
+        compose.onNodeWithTag("look toggles Plain").assertIsOn()
+        compose.onNodeWithContentDescription("Back").performClick()
+        openWidget("steps")
+        compose.onNodeWithTag("look steps Bold").performClick()
+        compose.onNodeWithTag("look steps Bold").assertIsOn()
     }
 
     /**
-     * The reference shows each log example as its lines. A tap on a line, even on one of its buttons
-     * or links, runs nothing and opens nothing: the example goes in, on lines of its own.
+     * A log example opens in a view of its own, with its lines. A tap on a line, even on one of its
+     * buttons, runs nothing; Insert puts the example in, on lines of its own.
      */
-    @Test fun aLogExampleShowsItsLinesAndGoesInOnATap() {
+    @Test fun aLogExampleShowsItsLinesAndGoesInWithInsert() {
         show()
         cursorAt(10)
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("log-example buttons"))
-        val button = compose.onNode(hasText("Snooze 30 min") and hasAnyAncestor(hasTestTag("log-example buttons")), useUnmergedTree = true)
-        button.assertExists()
-        button.performClick()
-        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
-        val code = ReferenceExamples.logs.single { it.name == "buttons" }.code(ScriptLang.LUA)
-        assertEquals("apple pie\n$code\nbanana apple\nApple cider", text())
+        openReference()
+        tab("Log lines")
+        list().performScrollToNode(hasTestTag("log-row buttons"))
+        compose.onNodeWithTag("log-row buttons").performClick()
+        inPreview("Snooze 30 min").assertExists()
+        inPreview("Snooze 30 min").performClick()
+        assertEquals(code, text())
+        compose.onNodeWithTag("example-insert").performClick()
+        referenceClosed()
+        val example = ReferenceExamples.logs.single { it.name == "buttons" }.code(ScriptLang.LUA)
+        assertEquals("apple pie\n$example\nbanana apple\nApple cider", text())
     }
 
     /**
-     * Inside an example, only the layer over its card or lines can act. So nothing else can be
-     * tapped, also with TalkBack: not a link in a line, not a button of a card.
+     * An example's card or lines have nothing to tap, also with TalkBack: not a link in a line, not a
+     * button of a card. TalkBack reads the card as its description.
      */
     @Test fun anExamplesCardAndLinesHaveNoActionsOfTheirOwn() {
         show()
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        for ((tag, cover) in listOf("widget-example buttons" to "widget-example-cover", "log-example links" to "log-example-cover", "log-example buttons" to "log-example-cover")) {
-            compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag(tag))
-            // The tree that TalkBack reads.
-            val acting = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
-                .map { it.config.getOrNull(SemanticsProperties.TestTag) }
-            // The example's own controls (Copy, its sizes and variants) act; nothing of the card or the lines does.
-            val controls = listOf("copy ", "size ", "variant ")
-            assertEquals(tag, listOf(cover), acting.filterNot { t -> t != null && controls.any { t.startsWith(it) } })
+        openReference()
+        fun acting() = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag("example-preview"))).fetchSemanticsNodes()
+        openWidget("buttons")
+        assertEquals(0, acting().size)
+        compose.onNode(hasTestTag("example-preview")).assertExists()
+        assertTrue(
+            "the card is read as its description",
+            compose.onAllNodes(hasAnyAncestor(hasTestTag("example-preview"))).fetchSemanticsNodes()
+                .any { it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { d -> d.isNotBlank() } },
+        )
+        compose.onNodeWithContentDescription("Back").performClick()
+        for (name in listOf("links", "buttons")) {
+            tab("Log lines")
+            list().performScrollToNode(hasTestTag("log-row $name"))
+            compose.onNodeWithTag("log-row $name").performClick()
+            assertEquals(name, 0, acting().size)
+            compose.onNodeWithContentDescription("Back").performClick()
         }
     }
 
@@ -370,14 +444,119 @@ class EditorBarsTest {
     @Test fun aFmtSampleShowsWhatItMakesAndPicksTheFunction() {
         show()
         cursorAt(10)
-        compose.onNodeWithContentDescription("API reference").performClick()
-        compose.waitForText("API reference · Lua")
-        compose.onNodeWithTag("apiref").performScrollToNode(hasTestTag("fmt-sample fmt.link"))
-        // The line reads as one text: the link is part of it, not a button of its own.
-        compose.onNode(hasContentDescription("Read the guide")).assertExists()
-        compose.onNodeWithTag("fmt-sample fmt.link").performClick()
-        compose.onNodeWithText("API reference · Lua").assertDoesNotExist()
+        openReference()
+        compose.onNodeWithTag("namespace fmt").performClick()
+        // The line reads as one text, in its entry: the link is part of it, not a button of its own.
+        list().performScrollToNode(hasContentDescription("Read the guide", substring = true))
+        compose.onNodeWithTag("fmt-sample fmt.link", useUnmergedTree = true).performClick()
+        referenceClosed()
         assertEquals("apple pie\nfmt.link(banana apple\nApple cider", text())
+    }
+
+    /** An icon goes in by its name, in quotes. */
+    @Test fun anIconGoesInByName() {
+        show()
+        cursorAt(10)
+        openReference()
+        tab("Icons")
+        list().performScrollToNode(hasTestTag("icon train"))
+        compose.onNodeWithTag("icon train").performClick()
+        referenceClosed()
+        assertEquals("apple pie\n\"train\"banana apple\nApple cider", text())
+    }
+
+    /**
+     * The search looks in every tab at once and lists what it finds by tab, with counts. A result
+     * opens where it lives; Back returns to the results, and clearing the search to the tabs.
+     */
+    @Test fun theSearchFindsInEveryTabAndOpensAResult() {
+        show()
+        openReference()
+        compose.onNodeWithTag("reference-search").performTextInput("store")
+        compose.waitForText("FUNCTIONS · ", substring = true)
+        compose.onNodeWithText("WIDGETS · ", substring = true).assertExists()
+        compose.onNodeWithTag("tab Functions").assertDoesNotExist()
+        compose.onNodeWithTag("reference-results").performScrollToNode(hasTestTag("widget-row toggles-2"))
+        compose.onNodeWithTag("widget-row toggles-2").performClick()
+        // The variant found is the one chosen.
+        compose.onNodeWithTag("widget-view toggles").assertExists()
+        compose.onNodeWithTag("variant toggles 2 switches").assertIsOn()
+        pressBack()
+        compose.onNodeWithTag("reference-results").assertExists()
+        compose.onNodeWithTag("widget-row toggles-2").assertExists()
+        compose.onNodeWithContentDescription("Clear the search").performClick()
+        compose.onNodeWithTag("tab Functions").assertExists()
+        compose.onNodeWithTag("reference-results").assertDoesNotExist()
+    }
+
+    /** A function found by the search goes in as from its tab. */
+    @Test fun aFunctionFoundGoesIn() {
+        show()
+        cursorAt(10)
+        openReference()
+        compose.onNodeWithTag("reference-search").performTextInput("store.set")
+        compose.waitForText("FUNCTIONS · 1")
+        compose.onNodeWithText("store.set(key, value)").performClick()
+        referenceClosed()
+        assertEquals("apple pie\nstore.set(banana apple\nApple cider", text())
+    }
+
+    /** Back closes an example's view, then the page; the script is as it was, with the cursor where it was. */
+    @Test fun backReturnsToTheScriptUnchanged() {
+        show()
+        cursorAt(13)
+        openReference()
+        openWidget("steps")
+        pressBack()
+        compose.onNodeWithTag("widget-view steps").assertDoesNotExist()
+        compose.onNodeWithTag("reference-list").assertExists()
+        pressBack()
+        referenceClosed()
+        assertEquals(code, text())
+        assertEquals(TextRange(13), selection())
+        // The page's own Back does the same.
+        openReference()
+        compose.onNodeWithContentDescription("Back").performClick()
+        referenceClosed()
+        assertEquals(code, text())
+        assertEquals(TextRange(13), selection())
+        compose.onNodeWithText("edbars.lua").assertExists()
+    }
+
+    /** Pictures of the page, to compare with its design: they go to the app's files ("reference"). */
+    @Test fun picturesOfThePage() {
+        show()
+        openReference()
+        val out = checkNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("reference"))
+        fun picture(name: String) {
+            compose.waitForIdle()
+            java.io.File(out, "$name.png").outputStream().use {
+                compose.onNodeWithTag("reference").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+        picture("1-functions")
+        compose.onNodeWithTag("namespace fmt").performClick()
+        picture("1-functions-fmt")
+        tab("Directives")
+        picture("2-directives")
+        tab("Widgets")
+        picture("3-widgets")
+        openWidget("toggles")
+        picture("4-view-toggles")
+        compose.onNodeWithContentDescription("Back").performClick()
+        openWidget("list")
+        picture("4-view-list")
+        compose.onNodeWithContentDescription("Back").performClick()
+        tab("Log lines")
+        picture("5-logs")
+        compose.onNodeWithTag("log-row log").performClick()
+        picture("5-view-log")
+        compose.onNodeWithContentDescription("Back").performClick()
+        tab("Icons")
+        picture("6-icons")
+        compose.onNodeWithTag("reference-search").performTextInput("store")
+        compose.waitForText("FUNCTIONS · ", substring = true)
+        picture("7-search")
     }
 
     /** A symbol goes in at the cursor and marks the script changed; undo takes it out again. */

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -30,8 +31,10 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -202,121 +205,138 @@ fun ScriptEditor(
     // Leaving the app (or the system killing the process in the background) must not lose edits.
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { save(quiet = true) }
 
-    CodeEditor(
-        state = state,
-        title = "${script.name}.${script.lang.ext}",
-        lang = Syntax.of(script.lang),
-        startLine = jumpToLine,
-        onKey = { e ->
-            when {
-                e.isCtrlPressed && e.key == Key.S -> { save(); true }
-                e.isCtrlPressed && e.isShiftPressed && e.key == Key.R -> { runWithOpen = true; true }
-                e.isCtrlPressed && e.key == Key.R -> { run(); true }
-                else -> false
-            }
-        },
-        onTab = { shift ->
-            val first = suggestions.firstOrNull()
-            if (first != null && !shift) { accept(first); true } else false
-        },
-        onEscape = ::close,
-        buttons = {
-            EditorIconButton(R.drawable.ic_help, "API reference") { referenceOpen = true }
-            EditorIconButton(R.drawable.ic_save, "Save") { save() }
-            EditorIconButton(R.drawable.ic_play, "Run", onLongClick = { runWithOpen = true }, longClickLabel = "Run with…") { run() }
-            EditorIconButton(R.drawable.ic_close, "Close") { close() }
-        },
-        belowCode = { maxHeight ->
-            output?.let { lines -> RunOutput(lines, maxHeight) { output = null } }
-        },
-        hint = {
-            if (inlineDoc != null) {
-                // The signature is code, so it keeps the code font. The words after it use the phone's font.
-                val small = Term.phoneText.fontSize * 0.85f
-                Text(
-                    androidx.compose.ui.text.buildAnnotatedString {
-                        withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) { append(inlineDoc.signature) }
-                        append("  ")
-                        append(inlineDoc.doc)
-                    },
-                    style = Term.phoneText.copy(color = Term.dim, fontSize = small),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Term.bg)
-                        .padding(horizontal = 12.dp, vertical = 3.dp),
-                )
-            }
-        },
-        aboveSymbols = {
-            if (suggestions.isNotEmpty()) {
-                LazyRow(Modifier.fillMaxWidth().background(Term.surface.copy(alpha = 0.6f)).testTag("completions")) {
-                    items(suggestions.size) { i ->
-                        val d = suggestions[i]
-                        val label = d.member + when (d.kind) {
-                            ApiDoc.Kind.FUNCTION -> "()"
-                            ApiDoc.Kind.NAMESPACE -> "."
-                            else -> ""
-                        }
-                        Box(
-                            contentAlignment = Alignment.Center,
+    // The reference is a page over the code. The code keeps its text, cursor and scroll under it,
+    // but gives up the focus, so the keyboard can't type into it unseen.
+    val focusManager = LocalFocusManager.current
+    var refocus by remember { mutableStateOf(false) }
+    fun openReference() {
+        refocus = state.focused
+        focusManager.clearFocus()
+        keyboard?.hide()
+        referenceOpen = true
+    }
+    /** Closes the reference. The editor gets the focus back if it had it, or when something went in ([inserted]). */
+    fun closeReference(inserted: Boolean) {
+        referenceOpen = false
+        if (inserted || refocus) focusEditor()
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        // Under the reference, TalkBack skips the code.
+        Box(if (referenceOpen) Modifier.clearAndSetSemantics { } else Modifier) {
+            CodeEditor(
+                state = state,
+                title = "${script.name}.${script.lang.ext}",
+                lang = Syntax.of(script.lang),
+                startLine = jumpToLine,
+                onKey = { e ->
+                    when {
+                        e.isCtrlPressed && e.key == Key.S -> { save(); true }
+                        e.isCtrlPressed && e.isShiftPressed && e.key == Key.R -> { runWithOpen = true; true }
+                        e.isCtrlPressed && e.key == Key.R -> { run(); true }
+                        else -> false
+                    }
+                },
+                onTab = { shift ->
+                    val first = suggestions.firstOrNull()
+                    if (first != null && !shift) { accept(first); true } else false
+                },
+                onEscape = ::close,
+                buttons = {
+                    EditorIconButton(R.drawable.ic_help, "API reference") { openReference() }
+                    EditorIconButton(R.drawable.ic_save, "Save") { save() }
+                    EditorIconButton(R.drawable.ic_play, "Run", onLongClick = { runWithOpen = true }, longClickLabel = "Run with…") { run() }
+                    EditorIconButton(R.drawable.ic_close, "Close") { close() }
+                },
+                belowCode = { maxHeight ->
+                    output?.let { lines -> RunOutput(lines, maxHeight) { output = null } }
+                },
+                hint = {
+                    if (inlineDoc != null) {
+                        // The signature is code, so it keeps the code font. The words after it use the phone's font.
+                        val small = Term.phoneText.fontSize * 0.85f
+                        Text(
+                            androidx.compose.ui.text.buildAnnotatedString {
+                                withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Term.code.fontFamily)) { append(inlineDoc.signature) }
+                                append("  ")
+                                append(inlineDoc.doc)
+                            },
+                            style = Term.phoneText.copy(color = Term.dim, fontSize = small),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
-                                .heightIn(min = 48.dp)
-                                .widthIn(min = 48.dp)
-                                // Keep the editor (and the soft keyboard) focused while tapping.
-                                .clickable { accept(d); runCatching { state.focus.requestFocus() } }
-                                .padding(horizontal = 12.dp),
-                        ) {
-                            Text(
-                                label,
-                                style = Term.code.copy(
-                                    color = if (d.kind == ApiDoc.Kind.KEYWORD) Term.prompt else Term.fg,
-                                    fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal,
-                                ),
-                            )
+                                .fillMaxWidth()
+                                .background(Term.bg)
+                                .padding(horizontal = 12.dp, vertical = 3.dp),
+                        )
+                    }
+                },
+                aboveSymbols = {
+                    if (suggestions.isNotEmpty()) {
+                        LazyRow(Modifier.fillMaxWidth().background(Term.surface.copy(alpha = 0.6f)).testTag("completions")) {
+                            items(suggestions.size) { i ->
+                                val d = suggestions[i]
+                                val label = d.member + when (d.kind) {
+                                    ApiDoc.Kind.FUNCTION -> "()"
+                                    ApiDoc.Kind.NAMESPACE -> "."
+                                    else -> ""
+                                }
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .widthIn(min = 48.dp)
+                                        // Keep the editor (and the soft keyboard) focused while tapping.
+                                        .clickable { accept(d); runCatching { state.focus.requestFocus() } }
+                                        .padding(horizontal = 12.dp),
+                                ) {
+                                    Text(
+                                        label,
+                                        style = Term.code.copy(
+                                            color = if (d.kind == ApiDoc.Kind.KEYWORD) Term.prompt else Term.fg,
+                                            fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal,
+                                        ),
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-            }
-        },
-    )
+                },
+            )
+        }
+        if (referenceOpen) {
+            ReferencePage(
+                script.lang,
+                onBack = { closeReference(inserted = false) },
+                onPick = { doc ->
+                    state.insert(doc.name + if (doc.kind == ApiDoc.Kind.FUNCTION) "(" else "")
+                    closeReference(inserted = true)
+                },
+                onDirective = { line ->
+                    // A directive is a line of its own. It goes above the line the cursor is on.
+                    val done = EditorLogic.insertDirective(state.value.text, state.value.selection.min, line)
+                    state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
+                    closeReference(inserted = true)
+                },
+                onIcon = { name ->
+                    state.insert(EditorLogic.iconInsert(state.value.text, state.value.selection.min, name))
+                    closeReference(inserted = true)
+                },
+                onExample = { code ->
+                    // An example goes in on lines of its own.
+                    val done = EditorLogic.insertBlock(state.value.text, state.value.selection.min, code)
+                    state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
+                    closeReference(inserted = true)
+                },
+            )
+        }
+    }
 
     if (runWithOpen) {
         RunWithDialog(state.value.text, onDismiss = { runWithOpen = false }) { args, event ->
             runWithOpen = false
             run(args, event)
         }
-    }
-    if (referenceOpen) {
-        ApiReferenceSheet(
-            script.lang,
-            onDismiss = { referenceOpen = false },
-            onPick = { doc ->
-                referenceOpen = false
-                state.insert(doc.name + if (doc.kind == ApiDoc.Kind.FUNCTION) "(" else "")
-                focusEditor()
-            },
-            onDirective = { line ->
-                referenceOpen = false
-                // A directive is a line of its own. It goes above the line the cursor is on.
-                val done = EditorLogic.insertDirective(state.value.text, state.value.selection.min, line)
-                state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
-                focusEditor()
-            },
-            onIcon = { name ->
-                referenceOpen = false
-                state.insert(EditorLogic.iconInsert(state.value.text, state.value.selection.min, name))
-                focusEditor()
-            },
-            onExample = { code ->
-                referenceOpen = false
-                // An example goes in on lines of its own.
-                val done = EditorLogic.insertBlock(state.value.text, state.value.selection.min, code)
-                state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
-                focusEditor()
-            },
-        )
     }
 }
 
