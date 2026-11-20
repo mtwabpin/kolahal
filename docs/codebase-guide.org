@@ -525,7 +525,10 @@ calls it, and so does the text editor's window), and everything that reads =Term
 This is a pragmatic shortcut (see Part 6).
 
 A theme is a pair of palettes, dark and light, and =Palettes.named= returns the one for the phone's
-mode. Most pairs are fixed values. The =material-you= theme is different: =MaterialYouPalettes=
+mode. Most pairs are fixed values, some from a known theme's own palette (Nord, Rosé Pine).
+=ThemeVersionsTest= checks that every light version is easy to read; =NordThemeTest= and
+=RosePineThemeTest= check those themes' colours in both versions.
+The =material-you= theme is different: =MaterialYouPalettes=
 (=ui/MaterialYouPalettes.kt=) makes its pair from the colours Android takes from the wallpaper.
 
 - =paletteFrom= maps a Material colour scheme to a palette. It is a pure function, so a unit test

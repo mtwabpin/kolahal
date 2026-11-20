@@ -73,7 +73,7 @@ object Keys {
      * The themes that come with Kolahal. [CustomThemes] holds the ones people make.
      * A name added here can't be a saved theme's name any more: [CustomThemes.load] renames that theme.
      */
-    val BUILT_IN_THEMES = listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord") + MaterialYou.VARIANTS
+    val BUILT_IN_THEMES = listOf("green", "amber", "mono", "dracula", "solarized", "gruvbox", "gruvbox-material", "nord", "rose-pine") + MaterialYou.VARIANTS
     val THEME = ConfigKey.Choice(
         "theme.name", "green", BUILT_IN_THEMES,
         "Colour theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode; " +

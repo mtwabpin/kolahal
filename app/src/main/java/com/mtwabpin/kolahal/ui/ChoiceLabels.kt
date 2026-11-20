@@ -20,9 +20,18 @@ internal object ChoiceLabels {
 
     fun of(key: ConfigKey.Choice, value: String): String = LABELS[key.key]?.get(value) ?: readable(value)
 
-    /** A built-in theme's name with capitals ("Gruvbox Material"). A theme you made keeps its name as you wrote it. */
-    fun theme(name: String): String =
-        if (name in Keys.BUILT_IN_THEMES) name.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) } else name
+    /** Built-in themes whose names need more than capitals. */
+    private val THEME_LABELS = mapOf("rose-pine" to "Rosé Pine")
+
+    /**
+     * A built-in theme's name with capitals ("Gruvbox Material"), or its label ("Rosé Pine").
+     * A theme you made keeps its name as you wrote it.
+     */
+    fun theme(name: String): String = when (name) {
+        in THEME_LABELS -> THEME_LABELS.getValue(name)
+        in Keys.BUILT_IN_THEMES -> name.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+        else -> name
+    }
 
     /**
      * A note under a theme's name on its card, or null for no note.

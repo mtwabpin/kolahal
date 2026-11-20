@@ -100,6 +100,7 @@ class CustomThemesTest {
             mapOf("material-you" to "material-you-2", "nord" to "nord-2"),
             CustomThemes.movedNames(setOf("material-you", "nord")),
         )
+        assertEquals(mapOf("rose-pine" to "rose-pine-2"), CustomThemes.movedNames(setOf("rose-pine", "dusk")))
     }
 
     /** At start: the file moves with the name, the theme keeps its colours, and the built-in name is free. */

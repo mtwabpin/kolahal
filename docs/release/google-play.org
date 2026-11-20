@@ -160,7 +160,7 @@ SCRIPTS IN LUA OR JAVASCRIPT
 • Scripts run sandboxed, in a separate process.
 
 MAKE IT YOURS
-• Nine colour themes, one of them in your wallpaper's colours, and a theme builder for your own, with a live preview
+• Ten colour themes, one of them in your wallpaper's colours, and a theme builder for your own, with a live preview
 • Terminal fonts (JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, or one you import), or your phone's own font
 • A touch key bar, gestures that run any command, full screen, and a widgets page beside the terminal
 • Settings that show your home screen underneath while you drag a slider, so you see the change as you make it

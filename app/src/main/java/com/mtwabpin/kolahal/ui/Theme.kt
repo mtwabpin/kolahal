@@ -170,6 +170,32 @@ object Palettes {
         script = Color(0xFF8D6618), personal = Color(0xFF357587), work = Color(0xFFAA5338), private = Color(0xFF8D5D84),
         good = Color(0xFF597442), warn = Color(0xFF8D6618),
     )
+    /**
+     * Rosé Pine (rosepinetheme.com), its main palette, with each colour in the role Rosé Pine gives it.
+     * - Text is text, and [Palette.dim] is subtle, as its terminal ports have them.
+     * - Rose is the accent. Love is errors, gold is warnings and yellow, foam is info and blue (links),
+     *   iris is purple, and pine is green ("affirmative signals").
+     * - Pine is hard to read on base (3.4:1), as in Rosé Pine itself. It is only [Palette.good].
+     * - [Palette.surface] is overlay: Rosé Pine's surface is too close to base to show.
+     */
+    val rosePine = Palette(
+        bg = Color(0xFF191724), surface = Color(0xFF26233A), fg = Color(0xFFE0DEF4), dim = Color(0xFF908CAA),
+        prompt = Color(0xFFEBBCBA), error = Color(0xFFEB6F92), info = Color(0xFF9CCFD8), link = Color(0xFF9CCFD8),
+        script = Color(0xFFF6C177), personal = Color(0xFFEBBCBA), work = Color(0xFFF6C177), private = Color(0xFFC4A7E7),
+        good = Color(0xFF31748F), warn = Color(0xFFF6C177),
+    )
+    /**
+     * Light version of rose-pine: Rosé Pine Dawn, with the same roles.
+     * - Subtle, love, gold, rose, foam and iris are a little darker, with the same hues, so they are
+     *   easy to read on Dawn's base. Text and pine are Dawn's own.
+     * - [Palette.surface] is overlay: Dawn's surface is lighter than its base.
+     */
+    val rosePineLight = Palette(
+        bg = Color(0xFFFAF4ED), surface = Color(0xFFF2E9E1), fg = Color(0xFF464261), dim = Color(0xFF6F6B89),
+        prompt = Color(0xFF9C5E5B), error = Color(0xFFAB526C), info = Color(0xFF45767F), link = Color(0xFF45767F),
+        script = Color(0xFF9D6110), personal = Color(0xFF9C5E5B), work = Color(0xFF9D6110), private = Color(0xFF7D649A),
+        good = Color(0xFF286983), warn = Color(0xFF9D6110),
+    )
 
     /**
      * Built-in themes by name. Each pair is the dark version, then the light version.
@@ -185,6 +211,7 @@ object Palettes {
             "gruvbox" to (gruvbox to gruvboxLight),
             "gruvbox-material" to (gruvboxMaterial to gruvboxMaterialLight),
             "nord" to (nord to nordLight),
+            "rose-pine" to (rosePine to rosePineLight),
         )
     }
 

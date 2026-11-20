@@ -227,7 +227,8 @@ A backup (=Settings → Backup → Export everything=) bundles all of the above 
   =BUILT_IN= map there, and its name to =Keys.BUILT_IN_THEMES=. The theme cards, =theme <name>=, its
   completion and help, and the theme builder read that list. =ThemeVersionsTest= checks that both
   versions exist and that the light one is easy to read. A saved theme with the same name is renamed
-  at start (=CustomThemes.load=). Show the theme in =site/src/components/ThemeCards.astro= and in
+  at start (=CustomThemes.load=). Settings shows the name with capitals (=ChoiceLabels.theme=); a
+  name that needs more, like =rose-pine= ("Rosé Pine"), gets a label there. Show the theme in =site/src/components/ThemeCards.astro= and in
   the themes guide, and list its name in =reference/config.md= and =reference/commands.md=.
   =material-you= is the one theme without fixed palettes: =ui/MaterialYouPalettes.kt= makes them
   from the phone's wallpaper colours.
