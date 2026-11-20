@@ -158,7 +158,8 @@ class TestScriptWidgets(private val prefix: String) {
         // The rows that say which widgets of a name are placed. Removing a widget takes its name's row
         // away; a row a test wrote for a name that is not on the page is still there.
         KvStore(context, Stores.WIDGET_PLACED).deleteStartingWith(prefix)
-        // Messages left for a widget screen aren't the next test's.
+        // Messages and a widget to choose, left for a widget screen, aren't the next test's.
         while (host.takeMessage() != null) Unit
+        host.chosen()
     }
 }

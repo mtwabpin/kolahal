@@ -1,24 +1,35 @@
 package com.mtwabpin.kolahal.ui
 
 import android.app.Application
+import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.unit.height
-import androidx.compose.ui.unit.width
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.Config
@@ -30,10 +41,15 @@ import com.mtwabpin.kolahal.widgets.ProviderEntry
 import com.mtwabpin.kolahal.widgets.TestWidgets
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLocation
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetOrder
+import com.mtwabpin.kolahal.widgets.WidgetPlacement
+import com.mtwabpin.kolahal.widgets.WidgetSize
+import com.mtwabpin.kolahal.widgets.WidgetSource
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -41,8 +57,9 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
-/** Settings → Widgets → Arrange widgets: placed widgets live, their size and order, and the ones to add again. */
+/** Settings → Widgets → Arrange widgets: placed widgets live, where they are, their look and size, and the ones to add again. */
 @RunWith(AndroidJUnit4::class)
 class WidgetsScreenTest {
     @get:Rule val vms = com.mtwabpin.kolahal.TestViewModels()
@@ -60,7 +77,9 @@ class WidgetsScreenTest {
         widgets.releaseViews(compose.activity)
     }
 
-    private fun show(onReAdd: (ProviderEntry, PlacedWidget) -> Unit = { _, _ -> }): TerminalViewModel {
+    /** The screen, as it opens. A widget just placed is chosen at once, unless [fresh] is false. */
+    private fun show(fresh: Boolean = false, onReAdd: (ProviderEntry, PlacedWidget) -> Unit = { _, _ -> }): TerminalViewModel {
+        if (!fresh) widgets.chosen()
         lateinit var vm: TerminalViewModel
         compose.runOnUiThread {
             vm = vms.terminal(app)
@@ -73,18 +92,28 @@ class WidgetsScreenTest {
     private fun hasClickLabel(label: String) =
         SemanticsMatcher("click label \"$label\"") { it.config.getOrNull(SemanticsActions.OnClick)?.label == label }
 
-    /** Edit, then a tap on the widget called [label]: its toolbar comes up. */
+    private fun card(label: String) = compose.onNode(hasClickLabel("change $label"))
+
+    /** A tap on the widget called [label]: its toolbar comes up. Another widget's toolbar is put away first, so it hides nothing. */
     private fun choose(label: String) {
-        compose.onNodeWithContentDescription("Edit widgets").performClick()
-        compose.onNodeWithText("Tap a widget to resize or move it").assertExists()
-        compose.onNode(hasClickLabel("change $label")).performClick()
-        compose.onNodeWithText("Tap a widget to resize or move it").assertDoesNotExist()
+        if (compose.onAllNodes(hasContentDescription("Done")).fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithContentDescription("Done").performClick()
+        }
+        card(label).performClick()
+        compose.onNodeWithContentDescription("Done").assertExists()
     }
 
     /** The chosen widget as drawn, in dp. */
     private fun chosenCard() = compose.onNode(isSelected()).getUnclippedBoundsInRoot()
 
     private fun panel() = WidgetOrder.inLocation(widgets.widgets.value, WidgetLocation.PANEL)
+
+    /** Runs the screen reader's action [label] on this card. */
+    private fun SemanticsNodeInteraction.act(label: String) {
+        val action = fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == label }
+        compose.runOnUiThread { action.action() }
+        compose.waitForIdle()
+    }
 
     /** A clock on the page, Kolahal allowed to bind it; and what the screen calls it. */
     private fun placeClock(index: Int = 0): Pair<PlacedWidget, String> {
@@ -93,6 +122,12 @@ class WidgetsScreenTest {
         val clock = clocks[index]
         t.allowBinding(clock)
         return t.place(clock) to t.label(clock)
+    }
+
+    /** One of Kolahal's own widgets on the page, at [size]; and what the screen calls it. */
+    private fun placeBuiltin(id: String, size: WidgetSize = WidgetSize.S2X2): Pair<PlacedWidget, String> {
+        assumeTrue("$id was on the widgets page before the test", widgets.placeBuiltin(id, size))
+        return t.get("s:" + WidgetSource.builtin(id))!! to WidgetSource.builtinTitle(id)!!
     }
 
     /** With the widgets page off, the screen says so, rather than "swipe sideways", and turns it on in a tap. */
@@ -107,14 +142,21 @@ class WidgetsScreenTest {
         compose.onNodeWithText("The widgets page is off").assertDoesNotExist()
     }
 
-    /** No widgets yet: the screen says where they will show, and a tap opens the picker. */
+    /** No widgets yet: the screen says where they will show, and a tap opens the picker. Nothing to close up. */
     @Test fun anEmptyPageOffersToAddOne() {
         assumeTrue("widgets were placed before the test", widgets.widgets.value.isEmpty())
         val vm = show()
         compose.onNodeWithText("On the widgets page beside the terminal").assertExists()
         compose.onNodeWithText("No widgets yet. They appear on the widgets page beside the terminal: swipe sideways on the home screen to reach it.").assertExists()
-        compose.onNodeWithContentDescription("Edit widgets").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Close gaps").assertDoesNotExist()
         compose.onNodeWithText("Add a widget").performClick()
+        compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
+    }
+
+    /** Add widget in the top bar opens the picker. */
+    @Test fun addWidgetOpensThePicker() {
+        val vm = show()
+        compose.onNodeWithContentDescription("Add widget").performClick()
         compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
     }
 
@@ -126,6 +168,73 @@ class WidgetsScreenTest {
         assertTrue(widgets.messages.value.isEmpty())
     }
 
+    /** A widget the picker just placed is chosen as the screen opens, so it can be moved at once. */
+    @Test fun aNewWidgetIsChosenAtOnce() {
+        val (_, label) = placeBuiltin(WidgetSource.BATTERY)
+        show(fresh = true)
+        compose.waitForIdle()
+        compose.onNode(isSelected() and hasClickLabel("change $label")).assertExists()
+        compose.onNodeWithContentDescription("Done").assertExists()
+        assertNull(widgets.toChoose.value)
+    }
+
+    /** One of Kolahal's own widgets has a Look row and a Size row; an app's widget has steps and Square. */
+    @Test fun ownWidgetsHaveLooksAndSizesAppWidgetsHaveSteps() {
+        val (_, own) = placeBuiltin(WidgetSource.BATTERY)
+        val (_, clock) = placeClock()
+        show()
+        choose(own)
+        WidgetLook.entries.forEach { compose.onNodeWithTag("look ${it.label}").assertExists() }
+        compose.onNodeWithTag("look Plain").assertIsOn()
+        listOf("1×1", "2×1", "2×2", "4×1", "4×2", "4×4").forEach { compose.onNodeWithTag("size $it").assertExists() }
+        compose.onNodeWithTag("size 2×2").assertIsOn()
+        compose.onNodeWithText("2×2 · Plain").assertExists()
+        compose.onNodeWithText("Drag to move. Drag an edge to resize.").assertExists()
+        compose.onNodeWithText("Square").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Increase height").assertDoesNotExist()
+
+        choose(clock)
+        compose.onNodeWithTag("look Plain").assertDoesNotExist()
+        compose.onNodeWithTag("size 2×2").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Increase height").assertExists()
+        compose.onNodeWithText("Square").assertExists()
+    }
+
+    /** A tap on a look gives the widget that look, at once; the others stay as they were. */
+    @Test fun aLookTapChangesTheLook() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        show()
+        choose(label)
+        compose.onNodeWithTag("look Tonal").performClick()
+        compose.waitForIdle()
+        assertEquals(WidgetLook.TONAL, t.get(w.key)!!.look)
+        compose.onNodeWithTag("look Tonal").assertIsOn()
+        compose.onNodeWithTag("look Plain").assertIsOff()
+        compose.onNodeWithText("2×2 · Tonal").assertExists()
+        compose.onNodeWithTag("look Shape").performClick()
+        compose.waitForIdle()
+        assertEquals(WidgetLook.SHAPE, t.get(w.key)!!.look)
+    }
+
+    /** A tap on a size gives the widget that width and height, drawn so. */
+    @Test fun aSizeTapChangesSpanAndHeight() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        show()
+        choose(label)
+        val half = chosenCard().width.value
+        compose.onNodeWithTag("size 4×1").performClick()
+        compose.waitForIdle()
+        val now = t.get(w.key)!!
+        assertEquals(WidgetLayout.COLUMNS, now.span)
+        assertEquals(WidgetSize.S4X1, widgets.sizeOf(now))
+        assertTrue("the row is shorter than 2×2", now.heightDp < w.heightDp)
+        compose.onNodeWithTag("size 4×1").assertIsOn()
+        compose.onNodeWithText("4×1 · Plain").assertExists()
+        val gap = WidgetLayout.GAP_DP.toFloat()
+        assertEquals((half + gap) * 2 - gap, chosenCard().width.value, 1f)
+        assertEquals(now.heightDp.toFloat(), chosenCard().height.value, 1f)
+    }
+
     /** Each − or + makes the chosen widget 8dp shorter or taller, on the page as in the toolbar. */
     @Test fun heightStepsByEightWithMinusAndPlus() {
         val (w, label) = placeClock()
@@ -134,14 +243,14 @@ class WidgetsScreenTest {
         choose(label)
         val h = w.heightDp
         val drawn = chosenCard().height.value
-        compose.onNodeWithText("full wide · ${h}dp tall").assertExists()
+        compose.onNodeWithText("full wide · $h dp tall").assertExists()
         compose.onNodeWithContentDescription("Increase height").performClick()
-        compose.onNodeWithText("full wide · ${h + 8}dp tall").assertExists()
+        compose.onNodeWithText("full wide · ${h + 8} dp tall").assertExists()
         assertEquals(h + 8, t.get(w.key)!!.heightDp)
         assertEquals(drawn + 8, chosenCard().height.value, 1f)
         compose.onNodeWithContentDescription("Decrease height").performClick()
         compose.onNodeWithContentDescription("Decrease height").performClick()
-        compose.onNodeWithText("full wide · ${h - 8}dp tall").assertExists()
+        compose.onNodeWithText("full wide · ${h - 8} dp tall").assertExists()
         assertEquals(h - 8, t.get(w.key)!!.heightDp)
         assertEquals(drawn - 8, chosenCard().height.value, 1f)
     }
@@ -154,12 +263,12 @@ class WidgetsScreenTest {
         val page = chosenCard().width.value
         compose.onNodeWithContentDescription("Increase width").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Decrease width").performClick()
-        compose.onNodeWithText("11/12 wide · ${w.heightDp}dp tall").assertExists()
+        compose.onNodeWithText("11/12 wide · ${w.heightDp} dp tall").assertExists()
         assertEquals(11, t.get(w.key)!!.span)
         val gap = WidgetLayout.GAP_DP.toFloat()
         assertEquals((page + gap) * 11 / 12 - gap, chosenCard().width.value, 1f)
         compose.onNodeWithContentDescription("Increase width").assertIsEnabled().performClick()
-        compose.onNodeWithText("full wide · ${w.heightDp}dp tall").assertExists()
+        compose.onNodeWithText("full wide · ${w.heightDp} dp tall").assertExists()
     }
 
     /** Square makes the widget as tall as the page is wide. */
@@ -172,30 +281,95 @@ class WidgetsScreenTest {
         val card = chosenCard()
         assertEquals(card.width.value, card.height.value, 1.5f)
         val h = t.get(w.key)!!.heightDp
-        compose.onNodeWithText("full wide · ${h}dp tall").assertExists()
-    }
-
-    /** Move later swaps the chosen widget with the next, on the page too; the arrows stop at the ends. */
-    @Test fun moveSwapsTwoWidgetsAndStopsAtTheEnds() {
-        val (a, la) = placeClock(0)
-        val (b, lb) = placeClock(1)
-        show()
-        fun mine() = panel().map { it.key }.filter { it == a.key || it == b.key }
-        fun top(label: String) = compose.onNode(hasClickLabel("change $label")).getUnclippedBoundsInRoot().top
-        choose(la)
-        assertEquals(listOf(a.key, b.key), mine())
-        if (panel().first().key == a.key) compose.onNodeWithContentDescription("Move earlier").assertIsNotEnabled()
-        assertTrue(top(la) < top(lb))
-        compose.onNodeWithContentDescription("Move later").performClick()
-        compose.waitForIdle()
-        assertEquals(listOf(b.key, a.key), mine())
-        assertTrue("the moved widget is drawn after the other", top(la) > top(lb))
-        if (panel().last().key == a.key) compose.onNodeWithContentDescription("Move later").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Move earlier").assertIsEnabled()
+        compose.onNodeWithText("full wide · $h dp tall").assertExists()
     }
 
     /**
-     * In a list longer than the screen, the chosen widget stays in view as it moves: each Move later
+     * A screen reader moves a widget a column at a time, and a row down: drawn there too. Move left
+     * isn't offered at the start edge.
+     */
+    @Test fun aScreenReaderMovesAWidget() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        widgets.moveTo(w.key, 0, t.get(w.key)!!.topDp)
+        show()
+        val left = card(label).getUnclippedBoundsInRoot().left
+        val labels = card(label).fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
+        assertFalse("Move left at the start edge: $labels", "Move left" in labels)
+        assertTrue(labels.containsAll(listOf("Move down", "Move right", "Wider", "Narrower", "Taller", "Shorter", "Remove")))
+        card(label).act("Move right")
+        assertEquals(1, t.get(w.key)!!.column)
+        assertTrue("drawn further right", card(label).getUnclippedBoundsInRoot().left > left)
+        val top = t.get(w.key)!!.topDp
+        card(label).act("Move down")
+        assertTrue("a row down", t.get(w.key)!!.topDp >= top + widgets.rowDp())
+        card(label).act("Wider")
+        assertEquals(7, t.get(w.key)!!.span)
+    }
+
+    /** Close gaps moves every widget up as far as it goes. */
+    @Test fun closeGapsPacksThePage() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        show()
+        val top = t.get(w.key)!!.topDp
+        widgets.moveTo(w.key, t.get(w.key)!!.column, top + 400)
+        compose.waitForIdle()
+        val down = card(label).getUnclippedBoundsInRoot().top
+        val packed = WidgetPlacement.closeGaps(widgets.widgets.value)
+        compose.onNodeWithContentDescription("Close gaps").performClick()
+        compose.waitForIdle()
+        assertEquals(packed.filter(WidgetPlacement::onPage).map { it.key to it.topDp }, widgets.widgets.value.filter(WidgetPlacement::onPage).map { it.key to it.topDp })
+        assertTrue("the widget is drawn higher", card(label).getUnclippedBoundsInRoot().top < down)
+        assertTrue(t.get(w.key)!!.topDp <= top)
+    }
+
+    /** A long-press lifts a widget, and a drag to the side moves it there when it is let go. */
+    @Test fun aLongPressAndDragMovesAWidget() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        widgets.moveTo(w.key, 0, t.get(w.key)!!.topDp)
+        show()
+        card(label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            // The width of the card to the side: half the page.
+            repeat(10) { moveBy(Offset(width / 10f, 0f)) }
+        }
+        compose.waitForIdle()
+        // While it is held, Remove takes the top bar's place.
+        compose.onNodeWithText("Remove").assertExists()
+        card(label).performTouchInput { up() }
+        compose.waitForIdle()
+        assertEquals(6, t.get(w.key)!!.column)
+        compose.onNode(isSelected()).assertExists()
+        compose.onNodeWithText("Remove").assertDoesNotExist()
+    }
+
+    /** Dragging the chosen widget's end edge makes it wider by columns; its bottom edge, taller by 8 dp steps. */
+    @Test fun aHandleDragResizes() {
+        val (w, label) = placeBuiltin(WidgetSource.BATTERY)
+        widgets.moveTo(w.key, 0, t.get(w.key)!!.topDp)
+        show()
+        choose(label)
+        card(label).performTouchInput {
+            down(Offset(width + 4.dp.toPx(), height / 2f))
+            repeat(5) { moveBy(Offset(width / 10f, 0f)) }
+            up()
+        }
+        compose.waitForIdle()
+        assertTrue("wider: ${t.get(w.key)!!.span}", t.get(w.key)!!.span in 8..10)
+        val h = t.get(w.key)!!.heightDp
+        card(label).performTouchInput {
+            down(Offset(width / 2f, height + 4.dp.toPx()))
+            repeat(4) { moveBy(Offset(0f, 10.dp.toPx())) }
+            up()
+        }
+        compose.waitForIdle()
+        // 40 dp down, to the nearest 8 dp step.
+        assertEquals((h + 40).toFloat(), t.get(w.key)!!.heightDp.toFloat(), 4f)
+        compose.onNode(isSelected()).assertExists()
+    }
+
+    /**
+     * In a page longer than the screen, the chosen widget stays in view as it moves: each Move down
      * scrolls it back, with its top on the screen and above the toolbar.
      */
     @Test fun aMovedWidgetStaysInView() {
@@ -207,19 +381,17 @@ class WidgetsScreenTest {
         placed.forEach { widgets.resize(it.key, 300) }
         val label = t.label(clocks[0])
         show()
-        compose.onNodeWithContentDescription("Edit widgets").performClick()
         compose.onAllNodes(hasClickLabel("change $label"))[0].performClick()
         compose.waitForIdle()
         val screen = compose.onRoot().getUnclippedBoundsInRoot()
         repeat(placed.size - 1) { step ->
-            compose.onNodeWithContentDescription("Move later").performClick()
+            compose.onNode(isSelected()).act("Move down")
             compose.waitForIdle()
             val card = chosenCard()
-            val bar = compose.onNodeWithContentDescription("Move later").getUnclippedBoundsInRoot()
+            val bar = compose.onNodeWithContentDescription("Done").getUnclippedBoundsInRoot()
             assertTrue("step $step: card $card, screen $screen", card.top >= screen.top && card.bottom > screen.top)
             assertTrue("step $step: card $card, toolbar $bar", card.top < bar.top)
         }
-        compose.onNodeWithContentDescription("Move later").assertIsNotEnabled()
     }
 
     /** Remove asks first; Cancel keeps the widget, Remove deletes it and frees its id. */
@@ -237,27 +409,27 @@ class WidgetsScreenTest {
         compose.waitForIdle()
         assertNull(t.get(w.key))
         assertFalse(w.id in t.ids())
-        compose.onNode(hasClickLabel("change $label")).assertDoesNotExist()
+        card(label).assertDoesNotExist()
         compose.onNodeWithContentDescription("Remove").assertDoesNotExist()
     }
 
-    /** Back puts the toolbar away and leaves editing before it leaves the screen. */
-    @Test fun backLeavesEditingBeforeTheScreen() {
+    /** Back puts the toolbar away before it leaves the screen. */
+    @Test fun backPutsTheToolbarAwayBeforeLeaving() {
         val (_, label) = placeClock()
         val vm = show()
         choose(label)
         compose.onNodeWithContentDescription("Increase height").assertExists()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithContentDescription("Increase height").assertDoesNotExist()
-        compose.onNodeWithText("Tap a widget to resize or move it").assertDoesNotExist()
-        compose.onNodeWithText("Add widget", useUnmergedTree = true).assertExists()
+        compose.onNode(isSelected()).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Add widget").assertExists()
         assertEquals(Screen.WIDGETS, vm.screen.value)
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.runOnIdle { assertEquals(Screen.TERMINAL, vm.screen.value) }
     }
 
-    /** A widget whose id Android no longer has says it's unavailable, and Edit still reaches its controls. */
-    @Test fun anUnavailableWidgetSaysSoAndCanStillBeEdited() {
+    /** A widget whose id Android no longer has says it's unavailable, and a tap still reaches its controls. */
+    @Test fun anUnavailableWidgetSaysSoAndCanStillBeChanged() {
         val clock = t.clocks().first()
         // An id given out and never bound, as one whose app took it back.
         val id = widgets.allocate()
@@ -267,8 +439,8 @@ class WidgetsScreenTest {
         compose.onNodeWithText("widget unavailable").assertExists()
         // Named by its provider's class, with no app to ask for a name.
         compose.onNodeWithText(fallback).assertExists()
-        compose.onNodeWithText("Edit").performClick()
-        compose.onNodeWithText("full wide · ${t.get("w$id")!!.heightDp}dp tall").assertExists()
+        card(fallback).performClick()
+        compose.onNodeWithText("full wide · ${t.get("w$id")!!.heightDp} dp tall").assertExists()
         // On the widget and in the toolbar.
         compose.onAllNodesWithText(fallback).assertCountEquals(2)
     }
@@ -301,5 +473,42 @@ class WidgetsScreenTest {
         assertNull(t.get(pending.key))
         compose.onNodeWithText("app not installed").assertDoesNotExist()
         compose.onNodeWithText("Restored from backup").assertDoesNotExist()
+    }
+
+    /**
+     * Pictures of the screen, to look at: a widget chosen, one held in a drag, and an app's widget
+     * chosen. They go to the app's files, in `screens/`.
+     */
+    @Test fun picturesOfTheScreen() {
+        val out = checkNotNull(app.getExternalFilesDir("screens")) { "no external files" }
+        out.listFiles()?.forEach { it.delete() }
+        listOf(WidgetSource.BATTERY to WidgetSize.S2X2, WidgetSource.TODOS to WidgetSize.S2X2, WidgetSource.SHORTCUTS to WidgetSize.S4X1)
+            .forEach { (id, size) -> widgets.placeBuiltin(id, size) }
+        val battery = t.get("s:" + WidgetSource.builtin(WidgetSource.BATTERY))!!
+        widgets.setLook(battery.key, WidgetLook.TONAL)
+        val clock = t.clocks().firstOrNull()?.also { t.allowBinding(it) }
+        val placedClock = clock?.let { t.place(it) }
+        placedClock?.let { widgets.resizeTo(it.key, 6, 184) }
+        show()
+        fun save(name: String) {
+            compose.waitForIdle()
+            File(out, "$name.png").outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        val label = WidgetSource.builtinTitle(WidgetSource.BATTERY)!!
+        choose(label)
+        save("chosen")
+        card(label).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+            repeat(8) { moveBy(Offset(width / 16f, width / 6f)) }
+        }
+        save("dragging")
+        card(label).performTouchInput { up() }
+        save("dropped")
+        if (clock != null) {
+            choose(t.label(clock))
+            save("app-widget")
+        }
+        assertNotEquals(0, out.listFiles()?.size ?: 0)
     }
 }

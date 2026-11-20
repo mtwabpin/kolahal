@@ -142,6 +142,24 @@ class WidgetHost private constructor(context: Context) {
      */
     val messages: StateFlow<List<String>> = _messages.asStateFlow()
 
+    private val _toChoose = MutableStateFlow<String?>(null)
+    /**
+     * The key of the widget the Widgets screen should choose when it shows: one just placed, so it
+     * can be dragged at once, or one long-pressed on the widgets page. Null when nothing is asked.
+     * The screen chooses it, then calls [chosen].
+     */
+    val toChoose: StateFlow<String?> = _toChoose.asStateFlow()
+
+    /** Asks the Widgets screen to choose the widget [key] when it shows ([toChoose]). */
+    fun choose(key: String) {
+        _toChoose.value = key
+    }
+
+    /** The Widgets screen chose the widget [toChoose] asked for. */
+    fun chosen() {
+        _toChoose.value = null
+    }
+
     /** Ids allocated by a bind/configure flow that is still running. [prune] leaves them alone. */
     private val inFlight = HashSet<Int>()
     @Volatile private var listening = false
@@ -239,7 +257,10 @@ class WidgetHost private constructor(context: Context) {
             }
             inFlight -= id
         }
-        _widgets.value.firstOrNull { it.id == id }?.let { applySize(id, it.heightDp, it.span) }
+        _widgets.value.firstOrNull { it.id == id }?.let {
+            applySize(id, it.heightDp, it.span)
+            choose(it.key)
+        }
     }
 
     /**
@@ -343,6 +364,8 @@ class WidgetHost private constructor(context: Context) {
                 ),
             )
         }
+        // The Widgets screen opens next, with the new widget chosen.
+        added?.let { source -> _widgets.value.firstOrNull { it.source == source }?.let { choose(it.key) } }
         return added
     }
 
@@ -425,9 +448,6 @@ class WidgetHost private constructor(context: Context) {
         }
         if (moved || placedOf(to).isNotEmpty()) follow(to)
     }
-
-    /** Moves the widget [key] one row up (−1) or down (+1). The Widgets screen's Move earlier and Move later, until dragging replaces them. */
-    fun move(key: String, direction: Int) = nudge(key, 0, direction.coerceIn(-1, 1))
 
     /** Moves the widget [key] to [column] and [topDp] on the page. Widgets in the way move down ([WidgetPlacement.moveTo]). */
     fun moveTo(key: String, column: Int, topDp: Int) = update { WidgetPlacement.moveTo(it, key, column, topDp) }

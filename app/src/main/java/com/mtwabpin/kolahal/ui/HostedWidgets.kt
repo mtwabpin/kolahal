@@ -51,15 +51,25 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLocation
 import com.mtwabpin.kolahal.widgets.WidgetOrder
 import com.mtwabpin.kolahal.widgets.WidgetLayout
+import com.mtwabpin.kolahal.terminal.WidgetCardActions
+import com.mtwabpin.kolahal.widgets.WidgetDrag
+import com.mtwabpin.kolahal.widgets.WidgetPlacement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.ParentDataModifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Density
 
 
 /** Returns the kind of the profile with [serial] if it is paused/locked, else null. A paused/locked profile's widget shows a placeholder instead. */
 internal fun List<Profile>.pausedKind(serial: Long): ProfileKind? = firstOrNull { it.serial == serial }?.takeIf { it.quiet }?.kind
+
+/** What one card on the widgets page can ask for: as [actions], but a long-press calls [arrange], which knows the card. */
+private class ArrangeOnLongPress(actions: WidgetCardActions, private val arrange: () -> Unit) : WidgetCardActions by actions {
+    override fun longPress() = arrange()
+}
 
 /**
  * Renders an app's placed widget [w] at [height] via the shared AppWidgetHost. A long-press anywhere
@@ -104,36 +114,55 @@ internal fun HostedWidget(
 }
 
 
+/** Where a child of [WidgetGrid] sits: its first [column], its width in columns ([span]) and its top in dp. */
+private data class GridPlace(val column: Int, val span: Int, val topDp: Int) : ParentDataModifier {
+    override fun Density.modifyParentData(parentData: Any?): Any = this@GridPlace
+}
+
 /**
- * Lays out widgets in page order. Each widget is [spans] twelfths of the width ([WidgetLayout.COLUMNS]).
- * - Widgets sit side by side while they fit. The next one that does not fit starts a new row.
- * - [gap] separates widgets horizontally and vertically.
- * - A row is as tall as its tallest widget. Shorter widgets align to the row's top.
- * - Rows start at the start edge, so they run right to left in a right-to-left language.
- * - Give one child per widget.
+ * Places this child of a [WidgetGrid] at [column] (of [WidgetLayout.COLUMNS], from the start edge),
+ * [span] columns wide, with its top [topDp] from the top of the grid. A column or top below 0 (no
+ * place yet) puts it under everything else.
+ */
+internal fun Modifier.gridPlace(column: Int, span: Int, topDp: Int): Modifier = this.then(GridPlace(column, span, topDp))
+
+/** [w] placed in a [WidgetGrid] where its column and top say. */
+internal fun Modifier.gridPlace(w: PlacedWidget): Modifier = gridPlace(w.column, w.span, w.topDp)
+
+/**
+ * Lays out widgets where they are placed ([gridPlace]): each child at its column and top, as wide as
+ * its columns, as tall as it is. Widgets keep [gap] between them, so a column is a twelfth of the
+ * width and the gap ([WidgetDrag]).
+ * - Columns count from the start edge, so they run right to left in a right-to-left language.
+ * - The grid is as tall as its lowest child: [WidgetPlacement.pageHeightDp] for the page's widgets.
+ * - A child without a place goes under everything else, at the start edge.
+ * - Give the children in reading order ([WidgetPlacement.readingOrder]), so a screen reader goes
+ *   through them from the top, then from the start.
  */
 @Composable
-internal fun WidgetFlow(spans: List<Int>, gap: Dp, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Layout(content, modifier) { measurables, constraints ->
         val page = constraints.maxWidth
         val gapPx = gap.roundToPx()
-        val rows = WidgetLayout.rows(List(measurables.size) { spans.getOrElse(it) { WidgetLayout.COLUMNS } })
+        val grid = WidgetDrag(page, gapPx, density)
+        val places = measurables.map { it.parentData as? GridPlace ?: GridPlace(WidgetPlacement.UNPLACED, WidgetLayout.COLUMNS, WidgetPlacement.UNPLACED) }
         val placeables = measurables.mapIndexed { i, m ->
-            val span = spans.getOrElse(i) { WidgetLayout.COLUMNS }.coerceIn(WidgetLayout.MIN_SPAN, WidgetLayout.COLUMNS)
-            val width = ((page + gapPx) * span / WidgetLayout.COLUMNS - gapPx).coerceAtLeast(0)
-            m.measure(Constraints(minWidth = width, maxWidth = width, maxHeight = constraints.maxHeight))
+            val width = grid.widthPx(places[i].span.coerceIn(1, WidgetLayout.COLUMNS))
+            m.measure(Constraints(minWidth = width, maxWidth = width))
         }
-        val rowHeights = rows.map { row -> row.maxOf { placeables[it].height } }
-        val height = rowHeights.sum() + gapPx * (rows.size - 1).coerceAtLeast(0)
+        val placed = places.map { it.column >= 0 && it.topDp >= 0 }
+        val tops = IntArray(measurables.size) { if (placed[it]) places[it].topDp.dp.roundToPx() else 0 }
+        // Those without a place go one under the other, under the lowest placed one.
+        var next = placeables.indices.filter { placed[it] }.maxOfOrNull { tops[it] + placeables[it].height + gapPx } ?: 0
+        placeables.indices.filter { !placed[it] }.forEach { i ->
+            tops[i] = next
+            next += placeables[i].height + gapPx
+        }
+        val height = placeables.indices.maxOfOrNull { tops[it] + placeables[it].height } ?: 0
         layout(page, height.coerceIn(constraints.minHeight, constraints.maxHeight)) {
-            var y = 0
-            rows.forEachIndexed { r, row ->
-                var x = 0
-                row.forEach { i ->
-                    placeables[i].placeRelative(x, y)
-                    x += placeables[i].width + gapPx
-                }
-                y += rowHeights[r] + gapPx
+            placeables.forEachIndexed { i, p ->
+                val column = if (placed[i]) places[i].column.coerceAtMost(WidgetLayout.COLUMNS - 1) else 0
+                p.placeRelative(grid.startPx(column), tops[i])
             }
         }
     }
@@ -141,15 +170,16 @@ internal fun WidgetFlow(spans: List<Int>, gap: Dp, modifier: Modifier = Modifier
 
 /**
  * The widgets page beside the terminal (`widgets.page`). It shows every widget placed on the
- * "Widgets page" at its width and height ([WidgetFlow]), in a scrolling list, in the terminal's
- * colours. Add and Edit open the GUI pages.
+ * "Widgets page" where it was put, at its width and height ([WidgetGrid]), on a page that scrolls,
+ * in the terminal's colours. Add and Edit open the GUI pages. A long-press on a widget opens the
+ * Widgets screen with that widget chosen.
  */
 @Composable
 fun WidgetPanel(vm: TerminalViewModel) {
     val context = LocalContext.current
     val widgets = remember { WidgetHost.get(context) }
     val all by widgets.widgets.collectAsStateWithLifecycle()
-    val panel = remember(all) { WidgetOrder.inLocation(all, WidgetLocation.PANEL) }
+    val panel = remember(all) { WidgetPlacement.readingOrder(WidgetOrder.inLocation(all, WidgetLocation.PANEL)) }
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -226,8 +256,7 @@ private fun WidgetPanelContent(
             }
             return@Column
         }
-        WidgetFlow(
-            panel.map { it.span },
+        WidgetGrid(
             WidgetLayout.GAP_DP.dp,
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
                 // The page width in dp. Square and the sizes reported to widgets are based on it.
@@ -235,15 +264,18 @@ private fun WidgetPanelContent(
         ) {
             panel.forEach { w ->
                 key(w.key) {
-                    // Give the flow exactly one child per widget, whatever HostedWidget shows.
-                    OnScreenCard {
+                    // A long-press opens the Widgets screen with this widget chosen.
+                    val arrange = remember(w.key) { { widgets.choose(w.key); vm.openScreen(Screen.WIDGETS) } }
+                    val actions = remember(w.key, vm.widgetActions) { ArrangeOnLongPress(vm.widgetActions, arrange) }
+                    // Give the grid exactly one child per widget, whatever HostedWidget shows.
+                    Box(Modifier.gridPlace(w)) { OnScreenCard {
                         // A script's widget is a card that Kolahal draws. Its taps go to the view model.
-                        if (w.source != null) SourceWidget(w, w.heightDp.dp, vm.widgetActions, vm.widgetFeed)
+                        if (w.source != null) SourceWidget(w, w.heightDp.dp, actions, vm.widgetFeed)
                         else HostedWidget(
                             w = w,
                             height = w.heightDp.dp,
                             pausedKind = profiles.pausedKind(w.profileSerial),
-                            onLongPress = { vm.openScreen(Screen.WIDGETS) },
+                            onLongPress = arrange,
                         ) { why ->
                             Text(
                                 "[$why] ${w.packageName}",
@@ -251,7 +283,7 @@ private fun WidgetPanelContent(
                                 modifier = Modifier.fillMaxWidth().alpha(0.7f).padding(vertical = 6.dp, horizontal = 4.dp),
                             )
                         }
-                    }
+                    } }
                 }
             }
         }

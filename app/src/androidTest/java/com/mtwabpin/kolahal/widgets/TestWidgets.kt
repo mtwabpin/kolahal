@@ -21,8 +21,9 @@ class TestWidgets {
     private val userId = Process.myUid() / 100_000
 
     init {
-        // Messages left from before aren't the test's.
+        // Messages and a widget to choose left from before aren't the test's.
         while (host.takeMessage() != null) Unit
+        host.chosen()
     }
 
     /** The clock app's widgets in this profile, by name; [unconfigured] leaves out those with a setup screen. */
@@ -95,9 +96,10 @@ class TestWidgets {
 
     fun get(key: String): PlacedWidget? = host.widgets.value.firstOrNull { it.key == key }
 
-    /** Takes away the widgets, ids, messages and binding the test added. */
+    /** Takes away the widgets, ids, messages, choice and binding the test added. */
     fun close() {
         while (host.takeMessage() != null) Unit
+        host.chosen()
         host.widgets.value.filter { it.key !in hadKeys }.forEach { host.remove(it.key) }
         val used = host.widgets.value.mapNotNull { it.id }.toSet()
         runCatching { host.host.appWidgetIds }.getOrNull()?.filter { it !in hadIds && it !in used }?.forEach { host.discard(it) }

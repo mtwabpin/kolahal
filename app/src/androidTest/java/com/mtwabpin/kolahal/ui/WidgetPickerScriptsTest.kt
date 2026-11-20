@@ -8,8 +8,6 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -21,6 +19,7 @@ import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -231,6 +230,8 @@ class WidgetPickerScriptsTest {
         t.run(s)
         val height = t.entry(s.name)!!.heightDp
         val vm = model(Screen.WIDGETS, s)
+        // Placed by the test, not by the picker: no widget is chosen yet.
+        t.host.chosen()
         compose.setContent { WidgetsScreen(vm) { _, _ -> } }
 
         val inCard = hasAnyAncestor(hasTestTag("widget:${s.name}"))
@@ -245,13 +246,14 @@ class WidgetPickerScriptsTest {
         compose.onNode(hasClickLabel("change $title")).performClick()
         compose.onNode(isSelected()).assertExists()
         compose.onNodeWithText(title).assertExists()
-        compose.onNodeWithText("1/2 wide · ${height}dp tall").assertExists()
+        compose.onNodeWithText("2×1 · Plain").assertExists()
+        assertEquals(6, t.entry(s.name)!!.span)
 
-        // A widget Kolahal draws is at least one cell wide: a quarter of the page.
-        repeat(3) { compose.onNodeWithContentDescription("Decrease width").assertIsEnabled().performClick() }
-        compose.onNodeWithText("1/4 wide · ${height}dp tall").assertExists()
-        compose.onNodeWithContentDescription("Decrease width").assertIsNotEnabled()
+        // Its smallest size is one cell: a quarter of the page.
+        compose.onNodeWithTag("size 1×1").performClick()
+        compose.onNodeWithText("1×1 · Plain").assertExists()
         assertEquals(3, t.entry(s.name)!!.span)
+        assertTrue("1×1 is shorter than 2×1 here: $height", t.entry(s.name)!!.heightDp <= height)
         compose.waitFor("the narrow card doesn't draw the value") { drawn().containsAll(listOf("24", "Sunny")) }
 
         // Remove asks first. Then the widget is off the page, and its script keeps nothing for it.

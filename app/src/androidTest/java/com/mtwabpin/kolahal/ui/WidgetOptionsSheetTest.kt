@@ -10,7 +10,8 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -72,8 +73,7 @@ class WidgetOptionsSheetTest {
         SemanticsMatcher("click label \"$label\"") { it.config.getOrNull(SemanticsActions.OnClick)?.label == label }
 
     /**
-     * Selects the widget the screen calls [name], as a tap on its card does. While a widget is
-     * selected, each card has two layers that take the tap, and either one selects.
+     * Selects the widget the screen calls [name], as a tap on its card does.
      */
     private fun select(name: String) {
         compose.waitForNode(hasClickLabel("change $name"))
@@ -98,7 +98,7 @@ class WidgetOptionsSheetTest {
 
         // The second widget is named by its script's title and its id.
         select("$title 2")
-        compose.onNodeWithText("Options").performClick()
+        compose.onNodeWithContentDescription("Options").performClick()
         compose.waitForText("Options for $title 2")
         compose.onNodeWithText(WidgetOptionWords.WIDGET).assertExists()
 
@@ -146,11 +146,11 @@ class WidgetOptionsSheetTest {
 
         // A widget whose script declares no option has nothing to set.
         select("Wopts Plain")
-        compose.onNodeWithText("Square").assertExists()
-        compose.onAllNodesWithText("Options").assertCountEquals(0)
+        compose.onNodeWithTag("look Plain").assertExists()
+        compose.onAllNodesWithContentDescription("Options").assertCountEquals(0)
 
         select(title)
-        compose.onNodeWithText("Options").performClick()
+        compose.onNodeWithContentDescription("Options").performClick()
         compose.waitForText("Options for $title")
         compose.onNodeWithText(WidgetOptionWords.SCRIPT).assertExists()
         compose.onNode(city and hasText("London")).performClick()

@@ -39,10 +39,12 @@ import com.mtwabpin.kolahal.productivity.Reminder
 import com.mtwabpin.kolahal.productivity.Todo
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.OwnData
+import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLook
+import com.mtwabpin.kolahal.widgets.WidgetPlacement
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -176,6 +178,12 @@ class WidgetGalleryTest {
         val ready = readyMade()
         val cards = listOf("weather" to WidgetSize.S2X1, "battery" to WidgetSize.S2X1, "todos" to WidgetSize.S2X2, "habit" to WidgetSize.S2X2, "shortcuts" to WidgetSize.S4X1)
             .map { (name, size) -> ready.single { it.name == name && it.size == size } }
+        // Each card's place, as a page from 0.5.14 gets them at its first start.
+        val places = WidgetPlacement.placeMissing(
+            cards.mapIndexed { i, shot ->
+                PlacedWidget(null, WidgetSource.script("gallery$i"), 0L, WidgetSizes.heightDp(shot.size, pageDp), i, span = shot.size.span)
+            },
+        )
         compose.setContent {
             KolahalTheme {
                 GuiTheme {
@@ -183,13 +191,12 @@ class WidgetGalleryTest {
                         Modifier.testTag(SHOT).width((pageDp + 2 * WidgetLayout.GAP_DP).dp).background(Term.bg).padding(vertical = 8.dp),
                     ) {
                         WidgetsTitleRow(onAdd = {}, onEdit = {})
-                        WidgetFlow(
-                            cards.map { it.size.span },
+                        WidgetGrid(
                             WidgetLayout.GAP_DP.dp,
                             Modifier.fillMaxWidth().padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp),
                         ) {
-                            cards.forEach { shot ->
-                                Box {
+                            cards.forEachIndexed { i, shot ->
+                                Box(Modifier.gridPlace(places[i])) {
                                     WidgetCard(
                                         title = shot.title,
                                         height = WidgetSizes.heightDp(shot.size, pageDp).dp,
