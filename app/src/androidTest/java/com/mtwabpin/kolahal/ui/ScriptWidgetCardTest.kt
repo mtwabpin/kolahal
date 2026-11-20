@@ -842,6 +842,60 @@ class ScriptWidgetCardTest {
     }
 
     /**
+     * A 4×2 clock: under each place its difference from the phone's time, and a strip of the day
+     * for each place. A tap on a strip moves every place's time to that hour, and the title line then
+     * has the hour and a "Now" button that brings back now. A second tap on the line does that too.
+     * None of these taps is the card's own. A screen reader hears each difference in whole words.
+     */
+    @Test fun aWideClockShowsDifferencesAndDayStrips() {
+        val asked = Asked()
+        val here = ZoneId.systemDefault()
+        val zones = listOf(WidgetSpec.Zone(here.id, "Home"), WidgetSpec.Zone("Asia/Kathmandu"), WidgetSpec.Zone("America/New_York"))
+        val world = kept("clock-strips", WidgetSpec.Clock(WidgetBase(title = "World"), zones))
+        // A 4×2 card: two rows on a page 380 dp wide.
+        show(world, width = 380.dp, height = 192.dp, actions = asked, inView = true)
+        draws(world, "World", "Home", "Kathmandu", "New York", "Here")
+        // Each place's words, in the forms the card picks from: it writes the longest that fits whole.
+        // The minute may turn between the drawing and the check, either way round.
+        fun places(at: Long) = WidgetWords.zoneTimes(zones, at, here, clock)
+        fun around(): List<List<WidgetWords.ZoneTime>> = listOf(-60_000L, 0L, 60_000L).map { places(System.currentTimeMillis() + it) }
+        for (i in 1..2) {
+            val forms = around().flatMap { WidgetWords.placeLines(it[i]) }
+            assertTrue("${texts(world)} has none of $forms", texts(world).any { it in forms })
+        }
+        val heard = said(world)
+        for (i in 1..2) {
+            val words = around().map { WidgetWords.differenceSaid(it[i].ahead, it[i].here) }
+            assertTrue("“$heard” has none of $words", words.any { ", $it" in heard })
+        }
+        assertTrue(heard, around().any { "Home ${it[0].time}, here" in heard })
+
+        // A tap on the strips at an hour far from now: every place's time is at that hour of today here.
+        val rtl = compose.activity.resources.configuration.layoutDirection == android.view.View.LAYOUT_DIRECTION_RTL
+        val hour = ((java.time.LocalTime.now(here).hour + 12) % 24).coerceIn(1, 23)
+        val strips = compose.onNode(inCard(world) and hasTestTag("clock-strips"), useUnmergedTree = true)
+        fun tapHour() = strips.performTouchInput { click(Offset(width * (if (rtl) 24 - hour else hour) / 24f, height / 2f)) }
+        fun timesAt(at: Long) = places(at).map { it.time }
+        tapHour()
+        val picked = WidgetWords.hourMoment(LocalDate.now(here), hour, here)
+        draws(world, *timesAt(picked).toTypedArray(), "At ${Instant.ofEpochMilli(picked).atZone(here).format(clock)}", "Now")
+        // "Now" on the title line brings back now, and the button goes.
+        fun backToNow() {
+            compose.waitFor("$world's card still has its “Now” button") { compose.onAllNodes(inCard(world) and hasText("Now")).fetchSemanticsNodes().isEmpty() }
+            compose.waitFor("${texts(world)} isn't now") { around().any { texts(world).containsAll(it.map { p -> p.time }) } }
+        }
+        compose.onNode(inCard(world) and hasText("Now") and hasClickAction()).performClick()
+        backToNow()
+        // A tap on the line where it stands brings back now too.
+        tapHour()
+        draws(world, *timesAt(picked).toTypedArray(), "Now")
+        tapHour()
+        backToNow()
+        // The strips and the button took their taps: none of them ran the script.
+        compose.runOnIdle { assertEquals(emptyList<String>(), asked.all.filter { it.startsWith("tap") }) }
+    }
+
+    /**
      * `agenda`: the events under "Today" and "Tomorrow", each with its time. Kolahal leaves out an
      * event that has ended and one past the description's `days`, with no run of the script. A tap
      * on an event is the event's own.

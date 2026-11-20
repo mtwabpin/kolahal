@@ -122,7 +122,7 @@ internal fun KindBody(spec: WidgetSpec, box: WidgetSizes.Box, onTap: ((WidgetTap
         is WidgetSpec.Countdown -> CountdownBody(spec, box)
         is WidgetSpec.Buttons -> ButtonsBody(spec, onTap)
         is WidgetSpec.Toggles -> TogglesBody(spec, onTap, stamp)
-        is WidgetSpec.Clock -> ClockBody(spec, box)
+        is WidgetSpec.Clock -> ClockBody(spec, box, onTap)
         is WidgetSpec.Agenda -> AgendaBody(spec, onTap)
         is WidgetSpec.Image -> ImageBody(spec, box)
         is WidgetSpec.Media -> MediaBody(spec, box, onTap)

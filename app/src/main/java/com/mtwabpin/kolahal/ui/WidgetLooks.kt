@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
@@ -108,6 +109,52 @@ fun lookColors(look: WidgetLook = LocalWidgetLook.current, role: Color = Materia
             shapeFill = container,
         )
     }
+}
+
+/** The colours of the parts of a clock's day strip ([WidgetWords.DayPart]). */
+@Immutable
+internal data class StripShades(val night: Color, val day: Color, val work: Color) {
+    /** The colour of [part]. */
+    fun of(part: WidgetWords.DayPart): Color = when (part) {
+        WidgetWords.DayPart.NIGHT -> night
+        WidgetWords.DayPart.DAY -> day
+        WidgetWords.DayPart.WORK -> work
+    }
+}
+
+/**
+ * The shades of a clock's day strips on a card of colour [card], on a page of colour [surface]:
+ * tones of the card's [role] colour that differ in lightness.
+ * - Working hours are the role colour itself.
+ * - In a dark theme, night is the darkest: darker than the page, with a trace of the role.
+ * - In a light theme, day is the lightest, lighter than the card, and night is the darker, tinted part.
+ * - The part between is the card tinted with the role, as far in contrast from the part on each
+ *   side. So the three are as far apart as they can be in any theme.
+ */
+internal fun stripShades(surface: Color, card: Color, role: Color): StripShades {
+    return if (surface.luminance() < 0.5f) {
+        val night = lerp(lerp(surface, role, 0.08f), Color.Black, 0.4f)
+        StripShades(night = night, day = midway(night, role, card, role), work = role)
+    } else {
+        val day = lerp(surface, Color.White, 0.5f)
+        StripShades(night = midway(day, role, card, role), day = day, work = role)
+    }
+}
+
+/** [from] moved toward [toward] until its contrast with [a] is that with [b]. */
+private fun midway(a: Color, b: Color, from: Color, toward: Color): Color {
+    fun contrast(x: Color, y: Color): Float {
+        val (hi, lo) = listOf(x.luminance(), y.luminance()).sortedDescending()
+        return (hi + 0.05f) / (lo + 0.05f)
+    }
+    var low = 0f
+    var high = 1f
+    repeat(16) {
+        val t = (low + high) / 2
+        val c = lerp(from, toward, t)
+        if (contrast(a, c) < contrast(c, b)) low = t else high = t
+    }
+    return lerp(from, toward, (low + high) / 2)
 }
 
 /** Split's corners: 28 dp on the card's outside edges, 8 dp inside. */

@@ -1052,13 +1052,24 @@ Each place is `{ zone, label }`. `zone` is needed.
 | `zone` | a time zone's name | Needed: `Asia/Kolkata`, `Europe/London`, `America/New_York`, `UTC`. A name that Kolahal doesn't know is an error that names it. |
 | `label` | text, up to 24 | What to call the place. Without it: the last part of the zone's name, "New York" for `America/New_York`. |
 
-- A place whose day isn't your day says so: "tomorrow" or "yesterday", or "+1" or "-1" where
-  there is little room.
+- Each place shows how far its time is from your phone's: "5 h 30 min behind", "3 h ahead",
+  "Same time", or "Here" for your phone's own time zone. A place whose day isn't your day says so
+  too: "10 h 30 min behind · Yesterday".
+- Where there is little room, the card writes it shorter: "−5:30", or "−10:30 −1" for a place on
+  the day before. Where even that doesn't fit, only the day shows: "+1" or "−1". A screen reader
+  always hears the difference in words.
 - Kolahal writes each time in 12-hour or 24-hour form, as the header does
   ([`clock.24h`](/reference/config/)).
 - A small card shows the first place only. A wide one shows as many as fit, side by side.
 - A large card has a row for each place. A row with room (three places in a 2×2 card) has the
-  place's day under its name: "today", "tomorrow" or "yesterday".
+  difference under the place's name.
+- A 4×2 card, or any large card as wide, also has a strip of the day for each place, in the Plain
+  and Tonal looks. Each strip is your day from 00 to 24, shaded by the time at that place: night
+  (before 06:00 and from 22:00), day, and working hours (09:00 to 18:00). A line across the strips
+  marks the time now.
+- Tap a strip to move the line to that hour: every place then shows its time at that hour of your
+  day. Tap the line again, or tap **Now** on the card's title line, to go back to now. Leaving the
+  widgets page goes back to now too. A tap on a strip doesn't run the script.
 - A clock never gets old. Give it a long `staleAfter`, such as a week (604800), so the widgets
   page doesn't run the script each hour for nothing.
 

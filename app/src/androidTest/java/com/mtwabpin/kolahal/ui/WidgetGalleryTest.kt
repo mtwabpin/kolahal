@@ -502,6 +502,14 @@ class WidgetGalleryTest {
                     listOf(WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("Europe/London", "London"), WidgetSpec.Zone("America/New_York", "New York")),
                 ),
             ),
+            // At 4×2 the places have their day strips.
+            Shot(
+                "worldclocks", WidgetSize.S4X2, "World clocks",
+                WidgetSpec.Clock(
+                    base("World clocks", "globe", Colour.LINK),
+                    listOf(WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("Europe/London", "London"), WidgetSpec.Zone("America/New_York", "New York")),
+                ),
+            ),
             Shot("habit", WidgetSize.S2X2, "Exercise", habit),
             Shot(
                 "quicktoggles", WidgetSize.S4X1, "Quick toggles",

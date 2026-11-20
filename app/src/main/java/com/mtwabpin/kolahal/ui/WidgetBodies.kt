@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -65,19 +66,28 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -88,15 +98,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -111,11 +126,14 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /*
@@ -859,26 +877,32 @@ private val SHAPE_LABEL_MIN = 48.dp
 /** The room under a clock's time for its place, in dp. */
 private const val PLACE_DP = 16
 
-/** From this width, a place has "tomorrow" beside its name. A narrower one has "+1". */
-private val LONG_DAY = 120.dp
+/**
+ * From this width a large clock has a strip of the day for each place ([ClockStrips]), in dp: a
+ * 4×2 card on a phone 360 dp wide or more.
+ */
+private const val STRIPS_FROM_DP = 300
 
 /**
  * `clock`: the time in up to four places. Kolahal does the ticking: the script gave the places
  * once, and no run is needed as time passes.
+ * - Under or beside each place, its difference from the phone's time: "5 h 30 min behind",
+ *   "Same time", "Here", with its day when that is not the day here. Each place gets the longest
+ *   form that fits whole, down to "−5:30" ([WidgetWords.placeLines]).
  * - Small, or one place: that place's time, large, over its name.
  * - Wide: the places side by side, as many as fit ([WidgetWords.clockColumns]).
- * - Large: one row for each place, its name at the start and its time at the end. A row of 40 dp
- *   or more (three places or fewer, on most phones) has the place's day under its name: "today",
- *   "tomorrow" or "yesterday".
- * - Elsewhere, a place whose day is not the day here says so: "tomorrow" or "yesterday", or "+1"
- *   and "-1" in little room.
+ * - Large: one row for each place, its name at the start and its time at the end. A row with room
+ *   for two lines has the difference under the name ([PlaceAndDifference]).
+ * - Large and wide (a 4×2 card), in Plain and Tonal: the rows also have a strip of the day
+ *   ([ClockStrips]). [onTap] null takes no tap on the strips (the Widgets screen).
  * - The time follows Kolahal's 24-hour setting. It moves by the minute, with the header's clock.
  *   With `seconds` it moves by the second, but only while the widgets page is in view.
  * - The size of the digits comes from the room, never from the text: a clock that ticks does not
- *   change its size, and no text is measured twice.
+ *   change its size, and its digits are never measured. A place's words are, to pick the form
+ *   that fits, and only again when they or their room change.
  */
 @Composable
-internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
+internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)? = null) {
     val (_, zoneChanges) = rememberNow()
     val here = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
@@ -903,6 +927,10 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
         else -> {}
     }
     val tile = lookColors().tile
+    val type = MaterialTheme.typography
+    val nameStyle = type.titleMedium.copy(fontWeight = FontWeight.Bold)
+    // A row this tall has the place's name over its difference, at the phone's font size.
+    val twoLines = linesDp(nameStyle, type.bodySmall)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = maxWidth.value.toInt()
         val height = maxHeight.value.toInt()
@@ -915,7 +943,7 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                 horizontalAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.CenterHorizontally else Alignment.Start,
             ) {
                 ClockTime(time(0), WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
-                PlaceLabel(times[0], long = width.dp >= LONG_DAY)
+                PlaceLabel(times[0])
             }
             box == WidgetSizes.Box.WIDE -> {
                 val columns = WidgetWords.clockColumns(times.size, width, chars)
@@ -927,20 +955,19 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                         key(i) {
                             Column(Modifier.weight(1f)) {
                                 ClockTime(time(i), size)
-                                PlaceLabel(time, long = cell.dp >= LONG_DAY)
+                                PlaceLabel(time)
                             }
                         }
                     }
                 }
             }
+            width >= STRIPS_FROM_DP -> ClockStrips(places, here, format, now, clock24, chars, roleColour(spec.base), tappable = onTap != null, width, height)
             else -> {
                 val gap = ROW_GAP_DP
                 val rows = WidgetWords.clockRows(times.size, height, gap)
                 val row = ((height + gap) / rows - gap).coerceIn(WidgetWords.CLOCK_ROW_DP, 48)
                 // The time gets up to half the width inside the row's padding. The place's name has the rest.
                 val size = WidgetWords.clockTextDp((width - 24) / 2, chars, minOf(row * 3 / 5, 24))
-                // A tall row has the place's day on a second line, also when it is today, as the mockup has it.
-                val dayLine = row >= DAY_LINE_DP
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap.dp)) {
                     times.take(rows).forEachIndexed { i, time ->
                         key(i) {
@@ -949,8 +976,9 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(Modifier.weight(1f).padding(end = 8.dp)) {
-                                    if (dayLine) PlaceAndDay(time)
-                                    else PlaceLabel(time, long = width >= 200, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), colour = MaterialTheme.colorScheme.onSurface)
+                                    // A tall row has the difference on a second line, as the mockup has it.
+                                    if (row >= twoLines) PlaceAndDifference(time, nameStyle, type.bodySmall)
+                                    else PlaceLabel(time, style = type.labelLarge.copy(fontWeight = FontWeight.Bold), colour = MaterialTheme.colorScheme.onSurface)
                                 }
                                 ClockTime(time(i), size)
                             }
@@ -958,6 +986,205 @@ internal fun ClockBody(spec: WidgetSpec.Clock, box: WidgetSizes.Box) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** The height of a line in each of [styles], one under the other, at the phone's font size: in whole dp. */
+@Composable
+private fun linesDp(vararg styles: TextStyle): Int {
+    val density = LocalDensity.current
+    val dp = styles.sumOf { style ->
+        val line = if (style.lineHeight.isSp) style.lineHeight else style.fontSize * 1.25f
+        with(density) { line.toDp().value.toDouble() }
+    }
+    return kotlin.math.ceil(dp).toInt()
+}
+
+/** The least width of a large clock's day strips, and the room between them and the times, in dp. */
+private const val STRIP_MIN_DP = 140
+private const val STRIP_GAP_DP = 12
+
+/** The room between a large clock's day strips and the hours under them, in dp. */
+private const val MARKS_GAP_DP = 2
+
+/**
+ * A large clock wide enough for day strips (a 4×2 card), in Plain and Tonal, as the mockup has it:
+ * a row for each place with its name over its difference, its time, and a strip of the day here
+ * from 00 to 24, in the parts of the day at the place ([WidgetWords.dayStrip]). The hours are
+ * under the strips ([HourMarks]).
+ * - One line crosses all the strips at the moment shown ([DayStrips]).
+ * - A tap on a strip moves the line to the nearest hour, and every place's time and difference
+ *   follow. The title line then has that hour and a "Now" button ([ReportTitleAction]). The
+ *   button, a second tap on the line, or leaving the page or home brings back now.
+ * - Taps only: a sideways drag turns the page. [tappable] false takes no tap at all.
+ * - A row too low for two lines has the difference beside the name, in the form that fits.
+ * - A screen reader hears the card's description: each place, its time now and its difference.
+ */
+@Composable
+private fun ClockStrips(
+    places: List<Pair<WidgetSpec.Zone, ZoneId>>,
+    here: ZoneId,
+    format: DateTimeFormatter,
+    now: State<Long>,
+    clock24: Boolean,
+    chars: Int,
+    role: Color,
+    tappable: Boolean,
+    widthDp: Int,
+    heightDp: Int,
+) {
+    // The hour a tap picked, from 0 to 24 of today here, or null for now.
+    var picked by remember { mutableStateOf<Int?>(null) }
+    // Leaving the page, or home, brings back now.
+    val seen = cardSeen()
+    LaunchedEffect(seen) { if (!seen) picked = null }
+    LifecycleStartEffect(Unit) { onStopOrDispose { picked = null } }
+    val today by remember(here, now) { derivedStateOf { Instant.ofEpochMilli(now.value).atZone(here).toLocalDate() } }
+    // The moment shown: the hour picked, or now.
+    val moment = remember(here, now) { derivedStateOf { picked?.let { WidgetWords.hourMoment(today, it, here) } ?: now.value } }
+    val ticking = remember(places, here, format, moment) { derivedStateOf { WidgetWords.zoneTimesOf(places, moment.value, here, format) } }
+    val times by remember(ticking) { derivedStateOf { ticking.value.map { it.copy(time = "") } } }
+    fun time(i: Int): () -> String = { ticking.value.getOrNull(i)?.time.orEmpty() }
+    // The line moves by the minute, also when the clock shows seconds.
+    val minute = remember(moment) { derivedStateOf { moment.value / 60_000 } }
+    val hour = picked
+    val at = remember(hour, today, here, clock24) {
+        hour?.let { "At " + Instant.ofEpochMilli(WidgetWords.hourMoment(today, it, here)).atZone(here).format(TimeFormats.clockFormat(clock24)) }
+    }
+    ReportTitleAction(remember(at) { at?.let { TitleAction("Now", it) { picked = null } } })
+
+    val type = MaterialTheme.typography
+    val nameStyle = type.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val lineStyle = type.labelSmall
+    val markStyle = type.labelSmall
+    val gap = ROW_GAP_DP
+    val room = heightDp - linesDp(markStyle) - MARKS_GAP_DP
+    val least = maxOf(WidgetWords.CLOCK_ROW_DP, linesDp(nameStyle))
+    val rows = WidgetWords.clockRows(times.size, room, gap, least)
+    val row = ((room + gap) / rows - gap).coerceIn(least, maxOf(least, 48))
+    val twoLines = row >= linesDp(nameStyle, lineStyle)
+    val stripDp = maxOf(widthDp * 45 / 100, STRIP_MIN_DP)
+    // The time gets up to half the room beside the strips. The place's name has the rest.
+    val size = WidgetWords.clockTextDp((widthDp - stripDp - STRIP_GAP_DP) * 45 / 100, chars, minOf(row * 3 / 5, 20))
+    val zones = remember(places, rows) { places.take(rows).map { it.second } }
+    Row(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).padding(end = STRIP_GAP_DP.dp), verticalArrangement = Arrangement.spacedBy(gap.dp)) {
+            times.take(rows).forEachIndexed { i, place ->
+                key(i) {
+                    Row(Modifier.fillMaxWidth().height(row.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f).padding(end = 8.dp)) {
+                            if (twoLines) PlaceAndDifference(place, nameStyle, lineStyle)
+                            else PlaceLabel(place, style = nameStyle, colour = MaterialTheme.colorScheme.onSurface)
+                        }
+                        ClockTime(time(i), size)
+                    }
+                }
+            }
+        }
+        Column(Modifier.width(stripDp.dp)) {
+            DayStrips(
+                zones, today, here, row, gap, role,
+                at = { WidgetWords.stripAt(minute.value * 60_000, today, here) },
+                onPick = if (tappable) { { h: Int -> picked = if (h == picked) null else h } } else null,
+            )
+            HourMarks(clock24, markStyle, Modifier.padding(top = MARKS_GAP_DP.dp))
+        }
+    }
+}
+
+/**
+ * A large clock's day strips: one for each of [zones] in a row [rowDp] tall, [gapDp] apart, and one
+ * line across them all at [at], from 0 (00:00) to 1 (24:00).
+ * - A strip is [day] here in the parts of the day at its place: night, day and working hours, in
+ *   tones of the card's [role] colour ([stripShades]). It runs from the right in a right-to-left page.
+ * - The line is in the text colour with a ring of the card's colour, so it shows on every part.
+ *   [at] is read while drawing: the minute's tick draws the line again and composes nothing.
+ * - With [onPick], a tap picks the nearest hour ([WidgetWords.hourAt]), and a long-press is the card's.
+ * - It is no item for a screen reader: the card's description says what it shows.
+ */
+@Composable
+private fun DayStrips(zones: List<ZoneId>, day: LocalDate, here: ZoneId, rowDp: Int, gapDp: Int, role: Color, at: () -> Float, onPick: ((Int) -> Unit)?) {
+    val strips = remember(zones, day, here) { zones.map { WidgetWords.dayStrip(day, here, it) } }
+    val scheme = MaterialTheme.colorScheme
+    val colours = lookColors()
+    val shades = remember(scheme.surface, colours.card, role) { stripShades(scheme.surface, colours.card, role) }
+    val outline = scheme.outlineVariant
+    val ink = scheme.onSurface
+    val ring = colours.card
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val longPress = LocalCardLongPress.current
+    val haptics = LocalHapticFeedback.current
+    val pick by rememberUpdatedState(onPick)
+    val taps = if (onPick == null) Modifier else Modifier.pointerInput(rtl, longPress) {
+        detectTapGestures(
+            onLongPress = longPress?.let { press ->
+                { _: Offset ->
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    press()
+                }
+            },
+            onTap = { tap -> pick?.invoke(WidgetWords.hourAt(tap.x, size.width.toFloat(), rtl)) },
+        )
+    }
+    val height = (rowDp * strips.size + gapDp * (strips.size - 1)).dp
+    Spacer(
+        Modifier.fillMaxWidth().height(height).testTag("clock-strips").then(taps).drawWithCache {
+            val rowPx = rowDp.dp.toPx()
+            val step = rowPx + gapDp.dp.toPx()
+            val tall = (rowPx * 0.45f).coerceIn(10.dp.toPx(), 16.dp.toPx())
+            val corner = CornerRadius(tall / 3)
+            val tops = List(strips.size) { it * step + (rowPx - tall) / 2 }
+            val outlines = tops.map { top -> Path().apply { addRoundRect(RoundRect(0f, top, size.width, top + tall, corner)) } }
+            fun x(along: Float) = size.width * if (rtl) 1f - along else along
+            val hair = 1.dp.toPx()
+            val line = 2.dp.toPx()
+            val from = (tops.firstOrNull() ?: 0f) - 4.dp.toPx()
+            val to = (tops.lastOrNull() ?: 0f) + tall + 4.dp.toPx()
+            onDrawBehind {
+                strips.forEachIndexed { i, stretches ->
+                    clipPath(outlines[i]) {
+                        for (s in stretches) {
+                            val a = x(s.from)
+                            val b = x(s.to)
+                            // A pixel more on each side, so two parts meet with no seam. The strip's outline clips them.
+                            drawRect(shades.of(s.part), Offset(minOf(a, b) - 1f, tops[i]), Size(abs(b - a) + 2f, tall))
+                        }
+                    }
+                    drawPath(outlines[i], outline, style = Stroke(hair))
+                }
+                if (strips.isNotEmpty()) {
+                    val lx = x(at()).coerceIn(line, size.width - line)
+                    drawLine(ring, Offset(lx, from), Offset(lx, to), strokeWidth = line + 3.dp.toPx(), cap = StrokeCap.Round)
+                    drawLine(ink, Offset(lx, from), Offset(lx, to), strokeWidth = line, cap = StrokeCap.Round)
+                }
+            }
+        },
+    )
+}
+
+/**
+ * The hours under a clock's day strips ([WidgetWords.hourMarks]), each centred on its place on the
+ * strip, the first and the last at its ends. Where they would touch (a narrow strip, a large font
+ * size), only 00, 12 and 24 are written. They are no item for a screen reader.
+ */
+@Composable
+private fun HourMarks(clock24: Boolean, style: TextStyle, modifier: Modifier = Modifier) {
+    val marks = remember(clock24) { WidgetWords.hourMarks(clock24) }
+    val colour = lookColors().muted
+    Layout(
+        content = { marks.forEach { Text(it, style = style, color = colour, maxLines = 1, softWrap = false) } },
+        modifier = modifier.fillMaxWidth().clearAndSetSemantics {},
+    ) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(Constraints()) }
+        val width = constraints.maxWidth
+        val last = placeables.size - 1
+        val xs = placeables.mapIndexed { i, p -> (width * i / last.toFloat() - p.width / 2f).roundToInt().coerceIn(0, maxOf(0, width - p.width)) }
+        val apart = 4.dp.roundToPx()
+        val crowded = (1..last).any { xs[it] < xs[it - 1] + placeables[it - 1].width + apart }
+        val shown = if (crowded) listOf(0, last / 2, last) else placeables.indices.toList()
+        layout(width, placeables.maxOfOrNull { it.height } ?: 0) {
+            for (i in shown) placeables[i].placeRelative(xs[i], 0)
         }
     }
 }
@@ -1001,7 +1228,7 @@ private fun BoldClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> St
         when (box) {
             WidgetSizes.Box.SMALL -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 ClockTime(time(0), WidgetWords.clockTextDp((width * BOLD_WIDTH).toInt(), chars, (height - PLACE_DP) * 4 / 5), accent, bold = true)
-                PlaceLabel(first, long = false)
+                PlaceLabel(first)
             }
             WidgetSizes.Box.WIDE -> {
                 // The others need about 72 dp each beside the main time, which keeps at least 120.
@@ -1054,7 +1281,7 @@ private fun DateOf(zone: ZoneId, now: State<Long>, style: TextStyle, colour: Col
 @Composable
 private fun SmallPlace(place: WidgetWords.ZoneTime, time: () -> String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        PlaceLabel(place, long = false)
+        PlaceLabel(place)
         ClockTime(time, 16)
     }
 }
@@ -1116,7 +1343,7 @@ private fun SplitPlace(place: WidgetWords.ZoneTime, time: () -> String, sizeDp: 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = if (start) Alignment.Start else Alignment.CenterHorizontally,
     ) {
-        PlaceLabel(place, long = false)
+        PlaceLabel(place)
         ClockTime(time, sizeDp)
     }
 }
@@ -1161,7 +1388,7 @@ private fun ShapeClock(times: List<WidgetWords.ZoneTime>, time: (Int) -> () -> S
                     val rows = times.size.coerceAtMost(maxOf(1, (boxHeight.value.toInt() + 8) / 56))
                     for (i in 0 until rows) key(i) {
                         Column {
-                            PlaceLabel(times[i], long = true, style = type.labelMedium)
+                            PlaceLabel(times[i], style = type.labelMedium)
                             ClockTime(time(i), 22)
                         }
                     }
@@ -1225,30 +1452,64 @@ private fun ClockDial(name: String?, zone: ZoneId, now: State<Long>, looks: Look
     }
 }
 
-/** From this height a large clock's row has the place's day on a line of its own ([PlaceAndDay]), in dp. */
-private const val DAY_LINE_DP = 40
-
-/** A place's name in bold, over its day in dim words: "today", "tomorrow" or "yesterday", as seen from here. */
+/**
+ * A place's name in bold, over its difference from the phone's time in dim words: the first of its
+ * lines ([WidgetWords.placeLines]) that fits whole, "5 h 30 min behind" or "−5:30".
+ */
 @Composable
-private fun PlaceAndDay(time: WidgetWords.ZoneTime) {
-    val type = MaterialTheme.typography
+private fun PlaceAndDifference(time: WidgetWords.ZoneTime, nameStyle: TextStyle, lineStyle: TextStyle) {
+    val lines = remember(time) { WidgetWords.placeLines(time) }
     Column {
-        Text(time.label, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text((time.day ?: WidgetWords.SAME_DAY).replaceFirstChar { it.titlecase() }, style = type.bodySmall, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(time.label, style = nameStyle, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        FittingLine(lines, lineStyle, lookColors().muted)
     }
 }
 
 /**
- * A place's name, and its day when that is not the day here. The name is cut with "…" before the
- * day is: the day says more. The name is in [colour]; the day is always dim.
+ * The first of [lines] that fits whole on one line in the width it gets, in [style] at the phone's
+ * font size. With none that fits, the last one, cut with "…". Numbers such as "−5:30 −1" read from
+ * the left in a right-to-left page too.
  */
 @Composable
-private fun PlaceLabel(time: WidgetWords.ZoneTime, long: Boolean, style: TextStyle = MaterialTheme.typography.labelSmall, colour: Color = lookColors().muted) {
+private fun FittingLine(lines: List<String>, style: TextStyle, colour: Color) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints {
+        val room = constraints.maxWidth
+        val text = remember(lines, style, room, measurer) {
+            lines.firstOrNull { measurer.measure(it, style, maxLines = 1, softWrap = false).size.width <= room } ?: lines.last()
+        }
+        Text(text, style = style.copy(textDirection = TextDirection.ContentOrLtr), color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * A place's name in [colour], and beside it, dim, the first of its lines ([WidgetWords.placeLines])
+ * that fits whole with the name: "London · 5 h 30 min behind", "London −5:30", "Pune · Here".
+ * - Where none fits, only the place's day is beside the name, as "+1" or "−1", and the name is cut
+ *   with "…" before the day is. A place on the day here then has its name alone.
+ * - The words are a text of their own after the name, so they follow it in a right-to-left page.
+ */
+@Composable
+private fun PlaceLabel(time: WidgetWords.ZoneTime, style: TextStyle = MaterialTheme.typography.labelSmall, colour: Color = lookColors().muted) {
     val muted = lookColors().muted
-    val day = if (long) time.day?.let { " · $it" } else time.dayShort?.let { " $it" }
-    Row {
-        Text(time.label, style = style, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-        if (day != null) Text(day, style = style, color = muted, maxLines = 1, softWrap = false)
+    val measurer = rememberTextMeasurer()
+    val lines = remember(time) { WidgetWords.placeLines(time) }
+    // A dot before words, a space before a number.
+    fun gapBefore(words: String) = if (words.first().isLetter()) " · " else " "
+    BoxWithConstraints {
+        val room = constraints.maxWidth
+        val words = remember(lines, time.label, style, room, measurer) {
+            fun width(text: String) = measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+            val name = width(time.label)
+            lines.firstOrNull { name + width(gapBefore(it)) + width(it) <= room }
+        } ?: time.dayShort
+        Row {
+            Text(time.label, style = style, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            if (words != null) {
+                Text(gapBefore(words), style = style, color = muted, maxLines = 1, softWrap = false)
+                Text(words, style = style.copy(textDirection = TextDirection.ContentOrLtr), color = muted, maxLines = 1, softWrap = false)
+            }
+        }
     }
 }
 

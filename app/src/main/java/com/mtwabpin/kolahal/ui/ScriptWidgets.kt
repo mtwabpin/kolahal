@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
@@ -137,6 +140,29 @@ internal fun ReportMore(text: String?) {
     val note = LocalMoreNote.current ?: return
     LaunchedEffect(note, text) { note(text) }
     DisposableEffect(note) { onDispose { note(null) } }
+}
+
+/**
+ * A button at the end of a large card's title line that the content puts there: a clock's "Now".
+ * [note] is a short text before it ("At 15:00"), and [onClick] what a tap on it does.
+ */
+internal class TitleAction(val label: String, val note: String?, val onClick: () -> Unit)
+
+/**
+ * Where a kind's content puts a [TitleAction] on a large card's title line. Null where the card
+ * has no such line: there the content has no button. Use it with [ReportTitleAction].
+ */
+internal val LocalTitleAction = compositionLocalOf<((TitleAction?) -> Unit)?> { null }
+
+/**
+ * Hands [action] (null for none) to the title line ([LocalTitleAction]). It is put there after the
+ * content is drawn, and taken back when the content leaves the card.
+ */
+@Composable
+internal fun ReportTitleAction(action: TitleAction?) {
+    val report = LocalTitleAction.current ?: return
+    LaunchedEffect(report, action) { report(action) }
+    DisposableEffect(report) { onDispose { report(null) } }
 }
 
 /** What a card shows when it has no content to draw. */
@@ -339,14 +365,25 @@ private fun CardLayout(
     // "+3 more" from the content, for the end of the title line ([LocalMoreNote]).
     var more by remember { mutableStateOf<String?>(null) }
     val setMore: (String?) -> Unit = remember { { more = it } }
+    // A button from the content for the end of a large card's title line ([LocalTitleAction]).
+    var action by remember { mutableStateOf<TitleAction?>(null) }
+    val setAction: (TitleAction?) -> Unit = remember { { action = it } }
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            TitleLine(title, spec, badge, 24.dp, type.titleSmall, colours) { val m = more; if (m != null) MoreNote(m, colours.muted) else TitleNote(spec?.base) }
+            TitleLine(title, spec, badge, 24.dp, type.titleSmall, colours) {
+                val a = action
+                val m = more
+                when {
+                    a != null -> TitleButton(a, colours, roleColour(spec?.base))
+                    m != null -> MoreNote(m, colours.muted)
+                    else -> TitleNote(spec?.base)
+                }
+            }
             // Room between the title and the content, so a list doesn't sit on the title. A 4×2 card still fits three
             // 44 dp rows: 10 + 24 + 12 + 136 + 10 = 192 dp.
             Spacer(Modifier.height(12.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                CompositionLocalProvider(LocalMoreNote provides setMore) { CardBody(spec, note, failure, box, onTap, stamp) }
+                CompositionLocalProvider(LocalMoreNote provides setMore, LocalTitleAction provides setAction) { CardBody(spec, note, failure, box, onTap, stamp) }
             }
             if (footer != null) FooterLine(footer, colours.muted, Modifier.padding(top = 4.dp))
         }
@@ -435,6 +472,28 @@ private fun BleedImageCard(title: String, spec: WidgetSpec.Image, footer: Widget
 @Composable
 private fun MoreNote(text: String, colour: Color) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = colour, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+}
+
+/**
+ * A [TitleAction] at the end of a title line: its note in the card's quiet text, and a small tonal
+ * button as a widget's buttons have: a tint of the card's [role] colour on Plain, the look's tile
+ * on Tonal, with the label in the text colour. The button is as tall as the line, and its touch
+ * area is 48 dp all the same.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun TitleButton(action: TitleAction, colours: LookColors, role: Color) {
+    action.note?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colours.muted, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp)) }
+    val container = if (LocalWidgetLook.current == WidgetLook.TONAL) colours.tile else role.copy(alpha = 0.2f)
+    FilledTonalButton(
+        onClick = action.onClick,
+        shapes = ButtonDefaults.shapes(),
+        modifier = Modifier.padding(start = 8.dp).heightIn(min = 24.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(containerColor = container, contentColor = colours.content),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+    ) {
+        Text(action.label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1, softWrap = false)
+    }
 }
 
 /** The script's note at the end of the title line ([WidgetBase.note]): "Done today", in the card's colour. */

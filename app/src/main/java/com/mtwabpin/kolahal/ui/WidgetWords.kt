@@ -239,9 +239,13 @@ internal object WidgetWords {
                 is WidgetSpec.Buttons -> spec.items.forEach { add(it.label) }
                 is WidgetSpec.Toggles -> spec.items.forEach { add(words(it.label, if (it.on) "on" else "off")) }
                 is WidgetSpec.Clock -> {
-                    // Without seconds: the words are made again by the minute.
+                    // Without seconds: the words are made again by the minute. Each place is followed
+                    // by its difference in whole words: "5 hours 30 minutes behind".
                     val format = DateTimeFormatter.ofPattern(clockPattern(clock24, seconds = false), locale)
-                    zoneTimes(spec.zones, now * 1000, zone, format).forEach { add(words(it.label, it.time, it.day)) }
+                    zoneTimes(spec.zones, now * 1000, zone, format).forEach {
+                        add(words(it.label, it.time, it.day))
+                        add(differenceSaid(it.ahead, it.here))
+                    }
                 }
                 is WidgetSpec.Agenda -> {
                     // What the card shows at this moment: an event that has ended is not said either.
@@ -346,16 +350,80 @@ internal object WidgetWords {
     }
 
     /**
-     * One place of a clock as its card writes it. [day] is "tomorrow" or "yesterday" when the day
-     * there is not the day here, and [dayShort] the same in little room: "+1" or "-1".
+     * One place of a clock as its card writes it.
+     * - [day] is "tomorrow" or "yesterday" when the day there is not the day here, and [dayShort]
+     *   the same in little room: "+1" or "−1".
+     * - [ahead] is how far the place's clocks are ahead of the phone's, in minutes. It is below 0
+     *   for a place that is behind.
+     * - [here] is true for the phone's own time zone.
      */
-    data class ZoneTime(val label: String, val time: String, val day: String?, val dayShort: String?)
+    data class ZoneTime(val label: String, val time: String, val day: String?, val dayShort: String?, val ahead: Int = 0, val here: Boolean = false)
+
+    /** What a card says under the place in the phone's own time zone. */
+    const val HERE = "Here"
+
+    /** What a card says under a place whose clocks show the phone's time. */
+    const val SAME_TIME = "Same time"
+
+    /** The minus sign of a short difference and of a day: "−5:30", "−1". */
+    private const val MINUS = "−"
+
+    /** [minutes], 1 or more, in hours and minutes: "5 h 30 min", "3 h", "45 min". */
+    private fun hoursAndMinutes(minutes: Int): String {
+        val h = minutes / 60
+        val m = minutes % 60
+        return when {
+            h == 0 -> "$m min"
+            m == 0 -> "$h h"
+            else -> "$h h $m min"
+        }
+    }
 
     /**
-     * The day of a place whose day is the day here, where a large clock gives every place its day.
-     * Elsewhere such a place says nothing about its day ([ZoneTime.day] is null).
+     * How far a place's clocks are from the phone's: "5 h 30 min behind", "3 h ahead", "Same time",
+     * or "Here" for the phone's own time zone. [ahead] is in minutes, below 0 for a place behind.
      */
-    const val SAME_DAY = "today"
+    fun difference(ahead: Int, here: Boolean): String = when {
+        here -> HERE
+        ahead == 0 -> SAME_TIME
+        ahead > 0 -> "${hoursAndMinutes(ahead)} ahead"
+        else -> "${hoursAndMinutes(-ahead)} behind"
+    }
+
+    /** [difference] in little room, as hours and minutes with a sign: "−5:30", "+3:00", "±0:00", or "Here". */
+    fun differenceShort(ahead: Int, here: Boolean): String = when {
+        here -> HERE
+        ahead == 0 -> "±0:00"
+        else -> (if (ahead > 0) "+" else MINUS) + "${abs(ahead) / 60}:" + "${abs(ahead) % 60}".padStart(2, '0')
+    }
+
+    /** [difference] for a screen reader, in whole words: "5 hours 30 minutes behind", "1 hour ahead", "same time", "here". */
+    fun differenceSaid(ahead: Int, here: Boolean): String {
+        fun count(n: Int, unit: String) = if (n == 1) "1 $unit" else "$n ${unit}s"
+        val h = abs(ahead) / 60
+        val m = abs(ahead) % 60
+        val span = listOfNotNull(count(h, "hour").takeIf { h > 0 }, count(m, "minute").takeIf { m > 0 }).joinToString(" ")
+        return when {
+            here -> "here"
+            ahead == 0 -> "same time"
+            ahead > 0 -> "$span ahead"
+            else -> "$span behind"
+        }
+    }
+
+    /**
+     * What a card writes under a place, from the longest to the shortest: its [difference], and its
+     * day when that is not the day here. A card writes the first one that fits whole.
+     * - "5 h 30 min behind", then "−5:30".
+     * - "10 h 30 min behind · Yesterday", then "−10:30 · Yesterday", then "−10:30 −1".
+     * - "Same time", then "±0:00". "Here" alone.
+     */
+    fun placeLines(time: ZoneTime): List<String> {
+        val long = difference(time.ahead, time.here)
+        val short = differenceShort(time.ahead, time.here)
+        val day = time.day?.replaceFirstChar { it.titlecase() } ?: return listOf(long, short).distinct()
+        return listOf("$long · $day", "$short · $day", "$short ${time.dayShort}")
+    }
 
     /** A place's name. Without a label it is the last part of the zone's name: "Asia/Kolkata" is "Kolkata". */
     fun zoneLabel(zone: WidgetSpec.Zone): String = zone.label ?: zone.zone.substringAfterLast('/').replace('_', ' ')
@@ -372,8 +440,8 @@ internal object WidgetWords {
 
     /**
      * The time at each of [zones] at the moment [now] (milliseconds), written with [format], and
-     * its day as seen from [here]. A zone the phone does not know is left out: the parser has
-     * refused such a zone already, so this is only a guard.
+     * its day and its difference as seen from [here]. A zone the phone does not know is left out:
+     * the parser has refused such a zone already, so this is only a guard.
      */
     fun zoneTimes(zones: List<WidgetSpec.Zone>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> =
         zoneTimesOf(places(zones), now, here, format)
@@ -382,19 +450,94 @@ internal object WidgetWords {
     fun places(zones: List<WidgetSpec.Zone>): List<Pair<WidgetSpec.Zone, ZoneId>> =
         zones.mapNotNull { zone -> runCatching { ZoneId.of(zone.zone) }.getOrNull()?.let { zone to it } }
 
-    /** [zoneTimes] for [places] whose time zones are read already ([places]). */
+    /**
+     * [zoneTimes] for [places] whose time zones are read already ([places]).
+     * - The difference is that of the two clocks at [now], so it follows summer time in both places.
+     * - A place is [ZoneTime.here] when its zone is the phone's: the same name, or the same fixed
+     *   offset ("UTC" and "GMT"). Another zone that keeps the same time has "Same time".
+     */
     fun zoneTimesOf(places: List<Pair<WidgetSpec.Zone, ZoneId>>, now: Long, here: ZoneId, format: DateTimeFormatter): List<ZoneTime> {
         val moment = Instant.ofEpochMilli(now)
-        val today = moment.atZone(here).toLocalDate()
+        val local = moment.atZone(here)
+        val today = local.toLocalDate()
+        val home = here.normalized()
         return places.map { (zone, id) ->
             val there = moment.atZone(id)
             val day = there.toLocalDate()
+            val ahead = (there.offset.totalSeconds - local.offset.totalSeconds) / 60
+            val isHere = id.normalized() == home
             when {
-                day.isAfter(today) -> ZoneTime(zoneLabel(zone), there.format(format), "tomorrow", "+1")
-                day.isBefore(today) -> ZoneTime(zoneLabel(zone), there.format(format), "yesterday", "-1")
-                else -> ZoneTime(zoneLabel(zone), there.format(format), null, null)
+                day.isAfter(today) -> ZoneTime(zoneLabel(zone), there.format(format), "tomorrow", "+1", ahead, isHere)
+                day.isBefore(today) -> ZoneTime(zoneLabel(zone), there.format(format), "yesterday", "${MINUS}1", ahead, isHere)
+                else -> ZoneTime(zoneLabel(zone), there.format(format), null, null, ahead, isHere)
             }
         }
+    }
+
+    /** The part of a day that a time of day is in, by fixed hours: no sunrise or sunset. */
+    enum class DayPart { NIGHT, DAY, WORK }
+
+    /** The part of the day at [minute] (0 to 1439): night before 06:00 and from 22:00, working hours from 09:00 to 18:00, day the rest. */
+    fun dayPart(minute: Int): DayPart = when (minute) {
+        in 9 * 60 until 18 * 60 -> DayPart.WORK
+        in 6 * 60 until 22 * 60 -> DayPart.DAY
+        else -> DayPart.NIGHT
+    }
+
+    /** A stretch of a day strip in one [part]: [from] and [to] are parts of the strip's length, from 0 to 1. */
+    data class Stretch(val from: Float, val to: Float, val part: DayPart)
+
+    /** A strip is read every quarter hour: every time zone is a whole number of quarter hours from another. */
+    private const val QUARTERS = 96
+
+    /**
+     * The day strip of a place in [zone]: the phone's [day] from 00:00 to 24:00 by the clock in
+     * [here], in stretches by the time of day at the place ([dayPart]). A summer-time change in
+     * either place moves the stretches as the clocks move.
+     */
+    fun dayStrip(day: LocalDate, here: ZoneId, zone: ZoneId): List<Stretch> {
+        val start = day.atStartOfDay()
+        val parts = List(QUARTERS) { q ->
+            val there = start.plusMinutes(q * 15L).atZone(here).withZoneSameInstant(zone)
+            dayPart(there.hour * 60 + there.minute)
+        }
+        val out = ArrayList<Stretch>()
+        var from = 0
+        for (q in 1..QUARTERS) {
+            if (q == QUARTERS || parts[q] != parts[from]) {
+                out += Stretch(from / QUARTERS.toFloat(), q / QUARTERS.toFloat(), parts[from])
+                from = q
+            }
+        }
+        return out
+    }
+
+    /**
+     * The hour that a tap at [x] on a day strip [width] wide picks: the nearest one, from 0 (00:00)
+     * to 24 (the end of the day). With [rtl] the strip runs from the right, as the page reads.
+     */
+    fun hourAt(x: Float, width: Float, rtl: Boolean): Int {
+        if (width <= 0f || x.isNaN()) return 0
+        val along = (x / width).coerceIn(0f, 1f)
+        return ((if (rtl) 1f - along else along) * 24).roundToInt()
+    }
+
+    /** The moment of [hour] (0 to 24) on [day] in [here], in milliseconds. Hour 24 is 00:00 of the next day. */
+    fun hourMoment(day: LocalDate, hour: Int, here: ZoneId): Long =
+        day.atStartOfDay().plusHours(hour.coerceIn(0, 24).toLong()).atZone(here).toInstant().toEpochMilli()
+
+    /** Where the moment [at] (milliseconds) is on the day strip of [day] in [here], by the clock: 0 at 00:00, 1 at 24:00. */
+    fun stripAt(at: Long, day: LocalDate, here: ZoneId): Float {
+        val t = Instant.ofEpochMilli(at).atZone(here)
+        val days = java.time.temporal.ChronoUnit.DAYS.between(day, t.toLocalDate())
+        return ((days * 1440 + t.hour * 60 + t.minute) / 1440f).coerceIn(0f, 1f)
+    }
+
+    /** The hours written under a day strip: "00", "06", "12", "18" and "24", or "12 AM" to "12 AM" in 12-hour form. */
+    fun hourMarks(clock24: Boolean, locale: Locale = Locale.getDefault()): List<String> {
+        if (clock24) return listOf("00", "06", "12", "18", "24")
+        val format = DateTimeFormatter.ofPattern("h a", locale)
+        return listOf(0, 6, 12, 18, 0).map { java.time.LocalTime.of(it, 0).format(format) }
     }
 
     /** A digit is about this much of its font size wide. */
@@ -423,8 +566,12 @@ internal object WidgetWords {
     /** A row of a clock in a large box is at least this tall, in dp. */
     const val CLOCK_ROW_DP = 28
 
-    /** How many of [count] places a large box [heightDp] tall shows as rows, with [gapDp] between two. */
-    fun clockRows(count: Int, heightDp: Int, gapDp: Int = 0): Int = ((heightDp + gapDp) / (CLOCK_ROW_DP + gapDp)).coerceIn(1, maxOf(1, count))
+    /**
+     * How many of [count] places a large box [heightDp] tall shows as rows, with [gapDp] between two.
+     * A row is [rowDp] tall at least.
+     */
+    fun clockRows(count: Int, heightDp: Int, gapDp: Int = 0, rowDp: Int = CLOCK_ROW_DP): Int =
+        ((heightDp + gapDp) / (maxOf(1, rowDp) + gapDp)).coerceIn(1, maxOf(1, count))
 
     /** What an agenda says with no event to show, when its description has no `empty` text. */
     const val NO_EVENTS = "No events"
