@@ -106,7 +106,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
         WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
             val line = with(LocalDensity.current) { type.titleLarge.lineHeight.toDp() }
             // Beside the words, the dots keep their room: seven days of 12 to 24 dp each. The words give way first.
-            val dotsWidth = min(maxWidth * 0.6f, DotCalendar.DAYS * 24.dp).coerceAtLeast(DotCalendar.DAYS * 12.dp)
+            val dotsWidth = min(maxWidth * 0.6f, 24.dp * DotCalendar.DAYS).coerceAtLeast(12.dp * DotCalendar.DAYS)
             if (!words || maxHeight - line >= STRIP_MIN) {
                 Column(Modifier.fillMaxSize()) {
                     if (words) ValueLine(value, label, type.titleLarge, type.bodySmall, muted)
