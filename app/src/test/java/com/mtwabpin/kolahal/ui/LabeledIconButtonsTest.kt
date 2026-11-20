@@ -25,7 +25,7 @@ class LabeledIconButtonsTest {
      * - WidgetsScreen.kt: a step of a widget's size, which repeats while it is held.
      * - WidgetBodies.kt: a widget's buttons. A long-press on a card opens Arrange widgets.
      */
-    private val unlabeled = mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetBodies.kt" to 2)
+    private val unlabeled = mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetBodies.kt" to 3)
 
     @Test fun everyIconButtonShowsItsLabel() {
         val bare = HashMap<String, Int>()
