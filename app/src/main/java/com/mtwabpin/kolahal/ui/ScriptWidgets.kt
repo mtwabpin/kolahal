@@ -287,8 +287,7 @@ internal fun WidgetCard(
                         // A card with a note draws no content, so it has its title line. Bold, Split and Shape have none.
                         val shown = spec.takeIf { note == null }
                         val titled = !look.untitled() && when (box) {
-                            // Inside the large card's padding, 16 dp each side.
-                            WidgetSizes.Box.LARGE -> WidgetWords.largeTitle(shown, widthDp - 32)
+                            WidgetSizes.Box.LARGE -> true
                             else -> WidgetWords.wideTitle(shown, heightDp, footer = footer != null)
                         }
                         // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
@@ -336,9 +335,9 @@ private fun ShapedCard(title: String, spec: WidgetSpec, polygon: RoundedPolygon,
 }
 
 /**
- * The title, the badge, the content and the footer, placed for [box]. [titled] says whether a
- * wide box has its title line ([WidgetWords.wideTitle]), and whether a large one has
- * ([WidgetWords.largeTitle]).
+ * The title, the badge, the content and the footer, placed for [box]. [titled] says whether the
+ * card has its title line: a wide box by [WidgetWords.wideTitle], a large one always, in a look
+ * that has one.
  * - The title line starts with the badge: [badge] (a drawable), or the content's icon, or the
  *   first letter of the title ([WidgetWords.badgeLetter]). It is 24 dp in a large card and 20 dp
  *   in a wide one. A small card has no title line, so no badge.

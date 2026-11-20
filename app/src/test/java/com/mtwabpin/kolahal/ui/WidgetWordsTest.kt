@@ -505,29 +505,6 @@ class WidgetWordsTest {
         assertFalse("nothing playing", WidgetWords.mediaSeeks(song.copy(canSeek = true, lastPlayed = true)))
     }
 
-    /** The cover takes its room from the texts, never a button, and the texts keep 96 dp. */
-    @Test fun aCoverFitsWhereTheTextsKeepTheirRoom() {
-        // 4×1 on a page 395 dp wide: three buttons, the 16 dp more for play or pause, and 187 dp of text.
-        assertEquals(187, WidgetWords.mediaTextDp(363, count = 3, playDp = WidgetWords.mediaPlayDp(363, besideText = true, count = 3)))
-        assertTrue(WidgetWords.mediaCoverFits(187))
-        // 4×1 on a page 344 dp wide: 136 dp of text would keep only 68.
-        assertEquals(136, WidgetWords.mediaTextDp(312, count = 3, playDp = WidgetWords.mediaPlayDp(312, besideText = true, count = 3)))
-        assertFalse(WidgetWords.mediaCoverFits(136))
-        // The edge: 56 dp of cover, 12 after it, and 96 of text.
-        assertTrue(WidgetWords.mediaCoverFits(164))
-        assertFalse(WidgetWords.mediaCoverFits(163))
-        // 2×1 has play or pause alone, and no room.
-        assertFalse(WidgetWords.mediaCoverFits(WidgetWords.mediaTextDp(161, count = 1, playDp = WidgetWords.mediaPlayDp(161, besideText = true, count = 1))))
-    }
-
-    /** A large media card with no cover keeps its title line. Any other large card has one. */
-    @Test fun aLargeCardHasItsTitleLine() {
-        assertTrue(WidgetWords.largeTitle(song, 363))
-        assertTrue(WidgetWords.largeTitle(song.copy(lastPlayed = true), 363))
-        assertTrue(WidgetWords.largeTitle(WidgetSpec.Stat(base, value = "1"), 363))
-        assertTrue(WidgetWords.largeTitle(null, 363))
-    }
-
     private fun event(title: String, starts: Long, ends: Long? = null, allDay: Boolean = false, where: String? = null) =
         WidgetSpec.Event(title, starts, ends, allDay, where)
 

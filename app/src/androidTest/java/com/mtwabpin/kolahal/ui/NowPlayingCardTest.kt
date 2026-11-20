@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -224,10 +225,10 @@ class NowPlayingCardTest {
     }
 
     /**
-     * The player's art is the card's cover. On a 4×2 card it takes the badge's place, with the track
-     * beside it, and the title line goes. Without art the badge and the title line stay.
+     * The player's art is the face of play or pause, under its icon, and the card keeps its title
+     * line. Without art the button keeps its colour.
      */
-    @Test fun theCoverTakesTheBadgesPlace() {
+    @Test fun theArtFillsPlayOrPause() {
         playing.value = track(canSeek = true)
         show(Asked())
         compose.waitForNode(inCard and hasText("Gymnopédie No. 1"))
@@ -236,14 +237,20 @@ class NowPlayingCardTest {
 
         playing.value = track(canSeek = true, cover = art())
         compose.waitFor("no cover is drawn") { covers() == 1 }
-        compose.onAllNodes(inCard and hasText("Now playing")).assertCountEquals(0)
+        // The track is paused: the art is under Play's icon.
+        compose.onNode(hasTestTag("media-cover") and hasAnyDescendant(hasContentDescription("Play")), useUnmergedTree = true).assertExists()
+        compose.onNode(inCard and hasText("Now playing")).assertExists()
         compose.onNode(inCard and hasText("Gymnopédie No. 1")).assertExists()
         compose.onNode(seekBar).assert(says("1:12 of 3:05"))
     }
 
+    /** The bars the card draws with nothing to seek: [MediaBar]'s plain bar. */
+    private fun bars(): Int = compose.onAllNodes(hasTestTag("media-bar"), useUnmergedTree = true).fetchSemanticsNodes().size
+
     /**
-     * Each look of the card draws the track and its Play, with a cover and a bar that seeks, and
-     * with nothing playing. A card taller than one row has the slider in every look; one row has none.
+     * Each look of the card, at each size, draws the track and its Play, with the art in Play, and
+     * with nothing playing. Wherever it draws the bar, the bar seeks for a player that can: one row
+     * has the slim slider, a taller card the 48 dp one.
      */
     @Test fun everyLookDrawsTheNewParts() {
         show(Asked())
@@ -251,17 +258,25 @@ class NowPlayingCardTest {
         for (l in listOf(WidgetLook.PLAIN, WidgetLook.TONAL, WidgetLook.SPLIT, WidgetLook.SHAPE)) {
             for (s in listOf(395.dp to 192.dp, 395.dp to 120.dp, 395.dp to 92.dp, 193.dp to 92.dp)) {
                 val where = "${l.id}, ${s.first} by ${s.second}"
+                // A player that can't seek: the bars this look draws at this size.
                 compose.runOnIdle {
                     look = l
                     size = s
                     last.value = null
-                    playing.value = track(canSeek = true, cover = art)
+                    playing.value = track(canSeek = false)
                 }
                 compose.waitForNode(inCard and hasText("Gymnopédie No. 1"))
+                compose.waitForIdle()
+                val drawn = bars()
+                if (s.second > 100.dp) assertEquals(where, 1, drawn)
+
+                compose.runOnIdle { playing.value = track(canSeek = true, cover = art) }
+                compose.waitFor("$where: no art is drawn") { covers() == 1 }
                 compose.onAllNodes(inCard and hasContentDescription("Play")).assertCountEquals(1)
-                val tall = s.second > 100.dp
-                assertEquals(where, if (tall) 1 else 0, compose.onAllNodes(seekBar).fetchSemanticsNodes().size)
-                if (tall) compose.onNode(seekBar).assert(says("1:12 of 3:05"))
+                // Each of those bars now seeks, and says where the track is.
+                assertEquals(where, drawn, compose.onAllNodes(seekBar).fetchSemanticsNodes().size)
+                assertEquals(where, 0, bars())
+                if (drawn > 0) compose.onNode(seekBar).assert(says("1:12 of 3:05"))
 
                 compose.runOnIdle {
                     playing.value = null

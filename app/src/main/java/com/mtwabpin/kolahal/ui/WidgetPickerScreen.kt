@@ -177,7 +177,7 @@ private fun builtinRow(id: String, size: WidgetSize, words: String): PickerBuilt
 internal val pickerBuiltinRows: List<PickerBuiltinRow> = listOf(
     builtinRow(WidgetSource.BATTERY, WidgetSize.S2X1, "charging wi-fi"),
     builtinRow(WidgetSource.SHORTCUTS, WidgetSize.S4X1, "buttons commands quick"),
-    builtinRow(WidgetSource.MEDIA, WidgetSize.S4X2, "media music player song"),
+    builtinRow(WidgetSource.MEDIA, WidgetSize.S4X1, "media music player song"),
     builtinRow(WidgetSource.TODOS, WidgetSize.S4X2, "todo to-do tasks checklist"),
     builtinRow(WidgetSource.AGENDA, WidgetSize.S4X2, "calendar events"),
     builtinRow(WidgetSource.REMINDERS, WidgetSize.S2X2, "remind alarm"),

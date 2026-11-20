@@ -109,8 +109,8 @@ data class LastPlayer(val pkg: String, val app: String, val title: String? = nul
  *   it. Only that small copy is kept, one for each session, and never on disk.
  */
 internal object Covers {
-    /** The cover's side on the card, in dp. */
-    const val COVER_DP = 56
+    /** The cover's side, in dp: a little more than the largest play or pause it fills, Shape's cookie of up to 104 dp. */
+    const val COVER_DP = 128
 
     /** The middle square of a picture [width] by [height]: its start across, its start down, and its side. */
     fun square(width: Int, height: Int): Triple<Int, Int, Int> {

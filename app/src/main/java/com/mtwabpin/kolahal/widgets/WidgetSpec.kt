@@ -49,7 +49,7 @@ enum class WidgetKind(val id: String, val size: WidgetSize, val script: Boolean 
     IMAGE("image", WidgetSize.S2X2),
 
     /** What is playing. A script can't see that and may not send media commands, so only Kolahal fills it. */
-    MEDIA("media", WidgetSize.S4X2, script = false);
+    MEDIA("media", WidgetSize.S4X1, script = false);
 
     /**
      * The sizes this kind is drawn well at (docs/widgets-design.org, the catalog). A card draws for any

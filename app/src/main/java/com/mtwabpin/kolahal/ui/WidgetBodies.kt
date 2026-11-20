@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -70,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
@@ -79,6 +79,7 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -96,6 +97,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -114,6 +116,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -412,10 +415,11 @@ private val PLAY_MORPH: Morph by lazy { Morph(MaterialShapes.Cookie9Sided, Mater
  * Fills the space behind with [morph] at [progress] (0 its first shape, 1 its second), centred and
  * stretched to the size, as `toShape` draws a Material shape. The colour goes from [from] to [to]
  * with it. The progress is read while drawing: a morph that runs draws again and composes nothing,
- * and the path is made again only when the progress or the size has changed.
+ * and the path is made again only when the progress or the size has changed. With an [image], the
+ * shape is the square picture stretched to the size and darkened ([ART_SCRIM]), not the colour.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private fun Modifier.morphFill(morph: Morph, from: Color, to: Color = from, progress: () -> Float): Modifier = drawWithCache {
+private fun Modifier.morphFill(morph: Morph, from: Color, to: Color = from, image: ImageBitmap? = null, progress: () -> Float): Modifier = drawWithCache {
     val path = Path()
     val stretch = Matrix().apply { scale(size.width, size.height) }
     var made = Float.NaN
@@ -427,7 +431,14 @@ private fun Modifier.morphFill(morph: Morph, from: Color, to: Color = from, prog
             path.translate(size.center - path.getBounds().center)
             made = p
         }
-        drawPath(path, if (from == to) from else lerp(from, to, p.coerceIn(0f, 1f)))
+        if (image == null) {
+            drawPath(path, if (from == to) from else lerp(from, to, p.coerceIn(0f, 1f)))
+        } else {
+            clipPath(path) {
+                drawImage(image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
+                drawRect(ART_SCRIM)
+            }
+        }
     }
 }
 
@@ -1987,12 +1998,20 @@ private fun buttonCount(spec: WidgetSpec.Media, widthDp: Int, besideText: Boolea
 private val MEDIA_BAR_FROM = 104.dp
 private val MEDIA_TIMES_FROM = 122.dp
 
-/** The cover's side ([WidgetWords.MEDIA_COVER_DP]), and the room after it. */
-private val COVER = WidgetWords.MEDIA_COVER_DP.dp
-private val COVER_GAP = WidgetWords.MEDIA_COVER_GAP_DP.dp
+/** Over the track's cover on play or pause ([ArtFace]): dark enough for the white icon on any picture. */
+private val ART_SCRIM = Color.Black.copy(alpha = 0.35f)
 
 /** A bar that moves the track is this tall ([SeekBar]), so a finger finds it. */
 private val SEEK_HEIGHT = 48.dp
+
+/**
+ * The slim slider ([MediaBar]), where a card has no room for [SEEK_HEIGHT]: the bar's place and a
+ * little room each side of it, 10 dp more than the bar it replaces. Only this band takes touches.
+ */
+private val SEEK_SLIM = 20.dp
+
+/** The slim slider's handle, which fits its band. */
+private val SEEK_SLIM_HANDLE = DpSize(4.dp, 14.dp)
 
 /**
  * The room a slider needs where it is drawn: its height, less the pixel or two that rounding can
@@ -2014,12 +2033,11 @@ private const val SEEK_HOLD_MS = 3_000L
  * - Small: play or pause alone.
  * - Wide: the title in bold, the artist and the app, with a bar for the position under them, and the
  *   buttons at the end. A narrow box has fewer buttons, never smaller ones ([WidgetWords.mediaButtons]).
- *   Play or pause is wider than the others where there is room. The cover goes before the texts
- *   where they keep their room ([WidgetWords.mediaCoverFits]).
- * - Large: the same in rows, with the position and the length under the bar. A cover heads the
- *   card with the track beside it, in place of the title line ([WidgetWords.largeTitle]).
- * - Where the player can seek and the box has room, the bar is a slider ([SeekBar]): in a card
- *   taller than one row. One row has no room for it under the texts.
+ *   Play or pause is wider than the others where there is room.
+ * - Large: the same in rows, with the position and the length under the bar.
+ * - The track's cover, when the player gives one, fills play or pause ([ArtFace]).
+ * - Where the player can seek, the bar is a slider wherever it shows: [SeekBar] where the card has
+ *   room for its 48 dp, else a slim one in the bar's place ([MediaBar]).
  * - With nothing playing ([WidgetSpec.Media.lastPlayed]): "Last played" over the last track, and
  *   Play alone, which hands `resume` over. A large card has Play with its word, at the start.
  * - The three buttons hand `prev`, `toggle` and `next` to [onTap]. A tap elsewhere is the card's.
@@ -2061,41 +2079,35 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
         if (box == WidgetSizes.Box.WIDE) {
             val count = buttonCount(spec, width, besideText = true)
             val playDp = WidgetWords.mediaPlayDp(width, besideText = true, count)
-            val cover = spec.cover?.takeIf { WidgetWords.mediaCoverFits(WidgetWords.mediaTextDp(width, count, playDp)) }
             val texts = linesHeight(type.titleSmall) + lineHeight
-            // A card one row tall has no room for a slider under the texts: one made taller has.
+            // A card one row tall has no room for the 48 dp slider under the texts, so it has the slim one.
             val seeks = seek != null && fraction != null && onTap != null && tall >= texts + SEEK_ROOM
-            // The buttons and the cover are measured first, so the texts get what is left and are cut, not the buttons.
+            // The buttons are measured first, so the texts get what is left and are cut, not the buttons.
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                if (cover != null) Cover(cover, minOf(tall, COVER), Modifier.padding(end = COVER_GAP))
                 Column(Modifier.weight(1f)) {
                     if (spec.lastPlayed && tall >= labelHeight + texts) LastPlayed(muted)
                     Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, colour, onTap)
-                    else if (fraction != null && tall >= TWO_LINES) LevelBar(fraction, moving = spec.playing, colour, Modifier.padding(top = 4.dp))
+                    else if (fraction != null && tall >= TWO_LINES) MediaBar(spec, fraction, seek, colour, onTap, top = 4.dp)
                 }
                 Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
                 MediaButtons(count, playDp, spec, onTap, colour)
             }
         } else {
-            val cover = spec.cover?.takeIf { WidgetWords.mediaCoverFits(width) }
             // "Last played" over the track while it leaves room for Play under them, also with a large font.
             val label = spec.lastPlayed && tall >= labelHeight + linesHeight(type.titleMedium) + lineHeight + CONTROL_MIN + 4.dp
             val texts = (if (label) labelHeight else 0.dp) + linesHeight(type.titleMedium) + lineHeight
-            val head = if (cover != null) maxOf(COVER, texts) else texts
             // The slider over the buttons, each 48 dp tall, only where both fit under the track. The
             // times go along the slider's foot, or under it with a large font.
-            val seeks = seek != null && fraction != null && onTap != null && tall >= head + SEEK_ROOM + CONTROL_MIN
+            val seeks = seek != null && fraction != null && onTap != null && tall >= texts + SEEK_ROOM + CONTROL_MIN
             val timesAlong = labelHeight <= SEEK_FOOT
-            val timesUnder = seeks && !timesAlong && tall >= head + SEEK_ROOM + labelHeight + CONTROL_MIN
+            val timesUnder = seeks && !timesAlong && tall >= texts + SEEK_ROOM + labelHeight + CONTROL_MIN
             Column(Modifier.fillMaxSize()) {
                 Column(Modifier.weight(1f).fillMaxWidth()) {
-                    CoverBeside(cover) {
-                        if (label) LastPlayed(muted)
-                        Text(title, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+                    if (label) LastPlayed(muted)
+                    Text(title, style = type.titleMedium.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (seek != null && fraction != null && onTap != null && seeks) {
                         val times: @Composable () -> Unit = { MediaTimes(spec, now, seek) }
                         Spacer(Modifier.weight(1f))
@@ -2103,8 +2115,9 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                         if (timesUnder) times()
                     } else if (fraction != null && tall >= MEDIA_BAR_FROM) {
                         Spacer(Modifier.weight(1f))
-                        LevelBar(fraction, moving = spec.playing, colour)
-                        if (tall >= MEDIA_TIMES_FROM) MediaTimes(spec, now, null)
+                        MediaBar(spec, fraction, seek, colour, onTap)
+                        // The slim slider is 10 dp taller than the bar: the times need that much more.
+                        if (tall >= MEDIA_TIMES_FROM + (if (seek != null) SEEK_SLIM - 10.dp else 0.dp)) MediaTimes(spec, now, seek)
                     }
                 }
                 if (spec.lastPlayed) {
@@ -2129,31 +2142,18 @@ private fun linesHeight(vararg styles: TextStyle): Dp {
 }
 
 /**
- * The track's cover ([WidgetSpec.Media.cover]), [side] across, cut to the cookie the mockup draws.
- * The card's description says the track, so the picture is no item for a screen reader.
+ * The track's cover ([WidgetSpec.Media.cover]) as the face of play or pause ([MediaButton]): the
+ * whole button, which cuts it to its shape as it cuts any content, darkened ([ART_SCRIM]) under its
+ * [icon], which is white. The card's description says the track, so the picture is no item for a
+ * screen reader.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun Cover(cover: Bitmap, side: Dp, modifier: Modifier = Modifier) {
+private fun ArtFace(cover: Bitmap, icon: @Composable () -> Unit) {
     val image = remember(cover) { cover.asImageBitmap() }
-    Image(
-        image,
-        contentDescription = null,
-        modifier = modifier.size(side).clip(MaterialShapes.Cookie9Sided.toShape()).testTag("media-cover"),
-        contentScale = ContentScale.Crop,
-    )
-}
-
-/** The track's texts, [content], with the [cover] before them when there is one. */
-@Composable
-private fun CoverBeside(cover: Bitmap?, content: @Composable ColumnScope.() -> Unit) {
-    if (cover == null) {
-        Column(content = content)
-        return
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Cover(cover, COVER, Modifier.padding(end = COVER_GAP))
-        Column(Modifier.weight(1f), content = content)
+    Box(Modifier.fillMaxSize().testTag("media-cover"), contentAlignment = Alignment.Center) {
+        Image(image, contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        Box(Modifier.matchParentSize().background(ART_SCRIM))
+        CompositionLocalProvider(LocalContentColor provides Color.White) { icon() }
     }
 }
 
@@ -2172,7 +2172,7 @@ private fun LastPlayed(colour: Color) {
 private fun MediaButtons(count: Int, playDp: Int, spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?, role: Color) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (count >= 3) MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, role, mirrored = true)
-        MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, widthDp = playDp, strong = true)
+        MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, widthDp = playDp, strong = true, art = spec.cover)
         if (count >= 2) MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap, role)
     }
 }
@@ -2189,6 +2189,7 @@ private fun playWord(playing: Boolean) = if (playing) "Pause" else "Play"
  * - With a null [onTap] it takes no tap, and looks as it does on the page.
  * - Tonal and Split: play or pause is in the card's [role] colour, the others on the look's tile.
  *   Shape: the others are on the theme's highest surface. A [tile] shape makes it one of Split's tiles.
+ * - [art]: the track's cover, the face of a [strong] button ([ArtFace]).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2203,12 +2204,14 @@ private fun MediaButton(
     mirrored: Boolean = false,
     size: Modifier? = null,
     tile: Shape? = null,
+    art: Bitmap? = null,
 ) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val onClick = { press.click { onTap?.invoke(tap) } }
     val modifier = size ?: Modifier.size(width = widthDp.dp, height = WidgetWords.CONTROL_DP.dp)
-    val drawn: @Composable () -> Unit = { Icon(painterResource(icon), said, if (mirrored) Modifier.scale(scaleX = -1f, scaleY = 1f) else Modifier) }
+    val glyph: @Composable () -> Unit = { Icon(painterResource(icon), said, if (mirrored) Modifier.scale(scaleX = -1f, scaleY = 1f) else Modifier) }
+    val drawn: @Composable () -> Unit = if (strong && art != null) { { ArtFace(art, glyph) } } else glyph
     val look = LocalWidgetLook.current
     val looks = lookColors(look, role)
     val own = look == WidgetLook.TONAL || look == WidgetLook.SPLIT || look == WidgetLook.SHAPE
@@ -2295,6 +2298,8 @@ private fun rememberSeek(spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?):
  *   stays at that place until the player answers ([Seek.held]). A tap on it moves the track there too.
  * - A screen reader hears a slider at "1:12 of 3:05", the place the times show, which it can move.
  * - [under] is drawn along its foot, under the bar: the times.
+ * - [slim]: [SEEK_SLIM] tall with a shorter handle, in the bar's place on a card with no room for
+ *   48 dp ([MediaBar]). Only its band takes touches, so the texts over it stay the card's.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2306,6 +2311,7 @@ private fun SeekBar(
     onTap: (WidgetTap) -> Unit,
     modifier: Modifier = Modifier,
     under: (@Composable () -> Unit)? = null,
+    slim: Boolean = false,
 ) {
     val slider = seek.slider
     // Where the player is, or the place chosen, while no finger moves it. Material's own slider sets its value so.
@@ -2318,27 +2324,49 @@ private fun SeekBar(
     val now = rememberMillis(seconds = spec.playing && spec.duration > 0)
     val colors = SliderDefaults.colors(thumbColor = role)
     val duration = spec.duration
-    Box(modifier.fillMaxWidth().height(SEEK_HEIGHT)) {
-        Slider(
-            state = slider,
-            onValueChange = { if (!press.held) slider.value = it },
-            onValueChangeFinished = {
-                press.click {
-                    seek.held = slider.value
-                    onTap(WidgetTap(args = WidgetWords.mediaSeek(WidgetWords.seekTarget(slider.value, duration))))
-                }
-            },
-            // An item of its own inside the card, which says where the track is.
-            modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) {
-                stateDescription = "${WidgetWords.mediaTime(positionAt(spec, now.value, seek))} of ${WidgetWords.mediaTime(duration)}"
-            },
-            colors = colors,
-            interactionSource = source,
-            thumb = { SliderDefaults.Thumb(source, isVertical = false, colors = colors, thumbSize = SEEK_HANDLE) },
-            track = { LevelBar({ slider.value }, moving = spec.playing, role) },
-        )
-        if (under != null) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth()) { under() }
+    // Compose widens the touches of a band under 48 dp to 48: over the texts above a slim one, which are the card's.
+    val config = LocalViewConfiguration.current
+    val touches = remember(config, slim) { if (slim) ExactTouches(config) else config }
+    val band = if (slim) Modifier.height(SEEK_SLIM).clipToBounds() else Modifier.height(SEEK_HEIGHT)
+    CompositionLocalProvider(LocalViewConfiguration provides touches) {
+        Box(modifier.fillMaxWidth().then(band)) {
+            Slider(
+                state = slider,
+                onValueChange = { if (!press.held) slider.value = it },
+                onValueChangeFinished = {
+                    press.click {
+                        seek.held = slider.value
+                        onTap(WidgetTap(args = WidgetWords.mediaSeek(WidgetWords.seekTarget(slider.value, duration))))
+                    }
+                },
+                // An item of its own inside the card, which says where the track is.
+                modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) {
+                    stateDescription = "${WidgetWords.mediaTime(positionAt(spec, now.value, seek))} of ${WidgetWords.mediaTime(duration)}"
+                },
+                colors = colors,
+                interactionSource = source,
+                thumb = { SliderDefaults.Thumb(source, isVertical = false, colors = colors, thumbSize = if (slim) SEEK_SLIM_HANDLE else SEEK_HANDLE) },
+                track = { LevelBar({ slider.value }, moving = spec.playing, role) },
+            )
+            if (under != null) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth()) { under() }
+        }
     }
+}
+
+/** [config], with no touch target larger than a node's own bounds: for the slim slider's band ([SeekBar]). */
+private class ExactTouches(config: ViewConfiguration) : ViewConfiguration by config {
+    override val minimumTouchTargetSize: DpSize get() = DpSize.Zero
+}
+
+/**
+ * The media bar where a card has no room for [SeekBar]'s 48 dp. Where the player can seek ([seek]),
+ * a slim slider in the bar's place, so the bar seeks wherever it shows; else the bar, [top] under
+ * what is over it.
+ */
+@Composable
+private fun MediaBar(spec: WidgetSpec.Media, fraction: Float, seek: Seek?, role: Color, onTap: ((WidgetTap) -> Unit)?, top: Dp = 0.dp) {
+    if (seek != null && onTap != null) SeekBar(spec, fraction, seek, role, onTap, slim = true)
+    else Box(Modifier.padding(top = top).testTag("media-bar")) { LevelBar(fraction, moving = spec.playing, role) }
 }
 
 /** Where the track is at [now], in milliseconds, or where a finger put it on the bar ([Seek.chosen]). */
@@ -2376,12 +2404,12 @@ private val SPLIT_MEDIA_ROW = 56.dp
  * Split's media card.
  * - Large: a tile with the card's title and the position at its top, the song and the artist, and
  *   the bar at its foot; under it a row of three tiles: previous, play or pause (wider, in the
- *   card's [role] colour) and next. A cover goes before the title, the song and the artist. Where
- *   the player can seek and the tile has room, the bar is a slider ([SeekBar]) down to the tile's edge.
- * - Wide: the song's tile at the start and the button tiles beside it, as many as fit. A cover goes
- *   at the start of the song's tile where the texts keep their room. A card taller than one row
- *   has the slider under the texts.
+ *   card's [role] colour) and next.
+ * - Wide: the song's tile at the start, with the bar under the texts, and the button tiles beside
+ *   it, as many as fit.
  * - Small: play or pause is the whole card.
+ * - The track's cover fills play or pause's tile ([ArtFace]). Where the player can seek, the bar is
+ *   a slider: down to the tile's edge where the tile has room ([SeekBar]), else slim ([MediaBar]).
  * - With nothing playing, "Last played" is where the position is, or over the song, and Play is
  *   the one button tile.
  */
@@ -2391,7 +2419,7 @@ private fun SplitMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
     val looks = lookColors(WidgetLook.SPLIT, role)
     val gap = SplitCorners.GAP
     if (box == WidgetSizes.Box.SMALL) {
-        MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, strong = true, size = Modifier.fillMaxSize(), tile = SplitCorners.inColumn(0, 1))
+        MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, strong = true, size = Modifier.fillMaxSize(), tile = SplitCorners.inColumn(0, 1), art = spec.cover)
         return
     }
     val title = WidgetWords.mediaTitle(spec)
@@ -2407,47 +2435,40 @@ private fun SplitMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
         if (box == WidgetSizes.Box.WIDE) {
             val count = buttonCount(spec, maxWidth.value.toInt(), besideText = true)
             val tiles = count + 1
-            // The song's tile has what the button tiles leave, and 16 dp inside each side.
-            val buttons = (if (count >= 3) 56.dp else 0.dp) + 72.dp + (if (count >= 2) 56.dp else 0.dp) + gap * count
-            val cover = spec.cover?.takeIf { WidgetWords.mediaCoverFits((maxWidth - buttons - 32.dp).value.toInt()) }
             val texts = linesHeight(type.titleSmall) + lineHeight
-            // The tile reaches the card's edges: a slider fits under the texts in a card made taller than one row.
+            // The tile reaches the card's edges: the 48 dp slider fits under the texts in a card made taller than one row, the slim one in one row.
             val seeks = seek != null && fraction != null && onTap != null && boxHeight >= texts + SEEK_ROOM + 16.dp
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                 Row(
                     Modifier.weight(1f).fillMaxHeight().clip(SplitCorners.inRow(0, tiles)).background(looks.tile).padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (cover != null) Cover(cover, minOf(boxHeight - 16.dp, COVER), Modifier.padding(end = COVER_GAP))
                     Column(Modifier.weight(1f)) {
                         if (spec.lastPlayed && boxHeight >= labelHeight + texts + 16.dp) LastPlayed(looks.muted)
                         Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, role, onTap)
-                        else if (fraction != null && boxHeight >= TWO_LINES + 16.dp) LevelBar(fraction, moving = spec.playing, role, Modifier.padding(top = 6.dp))
+                        else if (fraction != null && boxHeight >= TWO_LINES + 16.dp) MediaBar(spec, fraction, seek, role, onTap, top = 6.dp)
                     }
                 }
                 var at = 1
                 if (count >= 3) MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, role, mirrored = true, size = Modifier.width(56.dp).fillMaxHeight(), tile = SplitCorners.inRow(at++, tiles))
-                MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, strong = true, size = Modifier.width(72.dp).fillMaxHeight(), tile = SplitCorners.inRow(at++, tiles))
+                MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, strong = true, size = Modifier.width(72.dp).fillMaxHeight(), tile = SplitCorners.inRow(at++, tiles), art = spec.cover)
                 if (count >= 2) MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap, role, size = Modifier.width(56.dp).fillMaxHeight(), tile = SplitCorners.inRow(at, tiles))
             }
             return@BoxWithConstraints
         }
         val count = buttonCount(spec, maxWidth.value.toInt(), besideText = false)
-        // Inside the tile's 18 dp each side.
-        val cover = spec.cover?.takeIf { WidgetWords.mediaCoverFits((maxWidth - 36.dp).value.toInt()) }
-        // The top line, the song 4 dp under it, and the artist: beside the cover when there is one.
+        // The top line, the song 4 dp under it, and the artist.
         val texts = labelHeight + 4.dp + linesHeight(type.titleMedium) + lineHeight
-        val head = if (cover != null) maxOf(COVER, texts) else texts
         // The slider takes the tile's bottom padding, 14 dp, into its 48.
-        val seeks = seek != null && fraction != null && onTap != null && boxHeight - SPLIT_MEDIA_ROW - gap - 14.dp >= head + SEEK_ROOM
+        val seeks = seek != null && fraction != null && onTap != null && boxHeight - SPLIT_MEDIA_ROW - gap - 14.dp >= texts + SEEK_ROOM
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
             Column(
                 Modifier.weight(1f).fillMaxWidth().clip(SplitCorners.tile(topStart = true, topEnd = true, bottomEnd = false, bottomStart = false)).background(looks.tile)
                     .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = if (seeks) 0.dp else 14.dp),
             ) {
-                CoverBeside(cover) {
+                Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LocalUntitled.current?.let {
                             Text(it, style = type.labelSmall.copy(fontWeight = FontWeight.Bold), color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -2460,12 +2481,12 @@ private fun SplitMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
                 }
                 Spacer(Modifier.weight(1f))
                 if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, role, onTap)
-                else if (fraction != null) LevelBar(fraction, moving = spec.playing, role)
+                else if (fraction != null) MediaBar(spec, fraction, seek, role, onTap)
             }
             Row(Modifier.fillMaxWidth().height(SPLIT_MEDIA_ROW), horizontalArrangement = Arrangement.spacedBy(gap)) {
                 val bottom = { first: Boolean, last: Boolean -> SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = last, bottomStart = first) }
                 if (count >= 3) MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, role, mirrored = true, size = Modifier.weight(1f).fillMaxHeight(), tile = bottom(true, false))
-                MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, strong = true, size = Modifier.weight(1.6f).fillMaxHeight(), tile = bottom(count < 3, count < 2))
+                MediaButton(playTap(spec), playIcon(spec.playing), playWord(spec.playing), onTap, role, strong = true, size = Modifier.weight(1.6f).fillMaxHeight(), tile = bottom(count < 3, count < 2), art = spec.cover)
                 if (count >= 2) MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap, role, size = Modifier.weight(1f).fillMaxHeight(), tile = bottom(false, true))
             }
         }
@@ -2477,12 +2498,11 @@ private fun SplitMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
  * it. A wavy bar shows the position while something plays (a wave that stands still: nothing is
  * drawn per frame), a flat one while paused.
  * - Large: the cookie at the start; the card's title, the song, the artist, the bar, and previous
- *   and next with the position beside them. A cover goes before the title, the song and the
- *   artist, and where the player can seek and the box has room, the bar is a slider ([SeekBar]).
- *   A narrow box has the cookie and the song on top.
- * - Wide: the cookie, the cover where the texts keep their room, the song, and previous and next
- *   at the end where they fit. A card taller than one row has the slider under the song.
+ *   and next with the position beside them. A narrow box has the cookie and the song on top.
+ * - Wide: the cookie, the song, and previous and next at the end where they fit.
  * - Small: the cookie alone.
+ * - The track's cover fills the cookie. Where the player can seek, the bar is a slider: [SeekBar]
+ *   where the box has room for it, else slim ([MediaBar]).
  * - With nothing playing, "Last played" is over the song, and the cookie is the one button.
  */
 @Composable
@@ -2497,7 +2517,7 @@ private fun ShapeMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
         val boxWidth = maxWidth
         val boxHeight = maxHeight
         if (box == WidgetSizes.Box.SMALL) {
-            PlayShape(spec.playing, minOf(maxWidth, maxHeight), role, onTap, playTap(spec))
+            PlayShape(spec.playing, minOf(maxWidth, maxHeight), role, onTap, playTap(spec), spec.cover)
             return@BoxWithConstraints
         }
         val title = WidgetWords.mediaTitle(spec)
@@ -2506,7 +2526,7 @@ private fun ShapeMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
         val seek = rememberSeek(spec, onTap)
         val step by remember(spec) { derivedStateOf { WidgetWords.mediaFraction(spec, now.value)?.let(WidgetWords::barStep) } }
         val fraction = step
-        val bar: @Composable (Modifier) -> Unit = { m -> if (fraction != null) LevelBar(fraction, moving = spec.playing, role, m) }
+        val bar: @Composable (Dp) -> Unit = { top -> if (fraction != null) MediaBar(spec, fraction, seek, role, onTap, top) }
         val prevNext: @Composable () -> Unit = {
             MediaButton(PREV, R.drawable.ic_skip_next, "Previous", onTap, role, mirrored = true)
             MediaButton(NEXT, R.drawable.ic_skip_next, "Next", onTap, role)
@@ -2519,36 +2539,32 @@ private fun ShapeMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
                 val side = minOf(boxHeight, 72.dp)
                 // Previous and next need 100 dp beside the cookie and at least 96 dp of song. Not with nothing playing.
                 val both = !spec.lastPlayed && boxWidth >= 72.dp + 96.dp + 124.dp
-                val cover = spec.cover?.takeIf { WidgetWords.mediaCoverFits((boxWidth - side - 12.dp - (if (both) 112.dp else 0.dp)).value.toInt()) }
-                // A slider fits under the texts in a card made taller than one row.
+                // The 48 dp slider fits under the texts in a card made taller than one row, the slim one in one row.
                 val seeks = seek != null && fraction != null && onTap != null && boxHeight >= titleHeight + lineHeight + SEEK_ROOM
-                PlayShape(spec.playing, side, role, onTap, playTap(spec))
-                if (cover != null) Cover(cover, minOf(boxHeight, COVER))
+                PlayShape(spec.playing, side, role, onTap, playTap(spec), spec.cover)
                 Column(Modifier.weight(1f)) {
                     if (spec.lastPlayed && boxHeight >= labelHeight + titleHeight + lineHeight) LastPlayed(looks.muted)
                     Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, role, onTap)
-                    else if (boxHeight >= TWO_LINES + 8.dp) bar(Modifier.padding(top = 6.dp))
+                    else if (boxHeight >= TWO_LINES + 8.dp) bar(6.dp)
                 }
                 if (both) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { prevNext() }
             }
             maxWidth >= DATED_SIDE -> Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 val side = minOf(boxHeight, 104.dp, boxWidth / 3)
-                val cover = spec.cover?.takeIf { WidgetWords.mediaCoverFits((boxWidth - side - 16.dp).value.toInt()) }
                 val texts = (if (untitled != null) labelHeight else 0.dp) + songHeight + lineHeight
-                val head = if (cover != null) maxOf(COVER, texts) else texts
                 // The slider over previous and next, each 48 dp, with 8 dp between them.
-                val seeks = seek != null && fraction != null && onTap != null && boxHeight >= head + SEEK_ROOM + 8.dp + CONTROL_MIN
-                PlayShape(spec.playing, side, role, onTap, playTap(spec))
+                val seeks = seek != null && fraction != null && onTap != null && boxHeight >= texts + SEEK_ROOM + 8.dp + CONTROL_MIN
+                PlayShape(spec.playing, side, role, onTap, playTap(spec), spec.cover)
                 Column(Modifier.weight(1f)) {
-                    CoverBeside(cover) {
+                    Column {
                         if (untitled != null) Text(untitled, style = type.labelSmall.copy(fontWeight = FontWeight.Bold), color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(title, style = songTitle, color = looks.content, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, role, onTap)
-                    else bar(Modifier.padding(top = 10.dp))
+                    else bar(10.dp)
                     if (!spec.lastPlayed) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         prevNext()
                         Spacer(Modifier.weight(1f))
@@ -2561,14 +2577,14 @@ private fun ShapeMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
                 val head = maxOf(64.dp, (if (spec.lastPlayed) labelHeight else 0.dp) + titleHeight * 2 + lineHeight)
                 val seeks = seek != null && fraction != null && onTap != null && boxHeight >= head + SEEK_ROOM + CONTROL_MIN
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PlayShape(spec.playing, 64.dp, role, onTap, playTap(spec))
+                    PlayShape(spec.playing, 64.dp, role, onTap, playTap(spec), spec.cover)
                     Column(Modifier.weight(1f)) {
                         if (spec.lastPlayed) LastPlayed(looks.muted)
                         Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = looks.content, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = looks.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, role, onTap) else bar(Modifier)
+                if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, role, onTap) else bar(0.dp)
                 if (!spec.lastPlayed) Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     prevNext()
                     Spacer(Modifier.weight(1f))
@@ -2583,26 +2599,30 @@ private fun ShapeMedia(spec: WidgetSpec.Media, box: WidgetSizes.Box, role: Color
  * Shape's play or pause: a filled button [side] across in the card's [role] colour. Playing, it is
  * a cookie; paused, a rounded square. A change morphs one into the other, as Material's expressive
  * player does, and only the drawing runs again while it does. Its icon is two fifths of its size.
- * It hands [tap] over: `toggle`, or `resume` with nothing playing.
+ * It hands [tap] over: `toggle`, or `resume` with nothing playing. The track's cover, [art], fills
+ * the shape, darkened under a white icon, as on the other looks' play or pause ([ArtFace]).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PlayShape(playing: Boolean, side: Dp, role: Color, onTap: ((WidgetTap) -> Unit)?, tap: WidgetTap = TOGGLE) {
+private fun PlayShape(playing: Boolean, side: Dp, role: Color, onTap: ((WidgetTap) -> Unit)?, tap: WidgetTap = TOGGLE, art: Bitmap? = null) {
     val source = remember { MutableInteractionSource() }
     val press = cardPress(source)
     val looks = lookColors(WidgetLook.SHAPE, role)
     val paused = animateFloatAsState(if (playing) 0f else 1f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "play")
     val side48 = side.coerceAtLeast(CONTROL_MIN)
+    val image = remember(art) { art?.asImageBitmap() }
+    val content = if (image != null) Color.White else looks.onAccent
     val colors = IconButtonDefaults.filledIconButtonColors().copy(
         containerColor = Color.Transparent,
-        contentColor = looks.onAccent,
+        contentColor = content,
         disabledContainerColor = Color.Transparent,
-        disabledContentColor = looks.onAccent,
+        disabledContentColor = content,
     )
     FilledIconButton(
         onClick = { press.click { onTap?.invoke(tap) } },
         shapes = IconButtonDefaults.shapes(shape = CircleShape),
-        modifier = Modifier.size(side48).morphFill(PLAY_MORPH, looks.accent) { paused.value },
+        modifier = Modifier.size(side48).morphFill(PLAY_MORPH, looks.accent, image = image) { paused.value }
+            .then(if (image != null) Modifier.testTag("media-cover") else Modifier),
         enabled = onTap != null,
         colors = colors,
         interactionSource = source,

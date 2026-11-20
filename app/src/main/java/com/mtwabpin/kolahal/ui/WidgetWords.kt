@@ -786,19 +786,6 @@ internal object WidgetWords {
     /** The least width of a media card's texts beside its buttons, in dp. */
     private const val MEDIA_TEXT_DP = 96
 
-    /** A media card's cover is this wide ([com.mtwabpin.kolahal.control.Covers]), with this room after it, in dp. */
-    const val MEDIA_COVER_DP = com.mtwabpin.kolahal.control.Covers.COVER_DP
-    const val MEDIA_COVER_GAP_DP = 12
-
-    /**
-     * Whether a media card's cover fits before its texts, which are [textDp] wide without it. The
-     * cover takes its room from the texts, never from a button, and the texts keep [MEDIA_TEXT_DP].
-     */
-    fun mediaCoverFits(textDp: Int): Boolean = textDp - MEDIA_COVER_DP - MEDIA_COVER_GAP_DP >= MEDIA_TEXT_DP
-
-    /** The width of a media card's texts beside [count] buttons ([mediaButtons]), play or pause [playDp] wide, in a box [widthDp] wide. */
-    fun mediaTextDp(widthDp: Int, count: Int, playDp: Int): Int = widthDp - CONTROL_GAP_DP - playDp - (count - 1) * (CONTROL_DP + 4)
-
     /**
      * How many of a media card's three buttons a box [widthDp] wide has: 3 (previous, play or pause,
      * next), 2 (play or pause, next) or 1 (play or pause). A button is 48 dp, with 4 dp between two.
@@ -864,13 +851,6 @@ internal object WidgetWords {
         is WidgetSpec.Progress -> footer || if (spec.items.isEmpty() && spec.style == "ring") false else heightDp - WIDE_CHROME_DP >= NAMED_BAR_DP * spec.items.size
         else -> true
     }
-
-    /**
-     * Whether a large card, [widthDp] wide inside its padding, draws its title line over [spec]'s
-     * content. A media card with a cover that fits ([mediaCoverFits]) has none: the cover heads it,
-     * with the track beside it, where the badge and the title would be. Any other card has it.
-     */
-    fun largeTitle(spec: WidgetSpec?, widthDp: Int): Boolean = !(spec is WidgetSpec.Media && spec.cover != null && mediaCoverFits(widthDp))
 
     /** The small line of a card about its content. [said] is the same for a screen reader, with whole words. */
     data class Footer(val text: String, val said: String, val failed: Boolean)
