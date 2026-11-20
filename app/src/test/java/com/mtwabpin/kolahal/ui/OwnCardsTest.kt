@@ -15,6 +15,7 @@ import com.mtwabpin.kolahal.terminal.OwnTaps
 import com.mtwabpin.kolahal.widgets.Shortcut
 import com.mtwabpin.kolahal.widgets.Shortcuts
 import com.mtwabpin.kolahal.widgets.WidgetParser
+import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import org.junit.Assert.assertEquals
@@ -478,6 +479,8 @@ class OwnCardsTest {
         val listed = pickerBuiltinRows.map { it.id }.toSet()
         val ids = listOf(WidgetSource.SHORTCUTS, WidgetSource.MEDIA, WidgetSource.TODOS, WidgetSource.AGENDA, WidgetSource.REMINDERS, WidgetSource.NOTES)
         assertEquals(ids.filter(OwnCards::draws).toSet(), listed - WidgetSource.BATTERY)
+        // Now playing starts two rows tall: its bar moves the track only on a card taller than one row.
+        assertEquals(WidgetSize.S4X2, pickerBuiltinRows.single { it.id == WidgetSource.MEDIA }.size)
     }
 
     /** A todo ticked on the card keeps its place until the page is turned away, and a tap opens it again. */
