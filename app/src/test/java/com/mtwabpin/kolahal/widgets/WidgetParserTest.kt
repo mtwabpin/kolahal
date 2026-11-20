@@ -495,8 +495,10 @@ class WidgetParserTest {
                 "value" to 9, "label" to "unlocks today", "labels" to listOf("6 days ago", "today"), "summary" to "Fewer than yesterday",
             ),
         )
-        // A line, unless it says bars.
+        // A line, unless it says bars or dots.
         assertEquals(WidgetSpec.Chart(WidgetBase(), points = listOf(1f)), chart("points" to listOf(1)))
+        assertEquals(WidgetSpec.Chart(WidgetBase(), points = listOf(1f, 0f, 1f), style = "dots"), chart("points" to listOf(1, 0, 1.0), "style" to "dots"))
+        assertEquals("dots", chart("points" to listOf(1), "style" to " Dots ").style)
         // No points yet: an empty Lua table is an empty list.
         assertEquals(emptyList<Float>(), chart("points" to emptyMap<String, Any?>()).points)
     }
@@ -527,7 +529,7 @@ class WidgetParserTest {
         assertEquals("widget: points must be a list of numbers; one of them is nothing", no("points" to listOf(1, null)))
         assertEquals("widget: min must be below max", no("points" to listOf(1), "min" to 5, "max" to 5))
         assertEquals("widget: min must be a number, not 'low'", no("points" to listOf(1), "min" to "low"))
-        assertEquals("widget: style must be line or bars, not 'pie'", no("points" to listOf(1), "style" to "pie"))
+        assertEquals("widget: style must be line, bars or dots, not 'pie'", no("points" to listOf(1), "style" to "pie"))
         assertEquals("widget: labels must be a list of texts, not 'Mon'", no("points" to listOf(1), "labels" to "Mon"))
         assertEquals("widget: labels must be text, not true", no("points" to listOf(1), "labels" to listOf(true)))
     }

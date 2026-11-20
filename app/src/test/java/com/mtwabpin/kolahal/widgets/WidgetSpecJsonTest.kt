@@ -108,6 +108,10 @@ class WidgetSpecJsonTest {
             )
         )
         roundTrip(WidgetSpec.Chart(bare, points = (1..60).map { it / 7f }))
+        // Dots: a habit's days, and values by size on a scale of their own.
+        roundTrip(WidgetSpec.Chart(fullBase.copy(note = "Done today"), points = List(35) { if (it % 4 == 0) 0f else 1f }, style = "dots", value = "5", label = "Days in a row"))
+        roundTrip(WidgetSpec.Chart(bare, points = listOf(44f, 26f, 62f, 42f), style = "dots", min = 0f, max = 100f))
+        assertEquals("dots", (Json.parse(WidgetJson.encode(chart.copy(style = "dots"))) as Map<*, *>)["style"])
     }
 
     @Test fun countdownRoundTrips() {
@@ -458,7 +462,7 @@ class WidgetSpecJsonTest {
         refused(progress, "items", "x", map, listOf(1), listOf(mapOf("label" to "no value")), listOf(mapOf("value" to "1")), listOf(mapOf("value" to 1, "max" to 0)), listOf(mapOf("value" to 1, "color" to "pink")))
         refused(progress, "moving", "yes", 0)
         refused(chart, "points", "1,2", 1, map, listOf("1"), listOf(1, null), listOf(1, true), listOf(listOf(1)))
-        refused(chart, "style", "pie", "Line", 1)
+        refused(chart, "style", "pie", "Line", "Dots", "dot", 1)
         refused(chart, "min", "0", true)
         refused(chart, "max", "9", list)
         refused(chart, "value", 12, map)

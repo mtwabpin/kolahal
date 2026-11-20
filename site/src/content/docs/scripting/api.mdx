@@ -730,7 +730,7 @@ widget.show({
 | `text` | a few lines of text, and a caption | `2x2` |
 | `list` | rows | `4x2` |
 | `progress` | a ring or a bar, or up to 4 bars | `2x1` |
-| `chart` | numbers over time, as a line or as bars | `2x2` |
+| `chart` | numbers over time, as a line, as bars or as a dot for each day | `2x2` |
 | `countdown` | the time to a moment. Kolahal counts it down, with no run | `2x1` |
 | `buttons` | 1 to 8 buttons | `4x1` |
 | `toggles` | 1 to 6 switches, each on or off | `4x1` |
@@ -876,12 +876,26 @@ largest value among them. A bar with its own `max` uses that.
 | Field | Value | What it is |
 | --- | --- | --- |
 | `points` | a list of numbers | Needed. The oldest comes first. The last 60 are kept. |
-| `style` | `line` or `bars` | Without it: `line`. |
+| `style` | `line`, `bars` or `dots` | Without it: `line`. `dots` draws a dot for each day (below). |
 | `min`, `max` | numbers | The scale. Without them, it comes from the points; bars start at 0. `min` must be below `max`. |
 | `value` | text or a number, up to 40 | The headline over the chart. |
 | `label` | text, up to 60 | What the headline is. |
 | `labels` | a list of two texts, up to 16 each | Words for the first and the last point: `Mon`, `Today`. |
 | `summary` | text, up to 200 | What a screen reader says for the chart. |
+
+With `style = "dots"`, each point is a day, and the last point is today. Needs Kolahal 0.5.16.
+
+- The card draws a calendar: a row for each week, from the first day of the week in your phone's
+  region, with as many weeks as fit. Today's dot is in today's column. A `2x1` card has the last 7
+  days in one row.
+- When every point is 0 or 1, as for a habit, a 1 is a filled dot and a 0 is a ring. Any other
+  points are filled dots whose size is the value, on the scale of `min` and `max`, or else of the
+  days shown.
+- Today's dot is larger. When it turns from 0 to 1, it grows into a filled shape. The days still to
+  come this week are small dots.
+- `labels` are not shown: the days of the week are over the calendar.
+- Without a `summary`, a screen reader says "Done on 23 of the last 35 days", or for other points
+  "35 days, from 26 to 62, today 42".
 
 **`countdown`**: the time to a moment. The script gives the moment once, and Kolahal counts. No
 run is needed as time passes.

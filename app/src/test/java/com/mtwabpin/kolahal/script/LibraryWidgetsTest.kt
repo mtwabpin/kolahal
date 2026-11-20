@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.sourceFile
+import com.mtwabpin.kolahal.ui.WidgetWords
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetParser
@@ -126,35 +127,38 @@ class LibraryWidgetsTest {
     }
 
     /**
-     * The streak over seven bars: 1 for a day that is done, 0 for any other, on a scale from 0 to 1.
-     * Once today is done the card is in the good colour; before that it gives no colour.
+     * The streak over five weeks of dots: a point for each of the last 35 days, the oldest first, 1
+     * for a day that is done and 0 for any other. Once today is done the card is in the good colour;
+     * before that it gives no colour. A screen reader hears how many of the days were done.
      */
     @Test fun habit() {
-        fun week(streak: Double, vararg days: Double, label: String, summary: String, color: String?, note: String? = null) = fromLua(
+        fun days(streak: Double, days: List<Double>, color: String?, note: String? = null) = fromLua(
             "habit.lua",
             luaTable(
-                "title" to "Exercise", "value" to streak, "label" to label, "points" to luaList(*days.toTypedArray()), "style" to "bars",
-                "min" to 0.0, "max" to 1.0, "labels" to luaList("Sun", "Today"), "summary" to summary, "color" to color,
-                "note" to note, "tap" to luaTable("args" to "done", "label" to "Done today"),
+                "title" to "Exercise", "icon" to "check", "value" to streak, "label" to "Days in a row",
+                "points" to luaList(*days.toTypedArray()), "style" to "dots",
+                "color" to color, "note" to note, "tap" to luaTable("args" to "done", "label" to "Done today"),
             ),
-        )
+        ) as WidgetSpec.Chart
         val tap = WidgetTap(args = "done", label = "Done today")
-        val open = "Sun done, Mon missed, Tue done, Wed done, Thu done, Fri done, Today not yet"
+        // Every seventh day missed, and today still open: 3 days in a row up to yesterday.
+        val open = List(34) { if (it % 7 == 2) 0.0 else 1.0 } + 0.0
+        val card = days(3.0, open, color = null)
         assertEquals(
             WidgetSpec.Chart(
-                WidgetBase(title = "Exercise", tap = tap),
-                points = listOf(1f, 0f, 1f, 1f, 1f, 1f, 0f), style = "bars", min = 0f, max = 1f,
-                value = "4", label = "Days in a row", labels = listOf("Sun", "Today"), summary = open,
+                WidgetBase(title = "Exercise", icon = "check", tap = tap),
+                points = open.map { it.toFloat() }, style = "dots", value = "3", label = "Days in a row",
             ),
-            week(4.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, label = "Days in a row", summary = open, color = null),
+            card,
         )
-        val done = week(5.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, label = "Days in a row", summary = open.replace("not yet", "done"), color = "good", note = "Done today") as WidgetSpec.Chart
+        assertEquals("Exercise: 3, Days in a row, Done on 29 of the last 35 days", WidgetWords.description("Exercise", card, 0, java.time.ZoneOffset.UTC))
         // Done today: the good colour, and the title line ends with "Done today".
-        assertEquals(listOf("5", StyledText.Colour.GOOD, 1f, "Done today"), listOf(done.value, done.base.color, done.points.last(), done.base.note))
-        // No day is done yet: every bar is at the bottom of the scale.
-        val none = "Sun missed, Mon missed, Tue missed, Wed missed, Thu missed, Fri missed, Today not yet"
-        val new = week(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, label = "Days in a row", summary = none, color = null) as WidgetSpec.Chart
-        assertEquals(listOf("0", List(7) { 0f }, 0f, 1f), listOf(new.value, new.points, new.min, new.max))
+        val done = days(4.0, open.dropLast(1) + 1.0, color = "good", note = "Done today")
+        assertEquals(listOf("4", StyledText.Colour.GOOD, 1f, "Done today"), listOf(done.value, done.base.color, done.points.last(), done.base.note))
+        // A new habit: only today, and no dot for the days before its first.
+        val new = days(0.0, listOf(0.0), color = null)
+        assertEquals(listOf("0", listOf(0f), "dots"), listOf(new.value, new.points, new.style))
+        assertEquals("Exercise: 0, Days in a row, Not done today", WidgetWords.description("Exercise", new, 0, java.time.ZoneOffset.UTC))
     }
 
     /**

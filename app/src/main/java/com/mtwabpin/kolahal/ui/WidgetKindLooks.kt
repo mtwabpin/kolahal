@@ -1264,12 +1264,13 @@ internal fun ChartLook(spec: WidgetSpec.Chart, box: WidgetSizes.Box, look: Widge
 }
 
 /** From this width, a large card has a chart's value and its plot side by side. Under it, the plot goes under the value. */
-private val CHART_SIDE_FROM = 260.dp
+internal val CHART_SIDE_FROM = 260.dp
 
 /**
  * Bold's chart: the title small, the value as big as it fits in the role's colour with its label,
  * and the points as round pills, the latest in the role's colour. A wide large card has the pills
- * beside the value, with the first and the last label under them.
+ * beside the value, with the first and the last label under them. A chart of dots has its dots
+ * where the pills go ([Dots]): a calendar in a large card, the last seven days in the others.
  */
 @Composable
 private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
@@ -1279,6 +1280,10 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
     val bars = spec.style == "bars"
     val rest = MaterialTheme.colorScheme.surfaceContainerHighest
     val labelStyle = type.labelLarge.copy(fontWeight = FontWeight.Bold)
+    val plot: @Composable (List<String>, Dp, Dp, Modifier) -> Unit = { labels, thick, gap, modifier ->
+        if (spec.style == "dots") Dots(spec, colour, weeks = box == WidgetSizes.Box.LARGE, modifier)
+        else PillChart(spec.points, bars, spec.min, spec.max, colour, rest, labels, thick, gap, modifier)
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val valueWidth = min(maxWidth * 0.36f, 130.dp)
         when {
@@ -1288,24 +1293,24 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) { spec.value?.let { BoldText(it, 92.sp, colour) } }
                     spec.label?.let { Text(it, style = labelStyle, color = c.content, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp)) }
                 }
-                PillChart(spec.points, bars, spec.min, spec.max, colour, rest, spec.labels, 18.dp, 11.dp, Modifier.padding(start = 16.dp).weight(1f).fillMaxHeight())
+                plot(spec.labels, 18.dp, 11.dp, Modifier.padding(start = 16.dp).weight(1f).fillMaxHeight())
             }
             box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
                 SmallTitle(title, c.content)
                 spec.value?.let { BoldText(it, 48.sp, colour, Modifier.padding(top = 6.dp)) }
                 spec.label?.let { Text(it, style = labelStyle, color = c.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
-                PillChart(spec.points, bars, spec.min, spec.max, colour, rest, spec.labels, 14.dp, 8.dp, Modifier.padding(top = 8.dp).weight(1f).fillMaxWidth())
+                plot(spec.labels, 14.dp, 8.dp, Modifier.padding(top = 8.dp).weight(1f).fillMaxWidth())
             }
             box == WidgetSizes.Box.WIDE -> Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(0.45f).fillMaxHeight()) {
                     SmallTitle(title, c.content)
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) { spec.value?.let { BoldText(it, 56.sp, colour) } }
                 }
-                PillChart(spec.points, bars, spec.min, spec.max, colour, rest, emptyList(), 12.dp, 6.dp, Modifier.padding(start = 12.dp).weight(0.55f).fillMaxHeight())
+                plot(emptyList(), 12.dp, 6.dp, Modifier.padding(start = 12.dp).weight(0.55f).fillMaxHeight())
             }
             else -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 spec.value?.let { BoldText(it, 32.sp, colour) }
-                PillChart(spec.points, bars, spec.min, spec.max, colour, rest, emptyList(), 8.dp, 4.dp, Modifier.padding(top = 4.dp).weight(1f).fillMaxWidth())
+                plot(emptyList(), 8.dp, 4.dp, Modifier.padding(top = 4.dp).weight(1f).fillMaxWidth())
             }
         }
     }
@@ -1313,7 +1318,8 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
 
 /**
  * Split's chart: a tile with the title, the value and its label beside (or over) a tile with the
- * plot, and the first and the last label under the plot.
+ * plot, and the first and the last label under the plot. A chart of dots has its dots in the
+ * plot's tile ([Dots]): a calendar in a large card, the last seven days in the others.
  */
 @Composable
 private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
@@ -1321,6 +1327,7 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Col
     val c = lookColors(WidgetLook.SPLIT, colour)
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
+    val dots = spec.style == "dots"
     val gap = SplitCorners.GAP
     val small = box == WidgetSizes.Box.SMALL
     val valueTile: @Composable (Modifier, Shape, TextStyle) -> Unit = { modifier, shape, style ->
@@ -1338,8 +1345,10 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Col
     val plotTile: @Composable (Modifier, Shape) -> Unit = { modifier, shape ->
         Tile(shape, c.tile, modifier) {
             Column(Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp, top = if (small) 8.dp else 16.dp, bottom = if (small) 8.dp else 10.dp)) {
-                Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth(), surface = c.tile)
-                if (box == WidgetSizes.Box.LARGE && spec.labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                if (dots) Dots(spec, colour, weeks = box == WidgetSizes.Box.LARGE, Modifier.weight(1f).fillMaxWidth())
+                else Plot(spec.points, bars, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth(), surface = c.tile)
+                // Dots have the days of the week instead.
+                if (!dots && box == WidgetSizes.Box.LARGE && spec.labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     Text(spec.labels.first(), style = type.labelSmall, color = c.muted, maxLines = 1)
                     Spacer(Modifier.weight(1f))
                     if (spec.labels.size > 1) Text(spec.labels.last(), style = type.labelSmall, color = c.muted, maxLines = 1)
@@ -1370,7 +1379,10 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Col
     }
 }
 
-/** Shape's chart in a card that is a cookie: the value and its label. A chart without a value has its plot in the cookie. */
+/**
+ * Shape's chart in a card that is a cookie: the value and its label. A chart without a value has
+ * its plot in the cookie, or its dots ([Dots]).
+ */
 @Composable
 private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
     val type = MaterialTheme.typography
@@ -1381,6 +1393,8 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Co
         if (value != null) {
             BigText(value, if (small) type.titleLarge else type.displayMedium.copy(fontSize = 46.sp))
             if (!small) spec.label?.let { Text(it, style = type.labelMedium.copy(fontWeight = FontWeight.Bold), color = c.content, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center) }
+        } else if (spec.style == "dots") {
+            Dots(spec, colour, weeks = !small, Modifier.weight(1f).fillMaxWidth())
         } else {
             Plot(spec.points, spec.style == "bars", spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth(), surface = c.shapeFill)
         }
@@ -1389,7 +1403,8 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Co
 
 /**
  * Shape's chart in a wide card: the value in a cookie (with its label in a large one), and beside
- * it the points: round pills for bars, the latest in the role's colour, or the line.
+ * it the points: round pills for bars, the latest in the role's colour, or the line, or dots
+ * ([Dots]): a calendar in a large card, the last seven days in a 1-row one.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -1406,6 +1421,8 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colou
         if (!large) (spec.label ?: LocalUntitled.current)?.let { Text(it, style = type.labelMedium.copy(fontWeight = FontWeight.Bold), color = c.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 4.dp)) }
         if (spec.style == "bars") {
             PillChart(spec.points, true, spec.min, spec.max, colour, MaterialTheme.colorScheme.surfaceContainerHighest, if (large) spec.labels else emptyList(), 14.dp, 8.dp, Modifier.weight(1f).fillMaxWidth())
+        } else if (spec.style == "dots") {
+            Dots(spec, colour, weeks = large, Modifier.weight(1f).fillMaxWidth())
         } else {
             Plot(spec.points, false, spec.min, spec.max, colour, Modifier.weight(1f).fillMaxWidth(), surface = c.card)
             if (large && spec.labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {

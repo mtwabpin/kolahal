@@ -123,6 +123,15 @@ class WidgetRoundTripTest {
         ),
     )
 
+    /** A chart of dots: a habit's five weeks, 1 for a day done and 0 for a day missed. */
+    @Test fun chartOfDots() = roundTrip(
+        WidgetKind.CHART,
+        base + mapOf(
+            "points" to List(35) { if (it % 6 == 2) 0 else 1 }, "style" to "dots",
+            "value" to 5, "label" to "days in a row", "summary" to "Done on 29 of the last 35 days",
+        ),
+    )
+
     @Test fun countdown() = roundTrip(
         WidgetKind.COUNTDOWN,
         base + mapOf("to" to 1_797_000_000L, "from" to 1_790_000_000L, "label" to "Goa trip", "style" to "days", "reached" to "Today!"),

@@ -376,7 +376,7 @@ object WidgetParser {
         return WidgetSpec.Chart(
             base,
             points = points,
-            style = t.choice("style", listOf("line", "bars")) ?: "line",
+            style = t.choice("style", listOf("line", "bars", "dots")) ?: "line",
             min = min,
             max = max,
             value = t.text("value", MAX_VALUE),

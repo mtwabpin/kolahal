@@ -300,6 +300,18 @@ class WidgetGalleryTest {
 
     private val room = listOf(23.5f, 23.1f, 22.7f, 22.4f, 22.6f, 23.3f, 24.2f, 25.1f, 25.8f, 26.0f, 25.5f, 24.6f)
 
+    /** Five weeks of a habit, the oldest day first: one day in seven missed, and two more. The last five, today too, are done. */
+    private val habitDays = List(35) { if (it % 7 == 1 || it == 12 || it == 26) 0f else 1f }
+
+    /** Unlocks a day, as the mockup has them, for dots that are as large as their value. */
+    private val unlockDays = listOf(
+        44f, 38f, 52f, 47f, 61f, 30f, 28f, 46f, 41f, 55f, 49f, 58f, 33f, 26f, 40f, 45f, 50f,
+        43f, 62f, 35f, 31f, 47f, 39f, 53f, 48f, 57f, 29f, 27f, 45f, 40f, 51f, 44f, 42f,
+    )
+
+    /** The habit card as habit.lua fills it, done today: five days in a row. */
+    private val habit = WidgetSpec.Chart(base("Exercise", "check", Colour.GOOD).copy(note = "Done today"), habitDays, style = "dots", value = "5", label = "Days in a row")
+
     /** One or two cards for each kind, with the mockup's examples. */
     private fun kinds(): List<Shot> = listOf(
         Shot(
@@ -341,6 +353,10 @@ class WidgetGalleryTest {
             WidgetSpec.Chart(base("Room", "temp", Colour.INFO), room, value = "24.6°", label = "now", labels = listOf("24 h ago", "now")),
         ),
         Shot("kind-chart", WidgetSize.S2X1, "Sensor", WidgetSpec.Chart(base("Sensor", colour = Colour.INFO), room, value = "24.6°", label = "Room")),
+        // Dots: a habit's days done and missed, today still open in the smaller card; and values by size.
+        Shot("kind-dots", WidgetSize.S4X2, "Exercise", habit),
+        Shot("kind-dots", WidgetSize.S2X1, "Exercise", WidgetSpec.Chart(base("Exercise", "check"), habitDays.dropLast(1) + 0f, style = "dots", value = "4", label = "Days in a row")),
+        Shot("kind-dots", WidgetSize.S2X2, "Unlocks", WidgetSpec.Chart(base("Unlocks", "unlock", Colour.INFO).copy(note = "42 today"), unlockDays, style = "dots")),
         Shot(
             "kind-countdown", WidgetSize.S2X1, "Match starts",
             // 3:25:10 to go, and 72% of the wait is over.
@@ -486,10 +502,7 @@ class WidgetGalleryTest {
                     listOf(WidgetSpec.Zone("Asia/Kolkata", "Kolkata"), WidgetSpec.Zone("Europe/London", "London"), WidgetSpec.Zone("America/New_York", "New York")),
                 ),
             ),
-            Shot(
-                "habit", WidgetSize.S2X2, "Exercise",
-                WidgetSpec.Chart(base("Exercise", "check", Colour.GOOD).copy(note = "Done today"), listOf(1f, 0f, 1f, 1f, 1f, 1f, 1f), style = "bars", min = 0f, max = 1f, value = "5", label = "days in a row", labels = ago),
-            ),
+            Shot("habit", WidgetSize.S2X2, "Exercise", habit),
             Shot(
                 "quicktoggles", WidgetSize.S4X1, "Quick toggles",
                 WidgetSpec.Toggles(

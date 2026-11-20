@@ -854,6 +854,7 @@ private fun CountdownValue(count: State<WidgetWords.Count>, large: Boolean, box:
  * - Wide: the headline with a small plot beside it.
  * - Large: the value big, its label under it (as a stat has them), the plot, and under the plot
  *   the labels of the first and the last point.
+ * - With `style = "dots"`, a dot for each day ([DotsBody]).
  * The plot has no words of its own. The card's description says the chart for a screen reader.
  */
 @Composable
@@ -863,6 +864,10 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
     val look = LocalWidgetLook.current
     if (look.untitled()) {
         ChartLook(spec, box, look, colour)
+        return
+    }
+    if (spec.style == "dots") {
+        DotsBody(spec, box, colour)
         return
     }
     val colours = lookColors(look, colour)

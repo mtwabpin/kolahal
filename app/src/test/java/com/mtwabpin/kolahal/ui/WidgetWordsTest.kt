@@ -66,6 +66,17 @@ class WidgetWordsTest {
         assertEquals("No values", WidgetWords.chartSummary(emptyList()))
     }
 
+    /** A chart of dots is said as days, the last one today: how many were done, or what the days had. */
+    @Test fun aChartOfDotsIsSaidAsDays() {
+        assertEquals("Done on 3 of the last 5 days", WidgetWords.dotsSummary(listOf(1f, 0f, 1f, 1f, 0f)))
+        assertEquals("Done on 0 of the last 35 days", WidgetWords.dotsSummary(List(35) { 0f }))
+        assertEquals("Done today", WidgetWords.dotsSummary(listOf(1f)))
+        assertEquals("Not done today", WidgetWords.dotsSummary(listOf(0f)))
+        assertEquals("4 days, from 26 to 62, today 42", WidgetWords.dotsSummary(listOf(44f, 26f, 62f, 42f)))
+        assertEquals("Today: 2.5", WidgetWords.dotsSummary(listOf(2.5f)))
+        assertEquals("No values", WidgetWords.dotsSummary(emptyList()))
+    }
+
     /** A countdown in days names the time left by its largest unit. */
     @Test fun aSpanIsNamedByItsLargestUnit() {
         val now = 1_700_000_000L
@@ -235,6 +246,13 @@ class WidgetWordsTest {
         val chart = WidgetSpec.Chart(base, points = listOf(3f, 12f, 9f), value = "9", label = "steps")
         assertEquals("Steps: 9, steps, 3 values, from 3 to 12, the latest 9", WidgetWords.description("Steps", chart, now, utc))
         assertEquals("the script's own summary", "Steps: 9, steps, Rising", WidgetWords.description("Steps", chart.copy(summary = "Rising"), now, utc))
+        // Five weeks of a habit as dots, done today: the days done, after the note, the streak and its label.
+        val days = List(34) { if (it % 5 == 0) 0f else 1f } + 1f
+        val habit = WidgetSpec.Chart(base.copy(note = "Done today"), points = days, style = "dots", value = "5", label = "Days in a row")
+        assertEquals("Exercise, Done today: 5, Days in a row, Done on 28 of the last 35 days", WidgetWords.description("Exercise", habit, now, utc))
+        assertEquals("Exercise, Done today: 5, Days in a row, Rising", WidgetWords.description("Exercise", habit.copy(summary = "Rising"), now, utc))
+        // The same points as bars are values.
+        assertEquals("Exercise, Done today: 5, Days in a row, 35 values, from 0 to 1, the latest 1", WidgetWords.description("Exercise", habit.copy(style = "bars"), now, utc))
         // A countdown that draws a clock is still said in words: a running clock is noise.
         val trip = WidgetSpec.Countdown(base, to = now + 3 * 3600L + 20, label = "Goa trip")
         assertEquals("Trip: 3 hours, Goa trip", WidgetWords.description("Trip", trip, now, utc))

@@ -81,6 +81,20 @@ internal object WidgetWords {
     }
 
     /**
+     * A chart of dots in words (`style = "dots"`), for a screen reader. A point is a day, and the
+     * last one is today.
+     * - Points that are all 0 or 1 ([DotCalendar.yesNo]): "Done on 23 of the last 35 days".
+     * - Any others: "35 days, from 26 to 62, today 42".
+     */
+    fun dotsSummary(points: List<Float>): String = when {
+        points.isEmpty() -> "No values"
+        DotCalendar.yesNo(points) && points.size == 1 -> if (points[0] == 1f) "Done today" else "Not done today"
+        DotCalendar.yesNo(points) -> "Done on ${points.count { it == 1f }} of the last ${points.size} days"
+        points.size == 1 -> "Today: ${num(points[0])}"
+        else -> "${points.size} days, from ${num(points.min())} to ${num(points.max())}, today ${num(points.last())}"
+    }
+
+    /**
      * A countdown's text in two parts: the [value] ("12") and its [unit] ("days"), or null for a
      * text with no number ("today", "03:25:10"). A card draws the value big and the unit small.
      * [ticks] is true when the text shows seconds, so it must be drawn again every second.
@@ -215,7 +229,7 @@ internal object WidgetWords {
                 is WidgetSpec.Chart -> {
                     add(spec.value)
                     add(spec.label)
-                    add(spec.summary ?: chartSummary(spec.points))
+                    add(spec.summary ?: if (spec.style == "dots") dotsSummary(spec.points) else chartSummary(spec.points))
                 }
                 is WidgetSpec.Countdown -> {
                     add(countdown(spec.to, now, "days", spec.reached, zone).text)

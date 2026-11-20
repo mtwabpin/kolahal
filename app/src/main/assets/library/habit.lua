@@ -1,15 +1,15 @@
--- habit.lua — one thing you do every day: your streak, over a bar for each of the last 7 days. No network.
+-- habit.lua — one thing you do every day: your streak, over a dot for each day of the last five weeks. No network.
 -- @command
--- @desc A daily habit's streak, over a bar for each of the last 7 days: a widget. habit [done|undo]
+-- @desc A daily habit's streak, over a dot for each day of the last five weeks: a widget. habit [done|undo]
 -- @usage [done|undo]
 -- @title Habit streak
 -- @author Kolahal
--- @version 1.1
+-- @version 1.2
 -- @widget chart 2x2
 -- @at 00:01
 -- @option name Exercise What you count
 -- @tags habit, streak, chart
--- @requires 0.5.11
+-- @requires 0.5.16
 --
 -- Usage:
 --   habit                       the streak and the last 7 days
@@ -17,9 +17,10 @@
 --   habit undo                  take today's mark away
 --
 -- Its widget, once you placed it on the widgets page, shows the streak large: the days in a row
--- that you did it. Under it are seven bars, one for each day, the oldest first. A tap on the
--- widget marks today done. A tap by mistake: type habit undo.
--- It runs a minute after midnight, so the widget starts the new day with an open bar.
+-- that you did it. Under it is a dot for each of the last 35 days, a row for each week, so the
+-- day you tend to skip shows. A tap on the widget marks today done. A tap by mistake: type
+-- habit undo.
+-- It runs a minute after midnight, so the widget starts the new day with an open dot.
 --
 -- The days are kept in its own store. It needs no access.
 
@@ -33,6 +34,9 @@ if word ~= nil and word ~= "done" and word ~= "undo" then
   return log(fmt.color("muted", "Usage: habit [done|undo]"))
 end
 
+-- The days its widget shows: five weeks.
+local DAYS = 35
+
 -- The day that was `back` days before today, as "2026-11-14". Noon keeps clear of the hour that a
 -- clock change adds or removes.
 local now = os.date("*t")
@@ -44,6 +48,16 @@ local function day(back) return os.date("%Y-%m-%d", noon(back)) end
 -- The days you did it, kept as one text: "2026-11-12 2026-11-13".
 local done = {}
 for d in (store.get("days") or ""):gmatch("%S+") do done[d] = true end
+
+-- The first day it counts. A day before it is no part of the habit, so the widget has no dot for
+-- it rather than a missed one. A copy from before this kept no first day: its oldest kept day, or
+-- today.
+local since = store.get("since")
+if not since then
+  for d in pairs(done) do if not since or d < since then since = d end end
+  since = since or day(0)
+  store.set("since", since)
+end
 
 local changed = false
 if word == "done" and not done[day(0)] then
@@ -57,10 +71,10 @@ local first = done[day(0)] and 0 or 1
 local streak = 0
 while done[day(first + streak)] do streak = streak + 1 end
 
--- Only the streak's days and the last 7 days are kept: an older day changes nothing shown here.
+-- Only the streak's days and the widget's days are kept: an older day changes nothing shown here.
 if changed then
   local keep = {}
-  for back = math.max(first + streak, 7) - 1, 0, -1 do
+  for back = math.max(first + streak, DAYS) - 1, 0, -1 do
     if done[day(back)] then keep[#keep + 1] = day(back) end
   end
   store.set("days", table.concat(keep, " "))
@@ -76,26 +90,22 @@ local name = (options.name or ""):gsub("^%s+", ""):gsub("%s+$", "")
 if name == "" then name = "Habit" end
 local label = streak == 1 and "Day in a row" or "Days in a row"
 
--- Its widget: the streak large, over the bars. A day you did it is a full bar, and any other day
--- is an empty one. Once today is done, the widget is in the theme's good colour, and its title
--- line ends with "Done today". The summary is what a screen reader says for the bars. A tap runs
--- this script again with "done".
+-- Its widget: the streak large, over a dot for each day since its first, the oldest first: 1 for a
+-- day you did it, 0 for any other. Kolahal lays the dots out as a calendar, with today's dot
+-- larger: a day done is a filled dot, and a day missed a ring. Once today is done, the widget is
+-- in the theme's good colour, and its title line ends with "Done today". A tap runs this script
+-- again with "done".
 if widget then
-  local points, said = {}, {}
-  for i, d in ipairs(week) do
-    points[i] = d[2] and 1 or 0
-    said[i] = d[1] .. (d[2] and " done" or (i == #week and " not yet" or " missed"))
+  local points = {}
+  for back = DAYS - 1, 0, -1 do
+    if day(back) >= since then points[#points + 1] = done[day(back)] and 1 or 0 end
   end
   widget.show{
     title = name, icon = "check",
     value = streak,
     label = label,
     points = points,
-    style = "bars",
-    min = 0,
-    max = 1,
-    labels = { week[1][1], "Today" },
-    summary = table.concat(said, ", "),
+    style = "dots",
     color = done[day(0)] and "good" or nil,
     note = done[day(0)] and "Done today" or nil,
     tap = { args = "done", label = "Done today" },

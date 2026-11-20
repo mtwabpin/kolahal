@@ -85,7 +85,7 @@ internal object ReferenceSearch {
         WidgetKind.TEXT -> "A few lines of text, and a caption"
         WidgetKind.LIST -> "Rows, each with a title and more"
         WidgetKind.PROGRESS -> "A ring or a bar, or up to 4 bars"
-        WidgetKind.CHART -> "Numbers over time, as a line or as bars"
+        WidgetKind.CHART -> "Numbers over time, as a line, bars or dots"
         WidgetKind.COUNTDOWN -> "The time to a moment"
         WidgetKind.BUTTONS -> "1 to 8 buttons"
         WidgetKind.TOGGLES -> "1 to 6 switches, each on or off"

@@ -517,6 +517,29 @@ internal object ReferenceExamples {
             )
         },
         Widget(
+            "chart-dots", WidgetKind.CHART, WidgetSize.S2X2, "Chart",
+            lua = """
+            -- five weeks of a habit, the oldest day first: 1 for a day done, 0 for a day missed
+            local days = "11011111011101110111111011011110111"
+            local points = {}
+            for i = 1, #days do points[i] = tonumber(days:sub(i, i)) end
+            widget.show{ kind = "chart", title = "Exercise", style = "dots", points = points,
+              value = 3, label = "Days in a row" }
+            """,
+            js = """
+            // five weeks of a habit, the oldest day first: 1 for a day done, 0 for a day missed
+            const days = "11011111011101110111111011011110111";
+            widget.show({ kind: "chart", title: "Exercise", style: "dots", points: [...days].map(Number),
+              value: 3, label: "Days in a row" });
+            """,
+            of = "chart", variant = "Dots",
+        ) { _, _ ->
+            WidgetSpec.Chart(
+                WidgetBase(title = "Exercise"), "11011111011101110111111011011110111".map { if (it == '1') 1f else 0f }, style = "dots",
+                value = "3", label = "Days in a row",
+            )
+        },
+        Widget(
             "countdown-clock", WidgetKind.COUNTDOWN, WidgetSize.S2X1, "Countdown",
             lua = """
             -- three hours from now, on the hour

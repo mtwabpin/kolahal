@@ -207,7 +207,7 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [screen-time-months](#screen-time-months) | your screen time a day, over a bar for each month Android keeps | logs a row for each month, and home turns to the log |
 | [data-month](#data-month) | your mobile data this month, as a bar toward your plan | logs the month, and home turns to the log |
 | [unused-apps](#unused-apps) | the apps you haven't opened for 30 days, with the days and their size | logs the whole list, and home turns to the log |
-| [habit](#habit) | your streak in days, over a bar for each of the last 7 days | marks today done |
+| [habit](#habit) | your streak in days, over a dot for each of the last 35 days | marks today done |
 | [world-clocks](#world-clocks) | the time in up to 4 places you list | refreshes the card |
 | [quick-toggles](#quick-toggles) | switches for Do Not Disturb and the work profile | on a switch: turns it on or off |
 | [webnumber](#webnumber) | one number from a JSON address you choose | opens the address |
@@ -223,7 +223,7 @@ Eighteen scripts have a [widget](/scripting/overview/#widgets): a card on the
   { src: xkcd, alt: "xkcd: the latest comic, with its title under it", size: "2x2", caption: "xkcd" },
   { src: headlines, alt: "headlines: the newest items of a feed", size: "2x2", caption: "headlines" },
   { src: unlocks, alt: "unlock-chart: 46 unlocks today over a bar for each of the last 7 days", size: "2x2", caption: "unlock-chart" },
-  { src: habit, alt: "habit: 5 days in a row over a bar for each of the last 7 days", size: "2x2", caption: "habit" },
+  { src: habit, alt: "habit: 5 days in a row over a dot for each day, a row for each week", size: "2x2", caption: "habit" },
   { src: clocks, alt: "world-clocks: the time in Kolkata, London and New York", size: "2x2", caption: "world-clocks" },
   { src: crypto, alt: "crypto: Bitcoin, Ethereum and Solana, each with its price and the day's change", size: "4x2", caption: "crypto" },
   { src: hn, alt: "hn: three front-page stories with their points", size: "4x2", caption: "hn" },
@@ -599,8 +599,10 @@ each with the days since and its size: to tidy up. It doesn't use the network. I
 ## habit
 
 **Habit streak**: a [widget](#widgets) for one thing you do every day. It shows your streak large:
-the days in a row that you did it. Under it is a bar for each of the last 7 days, the oldest first.
-It doesn't use the network, and it needs no access.
+the days in a row that you did it. Under it is a dot for each of the last 35 days, a row for each
+week: a filled dot for a day you did it, and a ring for a day you didn't. So the day you tend to skip
+shows. A new habit starts with today's dot alone; the days before it began have none. It doesn't use
+the network, and it needs no access.
 
 ```sh
 habit                        # the streak and the last 7 days
@@ -612,7 +614,9 @@ habit undo                   # take today's mark away
 - A tap by mistake: type `habit undo`.
 - While today is still open, the streak counts up to yesterday. A missed day starts it again at 0.
 - Its `name` option is the card's title: what you count (`script set habit name Read`).
-- It runs at 00:01, so the card starts the new day with an open bar.
+- It runs at 00:01, so the card starts the new day with an open dot.
+- A `2x1` card has the last 7 days in one row. A `4x2` card has the streak at the start and five
+  weeks beside it.
 - It counts one habit. For a second one, rename your copy (`script mv habit read`) and install
   habit again. Each copy has its own days and its own widget.
 

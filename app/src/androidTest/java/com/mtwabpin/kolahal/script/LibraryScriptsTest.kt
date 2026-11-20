@@ -753,11 +753,14 @@ class LibraryScriptsTest {
 
     /**
      * Habit: the streak is the days in a row up to today, or up to yesterday while today is open.
-     * A tap on its widget marks today done and logs nothing. Run by hand, it logs the streak and the week.
+     * Its widget has a dot for each of the last 35 days, the oldest first. A tap on its widget marks
+     * today done and logs nothing. Run by hand, it logs the streak and the week.
      */
     @Test fun habitCountsTheDaysInARow() {
         val today = LocalDate.now()
         fun days(vararg back: Long) = back.joinToString(" ") { today.minusDays(it).toString() }
+        // The widget's days from the habit's first, [first] days back, the oldest first: 1 for a day done.
+        fun points(first: Long, vararg done: Long) = (first downTo 0L).map { if (it in done) 1.0 else 0.0 }
         // The week's line in the log: each day's name with a mark, the oldest first.
         fun week(vararg done: Int) = (6 downTo 0).joinToString("  ") { back ->
             val day = if (back == 0) "Today" else today.minusDays(back.toLong()).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
@@ -767,29 +770,27 @@ class LibraryScriptsTest {
         // A tap on the widget, as the widgets page starts it.
         val tap = mapOf("name" to "action", "label" to "Done today", "widget" to true)
 
-        // Nothing is done yet.
+        // Nothing is done yet: the habit starts today, so its widget has today's dot alone.
         run("habit.lua", before = luaKeepsShown)
         assertEquals(Triple("Exercise", "0 Days in a row\n${week()}", null), plainOnly())
-        assertEquals(listOf(0.0, List(7) { 0.0 }, null), card().let { listOf(it["value"], it["points"], it["color"]) })
+        assertEquals(listOf(0.0, listOf(0.0), "dots", null), card().let { listOf(it["value"], it["points"], it["style"], it["color"]) })
+        assertEquals(today.toString(), store.get("since"))
 
-        // Two days in a row up to yesterday, and one before a missed day: the streak is 2 while today is open.
+        // A store from before it kept a first day: its oldest kept day is the first. Two days in a row up
+        // to yesterday, and one before a missed day: the streak is 2 while today is open.
+        store.set("since", null)
         store.set("days", days(4, 2, 1))
         run("habit.lua", event = forWidget, before = luaKeepsShown)
         assertEquals(emptyList<LogEntry>(), lines())
-        val first = today.minusDays(6).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
         assertEquals(
             mapOf(
                 "title" to "Exercise", "icon" to "check", "value" to 2.0, "label" to "Days in a row",
-                "points" to listOf(0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0), "style" to "bars", "min" to 0.0, "max" to 1.0,
-                "labels" to listOf(first, "Today"),
-                "summary" to (6 downTo 0).joinToString(", ") { back ->
-                    val day = if (back == 0) "Today" else today.minusDays(back.toLong()).format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.ENGLISH))
-                    day + if (back in listOf(4, 2, 1)) " done" else if (back == 0) " not yet" else " missed"
-                },
+                "points" to points(4, 4, 2, 1), "style" to "dots",
                 "tap" to mapOf("args" to "done", "label" to "Done today"),
             ),
             card(),
         )
+        assertEquals(days(4), store.get("since"))
 
         // The tap marks today done: the streak is 3, in the good colour, and nothing is logged.
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
@@ -812,13 +813,13 @@ class LibraryScriptsTest {
         assertEquals(Triple("Usage: habit [done|undo]", null, StyledText.Colour.MUTED), only())
 
         // Yesterday was missed: the streak starts again, with "day" for one.
-        store.set("days", days(40, 3, 2))
+        store.set("days", days(40, 30, 3, 2))
         run("habit.lua", before = luaKeepsShown)
         assertEquals("0 Days in a row", plainOnly().second!!.lines().first())
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
-        assertEquals(listOf(1.0, "Day in a row"), card().let { listOf(it["value"], it["label"]) })
-        // Only the streak's days and the last 7 days are kept: the day 40 days ago is gone.
-        assertEquals(days(3, 2, 0), store.get("days"))
+        assertEquals(listOf(1.0, "Day in a row", points(30, 3, 2, 0)), card().let { listOf(it["value"], it["label"], it["points"]) })
+        // Only the streak's days and the widget's 35 days are kept: the day 40 days ago is gone.
+        assertEquals(days(30, 3, 2, 0), store.get("days"))
 
         // At its daily time it starts the widget's new day, and logs nothing.
         run("habit.lua", event = at("00:01"), before = luaKeepsShown)

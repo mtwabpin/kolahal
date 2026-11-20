@@ -176,7 +176,11 @@ sealed interface WidgetSpec {
         val labelIcon: Int? = null,
     ) : WidgetSpec
 
-    /** Kind `chart`: numbers over time. [style] is `line` or `bars`. [labels] name the first and the last point. */
+    /**
+     * Kind `chart`: numbers over time. [style] is `line`, `bars` or `dots`: a dot for each day, the
+     * last point today, laid out as a calendar (DotCalendar). [labels] name the first and the last
+     * point; dots have the days of the week instead.
+     */
     data class Chart(
         override val base: WidgetBase,
         val points: List<Float>,
@@ -614,7 +618,7 @@ object WidgetJson {
             WidgetKind.CHART -> WidgetSpec.Chart(
                 base,
                 points = (m.list("points") ?: odd()).takeLast(MAX_POINTS).map(::finite),
-                style = m.oneOf("style", "line", "bars") ?: "line",
+                style = m.oneOf("style", "line", "bars", "dots") ?: "line",
                 min = m.number("min"),
                 max = m.number("max"),
                 value = m.text("value"),

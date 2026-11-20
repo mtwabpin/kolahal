@@ -12,6 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -22,6 +25,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
@@ -33,7 +37,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -52,6 +58,7 @@ import com.mtwabpin.kolahal.widgets.PlacedWidget
 import com.mtwabpin.kolahal.widgets.WidgetBase
 import com.mtwabpin.kolahal.widgets.WidgetJson
 import com.mtwabpin.kolahal.widgets.WidgetKind
+import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSize
 import com.mtwabpin.kolahal.widgets.WidgetSource
@@ -72,6 +79,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.math.abs
 
 /**
  * The card of a script's widget, drawn from what is kept for it: each kind's texts, what it says
@@ -276,6 +284,110 @@ class ScriptWidgetCardTest {
         says(steps, "Steps: 5,204, Today, 4 values, from 1 to 5, the latest 5")
         draws(told, "Rain", "2.5 mm")
         says(told, "Rain: 2.5 mm, More rain than yesterday")
+    }
+
+    /** How many pixels of [name]'s dots ([Dots]) are in the theme's accent: the card's colour. */
+    private fun inAccent(name: String): Int {
+        val accent = colourOf(StyledText.Colour.ACCENT)
+        val pixels = compose.onNode(inCard(name) and hasTestTag("widget-dots"), useUnmergedTree = true).captureToImage().toPixelMap()
+        var count = 0
+        for (x in 0 until pixels.width) for (y in 0 until pixels.height) {
+            val p = pixels[x, y]
+            if (abs(p.red - accent.red) < 0.08f && abs(p.green - accent.green) < 0.08f && abs(p.blue - accent.blue) < 0.08f) count++
+        }
+        return count
+    }
+
+    /**
+     * `chart` with `style = "dots"`: a dot for each day in the card's colour, and the days in words
+     * for a screen reader. Once today is done, today's ring becomes a filled cookie: more of the
+     * dots are in the card's colour.
+     */
+    @Test fun aChartOfDotsDrawsADotForEachDay() {
+        // Five weeks of a habit with every fifth day missed, and today still open.
+        val days = List(34) { if (it % 5 == 2) 0f else 1f } + 0f
+        val open = WidgetSpec.Chart(WidgetBase(title = "Exercise"), days, style = "dots", value = "4", label = "days in a row")
+        val habit = kept("dots", open)
+        show(habit)
+        draws(habit, "Exercise", "4", "Days in a row")
+        says(habit, "Exercise: 4, Days in a row, Done on 27 of the last 35 days")
+        val before = inAccent(habit)
+        assertTrue("no dots in the card's colour", before > 0)
+
+        store(habit, open.copy(base = WidgetBase(title = "Exercise", note = "Done today"), points = days.dropLast(1) + 1f, value = "5"))
+        says(habit, "Exercise, Done today: 5, Days in a row, Done on 28 of the last 35 days")
+        val after = inAccent(habit)
+        assertTrue("today's dot didn't fill: $before pixels, then $after", after > before)
+    }
+
+    /** Right to left, the dots are the same drawing turned round: the week starts at the right. */
+    @Test fun rightToLeftTheWeekStartsAtTheRight() {
+        // Today still open, so every mark is round: the drawing turned round is the same.
+        val name = kept("dots-rtl", WidgetSpec.Chart(WidgetBase(title = "Exercise"), List(34) { if (it % 4 == 1) 0f else 1f } + 0f, style = "dots", value = "2"))
+        val source = WidgetSource.script(name)
+        val known = scriptsOf(source)
+        compose.setContent {
+            KolahalTheme {
+                Column {
+                    for (direction in listOf(LayoutDirection.Ltr, LayoutDirection.Rtl)) {
+                        CompositionLocalProvider(LocalLayoutDirection provides direction) {
+                            Box(Modifier.width(320.dp)) { SourceWidget(PlacedWidget(null, source, 0L, 200, direction.ordinal), 200.dp, null, known) }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitFor("two cards of dots") { compose.onAllNodes(hasTestTag("widget-dots"), useUnmergedTree = true).fetchSemanticsNodes().size == 2 }
+        val (ltr, rtl) = compose.onAllNodes(hasTestTag("widget-dots"), useUnmergedTree = true).let { listOf(it[0], it[1]) }.map { it.captureToImage().toPixelMap() }
+        assertEquals(ltr.width, rtl.width)
+        var differ = 0
+        for (x in 0 until ltr.width) for (y in 0 until ltr.height) {
+            val a = ltr[x, y]
+            val b = rtl[ltr.width - 1 - x, y]
+            if (abs(a.red - b.red) + abs(a.green - b.green) + abs(a.blue - b.blue) > 0.3f) differ++
+        }
+        assertTrue("$differ of ${ltr.width * ltr.height} pixels differ from the drawing turned round", differ < ltr.width * ltr.height / 200)
+    }
+
+    /** At twice the font size a 2×1 card still has room for its dots: the value goes beside them, not over them. */
+    @Test fun largeTextLeavesRoomForTheDots() {
+        val name = kept("dots-large", WidgetSpec.Chart(WidgetBase(title = "Exercise"), List(35) { if (it % 3 == 0) 0f else 1f }, style = "dots", value = "23", label = "days in a row"))
+        val source = WidgetSource.script(name)
+        val known = scriptsOf(source)
+        compose.setContent {
+            KolahalTheme {
+                CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale = 2f)) {
+                    Box(Modifier.width(190.dp)) { SourceWidget(PlacedWidget(null, source, 0L, 92, 0), 92.dp, null, known) }
+                }
+            }
+        }
+        val least = with(compose.density) { 12.dp.toPx() }
+        compose.waitFor("no room for the dots at twice the font size") {
+            compose.onAllNodes(hasTestTag("widget-dots"), useUnmergedTree = true).fetchSemanticsNodes().singleOrNull()?.let { it.size.height >= least } == true
+        }
+    }
+
+    /** Each look draws the dots where its chart goes: in a large card, and in a 2×1 one. */
+    @Test fun everyLookDrawsTheDots() {
+        val name = kept("dots-looks", WidgetSpec.Chart(WidgetBase(title = "Exercise"), List(35) { if (it % 3 == 0) 0f else 1f }, style = "dots", value = "23", label = "days in a row"))
+        val source = WidgetSource.script(name)
+        val known = scriptsOf(source)
+        val sizes = listOf(360.dp to 190.dp, 190.dp to 92.dp)
+        compose.setContent {
+            KolahalTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    WidgetLook.entries.forEachIndexed { i, look ->
+                        sizes.forEachIndexed { j, (width, height) ->
+                            Box(Modifier.width(width)) { SourceWidget(PlacedWidget(null, source, 0L, height.value.toInt(), i * sizes.size + j, look = look), height, null, known) }
+                        }
+                    }
+                }
+            }
+        }
+        val cards = WidgetLook.entries.size * sizes.size
+        compose.waitFor("not every look drew the dots") {
+            compose.onAllNodes(hasTestTag("widget-dots"), useUnmergedTree = true).fetchSemanticsNodes().size == cards
+        }
     }
 
     /** `countdown`: the days to the moment, its own words on the day, and the days since. */

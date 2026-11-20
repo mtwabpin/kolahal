@@ -820,7 +820,7 @@ Twelve kinds. Six are in the first build.
 | 2  | =text=      | a few lines of text and a caption              | 2×1, 2×2, 4×1, 4×2      | First   | yes   |
 | 3  | =list=      | rows, each with a title and more               | 2×2, 4×2, 4×4           | First   | yes   |
 | 4  | =progress=  | a ring or bars                                 | 1×1, 2×1, 2×2           | First   | yes   |
-| 5  | =chart=     | a line or bars over time                       | 2×1, 2×2, 4×2           | First   | yes   |
+| 5  | =chart=     | a line, bars or dots over time                 | 2×1, 2×2, 4×2           | First   | yes   |
 | 6  | =countdown= | time to or since a moment; Kolahal ticks       | 1×1, 2×1, 2×2           | First   | yes   |
 | 7  | =buttons=   | a grid of buttons                              | 2×1, 2×2, 4×1, 4×2      | Phase 2 | yes   |
 | 8  | =toggles=   | switches with a state                          | 2×1, 2×2, 4×1           | Phase 2 | yes   |
@@ -883,13 +883,23 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 
 *** 5. =chart=: a line or bars                                   :first:built:
 
-- Shows :: Numbers over time as a line or as bars, with a headline value over them.
-- Fields :: =points= (numbers, needed; the last 60 are kept). =style=: =line= or =bars=. =min=,
-  =max= (the scale; without them, from the data). =value= and =label= (the headline). =labels=:
-  two texts for the first and the last point ("Mon", "Sun"). =summary=: words for a screen reader.
+- Shows :: Numbers over time as a line or as bars, with a headline value over them. Or a dot for
+  each day, the last point today, as a calendar: a row for each week from the locale's first day
+  (0.5.16).
+- Fields :: =points= (numbers, needed; the last 60 are kept). =style=: =line=, =bars= or =dots=.
+  =min=, =max= (the scale; without them, from the data). =value= and =label= (the headline).
+  =labels=: two texts for the first and the last point ("Mon", "Sun"). =summary=: words for a
+  screen reader.
+- Dots :: Points that are all 0 or 1 are days done (a filled dot) and missed (a ring), so no state
+  rests on colour alone. Other points are filled dots whose area is the value. Today's dot is
+  larger; when it turns from 0 to 1 it grows into a cookie on a short spring. The days still to
+  come this week are small dots. Without a =summary=, a screen reader hears "Done on 23 of the last
+  35 days".
 - When large :: The value on its own line, as big as a stat's, with its label under it. Then the
-  plot.
-- When small :: 2×1 is the headline with a small line beside it.
+  plot. Dots: the value line over as many weeks as fit, or in a 4×2 the value at the start and the
+  weeks beside it.
+- When small :: 2×1 is the headline with a small line beside it. Dots: the headline over the last
+  seven days in one row.
 - Data :: Any script. The script keeps its own history in =store=.
 - Taps :: The card. Single points can't be tapped.
 
@@ -1261,7 +1271,8 @@ removed in 0.5.9.
 
 *** 19. Habit streak                                             :phase2:built:
 
-- Shows :: Your streak in days, bars for the last 7 days, and a "Done today" button.
+- Shows :: Your streak in days, a dot for each of the last 35 days (a chart of dots, since 0.5.16;
+  before, bars for the last 7 days), and a "Done today" button.
 - Sizes :: 2×1, 2×2.
 - Data :: A new script. Its own days in =store=. No access.
 - Refresh :: =@at 00:01=, to start the new day.
