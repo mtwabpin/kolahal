@@ -107,6 +107,8 @@ internal fun PinnedHeader(
     onPinTap: (String) -> Unit,
     onPinLongPress: (String) -> Unit,
     onRefresh: () -> Unit = {},
+    /** A long press on the music turn: its sheet ([mediaActions]). Null: it skips to the next track. */
+    onMediaLongPress: ((NowPlaying) -> Unit)? = null,
 ) {
     // `now` updates every minute, so a paused media session leaves the header after 30 minutes.
     val (now, _) = rememberNow()
@@ -174,7 +176,7 @@ internal fun PinnedHeader(
             label = "pinned",
         ) { item ->
             when (item) {
-                is PinnedItem.Media -> NowPlayingLine(item.np, onMediaToggle, onMediaNext, endPadding = dotsRoom, barAbove = barAbove)
+                is PinnedItem.Media -> NowPlayingLine(item.np, onMediaToggle, onMediaNext, endPadding = dotsRoom, barAbove = barAbove, onLongPress = onMediaLongPress?.let { f -> { f(item.np) } })
                 is PinnedItem.Script -> PinLine(item.line, onPinTap, onPinLongPress, dotsRoom, row, barAbove)
             }
         }

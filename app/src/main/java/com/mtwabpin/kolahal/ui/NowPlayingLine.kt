@@ -57,7 +57,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * The pinned header's music line "♪ Title — Artist  ⏭" (drawn icons), above a track progress bar.
  * - A tap toggles play/pause.
- * - A long press or ⏭ skips to the next track.
+ * - ⏭ skips to the next track. A long press does [onLongPress]: on the pinned header, the sheet
+ *   of [mediaActions], as a pinned script's line opens its actions. Without one it skips too.
  * - [endPadding] keeps the end of the line free for the pinned header's dots. The bar continues
  *   under them.
  * - Its row is [pinnedRow] tall and the bar [barAbove] under it, as a pinned script's line.
@@ -69,6 +70,7 @@ internal fun NowPlayingLine(
     onNext: () -> Unit,
     endPadding: Dp = 0.dp,
     barAbove: Dp = Keys.HEADER_PINNED_BAR_ABOVE.default.dp,
+    onLongPress: (() -> Unit)? = null,
 ) {
     // The track progress. It is computed every 250 ms, but stored only when the filled part of the
     // bar changes by at least a pixel, and it is read only when drawing the bar. An hour-long track
@@ -113,9 +115,12 @@ internal fun NowPlayingLine(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f)
+                    // A screen reader hears what a tap and a long press do: "Pause" or "Play", "Actions" or "Next track".
                     .combinedClickable(
+                        onClickLabel = if (np.playing) "Pause" else "Play",
+                        onLongClickLabel = if (onLongPress != null) "Actions" else "Next track",
                         onClick = onToggle,
-                        onLongClick = onNext
+                        onLongClick = onLongPress ?: onNext
                     )
                     .heightIn(min = row)
             ) {
@@ -270,3 +275,22 @@ private const val WAVE_PERIOD_MS = 1200
 /** The wave's height either side of the bar, and its length. */
 private val WAVE_AMPLITUDE = 1.5.dp
 private val WAVE_LENGTH = 16.dp
+
+/**
+ * The long-press sheet of the pinned header's music turn, as a pinned script's line has its own:
+ * Next track, Previous track, and Open <player> when the player's app has a screen to open.
+ * A tap still plays or pauses, and ⏭ still skips.
+ */
+internal fun mediaActions(context: android.content.Context, np: NowPlaying): List<com.mtwabpin.kolahal.terminal.LogAction> {
+    val media = com.mtwabpin.kolahal.control.MediaRepository.get(context)
+    val actions = mutableListOf(
+        com.mtwabpin.kolahal.terminal.LogAction("Next track") { media.send(com.mtwabpin.kolahal.control.MediaRepository.Action.NEXT) },
+        com.mtwabpin.kolahal.terminal.LogAction("Previous track") { media.send(com.mtwabpin.kolahal.control.MediaRepository.Action.PREV) },
+    )
+    context.packageManager.getLaunchIntentForPackage(np.pkg)?.let { open ->
+        actions += com.mtwabpin.kolahal.terminal.LogAction("Open ${np.app}") {
+            runCatching { context.startActivity(open.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
+    }
+    return actions
+}

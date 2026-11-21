@@ -135,13 +135,19 @@ fun LogLine(
     onAppLongPress: (AppEntry) -> Unit,
     onSwipeCopy: (LogEntry) -> Unit = {},
     onSwipeDelete: (LogEntry) -> Unit = {},
+    /**
+     * A swipe right deletes and a swipe left copies, the other way round from the default. On with
+     * the widgets page on the right (`widgets.page`): a swipe toward that page copies, never deletes.
+     */
+    deleteRight: Boolean = false,
     /** A tap on button `index` under a script's line (`ctx.actions`). */
     onAction: (LogEntry, Int) -> Unit = { _, _ -> },
     /** Words a log search found. They are highlighted where the line shows them. */
     marks: List<String> = emptyList(),
 ) {
     val entry = row.entry
-    // Swipe right to copy, left to delete (the terminal offers Undo). The swipe must pass a third of the width.
+    // Swipe right to copy, left to delete (the terminal offers Undo), or the other way with [deleteRight].
+    // The swipe must pass a third of the width.
     val swipe = remember { androidx.compose.animation.core.Animatable(0f) }
     val swipeScope = androidx.compose.runtime.rememberCoroutineScope()
     var rowWidth by remember { androidx.compose.runtime.mutableIntStateOf(1) }
@@ -236,13 +242,22 @@ fun LogLine(
     // The swipe direction (or 0). The content changes only when the direction changes, not on every
     // frame the line moves. The offset and the reveal read the swipe value during layout and draw.
     val swiped by remember { androidx.compose.runtime.derivedStateOf { kotlin.math.sign(swipe.value) } }
+    // The sign of the swipe that copies: right (1) by default, left (-1) with [deleteRight].
+    val copySide = if (deleteRight) -1f else 1f
     Box(Modifier.padding(top = topGap)) {
     // The swipe action label, revealed as the line moves. It is drawn only in the space the line has
     // left, so the line needs no background of its own and home's page (or wallpaper) shows through.
     if (swiped != 0f) {
+        // The sign always goes on the outer edge, where the line moved from.
+        val copies = swiped == copySide
         Text(
-            if (swiped > 0) "⧉ Copy" else "Delete ✕",
-            style = Term.text.copy(color = if (swiped > 0) Term.prompt else Term.error),
+            when {
+                copies && swiped > 0 -> "⧉ Copy"
+                copies -> "Copy ⧉"
+                swiped > 0 -> "✕ Delete"
+                else -> "Delete ✕"
+            },
+            style = Term.text.copy(color = if (copies) Term.prompt else Term.error),
             modifier = Modifier
                 .matchParentSize()
                 .drawWithContent {
@@ -262,20 +277,23 @@ fun LogLine(
         modifier = Modifier
             .onSizeChanged { rowWidth = it.width.coerceAtLeast(1) }
             .offset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
-            .pointerInput(entry.id) {
+            .pointerInput(entry.id, copySide) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         val limit = rowWidth / 3f
                         swipeScope.launch {
+                            // Distance toward the copy side: positive copies, negative deletes.
+                            val toCopy = swipe.value * copySide
                             when {
-                                swipe.value > limit -> {
+                                toCopy > limit -> {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onSwipeCopy(entry)
                                     swipe.animateTo(0f)
                                 }
-                                swipe.value < -limit -> {
+                                toCopy < -limit -> {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    swipe.animateTo(-rowWidth.toFloat())
+                                    // The line slides out of sight the way it was swiped.
+                                    swipe.animateTo(-copySide * rowWidth)
                                     onSwipeDelete(entry)
                                 }
                                 else -> swipe.animateTo(0f)

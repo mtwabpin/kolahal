@@ -73,21 +73,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -669,8 +674,9 @@ private data class Waiting(val index: Int, val stamp: Long)
  *    shows the state it had, and a failed run is in the card's footer.
  *
  * - A switch that waits takes no second tap. And a tap that comes within 2 seconds of the last one
- *   with the same arguments does nothing: the view model starts no run for it and does not say so,
- *   so "working" would wait for a run that never comes.
+ *   with the same arguments does nothing here: the view model would hold it until the 2 seconds are
+ *   over and run it then ([com.mtwabpin.kolahal.terminal.TapGate.runOrWait]), and a switch flips
+ *   once for a quick double tap, not twice.
  * - Up to six in a row and two rows, each at least 48 dp: a small card shows the first ones only.
  */
 @Composable
@@ -2033,6 +2039,14 @@ private val SEEK_HEIGHT = 48.dp
  */
 private val SEEK_SLIM = 20.dp
 
+/**
+ * On a one-row card, how far under its band the slim slider still takes touches: into the card's
+ * bottom padding, where nothing else is. With the band, 34 dp. Upwards it ends at the band, where
+ * the texts are the card's. The slider itself is 48 dp tall, centred on the band, so it reaches
+ * 14 dp under it at most.
+ */
+private val SEEK_SLIM_REACH = 14.dp
+
 /** The slim slider's handle, which fits its band. */
 private val SEEK_SLIM_HANDLE = DpSize(4.dp, 14.dp)
 
@@ -2112,7 +2126,8 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                     Text(title, style = type.titleSmall.copy(fontWeight = FontWeight.Bold), color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, colour, onTap)
-                    else if (fraction != null && tall >= TWO_LINES) MediaBar(spec, fraction, seek, colour, onTap, top = 4.dp)
+                    // The last thing in the texts' column, so the card's bottom padding under it takes its touches too.
+                    else if (fraction != null && tall >= TWO_LINES) MediaBar(spec, fraction, seek, colour, onTap, top = 4.dp, reach = SEEK_SLIM_REACH)
                 }
                 Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
                 MediaButtons(count, playDp, spec, onTap, colour)
@@ -2323,6 +2338,8 @@ private fun rememberSeek(spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?):
  * - [under] is drawn along its foot, under the bar: the times.
  * - [slim]: [SEEK_SLIM] tall with a shorter handle, in the bar's place on a card with no room for
  *   48 dp ([MediaBar]). Only its band takes touches, so the texts over it stay the card's.
+ * - [reach]: how far under a slim band it takes touches too ([SEEK_SLIM_REACH]), where nothing is
+ *   under it. Its drawing stays in the band.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2335,6 +2352,7 @@ private fun SeekBar(
     modifier: Modifier = Modifier,
     under: (@Composable () -> Unit)? = null,
     slim: Boolean = false,
+    reach: Dp = 0.dp,
 ) {
     val slider = seek.slider
     // Where the player is, or the place chosen, while no finger moves it. Material's own slider sets its value so.
@@ -2350,7 +2368,17 @@ private fun SeekBar(
     // Compose widens the touches of a band under 48 dp to 48: over the texts above a slim one, which are the card's.
     val config = LocalViewConfiguration.current
     val touches = remember(config, slim) { if (slim) ExactTouches(config) else config }
-    val band = if (slim) Modifier.height(SEEK_SLIM).clipToBounds() else Modifier.height(SEEK_HEIGHT)
+    // The slider is 48 dp tall whatever its band (Material's minimum), centred on it. A clip cuts its
+    // touches to the band, or to the band and [reach] under it; drawing stays in the band either way.
+    val band = when {
+        !slim -> Modifier.height(SEEK_HEIGHT)
+        reach <= 0.dp -> Modifier.height(SEEK_SLIM).clipToBounds()
+        else -> Modifier
+            .height(SEEK_SLIM)
+            .graphicsLayer { clip = true; shape = ReachDown(reach) }
+            .drawWithContent { clipRect { this@drawWithContent.drawContent() } }
+            .testTag("seek-reach")
+    }
     CompositionLocalProvider(LocalViewConfiguration provides touches) {
         Box(modifier.fillMaxWidth().then(band)) {
             Slider(
@@ -2382,13 +2410,22 @@ private class ExactTouches(config: ViewConfiguration) : ViewConfiguration by con
 }
 
 /**
+ * A box's own area and [reach] under it. As a layer's clip ([SeekBar]) it lets touches through
+ * there only: the top edge is exact, the bottom one [reach] lower.
+ */
+private class ReachDown(private val reach: Dp) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: androidx.compose.ui.unit.Density): Outline =
+        Outline.Rectangle(Rect(0f, 0f, size.width, size.height + with(density) { reach.toPx() }))
+}
+
+/**
  * The media bar where a card has no room for [SeekBar]'s 48 dp. Where the player can seek ([seek]),
  * a slim slider in the bar's place, so the bar seeks wherever it shows; else the bar, [top] under
  * what is over it.
  */
 @Composable
-private fun MediaBar(spec: WidgetSpec.Media, fraction: Float, seek: Seek?, role: Color, onTap: ((WidgetTap) -> Unit)?, top: Dp = 0.dp) {
-    if (seek != null && onTap != null) SeekBar(spec, fraction, seek, role, onTap, slim = true)
+private fun MediaBar(spec: WidgetSpec.Media, fraction: Float, seek: Seek?, role: Color, onTap: ((WidgetTap) -> Unit)?, top: Dp = 0.dp, reach: Dp = 0.dp) {
+    if (seek != null && onTap != null) SeekBar(spec, fraction, seek, role, onTap, slim = true, reach = reach)
     else Box(Modifier.padding(top = top).testTag("media-bar")) { LevelBar(fraction, moving = spec.playing, role) }
 }
 

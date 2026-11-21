@@ -63,6 +63,8 @@ fun LogSearchResults(
     onAppLongPress: (AppEntry) -> Unit,
     onSwipeCopy: (LogEntry) -> Unit,
     onSwipeDelete: (LogEntry) -> Unit,
+    /** Swipes the other way round ([LogLine]'s deleteRight). */
+    deleteRight: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val reversed = remember(search.rows) { search.rows.asReversed() }
@@ -97,6 +99,7 @@ fun LogSearchResults(
                         onAppLongPress = onAppLongPress,
                         onSwipeCopy = onSwipeCopy,
                         onSwipeDelete = onSwipeDelete,
+                        deleteRight = deleteRight,
                         marks = search.words,
                     )
                     FoundIn(

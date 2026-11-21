@@ -35,6 +35,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -93,12 +95,14 @@ internal fun Prompt(
             .padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
     ) {
         // A tap on `$` opens quick actions (settings, battery, profiles, …), within thumb reach.
+        // A screen reader hears "Quick actions", not "dollar".
         Text(
             "$ ",
             style = promptStyle.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
             modifier = Modifier
                 .testTag("prompt-quick")
-                .clickable(onClickLabel = "quick actions", onClick = onQuick)
+                .semantics { contentDescription = "Quick actions" }
+                .clickable(onClickLabel = "Open", onClick = onQuick)
                 .fillMaxHeight()
                 .padding(end = 2.dp)
                 .wrapContentHeight(),

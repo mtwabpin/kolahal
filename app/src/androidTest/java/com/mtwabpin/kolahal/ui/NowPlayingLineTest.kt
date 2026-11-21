@@ -138,6 +138,46 @@ class NowPlayingLineTest {
         compose.runOnIdle { assertEquals(1, toggles); assertEquals(1, skips) }
     }
 
+    /** A screen reader hears what a tap does, "Pause" or "Play", and what a long press does. */
+    @Test fun aScreenReaderHearsWhatTheTapsDo() {
+        var np by mutableStateOf(track())
+        show { np }
+        fun label(action: androidx.compose.ui.semantics.SemanticsPropertyKey<androidx.compose.ui.semantics.AccessibilityAction<() -> Boolean>>) =
+            compose.onNodeWithText("Song — Band").fetchSemanticsNode().config[action].label
+        assertEquals("Pause", label(androidx.compose.ui.semantics.SemanticsActions.OnClick))
+        assertEquals("Next track", label(androidx.compose.ui.semantics.SemanticsActions.OnLongClick))
+        compose.runOnIdle { np = paused() }
+        compose.waitForIdle()
+        assertEquals("Play", label(androidx.compose.ui.semantics.SemanticsActions.OnClick))
+    }
+
+    /**
+     * On the pinned header a long press opens the music's sheet, as a script's line opens its
+     * actions: it doesn't skip. ⏭ still does.
+     */
+    @Test fun withASheetALongPressOpensItAndDoesntSkip() {
+        var sheets = 0
+        compose.setContent {
+            KolahalTheme {
+                Box(Modifier.width(360.dp)) { NowPlayingLine(track(), { toggles++ }, { skips++ }, onLongPress = { sheets++ }) }
+            }
+        }
+        compose.onNodeWithText("Song — Band").performTouchInput { longClick() }
+        compose.runOnIdle { assertEquals(1, sheets); assertEquals(0, skips); assertEquals(0, toggles) }
+        assertEquals("Actions", compose.onNodeWithText("Song — Band").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.OnLongClick].label)
+        compose.onNodeWithContentDescription("Next").performClick()
+        compose.runOnIdle { assertEquals(1, skips) }
+    }
+
+    /** The sheet: Next track and Previous track, then Open and the player's name when its app has a screen. */
+    @Test fun theSheetHasNextPreviousAndOpen() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals(listOf("Next track", "Previous track"), mediaActions(context, track()).map { it.label })
+        // A player that is installed: Kolahal itself stands in for one.
+        val own = track().copy(pkg = context.packageName, app = "Kolahal")
+        assertEquals(listOf("Next track", "Previous track", "Open Kolahal"), mediaActions(context, own).map { it.label })
+    }
+
     @Test fun theNextButtonSkips() {
         show { track() }
         compose.onNodeWithContentDescription("Next").performClick()

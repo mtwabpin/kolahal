@@ -73,6 +73,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -92,6 +95,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /** The text the prompt shows when Settings previews home while typing. One letter matches many items. */
 private const val PREVIEW_INPUT = "s"
+
+/** How long "Copied" shows after a line is copied by a swipe. */
+internal const val COPIED_MS = 2_000L
 
 /**
  * selector.rail: the fluid full-list app selector on an edge of home. It shows only while the
@@ -368,6 +374,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onSwipeDown = { vm.onGesture(Keys.GESTURE_SWIPE_DOWN) },
         ) else Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars.union(WindowInsets.displayCutout)))
         // What's playing and the pinned status lines, shown in turns.
+        val appContext = LocalContext.current.applicationContext
         androidx.compose.animation.AnimatedVisibility(
             visible = !searching,
             enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) + androidx.compose.animation.fadeIn(),
@@ -383,10 +390,24 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 onPinTap = vm::onPinTap,
                 onPinLongPress = { name -> showMenu("$name ▸ ${pinnedLines.firstOrNull { it.name == name }?.text.orEmpty()}", null) { vm.scriptActions.statusActions(name) } },
                 onRefresh = vm::refreshPinned,
+                // As on a script's turn, a long press opens a sheet: Next track, Previous track, Open the player.
+                onMediaLongPress = { np -> showMenu(np.line, null) { mediaActions(appContext, np) } },
             )
         }
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
         val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
+        // With the widgets page on the right, a line swiped left (toward it) is copied, not deleted.
+        val deleteRight = remember(configVersion) { config[Keys.WIDGETS_PAGE] == "right" }
+        // A swipe copy shows "Copied" where Undo shows after a delete, for COPIED_MS.
+        var copies by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        var copiedShown by remember { mutableStateOf(false) }
+        LaunchedEffect(copies) {
+            if (copies == 0) return@LaunchedEffect
+            copiedShown = true
+            kotlinx.coroutines.delay(COPIED_MS)
+            copiedShown = false
+        }
+        val swipeCopy: (com.mtwabpin.kolahal.data.LogEntry) -> Unit = remember(vm) { { e -> vm.swipeCopy(e); copies++ } }
         // The log and the suggestions share the space the header, key bar and prompt leave. Those
         // are measured first, so a long suggestion list can't push the prompt off the screen.
         Column(Modifier.weight(1f).fillMaxWidth()) {
@@ -417,8 +438,9 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onLongPress = { e -> showMenu(com.mtwabpin.kolahal.data.StyledText.plain(e.text), e.id, e.ctx.url, com.mtwabpin.kolahal.terminal.lineDetail(e, clock24)) { vm.actionsFor(e) } },
             onAppTap = vm::launchApp,
             onAppLongPress = onAppLongPress,
-            onSwipeCopy = vm::swipeCopy,
+            onSwipeCopy = swipeCopy,
             onSwipeDelete = vm::swipeDelete,
+            deleteRight = deleteRight,
             modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 1f - vm.selectorFade.floatValue },
         ) else LazyColumn(
             state = listState,
@@ -473,8 +495,9 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                         onLongPress = { e -> showMenu(com.mtwabpin.kolahal.data.StyledText.plain(e.text), e.id, e.ctx.url, com.mtwabpin.kolahal.terminal.lineDetail(e, clock24)) { vm.actionsFor(e) } },
                         onAppTap = vm::launchApp,
                         onAppLongPress = onAppLongPress,
-                        onSwipeCopy = vm::swipeCopy,
+                        onSwipeCopy = swipeCopy,
                         onSwipeDelete = vm::swipeDelete,
+                        deleteRight = deleteRight,
                         onAction = vm::runLineAction,
                     )
                 }
@@ -549,13 +572,22 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         // (so typing on a hardware keyboard still shows them).
         val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
         val undoOffer by vm.undo.collectAsStateWithLifecycle()
-        undoOffer?.let { offer ->
+        // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy.
+        // A polite live region: TalkBack reads it when it appears, after what it is saying.
+        val notice = undoOffer?.text ?: "Copied".takeIf { copiedShown }
+        if (notice != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().background(Term.surface).heightIn(min = 44.dp).padding(start = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Term.surface)
+                    .heightIn(min = 44.dp)
+                    .padding(start = 12.dp)
+                    .testTag("undo-row")
+                    .semantics { liveRegion = LiveRegionMode.Polite },
             ) {
-                Text(offer.text, style = Term.text.copy(color = Term.dim), modifier = Modifier.weight(1f))
-                Text(
+                Text(notice, style = Term.text.copy(color = Term.dim), modifier = Modifier.weight(1f).heightIn(min = 44.dp).wrapContentHeight())
+                if (undoOffer != null) Text(
                     "Undo",
                     style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
                     modifier = Modifier.clickable(onClick = vm::undo).heightIn(min = 44.dp).wrapContentHeight().padding(horizontal = 16.dp),

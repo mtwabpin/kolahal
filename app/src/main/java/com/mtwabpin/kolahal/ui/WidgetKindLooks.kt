@@ -591,7 +591,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                 } else if (lead != null) {
                     BoldValue(lead.value, lead.unit, 40.sp, role)
                 }
-                if (more > 0) Text("+$more more", style = type.labelSmall, color = c.muted, maxLines = 1)
+                if (more > 0) Text("+$more more", style = type.labelSmall, color = c.muted, maxLines = 1, modifier = Modifier.opensList())
             }
             return@BoxWithConstraints
         }
@@ -602,7 +602,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(title.orEmpty(), style = type.labelMedium.copy(fontWeight = FontWeight.Bold), color = role, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                if (more > 0) Text("+$more more", style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+                if (more > 0) Text("+$more more", style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.opensList().padding(start = 8.dp))
             }
             val large = box == WidgetSizes.Box.LARGE
             if (first != null) {
@@ -803,7 +803,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                     Tile(SplitCorners.inColumn(0, count), c.tile, Modifier.fillMaxWidth().then(if (count == 1) Modifier.weight(1f) else Modifier.height(40.dp))) {
                         Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(title.orEmpty(), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = c.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            if (more > 0) Text("+$more more", style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+                            if (more > 0) Text("+$more more", style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.opensList().padding(start = 8.dp))
                         }
                     }
                     if (lead != null) Tile(SplitCorners.inColumn(1, count), c.tile, Modifier.fillMaxWidth().then(if (fit == 0) Modifier.weight(1f) else Modifier.height(64.dp))) {
@@ -922,7 +922,7 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
             if (large) {
                 Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(title.orEmpty(), style = type.labelLarge.copy(fontWeight = FontWeight.Bold), color = c.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    if (more > 0) Text("+$more more", style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+                    if (more > 0) Text("+$more more", style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.opensList().padding(start = 8.dp))
                 }
                 Spacer(Modifier.height(6.dp))
             }
