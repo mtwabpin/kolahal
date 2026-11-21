@@ -180,6 +180,12 @@ object Keys {
         "Color theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode; " +
                 "${MaterialYou.NAME} takes its colors from your wallpaper (Android 12 and newer), and ${MaterialYou.SOFT}, ${MaterialYou.TINTED} and ${MaterialYou.BLACK} put them on a lighter, a tinted or a black background",
         added = { CustomThemes.names },
+        notes = mapOf(
+            MaterialYou.NAME to "Colors from your wallpaper, on Android 12 and newer",
+            MaterialYou.SOFT to "Your wallpaper's colors on a lighter background",
+            MaterialYou.TINTED to "Your wallpaper's colors on a tinted background",
+            MaterialYou.BLACK to "Your wallpaper's colors on black",
+        ),
     )
     val THEME_ALWAYS_DARK = ConfigKey.Bool(
         "theme.always-dark",
@@ -190,7 +196,12 @@ object Keys {
         "screen.bars",
         "show",
         listOf("show", "hide", "immersive"),
-        "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them"
+        "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them",
+        notes = mapOf(
+            "show" to "The status and navigation bars show",
+            "hide" to "The status bar hides; swipe down from the top to see it",
+            "immersive" to "Both bars hide; swipe from an edge to see them",
+        ),
     )
     val FONT = ConfigKey.Choice(
         "font.family", "jetbrains-mono",
@@ -204,10 +215,21 @@ object Keys {
             "custom"
         ),
         "Terminal font (custom: a .ttf/.otf imported with 'font import')",
+        notes = mapOf(
+            "system" to "The phone's own font",
+            "jetbrains-mono" to "JetBrains Mono, the default",
+            "iosevka" to "Narrow, so more fits on a line",
+            "custom" to "A .ttf or .otf you imported with font import",
+        ),
     )
     val FONT_SANS = ConfigKey.Choice(
         "font.sans", "off", listOf("off", "prompt", "all"),
         "Use the system font instead of the terminal font: off, the prompt only, or all of the terminal (lists with aligned columns and the script editor stay monospace)",
+        notes = mapOf(
+            "off" to "The terminal font everywhere",
+            "prompt" to "The system font in the prompt only",
+            "all" to "The system font in the log and the prompt; columns stay monospace",
+        ),
     )
     val FONT_SIZE = ConfigKey.Num("font.size", 14, 10..24, "Terminal font size (sp)")
     val SUGGESTIONS =
@@ -217,6 +239,11 @@ object Keys {
     val LAUNCH_INSTANT = ConfigKey.Choice(
         "launch.instant", "all", listOf("off", "apps", "all"),
         "Run without Enter once only one match is left: apps, or apps and commands (calls, uninstall and other sensitive commands always need Enter)",
+        notes = mapOf(
+            "off" to "Always wait for Enter",
+            "apps" to "An app opens without Enter once it's the only match",
+            "all" to "Apps and commands run without Enter once only one is left",
+        ),
     )
     val LAUNCH_INSTANT_MIN =
         ConfigKey.Num("launch.instant-letters", 2, 1..6, "Letters to type before an instant launch")
@@ -252,7 +279,11 @@ object Keys {
         "suggestions.style",
         "list",
         listOf("list", "chips"),
-        "While typing: a list above the prompt (best match at the bottom, nearest the thumb) or a strip of chips"
+        "While typing: a list above the prompt (best match at the bottom, nearest the thumb) or a strip of chips",
+        notes = mapOf(
+            "list" to "A list above the prompt, the best match nearest your thumb",
+            "chips" to "A strip of chips above the prompt",
+        ),
     )
     val SELECTOR_RAIL = ConfigKey.Bool(
         "selector.rail",
@@ -263,7 +294,11 @@ object Keys {
         "selector.browse",
         "apps",
         listOf("letters", "apps"),
-        "Sliding along the edge: letters moves a letter at a time, with its apps beside your thumb; apps moves through the whole list, an app at a time when you slide slowly"
+        "Sliding along the edge: letters moves a letter at a time, with its apps beside your thumb; apps moves through the whole list, an app at a time when you slide slowly",
+        notes = mapOf(
+            "letters" to "A letter at a time, with its apps beside your thumb",
+            "apps" to "The whole list, an app at a time when you slide slowly",
+        ),
     )
     val SELECTOR_FILTER = ConfigKey.Bool(
         "selector.filter",
@@ -274,13 +309,22 @@ object Keys {
         "selector.side",
         "right",
         listOf("right", "left"),
-        "The edge you slide on; the list of apps opens on the other side"
+        "The edge you slide on; the list of apps opens on the other side",
+        notes = mapOf(
+            "right" to "Slide on the right edge; the list opens on the left",
+            "left" to "Slide on the left edge; the list opens on the right",
+        ),
     )
     val SELECTOR_POSITION = ConfigKey.Choice(
         "selector.position",
         "bottom",
         listOf("bottom", "middle", "top"),
-        "Position of the slide area on the edge: keep it away from the back gesture"
+        "Position of the slide area on the edge: keep it away from the back gesture",
+        notes = mapOf(
+            "bottom" to "The slide area at the bottom of the edge",
+            "middle" to "The slide area in the middle of the edge",
+            "top" to "The slide area at the top of the edge",
+        ),
     )
     val SELECTOR_HANDLE = ConfigKey.Bool(
         "selector.handle",
@@ -327,13 +371,22 @@ object Keys {
         "selector.actions",
         "off",
         listOf("far-side", "off"),
-        "App actions while picking: far-side opens them when you lift on the far side of the list; off: long-press in the open list only"
+        "App actions while picking: far-side opens them when you lift on the far side of the list; off: long-press in the open list only",
+        notes = mapOf(
+            "far-side" to "Lift on the far side of the list for an app's actions",
+            "off" to "Actions only by long-press in the open list",
+        ),
     )
     val SHOW_TIMESTAMPS = ConfigKey.Choice(
         "log.time",
         "groups",
         listOf("off", "commands", "groups"),
-        "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type"
+        "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type",
+        notes = mapOf(
+            "off" to "No times",
+            "commands" to "A time on each command you type",
+            "groups" to "A time on each group's first line and when the minute changes",
+        ),
     )
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
 
@@ -398,7 +451,11 @@ object Keys {
         "log.tables",
         "boxed",
         listOf("boxed", "plain"),
-        "How tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only)"
+        "How tables in script lines look: boxed (on a shaded box, with lines between rows) or plain (columns only)",
+        notes = mapOf(
+            "boxed" to "On a shaded box, with lines between rows",
+            "plain" to "Columns only",
+        ),
     )
     val LOG_FOLD = ConfigKey.Num(
         "log.fold",
@@ -469,6 +526,9 @@ object Keys {
         "search.engine", "duckduckgo",
         listOf("duckduckgo", "google", "bing", "brave", "startpage", "kagi", "custom"),
         "Web search engine for search / g",
+        notes = mapOf(
+            "custom" to "The address in search.url",
+        ),
     )
     val SEARCH_URL = ConfigKey.Text(
         "search.url",
@@ -491,7 +551,12 @@ object Keys {
         "backup.auto",
         "off",
         listOf("off", "daily", "weekly"),
-        "Write a backup file to a folder you pick, every day or every week"
+        "Write a backup file to a folder you pick, every day or every week",
+        notes = mapOf(
+            "off" to "No automatic backups",
+            "daily" to "A backup file every day, in the folder you picked",
+            "weekly" to "A backup file every week, in the folder you picked",
+        ),
     )
     val BACKUP_KEEP = ConfigKey.Num(
         "backup.keep",
@@ -508,7 +573,12 @@ object Keys {
         "widgets.page",
         "left",
         listOf("left", "right", "off"),
-        "A widgets page beside the terminal: swipe sideways on the home screen to reach it"
+        "A widgets page beside the terminal: swipe sideways on the home screen to reach it",
+        notes = mapOf(
+            "left" to "A widgets page to the left of the log",
+            "right" to "A widgets page to the right of the log",
+            "off" to "No widgets page",
+        ),
     )
     val WIDGETS_START = ConfigKey.Bool(
         "widgets.start",
@@ -534,7 +604,14 @@ object Keys {
         "widgets.agenda-days",
         "auto",
         listOf("auto", "1", "3", "7", "14"),
-        "Days the Agenda widget shows from today: auto looks ahead up to 14 days, as many events as the card fits"
+        "Days the Agenda widget shows from today: auto looks ahead up to 14 days, as many events as the card fits",
+        notes = mapOf(
+            "auto" to "Up to 14 days ahead, as many events as the card fits",
+            "1" to "Today only",
+            "3" to "Today and the next 2 days",
+            "7" to "A week from today",
+            "14" to "Two weeks from today",
+        ),
     )
 
     val GESTURE_DOUBLE_TAP = ConfigKey.Text(
