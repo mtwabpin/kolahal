@@ -27,6 +27,8 @@ import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.lineDetail
+import com.mtwabpin.kolahal.ui.tty.TtyLog
+import com.mtwabpin.kolahal.ui.tty.TtySearchResults
 
 /** The text the prompt shows when Settings previews home while typing. One letter matches many items. */
 private const val PREVIEW_INPUT = "s"
@@ -282,81 +284,110 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         )
     }
 
-    // How home is drawn. Everything above is the same for every style; only the body changes.
-    val style = HomeStyle.GUI
-    when (style) {
-        HomeStyle.GUI -> GuiHome(
-            state = state,
-            calls = calls,
-            config = config,
-            configVersion = configVersion,
-            preview = preview != null,
-            previewTyping = preview?.typing == true,
-            hasInput = hasInput,
-            status = status,
-            unlocks = unlocks,
-            profiles = profiles,
-            todoCount = todoCount,
-            nowPlaying = nowPlaying,
-            pinnedLines = pinnedLines,
-            rows = reversedRows,
-            hiddenLines = hiddenLines,
-            rowsLoaded = rowsLoaded,
-            search = search,
-            filter = filter,
-            filterCount = filterCount,
-            undoOffer = undoOffer,
-            isHome = isHome,
-            livePreview = livePreview,
-            timeFormat = lineTimeFormat,
-            today = today,
-            selectorFade = vm.selectorFade,
-            prompt = { typing ->
-                // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
-                val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
-                val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
-                Prompt(
-                    vm = vm,
-                    focus = state.focus,
-                    previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
-                    imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] },
-                    onFocus = { state.promptFocused = it },
-                    // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
-                    height = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp },
-                    keyBarOn = keyBarOn,
-                    onQuick = { vm.openQuick() },
-                    onToggleKeyBar = {
-                        config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
-                        // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
-                        if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
-                    },
-                    onTapPrompt = { focusPrompt() },
-                )
-            },
-            suggestions = { always ->
-                // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
-                PromptSuggestions(
-                    vm,
-                    previewTyping = preview?.typing == true,
-                    always = always,
-                    configVersion = configVersion,
-                    onAppLongPress = calls.onAppLongPress,
-                )
-                // [/selector]
-            },
-            selector = {
-                // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
-                HomeAppSelector(
-                    vm,
-                    onLongPress = calls.onAppLongPress,
-                    // While its row-height slider in Settings is dragged, open the list so its rows are visible.
-                    showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
-                    fade = if (preview == null) vm.selectorFade else null,
-                )
-                // [/selector]
-            },
-        )
+    // How home is drawn (home.style). Everything above is the same for every style, so a switch
+    // keeps where the log is scrolled, which lines are open and what is typed.
+    val style = remember(configVersion) { HomeStyle.of(config[Keys.HOME_STYLE]) }
+    val logArea: LogArea? = when (style) {
+        HomeStyle.GUI -> null
+        // The log on the character grid. The rest of home is still the GUI's.
+        HomeStyle.TTY -> { results, deleteRight, log, found ->
+            if (results != null) TtySearchResults(
+                search = results,
+                menuEntryId = state.menu?.entryId,
+                calls = calls,
+                config = config,
+                configVersion = configVersion,
+                timeFormat = lineTimeFormat,
+                today = today,
+                deleteRight = deleteRight,
+                modifier = found,
+            ) else TtyLog(
+                rows = reversedRows,
+                state = state,
+                calls = calls,
+                config = config,
+                configVersion = configVersion,
+                hiddenLines = hiddenLines,
+                rowsLoaded = rowsLoaded,
+                timeFormat = lineTimeFormat,
+                today = today,
+                deleteRight = deleteRight,
+                modifier = log,
+            )
+        }
     }
+    GuiHome(
+        state = state,
+        calls = calls,
+        config = config,
+        configVersion = configVersion,
+        preview = preview != null,
+        previewTyping = preview?.typing == true,
+        hasInput = hasInput,
+        status = status,
+        unlocks = unlocks,
+        profiles = profiles,
+        todoCount = todoCount,
+        nowPlaying = nowPlaying,
+        pinnedLines = pinnedLines,
+        rows = reversedRows,
+        hiddenLines = hiddenLines,
+        rowsLoaded = rowsLoaded,
+        search = search,
+        filter = filter,
+        filterCount = filterCount,
+        undoOffer = undoOffer,
+        isHome = isHome,
+        livePreview = livePreview,
+        timeFormat = lineTimeFormat,
+        today = today,
+        selectorFade = vm.selectorFade,
+        prompt = { typing ->
+            // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
+            val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
+            val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
+            Prompt(
+                vm = vm,
+                focus = state.focus,
+                previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
+                imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] },
+                onFocus = { state.promptFocused = it },
+                // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
+                height = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp },
+                keyBarOn = keyBarOn,
+                onQuick = { vm.openQuick() },
+                onToggleKeyBar = {
+                    config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
+                    // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
+                    if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
+                },
+                onTapPrompt = { focusPrompt() },
+            )
+        },
+        suggestions = { always ->
+            // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
+            PromptSuggestions(
+                vm,
+                previewTyping = preview?.typing == true,
+                always = always,
+                configVersion = configVersion,
+                onAppLongPress = calls.onAppLongPress,
+            )
+            // [/selector]
+        },
+        selector = {
+            // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
+            HomeAppSelector(
+                vm,
+                onLongPress = calls.onAppLongPress,
+                // While its row-height slider in Settings is dragged, open the list so its rows are visible.
+                showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
+                fade = if (preview == null) vm.selectorFade else null,
+            )
+            // [/selector]
+        },
+        logArea = logArea,
+    )
 }
 
 /**

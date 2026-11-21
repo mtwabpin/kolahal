@@ -4,7 +4,6 @@
 package com.mtwabpin.kolahal.ui.tty
 
 import android.animation.ValueAnimator
-import android.graphics.Typeface
 import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
@@ -50,15 +49,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -113,19 +108,9 @@ fun TtyScreenHost(
     }
     val state = remember(screen) { HostState() }
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val palette = remember(Term.palette) { TtyPalette(Term.palette) }
-    val resolver = LocalFontFamilyResolver.current
-    val family = Term.fontFamily
-    val textPx = with(density) { Term.fontSize.sp.toPx() }
-    val linePx = with(density) { Term.lineHeight.sp.roundToPx() }
-    val metrics = remember(resolver, family, textPx, linePx) {
-        val regular = resolver.resolve(family, FontWeight.Normal).value as? Typeface ?: Typeface.MONOSPACE
-        val bold = resolver.resolve(family, FontWeight.Bold).value as? Typeface
-            ?: Typeface.create(regular, Typeface.BOLD)
-        GridMetrics(regular, bold, textPx, linePx)
-    }
-    val painter = remember(metrics, palette) { GridPainter(metrics, palette) }
+    val grid = rememberTtyGrid()
+    val metrics = grid.metrics
+    val painter = grid.painter
     // The grid's area: the page less the system bars and the camera cutout.
     var area by remember { mutableStateOf(IntSize.Zero) }
     var areaX by remember { mutableIntStateOf(0) }

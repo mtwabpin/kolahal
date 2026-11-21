@@ -17,7 +17,7 @@ import com.mtwabpin.kolahal.terminal.tty.CellStyle
  * For each row: the backgrounds that are not the plain background (so a wallpaper or the host's
  * color shows through), then the glyphs, then underlines and strike-throughs.
  * - A run of ASCII characters in one style is one drawText call: their advances are exactly a
- *   cell, by [GridMetrics].
+ *   cell, by [GridMetrics]. In a monospace font the spaces between them stay in the run.
  * - Box drawing and blocks are drawn as geometry ([BoxGlyphs]), so they join.
  * - Any other character is drawn alone and made to fit its cells: squeezed when the font Android
  *   picks for it (an emoji or CJK font) is wider, centered when it is narrower. So no glyph can
@@ -33,10 +33,14 @@ class GridPainter(private val m: GridMetrics, private val palette: TtyPalette) {
     private val widths = SparseIntArray()
     private val boldWidths = SparseIntArray()
 
-    /** Paints [buffer] with its top left corner at [x0], [y0] (whole pixels), and clears its dirty rows. */
-    fun draw(canvas: Canvas, buffer: CellBuffer, x0: Float, y0: Float) {
+    /**
+     * Paints [buffer] with its top left corner at [x0], [y0] (whole pixels), and clears its dirty
+     * rows. Only rows [rowFrom] to [rowTo] (exclusive) are painted: a tall log row that is partly
+     * on screen paints only what shows.
+     */
+    fun draw(canvas: Canvas, buffer: CellBuffer, x0: Float, y0: Float, rowFrom: Int = 0, rowTo: Int = buffer.rows) {
         if (chars.size < buffer.cols + 2) chars = CharArray(buffer.cols + 2)
-        for (row in 0 until buffer.rows) {
+        for (row in rowFrom.coerceAtLeast(0) until rowTo.coerceAtMost(buffer.rows)) {
             val top = y0 + row * m.cellH
             backgrounds(canvas, buffer, row, x0, top)
             glyphs(canvas, buffer, row, x0, top)
@@ -68,6 +72,12 @@ class GridPainter(private val m: GridMetrics, private val palette: TtyPalette) {
         for (col in 0 until buffer.cols) {
             val g = buffer.glyphAt(col, row)
             val style = buffer.styleAt(col, row)
+            // In a monospace font a space advances one cell too, so words in one style are one
+            // call, not one per word: a screen of log rows is far fewer calls.
+            if (g == 0x20 && runLength > 0 && m.monospace && style.bits == runStyle) {
+                chars[runLength++] = ' '
+                continue
+            }
             if (g in 0x21..0x7E) {
                 if (runLength > 0 && style.bits != runStyle) {
                     text(canvas, runStart, runLength, CellStyle(runStyle), x0, top)

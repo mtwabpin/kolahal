@@ -135,22 +135,7 @@ fun LogSearchResults(
  */
 @Composable
 private fun FoundIn(entry: LogEntry, words: List<String>, modifier: Modifier) {
-    val text = remember(entry, words) {
-        val shown = listOfNotNull(
-            entry.shownText,
-            entry.source.takeIf { entry.kind == LogKind.SCRIPT },
-            entry.ctx.values[LogContext.DESC]
-        )
-        val unseen = words.filter { w -> shown.none { it.contains(w, ignoreCase = true) } }
-        if (unseen.isEmpty()) null
-        else listOfNotNull(
-            entry.ctx.url?.let { it to it },
-            entry.source?.let { it to "from $it" },
-            entry.ctx.script?.let { it to "from $it" })
-            .filter { (place, _) -> unseen.any { place.contains(it, ignoreCase = true) } }
-            .map { it.second }.distinct()
-            .joinToString(" · ").ifEmpty { null }
-    } ?: return
+    val text = remember(entry, words) { foundIn(entry, words) } ?: return
     Text(
         markMatches(AnnotatedString(text), words),
         style = Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp),
@@ -158,6 +143,27 @@ private fun FoundIn(entry: LogEntry, words: List<String>, modifier: Modifier) {
         overflow = TextOverflow.Ellipsis,
         modifier = modifier,
     )
+}
+
+/**
+ * Where the search [words] that [entry]'s text doesn't show were found: its link, its source or
+ * its script (`from weather`), joined by " · ". Null when the text shows every word.
+ */
+internal fun foundIn(entry: LogEntry, words: List<String>): String? {
+    val shown = listOfNotNull(
+        entry.shownText,
+        entry.source.takeIf { entry.kind == LogKind.SCRIPT },
+        entry.ctx.values[LogContext.DESC]
+    )
+    val unseen = words.filter { w -> shown.none { it.contains(w, ignoreCase = true) } }
+    return if (unseen.isEmpty()) null
+    else listOfNotNull(
+        entry.ctx.url?.let { it to it },
+        entry.source?.let { it to "from $it" },
+        entry.ctx.script?.let { it to "from $it" })
+        .filter { (place, _) -> unseen.any { place.contains(it, ignoreCase = true) } }
+        .map { it.second }.distinct()
+        .joinToString(" · ").ifEmpty { null }
 }
 
 /** Shown under the log while searching: how many lines match, or how to search if nothing is typed yet. */

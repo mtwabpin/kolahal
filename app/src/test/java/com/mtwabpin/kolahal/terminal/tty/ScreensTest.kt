@@ -51,9 +51,18 @@ class ScreensTest {
         rows.forEach { assertEquals("$name: '$it'", grid.cols, CellWidth.total(it)) }
     }
 
+    /**
+     * `screen <name>` opens every screen; `matrix`, `pipes` and `sl` are also commands of their own.
+     * `clock` and `boot` are not, so typing `clock` still opens the clock app.
+     */
     @Test
     fun theCommandsAndTheScreensAgree() {
-        assertEquals(CommandCatalog.HELP_SECTIONS["screens"], TtyScreens.names)
+        assertEquals(listOf("screen", "matrix", "pipes", "sl"), CommandCatalog.HELP_SECTIONS["screens"])
+        for (name in CommandCatalog.HELP_SECTIONS.getValue("screens") - "screen") assertTrue(name, name in TtyScreens.names)
+        val commands = CommandCatalog.COMMANDS.map { it.name }.toSet()
+        assertTrue("screen" in commands)
+        assertFalse("clock" in commands)
+        assertFalse("boot" in commands)
         for (name in TtyScreens.names) assertEquals(name, TtyScreens.named(name)?.name)
         assertNull(TtyScreens.named("ls"))
     }

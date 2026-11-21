@@ -332,6 +332,14 @@ object Keys {
         "Right-aligned times on log lines: groups shows one on each group's first line and when the minute changes, commands on the lines you type"
     )
     val LOG_DIM = ConfigKey.Bool("log.dim", true, "Dim output older than the latest command")
+
+    /** Only `config` sets it until TTY is complete: the rest of home is still drawn as gui. */
+    val HOME_STYLE = ConfigKey.Choice(
+        "home.style",
+        "gui",
+        listOf("gui", "tty"),
+        "How home's log is drawn: gui (text, chips and cards) or tty (a strict character grid, like a terminal)"
+    )
     val LOG_SPACING = ConfigKey.Num(
         "log.spacing",
         5,
@@ -589,6 +597,7 @@ object Keys {
         LAUNCH_INSTANT_MIN,
         SHOW_TIMESTAMPS,
         LOG_DIM,
+        HOME_STYLE,
         LOG_SPACING,
         LOG_ITEM_SPACING,
         LOG_GUTTER,
@@ -647,7 +656,8 @@ object Keys {
         HEADER_PINNED_BAR_BELOW,
         HEADER_LEFT,
         HEADER_RIGHT,
-        COMMANDS_OFF
+        COMMANDS_OFF,
+        HOME_STYLE,
     )
 
     /** A setting by name. An old name ([RENAMED]) finds the setting under its new name. */
