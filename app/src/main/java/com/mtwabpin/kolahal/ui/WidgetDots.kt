@@ -1,3 +1,6 @@
+/**
+ * Manual Review - Pending
+ */
 package com.mtwabpin.kolahal.ui
 
 import androidx.compose.animation.core.animateFloatAsState

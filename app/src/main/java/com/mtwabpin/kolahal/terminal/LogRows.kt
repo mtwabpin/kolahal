@@ -1,3 +1,6 @@
+/**
+ * Manual Review - Pending
+ */
 package com.mtwabpin.kolahal.terminal
 
 import androidx.compose.runtime.Immutable

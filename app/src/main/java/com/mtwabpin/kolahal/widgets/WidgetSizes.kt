@@ -1,3 +1,6 @@
+/**
+ * Manual Review - Pending
+ */
 package com.mtwabpin.kolahal.widgets
 
 /** Sizes of script widgets: the height a size starts with, the smallest a widget may be, and which layout a box gets. Pure. */
