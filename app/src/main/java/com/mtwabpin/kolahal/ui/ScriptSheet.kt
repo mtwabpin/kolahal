@@ -82,9 +82,14 @@ internal fun ScriptSheet(
     var pickingTime by remember(s.id) { mutableStateOf(false) }
     var timesError by remember(s.id) { mutableStateOf(false) }
     // Typed times are set when the field loses focus or the sheet closes, as Done and the check mark
-    // do. Times that do not read stay in the field, marked red, and are not set.
+    // do. Times that do not read stay in the field, marked red, and are not set. An empty field
+    // is someone retyping: only Done or the check mark clears the times. Set this way, times don't
+    // switch the script on, and a script switched off or deleted while the sheet was open is left be.
+    var deleted by remember(s.id) { mutableStateOf(false) }
     val applyTimes = rememberUpdatedState {
-        if (times != s.atTimes.joinToString(", ")) timesError = !vm.scriptActions.setScriptTimes(s, times)
+        if (!deleted && s.enabled && times.isNotBlank() && times != s.atTimes.joinToString(", ")) {
+            timesError = !vm.scriptActions.setScriptTimes(s, times, switchOn = false)
+        }
     }
     DisposableEffect(s.id) { onDispose { applyTimes.value() } }
     val isCommand = info.isCommand
@@ -303,7 +308,7 @@ internal fun ScriptSheet(
             "Delete",
             icon = R.drawable.ic_delete,
             onDismiss = { confirmDelete = false },
-        ) { confirmDelete = false; onDismiss(); vm.scriptActions.deleteScript(s) }
+        ) { confirmDelete = false; deleted = true; onDismiss(); vm.scriptActions.deleteScript(s) }
     }
 }
 

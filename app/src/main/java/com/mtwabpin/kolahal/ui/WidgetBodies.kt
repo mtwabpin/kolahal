@@ -73,26 +73,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -2373,32 +2368,40 @@ private fun SeekBar(
     val band = when {
         !slim -> Modifier.height(SEEK_HEIGHT)
         reach <= 0.dp -> Modifier.height(SEEK_SLIM).clipToBounds()
-        else -> Modifier
-            .height(SEEK_SLIM)
-            .graphicsLayer { clip = true; shape = ReachDown(reach) }
-            .drawWithContent { clipRect { this@drawWithContent.drawContent() } }
-            .testTag("seek-reach")
+        else -> Modifier.height(SEEK_SLIM).testTag("seek-reach")
+    }
+    // With a reach, the slider sits in a box from the band's top to [reach] under it, clipped: it takes
+    // touches there, and none over the band, where the texts are the card's.
+    val reaching = slim && reach > 0.dp
+    val reachBox = if (reaching) {
+        Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true).height(SEEK_SLIM + reach).clipToBounds()
+    } else {
+        Modifier.fillMaxSize()
     }
     CompositionLocalProvider(LocalViewConfiguration provides touches) {
         Box(modifier.fillMaxWidth().then(band)) {
-            Slider(
-                state = slider,
-                onValueChange = { if (!press.held) slider.value = it },
-                onValueChangeFinished = {
-                    press.click {
-                        seek.held = slider.value
-                        onTap(WidgetTap(args = WidgetWords.mediaSeek(WidgetWords.seekTarget(slider.value, duration))))
-                    }
-                },
-                // An item of its own inside the card, which says where the track is.
-                modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) {
-                    stateDescription = "${WidgetWords.mediaTime(positionAt(spec, now.value, seek))} of ${WidgetWords.mediaTime(duration)}"
-                },
-                colors = colors,
-                interactionSource = source,
-                thumb = { SliderDefaults.Thumb(source, isVertical = false, colors = colors, thumbSize = if (slim) SEEK_SLIM_HANDLE else SEEK_HANDLE) },
-                track = { LevelBar({ slider.value }, moving = spec.playing, role) },
-            )
+            Box(reachBox) {
+                Box(Modifier.fillMaxWidth().height(if (slim) SEEK_SLIM else SEEK_HEIGHT)) {
+                    Slider(
+                        state = slider,
+                        onValueChange = { if (!press.held) slider.value = it },
+                        onValueChangeFinished = {
+                            press.click {
+                                seek.held = slider.value
+                                onTap(WidgetTap(args = WidgetWords.mediaSeek(WidgetWords.seekTarget(slider.value, duration))))
+                            }
+                        },
+                        // An item of its own inside the card, which says where the track is.
+                        modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) {
+                            stateDescription = "${WidgetWords.mediaTime(positionAt(spec, now.value, seek))} of ${WidgetWords.mediaTime(duration)}"
+                        },
+                        colors = colors,
+                        interactionSource = source,
+                        thumb = { SliderDefaults.Thumb(source, isVertical = false, colors = colors, thumbSize = if (slim) SEEK_SLIM_HANDLE else SEEK_HANDLE) },
+                        track = { LevelBar({ slider.value }, moving = spec.playing, role) },
+                    )
+                }
+            }
             if (under != null) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth()) { under() }
         }
     }
@@ -2407,15 +2410,6 @@ private fun SeekBar(
 /** [config], with no touch target larger than a node's own bounds: for the slim slider's band ([SeekBar]). */
 private class ExactTouches(config: ViewConfiguration) : ViewConfiguration by config {
     override val minimumTouchTargetSize: DpSize get() = DpSize.Zero
-}
-
-/**
- * A box's own area and [reach] under it. As a layer's clip ([SeekBar]) it lets touches through
- * there only: the top edge is exact, the bottom one [reach] lower.
- */
-private class ReachDown(private val reach: Dp) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: androidx.compose.ui.unit.Density): Outline =
-        Outline.Rectangle(Rect(0f, 0f, size.width, size.height + with(density) { reach.toPx() }))
 }
 
 /**

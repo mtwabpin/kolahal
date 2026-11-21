@@ -396,8 +396,10 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         }
         val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
         val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
-        // With the widgets page on the right, a line swiped left (toward it) is copied, not deleted.
-        val deleteRight = remember(configVersion) { config[Keys.WIDGETS_PAGE] == "right" }
+        // With the widgets page on the right, a line swiped left (toward it) is copied, not deleted. In a
+        // right-to-left layout the page set as "right" is on the left, so the sides swap with it.
+        val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+        val deleteRight = remember(configVersion, rtl) { (config[Keys.WIDGETS_PAGE] == "right") != rtl }
         // A swipe copy shows "Copied" where Undo shows after a delete, for COPIED_MS.
         var copies by remember { androidx.compose.runtime.mutableIntStateOf(0) }
         var copiedShown by remember { mutableStateOf(false) }
