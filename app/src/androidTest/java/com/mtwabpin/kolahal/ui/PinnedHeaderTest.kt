@@ -10,8 +10,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -20,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -63,14 +67,14 @@ class PinnedHeaderTest {
     }
 
     /** The header with [items], its clock driven by the test: nothing moves until [advance]. */
-    private fun show(vararg items: StatusLine, seconds: Int? = null) {
+    private fun show(vararg items: StatusLine, seconds: Int? = null, screenReader: Boolean = false) {
         seconds?.let { config.set(Keys.HEADER_PINNED_SECONDS, it.toString()) }
         pins = items.toList()
         compose.mainClock.autoAdvance = false
         compose.setContent {
             KolahalTheme {
                 Box(Modifier.width(360.dp)) {
-                    PinnedHeader(np, pins, config, version, {}, {}, { taps += it }, { presses += it }, { refreshes++ })
+                    PinnedHeader(np, pins, config, version, {}, {}, { taps += it }, { presses += it }, { refreshes++ }, screenReader = screenReader)
                 }
             }
         }
@@ -136,6 +140,48 @@ class PinnedHeaderTest {
         }
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithTag("pinned-dots").assertDoesNotExist()
+    }
+
+    /**
+     * A tap on the dots shows the next item at once, and its turn lasts the full time. Their touch is
+     * 48 dp wide, the line's end padding included, and as high as the line: a tap at its start edge
+     * and one at its top count too. The item's own tap doesn't run.
+     */
+    @Test fun aTapOnTheDotsShowsTheNextItem() {
+        show(pin("a"), pin("b"), pin("c"), seconds = 3)
+        val dots = compose.onNodeWithTag("pinned-dots")
+        dots.assertWidthIsAtLeast(48.dp)
+        assertEquals(compose.onNodeWithTag("pinned-header").fetchSemanticsNode().size.height, dots.fetchSemanticsNode().size.height)
+        dots.assertHasClickAction()
+        dots.performTouchInput { click(Offset(1f, height / 2f)) }
+        advance(1_000)
+        showing("b", "a", "b", "c")
+        dots.assertContentDescriptionEquals("2 of 3")
+        dots.performTouchInput { click(Offset(width - 1f, 1f)) }
+        advance(1_000)
+        showing("c", "a", "b", "c")
+        // Its turn started with the tap: it lasts the full 3 seconds.
+        advance(1_500)
+        showing("c", "a", "b", "c")
+        advance(1_500)
+        showing("a", "a", "b", "c")
+        assertEquals(emptyList<String>(), taps)
+    }
+
+    /**
+     * While a screen reader is on, the items stay, so the one under its focus isn't replaced. The dots
+     * show whatever header.pinned-dots says, and their action shows the next item.
+     */
+    @Test fun aScreenReaderStopsTheTurns() {
+        config.set(Keys.HEADER_PINNED_DOTS, "0")
+        show(pin("a"), pin("b"), seconds = 2, screenReader = true)
+        advance(10_000)
+        showing("a", "a", "b")
+        compose.onNodeWithTag("pinned-dots").assertContentDescriptionEquals("1 of 2").performSemanticsAction(SemanticsActions.OnClick)
+        advance(1_000)
+        showing("b", "a", "b")
+        advance(10_000)
+        showing("b", "a", "b")
     }
 
     /** What's playing goes first, and the dots count it. */

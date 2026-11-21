@@ -54,7 +54,10 @@ internal fun Fact(label: String, value: String) {
 
 /**
  * The sheet for one script: run, edit, export, on/off, notifications, timers, library and delete.
- * It reads nothing from the script's code but its options: the page already read the rest ([info]).
+ * A command, or a script with `@on` or `@at`, also has Run with… ([RunWithDialog]): arguments, or an
+ * event to simulate.
+ * It reads nothing from the script's code but its options and its events: the page already read the
+ * rest ([info]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +111,8 @@ internal fun ScriptSheet(
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
     val grants = info.grants
     var renaming by remember(s.id) { mutableStateOf(false) }
+    val runWith = remember(s.code) { EditorLogic.offersRunWith(s.code) }
+    var runWithOpen by remember(s.id) { mutableStateOf(false) }
 
     GuiSheet(onDismiss, scroll = true) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,6 +144,10 @@ internal fun ScriptSheet(
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(shapes = ButtonDefaults.shapes(), onClick = { vm.scriptActions.runScriptNow(s) }) {
                 IconLabel(R.drawable.ic_play, "Run")
+            }
+            // A command takes arguments; a script with @on or @at runs on an event: the editor's long-press on Run.
+            if (runWith) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { runWithOpen = true }) {
+                Text("Run with…")
             }
             FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = onEdit) {
                 IconLabel(R.drawable.ic_edit, "Edit")
@@ -285,6 +294,13 @@ internal fun ScriptSheet(
         OptionDialog(s.name, o, optionValues.first[o.name] ?: o.default, changed = o.name in optionValues.second, onDismiss = { editingOption = null }) { value ->
             editingOption = null
             vm.scriptActions.setOption(s.name, o.name, value)
+        }
+    }
+
+    if (runWithOpen) {
+        RunWithDialog(s.code, onDismiss = { runWithOpen = false }, material = true) { args, event ->
+            runWithOpen = false
+            vm.scriptActions.runScriptNow(s, args, event)
         }
     }
 

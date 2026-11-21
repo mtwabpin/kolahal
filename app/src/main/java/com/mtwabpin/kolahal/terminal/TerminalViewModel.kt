@@ -945,6 +945,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override fun logInfo(text: String, ctx: LogContext) { io { logs.add(LogKind.INFO, text, ctx = ctx) } }
         override val status get() = this@TerminalViewModel.status.value
         override val profiles get() = this@TerminalViewModel.profiles.value
+        override val widgetsPage get() = config[Keys.WIDGETS_PAGE] != "off"
+        override fun showWidgetsPage() = this@TerminalViewModel.showWidgetsPage()
     })
 
     fun onHeaderTap(target: HeaderTarget) = header.onHeaderTap(target)
@@ -955,6 +957,15 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val _logTurns = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     /** Asks home to turn to the log page: a widget's tap whose run prints there. Home's pager collects it. */
     val logTurns: SharedFlow<Unit> = _logTurns
+
+    private val _widgetsTurns = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** Asks home to turn to the widgets page: `widgets page` and its quick action. Home's pager collects it. */
+    val widgetsTurns: SharedFlow<Unit> = _widgetsTurns
+
+    override fun showWidgetsPage() {
+        _events.tryEmit(UiEvent.HideKeyboard)
+        _widgetsTurns.tryEmit(Unit)
+    }
 
     /**
      * Taps and refresh requests of the script widgets on the widgets page ([WidgetActions]). A tap

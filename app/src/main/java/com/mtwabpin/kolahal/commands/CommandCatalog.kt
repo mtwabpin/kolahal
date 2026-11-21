@@ -122,7 +122,15 @@ object CommandCatalog {
             sensitive = true,
         ),
         CommandSpec("feeds", "feeds", "Feed manager screen (add, intervals, notifications, OPML)", short = "Feed manager", sensitive = true),
-        CommandSpec("widgets", "widgets [ls]", "Settings → Widgets → Arrange widgets: add, resize and arrange them (ls: text list)", short = "Arrange widgets", args = "ls"),
+        CommandSpec(
+            "widgets", "widgets [ls|page]", "Settings → Widgets → Arrange widgets: add, resize and arrange them (ls: text list; page: turn home to the widgets page)",
+            short = "Arrange widgets", args = "ls · page",
+            uses = listOf(
+                "widgets" to "Arrange widgets: add, resize and arrange them",
+                "widgets page" to "turn home to the widgets page",
+                "widgets ls" to "the placed widgets, as text",
+            ),
+        ),
         CommandSpec("widget", "widget add", "Pick a widget to add to the widgets page", short = "Add a widget", args = "add", sensitive = true),
         CommandSpec(
             "notifs", "notifs [all|enable|mute <app>|unmute <app>|muted|log [on|off]|clear]", "Your notifications in the terminal",

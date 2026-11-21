@@ -17,7 +17,7 @@ class HelpCatalogTest {
     @Test fun usesStartWithTheirCommand() {
         val needed = listOf(
             "todo", "notes", "feed", "notifs", "script", "media", "dnd", "volume", "brightness", "config", "backup",
-            "clear", "work", "private", "alias", "font", "crashes", "status", "log", "apps",
+            "clear", "work", "private", "alias", "font", "crashes", "status", "log", "apps", "widgets",
         )
         for (name in needed) {
             val spec = CommandCatalog.COMMANDS.first { it.name == name }

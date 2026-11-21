@@ -104,6 +104,7 @@ open class TerminalUiStub : TerminalUi {
     override fun newTextFile(name: String) = Unit
     override fun openTextFile(uri: String) = Unit
     override fun askResume(app: com.mtwabpin.kolahal.apps.AppEntry) = Unit
+    override fun showWidgetsPage() = Unit
 }
 
 /** Runs command lines as typed at the prompt, through a [CommandProcessor] on [ui], and reads back what each printed. */

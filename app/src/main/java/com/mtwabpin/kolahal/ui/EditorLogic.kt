@@ -387,6 +387,18 @@ object EditorLogic {
             else RunResult("Error: $message", failed = true)
         }
     }
+
+    /** What the editor's message line adds after a plain Run of a script that takes arguments or events. */
+    const val RUN_WITH_HINT = "Long-press Run for arguments or an event"
+
+    /**
+     * Whether a plain Run of [code] points to Run with…: the script is a command (`@command`, so it
+     * can take arguments), or it runs on an event (`@on`) or at a time (`@at`).
+     */
+    fun offersRunWith(code: String): Boolean {
+        val meta = com.mtwabpin.kolahal.script.ScriptMeta
+        return meta.isCommand(code) || meta.events(code).isNotEmpty() || meta.at(code).isNotEmpty()
+    }
 }
 
 /**

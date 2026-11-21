@@ -451,14 +451,16 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     // ---- widgets ----------------------------------------------------------------------------
 
     /**
-     * - `widgets` alone opens the widgets page.
-     * - `widgets ls` prints the placed widgets. A tap opens the widgets page.
+     * - `widgets` alone opens Arrange widgets.
+     * - `widgets page` turns home to the widgets page beside the log.
+     * - `widgets ls` prints the placed widgets. A tap opens Arrange widgets.
      * - `widget add` opens the picker.
      */
     private fun widgets(args: List<String>) {
         val host = com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
         when (args.firstOrNull()) {
             null -> ui.openScreen(Screen.WIDGETS)
+            "page" -> if (conf[Keys.WIDGETS_PAGE] == "off") fix("The widgets page is off — tap to turn it on", "config set widgets.page left") else ui.showWidgetsPage()
             "ls", "list" -> {
                 val lines = host.listing(context)
                 if (lines.isEmpty()) return info("No widgets yet — widget add opens the picker", LogContext.of(LogContext.RUN to "widget add"))
