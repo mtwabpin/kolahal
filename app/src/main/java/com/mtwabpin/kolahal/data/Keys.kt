@@ -192,6 +192,24 @@ object Keys {
         listOf("show", "hide", "immersive"),
         "Full screen: hide the status bar, or both system bars (immersive); swipe from the edge to show them"
     )
+    val SCREEN_SAVER = ConfigKey.Choice(
+        "screen.saver",
+        "off",
+        listOf("off", "matrix", "clock", "pipes"),
+        "A full-screen screen over home after some minutes without a touch (screen.saver-after); any touch or key closes it. Never while the screen is off, in battery saver or with Remove animations on",
+        notes = mapOf(
+            "off" to "No screensaver",
+            "matrix" to "Characters fall down the screen",
+            "clock" to "The time in big digits, with the date",
+            "pipes" to "Pipes grow across the screen",
+        ),
+    )
+    val SCREEN_SAVER_AFTER = ConfigKey.Num(
+        "screen.saver-after",
+        5,
+        1..60,
+        "Minutes without a touch on home before the screensaver (screen.saver) starts"
+    )
     val FONT = ConfigKey.Choice(
         "font.family", "jetbrains-mono",
         listOf(
@@ -347,6 +365,13 @@ object Keys {
             "gui" to "Text, chips and cards, with pictures and sizes",
             "tty" to "A character grid, like a terminal: one font size, no pictures",
         ),
+    )
+
+    /** Only the full-screen screens and the tty home style draw it (ui/tty/TtyCrt.kt), so the GUI's look never changes. */
+    val TTY_CRT = ConfigKey.Bool(
+        "tty.crt",
+        false,
+        "Look like an old CRT monitor on full-screen screens (matrix, clock…) and in the tty home style: scanlines, darker corners and, on Android 12 and newer with a dark theme, a glow on bright text"
     )
     val LOG_SPACING = ConfigKey.Num(
         "log.spacing",
@@ -575,6 +600,8 @@ object Keys {
         THEME,
         THEME_ALWAYS_DARK,
         STATUS_BAR,
+        SCREEN_SAVER,
+        SCREEN_SAVER_AFTER,
         FONT,
         FONT_SANS,
         FONT_SIZE,
@@ -606,6 +633,7 @@ object Keys {
         SHOW_TIMESTAMPS,
         LOG_DIM,
         HOME_STYLE,
+        TTY_CRT,
         LOG_SPACING,
         LOG_ITEM_SPACING,
         LOG_GUTTER,

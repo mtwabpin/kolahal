@@ -180,7 +180,8 @@ val HOME_STYLE = ConfigKey.Choice("home.style", "gui", listOf("gui", "tty"),
   setting previews in TTY as well.
 - Also a command: `tty on|off` as an alias in the Model's command catalog.
 - Later keys, all under `tty.`: `tty.cursor` (block, bar, underline), `tty.blink`, `tty.images`
-  (picture, blocks, off), `tty.crt`, `tty.shader`, `tty.screensaver`, `tty.boot`.
+  (picture, blocks, off), `tty.crt`, `tty.shader`, `tty.boot`. (The screensaver became
+  `screen.saver` in step 5.)
 
 ### 1.5 Packages
 
@@ -670,7 +671,7 @@ with a FG head; on a light theme it is dark rain on paper).
 | `clock` | big digits from block cells, date under it; fps 0, ticks each second (or minute without seconds) |
 | `pipes` | box-drawing geometry, so pipes join at any font |
 | `sl` | ends by itself; `frame` returns false |
-| `top` | live: battery, memory, per-app usage today, notifications count, running scripts and their last run time, from `ScreenData` (a narrow interface the view model implements from `usage/`, `status/`, `script/`); 1 s tick; ↑/↓ and tap select a row, Enter opens the app |
+| `top` | built in step 5, through `screen top` only: Kolahal's uptime, today's unlocks, bars for the battery, free memory, Kolahal's memory and today's screen time (usage access), then the scripts by latest run with their result and next timer; read each second from `ScreenData.top` (`TopSource`, made by `terminal/TopFacts`); any key or tap leaves |
 | `boot` | `[ ok ]` lines from real startup facts (apps read, scripts loaded, theme); at most 1.2 s; `tty.boot on` plays it at cold start only, never after process death recovery |
 
 ### 6.2 Host and lifecycle (`ui/tty/TtyScreenHost`)
@@ -693,10 +694,12 @@ with a FG head; on a light theme it is dark rain on paper).
   after a reboot too); the log, input and scroll anchor restore as today.
 - Battery: 30 fps default; 15 fps and no screensaver in battery saver; stop at thermal status
   ≥ MODERATE (API 29+); never a wake lock; never `FLAG_KEEP_SCREEN_ON`.
-- Screensaver: `tty.screensaver off|matrix|pipes|clock`, `tty.screensaver-after` minutes
-  (default 2) of no touch while home is resumed and focused. Since the phone's own screen
-  timeout usually comes first, it mostly shows on a charger or dock; that is intended. First
-  touch only dismisses it (the touch is not passed to the log).
+- Screensaver (built in step 5 as `screen.saver off|matrix|clock|pipes` and `screen.saver-after`
+  minutes, default 5, both in Settings → Look & feel): after that long with no touch while home is
+  resumed and focused, on the log page, with no sheet open and nothing typed. Since the phone's own
+  screen timeout usually comes first, it mostly shows on a charger or dock; that is intended. First
+  touch only dismisses it (the touch is not passed to the log); not in battery saver, with the
+  screen off or with "Remove animations" on.
 - Entering a screen from TTY home can use the visible grid: `TtyLog.snapshot(): CellBuffer`
   composes the visible blocks into a buffer, so `matrix` can dissolve the log into rain and
   `boot` can scroll into the log. In GUI style the screen starts from blank.

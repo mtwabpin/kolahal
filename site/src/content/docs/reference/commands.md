@@ -245,15 +245,20 @@ into the prompt (except `q`, which only quits).
 
 | Usage | Aliases | Description |
 | --- | --- | --- |
-| `screen <name>` | | one of the screens below, by name: `screen clock`, `screen matrix` |
+| `screen <name>` | | one of the screens below, by name: `screen clock`, `screen top` |
 | `matrix` | | characters fall down the screen, as in the film (also `screen matrix`) |
 | `pipes` | | pipes grow across the screen and turn at random (also `screen pipes`) |
 | `sl` | | a steam locomotive crosses the screen, then home comes back (also `screen sl`) |
 
-The screens are `matrix`, `clock`, `pipes`, `sl` and `boot`:
+The screens are `matrix`, `clock`, `pipes`, `sl`, `top` and `boot`:
 
 - `clock`: the time in big digits, with the date under it. The seconds show when they fit.
   `clock.24h` sets 12- or 24-hour time.
+- `top`: this phone and Kolahal at a glance, as the Unix `top` shows a computer, updated every
+  second. The first line has the time, how long Kolahal has been running and today's unlocks. Under
+  it are bars for the battery, the phone's memory, Kolahal's own memory and today's screen time
+  (with usage access: `usage-access`). Then comes a table of your scripts: when each one last ran,
+  how it ended, and when its timer runs it next. The latest run is at the top.
 - `boot`: a short startup sequence with this phone's counts: apps, scripts, theme, font and today's
   unlocks.
 
@@ -261,8 +266,18 @@ They pause while the screen is off or another app is open, and close if you're a
 30 seconds. In battery saver they run at a lower frame rate. With **Remove animations** on in
 Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a single still frame.
 
-Instant launch never opens them, and scripts can't run them. `clock` and `boot` open only through
-`screen`, so typing `clock` still opens your clock app.
+Instant launch never opens them, and scripts can't run them. `clock`, `top` and `boot` open only
+through `screen`, so typing `clock` still opens your clock app.
+
+**Screensaver.** With `screen.saver` set to `matrix`, `clock` or `pipes`, that screen opens over
+home after `screen.saver-after` minutes (5 by default) without a touch, while the log page shows and
+nothing is open or typed. The first touch or key only closes it. It never starts while the screen is
+off, in battery saver, or with **Remove animations** on. Your phone usually turns its screen off
+sooner, so you'll mostly see it on a charger. Set it in **Settings → Look & feel → Screensaver**.
+
+**CRT look.** With `tty.crt on`, the screens look like an old CRT monitor: scanlines, darker corners
+and, on Android 12 and newer with a dark theme, a soft glow around bright text. It is kept subtle,
+so text stays easy to read. It's under **Settings → Look & feel → Screen**.
 
 ## Profiles
 
