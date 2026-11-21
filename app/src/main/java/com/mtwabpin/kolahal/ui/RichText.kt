@@ -19,10 +19,8 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -56,6 +54,9 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.terminal.LineModel
+import com.mtwabpin.kolahal.terminal.spokenMeters
+import com.mtwabpin.kolahal.terminal.spokenStats
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -164,88 +165,36 @@ private fun DrawScope.drawChips(
 }
 
 /**
- * The part of a line's body from its first table or bar on ([StyledText.splitAtBlocks]), drawn
- * under the line's text: each table as a [LogTable], bars that follow each other as [Meters], and
- * the text between and after them as body text. [start] lines it up with the title; [bullet] is
- * the width of "• ", for list items.
+ * What follows a line's words ([LineModel.blocks]), drawn under the line's text: each table as a
+ * [LogTable], bars that follow each other as [Meters], and the text between and after them as body
+ * text. [start] lines it up with the title; [bullet] is the width of "• ", for list items.
  */
 @Composable
-internal fun RichBody(rest: String, style: TextStyle, start: Dp, bullet: TextUnit) {
-    val blocks = remember(rest) { blocks(rest) }
+internal fun RichBody(blocks: List<LineModel.Block>, style: TextStyle, start: Dp, bullet: TextUnit) {
     Column(Modifier.padding(start = start)) {
         for (block in blocks) when (block) {
-            is Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
-            is Block.Bars -> Meters(block.meters, style, Modifier.padding(vertical = 2.dp))
-            is Block.Stats -> StatsRow(
-                block.stats,
+            is LineModel.Block.Table -> LogTable(block.rows, style, Modifier.padding(vertical = 4.dp))
+            is LineModel.Block.Meters -> Meters(block.rows, style, Modifier.padding(vertical = 2.dp))
+            is LineModel.Block.Stats -> StatsRow(
+                block.items,
                 style,
                 Modifier.padding(top = 4.dp, bottom = 2.dp)
             )
 
-            is Block.Columns -> ColumnChart(block.columns, style, Modifier.padding(vertical = 4.dp))
-            is Block.Text -> RichText(
+            is LineModel.Block.Chart -> ColumnChart(
+                block.columns,
+                style,
+                Modifier.padding(vertical = 4.dp)
+            )
+
+            is LineModel.Block.Text -> RichText(
                 remember(
-                    block.raw,
+                    block,
                     Term.palette
-                ) { buildAnnotatedString { appendBody(block.raw, 0.sp, bullet) } }, style = style
+                ) { buildAnnotatedString { appendBody(block.paras, 0.sp, bullet) } }, style = style
             )
         }
     }
-}
-
-private sealed interface Block {
-    class Table(val rows: List<StyledText.Row>) : Block
-    class Bars(val meters: List<StyledText.Meter>) : Block
-    class Stats(val stats: List<StyledText.Stat>) : Block
-    class Columns(val columns: StyledText.Columns) : Block
-    class Text(val raw: String) : Block
-}
-
-/** [rest] as tables, runs of bars and runs of text, in order. */
-private fun blocks(rest: String): List<Block> {
-    val out = ArrayList<Block>()
-    val text = ArrayList<String>()
-    val rows = ArrayList<StyledText.Row>()
-    val meters = ArrayList<StyledText.Meter>()
-    fun endText() {
-        if (text.isNotEmpty()) out += Block.Text(text.joinToString("\n")); text.clear()
-    }
-
-    fun endTable() {
-        if (rows.isNotEmpty()) out += Block.Table(rows.toList()); rows.clear()
-    }
-
-    fun endBars() {
-        if (meters.isNotEmpty()) out += Block.Bars(meters.toList()); meters.clear()
-    }
-    for (raw in rest.split('\n')) {
-        val line = if (StyledText.hasBlock(raw)) StyledText.lines(raw).single() else null
-        when {
-            line?.row != null -> {
-                endText(); endBars(); rows += line.row
-            }
-
-            line?.meter != null -> {
-                endText(); endTable(); meters += line.meter
-            }
-
-            line?.stats != null -> {
-                endText(); endTable(); endBars(); out += Block.Stats(line.stats)
-            }
-
-            line?.columns != null -> {
-                endText(); endTable(); endBars(); out += Block.Columns(line.columns)
-            }
-
-            else -> {
-                endTable(); endBars(); text += raw
-            }
-        }
-    }
-    endText()
-    endTable()
-    endBars()
-    return out
 }
 
 /** How tall a bar's track is, and the least room it gets beside its texts. */
@@ -269,7 +218,7 @@ internal fun Meters(
     val starts = meters.any { it.start.isNotEmpty() }
     val ends = meters.any { it.end.isNotEmpty() }
     val columns = listOf(labels, starts, true, ends).count { it }
-    val spoken = remember(meters) { meters.joinToString(". ", transform = ::spoken) }
+    val spoken = remember(meters) { spokenMeters(meters) }
     val palette = Term.palette
     Layout(
         content = {
@@ -366,36 +315,8 @@ internal fun Track(m: StyledText.Meter, modifier: Modifier = Modifier) {
     }
 }
 
-/** What a screen reader says for a bar: its texts, or how full it is. */
-private fun spoken(m: StyledText.Meter): String {
-    fun words(spans: List<StyledText.Span>) = spans.joinToString("") { it.text }
-    val parts = listOf(words(m.label), words(m.start), words(m.end)).filter { it.isNotBlank() }
-    if (parts.isNotEmpty()) return parts.joinToString(" ")
-    return "${((m.to - m.from) * 100).roundToInt()} percent"
-}
-
 /**
- * A line's own bar ([com.mtwabpin.kolahal.data.LogContext.BAR]): built-in commands use it, as
- * `from,to,role`, to draw a bar after a line's text (`unlocks`, `usage`, `volume`).
- */
-internal fun lineBar(value: String?): StyledText.Meter? {
-    val parts = value?.split(',') ?: return null
-    val from = parts.getOrNull(0)?.toFloatOrNull() ?: return null
-    val to = parts.getOrNull(1)?.toFloatOrNull() ?: return null
-    if (from.isNaN() || to.isNaN()) return null
-    val a = from.coerceIn(0f, 1f)
-    return StyledText.Meter(
-        a,
-        to.coerceIn(a, 1f),
-        parts.getOrNull(2)?.let(StyledText.ColorRole::named),
-        emptyList(),
-        emptyList(),
-        emptyList()
-    )
-}
-
-/**
- * [text], then a bar ([lineBar]) that takes the rest of the row. The text gets the width it needs,
+ * [text], then a bar ([LineModel.bar]) that takes the rest of the row. The text gets the width it needs,
  * leaving the bar at least [TRACK_MIN]. Rows with text of the same width (padded, in the terminal
  * font) have their bars line up.
  */
@@ -438,8 +359,9 @@ internal const val FOLD_SLACK = 2
 
 /**
  * A line's content, folded when it is taller than [Term.foldLines] lines of [style]'s text: the
- * first lines show, then "▾ N more lines". A tap on it shows the whole line, with "▴ Show less"
- * under it. A line stays open while it is in the log's memory (scrolled away and back).
+ * first lines show, then "▾ N more lines". A tap on it calls [onToggle], which opens the line
+ * ([open]): the whole line shows, with "▴ Show less" under it. Whether it is open is kept above
+ * the line ([FoldState]), so it stays open when scrolled away and back.
  * [enabled]: false when the line can't fold: log.fold is off, the line is short or a command, or
  * it is a search result, where the matching words must show.
  *
@@ -450,14 +372,17 @@ internal const val FOLD_SLACK = 2
 internal fun Foldable(
     id: Long,
     style: TextStyle,
+    open: Boolean,
+    onToggle: () -> Unit,
     enabled: Boolean = true,
     cutLines: Int = 0,
     content: @Composable (open: Boolean) -> Unit
 ) {
     val lines = Term.foldLines
     if (!enabled) return content(true)
-    var open by rememberSaveable(id) { mutableStateOf(false) }
-    val toggle = remember(id) { { open = !open } }
+    // One lambda for the line's whole life, calling the newest onToggle, so the link isn't built again.
+    val currentToggle by rememberUpdatedState(onToggle)
+    val toggle = remember { { currentToggle() } }
     val density = LocalDensity.current
     val line = with(density) {
         (style.lineHeight.takeIf { it.isSp } ?: (Term.fontSize * TEXT_LINE).sp).toPx()
@@ -529,14 +454,7 @@ internal fun StatsRow(
 ) {
     if (stats.isEmpty()) return
     val palette = Term.palette
-    val spoken = remember(stats) {
-        stats.joinToString(", ") { s ->
-            listOf(
-                s.value,
-                s.label
-            ).joinToString(" ") { spans -> spans.joinToString("") { it.text } }.trim()
-        }
-    }
+    val spoken = remember(stats) { spokenStats(stats) }
     val size = if (style.fontSize.isSpecified()) style.fontSize else Term.fontSize.sp
     androidx.compose.foundation.layout.FlowRow(
         modifier = modifier
@@ -597,15 +515,14 @@ private const val STAT_SMALL = 1.3f
  * Buttons under a script's line (`ctx.actions`), as tonal pills: the accent color on a light shade
  * of it, in the phone's font. A tap runs the line's script with the button's arguments
  * ([onAction]). Once one was tapped ([com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]), only it
- * shows, muted, with a ✓, so it can't run twice.
+ * shows ([LineModel.buttons]), muted, with a ✓, so it can't run twice.
  */
 @Composable
 internal fun ActionPills(
     entry: com.mtwabpin.kolahal.data.LogEntry,
-    actions: List<Pair<String, String>>,
+    buttons: List<LineModel.Button>,
     onAction: (com.mtwabpin.kolahal.data.LogEntry, Int) -> Unit
 ) {
-    val done = entry.ctx.values[com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]?.toIntOrNull()
     val dark = Term.bg.luminance() < 0.5f
     val accent = Term.prompt
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
@@ -621,9 +538,9 @@ internal fun ActionPills(
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
     ) {
-        actions.forEachIndexed { i, (label, _) ->
-            if (done != null && i != done) return@forEachIndexed
-            val tapped = done != null
+        buttons.forEach { pill ->
+            val tapped = pill.done
+            val label = pill.label
             Box(
                 Modifier
                     .heightIn(min = 34.dp)
@@ -633,9 +550,9 @@ internal fun ActionPills(
                         if (tapped) Modifier else Modifier.clickable(
                             role = Role.Button,
                             onClickLabel = label
-                        ) { onAction(entry, i) })
+                        ) { onAction(entry, pill.index) })
                     .padding(horizontal = 14.dp)
-                    .testTag("line-action-$i"),
+                    .testTag("line-action-${pill.index}"),
                 contentAlignment = androidx.compose.ui.Alignment.Center,
             ) {
                 Text(

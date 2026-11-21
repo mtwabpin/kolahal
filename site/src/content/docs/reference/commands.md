@@ -237,6 +237,33 @@ See [Widgets](/guides/widgets/).
 | `accessibility` | | turn on the screen-lock service for double-tap |
 | `system` | | Android system settings |
 
+## Screens
+
+These take the whole screen, like a program in a terminal, in your theme's colors and font. A tap,
+Back or Home closes them, and so does any key on a hardware keyboard: a character you type goes on
+into the prompt (except `q`, which only quits).
+
+| Usage | Aliases | Description |
+| --- | --- | --- |
+| `screen <name>` | | one of the screens below, by name: `screen clock`, `screen matrix` |
+| `matrix` | | characters fall down the screen, as in the film (also `screen matrix`) |
+| `pipes` | | pipes grow across the screen and turn at random (also `screen pipes`) |
+| `sl` | | a steam locomotive crosses the screen, then home comes back (also `screen sl`) |
+
+The screens are `matrix`, `clock`, `pipes`, `sl` and `boot`:
+
+- `clock`: the time in big digits, with the date under it. The seconds show when they fit.
+  `clock.24h` sets 12- or 24-hour time.
+- `boot`: a short startup sequence with this phone's counts: apps, scripts, theme, font and today's
+  unlocks.
+
+They pause while the screen is off or another app is open, and close if you're away for more than
+30 seconds. In battery saver they run at a lower frame rate. With **Remove animations** on in
+Android's accessibility settings, `matrix`, `pipes`, `sl` and `boot` show a single still frame.
+
+Instant launch never opens them, and scripts can't run them. `clock` and `boot` open only through
+`screen`, so typing `clock` still opens your clock app.
+
 ## Profiles
 
 | Usage | Description |

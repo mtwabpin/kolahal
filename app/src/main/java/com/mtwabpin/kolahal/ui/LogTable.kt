@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.terminal.spokenTable
 
 /**
  * A table in a script line (`fmt.table`), in the terminal font so its columns line up.
@@ -55,17 +56,7 @@ internal fun LogTable(rows: List<StyledText.Row>, style: TextStyle, modifier: Mo
     val headerRule = Term.dim.copy(alpha = 0.45f)
     val hasHeader = rows.first().header
     // A screen reader hears a row as "Coin BTC, Price 64,210": each cell after its column's name.
-    val spoken = remember(rows) {
-        val names =
-            if (hasHeader) rows.first().cells.map { c -> c.spans.joinToString("") { it.text } } else emptyList()
-        rows.drop(if (hasHeader) 1 else 0).joinToString(". ") { row ->
-            row.cells.mapIndexed { i, c ->
-                listOfNotNull(
-                    names.getOrNull(i)?.takeIf { it.isNotBlank() },
-                    c.spans.joinToString("") { it.text }).joinToString(" ")
-            }.joinToString(", ")
-        }
-    }
+    val spoken = remember(rows) { spokenTable(rows) }
     Row(
         modifier
             .testTag("log-table")

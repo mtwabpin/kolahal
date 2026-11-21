@@ -51,13 +51,11 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.TimeFormats
-import com.mtwabpin.kolahal.data.headerSide
 import com.mtwabpin.kolahal.status.Status
+import com.mtwabpin.kolahal.terminal.HeaderPart
 import com.mtwabpin.kolahal.terminal.HeaderTarget
-import java.text.SimpleDateFormat
+import com.mtwabpin.kolahal.terminal.headerParts
 import java.util.Date
-import java.util.Locale
 
 /**
  * The clock that home shows, kept once for the whole app. It holds:
@@ -279,22 +277,10 @@ internal fun Header(
     preview: Boolean = false,
 ) {
     val (now, zone) = rememberNow()
-    val is24h = remember(version) { config[Keys.CLOCK_24H] }
-    val timeFmt =
-        remember(is24h, zone) { SimpleDateFormat(TimeFormats.clock(is24h), Locale.getDefault()) }
-    val dateFmt = remember(zone) { SimpleDateFormat(TimeFormats.DAY, Locale.getDefault()) }
-    // The alarm time has no AM or PM: the user knows their own next alarm, and the line beside a camera is short.
-    val alarmFmt = remember(is24h, zone) {
-        SimpleDateFormat(
-            TimeFormats.lineClock(is24h),
-            Locale.getDefault()
-        )
+    // What each side shows (headerParts). A part with nothing to show (no alarm set, no todos) is left out.
+    val parts = remember(now, zone, status, unlocks, profiles, todoCount, version) {
+        headerParts(status, unlocks, profiles, todoCount, config, now.time)
     }
-    val dayFmt = remember(zone) { SimpleDateFormat("EEE ", Locale.getDefault()) }
-    // A part listed on both sides shows only on the left. Only `config` can list it on both.
-    val leftKinds = remember(version) { headerSide(config[Keys.HEADER_LEFT]) }
-    val rightKinds =
-        remember(version) { headerSide(config[Keys.HEADER_RIGHT]).filter { it !in leftKinds } }
     val belowBar = remember(version) { config[Keys.HEADER_BELOW_BAR] }
     val textPadding = remember(version) { config[Keys.HEADER_PADDING].dp }
     val bold = Term.small.copy(color = Term.fg, fontWeight = FontWeight.Bold)
@@ -352,144 +338,72 @@ internal fun Header(
         ) { content() }
     }
 
-    // A side's parts in display order. A part with nothing to show (no alarm set, no todos) is left out.
-    fun side(kinds: List<String>): List<@Composable () -> Unit> = buildList {
-        for (kind in kinds) when (kind) {
-            "time" -> add {
-                Part(
-                    "time",
-                    "clock",
-                    onClick = { onTarget(HeaderTarget.CLOCK) }) {
-                    Text(
-                        timeFmt.format(now),
-                        style = bold,
-                        maxLines = 1
-                    )
-                }
+    /** What [part] shows: its icon, its text, or both. */
+    @Composable
+    fun Shown(part: HeaderPart) {
+        val color = inkColor(part.ink)
+        when (part.kind) {
+            HeaderPart.Kind.TIME -> Text(part.text, style = bold, maxLines = 1)
+            HeaderPart.Kind.DATE -> Text(part.text, style = Term.small, maxLines = 1)
+            HeaderPart.Kind.ALARM -> {
+                TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize); Text(
+                    part.text,
+                    style = bold,
+                    maxLines = 1
+                )
             }
 
-            "date" -> add {
-                Part(
-                    "date",
-                    "clock",
-                    onClick = { onTarget(HeaderTarget.CLOCK) }) {
-                    Text(
-                        dateFmt.format(now),
-                        style = Term.small,
-                        maxLines = 1
-                    )
-                }
+            HeaderPart.Kind.TODO -> {
+                TintedIcon(R.drawable.ic_check, Term.dim, iconSize); Text(part.text, style = bold)
             }
 
-            "alarm" -> status.nextAlarm?.let { at ->
-                // If the alarm is a day or more ahead, show its weekday too.
-                val text =
-                    (if (at - now.time >= 24 * 3_600_000L) dayFmt.format(Date(at)) else "") + alarmFmt.format(
-                        Date(at)
-                    )
-                add {
-                    Part(
-                        "alarm",
-                        "alarms",
-                        onClick = { onTarget(HeaderTarget.ALARM) }) {
-                        TintedIcon(R.drawable.ic_alarm, Term.dim, iconSize); Text(
-                        text,
-                        style = bold,
-                        maxLines = 1
-                    )
-                    }
-                }
+            HeaderPart.Kind.NETWORK -> {
+                val res = networkIcon(part.text)
+                if (res != null) TintedIcon(res, color, iconSize) else Text(
+                    part.text,
+                    style = bold.copy(color = color)
+                )
             }
 
-            "todo" -> if (todoCount > 0) add {
-                Part(
-                    "todo",
-                    "todo",
-                    onClick = { onTarget(HeaderTarget.TODO) }) {
-                    TintedIcon(R.drawable.ic_check, Term.dim, iconSize); Text(
-                    "$todoCount",
+            HeaderPart.Kind.UNLOCKS -> {
+                TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize); Text(
+                    part.text,
                     style = bold
                 )
-                }
             }
 
-            "network" -> add {
-                val color = if (status.network == "offline") Term.error else Term.fg
-                val res = networkIcon(status.network)
-                Part(
-                    "network",
-                    "network",
-                    description = "network ${status.network}",
-                    onClick = { onTarget(HeaderTarget.NETWORK) }) {
-                    if (res != null) TintedIcon(res, color, iconSize) else Text(
-                        status.network,
-                        style = bold.copy(color = color)
-                    )
-                }
-            }
+            HeaderPart.Kind.PROFILE -> TintedIcon(
+                if (part.profile?.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock,
+                color,
+                iconSize
+            )
 
-            "unlocks" -> add {
-                Part(
-                    "unlocks",
-                    "unlocks",
-                    onClick = { onTarget(HeaderTarget.UNLOCKS) }) {
-                    TintedIcon(R.drawable.ic_lock_open, Term.dim, iconSize); Text(
-                    "$unlocks",
-                    style = bold
+            HeaderPart.Kind.SETTINGS -> TintedIcon(R.drawable.ic_settings, Term.dim, iconSize)
+            HeaderPart.Kind.BATTERY -> {
+                BatteryGlyph(part.battery ?: 0, part.charging, color, iconSize); Text(
+                    part.text,
+                    style = bold.copy(color = color)
                 )
-                }
-            }
-
-            "profiles" -> profiles.filter(::hasHeaderItem).forEach { p ->
-                add {
-                    val color = if (p.quiet) Term.dim else Term.profileColor(p.kind)
-                    val res =
-                        if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
-                    Part(
-                        "profile-${p.kind.label}",
-                        p.kind.label,
-                        description = "${p.kind.label} ${if (p.quiet) "off" else "on"}",
-                        onClick = { onProfileTap(p) }) { TintedIcon(res, color, iconSize) }
-                }
-            }
-
-            "settings" -> add {
-                Part(
-                    "settings",
-                    "settings",
-                    description = "Settings",
-                    onClick = { onTarget(HeaderTarget.SETTINGS) }) {
-                    TintedIcon(
-                        R.drawable.ic_settings,
-                        Term.dim,
-                        iconSize
-                    )
-                }
-            }
-
-            "battery" -> status.batteryPct?.let { pct ->
-                val color = when {
-                    status.charging -> Term.prompt
-                    pct <= 15 -> Term.error
-                    else -> Term.fg
-                }
-                add {
-                    Part(
-                        "battery",
-                        "battery",
-                        onClick = { onTarget(HeaderTarget.BATTERY) }) {
-                        BatteryGlyph(pct, status.charging, color, iconSize); Text(
-                        "$pct%",
-                        style = bold.copy(color = color)
-                    )
-                    }
-                }
             }
         }
     }
 
-    val left = side(leftKinds)
-    val right = side(rightKinds)
+    // A side's parts in display order. A tap on one opens what it shows, or a profile's switch.
+    fun side(shown: List<HeaderPart>): List<@Composable () -> Unit> = buildList {
+        for (part in shown) add {
+            Part(
+                part.tag,
+                part.label,
+                description = part.description,
+                onClick = {
+                    val profile = part.profile
+                    if (profile != null) onProfileTap(profile) else part.target?.let(onTarget)
+                }) { Shown(part) }
+        }
+    }
+
+    val left = side(parts.left)
+    val right = side(parts.right)
 
     Layout(
         content = {
@@ -548,10 +462,6 @@ internal fun networkIcon(network: String): Int? = when (network) {
     "offline" -> R.drawable.ic_cloud_off
     else -> null
 }
-
-/** Whether the header has an item for this profile. */
-private fun hasHeaderItem(profile: Profile) =
-    profile.kind != ProfileKind.PERSONAL && profile.kind != ProfileKind.CLONE
 
 /**
  * A tinted Material icon from res/drawable. We draw icons instead of typing symbols: symbols like

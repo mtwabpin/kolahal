@@ -3,96 +3,30 @@
  */
 package com.mtwabpin.kolahal.ui
 
-import android.app.Activity
-import android.content.Intent
 import android.content.res.Configuration
-import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptMeta
-import com.mtwabpin.kolahal.terminal.KeyBarKey
-import com.mtwabpin.kolahal.terminal.LogAction
-import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.ScriptActions
-import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.milliseconds
+import com.mtwabpin.kolahal.terminal.lineDetail
 
 /** The text the prompt shows when Settings previews home while typing. One letter matches many items. */
 private const val PREVIEW_INPUT = "s"
@@ -156,6 +90,10 @@ val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
  * Home. With [preview], it is drawn under Settings while the user changes a look setting
  * (TerminalViewModel.Peek). A preview takes no focus, keyboard or events. With `typing`, it looks as
  * if [PREVIEW_INPUT] were typed.
+ *
+ * This reads what home shows from the view model and keeps home's state ([HomeState]) above the
+ * body that draws it ([GuiHome]). The body gets only what it shows and the calls it makes
+ * ([HomeCalls]).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -177,12 +115,19 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
-    val listState = rememberLazyListState()
     val rows by vm.rows.collectAsStateWithLifecycle()
     val reversedRows = remember(rows) { rows.asReversed() }
-    var followNewest by remember { mutableStateOf(true) }
-    var promptFocused by remember { mutableStateOf(false) }
-    val focus = remember { FocusRequester() }
+    // When a result is tapped: once its line is loaded, the log scrolls to it (with a few newer lines
+    // below it) and highlights it briefly ([LogScroll]).
+    val jumpTo by vm.jumpTo.collectAsStateWithLifecycle()
+    // Where the log is scrolled, which lines are open, the prompt's focus and the menu, for any body.
+    val state = rememberHomeState(
+        reversedRows,
+        jumpTo,
+        onJumpDone = vm::jumpDone,
+        onAtNewest = vm::atNewest,
+        onLoadOlder = vm::loadOlder,
+    )
     val keyboard = LocalSoftwareKeyboardController.current
     val hasHardwareKeyboard = LocalConfiguration.current.keyboard != Configuration.KEYBOARD_NOKEYS
 
@@ -194,16 +139,14 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     // through the updated state above: the effect below starts once and must call the current one.
     // With [show] false, only the focus moves. The effect passes that when a hardware keyboard is attached.
     fun focusPrompt(show: Boolean = true) {
-        runCatching { focus.requestFocus() }
+        runCatching { state.focus.requestFocus() }
         if (show) currentKeyboard?.show()
     }
     if (preview == null) LaunchedEffect(Unit) {
         // Home was pressed on another page: scroll and focus now that the terminal is shown.
         // Scrolls are requested for the list's next layout, never forced inside this one.
-        // scrollToItem measures at once, which can happen inside a layout pass under the test clock.
         vm.consumeArrival()?.let { a ->
-            followNewest = true
-            listState.requestScrollToItem(0)
+            state.scroll.toNewest()
             if (a.focus) {
                 androidx.compose.runtime.withFrameNanos { } // the prompt's focus target is attached after the first frame
                 focusPrompt(show = !currentHasHardwareKeyboard)
@@ -211,9 +154,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         }
         vm.events.collect { e ->
             when (e) {
-                UiEvent.ScrollToBottom -> {
-                    followNewest = true; listState.requestScrollToItem(0)
-                }
+                UiEvent.ScrollToBottom -> state.scroll.toNewest()
                 // MainActivity handles these, so they work from every page (setup, script manager).
                 UiEvent.RequestNotificationPermission, UiEvent.RequestContactsPermission, UiEvent.PickContact, UiEvent.RequestCalendarPermission, UiEvent.RequestCallLogPermission,
                 UiEvent.PickFont, UiEvent.PickBackupFolder, UiEvent.PickScriptFolder,
@@ -225,37 +166,6 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 UiEvent.HideKeyboard -> currentKeyboard?.hide()
             }
         }
-    }
-    // Follow the newest line (index 0 with reverseLayout) unless the user scrolled up.
-    // Only user scrolls change `followNewest`. Inserting items shifts the anchor, and that must not stop following.
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            listState.isScrollInProgress to
-                    (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 48)
-        }.collect { (scrolling, atBottom) ->
-            // Also check when the list has stopped at the bottom. A fling that stops at the newest
-            // line can end in the same frame it arrives, with no "scrolling and at bottom" state
-            // between. Inserting items does not count as the list stopping.
-            if (scrolling) followNewest = atBottom
-            else if (atBottom) {
-                followNewest = true
-                // Back at the newest lines: older pages loaded while scrolling up can be dropped.
-                vm.atNewest()
-            }
-        }
-    }
-    // Keyed on the newest *row* (rows are built after entries), so the scroll targets the new line.
-    // Skip it while a finger or a fling is still scrolling: a forced scroll would yield to those too.
-    LaunchedEffect(reversedRows.firstOrNull()?.key) {
-        if (followNewest && !listState.isScrollInProgress) listState.requestScrollToItem(0)
-    }
-    // Near the oldest loaded line (the top of the reversed list), load the next page.
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index
-                ?: 0) >= info.totalItemsCount - 5
-        }.collect { nearTop -> if (nearTop) vm.loadOlder() }
     }
     // Typing `/words` at the prompt searches: the matching lines replace the log until the search ends.
     val search by vm.search.collectAsStateWithLifecycle()
@@ -269,28 +179,9 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             null
         )
     }
-    // When a result is tapped: once its line is loaded, scroll to it (with a few newer lines below it) and highlight it briefly.
-    val jumpTo by vm.jumpTo.collectAsStateWithLifecycle()
-    var flash by remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(jumpTo, reversedRows) {
-        val id = jumpTo ?: return@LaunchedEffect
-        val index = reversedRows.indexOfFirst { it is LogRow.Entry && it.entry.id == id }
-        if (index < 0) return@LaunchedEffect
-        // If it is one of the newest lines, keep following new ones.
-        followNewest = index <= 3
-        listState.requestScrollToItem((index - 3).coerceAtLeast(0))
-        vm.jumpDone()
-        flash = id
-    }
-    LaunchedEffect(flash) {
-        if (flash != null) {
-            kotlinx.coroutines.delay(2_500.milliseconds)
-            flash = null
-        }
-    }
     // Keyboard-first: take focus at once when a physical keyboard is attached.
     if (preview == null) LaunchedEffect(hasHardwareKeyboard) {
-        if (hasHardwareKeyboard) runCatching { focus.requestFocus() }
+        if (hasHardwareKeyboard) runCatching { state.focus.requestFocus() }
     }
     // The widgets page has no prompt, so the on-screen keyboard is hidden over it. The prompt keeps
     // the focus, so a hardware keyboard still types into it.
@@ -306,54 +197,16 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     // The same for the preview of `theme …` or `font …` typed at the prompt: home is rebuilt only when it changes.
     // It also compares with the saved settings, hence the config version.
     val livePreview by remember(configVersion) { derivedStateOf { vm.livePreview } }
-    val timeMode = remember(configVersion) {
-        when (config[Keys.SHOW_TIMESTAMPS]) {
-            "groups" -> TimeMode.GROUPS
-            "off" -> TimeMode.OFF
-            else -> TimeMode.COMMANDS
-        }
-    }
-    val dimOld = remember(configVersion) { config[Keys.LOG_DIM] }
-    var menu by remember { mutableStateOf<ActionMenu?>(null) }
-    // Menus ask the system for an app's shortcuts, so they are built off the main thread and shown when ready.
-    val menuScope = rememberCoroutineScope()
-    fun showMenu(
-        title: String,
-        id: Long?,
-        url: String? = null,
-        detail: String? = null,
-        build: () -> List<LogAction>
-    ) {
-        menuScope.launch {
-            menu = ActionMenu(
-                title,
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { build() },
-                id,
-                url = url,
-                detail = detail
-            )
-        }
-    }
-    // A long-press on an app opens its menu, wherever the app shows: in a line, in the search
-    // results, in the selector and in the suggestions.
-    val onAppLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit =
-        { app -> showMenu(app.label, null) { vm.appActions(app) } }
-    val clock24 = remember(configVersion) { config[Keys.CLOCK_24H] }
     if (preview == null) LaunchedEffect(Unit) {
         vm.events.collect {
-            if (it == UiEvent.ShowQuick) menu =
+            if (it == UiEvent.ShowQuick) state.menu =
                 ActionMenu("Quick actions", vm.quickActions(), null, systemFont = true)
         }
     }
-    menu?.let { ActionSheet(it, onDismiss = { menu = null }) }
+    state.menu?.let { ActionSheet(it, onDismiss = { state.menu = null }) }
     // `script secret <name> <NAME>` opens a masked input box for the value, over home.
     val secretPrompt by vm.scriptActions.secretPrompt.collectAsStateWithLifecycle()
     secretPrompt?.let { p -> TerminalSecretPrompt(vm, p) }
-    val commandGap = remember(configVersion) { config[Keys.LOG_SPACING].dp }
-    val itemGap = remember(configVersion) { config[Keys.LOG_ITEM_SPACING].dp }
-    val showGutter = remember(configVersion) { config[Keys.LOG_GUTTER] }
-    val density = LocalDensity.current
-    val indents = rememberLineIndents()
     val zone = rememberZoneChanges()
     val lineTimeFormat = remember(configVersion, zone) {
         com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H])
@@ -366,436 +219,143 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     // They also depend on the day: at midnight, today's first lines need a divider, and "Yesterday" moves.
     val today = rememberToday()
     if (preview == null) LaunchedEffect(today) { vm.onDayChanged(today) }
-    val fontSizeToast = rememberFontSizeToast()
-    // Made once. A new modifier on each rebuild of home would stop the log's list from skipping recomposition.
-    val pinch = remember(vm, fontSizeToast) {
-        Modifier.pinchToZoomFont(
-            onChange = { Term.fontSize = it },
-            onEnd = { from, to -> vm.saveFontSize(to); fontSizeToast(from, to) })
+    // A swipe copy shows "Copied" where Undo shows after a delete, for COPIED_MS.
+    LaunchedEffect(state.copies) {
+        if (state.copies == 0) return@LaunchedEffect
+        state.copiedShown = true
+        kotlinx.coroutines.delay(COPIED_MS)
+        state.copiedShown = false
     }
-    val doubleTapOn = remember(configVersion) {
-        config[Keys.GESTURE_DOUBLE_TAP].trim()
-            .let { it.isNotEmpty() && it != com.mtwabpin.kolahal.gesture.Gestures.NONE }
+    val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
+    val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
+    val undoOffer by vm.undo.collectAsStateWithLifecycle()
+    val isHome by vm.isHome.collectAsStateWithLifecycle()
+    val todoCount by vm.todoCount.collectAsStateWithLifecycle()
+    val appContext = LocalContext.current.applicationContext
+    // Made once, so the body's lines and lists can skip recomposition.
+    val calls = remember(vm, state) {
+        HomeCalls(
+            onHeaderTap = vm::onHeaderTap,
+            onProfileTap = vm::onProfileTap,
+            onGesture = vm::onGesture,
+            onMediaToggle = vm::mediaToggle,
+            onMediaNext = vm::mediaNext,
+            onPinTap = vm::onPinTap,
+            onPinLongPress = { name ->
+                state.showMenu(
+                    "$name ▸ ${vm.pinned.value.firstOrNull { it.name == name }?.text.orEmpty()}",
+                    null
+                ) { vm.scriptActions.statusActions(name) }
+            },
+            // As on a script's turn, a long press opens a sheet: Next track, Previous track, Open the player.
+            onMediaLongPress = { np -> state.showMenu(np.line, null) { mediaActions(appContext, np) } },
+            onRefreshPinned = { vm.refreshPinned() },
+            apps = vm::appsOf,
+            onTap = vm::onTap,
+            onLineLongPress = { e ->
+                state.showMenu(
+                    StyledText.plain(e.text),
+                    e.id,
+                    e.ctx.url,
+                    lineDetail(e, config[Keys.CLOCK_24H])
+                ) { vm.actionsFor(e) }
+            },
+            onShowInLog = vm::showInLog,
+            onAppTap = vm::launchApp,
+            // A long-press on an app opens its menu, wherever the app shows: in a line, in the search
+            // results, in the selector and in the suggestions.
+            onAppLongPress = { app -> state.showMenu(app.label, null) { vm.appActions(app) } },
+            onSwipeCopy = { e -> vm.swipeCopy(e); state.copies++ },
+            onSwipeDelete = vm::swipeDelete,
+            onAction = vm::runLineAction,
+            onOpenUrl = vm::openUrl,
+            onLogWidth = vm::onLogWidth,
+            onSelectorArea = { vm.selectorArea = it },
+            onShowHidden = { vm.showHidden() },
+            onClearFilter = { vm.filterLog(null) },
+            onUndo = vm::undo,
+            onRefreshIsHome = { vm.refreshIsHome() },
+            onKeyBar = { vm.onKeyBar(it) },
+            onInsert = { vm.insert(it) },
+            onSaveFontSize = vm::saveFontSize,
+            onFocusPrompt = { focusPrompt() },
+        )
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .page(wallpaper = remember(configVersion) { config[Keys.LOG_WALLPAPER] })
-            // No top padding here: the header fills the band beside the camera.
-            .windowInsetsPadding(
-                WindowInsets.statusBars.union(WindowInsets.displayCutout)
-                    .only(WindowInsetsSides.Horizontal)
-            )
-            // prompt.bottom-padding: space under the lowest row (the prompt, or a key bar shown always),
-            // clear of rounded screen corners. The keyboard takes the larger of the two, so while
-            // typing the space is under the keyboard, and it shrinks and grows with its animation.
-            .windowInsetsPadding(
-                WindowInsets.navigationBars
-                    .add(WindowInsets(bottom = remember(configVersion) { config[Keys.PROMPT_BOTTOM_PADDING].dp }))
-                    .union(WindowInsets.ime),
-            )
-    ) {
-        // A hardware keyboard already has these keys, so the bar follows the on-screen keyboard only.
-        val typing = preview?.typing ?: (promptFocused && WindowInsets.isImeVisible)
-        // While searching, the pinned header hides so the suggestions can use its space.
-        val searching = typing || hasInput
-        // With header.show off there is no header. The pinned header and the log start under the camera.
-        val showHeader = remember(configVersion) { config[Keys.HEADER_SHOW] }
-        if (showHeader) Header(
+    // How home is drawn. Everything above is the same for every style; only the body changes.
+    val style = HomeStyle.GUI
+    when (style) {
+        HomeStyle.GUI -> GuiHome(
+            state = state,
+            calls = calls,
+            config = config,
+            configVersion = configVersion,
+            preview = preview != null,
+            previewTyping = preview?.typing == true,
+            hasInput = hasInput,
             status = status,
             unlocks = unlocks,
             profiles = profiles,
-            todoCount = vm.todoCount.collectAsStateWithLifecycle().value,
-            config = config,
-            version = configVersion,
-            onTarget = vm::onHeaderTap,
-            onProfileTap = vm::onProfileTap,
-            onSwipeDown = { vm.onGesture(Keys.GESTURE_SWIPE_DOWN) },
-        ) else Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars.union(WindowInsets.displayCutout)))
-        // What's playing and the pinned status lines, shown in turns.
-        val appContext = LocalContext.current.applicationContext
-        androidx.compose.animation.AnimatedVisibility(
-            visible = !searching,
-            enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) + androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top) + androidx.compose.animation.fadeOut(),
-        ) {
-            PinnedHeader(
-                nowPlaying = nowPlaying,
-                lines = pinnedLines,
-                config = config,
-                version = configVersion,
-                onMediaToggle = vm::mediaToggle,
-                onMediaNext = vm::mediaNext,
-                onPinTap = vm::onPinTap,
-                onPinLongPress = { name ->
-                    showMenu(
-                        "$name ▸ ${pinnedLines.firstOrNull { it.name == name }?.text.orEmpty()}",
-                        null
-                    ) { vm.scriptActions.statusActions(name) }
-                },
-                onRefresh = vm::refreshPinned,
-                // As on a script's turn, a long press opens a sheet: Next track, Previous track, Open the player.
-                onMediaLongPress = { np ->
-                    showMenu(np.line, null) {
-                        mediaActions(
-                            appContext,
-                            np
-                        )
-                    }
-                },
-            )
-        }
-        val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
-        val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
-        // With the widgets page on the right, a line swiped left (toward it) is copied, not deleted. In a
-        // right-to-left layout the page set as "right" is on the left, so the sides swap with it.
-        val rtl =
-            androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
-        val deleteRight =
-            remember(configVersion, rtl) { (config[Keys.WIDGETS_PAGE] == "right") != rtl }
-        // A swipe copy shows "Copied" where Undo shows after a delete, for COPIED_MS.
-        var copies by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-        var copiedShown by remember { mutableStateOf(false) }
-        LaunchedEffect(copies) {
-            if (copies == 0) return@LaunchedEffect
-            copiedShown = true
-            kotlinx.coroutines.delay(COPIED_MS)
-            copiedShown = false
-        }
-        val swipeCopy: (com.mtwabpin.kolahal.data.LogEntry) -> Unit =
-            remember(vm) { { e -> vm.swipeCopy(e); copies++ } }
-        // The log and the suggestions share the space the header, key bar and prompt leave. Those
-        // are measured first, so a long suggestion list can't push the prompt off the screen.
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            val ime = WindowInsets.ime
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .then(
-                        // Save the selector's area, so the selector on the widgets page can match it. Only with the
-                        // keyboard down, as the strip shows only then: the box shrinks on each frame of the keyboard's
-                        // animation, and each new area would build the widgets page's selector again.
-                        if (preview == null) Modifier.onGloballyPositioned {
-                            if (ime.getBottom(density) == 0) vm.selectorArea =
-                                androidx.compose.ui.geometry.Rect(
-                                    0f,
-                                    it.positionInWindow().y,
-                                    it.size.width.toFloat(),
-                                    it.positionInWindow().y + it.size.height
-                                )
-                        }
-                        else Modifier
-                    )
-            ) {
-                // A tap on a link in a line's text (fmt.link) opens it as a tap on a linked line does.
-                val linkOpener = remember(vm) {
-                    object : androidx.compose.ui.platform.UriHandler {
-                        override fun openUri(uri: String) = vm.openUrl(uri)
-                    }
-                }
-                val results = search?.takeIf { !it.isEmpty && preview == null }
-                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalUriHandler provides linkOpener) {
-                    if (results != null) LogSearchResults(
-                        search = results,
-                        timeFormat = lineTimeFormat,
-                        gutter = showGutter,
-                        indents = indents,
-                        menuEntryId = menu?.entryId,
-                        apps = vm::appsOf,
-                        onOpen = vm::showInLog,
-                        onLongPress = { e ->
-                            showMenu(
-                                com.mtwabpin.kolahal.data.StyledText.plain(e.text),
-                                e.id,
-                                e.ctx.url,
-                                com.mtwabpin.kolahal.terminal.lineDetail(e, clock24)
-                            ) { vm.actionsFor(e) }
-                        },
-                        onAppTap = vm::launchApp,
-                        onAppLongPress = onAppLongPress,
-                        onSwipeCopy = swipeCopy,
-                        onSwipeDelete = vm::swipeDelete,
-                        deleteRight = deleteRight,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { alpha = 1f - vm.selectorFade.floatValue },
-                    ) else LazyColumn(
-                        state = listState,
-                        reverseLayout = true,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            // While the app selector is open, the log fades out so the background shows behind the list.
-                            .graphicsLayer { alpha = 1f - vm.selectorFade.floatValue }
-                            .onSizeChanged { vm.onLogWidth(it.width) }
-                            .testTag("log")
-                            .then(pinch)
-                            // Taps that no log line used (empty space) bring up the keyboard. Double taps are
-                            // detected only when a double-tap gesture is set, because waiting for one delays every tap.
-                            .pointerInput(doubleTapOn) {
-                                detectTapGestures(
-                                    onDoubleTap = if (doubleTapOn) { _ -> vm.onGesture(Keys.GESTURE_DOUBLE_TAP) } else null,
-                                ) { focusPrompt() }
-                            },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        // Not before the first read: a cold start would flash it over a log that isn't empty.
-                        if (reversedRows.isEmpty() && hiddenLines == 0 && rowsLoaded) {
-                            // An empty log: what to do, in the text color, then the other tips dim, one per line.
-                            item(key = "empty-hint") {
-                                Column(
-                                    Modifier
-                                        .padding(vertical = 12.dp)
-                                        .testTag("empty-hint")
-                                ) {
-                                    Text("Type an app name or a command", style = Term.text)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        "help lists everything\n↑ recalls history\n/ searches the log\n" +
-                                                "Tap a line to use it, long-press for more\n⚙ settings",
-                                        style = Term.text.copy(color = Term.dim),
-                                    )
-                                }
-                            }
-                        }
-                        items(
-                            reversedRows,
-                            key = { it.key },
-                            contentType = { if (it is LogRow.Entry) it.entry.kind else it.javaClass }) { row ->
-                            when (row) {
-                                is LogRow.Day -> DayDivider(row, today)
-                                is LogRow.Unread -> UnreadDivider(row)
-                                is LogRow.Entry -> LogLine(
-                                    row = row,
-                                    timeMode = timeMode,
-                                    timeFormat = lineTimeFormat,
-                                    dim = dimOld,
-                                    topGap = if (row.blockStart) commandGap else 0.dp,
-                                    itemGap = if (row.itemGap) itemGap else 0.dp,
-                                    gutter = showGutter,
-                                    indents = indents,
-                                    highlighted = menu?.entryId == row.entry.id || flash == row.entry.id,
-                                    apps = vm::appsOf,
-                                    onTap = vm::onTap,
-                                    onLongPress = { e ->
-                                        showMenu(
-                                            com.mtwabpin.kolahal.data.StyledText.plain(
-                                                e.text
-                                            ),
-                                            e.id,
-                                            e.ctx.url,
-                                            com.mtwabpin.kolahal.terminal.lineDetail(e, clock24)
-                                        ) { vm.actionsFor(e) }
-                                    },
-                                    onAppTap = vm::launchApp,
-                                    onAppLongPress = onAppLongPress,
-                                    onSwipeCopy = swipeCopy,
-                                    onSwipeDelete = vm::swipeDelete,
-                                    deleteRight = deleteRight,
-                                    onAction = vm::runLineAction,
-                                )
-                            }
-                        }
-                        // log.fresh: older output is hidden, not deleted. The last item is the top of the reversed list.
-                        if (hiddenLines > 0) {
-                            item(key = "hidden-lines") {
-                                Text(
-                                    "▴ $hiddenLines earlier lines · tap to show",
-                                    style = Term.text.copy(color = Term.dim),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable(onClickLabel = "show earlier output") { vm.showHidden() }
-                                        .heightIn(min = 48.dp)
-                                        .wrapContentHeight(),
-                                )
-                            }
-                        }
-                    }
-                }
-                // When scrolled away from the newest lines, a small chip above the prompt jumps back down with
-                // one tap. It sits in the middle, so it covers little of a line, and its tap area is a full
-                // 48dp tall though the chip itself is small.
-                val awayFromBottom by remember { derivedStateOf { listState.firstVisibleItemIndex > 2 } }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = awayFromBottom && results == null,
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .graphicsLayer { alpha = 1f - vm.selectorFade.floatValue },
-                ) {
-                    val scope = rememberCoroutineScope()
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .testTag("jump-latest")
-                            .heightIn(min = 48.dp)
-                            .clickable(onClickLabel = "scroll to the bottom") {
-                                followNewest =
-                                    true; scope.launch { listState.animateScrollToItem(0) }
-                            }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    ) {
-                        // The chip: a soft pill, no border, lifted off the log by a shadow. Its color is the
-                        // surface's, a touch toward the text color, so it stands out on a dark theme too, where
-                        // the surface is close to the background. About 40 dp tall at font size 14.
-                        Box(
-                            Modifier
-                                .shadow(6.dp, RoundedCornerShape(50))
-                                .background(
-                                    lerp(Term.surface, Term.fg, 0.06f),
-                                    RoundedCornerShape(50)
-                                )
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                        ) {
-                            // In the system font: it is a button over the log, not a line of it. One size
-                            // up from the log's text, so it is easy to see and to hit.
-                            Text(
-                                "↓ Scroll to bottom",
-                                style = Term.text.copy(
-                                    color = Term.prompt,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Default,
-                                    fontSize = (Term.fontSize + 1).sp
-                                ),
-                            )
-                        }
-                    }
-                }
+            todoCount = todoCount,
+            nowPlaying = nowPlaying,
+            pinnedLines = pinnedLines,
+            rows = reversedRows,
+            hiddenLines = hiddenLines,
+            rowsLoaded = rowsLoaded,
+            search = search,
+            filter = filter,
+            filterCount = filterCount,
+            undoOffer = undoOffer,
+            isHome = isHome,
+            livePreview = livePreview,
+            timeFormat = lineTimeFormat,
+            today = today,
+            selectorFade = vm.selectorFade,
+            prompt = { typing ->
+                // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
+                val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
+                val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
+                Prompt(
+                    vm = vm,
+                    focus = state.focus,
+                    previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
+                    imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] },
+                    onFocus = { state.promptFocused = it },
+                    // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
+                    height = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp },
+                    keyBarOn = keyBarOn,
+                    onQuick = { vm.openQuick() },
+                    onToggleKeyBar = {
+                        config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
+                        // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
+                        if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
+                    },
+                    onTapPrompt = { focusPrompt() },
+                )
+            },
+            suggestions = { always ->
+                // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
+                PromptSuggestions(
+                    vm,
+                    previewTyping = preview?.typing == true,
+                    always = always,
+                    configVersion = configVersion,
+                    onAppLongPress = calls.onAppLongPress,
+                )
+                // [/selector]
+            },
+            selector = {
                 // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
                 HomeAppSelector(
                     vm,
-                    onLongPress = onAppLongPress,
+                    onLongPress = calls.onAppLongPress,
                     // While its row-height slider in Settings is dragged, open the list so its rows are visible.
                     showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
                     fade = if (preview == null) vm.selectorFade else null,
                 )
                 // [/selector]
-            }
-            // Behind the build flag, so R8 removes the updater from the Play build.
-            if (BuildConfig.SELF_UPDATE && preview == null) UpdateProgressLine()
-            search?.let { LogSearchSummary(it) } ?: filter?.let {
-                LogFilterBar(
-                    it,
-                    filterCount,
-                    onClear = { vm.filterLog(null) })
-            }
-            // suggestions.auto: hidden on an idle home. Shown while typing, or whenever there is input
-            // (so typing on a hardware keyboard still shows them).
-            val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
-            val undoOffer by vm.undo.collectAsStateWithLifecycle()
-            // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy.
-            // A polite live region: TalkBack reads it when it appears, after what it is saying.
-            val notice = undoOffer?.text ?: "Copied".takeIf { copiedShown }
-            if (notice != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Term.surface)
-                        .heightIn(min = 44.dp)
-                        .padding(start = 12.dp)
-                        .testTag("undo-row")
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                ) {
-                    Text(
-                        notice,
-                        style = Term.text.copy(color = Term.dim),
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 44.dp)
-                            .wrapContentHeight()
-                    )
-                    if (undoOffer != null) Text(
-                        "Undo",
-                        style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-                        modifier = Modifier
-                            .clickable(onClick = vm::undo)
-                            .heightIn(min = 44.dp)
-                            .wrapContentHeight()
-                            .padding(horizontal = 16.dp),
-                    )
-                }
-            }
-            // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
-            PromptSuggestions(
-                vm,
-                previewTyping = preview?.typing == true,
-                always = !suggestionsAuto || typing,
-                configVersion = configVersion,
-                onAppLongPress = onAppLongPress,
-            )
-            // [/selector]
-        }
-        // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
-        val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
-        val promptTypingHeight = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp }
-        val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
-        // If Kolahal is not the home app, a band asks the user to pick it, unless a preview band uses
-        // that place. The view model checks at each resume, so the band goes once Kolahal is picked.
-        if (preview == null) {
-            val context = LocalContext.current
-            val isHome by vm.isHome.collectAsStateWithLifecycle()
-            // Android's settings page for the home app: for Android 9, and when its dialog doesn't make
-            // Kolahal home (a "no", or no dialog at all after "Don't ask again").
-            val homeSettings =
-                { runCatching { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) } }
-            val askHome =
-                rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                    if (result.resultCode != Activity.RESULT_OK) homeSettings()
-                    vm.refreshIsHome()
-                }
-            DefaultHomeBand(!isHome && livePreview == null) {
-                SetupChecks.homeRoleRequest(context)?.let { askHome.launch(it) } ?: homeSettings()
-            }
-        }
-        LivePreviewBand(if (preview == null) livePreview else null)
-        Prompt(
-            vm = vm,
-            focus = focus,
-            previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
-            imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] },
-            onFocus = { promptFocused = it },
-            // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
-            height = promptTypingHeight,
-            keyBarOn = keyBarOn,
-            onQuick = { vm.openQuick() },
-            onToggleKeyBar = {
-                config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
-                // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
-                if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
             },
-            onTapPrompt = { focusPrompt() },
         )
-        // Below the prompt, so it sits on the keyboard like an extra row of keys, and the best
-        // suggestion stays right above the typed text. It slides up into place and back down, like
-        // the pinned header expands from the top. The prompt and the log follow the size change smoothly.
-        androidx.compose.animation.AnimatedVisibility(
-            visible = keyBarOn && (!keyBarAuto || typing),
-            enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Bottom) +
-                    androidx.compose.animation.slideInVertically { it },
-            exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Bottom) +
-                    androidx.compose.animation.slideOutVertically { it },
-        ) {
-            KeyBar(
-                specs = remember(configVersion) {
-                    listOf(
-                        config[Keys.KEYBAR],
-                        config[Keys.KEYBAR2]
-                    )
-                },
-                rowHeight = remember(configVersion) { config[Keys.KEYBAR_HEIGHT].dp },
-                onKey = { key ->
-                    if (key == KeyBarKey.KBD) focusPrompt() else vm.onKeyBar(key)
-                },
-                onText = vm::insert,
-            )
-        }
     }
 }
 
@@ -843,56 +403,6 @@ private fun PromptSuggestions(
         )
     }
 }
-
-/** Shows a pinch's new font size in a toast. A new pinch replaces the toast instead of queueing another. */
-@Composable
-private fun rememberFontSizeToast(): (from: Int, to: Int) -> Unit {
-    val context = LocalContext.current
-    val shown = remember { arrayOfNulls<Toast>(1) }
-    return remember(context) {
-        { from, to ->
-            shown[0]?.cancel()
-            shown[0] = Toast.makeText(context, "Font size $to (was $from)", Toast.LENGTH_SHORT)
-                .also { it.show() }
-        }
-    }
-}
-
-/**
- * A two-finger pinch changes the terminal font size. It runs in the Initial pass and consumes only
- * multi-touch events, so one-finger scrolls and taps still reach the list. When the fingers lift,
- * [onEnd] gets the size before and after, unless the size ended where it started.
- */
-private fun Modifier.pinchToZoomFont(onChange: (Int) -> Unit, onEnd: (from: Int, to: Int) -> Unit) =
-    pointerInput(Unit) {
-        awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            val before = Term.fontSize
-            var startDistance = 0f
-            var startSize = Term.fontSize
-            var changed = false
-            do {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                val pressed = event.changes.filter { it.pressed }
-                if (pressed.size >= 2) {
-                    val distance = (pressed[0].position - pressed[1].position).getDistance()
-                    if (startDistance == 0f) {
-                        startDistance = distance
-                        startSize = Term.fontSize
-                    } else {
-                        val size =
-                            (startSize * distance / startDistance).roundToInt().coerceIn(10, 24)
-                        if (size != Term.fontSize) {
-                            onChange(size)
-                            changed = true
-                        }
-                    }
-                    event.changes.forEach { it.consume() }
-                }
-            } while (event.changes.any { it.pressed })
-            if (changed && Term.fontSize != before) onEnd(before, Term.fontSize)
-        }
-    }
 
 /** The box that `script secret` opens. It closes if the script or its `@secret` line is gone. */
 @Composable

@@ -648,6 +648,38 @@ object CommandCatalog {
             short = "A month's calendar",
             args = "<month> [<year>]"
         ),
+        // The screens take the whole screen until a key or a tap. Each is sensitive: typing `ma`
+        // or `pi` on the way to an app must not open one, and a script can't. `clock` and `boot`
+        // are only reached through `screen`, so typing an app's name (Clock) still opens the app.
+        CommandSpec(
+            "screen",
+            "screen <name>",
+            "A full-screen screen until a key or a tap: matrix, clock, pipes, sl or boot",
+            short = "A full-screen screen",
+            args = "<name>",
+            sensitive = true
+        ),
+        CommandSpec(
+            "matrix",
+            "matrix",
+            "Characters fall down the whole screen, as in the film, until a key or a tap",
+            short = "Matrix rain",
+            sensitive = true
+        ),
+        CommandSpec(
+            "pipes",
+            "pipes",
+            "Pipes grow across the whole screen, until a key or a tap",
+            short = "Growing pipes",
+            sensitive = true
+        ),
+        CommandSpec(
+            "sl",
+            "sl",
+            "A steam locomotive crosses the screen",
+            short = "A steam locomotive",
+            sensitive = true
+        ),
         CommandSpec(
             "alias", "alias [name = command]", "List or define aliases",
             short = "Your aliases", args = "<name> = <command>",
@@ -971,6 +1003,12 @@ object CommandCatalog {
             "shade",
             "accessibility",
             "system",
+        ),
+        "screens" to listOf(
+            "screen",
+            "matrix",
+            "pipes",
+            "sl",
         ),
     )
 }

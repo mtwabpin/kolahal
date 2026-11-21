@@ -75,4 +75,10 @@ interface TerminalUi {
 
     /** For `widgets page`: turns home to the widgets page beside the log, and hides the keyboard. */
     fun showWidgetsPage()
+
+    /**
+     * For `screen <name>` and `matrix`, `pipes` and `sl`: shows that full-screen screen over home
+     * ([com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens]) until a key, a tap or Back.
+     */
+    fun showTtyScreen(name: String)
 }

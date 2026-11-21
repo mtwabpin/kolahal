@@ -55,6 +55,7 @@ import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.terminal.Gutter
 import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.TimeMode
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

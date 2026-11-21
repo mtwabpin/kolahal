@@ -1174,6 +1174,53 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         _widgetsTurns.tryEmit(Unit)
     }
 
+    // ---- full-screen screens (matrix, clock, pipes, sl, boot) -------------------------------
+
+    private val _ttyScreen = MutableStateFlow<String?>(null)
+
+    /** The screen that runs over home's log page ([showTtyScreen]), or null. Home shows it. */
+    val ttyScreen: StateFlow<String?> = _ttyScreen.asStateFlow()
+
+    override fun showTtyScreen(name: String) {
+        _events.tryEmit(UiEvent.HideKeyboard)
+        _logTurns.tryEmit(Unit)
+        _ttyScreen.value = name
+    }
+
+    /**
+     * The screen closed. [typed] is null for a tap, Back or the program's end; for a key on a
+     * keyboard, the character it typed ("" for none), which goes into the prompt, and the prompt
+     * takes the focus back so typing goes on. Home pressed while one runs closes it too ([onHomePressed]).
+     */
+    fun closeTtyScreen(typed: String? = null) {
+        if (_ttyScreen.value == null) return
+        _ttyScreen.value = null
+        if (!typed.isNullOrEmpty()) insert(typed)
+        if (typed != null || config[Keys.FOCUS_ON_HOME]) _events.tryEmit(UiEvent.FocusPrompt)
+    }
+
+    /** What `boot` shows: counts already in memory, and settings. Cheap enough for the main thread. */
+    fun ttyScreenData(): com.mtwabpin.kolahal.terminal.tty.screens.ScreenData {
+        val all = apps.value
+        val scripts = scriptList.value
+        val night = context.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        return com.mtwabpin.kolahal.terminal.tty.screens.ScreenData(
+            version = com.mtwabpin.kolahal.BuildConfig.VERSION_NAME,
+            android = "Android ${android.os.Build.VERSION.RELEASE}",
+            apps = all.size,
+            workApps = all.count { it.profile.kind == ProfileKind.WORK },
+            privateApps = all.count { it.profile.kind == ProfileKind.PRIVATE },
+            scripts = scripts.size,
+            scriptsOn = scripts.count { it.enabled },
+            theme = config[Keys.THEME],
+            dark = config[Keys.THEME_ALWAYS_DARK] || night,
+            font = config[Keys.FONT],
+            fontSize = config[Keys.FONT_SIZE],
+            unlocks = unlocksToday.value,
+        )
+    }
+
     /**
      * Taps and refresh requests of the script widgets on the widgets page ([WidgetActions]). A tap
      * shares the 2-second gate of the header and the log's buttons ([itemTaps]). A tap inside a built-in
@@ -1575,6 +1622,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun onHomePressed() {
         settingsCategory.value = null
         homeOnWidgets = null
+        _ttyScreen.value = null
         _homePresses.value++
         _editing.value?.let { return }
         val fromOtherScreen = screen.value != Screen.TERMINAL
