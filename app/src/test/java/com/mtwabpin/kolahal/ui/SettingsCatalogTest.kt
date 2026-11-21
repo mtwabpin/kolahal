@@ -5,6 +5,7 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,5 +44,15 @@ class SettingsCatalogTest {
         assertEquals((Keys.ALL.toSet() - Keys.CONFIG_ONLY).map { it.key }.toSet(), shown.toSet())
         assertTrue(Keys.LOG_KEEP_LINES in Keys.CONFIG_ONLY)
         assertTrue(Keys.LOG_KEEP_LINES in Keys.ALL)
+    }
+
+    /** Settings search finds each word in any order, in a setting's title, name, help or choices. */
+    @Test fun searchFindsWordsInAnyOrder() {
+        assertTrue(matches(Keys.FONT_SIZE, "text size"))
+        assertTrue(matches(Keys.FONT_SIZE, "size text"))
+        assertTrue(matches(Keys.FONT_SIZE, "  SIZE   font  "))
+        assertFalse(matches(Keys.FONT_SIZE, "size weather"))
+        // A choice's label: a theme's name finds the theme setting.
+        assertTrue(matches(Keys.THEME, "solarized"))
     }
 }

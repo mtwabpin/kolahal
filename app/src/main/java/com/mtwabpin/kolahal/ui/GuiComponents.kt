@@ -285,18 +285,18 @@ internal fun GuiSheet(
 /**
  * Asks for confirmation before an action that cannot be undone.
  * - [confirm] uses the error colour and runs [onConfirm].
- * - Cancel, Back and a tap outside run [onDismiss].
+ * - [dismiss] (Cancel unless given), Back and a tap outside run [onDismiss].
  * - [icon], if given, shows above the [title].
  */
 @Composable
-internal fun ConfirmDialog(title: String, text: String, confirm: String, icon: Int? = null, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+internal fun ConfirmDialog(title: String, text: String, confirm: String, icon: Int? = null, dismiss: String = "Cancel", onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = if (icon != null) { { Icon(painterResource(icon), null) } } else null,
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { ErrorTextButton(onClick = onConfirm) { Text(confirm) } },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(dismiss) } },
     )
 }
 

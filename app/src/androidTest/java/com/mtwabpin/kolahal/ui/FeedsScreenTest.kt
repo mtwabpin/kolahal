@@ -332,6 +332,23 @@ class FeedsScreenTest {
         compose.onNodeWithText("KT Alpha 1").assertDoesNotExist()
     }
 
+    /** Mark all read on a feed's page says how many, and Undo makes just those unread again. */
+    @Test fun markAllReadOffersUndo() {
+        val f = feed("KT Alpha", unread = 2, read = 1)
+        show()
+        compose.waitForText("KT Alpha")
+        compose.onNodeWithText("KT Alpha").performClick()
+        compose.waitForText("2 unread · 127.0.0.1")
+        compose.onNodeWithContentDescription("Mark all read").performClick()
+        compose.waitForText("Marked 2 read")
+        assertEquals(0, repo.unreadCount(f.id))
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitForText("2 unread · 127.0.0.1")
+        assertEquals(2, repo.unreadCount(f.id))
+        // The item that was read before stays read.
+        assertTrue(repo.items(feedId = f.id).single { it.title == "KT Alpha 3" }.read)
+    }
+
     /** A swipe either way marks an item read, and a read one unread again; a screen reader has the same. */
     @Test fun aSwipeMarksAnItemReadOrUnread() {
         val f = feed("KT Alpha", unread = 2)

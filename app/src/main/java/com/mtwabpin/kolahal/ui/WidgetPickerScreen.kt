@@ -61,6 +61,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.WidgetScript
@@ -247,21 +248,26 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     }
 
     GuiTheme {
+        // The search finds each word typed, in any order ([SearchWords]), as the other pages do. A
+        // widget is found by its own name and its app's together: "clock google" finds Google's clock.
         val shown = remember(groups, query) {
-            val q = query.trim().lowercase()
+            val words = SearchWords.of(query)
             groups?.let { all ->
-                if (q.isEmpty()) all else all.mapNotNull { g ->
-                    if (g.label.lowercase().contains(q)) g
-                    else g.providers.indices.filter { g.names[it].contains(q) }
+                if (words.isEmpty()) all else all.mapNotNull { g ->
+                    if (SearchWords.allIn(words, listOf(g.label))) g
+                    else g.providers.indices.filter { SearchWords.allIn(words, listOf(g.label, g.names[it])) }
                         .takeIf { it.isNotEmpty() }?.let { found -> ProviderGroup(g.key, g.label, g.icon, g.work, found.map(g.providers::get), found.map(g.names::get), found.map(g.texts::get)) }
                 }
             }
         }
         val (builtinsShown, ownShown) = remember(own, query) {
-            val q = query.trim().lowercase()
+            val words = SearchWords.of(query)
             // A search for "Kolahal" itself keeps the whole section, as an app's name keeps all its widgets.
-            if (q.isEmpty() || kolahalGroup.label.lowercase().contains(q)) pickerBuiltinRows to own
-            else pickerBuiltinRows.filter { it.search.contains(q) } to own.filter { it.search.contains(q) }
+            if (SearchWords.allIn(words, listOf(kolahalGroup.label))) pickerBuiltinRows to own
+            else {
+                val finds = { search: String -> SearchWords.allIn(words, listOf(kolahalGroup.label, search)) }
+                pickerBuiltinRows.filter { finds(it.search) } to own.filter { finds(it.search) }
+            }
         }
         val anyOwn = builtinsShown.isNotEmpty() || ownShown.isNotEmpty()
         // One of Kolahal's own widgets is placed at once. [placedNow] is false when it was on the page already.

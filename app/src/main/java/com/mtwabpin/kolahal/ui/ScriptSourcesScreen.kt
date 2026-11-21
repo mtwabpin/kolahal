@@ -93,7 +93,11 @@ fun ScriptSourcesScreen(vm: TerminalViewModel) {
     }
 }
 
-/** One source: its name, its address, and what its last read found. */
+/**
+ * One source: its name, its address, and what its last read found. The row itself does nothing on a
+ * tap, so it is a list item that can't be tapped (no ripple, and TalkBack offers no action); Remove
+ * is its one button.
+ */
 @Composable
 private fun SourceRow(l: ScriptCatalog.Listing, index: Int, count: Int, onRemove: () -> Unit) {
     val facts = listOfNotNull(
@@ -102,7 +106,6 @@ private fun SourceRow(l: ScriptCatalog.Listing, index: Int, count: Int, onRemove
         l.readAt?.let { "Read ${relative(it)}" } ?: "Not read yet",
     ).joinToString(" · ")
     SegmentedListItem(
-        onClick = {},
         shapes = segShapes(index, count),
         colors = segColors(),
         overlineContent = {

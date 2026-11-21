@@ -36,6 +36,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.ConfigReset
@@ -81,12 +83,16 @@ class SettingsScreenTest {
     }
 
     /** Settings open on [page] (null: the main page), on a phone-sized frame, as MainActivity shows it. */
+    /** The focus of the screen [show] put up, to take it from a field. */
+    private lateinit var focusManager: androidx.compose.ui.focus.FocusManager
+
     private fun show(page: String?) {
         compose.runOnUiThread {
             vm = vms.terminal(app)
             vm.settingsCategory.value = page
         }
         compose.setContent {
+            focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             KolahalTheme {
                 Box(Modifier.size(360.dp, 700.dp).consumeWindowInsets(WindowInsets.safeDrawing)) {
                     SettingsOverHome(vm)
@@ -503,8 +509,11 @@ class SettingsScreenTest {
         compose.runOnIdle { config.set(Keys.LOG_SPACING, "20") }
         val icon = reset.assertIsDisplayed().getUnclippedBoundsInRoot()
         val name = compose.onNodeWithText(Keys.LOG_SPACING.key, useUnmergedTree = true).getUnclippedBoundsInRoot()
-        // On the name's line, just after it.
-        assertTrue("the icon starts at ${icon.left}, the name ends at ${name.right}", icon.left >= name.right && icon.left - name.right < 8.dp)
+        // On the name's line, just after it: the 28 dp icon's centre is 4 + 14 dp past the name. Its
+        // touch area is 48 dp, centred on the icon.
+        val centre = (icon.left + icon.right) / 2
+        assertTrue("the icon's centre is at $centre, the name ends at ${name.right}", centre - name.right in 12.dp..24.dp)
+        assertTrue("the touch area is ${icon.width} × ${icon.height}", icon.width >= 47.dp && icon.height >= 47.dp)
         val nameMiddle = (name.top + name.bottom) / 2
         assertTrue("the icon spans ${icon.top}–${icon.bottom}, the name's middle is at $nameMiddle", nameMiddle in icon.top..icon.bottom)
 
@@ -512,6 +521,37 @@ class SettingsScreenTest {
         compose.waitForIdle()
         assertTrue(config.isDefault(Keys.LOG_SPACING))
         reset.assertDoesNotExist()
+    }
+
+    /** Reset says what it reset, with Undo, which puts the value back. */
+    @Test fun resetOffersUndo() {
+        config.set(Keys.LOG_SPACING, "20")
+        show("log")
+        scrollTo(Keys.LOG_SPACING)
+        compose.onNodeWithContentDescription("Reset to default").performClick()
+        compose.runOnIdle { assertTrue(config.isDefault(Keys.LOG_SPACING)) }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Reset “", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntil(5_000) { config.display(Keys.LOG_SPACING) == "20" }
+    }
+
+    /** A text setting's typed value is applied when the field loses focus, without Done or Apply. */
+    @Test fun aTypedValueIsAppliedWhenTheFieldLosesFocus() {
+        show("header")
+        scrollTo(Keys.USER_NAME)
+        compose.onNode(hasSetTextAction() and hasText(Keys.USER_NAME.default)).performTextReplacement("alex")
+        compose.runOnIdle { focusManager.clearFocus() }
+        compose.waitUntil(5_000) { config[Keys.USER_NAME] == "alex" }
+    }
+
+    /** A value that isn't valid stays in the field, marked, and is not applied when focus leaves. */
+    @Test fun anInvalidTypedValueStaysMarked() {
+        show("header")
+        scrollTo(Keys.USER_NAME)
+        compose.onNode(hasSetTextAction() and hasText(Keys.USER_NAME.default)).performTextReplacement("alex k")
+        compose.runOnIdle { focusManager.clearFocus() }
+        compose.onNode(hasSetTextAction() and hasText("alex k")).assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
+        compose.runOnIdle { assertEquals(Keys.USER_NAME.default, config[Keys.USER_NAME]) }
     }
 
     /**

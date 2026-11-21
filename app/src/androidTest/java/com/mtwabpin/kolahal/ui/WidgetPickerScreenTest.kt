@@ -126,6 +126,17 @@ class WidgetPickerScreenTest {
         clocks.forEach { p -> scrollTo(card(p)) }
     }
 
+    /** The search finds words in any order, a widget's own name with its app's: "<widget> <app>". */
+    @Test fun searchingFindsWordsInAnyOrder() {
+        val p = t.clocks().first()
+        show()
+        scrollTo(card(p))
+        search("${t.label(p)} ${appName(p)}")
+        scrollTo(card(p))
+        search("${appName(p)}   ${t.label(p).uppercase()}")
+        scrollTo(card(p))
+    }
+
     /** A search that finds nothing says so. */
     @Test fun aSearchWithNoMatchSaysSo() {
         val clock = t.clocks().first()

@@ -147,6 +147,8 @@ fun SettingsScreen(vm: TerminalViewModel) {
         val snackbar = rememberNoticeSnackbar(vm)
         // A message from the About and crash pages (ui/About.kt): for example, no app can open a link.
         val say: (String) -> Unit = { text -> tapScope.launch { snackbar.showSnackbar(text) } }
+        // "Reset …" with Undo, after a setting is reset to its default.
+        val undo = undoMessage(tapScope, snackbar)
 
         GuiListPage(
             title = { Text(open?.title ?: if (crashPage) "Crash reports" else if (aboutPage) "About" else "Settings") },
@@ -191,7 +193,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     keys.forEachIndexed { index, key ->
                         item(key = key.key) {
                             PeekFade(peek, keep = peek?.key == key.key, modifier = Modifier.animateItem()) {
-                                SettingItem(vm, key, version, index, keys.size)
+                                SettingItem(vm, key, version, index, keys.size, undo)
                             }
                         }
                     }
@@ -271,7 +273,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                 hits.groupBy({ it.first }, { it.second }).forEach { (c, keys) ->
                     item(key = "h:hit:${c.id}") { PeekFade(peek) { GroupHeader(c.title) } }
                     keys.forEachIndexed { index, key ->
-                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, key, version, index, keys.size) } }
+                        item(key = "hit:" + key.key) { PeekFade(peek, keep = peek?.key == key.key) { SettingItem(vm, key, version, index, keys.size, undo) } }
                     }
                 }
                 return@GuiListPage
@@ -304,12 +306,14 @@ fun SettingsScreen(vm: TerminalViewModel) {
 /**
  * Adds a settings category's grouped rows to a list in another screen. For example, the Feeds tab
  * shows the feeds category. The caller must read [applicable] outside the list's content (see [SettingsScreen]).
+ * [undo] shows "Reset …" with Undo in the page's snackbar after a reset.
  */
 internal fun androidx.compose.foundation.lazy.LazyListScope.categorySettings(
     vm: TerminalViewModel,
     id: String,
     version: State<Int>,
     applicable: Set<ConfigKey<*>>,
+    undo: UndoMessage? = null,
 ) {
     val category = allCategories().firstOrNull { it.id == id } ?: return
     for ((title, all) in category.groups) {
@@ -317,7 +321,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.categorySettings(
         if (keys.isEmpty()) continue
         item(key = "h:$id:$title") { if (title != null) GroupHeader(title) else Spacer(Modifier.height(8.dp)) }
         keys.forEachIndexed { index, key ->
-            item(key = key.key) { SettingItem(vm, key, version, index, keys.size) }
+            item(key = key.key) { SettingItem(vm, key, version, index, keys.size, undo) }
         }
     }
 }

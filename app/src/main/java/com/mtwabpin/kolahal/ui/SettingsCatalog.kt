@@ -4,6 +4,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.Screen
 
@@ -258,7 +259,13 @@ internal const val FEEDS_CATEGORY = "feeds"
 /** Every settings page. Each setting is on one, except the [Keys.CONFIG_ONLY] ones: a test checks this. */
 internal fun allCategories() = CATEGORIES + BACKUP
 
+/**
+ * Whether Settings search for [q] finds [key]: each word of [q], in any order, is in the setting's
+ * title, its config name, its help or one of its choices' labels ([SearchWords.allIn], as the other
+ * pages search). "size font" finds Font size; "solarized" finds the theme.
+ */
 internal fun matches(key: ConfigKey<*>, q: String): Boolean {
     val title = SettingTitles[key.key] ?: key.key
-    return listOf(title, key.key, key.help).any { it.contains(q, ignoreCase = true) }
+    val choices = if (key is ConfigKey.Choice) key.choices.map { ChoiceLabels.of(key, it) } else emptyList()
+    return SearchWords.allIn(SearchWords.of(q), listOf(title, key.key, key.help) + choices)
 }

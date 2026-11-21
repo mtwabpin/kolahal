@@ -215,6 +215,22 @@ class ScriptSheetTest {
         compose.onNodeWithContentDescription("Set times").assertDoesNotExist()
     }
 
+    /** Times typed in Daily at are set when the sheet closes, without Done or the check mark. */
+    @Test fun dailyAtIsSetWhenTheSheetCloses() {
+        create("local x = 1")
+        openSheet()
+        val box = compose.onNode(hasSetTextAction() and hasText("Daily at"))
+        box.performScrollTo().performTextReplacement("07:30, 19:00")
+        val device = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
+        // The first Back can only close the keyboard; the next closes the sheet.
+        repeat(2) {
+            if (script().atTimes.isNotEmpty()) return@repeat
+            device.pressBack()
+            compose.waitForIdle()
+        }
+        compose.waitFor("two daily times") { script().atTimes == listOf("07:30", "19:00") }
+    }
+
     /**
      * The clock beside Daily at adds the time picked to the times the box holds, saved or not, in
      * order: 18:30 saved and 21:00 typed, 08:00 picked, all three are set.
