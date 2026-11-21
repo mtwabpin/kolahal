@@ -1008,3 +1008,128 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   from the pager.
 - The layout stays still under a finger: each pinned item has one height, the prompt keeps its
   height when the keyboard opens, and suggestions can't push it off the screen.
+
+* UX review of the other screens (21 November 2026)
+A read-only review on 0.5.16 by a Fable 5.2 agent of the screens other than home: scripts and the
+editor, the reference, Get more scripts and Sources, Feeds, Settings, the theme builder and the
+shortcuts editor. Nothing was run on a device. It leaves out what the sections above already have.
+The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths are under =ui/=.
+
+- Remark:
+
+*** TODO [#B] The reference starts over after every insert
+- =ReferencePage.kt:92-98=: the search, the tab, the group and the list positions are held in
+  =remember=, and the page is composed only while it is open (=ScriptEditor.kt:307=); every pick
+  closes it.
+- What you'd see: after each insert the reference reopens on Functions, at the top, with the search
+  empty. Three icons for a widget take three rounds of open, Icons tab, scroll, tap.
+- Fix: keep the query, tab, group and scroll positions in the editor, for each script, so the page
+  reopens where it was.
+- Remark:
+
+*** TODO [#B] Back in the theme builder throws the theme away without asking
+- =ThemeBuilder.kt:99, 120, 134=: the draft is in =remember=, and =BackHandler { vm.closeScreen() }=.
+  Only "Save and apply" keeps the work.
+- What you'd see: twelve colours picked for dark and light, a Back swipe by mistake at the screen's
+  edge, and they're gone.
+- Fix: when the draft differs from where it started, Back asks "Discard changes?" (Discard, Keep
+  editing).
+- Remark:
+
+*** TODO [#B] Typed values are lost unless Done or the check mark is pressed
+- =SettingItem.kt:181-208= (text settings, state in =remember= inside a lazy list) and
+  =ScriptSheet.kt:77, 206-227= ("Daily at").
+- What you'd see: type =07:30, 19:00= in Daily at and swipe the sheet down: the script keeps its old
+  times, with no word. A text setting's typing goes when its row scrolls off.
+- Fix: apply a valid value when the field loses focus or the sheet closes, which is one tap fewer,
+  and keep an invalid one marked red.
+- Remark:
+
+*** TODO [#B] Mark all read on a feed's page has no Undo and no message
+- =FeedsScreen.kt:166, 576=: one tap, beside Refresh, marks up to 300 items read, and nothing says
+  so or brings them back.
+- Fix: a snackbar "Marked N read" with Undo, which restores the ids that were unread. Give the
+  sheet's button (=:201=), which already has a message, the same Undo.
+- Remark:
+
+*** TODO [#B] Settings and the widget picker search for the exact phrase
+- =SettingsCatalog.kt:261-264=, =SettingsScreen.kt:269=, =WidgetPickerScreen.kt:250-264=. Scripts,
+  the library, Get more scripts, Commands and the reference use =SearchWords= (words in any order).
+- What you'd see: "size font" finds nothing where "font size" does. Settings search finds only
+  settings: "backup", "crash" or a theme's name don't lead to Backup, Crash reports or the theme.
+- Fix: =SearchWords.allIn= in both. In Settings, match choice labels too, and list the matching
+  pages and actions (Backup, About, Setup checklist, Arrange widgets) as rows.
+- Remark:
+
+*** TODO [#B] Run with… is hidden behind a long-press, and Run shows no name
+- =ScriptEditor.kt:248=, =EditorBars.kt:119=: a button with a long-press of its own gets no tooltip,
+  so Run is the one bar icon whose long-press shows no name. Only =scripting/editor.md= mentions
+  Run with….
+- What you'd see: a command script's author edits the code to fake =args=, never shown a way to
+  pass them.
+- Fix: after a plain Run of a script that is a command or has =@on= or =@at=, add "Long-press Run for
+  arguments or an event" to the message line, and offer Run with… on the script's sheet too.
+- Remark:
+
+*** TODO [#B] Reset to default is a 28 dp button with no Undo /(checked)/
+- =SettingItem.kt:92=: =LabeledIconButton(… "Reset to default", onClick = { vm.resetConfig(key) },
+  modifier = Modifier.size(28.dp))=. One touch resets the value at once.
+- What you'd see: a typed value replaced by the default after a slip of the thumb while scrolling.
+- Fix: keep the icon's size, give it a 48 dp touch area, and show "Reset <name>" with Undo.
+- Remark:
+
+*** TODO [#C] Some search fields have no clear button, and Back leaves instead of clearing
+- =GetScriptsScreen.kt:66, 96=, =WidgetPickerScreen.kt:227, 286=, =ReferencePage.kt:99=. Scripts,
+  the library and Settings clear the search first.
+- What you'd see: search "weather" in Get more scripts and press Back to see the whole list: you're
+  on the Scripts tab instead.
+- Fix: =clear = "Clear the search"= everywhere, and Back clears a query first on these three.
+- Remark:
+
+*** TODO [#C] Run with's events are plain text with drawn circles
+- =EditorBars.kt:166-172=: rows 40 dp tall reading "● at 08:00". TalkBack reads the circle
+  character, "white circle unlock", and never says "selected".
+- Fix: =selectable(selected, role = Role.RadioButton)= on rows 48 dp tall, with the circle left out
+  of what is said.
+- Remark:
+
+*** TODO [#C] Unread and "in use" are shown by look alone
+- =FeedsScreen.kt:637-663= (a 10 dp dot and a bolder title); =SettingItem.kt:247-252= (theme cards: a
+  thicker border). TalkBack reads a feed item's title and date, and a theme's name, with no state.
+- Fix: =stateDescription = "Unread"= on the item; =selected= with =Role.RadioButton= on the theme
+  cards.
+- Remark:
+
+*** TODO [#C] "Library" is said of shared copies too
+- =ScriptsTop.kt:172=; =ScriptFilters.kt:80, 288-289=: the count includes copies from Get more
+  scripts.
+- What you'd see: "2 scripts differ from the library" when both came from Get more scripts.
+- Fix: "2 scripts differ from their source", and a "Version" filter group, not "Library version".
+- Remark:
+
+*** TODO [#C] Feeds messages say "1 new feeds" /(checked)/
+- =FeedsScreen.kt:146, 152=: "Imported 1 new feeds — fetching…", "Exported 1 feeds".
+- Fix: the singular for 1, as the page's subtitle already has it (=:285=).
+- Remark:
+
+*** TODO [#C] Removing a shortcut, and deleting all crash reports, act at once
+- =ShortcutsEditor.kt:97, 147=; =About.kt:214= with =SettingsScreen.kt:245-249=: one tap removes a
+  shortcut, or every crash report, with no question and no Undo. The bin sits beside the move
+  arrows on each shortcut row.
+- Fix: a snackbar with Undo for the shortcut, as Sources has (=ScriptActions.kt:462=); a question
+  for Delete all.
+- Remark:
+
+*** TODO [#C] A source's row looks tappable and does nothing /(checked)/
+- =ScriptSourcesScreen.kt:105=: =onClick = {}=. The row ripples, and TalkBack says "double-tap to
+  activate".
+- Fix: make the tap useful (Get more scripts searched to that source, or read it again), or use a
+  list item that can't be tapped.
+- Remark:
+
+** In good shape
+- Screens keep their filters, search and scroll while the editor or another screen is in front, and
+  the editor saves on Back and when the app stops.
+- Destructive actions on scripts and feeds ask first and name what is lost; Update, Reset and
+  removing a source offer Undo.
+- Empty, loading and error states are written out nearly everywhere, with the next step beside them.
