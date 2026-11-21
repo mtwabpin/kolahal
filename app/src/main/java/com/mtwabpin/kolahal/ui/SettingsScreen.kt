@@ -120,9 +120,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
     // For About → Crash reports. They are read off the main thread, and read again after a delete.
     var crashReads by remember { mutableIntStateOf(0) }
     var openCrash by remember { mutableStateOf<CrashRow?>(null) }
-    val crashes by produceState<List<CrashRow>?>(null, crashReads) {
-        value = withContext(Dispatchers.IO) { crashRows(context) }
-    }
+    val crashes by produceIo<List<CrashRow>?>(null, crashReads, what = "Reading the crash reports") { crashRows(context) }
     val crashList = crashes
     // While home shows through Settings (slider dragged or eye held), everything except that slider fades out.
     val peek by vm.peek.collectAsStateWithLifecycle()

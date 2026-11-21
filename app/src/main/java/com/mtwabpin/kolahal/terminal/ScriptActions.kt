@@ -76,14 +76,33 @@ class ScriptActions(
     private fun show(text: String) = host.show(text)
     private fun openEditor(script: Script) = host.openEditor(script)
 
-    fun refreshScripts() = io { scriptList.value = scripts.all() }
+    /**
+     * The only writer of [scriptList] and of the command scripts ([Host.setCommandScripts]): every
+     * read runs on its one thread, so an older read can't be written after a newer one.
+     */
+    private val listReads = ScriptListReads<List<Script>>(
+        fingerprint = { scripts.fingerprint() },
+        all = { scripts.all() },
+        write = { list ->
+            scriptList.value = list
+            host.setCommandScripts(list)
+        },
+    )
+
+    fun refreshScripts() = io { listReads.read() }
+
+    /**
+     * The log's reload reads the scripts with this: only when they changed since its last read
+     * ([ScriptRepository.fingerprint]). True if they did.
+     */
+    suspend fun refreshScriptsIfChanged(): Boolean = listReads.readIfChanged()
 
     private val changes = ScriptChanges(context)
 
     /** Applies a script change outside the main thread, then refreshes the manager list. */
     private fun change(block: () -> Unit) = io {
         block()
-        scriptList.value = scripts.all()
+        listReads.read()
     }
 
     /** The switch on the Scripts screen. When there is something to decide, the screen asks first and uses [enableScript]. */
@@ -143,13 +162,13 @@ class ScriptActions(
     /** Renames [s] ([ScriptRepository.rename]). The sheet checks the name while the user types it. */
     fun renameScript(s: Script, to: String) = io {
         changes.rename(s, to)?.let { return@io notice(it, error = true) }
-        scriptList.value = scripts.all()
+        listReads.read()
         notice("Renamed ${s.name}.${s.lang.ext} to $to.${s.lang.ext}")
     }
 
     fun deleteScript(s: Script) = io {
         scripts.delete(s.id)
-        scriptList.value = scripts.all()
+        listReads.read()
         notice("Deleted ${s.name}")
     }
 
@@ -166,7 +185,7 @@ class ScriptActions(
         io {
             if (scripts.byName(clean) != null) return@io notice("Script '$clean' already exists", error = true)
             val s = changes.create(clean, lang, asCommand)
-            scriptList.value = scripts.all()
+            listReads.read()
             openEditor(s)
         }
     }
@@ -486,9 +505,5 @@ class ScriptActions(
     }
 
     /** Refreshes the scripts list and the command names after edits or imports, not only when the log changes. */
-    suspend fun refreshScriptCaches() {
-        val list = withContext(Dispatchers.IO) { scripts.all() }
-        scriptList.value = list
-        host.setCommandScripts(list)
-    }
+    suspend fun refreshScriptCaches() = listReads.read()
 }
