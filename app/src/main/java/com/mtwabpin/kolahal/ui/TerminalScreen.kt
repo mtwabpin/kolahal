@@ -18,6 +18,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.data.Keys
@@ -27,8 +29,16 @@ import com.mtwabpin.kolahal.terminal.ScriptActions
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.UiEvent
 import com.mtwabpin.kolahal.terminal.lineDetail
+import com.mtwabpin.kolahal.ui.tty.PromptKeys
+import com.mtwabpin.kolahal.ui.tty.TtyHome
 import com.mtwabpin.kolahal.ui.tty.TtyLog
+import com.mtwabpin.kolahal.ui.tty.TtyPrompt
 import com.mtwabpin.kolahal.ui.tty.TtySearchResults
+import com.mtwabpin.kolahal.ui.tty.TtySecretSheet
+import com.mtwabpin.kolahal.ui.tty.TtySheet
+import com.mtwabpin.kolahal.ui.tty.TtySuggestionList
+import com.mtwabpin.kolahal.ui.tty.TtySuggestionStrip
+import com.mtwabpin.kolahal.ui.tty.rememberTtyGrid
 
 /** The text the prompt shows when Settings previews home while typing. One letter matches many items. */
 private const val PREVIEW_INPUT = "s"
@@ -51,6 +61,8 @@ internal fun HomeAppSelector(
     fade: androidx.compose.runtime.MutableFloatState? = null,
     /** Where the strip goes, if only in part of the height ([AppSelector]'s stripArea). The list uses the whole height. */
     stripArea: ClosedFloatingPointRange<Float>? = null,
+    /** Home is drawn on the character grid (`home.style tty`): the selector is too. */
+    tty: Boolean = false,
 ) {
     val configVersion by vm.config.version.collectAsStateWithLifecycle()
     val config = vm.config
@@ -82,6 +94,7 @@ internal fun HomeAppSelector(
         systemFont = remember(configVersion) { config[Keys.SELECTOR_SYSTEM_FONT] },
         fade = fade,
         stripArea = stripArea,
+        tty = if (tty) rememberTtyGrid() else null,
     )
 }
 
@@ -94,7 +107,8 @@ val LocalTerminalShown = androidx.compose.runtime.compositionLocalOf { true }
  * if [PREVIEW_INPUT] were typed.
  *
  * This reads what home shows from the view model and keeps home's state ([HomeState]) above the
- * body that draws it ([GuiHome]). The body gets only what it shows and the calls it makes
+ * body that draws it ([GuiHome], or [com.mtwabpin.kolahal.ui.tty.TtyHome] on the grid). The body
+ * gets only what it shows and the calls it makes
  * ([HomeCalls]).
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -205,10 +219,17 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 ActionMenu("Quick actions", vm.quickActions(), null, systemFont = true)
         }
     }
-    state.menu?.let { ActionSheet(it, onDismiss = { state.menu = null }) }
+    // How home is drawn (home.style). Everything here is the same for every style, so a switch
+    // keeps where the log is scrolled, which lines are open, what is typed and the open menu.
+    val style = remember(configVersion) { HomeStyle.of(config[Keys.HOME_STYLE]) }
+    val tty = style == HomeStyle.TTY
+    state.menu?.let {
+        if (tty) TtySheet(it, onDismiss = { state.menu = null })
+        else ActionSheet(it, onDismiss = { state.menu = null })
+    }
     // `script secret <name> <NAME>` opens a masked input box for the value, over home.
     val secretPrompt by vm.scriptActions.secretPrompt.collectAsStateWithLifecycle()
-    secretPrompt?.let { p -> TerminalSecretPrompt(vm, p) }
+    secretPrompt?.let { p -> TerminalSecretPrompt(vm, p, tty) }
     val zone = rememberZoneChanges()
     val lineTimeFormat = remember(configVersion, zone) {
         com.mtwabpin.kolahal.terminal.lineTimeFormat(config[Keys.CLOCK_24H])
@@ -284,13 +305,112 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         )
     }
 
-    // How home is drawn (home.style). Everything above is the same for every style, so a switch
-    // keeps where the log is scrolled, which lines are open and what is typed.
-    val style = remember(configVersion) { HomeStyle.of(config[Keys.HOME_STYLE]) }
-    val logArea: LogArea? = when (style) {
-        HomeStyle.GUI -> null
-        // The log on the character grid. The rest of home is still the GUI's.
-        HomeStyle.TTY -> { results, deleteRight, log, found ->
+    // The prompt, the suggestions and the app selector, in the style home is drawn in.
+    val prompt: @Composable (Boolean) -> Unit = { typing ->
+        // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
+        val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
+        val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
+        val onToggleKeyBar = {
+            config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
+            // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
+            if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
+        }
+        // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
+        val height = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp }
+        val imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] }
+        if (tty) {
+            val swipeUpOn = remember(configVersion) {
+                config[Keys.GESTURE_SWIPE_UP].trim().lowercase() !in setOf("", "none")
+            }
+            val keys = remember(vm) {
+                PromptKeys(
+                    onSubmit = vm::submit,
+                    onHistoryUp = vm::historyUp,
+                    onHistoryDown = vm::historyDown,
+                    onComplete = vm::complete,
+                    onEscape = vm::escape,
+                    onClearScreen = vm::clearScreen,
+                    onKeyBar = vm::onKeyBar,
+                )
+            }
+            TtyPrompt(
+                value = if (preview?.typing == true) TextFieldValue(PREVIEW_INPUT, TextRange(PREVIEW_INPUT.length)) else vm.input,
+                onValueChange = if (preview?.typing == true) { _ -> } else vm::onInputChange,
+                readOnly = preview?.typing == true,
+                focus = state.focus,
+                imeSuggestions = imeSuggestions,
+                onFocus = { state.promptFocused = it },
+                height = height,
+                keyBarOn = keyBarOn,
+                keys = keys,
+                onQuick = { vm.openQuick() },
+                onToggleKeyBar = onToggleKeyBar,
+                onTapPrompt = { focusPrompt() },
+                onSwipeUp = if (swipeUpOn) { { vm.onGesture(Keys.GESTURE_SWIPE_UP) } } else null,
+            )
+        } else Prompt(
+            vm = vm,
+            focus = state.focus,
+            previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
+            imeSuggestions = imeSuggestions,
+            onFocus = { state.promptFocused = it },
+            height = height,
+            keyBarOn = keyBarOn,
+            onQuick = { vm.openQuick() },
+            onToggleKeyBar = onToggleKeyBar,
+            onTapPrompt = { focusPrompt() },
+        )
+    }
+    val suggestions: @Composable (Boolean) -> Unit = { always ->
+        // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
+        PromptSuggestions(
+            vm,
+            previewTyping = preview?.typing == true,
+            always = always,
+            configVersion = configVersion,
+            onAppLongPress = calls.onAppLongPress,
+            tty = tty,
+        )
+        // [/selector]
+    }
+    val selector: @Composable () -> Unit = {
+        // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
+        HomeAppSelector(
+            vm,
+            onLongPress = calls.onAppLongPress,
+            // While its row-height slider in Settings is dragged, open the list so its rows are visible.
+            showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
+            fade = if (preview == null) vm.selectorFade else null,
+            tty = tty,
+        )
+        // [/selector]
+    }
+    if (tty) TtyHome(
+        state = state,
+        calls = calls,
+        config = config,
+        configVersion = configVersion,
+        preview = preview != null,
+        previewTyping = preview?.typing == true,
+        hasInput = hasInput,
+        status = status,
+        unlocks = unlocks,
+        profiles = profiles,
+        todoCount = todoCount,
+        nowPlaying = nowPlaying,
+        pinnedLines = pinnedLines,
+        search = search,
+        filter = filter,
+        filterCount = filterCount,
+        undoOffer = undoOffer,
+        isHome = isHome,
+        livePreview = livePreview,
+        selectorFade = vm.selectorFade,
+        prompt = prompt,
+        suggestions = suggestions,
+        selector = selector,
+        // The log on the character grid, or a search's results in its place.
+        logArea = { results, deleteRight, log, found ->
             if (results != null) TtySearchResults(
                 search = results,
                 menuEntryId = state.menu?.entryId,
@@ -314,9 +434,8 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                 deleteRight = deleteRight,
                 modifier = log,
             )
-        }
-    }
-    GuiHome(
+        },
+    ) else GuiHome(
         state = state,
         calls = calls,
         config = config,
@@ -342,53 +461,12 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
         timeFormat = lineTimeFormat,
         today = today,
         selectorFade = vm.selectorFade,
-        prompt = { typing ->
-            // keybar.auto: the bar shows only while typing, so an idle home shows more of the log.
-            val keyBarAuto = remember(configVersion) { config[Keys.KEYBAR_AUTO] }
-            val keyBarOn = remember(configVersion) { config[Keys.KEYBAR_SHOW] }
-            Prompt(
-                vm = vm,
-                focus = state.focus,
-                previewText = if (preview?.typing == true) PREVIEW_INPUT else null,
-                imeSuggestions = remember(configVersion) { config[Keys.IME_SUGGESTIONS] },
-                onFocus = { state.promptFocused = it },
-                // Same prompt.height while typing or not, so the line doesn't jump under the finger when the keyboard opens.
-                height = remember(configVersion) { config[Keys.PROMPT_HEIGHT_TYPING].dp },
-                keyBarOn = keyBarOn,
-                onQuick = { vm.openQuick() },
-                onToggleKeyBar = {
-                    config.set(Keys.KEYBAR_SHOW, if (keyBarOn) "off" else "on")
-                    // With keybar.auto the bar shows only while typing, so turning it on also brings up the keyboard.
-                    if (!keyBarOn && keyBarAuto && !typing) focusPrompt()
-                },
-                onTapPrompt = { focusPrompt() },
-            )
-        },
-        suggestions = { always ->
-            // [selector] suggestions.style: list (default, bottom-anchored above the prompt) or chips.
-            PromptSuggestions(
-                vm,
-                previewTyping = preview?.typing == true,
-                always = always,
-                configVersion = configVersion,
-                onAppLongPress = calls.onAppLongPress,
-            )
-            // [/selector]
-        },
-        selector = {
-            // [selector] selector.rail: fluid full-list app selector on an edge of the log, keyboard down only.
-            HomeAppSelector(
-                vm,
-                onLongPress = calls.onAppLongPress,
-                // While its row-height slider in Settings is dragged, open the list so its rows are visible.
-                showList = preview?.key == Keys.SELECTOR_ROW_HEIGHT.key,
-                fade = if (preview == null) vm.selectorFade else null,
-            )
-            // [/selector]
-        },
-        logArea = logArea,
+        prompt = prompt,
+        suggestions = suggestions,
+        selector = selector,
     )
 }
+
 
 /**
  * The suggestions for the prompt's text, shown while typing or when [always] is true. The text is
@@ -401,6 +479,8 @@ private fun PromptSuggestions(
     always: Boolean,
     configVersion: Int,
     onAppLongPress: (com.mtwabpin.kolahal.apps.AppEntry) -> Unit,
+    /** On the character grid (`home.style tty`): no icons, the same settings otherwise. */
+    tty: Boolean,
 ) {
     val config = vm.config
     val apps by vm.apps.collectAsStateWithLifecycle()
@@ -417,7 +497,19 @@ private fun PromptSuggestions(
             vm.suggestions(inputText).take(maxSuggestions)
         }
     val showIcons = remember(configVersion) { config[Keys.SUGGEST_ICONS] }
-    if (remember(configVersion) { config[Keys.SUGGESTIONS_STYLE] } == "chips") {
+    val chips = remember(configVersion) { config[Keys.SUGGESTIONS_STYLE] } == "chips"
+    if (tty) {
+        if (chips) TtySuggestionStrip(
+            suggestions,
+            rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] },
+            onPick = vm::onSuggestion,
+        ) else TtySuggestionList(
+            suggestions,
+            onPick = vm::onSuggestion,
+            onAppLongPress = onAppLongPress,
+            wrapHelp = remember(configVersion) { config[Keys.SUGGESTIONS_WRAP] },
+        )
+    } else if (chips) {
         SuggestionStrip(
             suggestions,
             rows = remember(configVersion) { config[Keys.SUGGESTION_ROWS] },
@@ -435,9 +527,12 @@ private fun PromptSuggestions(
     }
 }
 
-/** The box that `script secret` opens. It closes if the script or its `@secret` line is gone. */
+/**
+ * The box that `script secret` opens, on the character grid when [tty]. It closes if the script or
+ * its `@secret` line is gone.
+ */
 @Composable
-private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.SecretPrompt) {
+private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.SecretPrompt, tty: Boolean) {
     val scripts by vm.scriptList.collectAsStateWithLifecycle()
     val secret = remember(scripts, prompt) {
         scripts.firstOrNull { it.name == prompt.script }
@@ -454,6 +549,13 @@ private fun TerminalSecretPrompt(vm: TerminalViewModel, prompt: ScriptActions.Se
                 secret
             )
         }
+    }
+    if (tty) {
+        TtySecretSheet(prompt.script, secret, isSet, onDismiss = vm.scriptActions::closeSecretPrompt) { value ->
+            vm.scriptActions.closeSecretPrompt()
+            vm.scriptActions.setSecret(prompt.script, secret, value)
+        }
+        return
     }
     GuiTheme {
         SecretDialog(

@@ -94,9 +94,6 @@ import java.time.LocalDate
 import java.util.Date
 import kotlin.math.sign
 
-/** Room at the log's sides, as the GUI's log has. The pixels left over from whole cells go to both sides. */
-private val MARGIN = 12.dp
-
 /** How near a target a tap must be to hit it (cells are small); further with `log.taller-taps`. */
 private val SLOP = 24.dp
 private val TALLER_SLOP = 32.dp
@@ -262,7 +259,7 @@ private fun TtyList(
     val marks = search.orEmpty()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth else m.cellW * 40
-        val margin = with(density) { MARGIN.roundToPx() }
+        val margin = with(density) { GRID_MARGIN.roundToPx() }
         val cols = m.cols((width - 2 * margin).coerceAtLeast(m.cellW))
         val originX = ((width - cols * m.cellW) / 2).coerceAtLeast(0)
         // log.spacing and log.item-spacing in dp, as the GUI has them: only the space between lines

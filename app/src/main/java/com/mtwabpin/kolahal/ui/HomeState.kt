@@ -33,7 +33,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * How home is drawn (`home.style`): [GUI] as text, chips and cards; [TTY] on a strict character
- * grid, like a terminal. For now TTY draws only the log; the rest of home is the GUI's.
+ * grid, like a terminal: home's log page and all its parts. The widgets page stays as it is.
  */
 internal enum class HomeStyle {
     GUI, TTY;
