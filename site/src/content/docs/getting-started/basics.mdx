@@ -65,7 +65,7 @@ open or there is text in the prompt. `suggestions.auto off` keeps them visible a
 
 The suggestions above the prompt change as you type:
 
-- **Empty prompt**: your [pinned favourites](/guides/apps/#favourites) first, then your most-used apps. Apps are ranked by how
+- **Empty prompt**: your [pinned favorites](/guides/apps/#favorites) first, then your most-used apps. Apps are ranked by how
   often and how recently you opened them (each launch counts as 1, and this halves every week).
   This is off by default. Turn it on with `config set suggestions.idle on`.
 - **First word**: up to three matching commands, aliases or script commands, and matching apps.
@@ -75,7 +75,7 @@ The suggestions above the prompt change as you type:
 - **Arguments**: almost every command suggests what comes next.
   - App names after `open`, `info`, `hide`, `rename`, `pin`, `shortcuts`, `notifs mute` and
     similar commands. After `open maps:` you see that app's shortcuts.
-  - Contacts after `call`, `sms` and `contacts`: favourites first, then everyone. They appear even before you
+  - Contacts after `call`, `sms` and `contacts`: favorites first, then everyone. They appear even before you
     type a name. A contact with several numbers has one row for each number. Choosing a row fills in
     that number. In the Play build, you see the people you've picked ([People](/guides/people/#in-the-play-build)).
   - Script names after `script run|edit|…`, keys and values after `config`, theme and font names,
@@ -133,14 +133,14 @@ the back gesture works as usual. After your thumb is down, you can slide over th
 
 - **Touch the edge at the handle.** The home screen dims. A full-height panel slides in on the other side of the screen.
   It lists *all* your apps in one list:
-  - Your favourites (★), then all other apps in alphabetical order.
+  - Your favorites (★), then all other apps in alphabetical order.
   - Small section letters in the margin. `#` holds apps that start with a digit, a symbol or a non-Latin letter.
   - Each app's icon (the selector's **Show app icons**, `selector.icons`, on by default).
   - **Row height** (`selector.row-height`, 50 dp) sets the space between apps.
   - **System font** (`selector.system-font`, on by default) shows the list and the letters in the system font instead of the terminal font.
   - Hidden apps are left out. Work and private apps show their `[W]` / `[S]` tags. Apps in paused profiles are faded.
   - About 15 apps fit on the screen at once.
-  - When the selector is at the bottom of the edge (the default), your favourites come last, at the bottom where your thumb rests.
+  - When the selector is at the bottom of the edge (the default), your favorites come last, at the bottom where your thumb rests.
     When it is at the middle or the top, they come first.
 - **Slide along the edge to a letter.** This is how it works when **Slide through** (`selector.browse`) is set to `letters`:
   - You move one letter at a time, with a light vibration for each letter.
@@ -206,12 +206,12 @@ A line that arrives alone, more than 3 seconds after the previous line, starts i
 with a tap, an app install or a notification.
 
 Inside a group, the items of a list have a smaller gap between them (`log.item-spacing`, 0–40 dp, 5 by default): stories,
-contacts, feed items. The coloured bar runs through it, so the items still read as one group.
+contacts, feed items. The colored bar runs through it, so the items still read as one group.
 
-A thin coloured bar next to each line shows where the line came from:
+A thin colored bar next to each line shows where the line came from:
 
 - green for commands
-- the script's colour for background output
+- the script's color for background output
 - red for errors
 
 Hide the bar with `log.gutter off`. Output older than the latest command is dimmed (`log.dim`).
@@ -227,7 +227,7 @@ Hide the bar with `log.gutter off`. Output older than the latest command is dimm
   you have; `script ls` and `feeds` tag what is switched off. Scripts can show tags too (LIVE, new). A script's line can have links in its text: a tap on a link opens it, and a tap
   anywhere else does what a tap on the line does.
 - **People have pictures.** A call (in the log, and in `calls`) and a contact in `contacts` start with the person's photo, or
-  with their first letters on a colour of the theme when there's no photo or Kolahal can't read it. `#` stands for a
+  with their first letters on a color of the theme when there's no photo or Kolahal can't read it. `#` stands for a
   number with no name, `?` for a hidden one.
 - **Big numbers.** An answer that is mainly a number shows it large, with a label under it: `date` (the time), `date tokyo`,
   the calculator (`= 5 km in mi`), `unlocks` and `usage` (screen time), and scripts such as `weather` and `countdown`.

@@ -22,7 +22,7 @@ site/
 ├── scripts/check-links.mjs post-build link and anchor checker (part of pnpm build)
 ├── public/favicon.svg
 └── src/
-    ├── assets/             logo and screenshots (optimised by astro:assets)
+    ├── assets/             logo and screenshots (optimized by astro:assets)
     ├── components/         Hero and PageTitle overrides, the home screen demo, theme cards
     ├── content/docs/       the pages (.md / .mdx); the folder structure is the URL structure
     └── styles/terminal.css the look: the app's "green" theme, dark and light, and fonts

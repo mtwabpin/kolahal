@@ -1,10 +1,10 @@
 ---
 /**
- * The built-in themes, each in its dark and light version, with the colours from the app
+ * The built-in themes, each in its dark and light version, with the colors from the app
  * (ui/Theme.kt, Palettes). Each half draws a few log lines in that palette.
  * - `note` is a word or two after the theme's command.
- * - material-you takes its colours from the phone's wallpaper. It is drawn here in Material's
- *   standard colours, which Android 9 to 11 show (ui/MaterialYouPalettes.kt).
+ * - material-you takes its colors from the phone's wallpaper. It is drawn here in Material's
+ *   standard colors, which Android 9 to 11 show (ui/MaterialYouPalettes.kt).
  */
 type P = { bg: string; fg: string; dim: string; prompt: string; info: string; link: string };
 const p = (bg: string, fg: string, dim: string, prompt: string, info: string, link: string): P => ({ bg, fg, dim, prompt, info, link });
@@ -19,7 +19,7 @@ const THEMES: { name: string; dark: P; light: P; note?: string }[] = [
 	{ name: 'gruvbox-material', dark: p('#292828', '#D4BE98', '#A89984', '#A9B665', '#89B482', '#7DAEA3'), light: p('#FBF1C7', '#654735', '#7C6F64', '#6C782E', '#4C7A5D', '#45707A') },
 	{ name: 'nord', dark: p('#2E3440', '#D8DEE9', '#929AAA', '#88C0D0', '#8FBCBB', '#81A1C1'), light: p('#ECEFF4', '#2E3440', '#616E88', '#357587', '#467473', '#4A7095') },
 	{ name: 'rose-pine', dark: p('#191724', '#E0DEF4', '#908CAA', '#EBBCBA', '#9CCFD8', '#9CCFD8'), light: p('#FAF4ED', '#464261', '#6F6B89', '#9C5E5B', '#45767F', '#45767F') },
-	{ name: 'material-you', note: 'your wallpaper\'s colours', dark: p('#141218', '#E6E0E9', '#938F99', '#D0BCFF', '#CCC2DC', '#EFB8C8'), light: p('#FEF7FF', '#1D1B20', '#79747E', '#6750A4', '#625B71', '#7D5260') },
+	{ name: 'material-you', note: 'your wallpaper\'s colors', dark: p('#141218', '#E6E0E9', '#938F99', '#D0BCFF', '#CCC2DC', '#EFB8C8'), light: p('#FEF7FF', '#1D1B20', '#79747E', '#6750A4', '#625B71', '#7D5260') },
 ];
 const vars = (c: P) => `--t-bg:${c.bg};--t-fg:${c.fg};--t-dim:${c.dim};--t-prompt:${c.prompt};--t-info:${c.info};--t-link:${c.link}`;
 ---

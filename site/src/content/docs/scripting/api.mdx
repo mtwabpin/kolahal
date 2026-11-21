@@ -110,7 +110,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 
 Adds a line to the log.
 
-- `title` shows in the script's colour (in the link colour if the line has a `url`). With a `body`, the title is bold, as a heading over the body. On its own it is in normal weight, so a list of lines stays easy to read.
+- `title` shows in the script's color (in the link color if the line has a `url`). With a `body`, the title is bold, as a heading over the body. On its own it is in normal weight, so a list of lines stays easy to read.
 - The first line of a run ends with the script's name, muted (`… · weather`), unless the line is
   right under the command that ran it.
 - `body` is optional. It shows muted under the title, on as many lines as it needs.
@@ -130,7 +130,7 @@ line:
 | `image` | An image URL (http or https). The picture shows under the line, as wide as the log. Long-press offers "Open image". A see-through picture whose lines barely show on the log (dark lines on a dark theme, as Wikipedia's diagrams have) is drawn on a light backdrop, or a dark one on a light theme. |
 | `mono` | `"1"`: the line keeps the terminal font even with `font.sans all`, so columns padded with spaces line up. |
 | `actions` | Up to 3 [buttons](#buttons) under the line, each `{ label, args }`. A tap runs this script again with those args. |
-| `gap` | `true`: the line starts a new item of a list, such as a story with its points under it. A small space shows above it (`log.item-spacing`, 5 dp by default), and the colour bar runs through it, so the items stand apart but stay one group. It has no effect on a group's first line or on the line right under the command. From Kolahal 0.5.0; an older one ignores it. |
+| `gap` | `true`: the line starts a new item of a list, such as a story with its points under it. A small space shows above it (`log.item-spacing`, 5 dp by default), and the color bar runs through it, so the items stand apart but stay one group. It has no effect on a group's first line or on the line right under the command. From Kolahal 0.5.0; an older one ignores it. |
 
 A link or a picture counts as a network request:
 
@@ -333,7 +333,7 @@ md.log(
 </TabItem>
 </Tabs>
 
-<Cards items={[{ src: logMd, alt: 'Markdown lines in the log: a bold title with a bulleted list under it, code in grey, and a struck-out version', width: 360 }]} />
+<Cards items={[{ src: logMd, alt: 'Markdown lines in the log: a bold title with a bulleted list under it, code in gray, and a struck-out version', width: 360 }]} />
 
 ### Styles: fmt
 
@@ -343,14 +343,14 @@ Nothing else in the line is read as a style.
 
 | Function | Shows | Looks like |
 | --- | --- | --- |
-| `fmt.bold(text)` | bold (in a body, also in the text colour) | <Image src={fBold} alt="Rent, then due today in bold" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.bold(text)` | bold (in a body, also in the text color) | <Image src={fBold} alt="Rent, then due today in bold" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.italic(text)` | italic | <Image src={fItalic} alt="Simplicity first in italics, then Dijkstra" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.underline(text)` | underlined | <Image src={fUnderline} alt="Read the terms first, with terms underlined" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.strike(text)` | struck through | <Image src={fStrike} alt="Price 520 480, with 520 struck through" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.code(text)` | on a shaded chip, in the terminal font | <Image src={fCode} alt="Run, then script lib on a shaded chip" width={240} densities={[1, 2]} class="fmt-shot" /> |
-| `fmt.color(role, text)` | in one of the theme's colours: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` | <Image src={fColor} alt="Each role's name in its colour: accent, link, info, muted, text, good, warn and bad" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.color(role, text)` | in one of the theme's colors: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` | <Image src={fColor} alt="Each role's name in its color: accent, link, info, muted, text, good, warn and bad" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) | <Image src={fTag} alt="Three tags: a red LIVE, an accent NEW and a green v1.2" width={240} densities={[1, 2]} class="fmt-shot" /> |
-| `fmt.link(text, url)` | text that opens a link: see [Links](#links) | <Image src={fLink} alt="Read the guide, with the guide underlined in the link colour" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.link(text, url)` | text that opens a link: see [Links](#links) | <Image src={fLink} alt="Read the guide, with the guide underlined in the link color" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) | <Image src={fStats} alt="Pune, then 25°C large with Sunny under it, and 36% humidity" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. | <Image src={fList} alt="Today, then 1. standup and 2. review" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) | <Image src={fTable} alt="Rates, then a table: USD 84.40 and EUR 91.20" width={240} densities={[1, 2]} class="fmt-shot" /> |
@@ -359,13 +359,13 @@ Nothing else in the line is read as a style.
 Each picture is one line, such as `log("Rent " .. fmt.bold("due today"))`. The script editor's API
 reference shows the same lines under these functions, drawn in your theme.
 
-Colours:
+Colors:
 
-- You choose a colour by its role, never by its value. The theme picks each colour, in a dark and a
+- You choose a color by its role, never by its value. The theme picks each color, in a dark and a
   light version, so the line is readable on every theme.
 - `good` is for up, done or passing. `warn` is for something less than an error. `bad` is for down
-  or failed (the theme's error colour).
-- Also show the meaning in the text (`▲`, `▼`, "down"). People can easily miss a colour alone.
+  or failed (the theme's error color).
+- Also show the meaning in the text (`▲`, `▼`, "down"). People can easily miss a color alone.
 
 Where styles work:
 
@@ -451,7 +451,7 @@ log(
 - `opts.header`: `true` makes the first row the header. It names the columns and shows muted.
 - `opts.align`: one letter for each column, `l` (left) or `r` (right). Numbers read best on the
   right. Columns without a letter are on the left.
-- A cell is one line: a line break in it becomes a space. Cells take the other `fmt` styles and colours.
+- A cell is one line: a line break in it becomes a space. Cells take the other `fmt` styles and colors.
 - Up to 8 columns and 50 rows besides the header. More rows end with a "+N more" line.
 - The table shows in the terminal font, so its columns line up. A table wider than the screen
   scrolls sideways.
@@ -517,7 +517,7 @@ line does what a tap on the line does (opens its `url`, if it has one).
 
 - A line can have several links, in its title and its body: a story and its comments, release
   notes and a diff.
-- Links are in the link colour and underlined.
+- Links are in the link color and underlined.
 - They follow the rules of a line's `url`: web links only (http and https), none when internet is
   off for the script, and none that carries a secret anywhere but the sites its `@secret` line
   names. A link that breaks a rule shows its text as plain text.
@@ -572,8 +572,8 @@ md.log(
 
 ### Tags
 
-`fmt.tag(role, text)` shows a short label on a chip shaded in one of the theme's colours, by role,
-as [`fmt.color`](#styles-fmt) takes it. `fmt.tag(text)` uses the accent colour.
+`fmt.tag(role, text)` shows a short label on a chip shaded in one of the theme's colors, by role,
+as [`fmt.color`](#styles-fmt) takes it. `fmt.tag(text)` uses the accent color.
 
 - Use it for a state or a version: LIVE, NEW, pre-release, v0.12.0. For code, use `fmt.code`.
 - A tag is one line, in bold and a little smaller than the text around it.
@@ -620,8 +620,8 @@ and the texts after them.
 | `fmt.bars(rows, opts?)` | a bar for each row `{ label, value, text? }`, all on one scale from 0 to `opts.max` (by default the largest value), so the rows compare at a glance. `text` shows after the bar; by default it is the value with `opts.unit` |
 | `fmt.ranges(rows, opts?)` | for each row `{ label, low, high, lowText?, highText? }`, a bar from low to high, all on one scale from `opts.min` to `opts.max` (by default the lowest low and the highest high). The low shows before the bar and the high after it |
 
-- `opts.color` is the bars' colour, by role (`accent` by default). The unfilled part of a bar is
-  a light shade of the same colour.
+- `opts.color` is the bars' color, by role (`accent` by default). The unfilled part of a bar is
+  a light shade of the same color.
 - `opts.unit` goes after each number that the bar shows itself, such as `°` or `%`.
 - A value past the scale fills its bar, and one below it leaves it empty.
 - Up to 50 rows. More end with a "+N more" line.
@@ -705,7 +705,7 @@ value large, in the terminal font, and its label under it, small. The first valu
 the others are smaller. They sit side by side and wrap when the screen is narrow.
 
 - Use it for the one number that matters and a few beside it: the weather, a score, a count.
-- Up to 5 items; more are left out. A value and a label are one line each, and take styles and colours.
+- Up to 5 items; more are left out. A value and a label are one line each, and take styles and colors.
 - A label starts with a capital, as in a widget: `"humidity"` shows "Humidity"
   ([Capitals in a widget](#capitals-in-a-widget)).
 - Copy text gets them as `25°C ☀️ Sunny · 36% Humidity · …`.
@@ -878,8 +878,8 @@ Sets this script's status line. Kolahal uses the first line of `text`, at most 8
 
 - `progress`: how far along, from 0 to 1. It is drawn as a bar under the line at the top. Without
   it, there is no bar.
-- `color`: the bar's colour, by role, as [`fmt.color`](#styles-fmt) takes it: `good`, `warn`, `bad`, `info`,
-  `accent` (the default), `link`, `muted` or `text`. The theme picks the colour, so it reads on
+- `color`: the bar's color, by role, as [`fmt.color`](#styles-fmt) takes it: `good`, `warn`, `bad`, `info`,
+  `accent` (the default), `link`, `muted` or `text`. The theme picks the color, so it reads on
   every theme. For example, an air quality bar in `warn` or `bad` when the air is poor. Kolahal
   versions before 0.4.16 ignore it.
 - `refresh`: run the script again every this many seconds (10 at the fastest, up to 3600) while
@@ -957,7 +957,7 @@ Long-press the line to copy it. If a one-liner run with `lua` / `js` produces no
 ## Widgets
 
 A script can fill one card on the [widgets page](/guides/widgets/). The script says what to show: a
-kind of card, and that kind's fields. Kolahal draws the card, in the theme's colours. A script
+kind of card, and that kind's fields. Kolahal draws the card, in the theme's colors. A script
 draws nothing itself.
 
 1. Put an [`@widget` line](#the-widget-line) at the top of the script.
@@ -1082,7 +1082,7 @@ Rules for every description:
   value is masked, as in the log.
 - A label starts with a capital, whatever the script writes
   ([capitals in a widget](#capitals-in-a-widget)).
-- A colour is a role, never a colour value. The theme picks the colour, so the card reads on every
+- A color is a role, never a color value. The theme picks the color, so the card reads on every
   theme.
 
 Every kind takes these fields. All are optional.
@@ -1091,12 +1091,12 @@ Every kind takes these fields. All are optional.
 | --- | --- | --- |
 | `kind` | a kind's name | The card to draw. Without it: the kind on the `@widget` line. |
 | `title` | text, up to 40 characters | The card's name. A card has no title line: the name shows small where the content doesn't say what it is, over a large list or text, or as the label of a number, a bar, a ring, a chart or a countdown that has none. A screen reader always says it. Without it: the script's `@title`, or its name. |
-| `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's colour by the Bold, Split and Shape looks; or an emoji or a letter. |
-| `color` | a role | The colour of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
+| `icon` | an icon name, or text up to 4 characters | An icon from the list in [Icons](#icons), such as `"sun"`, drawn in the card's color by the Bold, Split and Shape looks; or an emoji or a letter. |
+| `color` | a role | The color of the bar, the ring, the chart or the note: `accent` (without it), `link`, `info`, `muted`, `text`, `good`, `warn` or `bad`. |
 | `tap` | an action | What a tap on the card does ([Taps](#taps)). Without it, a tap refreshes the card. |
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
-| `note` | text, up to 16 characters | A few words in the card's colour on a large card's last line, before the content's age: `Done today`. A wide or small card has no room for that line; a screen reader still says the note. Needs Kolahal 0.5.11. |
+| `note` | text, up to 16 characters | A few words in the card's color on a large card's last line, before the content's age: `Done today`. A wide or small card has no room for that line; a screen reader still says the note. Needs Kolahal 0.5.11. |
 
 No card has a title line: the content has the card's room. A large card's last line has the note
 and the content's age or "Failed 10:42". A wide or small card has no room for that line, and a
@@ -1104,7 +1104,7 @@ screen reader says them all the same.
 
 ### Icons
 
-A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's colour, so it follows the theme, where an emoji keeps its own colours. Names are lower case. Any other text of up to 4 characters is drawn as it is: an emoji or a letter. A lower-case word longer than 4 letters that is no name is an error, so a typo such as `"sunny"` doesn't pass unseen. The icons are [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0).
+A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's color, so it follows the theme, where an emoji keeps its own colors. Names are lower case. Any other text of up to 4 characters is drawn as it is: an emoji or a letter. A lower-case word longer than 4 letters that is no name is an error, so a typo such as `"sunny"` doesn't pass unseen. The icons are [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0).
 
 | Group | Names |
 | --- | --- |
@@ -1156,11 +1156,11 @@ Each row is `{ title, detail, trailing, icon, color, tap, done, range }`. Only `
 | `title` | text, up to 80 | The row's text. |
 | `detail` | text, up to 120 | A second line. |
 | `trailing` | text, up to 24 | A short text at the row's end: a price, a count. |
-| `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front, in the row's colour. |
-| `color` | a role | The colour of its icon, or of a dot in front when it has no icon. The `trailing` text stays dim. |
+| `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front, in the row's color. |
+| `color` | a role | The color of its icon, or of a dot in front when it has no icon. The `trailing` text stays dim. |
 | `tap` | an action | What a tap on the row does ([Taps](#taps)). |
 | `done` | true or false | The row has a checkbox in front: ticked with `true`, empty with `false`. Without it, the row has none. |
-| `range` | `{ low, high, value }` | A bar from `low` to `high`, between the row's text and its `trailing` text, in the row's colour or the card's. `value` is a dot on the bar. Needs Kolahal 0.5.16. |
+| `range` | `{ low, high, value }` | A bar from `low` to `high`, between the row's text and its `trailing` text, in the row's color or the card's. `value` is a dot on the bar. Needs Kolahal 0.5.16. |
 
 A checkbox is for a todo or a habit. It only shows a state: Kolahal doesn't change it. Give the
 row a `tap` with `args`, and let that run change the thing and call `widget.show` again.
@@ -1296,7 +1296,7 @@ widget.show{
   caption = "From Wiktionary",
 }
 
--- progress: in the warning colour
+-- progress: in the warning color
 widget.show{
   kind = "progress",
   title = "Pune air",
@@ -1361,7 +1361,7 @@ widget.show({
   caption: "From Wiktionary",
 });
 
-// progress: in the warning colour
+// progress: in the warning color
 widget.show({
   kind: "progress",
   title: "Pune air",
@@ -1417,7 +1417,7 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | --- | --- | --- |
 | `label` | text, up to 24 | The button's text. |
 | `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front of the text. |
-| `color` | a role | The button's colour. |
+| `color` | a role | The button's color. |
 | `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
 
 - A small card shows fewer buttons, never smaller ones. So put the important ones first.
@@ -1518,7 +1518,7 @@ needed.
 | `ends` | a time in seconds, not before `starts` | When it ends. |
 | `allDay` | true or false | The event takes the whole day. It says "all day" where the others have their time, and comes first in its day. Its `starts` must be midnight on the phone: `os.time{ year = 2026, month = 12, day = 21, hour = 0 }`. |
 | `where` | text, up to 60 | The place, at the end of the event's line when the card has room. |
-| `color` | a role | The colour of a dot in front of the event's title. Without it, no dot. |
+| `color` | a role | The color of a dot in front of the event's title. Without it, no dot. |
 | `tap` | an action | What a tap on the event does ([Taps](#taps)). |
 | `id` | a number | Not shown, and not kept. An event of [`calendar.events`](#calendareventsdays) has one, so that list can be the `events` as it is. |
 
@@ -1858,7 +1858,7 @@ under the value.
 ### Styles in a widget
 
 Some texts of a card keep styles from [`fmt`](#styles-fmt): bold, italic, underline, strike and a
-colour.
+color.
 
 | Kind | Texts that keep styles |
 | --- | --- |
@@ -1873,7 +1873,7 @@ colour.
 - A widget draws no link, tag, code chip, table or bar inside a text. `fmt.link`, `fmt.tag`,
   `fmt.code`, `fmt.table` and `fmt.bar` lose their marks there and keep their text. For a link,
   give the card or the row a [`tap`](#taps).
-- A colour is a role, as everywhere in a widget. The theme picks the colour.
+- A color is a role, as everywhere in a widget. The theme picks the color.
 - A text's limit counts the characters that show, not the styles. A text over its limit is cut,
   with "…" at its end, and its styles end there too.
 - A screen reader says the plain text.

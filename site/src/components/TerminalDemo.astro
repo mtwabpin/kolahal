@@ -55,7 +55,7 @@ const lists: { for: string[]; rows: Row[] }[] = [
 		rows: [
 			{ label: 'WhatsApp', kind: 'app', icon: 'chat', enter: true },
 			{ label: 'weather', kind: 'script', help: weatherHelp },
-			{ label: 'wallpaper', kind: 'cmd', help: "match: set the home screen wallpaper to this theme's colour" },
+			{ label: 'wallpaper', kind: 'cmd', help: "match: set the home screen wallpaper to this theme's color" },
 			{ label: 'widget', kind: 'cmd', help: 'Pick a widget to add to the widgets page' },
 		],
 	},
@@ -63,7 +63,7 @@ const lists: { for: string[]; rows: Row[] }[] = [
 	{ for: ['weather'], rows: [{ label: 'weather', kind: 'script', help: weatherHelp, enter: true }] },
 ];
 
-/** Plain app icons (not the real apps' logos): a colour and a shape. */
+/** Plain app icons (not the real apps' logos): a color and a shape. */
 const APP_ICONS: Record<string, { bg: string; path: string }> = {
 	maps: { bg: '#2e9e5b', path: 'M12 5.5a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 12 5.5zm0 6.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4z' },
 	mail: { bg: '#d4493f', path: 'M6 7.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1zm.6 1.6v.3L12 13l5.4-3.6v-.3L12 12.6z' },
@@ -475,7 +475,7 @@ const APP_ICONS: Record<string, { bg: string; path: string }> = {
 	.script {
 		color: var(--k-script);
 	}
-	/* fmt.tag: bold, 0.82 em, on a chip of its colour (24 % dark, 14 % light) */
+	/* fmt.tag: bold, 0.82 em, on a chip of its color (24 % dark, 14 % light) */
 	.kd-tag {
 		font-weight: 700;
 		font-size: 0.82em;

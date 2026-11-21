@@ -60,7 +60,7 @@ export default defineConfig({
 			},
 			expressiveCode: {
 				themes: ['github-dark-dimmed', 'github-light'],
-				// Code sits on the theme's surface colour, as in the app's script editor.
+				// Code sits on the theme's surface color, as in the app's script editor.
 				styleOverrides: {
 					borderRadius: '0.5rem',
 					borderColor: 'transparent',

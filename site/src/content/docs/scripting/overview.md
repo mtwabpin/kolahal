@@ -91,7 +91,7 @@ shows:
   - **Add key**: it needs a key ([`@secret`](#api-keys-and-other-secrets)) that has no value yet.
     The pill opens the box for the key.
 
-A card is tinted in the theme's colour when its script is on, and faded when it is off.
+A card is tinted in the theme's color when its script is on, and faded when it is off.
 
 The arrow on a card shows its details. The arrow at the top shows the details of all cards. The
 details are, from the top:
@@ -110,7 +110,7 @@ details are, from the top:
   - shield: a pill for each thing it may do (internet, pinned at the top, notifications, what it
     declares).
 
-A pill is filled in the theme's colour when it is on and faded when it is off. Tap a pill to switch
+A pill is filled in the theme's color when it is on and faded when it is off. Tap a pill to switch
 it. While the details are open, the pill next to the summary is hidden: the lines have the buttons.
 
 Above the cards:
@@ -126,7 +126,7 @@ Above the cards:
 
   In a group, any chip may match: Library *or* Shared. Across groups, all must: Command *and*
   (Library or Shared). Each chip shows how many scripts it would show with the chips of the other
-  groups. A chip with 0 is grey, but it still works. **Show N scripts** closes the sheet.
+  groups. A chip with 0 is gray, but it still works. **Show N scripts** closes the sheet.
 - The chips that are on show under the search, each with ×. **Clear** turns them all off. The
   badge on Filters counts them.
 - **Sort**: by name, last run, or recently changed (the latest change to a script's code or name
@@ -206,7 +206,7 @@ that a script logged also has **Pin to the top** (or **Unpin**) in its long-pres
 
 A script can fill a card on the [widgets page](/guides/widgets/): a big number, a few lines of
 text, a list, a ring, a chart, a countdown, buttons, switches, clocks, an agenda or a picture. The
-script says what to show. Kolahal draws it, in the theme's colours.
+script says what to show. Kolahal draws it, in the theme's colors.
 
 ```lua
 -- @title Battery
