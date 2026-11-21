@@ -30,6 +30,7 @@ import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.script.HostApi
 import com.mtwabpin.kolahal.script.ScriptEngine
 import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.terminal.buildRows
 import com.mtwabpin.kolahal.terminal.lineTimeFormat
 import kotlinx.coroutines.runBlocking

@@ -25,8 +25,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,20 +67,22 @@ import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
-import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.StyledText
+import com.mtwabpin.kolahal.data.shownText
 import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.terminal.Gutter
+import com.mtwabpin.kolahal.terminal.LineModel
+import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.TimeMode
+import com.mtwabpin.kolahal.terminal.lineModel
+import com.mtwabpin.kolahal.terminal.plainOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Date
-
-/** Which lines show their time, from `log.time`. With `groups`, a group's first line shows it, and so does a line where the minute changes. */
-enum class TimeMode { OFF, COMMANDS, GROUPS, ALL }
 
 /** [today] comes from [rememberToday], so "Yesterday" moves at midnight even when the launcher stays on screen for days. */
 @Composable
@@ -116,10 +120,8 @@ fun scriptColor(name: String): Color {
 }
 
 /**
- * One log entry.
- * - A thin gutter bar marks command blocks (prompt color), timer output (script color) and errors.
- * - Old output is dimmed.
- * - The time is right-aligned, so it never shifts the text.
+ * One log entry on its own, as a search result or a guide's example shows it: the [LogLine] of
+ * [row]'s model. It keeps whether a long line is open itself.
  */
 @Composable
 fun LogLine(
@@ -128,7 +130,6 @@ fun LogLine(
     timeFormat: SimpleDateFormat,
     dim: Boolean,
     topGap: Dp,
-    /** Space above the line inside it, so the gutter bar runs through it: an item of a list ([LogRow.Entry.itemGap]). */
     itemGap: Dp = 0.dp,
     gutter: Boolean = true,
     indents: LineIndents,
@@ -140,41 +141,97 @@ fun LogLine(
     onAppLongPress: (AppEntry) -> Unit,
     onSwipeCopy: (LogEntry) -> Unit = {},
     onSwipeDelete: (LogEntry) -> Unit = {},
+    deleteRight: Boolean = false,
+    onAction: (LogEntry, Int) -> Unit = { _, _ -> },
+    marks: List<String> = emptyList(),
+) {
+    // A line stays open while it is in the list's memory (scrolled away and back).
+    var open by rememberSaveable(row.entry.id) { mutableStateOf(false) }
+    LogLine(
+        model = rememberLineModel(row, LineOptions(timeMode, Term.foldLines)),
+        timeFormat = timeFormat,
+        dim = dim,
+        topGap = topGap,
+        itemGap = itemGap,
+        gutter = gutter,
+        indents = indents,
+        highlighted = highlighted,
+        apps = apps,
+        onTap = onTap,
+        onLongPress = onLongPress,
+        onAppTap = onAppTap,
+        onAppLongPress = onAppLongPress,
+        onSwipeCopy = onSwipeCopy,
+        onSwipeDelete = onSwipeDelete,
+        deleteRight = deleteRight,
+        onAction = onAction,
+        marks = marks,
+        foldOpen = open,
+        onToggleFold = { open = !open },
+    )
+}
+
+/**
+ * [row]'s [LineModel], kept while the row and [options] stay the same. Whether a notification's
+ * icon was saved is read on each composition: it may be saved after its line shows.
+ */
+@Composable
+internal fun rememberLineModel(row: LogRow.Entry, options: LineOptions): LineModel {
+    val context = LocalContext.current
+    val iconSaved =
+        row.entry.ctx.values[LogContext.ICON]?.let { NotifIcons.has(context, it) } == true
+    return remember(row, options, iconSaved) { lineModel(row, options) { iconSaved } }
+}
+
+/**
+ * One log row, drawn from its [model] ([lineModel]).
+ * - A thin gutter bar marks command blocks (prompt color), timer output (script color) and errors.
+ * - Old output is dimmed.
+ * - The time is right-aligned, so it never shifts the text.
+ * - A long line folds (`log.fold`): [foldOpen] says whether it is open, [onToggleFold] opens or folds it.
+ */
+@Composable
+fun LogLine(
+    model: LineModel,
+    timeFormat: SimpleDateFormat,
+    dim: Boolean,
+    topGap: Dp,
+    /** Space above the line inside it, so the gutter bar runs through it: an item of a list ([LineModel.Gap.ITEM]). */
+    itemGap: Dp,
+    gutter: Boolean,
+    indents: LineIndents,
+    highlighted: Boolean,
+    apps: (LogEntry) -> List<AppEntry>,
+    onTap: (LogEntry) -> Unit,
+    onLongPress: (LogEntry) -> Unit,
+    onAppTap: (AppEntry) -> Unit,
+    onAppLongPress: (AppEntry) -> Unit,
+    onSwipeCopy: (LogEntry) -> Unit,
+    onSwipeDelete: (LogEntry) -> Unit,
     /**
      * A swipe right deletes and a swipe left copies, the other way round from the default. On with
      * the widgets page on the right (`widgets.page`): a swipe toward that page copies, never deletes.
      */
-    deleteRight: Boolean = false,
+    deleteRight: Boolean,
     /** A tap on button `index` under a script's line (`ctx.actions`). */
-    onAction: (LogEntry, Int) -> Unit = { _, _ -> },
+    onAction: (LogEntry, Int) -> Unit,
     /** Words a log search found. They are highlighted where the line shows them. */
-    marks: List<String> = emptyList(),
+    marks: List<String>,
+    foldOpen: Boolean,
+    onToggleFold: () -> Unit,
 ) {
-    val entry = row.entry
+    val entry = model.entry
+    val body = model.body
     // Swipe right to copy, left to delete (the terminal offers Undo), or the other way with [deleteRight].
     // The swipe must pass a third of the width.
     val swipe = remember { androidx.compose.animation.core.Animatable(0f) }
     val swipeScope = androidx.compose.runtime.rememberCoroutineScope()
     var rowWidth by remember { androidx.compose.runtime.mutableIntStateOf(1) }
     val haptics = LocalHapticFeedback.current
-    val gutterColor = gutterColor(row.gutter)
-    val showTime = when (timeMode) {
-        TimeMode.ALL -> true
-        TimeMode.COMMANDS -> entry.kind == LogKind.COMMAND
-        TimeMode.GROUPS -> row.showTime
-        TimeMode.OFF -> false
-    }
-    val desc = entry.ctx.values[LogContext.DESC]
-    val isGrid = entry.ctx.values[LogContext.APPS] != null
-    val image = entry.ctx.image
-    // On a notification line, the saved status-bar icon replaces the app name at the end.
+    val gutterColor = gutterColor(model.gutter)
     val context = LocalContext.current
-    val iconKey = entry.ctx.values[LogContext.ICON]?.takeIf {
-        row.showSource && entry.kind == LogKind.SCRIPT && NotifIcons.has(
-            context,
-            it
-        )
-    }
+    // On a notification line, the saved status-bar icon replaces the app name at the end.
+    val iconKey = (model.source as? LineModel.Source.Icon)?.key
     val inline = remember(iconKey) { iconKey?.let(::notifIconContent) ?: emptyMap() }
 
     // log.line-height also sets the padding above and below a line:
@@ -190,52 +247,45 @@ fun LogLine(
     val padding = ((lineHeight - textLine) / 2).coerceIn(0.dp, LINE_PADDING.dp)
     val dense = lineHeight + 0.5.dp < textLine
     // Lines that do something get a larger touch target than plain output (log.taller-taps).
-    val actionable =
-        entry.kind == LogKind.COMMAND || entry.ctx.values.keys.any { it in ACTIONABLE_KEYS }
     val minHeight = when {
         !Term.tallerTaps -> lineHeight
-        desc != null -> lineHeight + 14.dp
-        actionable -> lineHeight + 10.dp
+        body is LineModel.Body.TwoColumns || body is LineModel.Body.NameColumns -> lineHeight + 14.dp
+        model.tappable -> lineHeight + 10.dp
         else -> lineHeight
     }
     // The font settings are not keys here: indents is rebuilt from them, so it carries the change.
-    val lineText = if (isGrid || desc != null) null else remember(
-        entry,
+    val lineText = if (body !is LineModel.Body.Words) null else remember(
+        body,
+        model.source,
         Term.palette,
         indents,
-        row.unread,
-        iconKey,
-        marks,
-        row.showSource
+        marks
     ) {
-        markMatches(renderLine(entry, indents, row.unread, iconKey != null, row.showSource), marks)
+        markMatches(renderLine(body, indents, model.source), marks)
     }
     // A dimmed line whose parts can't overlap fades part by part; this draws the same pixels as
     // fading it whole. A picture is a single draw placed below its text, not behind it, so it is
     // fine. The apps grid is excluded because its chips put text on a colored background.
-    // A script's tables and bars and what follows them, drawn under the line's text (RichBody).
-    // A built-in command's big numbers, tables and bars are in its text, after any words.
-    val richRest = remember(entry.ctx, entry.text) {
-        when (entry.kind) {
-            LogKind.SCRIPT -> entry.ctx.body?.let { StyledText.splitAtBlocks(it).second }
-            LogKind.OUTPUT, LogKind.INFO -> StyledText.splitAtBlocks(entry.text).second
-            else -> null
-        }
-    }
-    // A built-in command's bar after the line's text (unlocks, usage, volume).
-    val bar = remember(entry.ctx) {
-        if (entry.kind == LogKind.OUTPUT || entry.kind == LogKind.INFO) lineBar(entry.ctx.values[LogContext.BAR]) else null
-    }
-    // A script's buttons under its line (ctx.actions).
-    val actions =
-        remember(entry.ctx) { if (entry.kind == LogKind.SCRIPT) LogContext.actionsOf(entry.ctx) else emptyList() }
+    // A script's tables and bars and what follows them are drawn under the line's text (RichBody),
+    // and a built-in command's bar after it.
+    val blocks = model.blocks
+    val bar = model.bar
+    val buttons = model.buttons
     val byPart =
-        dim && row.dimmed && !highlighted && !isGrid && richRest == null && bar == null && actions.isEmpty() && marks.isEmpty() &&
-                remember(lineText, entry.text, desc) {
-                    if (lineText != null) fadesByPart(lineText)
-                    else fadesByPart(AnnotatedString(entry.text)) && fadesByPart(styledText(desc!!)) && fadesByPart(
-                        AnnotatedString(entry.ctx.values[LogContext.ARGS].orEmpty())
-                    )
+        dim && model.dimmed && !highlighted && body !is LineModel.Body.AppGrid && blocks.isEmpty() && bar == null && buttons.isEmpty() && marks.isEmpty() &&
+                remember(lineText, body) {
+                    when (body) {
+                        is LineModel.Body.Words -> fadesByPart(lineText!!)
+                        is LineModel.Body.TwoColumns -> fadesByPart(AnnotatedString(body.name)) && fadesByPart(
+                            styledText(body.desc)
+                        )
+
+                        is LineModel.Body.NameColumns -> fadesByPart(AnnotatedString(body.name)) && fadesByPart(
+                            styledText(body.desc)
+                        ) && fadesByPart(AnnotatedString(body.args.orEmpty()))
+
+                        is LineModel.Body.AppGrid -> false
+                    }
                 }
     // While the line is pressed, focused or under a pointer, and for a moment after, it fades whole.
     // Fading part by part would fade the ripple or highlight over the letters too, and the shade
@@ -342,7 +392,7 @@ fun LogLine(
                 .fillMaxWidth()
                 .heightIn(min = minHeight + itemGap)
                 .testTag("line-${entry.id}")
-                .then(if (!dim || !row.dimmed) Modifier else if (byPart && !touched) DIMMED_BY_PART else DIMMED)
+                .then(if (!dim || !model.dimmed) Modifier else if (byPart && !touched) DIMMED_BY_PART else DIMMED)
                 .background(if (highlighted) Term.surface else Color.Transparent)
                 .then(if (!gutter) Modifier else Modifier.drawBehind {
                     drawRect(
@@ -374,27 +424,27 @@ fun LogLine(
             // scrolled into view, crashed Compose ("LayoutNode not found in RectList"). Both texts start at
             // the top, and the time moves down by the difference between the two fonts' first baselines,
             // measured once for each pair of styles (TimeShift).
-            val lineStyle = entry.style().dense(dense)
+            val lineStyle = lineTextStyle(model.mono).dense(dense)
             val timeStyle =
                 Term.text.copy(color = Term.dim, fontSize = (Term.fontSize - 2).sp).dense(dense)
             val timeShift = TimeShift.of(lineStyle, timeStyle)
             Row(Modifier.fillMaxWidth()) {
                 // A person's line (a call, a contact) starts with their picture: 36 dp beside a call and its
                 // details, 24 dp beside a one-line contact.
-                entry.ctx.values[LogContext.PERSON]?.let { person ->
+                model.person?.let { person ->
                     Avatar(
-                        person,
-                        entry.ctx.values[LogContext.PHOTO],
-                        if ('\n' in entry.text) 36.dp else 24.dp,
+                        person.name,
+                        person.photo,
+                        if (person.big) 36.dp else 24.dp,
                         Modifier.align(Alignment.CenterVertically)
                     )
                     Spacer(Modifier.width(10.dp))
                 }
                 Box(Modifier.weight(1f)) {
-                    when {
+                    when (body) {
                         // Parsed once per entry (it decodes JSON and looks up every app), and again when the
                         // apps change, so a chip for an app that was uninstalled or hidden disappears.
-                        isGrid -> {
+                        is LineModel.Body.AppGrid -> {
                             val installed by com.mtwabpin.kolahal.apps.AppRepository.get(context).apps.collectAsStateWithLifecycle()
                             AppGrid(
                                 remember(entry.id, entry.ctx, installed) { apps(entry) },
@@ -403,16 +453,9 @@ fun LogLine(
                             )
                         }
 
-                        desc != null && entry.ctx.values[LogContext.NAME_COL] != null -> NameColumns(
-                            entry,
-                            desc,
-                            entry.ctx.values.getValue(LogContext.NAME_COL),
-                            marks,
-                            dense
-                        )
-
-                        desc != null -> TwoColumns(entry, desc, marks, dense, bar)
-                        else -> {
+                        is LineModel.Body.NameColumns -> NameColumns(body, model.mono, marks, dense)
+                        is LineModel.Body.TwoColumns -> TwoColumns(body, model.mono, marks, dense, bar)
+                        is LineModel.Body.Words -> {
                             val text = lineText!!
                             val words: @Composable (AnnotatedString) -> Unit =
                                 { t ->
@@ -434,14 +477,11 @@ fun LogLine(
                             val charDp = with(density) { (Term.fontSize * 0.6f).sp.toDp().value }
                             val lineChars = ((screen - 60) / charDp).toInt().coerceAtLeast(16)
                             val mayFold = remember(
-                                entry,
+                                model,
                                 lineChars,
                                 Term.foldLines
                             ) {
-                                entry.kind != LogKind.COMMAND && mayFold(
-                                    entry,
-                                    lineChars
-                                )
+                                model.mayFold && tallEnough(entry, lineChars)
                             } && marks.isEmpty()
                             // While folded, a very long line lays out only its start (and not its body): all of a
                             // 64 K line takes tens of ms, in one frame, for the few lines that show.
@@ -456,38 +496,38 @@ fun LogLine(
                                     keepWhole(text.text, keep)
                                 ) else null
                             }
-                            val cutLines = remember(head, richRest, lineChars) {
+                            val cutLines = remember(head, blocks, lineChars) {
                                 if (head == null) 0 else estimatedLines(
                                     text.text.substring(head.length),
                                     lineChars
-                                ) + (richRest?.let {
-                                    estimatedLines(
-                                        StyledText.plain(it),
-                                        lineChars
-                                    )
-                                } ?: 0)
+                                ) + (if (blocks.isEmpty()) 0 else estimatedLines(
+                                    plainOf(blocks),
+                                    lineChars
+                                ))
                             }
-                            if (image == null && richRest == null && !mayFold && actions.isEmpty()) words(
+                            if (model.image == null && blocks.isEmpty() && !mayFold && buttons.isEmpty()) words(
                                 text
                             )
                             else Column {
                                 Foldable(
-                                    entry.id,
+                                    model.id,
                                     lineStyle,
+                                    open = foldOpen,
+                                    onToggle = onToggleFold,
                                     enabled = mayFold,
                                     cutLines = cutLines
                                 ) { open ->
                                     val cut = head != null && !open
                                     Column {
                                         // A command's line can be its big numbers alone, with no words above them.
-                                        if (if (entry.kind == LogKind.SCRIPT) entry.text.isNotEmpty() else text.text.isNotEmpty()) words(
+                                        if (!body.blank) words(
                                             if (cut) head else text
                                         )
-                                        if (!cut) richRest?.let { rest ->
+                                        if (!cut && blocks.isNotEmpty()) {
                                             val start =
-                                                with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
+                                                with(density) { (if (model.unread) indents.bullet else 0.sp).toDp() }
                                             RichBody(
-                                                rest,
+                                                blocks,
                                                 lineStyle.copy(color = Term.dim),
                                                 start,
                                                 indents.bullet
@@ -496,16 +536,16 @@ fun LogLine(
                                     }
                                 }
                                 // The picture stays in sight under a folded line.
-                                image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
-                                if (actions.isNotEmpty()) ActionPills(entry, actions, onAction)
+                                model.image?.let { LogImage(it, Modifier.padding(vertical = 4.dp)) }
+                                if (buttons.isNotEmpty()) ActionPills(entry, buttons, onAction)
                             }
                         }
                     }
                 }
-                if (showTime) {
+                model.time?.let { time ->
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        remember(entry.ts, timeFormat) { timeFormat.format(Date(entry.ts)) },
+                        remember(time, timeFormat) { timeFormat.format(Date(time)) },
                         // Trimmed like the line, so it never makes the line taller.
                         style = timeStyle,
                         modifier = Modifier.padding(top = timeShift),
@@ -557,37 +597,20 @@ internal fun fadesByPart(text: AnnotatedString): Boolean =
                         it.item.fontStyle == androidx.compose.ui.text.font.FontStyle.Italic
             }
 
-private val ACTIONABLE_KEYS = setOf(
-    LogContext.URL,
-    LogContext.PKG,
-    LogContext.COMMAND,
-    LogContext.RUN,
-    LogContext.SCRIPT,
-    LogContext.APPS,
-    LogContext.LINE,
-    LogContext.PHONE,
-    LogContext.SHORTCUT,
-    "notif",
-    LogContext.NOTE,
-    LogContext.EVENT,
-    LogContext.REMINDER,
-)
-
 /**
  * Whether [entry] could be tall enough to fold (`log.fold`), from an estimate of its lines as
  * they show ([lineChars] characters fit on a line). Only such a line pays for the fold's
  * measuring; the fold itself then decides from the real height.
- * - It counts the text as it reads ([StyledText.plain]): no style marks, no link addresses.
+ * - It counts the text as it reads ([shownText]): no style marks, no link addresses.
  * - Each line wraps at [lineChars], and a little sooner, because lines break between words.
  * - A table row or a bar is a line of its own.
  * - A line that just fits stays out: the fold needs more than log.fold + [FOLD_SLACK] lines.
  */
-private fun mayFold(entry: LogEntry, lineChars: Int): Boolean {
+private fun tallEnough(entry: LogEntry, lineChars: Int): Boolean {
     val lines = Term.foldLines
     if (lines <= 0) return false
-    val shown = listOfNotNull(entry.text, entry.ctx.body).joinToString("\n").let(StyledText::plain)
     // A rough upper bound, cheap enough for every line: 1.15 for the words that wrap early.
-    return estimatedLines(shown, lineChars) * 1.15 > lines + FOLD_SLACK
+    return estimatedLines(entry.shownText, lineChars) * 1.15 > lines + FOLD_SLACK
 }
 
 /** About how many lines [text] takes, [lineChars] to a line. */
@@ -601,11 +624,14 @@ private fun keepWhole(text: String, keep: Int): Int =
 /** A folded line keeps at least this many characters before it leaves out the rest. */
 private const val FOLDED_MIN_CHARS = 2_000
 
-/** A row of two columns (help, config, usage). A [bar] goes in the second column, before its text, so the bars of rows line up. */
+/**
+ * A row of two [columns] (config, usage, scripts). A [bar] goes in the second column, before its
+ * text, so the bars of rows line up. [mono]: the row is in the terminal font ([LineModel.mono]).
+ */
 @Composable
 private fun TwoColumns(
-    entry: LogEntry,
-    desc: String,
+    columns: LineModel.Body.TwoColumns,
+    mono: Boolean,
     marks: List<String>,
     dense: Boolean,
     bar: StyledText.Meter?
@@ -613,8 +639,8 @@ private fun TwoColumns(
     Row(Modifier.fillMaxWidth()) {
         // Beside a bar (usage, toggles), the name stays on one line and ends with "…" when too long.
         RichText(
-            markMatches(remember(entry.text, Term.palette) { styledText(entry.text) }, marks),
-            style = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense),
+            markMatches(remember(columns.name, Term.palette) { styledText(columns.name) }, marks),
+            style = lineTextStyle(mono).copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense),
             modifier = Modifier
                 .weight(0.46f)
                 .padding(end = 8.dp),
@@ -623,7 +649,7 @@ private fun TwoColumns(
         )
         val descText = @Composable { modifier: Modifier ->
             Text(
-                markMatches(AnnotatedString(desc), marks),
+                markMatches(AnnotatedString(columns.desc), marks),
                 style = Term.text.copy(color = Term.dim).dense(dense),
                 modifier = modifier
             )
@@ -643,27 +669,29 @@ private fun TwoColumns(
 
 /**
  * A row of `help` (or of the uses in `help <command>`): a bold name on the left, in a column
- * just wide enough for [column] (the list's longest name), so names never wrap. Its description
- * is on the right, with [LogContext.ARGS] muted and a little smaller under it.
+ * just wide enough for the list's longest name ([LineModel.Body.NameColumns.nameWidthOf]), so
+ * names never wrap. Its description is on the right, with its arguments muted and a little
+ * smaller under it.
  * - The column takes at most [NAME_COL_MAX] of the width, so a very long name still leaves room.
  * - Lines wrap only at a space or after "|" ([breaksAtSpaces]).
  */
 @Composable
 private fun NameColumns(
-    entry: LogEntry,
-    desc: String,
-    column: String,
+    columns: LineModel.Body.NameColumns,
+    mono: Boolean,
     marks: List<String>,
     dense: Boolean
 ) {
-    val nameStyle = entry.style().copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense)
+    val nameStyle =
+        lineTextStyle(mono).copy(color = Term.fg, fontWeight = FontWeight.Bold).dense(dense)
     val gap = 8.dp
-    val want = NameWidth.px(column, nameStyle) + with(LocalDensity.current) { gap.roundToPx() }
-    val args = entry.ctx.values[LogContext.ARGS]
+    val want =
+        NameWidth.px(columns.nameWidthOf, nameStyle) + with(LocalDensity.current) { gap.roundToPx() }
+    val args = columns.args
     Row(Modifier.fillMaxWidth()) {
         RichText(
             markMatches(
-                remember(entry.text) { AnnotatedString(breaksAtSpaces(entry.text)) },
+                remember(columns.name) { AnnotatedString(breaksAtSpaces(columns.name)) },
                 marks
             ),
             style = nameStyle,
@@ -679,7 +707,7 @@ private fun NameColumns(
         Column(Modifier.weight(1f)) {
             Text(
                 markMatches(
-                    remember(desc, Term.palette) { styledText(breaksAtSpaces(desc)) },
+                    remember(columns.desc, Term.palette) { styledText(breaksAtSpaces(columns.desc)) },
                     marks
                 ), style = Term.text.copy(color = Term.fg).dense(dense)
             )

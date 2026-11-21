@@ -160,6 +160,9 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "data" if args.isNotEmpty() -> usageCommands.run(name, args)
                 "help", "?" -> if (args.isEmpty()) help() else commandHelp(args.first())
                 "fetch", "neofetch", "fastfetch" -> fetch()
+                // Full-screen screens over home, until a key or a tap (terminal/tty/screens).
+                "matrix", "pipes", "sl" -> ui.showTtyScreen(name)
+                "screen" -> screen(args)
                 "clear", "cls" -> clear(args)
                 "backup" -> backup(args)
                 "log" -> logFilter(args)
@@ -695,6 +698,17 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
             "all" -> ui.filterLog(null)
             else -> usage("log")
         }
+    }
+
+    /**
+     * `screen <name>`: one of the full-screen screens over home
+     * ([com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens]). Without a known name it lists them.
+     */
+    private fun screen(args: List<String>) {
+        val names = com.mtwabpin.kolahal.terminal.tty.screens.TtyScreens.names
+        val name = args.firstOrNull()?.lowercase() ?: return usage("screen")
+        if (name !in names) return error("No screen called $name. Screens: ${names.joinToString(", ")}")
+        ui.showTtyScreen(name)
     }
 
     /** `fetch`: a summary of this phone and Kolahal ([Fetch]), aligned in the terminal font. */

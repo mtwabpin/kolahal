@@ -325,7 +325,19 @@ class MainActivity : ComponentActivity() {
                         if (screen == Screen.TERMINAL) Screen.entries.forEach { saved.removeState(it.name) }
                     }
                     if (screen == Screen.TERMINAL) HomePager(vm) {
-                        TerminalScreen(vm)
+                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                            TerminalScreen(vm)
+                            // `matrix`, `clock`, `pipes`, `sl` and `boot` run over the log page until a key or a tap.
+                            val ttyScreen by vm.ttyScreen.collectAsStateWithLifecycle()
+                            ttyScreen?.let { name ->
+                                com.mtwabpin.kolahal.ui.tty.TtyScreenHost(
+                                    name = name,
+                                    data = androidx.compose.runtime.remember(name) { vm.ttyScreenData() },
+                                    clock24 = androidx.compose.runtime.remember(name) { vm.config[Keys.CLOCK_24H] },
+                                    onClose = vm::closeTtyScreen,
+                                )
+                            }
+                        }
                     } else saved.SaveableStateProvider(screen.name) {
                         androidx.compose.foundation.layout.Box(
                             // Solid over the wallpaper too. Settings is the exception: it shows home through

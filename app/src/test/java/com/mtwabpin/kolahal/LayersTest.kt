@@ -90,4 +90,25 @@ class LayersTest {
             reaching(listOf("terminal"), Regex("""com\.mtwabpin\.kolahal\.ui\b"""))
         )
     }
+
+    /**
+     * The character grid's cells, widths and screens (terminal/tty) are plain Kotlin: no Android
+     * drawing and no Compose UI, so JVM tests can lay them out and step them. ui/tty paints them.
+     */
+    @Test
+    fun theGridIsPlainKotlin() {
+        assertEquals(
+            emptyList<String>(),
+            reaching(listOf("terminal/tty"), Regex("""\bandroid\.graphics\b|\bandroidx\.compose\.ui\b"""))
+        )
+    }
+
+    /** The grid draws its own look, so ui/tty uses no Material component (and ExpressiveOnlyTest has nothing to check there). */
+    @Test
+    fun theGridUsesNoMaterial() {
+        assertEquals(
+            emptyList<String>(),
+            reaching(listOf("ui/tty"), Regex("""\bandroidx\.compose\.material3\b"""))
+        )
+    }
 }

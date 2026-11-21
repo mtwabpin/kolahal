@@ -11,6 +11,12 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.logEntry
+import com.mtwabpin.kolahal.terminal.Gutter
+import com.mtwabpin.kolahal.terminal.LineModel
+import com.mtwabpin.kolahal.terminal.LineOptions
+import com.mtwabpin.kolahal.terminal.LogRow
+import com.mtwabpin.kolahal.terminal.TimeMode
+import com.mtwabpin.kolahal.terminal.lineModel
 import com.mtwabpin.kolahal.withValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -21,13 +27,21 @@ import org.junit.Test
 class LogLineTextTest {
     private val indents = LineIndents(text = 10.sp, code = 12.sp, bullet = 8.sp)
 
+    /** [entry] drawn as the log draws it, from its model. With [icon], its notification's icon is saved. */
     private fun render(
         entry: LogEntry,
         unread: Boolean = false,
         icon: Boolean = false,
         source: Boolean = true
-    ) =
-        renderLine(entry, indents, unread, icon, source)
+    ): AnnotatedString {
+        val shown =
+            if (icon) entry.copy(ctx = entry.ctx + mapOf(LogContext.ICON to "chat")) else entry
+        val model = lineModel(
+            LogRow.Entry(shown, false, Gutter.COMMAND, unread = unread, showSource = source),
+            LineOptions(TimeMode.OFF, 0)
+        ) { icon }
+        return renderLine(model.body as LineModel.Body.Words, indents, model.source)
+    }
 
     /** The style over [part] of [text]: what the spans that cover all of it say, merged. */
     private fun AnnotatedString.at(part: String) = spanStyles.filter { r ->
