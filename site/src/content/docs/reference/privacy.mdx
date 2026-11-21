@@ -3,6 +3,8 @@ title: Privacy & permissions
 description: What each permission is for, and what leaves the device.
 ---
 
+import Downloads from '../../../components/Downloads.astro';
+
 Kolahal has no account, no analytics, no ads and no crash reporting service. A
 [crash report](#crash-reports) stays on your phone until you share it.
 
@@ -75,9 +77,20 @@ can include Kolahal's data in it, as it does for other apps. Kolahal's own
 
 ## Permissions
 
+<Downloads>
+
 The Play build (the Google Play version, also available as an APK on GitHub) doesn't have four of these:
 `READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. So calls
 in the log, `update` and the screen lock are only in the full build.
+
+</Downloads>
+<Downloads off>
+
+The Play build (the Google Play version) doesn't have four of these:
+`READ_CALL_LOG`, `READ_CONTACTS`, `REQUEST_INSTALL_PACKAGES` and the accessibility service. So calls
+in the log, `update` and the screen lock are only in the full build.
+
+</Downloads>
 
 Instead of reading your contacts, the Play build opens Android's contact picker. The picker shows Kolahal only the person you pick.
 Kolahal keeps that person's name and numbers on the phone, not in Android's cloud backup, until you run `contacts --forget`

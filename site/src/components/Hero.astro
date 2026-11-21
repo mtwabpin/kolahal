@@ -5,7 +5,7 @@
  */
 import { LinkButton } from '@astrojs/starlight/components';
 import HomeTour from './HomeTour.astro';
-import { APK, PLAY_APK, VERSION } from '../release';
+import { APK, DIRECT_DOWNLOADS, PLAY_APK, VERSION } from '../release';
 
 const { data } = Astro.locals.starlightRoute.entry;
 const { title = data.title, tagline, actions = [] } = data.hero || {};
@@ -24,16 +24,24 @@ const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//
 			</div>
 			<div class="get">
 				<div class="actions">
-					<LinkButton href={APK} icon="download" iconPlacement="start">Download the APK</LinkButton>
+					{DIRECT_DOWNLOADS ? (
+						<LinkButton href={APK} icon="download" iconPlacement="start">Download the APK</LinkButton>
+					) : (
+						<LinkButton href={withBase('/getting-started/play-testing/')} icon="right-arrow">Join the alpha test</LinkButton>
+					)}
 					{actions.map(({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
 						<LinkButton href={withBase(href)} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
 							{text}
 						</LinkButton>
 					))}
 				</div>
-				<p class="note">
-					Kolahal {VERSION} · Android 9 or newer · the <a href={PLAY_APK}>Play build</a> if Play Protect blocks this one
-				</p>
+				{DIRECT_DOWNLOADS ? (
+					<p class="note">
+						Kolahal {VERSION} · Android 9 or newer · the <a href={PLAY_APK}>Play build</a> if Play Protect blocks this one
+					</p>
+				) : (
+					<p class="note">Kolahal {VERSION} · Android 9 or newer · in alpha testing on Google Play</p>
+				)}
 			</div>
 		</div>
 	</HomeTour>

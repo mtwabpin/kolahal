@@ -1,0 +1,15 @@
+---
+/**
+ * A part of a page about the APKs on GitHub: shown only while DIRECT_DOWNLOADS is on (release.ts). With `off`, the
+ * part is shown only while it is off, during the alpha test. Use it for paragraphs and lists, not headings:
+ * a heading inside still shows in "On this page". A page whose headings change gets an `.alpha.mdx` twin instead.
+ */
+import { DIRECT_DOWNLOADS } from '../release';
+
+interface Props {
+	off?: boolean;
+}
+const show = Astro.props.off ? !DIRECT_DOWNLOADS : DIRECT_DOWNLOADS;
+---
+
+{show && <slot />}

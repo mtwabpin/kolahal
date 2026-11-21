@@ -3,9 +3,22 @@ title: Test on Google Play
 description: Help Kolahal reach Google Play by joining its closed test, installing it from the Play Store and keeping it for 14 days.
 ---
 
+import Downloads from '../../../components/Downloads.astro';
+
+<Downloads>
+
 Kolahal is coming to Google Play. Before Google releases it to everyone, at least 12 people must
 test it there for 14 days in a row. If you have an Android phone (Android 9 or newer) and a Google
 account, you can be one of them.
+
+</Downloads>
+<Downloads off>
+
+Kolahal is in alpha testing on Google Play, in a closed test. Before Google releases it to everyone, at least
+12 people must test it there for 14 days in a row. If you have an Android phone (Android 9 or newer) and a Google
+account, you can be one of them.
+
+</Downloads>
 
 ## Join
 
@@ -27,9 +40,13 @@ You get the Play build. It has everything in Kolahal except the screen lock, cal
 It finds people with Android's contact picker ([the Play build](/getting-started/install/#the-play-build)).
 It updates through the Play Store, like any other app. [First run & setup](/getting-started/setup/) explains the rest.
 
+<Downloads>
+
 Kolahal from GitHub and Kolahal from Google Play are the same app, signed with the same key. So one
 installs over the other, and you keep your data. An update from Google Play installs the Play build.
 To get the screen lock, calls in the log and `update` back, install the full APK from GitHub again.
+
+</Downloads>
 
 ## Tell us what you find
 

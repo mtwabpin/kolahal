@@ -3,9 +3,11 @@
  * "Next steps" on the home page, drawn like the app's suggestion list: one row per place to go,
  * the first one marked with ↵ as Enter would open it, the prompt under the list.
  */
+import { DIRECT_DOWNLOADS } from '../release';
+
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const ROWS: { icon: string; name: string; text: string; href: string; external?: boolean }[] = [
-	{ icon: '↓', name: 'install', text: 'Download and install; the tour opens the first time', href: `${base}/getting-started/install/` },
+	{ icon: '↓', name: 'install', text: DIRECT_DOWNLOADS ? 'Download and install; the tour opens the first time' : 'Join the alpha test on Google Play; the tour opens the first time', href: `${base}/getting-started/install/` },
 	{ icon: '?', name: 'basics', text: 'Suggestions, the key bar, tap and long-press, shortcuts', href: `${base}/getting-started/basics/` },
 	{ icon: 'λ', name: 'scripts', text: 'The scripting overview, the API and the library', href: `${base}/scripting/overview/` },
 	{ icon: '≡', name: 'commands', text: 'Every built-in command', href: `${base}/reference/commands/` },

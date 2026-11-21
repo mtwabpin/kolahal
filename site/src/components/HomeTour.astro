@@ -24,7 +24,7 @@
  * The hero (title, tagline, buttons) comes in through the `intro` slot, from Hero.astro.
  */
 import { LinkButton } from '@astrojs/starlight/components';
-import { APK } from '../release';
+import { APK, DIRECT_DOWNLOADS } from '../release';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const withBase = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? base + href : href);
@@ -408,9 +408,17 @@ const svg = (id: string) => `<svg><use href="#t-${id}"/></svg>`;
 
 	<section class="t-end">
 		<h2>Get Kolahal.</h2>
-		<p>For Android 9 and newer. Install it, make it your home app, and start typing.</p>
+		{DIRECT_DOWNLOADS ? (
+			<p>For Android 9 and newer. Install it, make it your home app, and start typing.</p>
+		) : (
+			<p>For Android 9 and newer, in alpha testing on Google Play. Join the test, install it from the Play Store, make it your home app, and start typing.</p>
+		)}
 		<div class="t-btns">
-			<LinkButton href={APK} icon="download" iconPlacement="start">Download the APK</LinkButton>
+			{DIRECT_DOWNLOADS ? (
+				<LinkButton href={APK} icon="download" iconPlacement="start">Download the APK</LinkButton>
+			) : (
+				<LinkButton href={withBase('/getting-started/play-testing/')} icon="right-arrow">Join the alpha test</LinkButton>
+			)}
 			<LinkButton href={withBase('/getting-started/install/')} variant="secondary" icon="right-arrow">Guide</LinkButton>
 			<LinkButton href={withBase('/reference/commands/')} variant="secondary">Command reference</LinkButton>
 			<LinkButton href="#_top" variant="minimal">Back to top</LinkButton>
