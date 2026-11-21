@@ -15,7 +15,7 @@ import kotlin.math.sign
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** One row of the selector list: an app and its section (a letter, or the favourites section). */
+/** One row of the selector list: an app and its section (a letter, or the favorites section). */
 internal data class SelectorEntry<T>(
     val item: T,
     val key: String,
@@ -25,7 +25,7 @@ internal data class SelectorEntry<T>(
     val sectionIndex: Int,
     /** True for the first row of its section. The gutter shows the letter on this row. */
     val sectionStart: Boolean,
-    val favourite: Boolean,
+    val favorite: Boolean,
 )
 
 /**
@@ -52,10 +52,10 @@ internal object SelectorMath {
 
     /**
      * Builds the whole list:
-     * - the favourites (if any) as a `★` section at the top;
+     * - the favorites (if any) as a `★` section at the top;
      * - then every item in alphabetical order, in the sections `#`, A–Z.
      * Items with the same label are sorted by [profileRank] (personal first).
-     * [favouritesLast] puts the `★` section at the end instead (Plan F). When the strip is at the
+     * [favoritesLast] puts the `★` section at the end instead (Plan F). When the strip is at the
      * bottom of the edge, a resting thumb is there.
      */
     fun <T> build(
@@ -64,7 +64,7 @@ internal object SelectorMath {
         key: (T) -> String,
         pinned: (T) -> Boolean,
         profileRank: (T) -> Int,
-        favouritesLast: Boolean = false,
+        favoritesLast: Boolean = false,
     ): List<SelectorEntry<T>> {
         // The sort keys are worked out once for each item, not on every comparison:
         // letterOf allocates, and a sort compares each item many times.
@@ -82,11 +82,11 @@ internal object SelectorMath {
             keyed.sortedWith(compareBy<SortKeys<T>> { it.letter }.then(byLabel)).map { it.item }
         val out = ArrayList<SelectorEntry<T>>(favs.size + all.size)
         var section = -1
-        fun favourites() = favs.forEachIndexed { i, it ->
+        fun favorites() = favs.forEachIndexed { i, it ->
             if (i == 0) section++
             out += SelectorEntry(it, "f:" + key(it), FAV, section, i == 0, true)
         }
-        if (!favouritesLast) favourites()
+        if (!favoritesLast) favorites()
         var prev: Char? = null
         for (it in all) {
             val letter = letterOf(label(it))
@@ -95,7 +95,7 @@ internal object SelectorMath {
             prev = letter
             out += SelectorEntry(it, "a:" + key(it), letter, section, start, false)
         }
-        if (favouritesLast) favourites()
+        if (favoritesLast) favorites()
         return out
     }
 
@@ -240,17 +240,17 @@ internal object SelectorMath {
     /** Letters grow by up to this much toward the peak of the wave. */
     const val WAVE_GROW = 0.6f
 
-    /** How much the wave pushes out a letter that is [x] letters from its centre: 1 at the centre, easing to 0 at [WAVE_REACH]. */
+    /** How much the wave pushes out a letter that is [x] letters from its center: 1 at the center, easing to 0 at [WAVE_REACH]. */
     fun waveOut(x: Float): Float = bell(x, WAVE_REACH)
 
-    /** [waveOut] summed from the centre to [x] (in letters): how much further from the centre the spread moves a letter. */
+    /** [waveOut] summed from the center to [x] (in letters): how much further from the center the spread moves a letter. */
     private fun waveIntegral(x: Float): Float = bellIntegral(x, WAVE_REACH)
 
-    /** How much the wave spreads letters that are [unit] px apart at rest, so that the letters next to its centre sit [room] px from it. */
+    /** How much the wave spreads letters that are [unit] px apart at rest, so that the letters next to its center sit [room] px from it. */
     fun waveSpread(unit: Float, room: Float): Float =
         if (unit <= 0f) 0f else max(0f, (room / unit - 1f) / waveIntegral(1f))
 
-    /** Where to draw a letter that rests at [p] (px along the strip) when the wave is centred at [c]. [spread] pushes the letters apart around the centre. */
+    /** Where to draw a letter that rests at [p] (px along the strip) when the wave is centered at [c]. [spread] pushes the letters apart around the center. */
     fun waveY(p: Float, c: Float, unit: Float, spread: Float): Float {
         if (unit <= 0f) return p
         val x = (p - c) / unit
@@ -324,7 +324,7 @@ internal object SelectorMath {
             FloatArray(roots.size) { if (sum > 0f) roots[it] / sum else 0f }
         }
 
-        /** The centre of each section's room, as strip positions (0 top … 1 bottom), in list order. */
+        /** The center of each section's room, as strip positions (0 top … 1 bottom), in list order. */
         fun middles(): FloatArray {
             val out = FloatArray(sizes.size)
             var acc = 0f
@@ -453,12 +453,12 @@ internal object SelectorMath {
         return sign(x) * (a + reach / PI.toFloat() * sin(PI.toFloat() * a / reach)) / 2f
     }
 
-    /** Scale of a row whose centre is [x] rows from the contact point. The bell falls to 0 at ±[REACH] rows. */
+    /** Scale of a row whose center is [x] rows from the contact point. The bell falls to 0 at ±[REACH] rows. */
     fun fisheyeScale(x: Float): Float = 1f + PEAK * bell(x, REACH)
 
     /**
-     * Extra vertical move (rows) of a row whose centre is [x] rows from the contact. Magnified rows
-     * push their neighbours apart instead of overlapping. The value is the integral of the extra scale.
+     * Extra vertical move (rows) of a row whose center is [x] rows from the contact. Magnified rows
+     * push their neighbors apart instead of overlapping. The value is the integral of the extra scale.
      */
     fun fisheyeShift(x: Float): Float = PEAK * bellIntegral(x, REACH)
 

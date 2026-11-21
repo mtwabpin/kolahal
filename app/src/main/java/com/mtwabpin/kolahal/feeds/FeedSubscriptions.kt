@@ -17,7 +17,7 @@ class FeedSubscriptions(private val context: Context) {
     data class Subscribed(val feed: Feed, val isNew: Boolean)
 
     /**
-     * Subscribes to [url], and fetches it now. An address already subscribed (after normalising it, as
+     * Subscribes to [url], and fetches it now. An address already subscribed (after normalizing it, as
      * the repository stores it) gives that feed, and is not fetched again.
      * @throws IllegalArgumentException when the address isn't an http(s) URL.
      */

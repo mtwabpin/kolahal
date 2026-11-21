@@ -20,7 +20,7 @@ import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.data.StyledText.Colour
+import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.data.StyledText.Style
 import com.mtwabpin.kolahal.data.takeWhole
 import java.util.Locale
@@ -28,7 +28,7 @@ import kotlin.math.roundToInt
 
 /**
  * `fetch`: a summary of this phone and Kolahal, like fastfetch shows for a computer.
- * Kolahal's icon is drawn in text, with one row per fact beside it, then the theme's colours.
+ * Kolahal's icon is drawn in text, with one row per fact beside it, then the theme's colors.
  * On a narrow screen the icon goes above the facts.
  */
 object Fetch {
@@ -36,15 +36,15 @@ object Fetch {
     data class Row(val label: String, val value: String)
 
     /**
-     * The icon: two answers with their coloured bars (a big number and a smaller one, then a range
+     * The icon: two answers with their colored bars (a big number and a smaller one, then a range
      * bar), then the prompt and its cursor.
      * It has no frame, because each log line is a separate row and the sides of a frame would not meet.
-     * Each row has a colour mask:
+     * Each row has a color mask:
      * - `m` muted
      * - `w` warning
      * - `g` good
      * - `a` accent
-     * - space: no colour
+     * - space: no color
      */
     private val LOGO = listOf(
         "▍ ███ ▄▄" to "w mmm mm",
@@ -58,23 +58,23 @@ object Fetch {
     /** If the space for the facts is narrower than this, they go under the icon instead of beside it. */
     private const val MIN_BESIDE = 24
 
-    /** The theme's colours, one block each. fastfetch also ends with the terminal's colours. */
+    /** The theme's colors, one block each. fastfetch also ends with the terminal's colors. */
     private val SWATCHES = listOf(
-        Colour.ACCENT,
-        Colour.LINK,
-        Colour.INFO,
-        Colour.GOOD,
-        Colour.WARN,
-        Colour.BAD,
-        Colour.MUTED,
-        Colour.TEXT
+        ColorRole.ACCENT,
+        ColorRole.LINK,
+        ColorRole.INFO,
+        ColorRole.GOOD,
+        ColorRole.WARN,
+        ColorRole.BAD,
+        ColorRole.MUTED,
+        ColorRole.TEXT
     )
 
-    private fun colourOf(mask: Char) = when (mask) {
-        'm' -> Colour.MUTED
-        'w' -> Colour.WARN
-        'g' -> Colour.GOOD
-        'a' -> Colour.ACCENT
+    private fun colorOf(mask: Char) = when (mask) {
+        'm' -> ColorRole.MUTED
+        'w' -> ColorRole.WARN
+        'g' -> ColorRole.GOOD
+        'a' -> ColorRole.ACCENT
         else -> null
     }
 
@@ -86,7 +86,7 @@ object Fetch {
                 var end = start + 1
                 while (end < text.length && mask[end] == mask[start]) end++
                 val run = text.substring(start, end)
-                append(colourOf(mask[start])?.let { StyledText.colour(it, run) } ?: run)
+                append(colorOf(mask[start])?.let { StyledText.color(it, run) } ?: run)
                 start = end
             }
         }
@@ -100,7 +100,7 @@ object Fetch {
      * - a [user]`@`[device] title;
      * - a rule;
      * - one row per fact;
-     * - the colours.
+     * - the colors.
      * They go beside the icon when they fit.
      */
     fun layout(
@@ -113,9 +113,9 @@ object Fetch {
         val width = if (beside) cols - LOGO_WIDTH - GAP else cols
         val title = ellipsize("$user@$device", width)
         val info = buildList {
-            // If the title is cut before its @ (few columns, at a huge text size), colour it as one piece.
+            // If the title is cut before its @ (few columns, at a huge text size), color it as one piece.
             val accent =
-                { s: String -> StyledText.wrap(Style.BOLD, StyledText.colour(Colour.ACCENT, s)) }
+                { s: String -> StyledText.wrap(Style.BOLD, StyledText.color(ColorRole.ACCENT, s)) }
             add(
                 if ('@' in title) accent(title.substringBefore('@')) + "@" + accent(
                     title.substringAfter(
@@ -123,18 +123,18 @@ object Fetch {
                     )
                 ) else accent(title)
             )
-            add(StyledText.colour(Colour.MUTED, "─".repeat(title.length)))
+            add(StyledText.color(ColorRole.MUTED, "─".repeat(title.length)))
             for ((label, value) in rows) {
                 add(
                     StyledText.wrap(
                         Style.BOLD,
-                        StyledText.colour(Colour.ACCENT, label.padEnd(LABEL_WIDTH))
+                        StyledText.color(ColorRole.ACCENT, label.padEnd(LABEL_WIDTH))
                     ) + ellipsize(value, width - LABEL_WIDTH)
                 )
             }
             add("")
             val block = if (width >= SWATCHES.size * 3) "███" else "██"
-            add(SWATCHES.joinToString("") { StyledText.colour(it, block) })
+            add(SWATCHES.joinToString("") { StyledText.color(it, block) })
         }
         if (!beside) return LOGO.indices.map(::logoLine) + "" + info
         val pad = " ".repeat(LOGO_WIDTH + GAP)

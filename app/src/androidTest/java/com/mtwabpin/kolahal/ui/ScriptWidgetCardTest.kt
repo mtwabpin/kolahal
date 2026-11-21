@@ -320,7 +320,7 @@ class ScriptWidgetCardTest {
                 WidgetBase(title = "Todo"),
                 listOf(
                     WidgetSpec.Row("Buy milk", detail = "today", trailing = "2", icon = "🛒"),
-                    WidgetSpec.Row("Call mum", color = StyledText.Colour.BAD)
+                    WidgetSpec.Row("Call mum", color = StyledText.ColorRole.BAD)
                 )
             ),
         )
@@ -366,7 +366,7 @@ class ScriptWidgetCardTest {
                 WidgetBase(title = "Disk"), 0f,
                 items = listOf(
                     WidgetSpec.Bar("photos", 30f, 100f, null, null),
-                    WidgetSpec.Bar("music", 5f, 10f, "5 GB", StyledText.Colour.WARN)
+                    WidgetSpec.Bar("music", 5f, 10f, "5 GB", StyledText.ColorRole.WARN)
                 ),
             ),
         )
@@ -420,9 +420,9 @@ class ScriptWidgetCardTest {
         says(told, "Rain: 2.5 mm, More rain than yesterday")
     }
 
-    /** How many pixels of [name]'s dots ([Dots]) are in the theme's accent: the card's colour. */
+    /** How many pixels of [name]'s dots ([Dots]) are in the theme's accent: the card's color. */
     private fun inAccent(name: String): Int {
-        val accent = colourOf(StyledText.Colour.ACCENT)
+        val accent = colorOf(StyledText.ColorRole.ACCENT)
         val pixels =
             compose.onNode(inCard(name) and hasTestTag("widget-dots"), useUnmergedTree = true)
                 .captureToImage().toPixelMap()
@@ -435,9 +435,9 @@ class ScriptWidgetCardTest {
     }
 
     /**
-     * `chart` with `style = "dots"`: a dot for each day in the card's colour, and the days in words
+     * `chart` with `style = "dots"`: a dot for each day in the card's color, and the days in words
      * for a screen reader. Once today is done, today's ring becomes a filled cookie: more of the
-     * dots are in the card's colour.
+     * dots are in the card's color.
      */
     @Test
     fun aChartOfDotsDrawsADotForEachDay() {
@@ -455,7 +455,7 @@ class ScriptWidgetCardTest {
         draws(habit, "4", "Days in a row")
         says(habit, "Exercise: 4, Days in a row, Done on 27 of the last 35 days")
         val before = inAccent(habit)
-        assertTrue("no dots in the card's colour", before > 0)
+        assertTrue("no dots in the card's color", before > 0)
 
         store(
             habit,
@@ -1061,12 +1061,12 @@ class ScriptWidgetCardTest {
         }
     }
 
-    /** Three buttons: one whose tap has its own words for a screen reader, one in a colour, and one that opens a link. */
+    /** Three buttons: one whose tap has its own words for a screen reader, one in a color, and one that opens a link. */
     private val timerButtons = WidgetSpec.Buttons(
         WidgetBase(title = "Timer"),
         listOf(
             WidgetSpec.Button("Start", WidgetTap(args = "start", label = "start the timer")),
-            WidgetSpec.Button("Stop", WidgetTap(args = "stop 1"), color = StyledText.Colour.BAD),
+            WidgetSpec.Button("Stop", WidgetTap(args = "stop 1"), color = StyledText.ColorRole.BAD),
             WidgetSpec.Button("Help", WidgetTap(url = "https://example.com/help")),
         ),
     )

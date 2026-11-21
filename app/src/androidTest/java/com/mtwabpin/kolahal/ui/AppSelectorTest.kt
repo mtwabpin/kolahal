@@ -161,17 +161,17 @@ class AppSelectorTest {
         return launched
     }
 
-    /** Plan F: with the strip at the bottom of the edge, favourites come last, where the thumb rests; elsewhere first. */
+    /** Plan F: with the strip at the bottom of the edge, favorites come last, where the thumb rests; elsewhere first. */
     @Test
-    fun favouritesSitWhereTheThumbRests() {
+    fun favoritesSitWhereTheThumbRests() {
         val list = apps.apps.value.filter { !it.hidden }
-        val favourite = list.sortedBy { it.label.lowercase() }[list.size / 2]
+        val favorite = list.sortedBy { it.label.lowercase() }[list.size / 2]
         var position by mutableStateOf("bottom")
         compose.setContent {
             Box(Modifier.size(360.dp, 700.dp)) {
                 AppSelector(
                     list,
-                    setOf(favourite.key),
+                    setOf(favorite.key),
                     onLaunch = { launched = it },
                     onLongPress = {},
                     heightDp = 300,
@@ -180,9 +180,9 @@ class AppSelectorTest {
                 )
             }
         }
-        assertEquals(favourite.key, launchAtEnd(atTop = false)?.key)
+        assertEquals(favorite.key, launchAtEnd(atTop = false)?.key)
         compose.runOnIdle { position = "top" }
-        assertEquals(favourite.key, launchAtEnd(atTop = true)?.key)
+        assertEquals(favorite.key, launchAtEnd(atTop = true)?.key)
     }
 
     private fun lettersShown() =
@@ -366,7 +366,7 @@ class AppSelectorTest {
 
     /**
      * Started in the middle, the thumb still reaches the first letter at the strip's top end and the last at its bottom,
-     * and picks one of its apps there. Picking starts 32dp off the edge: from the 36dp strip's centre, a 60dp slide is
+     * and picks one of its apps there. Picking starts 32dp off the edge: from the 36dp strip's center, a 60dp slide is
      * well past it.
      */
     @Test
@@ -401,7 +401,7 @@ class AppSelectorTest {
 
     /**
      * Gliding (apps): started in the middle, the thumb still reaches the first app at the strip's top end and the last at its
-     * bottom. Picking starts 32dp off the edge: from the 36dp strip's centre, a 60dp slide is well past it.
+     * bottom. Picking starts 32dp off the edge: from the 36dp strip's center, a 60dp slide is well past it.
      */
     @Test
     fun onceDownTheThumbGlidesTheWholeLength() {
@@ -489,7 +489,7 @@ class AppSelectorTest {
     }
 
     @Test
-    fun inTheMiddleTheStripIsCentred() {
+    fun inTheMiddleTheStripIsCentered() {
         show(left = false, position = "middle")
         val strip = compose.onNodeWithTag("app-selector").getUnclippedBoundsInRoot()
         // Between the top gap (8dp) and the bottom one (72dp from the bottom).
@@ -734,11 +734,11 @@ class AppSelectorTest {
         show(left = false, position = "middle", browse = "apps")
         compose.onNodeWithTag("app-selector").performTouchInput { down(Offset(centerX, 2f)) }
         compose.waitForIdle()
-        val held = rowCentre(first)
+        val held = rowCenter(first)
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.waitForIdle()
         // The fisheye shrinks back, so the row's middle may move a little; it must not jump away.
-        assertEquals("after lifting", held, rowCentre(first), 12f)
+        assertEquals("after lifting", held, rowCenter(first), 12f)
     }
 
     /**
@@ -781,14 +781,14 @@ class AppSelectorTest {
         repeat(8) { panel.performTouchInput { swipeDown() } }
         compose.waitForIdle()
         // The first row's top at the strip's top: its middle half a row (under 48dp) below it.
-        val first = rowCentre(all.first().item.label)
+        val first = rowCenter(all.first().item.label)
         assertTrue(
             "the first app ($first) reaches the strip's top (${strip.top})",
             first >= strip.top.value && first <= strip.top.value + 48f
         )
         repeat(12) { panel.performTouchInput { swipeUp() } }
         compose.waitForIdle()
-        val last = rowCentre(all.last().item.label)
+        val last = rowCenter(all.last().item.label)
         assertTrue(
             "the last app ($last) reaches the strip's bottom (${strip.bottom})",
             last <= strip.bottom.value && last >= strip.bottom.value - 48f
@@ -864,8 +864,8 @@ class AppSelectorTest {
         )
     }
 
-    /** The centre of the row showing [label], from the top (dp). */
-    private fun rowCentre(label: String) =
+    /** The center of the row showing [label], from the top (dp). */
+    private fun rowCenter(label: String) =
         compose.onNodeWithText(label, useUnmergedTree = true).getUnclippedBoundsInRoot()
             .let { (it.top + it.bottom).value / 2 }
 
@@ -884,13 +884,13 @@ class AppSelectorTest {
         compose.onNodeWithTag("app-selector")
             .performTouchInput { down(Offset(centerX, height - 2f)) }
         compose.waitForIdle()
-        val from = rowCentre(first)
+        val from = rowCenter(first)
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("app-selector").performTouchInput { moveTo(Offset(centerX, 2f)) }
         repeat(3) { compose.mainClock.advanceTimeByFrame() }
-        val on = rowCentre(first)
+        val on = rowCenter(first)
         compose.mainClock.advanceTimeBy(1_000)
-        val to = rowCentre(first)
+        val to = rowCenter(first)
         compose.mainClock.autoAdvance = true
         assertTrue(
             "on its way from $from to $to: $on",
@@ -913,10 +913,10 @@ class AppSelectorTest {
             strip.top.value + 300f * (SelectorMath.DEAD + 0.5f / letters * (1 - 2 * SelectorMath.DEAD))
         compose.onNodeWithTag("app-selector").performTouchInput { down(Offset(centerX, 2f)) }
         compose.waitForIdle()
-        assertEquals("while touching", letterY, rowCentre(first), 2f)
+        assertEquals("while touching", letterY, rowCenter(first), 2f)
         compose.onNodeWithTag("app-selector").performTouchInput { up() }
         compose.waitForIdle()
-        assertEquals("after the tap", letterY, rowCentre(first), 2f)
+        assertEquals("after the tap", letterY, rowCenter(first), 2f)
         compose.onNodeWithTag("app-selector-panel").performScrollToIndex(all.size - 1)
         compose.onNodeWithText(all.last().item.label, useUnmergedTree = true).assertIsDisplayed()
     }

@@ -194,9 +194,9 @@ class StatusLineTest {
         assertNull(KvStore(context, Stores.STATUS_EXTRAS).get("liner2"))
     }
 
-    /** The bar's colour is a role, as fmt.color takes it; a name that isn't one is an error. */
+    /** The bar's color is a role, as fmt.color takes it; a name that isn't one is an error. */
     @Test
-    fun theBarTakesAColourByRole() {
+    fun theBarTakesAColorByRole() {
         val s = script()
         host(s).status("AQI 168", mapOf("progress" to 0.56, "color" to "bad"))
         assertEquals(
@@ -205,7 +205,7 @@ class StatusLineTest {
                 "AQI 168",
                 0.56f,
                 null,
-                com.mtwabpin.kolahal.data.StyledText.Colour.BAD
+                com.mtwabpin.kolahal.data.StyledText.ColorRole.BAD
             ), stored()
         )
         assertTrue(runCatching {
@@ -214,8 +214,8 @@ class StatusLineTest {
                 mapOf("color" to "red")
             )
         }.exceptionOrNull() is IllegalArgumentException)
-        assertNull(StatusLines.decodeExtras("{\"color\":\"red\"}").colour)
-        assertNull(StatusLines.decodeExtras("not json").colour)
+        assertNull(StatusLines.decodeExtras("{\"color\":\"red\"}").color)
+        assertNull(StatusLines.decodeExtras("not json").color)
     }
 
     /** Code that no longer sets a status line leaves none behind: its card and the pinned header have nothing old to show. */

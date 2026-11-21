@@ -56,7 +56,7 @@ internal object Fuzzy {
 
     /**
      * Returns the table's last row for [a] against the first [bLength] letters of [b]. Index n holds
-     * the edits from [a] to the first n letters. A swap of two neighbours counts as one edit (optimal
+     * the edits from [a] to the first n letters. A swap of two neighbors counts as one edit (optimal
      * string alignment). It keeps only three rows in memory, because app search checks every name
      * when a key press matches nothing.
      */

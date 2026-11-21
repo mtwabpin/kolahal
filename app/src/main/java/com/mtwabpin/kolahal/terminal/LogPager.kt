@@ -339,7 +339,7 @@ class LogPager(
                 found.entries.asReversed()
             }
         }
-        // Update the state only now, after the last read. If the reload is cancelled earlier (a newer
+        // Update the state only now, after the last read. If the reload is canceled earlier (a newer
         // change came in), the next reload reads these lines again, and [afterRead] gets them again.
         if (!incremental) {
             loadedStructure = structure

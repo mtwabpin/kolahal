@@ -39,7 +39,7 @@ data class PictureInk(val luminance: Float) {
             return PictureInk((sum / weight).toFloat())
         }
 
-        /** The relative luminance of an sRGB colour, as WCAG counts it. */
+        /** The relative luminance of an sRGB color, as WCAG counts it. */
         private fun luminance(r: Int, g: Int, b: Int): Double {
             fun linear(c: Int): Double =
                 (c / 255.0).let { if (it <= 0.04045) it / 12.92 else ((it + 0.055) / 1.055).pow(2.4) }

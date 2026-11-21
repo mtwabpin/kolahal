@@ -281,8 +281,8 @@ class LuaEngine : ScriptEngine {
             "code" to { l: Lua -> l.styled(StyledText.Style.CODE); 1 },
             "color" to { l: Lua ->
                 l.pushValue(
-                    StyledText.colour(
-                        Fmt.colour(
+                    StyledText.color(
+                        Fmt.color(
                             "fmt.color",
                             l.toString(1)
                         ), l.str(2) ?: "nil"

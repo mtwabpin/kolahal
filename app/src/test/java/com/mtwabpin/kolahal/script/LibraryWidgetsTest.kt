@@ -216,8 +216,8 @@ class LibraryWidgetsTest {
 
     /**
      * The streak over five weeks of dots: a point for each of the last 35 days, the oldest first, 1
-     * for a day that is done and 0 for any other. Once today is done the card is in the good colour,
-     * and a tap on it is Undo; before that it gives no colour, and a tap marks today done. A screen
+     * for a day that is done and 0 for any other. Once today is done the card is in the good color,
+     * and a tap on it is Undo; before that it gives no color, and a tap marks today done. A screen
      * reader hears how many of the days were done, and the tap's label: what a tap does.
      */
     @Test
@@ -261,7 +261,7 @@ class LibraryWidgetsTest {
             "Exercise: 3, Days in a row, Done on 29 of the last 35 days",
             WidgetWords.description("Exercise", card, 0, java.time.ZoneOffset.UTC)
         )
-        // Done today: the good colour, and "Done today" as the note at a large card's foot. A tap is Undo now.
+        // Done today: the good color, and "Done today" as the note at a large card's foot. A tap is Undo now.
         val done = days(
             4.0,
             open.dropLast(1) + 1.0,
@@ -270,7 +270,7 @@ class LibraryWidgetsTest {
             tap = luaTable("args" to "undo", "label" to "Undo")
         )
         assertEquals(
-            listOf("4", StyledText.Colour.GOOD, 1f, "Done today"),
+            listOf("4", StyledText.ColorRole.GOOD, 1f, "Done today"),
             listOf(done.value, done.base.color, done.points.last(), done.base.note)
         )
         assertEquals(WidgetTap(args = "undo", label = "Undo"), done.base.tap)
@@ -301,8 +301,8 @@ class LibraryWidgetsTest {
 
     /**
      * Daily counter: two buttons. The first shows today's count, "5 of 8" toward a target or "3 cups"
-     * without one, and a tap on it adds one. Undo, in the muted colour, takes one back. Once the
-     * count reaches the target, the card is in the good colour. It is old after an hour, or at
+     * without one, and a tap on it adds one. Undo, in the muted color, takes one back. Once the
+     * count reaches the target, the card is in the good color. It is old after an hour, or at
      * midnight, so a new day starts at 0.
      */
     @Test
@@ -335,7 +335,7 @@ class LibraryWidgetsTest {
         val undo = WidgetSpec.Button(
             "Undo",
             WidgetTap(args = "undo", label = "Undo"),
-            color = StyledText.Colour.MUTED
+            color = StyledText.ColorRole.MUTED
         )
         // With a target: 5 of 8.
         val water = card("5 of 8", "Add 1 glass")
@@ -356,9 +356,9 @@ class LibraryWidgetsTest {
             "Water: 5 of 8, Undo",
             WidgetWords.description("Water", water, 0, java.time.ZoneOffset.UTC)
         )
-        // The target reached: the good colour.
+        // The target reached: the good color.
         assertEquals(
-            StyledText.Colour.GOOD,
+            StyledText.ColorRole.GOOD,
             card("8 of 8", "Add 1 glass", color = "good").base.color
         )
         // Without a target: the count with its unit, here a coffee counter with its own icon.
@@ -465,7 +465,7 @@ class LibraryWidgetsTest {
             ),
         ) as WidgetSpec.Progress
         assertEquals("31.2", bar.text)
-        assertEquals(StyledText.Colour.BAD, bar.base.color)
+        assertEquals(StyledText.ColorRole.BAD, bar.base.color)
         val number = fromLua(
             "data-month.lua",
             luaTable(
@@ -572,7 +572,7 @@ class LibraryWidgetsTest {
                     WidgetSpec.Row(
                         "a/gone",
                         detail = "Couldn't read its releases",
-                        color = StyledText.Colour.BAD
+                        color = StyledText.ColorRole.BAD
                     ),
                 ),
                 empty = empty,
@@ -1008,7 +1008,7 @@ class LibraryWidgetsTest {
             WidgetSpec.Stat(
                 WidgetBase(
                     icon = "🏏",
-                    color = StyledText.Colour.GOOD,
+                    color = StyledText.ColorRole.GOOD,
                     tap = liveTap,
                     staleAfter = 60,
                     refresh = 30
@@ -1101,7 +1101,7 @@ class LibraryWidgetsTest {
             WidgetSpec.Stat(
                 WidgetBase(
                     icon = "⚽",
-                    color = StyledText.Colour.GOOD,
+                    color = StyledText.ColorRole.GOOD,
                     tap = liveTap,
                     staleAfter = 60,
                     refresh = 30
@@ -1187,7 +1187,7 @@ class LibraryWidgetsTest {
                         "detail" to "▼ 1.2%",
                         "color" to "bad"
                     ),
-                    // A coin with no change for the day has no detail and no colour.
+                    // A coin with no change for the day has no detail and no color.
                     mapOf("title" to "ETH", "trailing" to "3,100.50"),
                 ),
                 "empty" to "No prices",
@@ -1202,7 +1202,7 @@ class LibraryWidgetsTest {
                         "BTC",
                         detail = "▼ 1.2%",
                         trailing = "67,120.40",
-                        color = StyledText.Colour.BAD
+                        color = StyledText.ColorRole.BAD
                     ),
                     WidgetSpec.Row("ETH", trailing = "3,100.50"),
                 ),
@@ -1235,7 +1235,7 @@ class LibraryWidgetsTest {
         )
 
         val expected = WidgetSpec.Progress(
-            WidgetBase(title = "US AQI · Pune", color = StyledText.Colour.BAD, tap = toLog),
+            WidgetBase(title = "US AQI · Pune", color = StyledText.ColorRole.BAD, tap = toLog),
             value = 156f, max = 300f, text = "156", label = "Unhealthy",
         )
         assertEquals(expected, spec(156L))

@@ -125,7 +125,7 @@ object ApiDocs {
         ApiDoc(
             "fmt.color",
             "fmt.color(role, text) -> string",
-            "Text in one of the theme's colours: accent, link, info, muted, text, good, warn, bad"
+            "Text in one of the theme's colors: accent, link, info, muted, text, good, warn, bad"
         ),
         ApiDoc(
             "fmt.list",
@@ -140,7 +140,7 @@ object ApiDocs {
         ApiDoc(
             "fmt.tag",
             "fmt.tag(role?, text) -> string",
-            "A short label on a shaded chip in one of the theme's colours (accent without a role): LIVE, NEW, v1.2"
+            "A short label on a shaded chip in one of the theme's colors (accent without a role): LIVE, NEW, v1.2"
         ),
         ApiDoc(
             "fmt.link",
@@ -150,7 +150,7 @@ object ApiDocs {
         ApiDoc(
             "fmt.bar",
             "fmt.bar(value, {max?, color?}) -> string",
-            "A bar as wide as the line, for a body: value out of max (1 by default), in a colour role"
+            "A bar as wide as the line, for a body: value out of max (1 by default), in a color role"
         ),
         ApiDoc(
             "fmt.bars",
@@ -180,7 +180,7 @@ object ApiDocs {
         ApiDoc(
             "status",
             "status(text, opts?)",
-            "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.color (a role: good, warn, bad…) is the bar's colour, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) or status(null) clears it"
+            "This script's status line, in its card and status, and at the top of home once you pin the script; opts.progress (0 to 1) adds a bar there, opts.color (a role: good, warn, bad…) is the bar's color, opts.refresh (seconds, 10 at the fastest) runs it again that often while it shows; status(nil) or status(null) clears it"
         ),
         // Every `@uses` item is named, from the list itself: a new item can't be left out here.
         ApiDoc(

@@ -68,7 +68,7 @@ class FeedCommands(
                     ).joinToString(" · ")
                     // A feed that is switched off says so in a tag after its name.
                     val off = if (f.enabled) "" else " " + com.mtwabpin.kolahal.data.StyledText.tag(
-                        com.mtwabpin.kolahal.data.StyledText.Colour.MUTED,
+                        com.mtwabpin.kolahal.data.StyledText.ColorRole.MUTED,
                         "off"
                     )
                     out(

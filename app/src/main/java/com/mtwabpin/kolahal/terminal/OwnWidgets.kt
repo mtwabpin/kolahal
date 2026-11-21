@@ -229,7 +229,7 @@ internal object AgendaTurns {
     fun due(last: AgendaRead, allowed: Boolean, now: Long): Boolean = when {
         last.at == 0L || last.allowed != allowed -> true
         !allowed -> false
-        else -> (now - last.at).let { it < 0 || it >= GAP_MS }
+        else -> (now - last.at).let { it !in 0..<GAP_MS }
     }
 }
 

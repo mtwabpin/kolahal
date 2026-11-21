@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -138,7 +137,7 @@ private const val SEEK_HOLD_MS = 3_000L
  * - The three buttons hand `prev`, `toggle` and `next` to [onTap]. A tap elsewhere is the card's.
  * - The position moves every second only while something plays, its length is known and the page
  *   is in view. The bar stands still between ticks: it is no wave, because a wave is drawn on every frame.
- * - Tonal: play or pause in the card's colour, the other two on the look's tile.
+ * - Tonal: play or pause in the card's color, the other two on the look's tile.
  * - Split and Shape have layouts of their own ([SplitMedia], [ShapeMedia]).
  */
 @Composable
@@ -147,10 +146,10 @@ internal fun MediaBody(
     box: WidgetSizes.Box,
     onTap: ((WidgetTap) -> Unit)?
 ) {
-    val colour = roleColour(spec.base)
+    val color = roleColor(spec.base)
     when (LocalWidgetLook.current) {
-        WidgetLook.SPLIT -> return SplitMedia(spec, box, colour, onTap)
-        WidgetLook.SHAPE -> return ShapeMedia(spec, box, colour, onTap)
+        WidgetLook.SPLIT -> return SplitMedia(spec, box, color, onTap)
+        WidgetLook.SHAPE -> return ShapeMedia(spec, box, color, onTap)
         else -> {}
     }
     if (box == WidgetSizes.Box.SMALL) {
@@ -160,7 +159,7 @@ internal fun MediaBody(
                 WidgetWords.mediaPlayDp(maxWidth.value.toInt(), besideText = false, count = 1),
                 spec,
                 onTap,
-                colour
+                color
             )
         }
         return
@@ -214,7 +213,7 @@ internal fun MediaBody(
                         spec,
                         fraction,
                         seek,
-                        colour,
+                        color,
                         onTap
                     )
                     // The last thing in the texts' column, so the card's bottom padding under it takes its touches too.
@@ -222,13 +221,13 @@ internal fun MediaBody(
                         spec,
                         fraction,
                         seek,
-                        colour,
+                        color,
                         onTap,
                         top = 4.dp
                     )
                 }
                 Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
-                MediaButtons(count, playDp, spec, onTap, colour)
+                MediaButtons(count, playDp, spec, onTap, color)
             }
         } else {
             // "Last played" over the track while it leaves room for Play under them, also with a large font.
@@ -271,13 +270,13 @@ internal fun MediaBody(
                             spec,
                             fraction,
                             seek,
-                            colour,
+                            color,
                             onTap,
                             under = times.takeIf { timesAlong })
                         if (timesUnder) times()
                     } else if (fraction != null && tall >= MEDIA_BAR_FROM) {
                         Spacer(Modifier.weight(1f))
-                        MediaBar(spec, fraction, seek, colour, onTap)
+                        MediaBar(spec, fraction, seek, color, onTap)
                         // The slim slider is 10 dp taller than the bar: the times need that much more.
                         if (tall >= MEDIA_TIMES_FROM + (if (seek != null) SEEK_SLIM - 10.dp else 0.dp)) MediaTimes(
                             spec,
@@ -291,7 +290,7 @@ internal fun MediaBody(
                         Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp)
-                    ) { PlayWithWord(onTap, colour) }
+                    ) { PlayWithWord(onTap, color) }
                 } else {
                     // Under a slider its own 48 dp are the room above them.
                     Box(
@@ -306,7 +305,7 @@ internal fun MediaBody(
                             WidgetWords.mediaPlayDp(width, besideText = false, count),
                             spec,
                             onTap,
-                            colour
+                            color
                         )
                     }
                 }
@@ -356,11 +355,11 @@ private fun ArtFace(cover: Bitmap, icon: @Composable () -> Unit) {
 
 /** "Last played", small over the last track, with nothing playing ([WidgetSpec.Media.lastPlayed]). */
 @Composable
-private fun LastPlayed(colour: Color) {
+private fun LastPlayed(color: Color) {
     Text(
         WidgetWords.LAST_PLAYED,
         style = MaterialTheme.typography.labelSmall,
-        color = colour,
+        color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
@@ -369,7 +368,7 @@ private fun LastPlayed(colour: Color) {
 /**
  * [count] of the three buttons, in a row: play or pause alone, then with next, then with previous
  * too. Play or pause is [playDp] wide ([WidgetWords.mediaPlayDp]), and hands over [playTap]. [role]
- * is the card's colour, for the looks that use it.
+ * is the card's color, for the looks that use it.
  */
 @Composable
 private fun MediaButtons(
@@ -415,11 +414,10 @@ private fun playWord(playing: Boolean) = if (playing) "Pause" else "Play"
  *   The others are tonal and round.
  * - [mirrored]: the icon is turned to point back. "Previous" is the "next" icon, mirrored.
  * - With a null [onTap] it takes no tap, and looks as it does on the page.
- * - Tonal and Split: play or pause is in the card's [role] colour, the others on the look's tile.
+ * - Tonal and Split: play or pause is in the card's [role] color, the others on the look's tile.
  *   Shape: the others are on the theme's highest surface. A [tile] shape makes it one of Split's tiles.
  * - [art]: the track's cover, the face of a [strong] button ([ArtFace]).
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MediaButton(
     tap: WidgetTap,
@@ -505,10 +503,9 @@ private fun MediaButton(
 
 /**
  * Play with its word, at the foot of a large card with nothing playing: it hands `resume` over.
- * It is filled as play or pause is, in the card's [role] colour on Tonal. A press held on it opens
+ * It is filled as play or pause is, in the card's [role] color on Tonal. A press held on it opens
  * what the card's long-press opens, as on the other buttons ([cardPress]).
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PlayWithWord(onTap: ((WidgetTap) -> Unit)?, role: Color) {
     val source = remember { MutableInteractionSource() }
@@ -588,7 +585,6 @@ private fun rememberSeek(spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?):
  * - [slim]: [SEEK_SLIM] tall with a shorter handle, in the bar's place on a card with no room for
  *   48 dp ([MediaBar]). Only its band takes touches, so the texts over it stay the card's.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SeekBar(
     spec: WidgetSpec.Media,
@@ -614,7 +610,7 @@ private fun SeekBar(
     // Compose widens the touches of a band under 48 dp to 48: over the texts above a slim one, which are the card's.
     val config = LocalViewConfiguration.current
     val touches = remember(config, slim) { if (slim) ExactTouches(config) else config }
-    // The slider is 48 dp tall whatever its band (Material's minimum), centred on it. A slim band's
+    // The slider is 48 dp tall whatever its band (Material's minimum), centered on it. A slim band's
     // clip cuts its touches to the band.
     val band = if (slim) Modifier
         .height(SEEK_SLIM)
@@ -750,13 +746,13 @@ private fun MediaPosition(spec: WidgetSpec.Media, now: State<Long>, seek: Seek?)
 
 /** Where the song is, of how long it is: "2:41 / 5:12", or the position alone when the length is not known. It reads the time itself. */
 @Composable
-private fun MediaPositionOf(spec: WidgetSpec.Media, now: State<Long>, seek: Seek?, colour: Color) {
+private fun MediaPositionOf(spec: WidgetSpec.Media, now: State<Long>, seek: Seek?, color: Color) {
     val at = WidgetWords.mediaTime(positionAt(spec, now.value, seek))
     val text = if (spec.duration > 0) "$at / ${WidgetWords.mediaTime(spec.duration)}" else at
     Text(
         text,
         style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-        color = colour,
+        color = color,
         maxLines = 1,
         softWrap = false
     )
@@ -769,7 +765,7 @@ private val SPLIT_MEDIA_ROW = 56.dp
  * Split's media card.
  * - Large: a tile with the card's title and the position at its top, the song and the artist, and
  *   the bar at its foot; under it a row of three tiles: previous, play or pause (wider, in the
- *   card's [role] colour) and next.
+ *   card's [role] color) and next.
  * - Wide: the song's tile at the start, with the bar under the texts, and the button tiles beside
  *   it, as many as fit.
  * - Small: play or pause is the whole card.
@@ -1255,13 +1251,12 @@ private fun ShapeMedia(
 }
 
 /**
- * Shape's play or pause: a filled button [side] across in the card's [role] colour. Playing, it is
+ * Shape's play or pause: a filled button [side] across in the card's [role] color. Playing, it is
  * a cookie; paused, a rounded square. A change morphs one into the other, as Material's expressive
  * player does, and only the drawing runs again while it does. Its icon is two fifths of its size.
  * It hands [tap] over: `toggle`, or `resume` with nothing playing. The track's cover, [art], fills
  * the shape, darkened under a white icon, as on the other looks' play or pause ([ArtFace]).
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PlayShape(
     playing: Boolean,

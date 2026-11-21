@@ -129,7 +129,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    val feeds by produceIo<List<FeedInfo>?>(
+    val feeds by produceIo(
         null,
         repoVersion,
         what = "Reading the feeds"
@@ -305,7 +305,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
             initial = "",
             onDismiss = { adding = false },
             onSubmit = { url ->
-                // The address as stored (normalised), so a known feed typed another way is found too.
+                // The address as stored (normalized), so a known feed typed another way is found too.
                 val (feed, isNew) = subscriptions.subscribe(url)
                 if (!isNew) throw IllegalArgumentException("Already subscribed to ${feed.url}")
                 "Subscribed to ${feed.shortName} — fetching…"
@@ -634,7 +634,7 @@ private fun FeedSheet(
 
 /**
  * A dialog for a feed's address, to add a feed or to change its address ([initial] is filled in).
- * [onSubmit] runs off the main thread with the normalised address and returns the message to show.
+ * [onSubmit] runs off the main thread with the normalized address and returns the message to show.
  * If it throws, the error shows under the field.
  */
 @Composable
@@ -723,7 +723,7 @@ private fun FeedItemsPage(
     onOpenItem: (FeedItem) -> Unit,
     onToggleRead: (FeedItem) -> Unit,
 ) {
-    val items by produceIo<List<FeedItem>?>(
+    val items by produceIo(
         null,
         feed.id,
         version,

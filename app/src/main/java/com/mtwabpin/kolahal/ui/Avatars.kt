@@ -41,7 +41,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * A person's picture beside their line (a call, a contact), round: their contact photo, or, without
- * one (or without the right to read it), their name's first letters on a colour of the theme picked
+ * one (or without the right to read it), their name's first letters on a color of the theme picked
  * from the name, so a person always gets the same one. It is decoration: the line says the name.
  */
 @Composable
@@ -52,13 +52,13 @@ internal fun Avatar(name: String, photo: String?, size: Dp, modifier: Modifier =
         if (value == null && photo != null) value =
             withContext(Dispatchers.IO) { Photos.load(context, photo, px) }
     }
-    val colour = avatarColour(name)
+    val color = avatarColor(name)
     val dark = Term.bg.luminance() < 0.5f
     Box(
         modifier
             .size(size)
             .clip(CircleShape)
-            .background(colour.copy(alpha = if (dark) 0.26f else 0.18f))
+            .background(color.copy(alpha = if (dark) 0.26f else 0.18f))
             .testTag("avatar")
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
@@ -79,7 +79,7 @@ internal fun Avatar(name: String, photo: String?, size: Dp, modifier: Modifier =
                     fontFamily = FontFamily.Default,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = (size.value * if (letters.length > 1) 0.36f else 0.44f).sp,
-                    color = colour
+                    color = color
                 ),
                 maxLines = 1,
             )
@@ -96,19 +96,18 @@ internal fun initials(name: String): String {
     if (trimmed.isEmpty() || trimmed == "?") return "?"
     if (trimmed.first().isDigit() || trimmed.first() == '+') return "#"
     val words = trimmed.split(Regex("\\s+")).filter { it.first().isLetter() }
-    if (words.isEmpty()) return trimmed.codePointAt(0).let { String(Character.toChars(it)) }
-        .uppercase()
+    if (words.isEmpty()) return String(Character.toChars(trimmed.codePointAt(0))).uppercase()
     val first = words.first().first().uppercaseChar()
     return if (words.size == 1) first.toString() else "$first${
         words.last().first().uppercaseChar()
     }"
 }
 
-/** A colour of the theme for [name], the same every time: the accent, link, info, warning and profile colours, in turn by the name. */
-private fun avatarColour(name: String): Color {
+/** A color of the theme for [name], the same every time: the accent, link, info, warning and profile colors, in turn by the name. */
+private fun avatarColor(name: String): Color {
     val p = Term.palette
-    val colours = listOf(p.prompt, p.link, p.info, p.warn, p.work, p.private, p.script)
-    return colours[Math.floorMod(name.trim().lowercase().hashCode(), colours.size)]
+    val colors = listOf(p.prompt, p.link, p.info, p.warn, p.work, p.private, p.script)
+    return colors[Math.floorMod(name.trim().lowercase().hashCode(), colors.size)]
 }
 
 /**

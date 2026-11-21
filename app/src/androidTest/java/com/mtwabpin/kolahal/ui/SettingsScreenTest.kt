@@ -583,12 +583,12 @@ class SettingsScreenTest {
         val icon = reset.assertIsDisplayed().getUnclippedBoundsInRoot()
         val name = compose.onNodeWithText(Keys.LOG_SPACING.key, useUnmergedTree = true)
             .getUnclippedBoundsInRoot()
-        // On the name's line, just after it: the 28 dp icon's centre is 4 + 14 dp past the name. Its
-        // touch area is 48 dp, centred on the icon.
-        val centre = (icon.left + icon.right) / 2
+        // On the name's line, just after it: the 28 dp icon's center is 4 + 14 dp past the name. Its
+        // touch area is 48 dp, centered on the icon.
+        val center = (icon.left + icon.right) / 2
         assertTrue(
-            "the icon's centre is at $centre, the name ends at ${name.right}",
-            centre - name.right in 12.dp..24.dp
+            "the icon's center is at $center, the name ends at ${name.right}",
+            center - name.right in 12.dp..24.dp
         )
         assertTrue(
             "the touch area is ${icon.width} × ${icon.height}",

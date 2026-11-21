@@ -55,7 +55,7 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Monospace editor for scripts. It has line numbers, light syntax colouring, undo/redo,
+ * Monospace editor for scripts. It has line numbers, light syntax coloring, undo/redo,
  * find/replace, API completion and inline docs. The editing itself is [CodeEditor]'s; this adds
  * what only a script has.
  * - On save, it reports what changed beyond the code (for example, a timer set by an `@every`

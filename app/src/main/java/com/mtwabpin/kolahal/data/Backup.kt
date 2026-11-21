@@ -18,7 +18,7 @@ import com.mtwabpin.kolahal.script.ScriptSources
 import com.mtwabpin.kolahal.widgets.Shortcuts
 
 /**
- * One JSON file with everything a user customises: settings, aliases, hidden/renamed apps and
+ * One JSON file with everything a user customizes: settings, aliases, hidden/renamed apps and
  * all scripts (code + timers). It is written and read through the Storage Access Framework, so it
  * can be kept on a computer, edited there, and imported again.
  *
@@ -90,7 +90,7 @@ class Backup(private val context: Context) {
             "widgets" to runCatching {
                 com.mtwabpin.kolahal.widgets.WidgetHost.get(context).exportWidgets()
             }.getOrDefault(emptyList()),
-            // Themes made in the theme builder: the name, mapped to colours by role as "#RRGGBB".
+            // Themes made in the theme builder: the name, mapped to colors by role as "#RRGGBB".
             "themes" to CustomThemes.themes.value.mapValues { (_, colors) ->
                 colors.mapValues {
                     CustomThemes.hex(

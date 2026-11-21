@@ -169,9 +169,9 @@ class RunSecretsTest {
         assertSame(plain, s.masked(plain))
         val silent = IllegalStateException()
         assertSame(silent, s.masked(silent))
-        // A cancelled run stays cancelled, whatever its message.
-        val cancelled = kotlinx.coroutines.CancellationException("stopped $value")
-        assertSame(cancelled, s.masked(cancelled))
+        // A canceled run stays canceled, whatever its message.
+        val canceled = kotlinx.coroutines.CancellationException("stopped $value")
+        assertSame(canceled, s.masked(canceled))
     }
 
     @Test

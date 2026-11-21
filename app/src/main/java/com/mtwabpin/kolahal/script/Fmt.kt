@@ -13,9 +13,9 @@ import com.mtwabpin.kolahal.data.StyledText
  */
 internal class Fmt(private val text: (Any?) -> String) {
 
-    /** `fmt.tag(text)` in the accent colour, or `fmt.tag(role, text)`. */
+    /** `fmt.tag(text)` in the accent color, or `fmt.tag(role, text)`. */
     fun tag(args: List<Any?>): String {
-        if (args.size < 2) return StyledText.tag(StyledText.Colour.ACCENT, text(args.getOrNull(0)))
+        if (args.size < 2) return StyledText.tag(StyledText.ColorRole.ACCENT, text(args.getOrNull(0)))
         return StyledText.tag(role("fmt.tag", args[0]), text(args[1]))
     }
 
@@ -84,8 +84,8 @@ internal class Fmt(private val text: (Any?) -> String) {
                 "{ value, label }"
             ).map { r -> text(r.getOrNull(0)) to (r.getOrNull(1)?.let(text) ?: "") })
 
-    private fun role(call: String, value: Any?): StyledText.Colour =
-        colour(call, value as? String, shown = text(value))
+    private fun role(call: String, value: Any?): StyledText.ColorRole =
+        color(call, value as? String, shown = text(value))
 
     private fun number(call: String, value: Any?, what: String): Double = when (value) {
         is Number -> value.toDouble()
@@ -100,7 +100,7 @@ internal class Fmt(private val text: (Any?) -> String) {
         )
     }
 
-    /** The options table, with only the keys [known]. Another key is an error, so a typo (`colour`) doesn't pass unseen. */
+    /** The options table, with only the keys [known]. Another key is an error, so a typo (`color`) doesn't pass unseen. */
     private fun options(call: String, value: Any?, known: Set<String>): Map<String, Any?> {
         if (value == null) return emptyMap()
         val map = value as? Map<*, *>
@@ -122,11 +122,11 @@ internal class Fmt(private val text: (Any?) -> String) {
 
     companion object {
         /**
-         * The colour with the role [name], for [call] (`fmt.color`, `fmt.tag`, …). If there is no such
+         * The color with the role [name], for [call] (`fmt.color`, `fmt.tag`, …). If there is no such
          * role, the script gets an error that lists the roles. [shown] is the name as the error quotes it.
          */
-        fun colour(call: String, name: String?, shown: String? = name): StyledText.Colour =
-            name?.let(StyledText.Colour::named)
-                ?: throw IllegalArgumentException("$call: no colour '$shown'; use ${StyledText.Colour.entries.joinToString { it.role }}")
+        fun color(call: String, name: String?, shown: String? = name): StyledText.ColorRole =
+            name?.let(StyledText.ColorRole::named)
+                ?: throw IllegalArgumentException("$call: no color '$shown'; use ${StyledText.ColorRole.entries.joinToString { it.role }}")
     }
 }

@@ -161,7 +161,7 @@ internal object ScriptRun {
             (if (script != null) mapOf(LogContext.SCRIPT to script.name) else emptyMap()) +
                     (from?.let { mapOf(LogContext.FROM to it.toString()) } ?: emptyMap())
         )
-        // Android stopped the run (the worker was cancelled). It did not end by itself, so the card notes no end.
+        // Android stopped the run (the worker was canceled). It did not end by itself, so the card notes no end.
         var stopped = false
         // However the run ends, anything still in flight (a request, a timer) changes nothing after it.
         // This is also true when Android stops the run and this returns at once.
@@ -285,8 +285,8 @@ internal object ScriptRun {
      */
     internal fun widgetOf(event: Map<*, *>?): String? {
         val name = event?.get("name")
-        if (name != ScriptScheduler.WIDGET && !(name == "action" && event.get("widget") == true)) return null
-        return (event.get(ScriptScheduler.INSTANCE) as? String)?.takeIf(WidgetRef.ID::matches)
+        if (name != ScriptScheduler.WIDGET && !(name == "action" && event["widget"] == true)) return null
+        return (event[ScriptScheduler.INSTANCE] as? String)?.takeIf(WidgetRef.ID::matches)
             .orEmpty()
     }
 

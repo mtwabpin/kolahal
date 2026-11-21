@@ -47,7 +47,7 @@ internal fun Labeled(
 
 /**
  * An icon button: [icon], with [label] as what TalkBack says and as the bubble on a long-press.
- * [tint]: the icon's colour; without it, the button's own (dimmed while not [enabled]).
+ * [tint]: the icon's color; without it, the button's own (dimmed while not [enabled]).
  */
 @Composable
 internal fun LabeledIconButton(

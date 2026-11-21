@@ -39,7 +39,7 @@ internal class ScriptChanges(private val context: Context) {
     }
 
     /**
-     * Sets the script's daily times ("HH:mm", as [CommandParsing.dailyTimes] reads them). Like a timer,
+     * Sets the script's daily times ("HH:mm", as [com.mtwabpin.kolahal.commands.CommandParsing.dailyTimes] reads them). Like a timer,
      * times switch the script on, unless [on] is false.
      */
     fun times(s: Script, times: List<String>, on: Boolean = true) {

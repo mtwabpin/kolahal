@@ -53,7 +53,7 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 // ---- agenda ---------------------------------------------------------------------------------
 
@@ -88,9 +88,9 @@ private val AGENDA_PLACES = 200.dp
  * - Kolahal writes the times, in the form the setting says, and drops an event when it has ended.
  *   That happens on the minute's tick ([rememberNow]), with no run of the script and no tick of
  *   its own.
- * - An event is one line: its time, a dot in its colour if it has one, its title, and its place at its end in a
+ * - An event is one line: its time, a dot in its color if it has one, its title, and its place at its end in a
  *   box that has room. An event that can be tapped is 44 dp tall ([TAP_ROW_DP]), others 32 dp.
- * - A day's heading ("TODAY") is at the top of its first event's row, in the card's colour. That
+ * - A day's heading ("TODAY") is at the top of its first event's row, in the card's color. That
  *   row is as tall as a tap row needs, or as the heading and the event's line need, whichever is
  *   more: 44 dp. So a 4x2 card has two events of today and one of tomorrow, as the mockup has
  *   them, and every event keeps a 44 dp tap. A tap on the heading is a tap on that event.
@@ -116,10 +116,10 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     }
     val look = LocalWidgetLook.current
     if (look == WidgetLook.BOLD || look == WidgetLook.SPLIT || look == WidgetLook.SHAPE) {
-        DatedAgenda(look, days, minute.time, zone, clock24, roleColour(spec.base), onTap)
+        DatedAgenda(look, days, minute.time, zone, clock24, roleColor(spec.base), onTap)
         return
     }
-    val colour = roleColour(spec.base)
+    val color = roleColor(spec.base)
     val muted = lookColors().muted
     // Tonal puts each event on a tile of its own, 2 dp from the next, as a list's rows are.
     val tile = if (look == WidgetLook.TONAL) lookColors().tile else null
@@ -167,7 +167,7 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
                                 timeWidth,
                                 onTap,
                                 back
-                            ) { DayHeading(day.label, colour) }
+                            ) { DayHeading(day.label, color) }
                             else AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap, back)
                         }
                     }
@@ -188,16 +188,16 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?) 
     }
 }
 
-/** A day's heading in an agenda: "TODAY", "TOMORROW", "TUE 20 OCT", in bold capitals in the card's [colour]. */
+/** A day's heading in an agenda: "TODAY", "TOMORROW", "TUE 20 OCT", in bold capitals in the card's [color]. */
 @Composable
-private fun DayHeading(label: String, colour: Color) {
+private fun DayHeading(label: String, color: Color) {
     Text(
         label.uppercase(),
         style = MaterialTheme.typography.labelMedium.copy(
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.08.em
         ),
-        color = colour,
+        color = color,
         maxLines = 1,
         modifier = Modifier
             .height(AGENDA_HEAD_DP.dp)
@@ -206,11 +206,11 @@ private fun DayHeading(label: String, colour: Color) {
 }
 
 /**
- * One event: its time, a dot in its colour (none without one), its title, and its place at its end
+ * One event: its time, a dot in its color (none without one), its title, and its place at its end
  * when [places]. A day's first event has the day's [heading] at its top, inside its row.
  * A [narrow] row has the time under the title and no dot. An event with a tap takes the press
  * before the card does, so it hands a long-press on to the card, as a list's row does.
- * With [tile] (Tonal) the row is on a tile of that colour and shape, its text inside the tile's padding.
+ * With [tile] (Tonal) the row is on a tile of that color and shape, its text inside the tile's padding.
  */
 @Composable
 private fun AgendaRow(
@@ -226,8 +226,8 @@ private fun AgendaRow(
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val event = line.event
-    val colour = event.color?.let { colourOf(it) }
-    val press = eventPress(event.tap, onTap)
+    val color = event.color?.let { colorOf(it) }
+    val press = Modifier.eventPress(event.tap, onTap)
     // Small corners: a larger one would cut the first letter of a heading at the row's top.
     val back = if (tile != null) {
         Modifier
@@ -264,7 +264,7 @@ private fun AgendaRow(
                     Text(
                         line.time,
                         style = type.labelSmall,
-                        color = colour ?: lookColors().muted,
+                        color = color ?: lookColors().muted,
                         maxLines = 1,
                         softWrap = false
                     )
@@ -280,12 +280,12 @@ private fun AgendaRow(
                         .widthIn(min = timeWidth)
                         .padding(end = 8.dp)
                 )
-                if (colour != null) Box(
+                if (color != null) Box(
                     Modifier
                         .padding(end = 8.dp)
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(colour)
+                        .background(color)
                 )
                 Text(
                     event.title,
@@ -317,10 +317,10 @@ private fun AgendaRow(
  * hands a long-press on to the card, as a list's row does. Nothing without an action or an [onTap].
  */
 @Composable
-private fun eventPress(tap: WidgetTap?, onTap: ((WidgetTap) -> Unit)?): Modifier {
+private fun Modifier.eventPress(tap: WidgetTap?, onTap: ((WidgetTap) -> Unit)?): Modifier {
     val longPress = LocalCardLongPress.current
     return if (tap != null && onTap != null) {
-        Modifier.combinedClickable(
+        combinedClickable(
             onClickLabel = tap.label,
             role = Role.Button,
             onLongClickLabel = if (longPress != null) "arrange widgets" else null,
@@ -328,7 +328,7 @@ private fun eventPress(tap: WidgetTap?, onTap: ((WidgetTap) -> Unit)?): Modifier
             onClick = { onTap(tap) },
         )
     } else {
-        Modifier
+        this
     }
 }
 
@@ -344,9 +344,9 @@ internal val DATED_SIDE = 240.dp
 /**
  * The agenda of the Bold, Split and Shape looks: today's date takes a place of its own, and the
  * events are rows of 42 dp beside it (or under it in a narrow box), with no day headings.
- * - Bold: the date in a block of the card's [role] colour, the weekday and the month in capitals
- *   around the day at display size. Today's times are in the role colour.
- * - Shape: the date in a sunny shape of the role colour.
+ * - Bold: the date in a block of the card's [role] color, the weekday and the month in capitals
+ *   around the day at display size. Today's times are in the role color.
+ * - Shape: the date in a sunny shape of the role color.
  * - Split: the date in a tile of its own, and each event in a tile with its time in a chip.
  * - An event of another day says so: "Gym · tomorrow", dim (Split: "Tomorrow" at its end).
  * - As many events as fit are shown, never under 42 dp; "+3 more" is left out. Each keeps its tap.
@@ -373,7 +373,7 @@ private fun DatedAgenda(
         }
     }
     val today = remember(nowMs, zone) { Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate() }
-    val locale = Locale.getDefault()
+    val locale = LocalLocale.current.platformLocale
     val weekday = remember(today) { today.format(DateTimeFormatter.ofPattern("EEE", locale)) }
     val month = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM", locale)) }
     val dayNumber = today.dayOfMonth.toString()
@@ -471,7 +471,7 @@ private fun DatedAgenda(
     }
 }
 
-/** Bold's date: a block of the role colour, "FRI" over the day at display size over "NOV" ([month], left out when low). */
+/** Bold's date: a block of the role color, "FRI" over the day at display size over "NOV" ([month], left out when low). */
 @Composable
 private fun BoldDate(
     weekday: String,
@@ -518,7 +518,7 @@ private fun BoldDate(
     }
 }
 
-/** Shape's date: the day in a sunny shape of the role colour, [side] across, under the weekday where there is room. */
+/** Shape's date: the day in a sunny shape of the role color, [side] across, under the weekday where there is room. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SunnyDate(weekday: String?, day: String, looks: LookColors, side: Dp) {
@@ -555,8 +555,8 @@ private fun SunnyDate(weekday: String?, day: String, looks: LookColors, side: Dp
 }
 
 /**
- * The events of a dated agenda: the first [count] of [lines], 42 dp each, centred in their room.
- * Today's time is in the role colour and bold; an event of another day is dim, with its day after
+ * The events of a dated agenda: the first [count] of [lines], 42 dp each, centered in their room.
+ * Today's time is in the role color and bold; an event of another day is dim, with its day after
  * its title.
  */
 @Composable
@@ -584,7 +584,7 @@ private fun DatedRows(
                         .fillMaxWidth()
                         .height(DATED_ROW_DP.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .then(eventPress(d.line.event.tap, onTap)),
+                        .eventPress(d.line.event.tap, onTap),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -620,7 +620,7 @@ private fun dayWord(label: String): String =
 /**
  * Split's agenda: today's date in a tile at the start ("Fri" over "20" over "Nov"), or along the top
  * of a narrow box, and each event in a tile of its own with its time in a chip. Today's chips are in
- * the role's container; another day's are grey, with the day at the tile's end.
+ * the role's container; another day's are gray, with the day at the tile's end.
  */
 @Composable
 private fun SplitAgenda(
@@ -722,7 +722,7 @@ private fun SplitAgenda(
 /**
  * One event's tile in Split's agenda: its time in a chip, its title, and its day at the end when
  * it is not today. A narrow box has no room for the day: [dayAtEnd] false leaves it out, and the
- * grey chip says the event is not today.
+ * gray chip says the event is not today.
  */
 @Composable
 private fun SplitEvent(
@@ -739,7 +739,7 @@ private fun SplitEvent(
             .fillMaxWidth()
             .clip(shape)
             .background(looks.tile)
-            .then(eventPress(d?.line?.event?.tap, onTap))
+            .eventPress(d?.line?.event?.tap, onTap)
             .padding(start = 10.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

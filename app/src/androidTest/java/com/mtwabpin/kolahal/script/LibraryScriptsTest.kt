@@ -71,16 +71,16 @@ class LibraryScriptsTest {
 
     private fun lines(): List<LogEntry> = logs.recent(limit = 200).filter { it.source == name }
 
-    /** The one line logged: its title as shown, its body, and the colour of all of its title (null: none, or mixed). */
-    private fun only(): Triple<String, String?, StyledText.Colour?> = lines().single()
-        .let { Triple(it.text.let(StyledText::plain), it.ctx.body, colourOf(it.text)) }
+    /** The one line logged: its title as shown, its body, and the color of all of its title (null: none, or mixed). */
+    private fun only(): Triple<String, String?, StyledText.ColorRole?> = lines().single()
+        .let { Triple(it.text.let(StyledText::plain), it.ctx.body, colorOf(it.text)) }
 
-    private fun colourOf(text: String) =
-        StyledText.lines(text).single().spans.map { it.colour }.distinct().singleOrNull()
+    private fun colorOf(text: String) =
+        StyledText.lines(text).single().spans.map { it.color }.distinct().singleOrNull()
 
     /** [only], with its body as plain text: without a bar, which reads as nothing. */
     private fun plainOnly() =
-        only().let { (title, body, colour) -> Triple(title, body?.let(StyledText::plain), colour) }
+        only().let { (title, body, color) -> Triple(title, body?.let(StyledText::plain), color) }
 
     @After
     fun tearDown() {
@@ -118,7 +118,7 @@ class LibraryScriptsTest {
             Triple(
                 "No countdowns yet: countdown add 2026-12-25 Christmas",
                 null,
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), only()
         )
 
@@ -137,14 +137,14 @@ class LibraryScriptsTest {
         )
 
         val saved = "Saved · countdown lists them"
-        // Its name is the title, coloured by how near: this week's in the warning colour, today's in
+        // Its name is the title, colored by how near: this week's in the warning color, today's in
         // the good one, past ones muted. Under it, big numbers: the days, then the date.
         run("countdown.lua", "add ${today.plusDays(3)} Soon")
         assertEquals(
             Triple(
                 "Soon",
                 "3 Days to go · ${shown(today.plusDays(3))}\n$saved",
-                StyledText.Colour.WARN
+                StyledText.ColorRole.WARN
             ), plainOnly()
         )
         val big = StyledText.lines(lines().single().ctx.body!!).first().stats!!
@@ -152,10 +152,10 @@ class LibraryScriptsTest {
             listOf("3", "Days to go"),
             big.first()
                 .let { s -> listOf(s.value, s.label).map { p -> p.joinToString("") { it.text } } })
-        assertEquals(StyledText.Colour.WARN, big.first().value.single().colour)
+        assertEquals(StyledText.ColorRole.WARN, big.first().value.single().color)
         run("countdown.lua", "add $today Now")
         assertEquals(
-            Triple("Now", "Today · ${shown(today)}\n$saved", StyledText.Colour.GOOD),
+            Triple("Now", "Today · ${shown(today)}\n$saved", StyledText.ColorRole.GOOD),
             plainOnly()
         )
         run("countdown.lua", "add ${today.minusDays(10)} Past")
@@ -163,7 +163,7 @@ class LibraryScriptsTest {
             Triple(
                 "Past",
                 "10 Days ago · ${shown(today.minusDays(10))}\n$saved",
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), plainOnly()
         )
         run("countdown.lua", "add ${today.plusDays(30)} Trip")
@@ -189,13 +189,13 @@ class LibraryScriptsTest {
             ),
             StyledText.plain(list.ctx.body!!).lines(),
         )
-        // "When" is coloured by how near it is, as a single countdown is; a past one is muted throughout.
+        // "When" is colored by how near it is, as a single countdown is; a past one is muted throughout.
         val rows = StyledText.lines(list.ctx.body!!).mapNotNull { it.row }
         assertEquals(
-            listOf(StyledText.Colour.MUTED, StyledText.Colour.GOOD, StyledText.Colour.WARN, null),
-            rows.drop(1).map { it.cells[3].spans.single().colour },
+            listOf(StyledText.ColorRole.MUTED, StyledText.ColorRole.GOOD, StyledText.ColorRole.WARN, null),
+            rows.drop(1).map { it.cells[3].spans.single().color },
         )
-        assertEquals(StyledText.Colour.MUTED, rows[1].cells[1].spans.single().colour)
+        assertEquals(StyledText.ColorRole.MUTED, rows[1].cells[1].spans.single().color)
         // The nearest one not past is its status line.
         assertEquals("Now: today", status.get(name))
 
@@ -208,7 +208,7 @@ class LibraryScriptsTest {
             StyledText.lines(removed.text).single().spans.map { it.styles.ifEmpty { null } })
         run("countdown.lua", "rm 9")
         assertEquals(
-            Triple("No countdown #9: countdown lists them", null, StyledText.Colour.MUTED),
+            Triple("No countdown #9: countdown lists them", null, StyledText.ColorRole.MUTED),
             only()
         )
         run("countdown.lua", "add someday Trip")
@@ -216,7 +216,7 @@ class LibraryScriptsTest {
             Triple(
                 "Usage: countdown YYYY-MM-DD | add [yearly] YYYY-MM-DD label | rm N",
                 null,
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), only()
         )
 
@@ -226,7 +226,7 @@ class LibraryScriptsTest {
             Triple(
                 "${today.plusDays(5)}",
                 "5 Days to go · ${shown(today.plusDays(5))}",
-                StyledText.Colour.WARN
+                StyledText.ColorRole.WARN
             ), plainOnly()
         )
         // Not saved: the list still has the three left.
@@ -304,7 +304,7 @@ class LibraryScriptsTest {
                         )
                     )
                 }\n$yearly",
-                StyledText.Colour.WARN
+                StyledText.ColorRole.WARN
             ), plainOnly()
         )
 
@@ -554,7 +554,7 @@ class LibraryScriptsTest {
             run(file, options = mapOf("repo" to "nobody/nothing"), before = missing.getValue(file))
             assertEquals(
                 file,
-                Triple("No numbers", "nobody/nothing is no GitHub project", StyledText.Colour.BAD),
+                Triple("No numbers", "nobody/nothing is no GitHub project", StyledText.ColorRole.BAD),
                 plainOnly()
             )
             run(file, options = mapOf("repo" to "kolahal"))
@@ -573,7 +573,7 @@ class LibraryScriptsTest {
 
     /**
      * The checklist template, in Lua and in JavaScript: a row with an empty checkbox for each thing;
-     * a tap ticks a row and takes the tick away again; all ticked is the good colour. A new day,
+     * a tap ticks a row and takes the tick away again; all ticked is the good color. A new day,
      * and each further widget, starts with no ticks. Run by hand, it logs the list.
      */
     @Test
@@ -701,7 +701,7 @@ class LibraryScriptsTest {
             shown.filter { it.startsWith("Hund") })
     }
 
-    /** One coin: its name, then its price large and the day's change in its colour. */
+    /** One coin: its name, then its price large and the day's change in its color. */
     @Test
     fun cryptoOneCoinShowsBigNumbers() {
         run(
@@ -716,8 +716,8 @@ class LibraryScriptsTest {
             bigNumbers(e.ctx.body!!)
         )
         assertEquals(
-            StyledText.Colour.BAD,
-            StyledText.lines(e.ctx.body!!).first().stats!![1].value.single().colour
+            StyledText.ColorRole.BAD,
+            StyledText.lines(e.ctx.body!!).first().stats!![1].value.single().color
         )
         assertEquals("https://www.coingecko.com/en/coins/bitcoin", e.ctx.url)
     }
@@ -926,7 +926,7 @@ class LibraryScriptsTest {
         assertEquals(card, shown())
     }
 
-    /** The index large in its band's colour, with the band under it; the 24-hour figure and PM2.5 beside it; the other readings in a table. */
+    /** The index large in its band's color, with the band under it; the 24-hour figure and PM2.5 beside it; the other readings in a table. */
     @Test
     fun aqiLeadsWithBigNumbers() {
         val hours = { v: Int -> List(24) { v }.joinToString(",", "[", "]") }
@@ -1034,16 +1034,16 @@ class LibraryScriptsTest {
         assertEquals(Triple("Watching sharkdp/fd", "4 repos", null), only())
         assertEquals("https://github.com/sharkdp/fd/releases", lines().single().ctx.url)
         run("releases.lua", "add SharkDP/fd")
-        assertEquals(Triple("SharkDP/fd is watched already", null, StyledText.Colour.MUTED), only())
+        assertEquals(Triple("SharkDP/fd is watched already", null, StyledText.ColorRole.MUTED), only())
         run("releases.lua", "add fd")
         assertEquals(
-            Triple("Usage: releases add owner/repo", null, StyledText.Colour.MUTED),
+            Triple("Usage: releases add owner/repo", null, StyledText.ColorRole.MUTED),
             only()
         )
         run("releases.lua", "rm neovim/neovim")
         assertEquals(Triple("Stopped watching neovim/neovim", "3 repos left", null), only())
         run("releases.lua", "rm neovim/neovim")
-        assertEquals(Triple("neovim/neovim isn't watched", null, StyledText.Colour.MUTED), only())
+        assertEquals(Triple("neovim/neovim isn't watched", null, StyledText.ColorRole.MUTED), only())
         run("releases.lua", "list")
         assertEquals(
             listOf("mtwabpin/kolahal", "termux/termux-app", "sharkdp/fd"),
@@ -1053,7 +1053,7 @@ class LibraryScriptsTest {
             Triple(
                 "Usage: releases [add|rm owner/repo | list]",
                 null,
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), only()
         )
     }
@@ -1207,7 +1207,7 @@ class LibraryScriptsTest {
             Triple(
                 "No repos watched: releases add owner/repo",
                 null,
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), only()
         )
     }
@@ -1269,7 +1269,7 @@ class LibraryScriptsTest {
         )
         assertEquals(days(4), store.get("since"))
 
-        // The tap marks today done: the streak is 3, in the good colour, and nothing is logged.
+        // The tap marks today done: the streak is 3, in the good color, and nothing is logged.
         run("habit.lua", "done", event = tap, before = luaKeepsShown)
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(
@@ -1298,7 +1298,7 @@ class LibraryScriptsTest {
         run("habit.lua", "done", options = mapOf("name" to "Read"))
         assertEquals(Triple("Read", "3 Days in a row\n${week(4, 2, 1, 0)}", null), plainOnly())
         run("habit.lua", "skip")
-        assertEquals(Triple("Usage: habit [done|undo]", null, StyledText.Colour.MUTED), only())
+        assertEquals(Triple("Usage: habit [done|undo]", null, StyledText.ColorRole.MUTED), only())
 
         // Yesterday was missed: the streak starts again, with "day" for one.
         // A habit begun 30 days ago: day 40 is before its first, so it has no dot.
@@ -1398,7 +1398,7 @@ class LibraryScriptsTest {
 
     /**
      * Daily counter with its target, 8 glasses of water: the first button shows "5 of 8", and a tap
-     * on it adds one; Undo takes one back, down to 0. At the target the card is in the good colour.
+     * on it adds one; Undo takes one back, down to 0. At the target the card is in the good color.
      * Taps log nothing. Typed, it adds and logs today's count and the last 7 days. Each day starts
      * at 0, and only the last 7 days are kept.
      */
@@ -1437,7 +1437,7 @@ class LibraryScriptsTest {
         assertEquals(listOf(counterAdd("0 of 8"), counterUndo), card()["items"])
         assertNull(store.get("days"))
 
-        // The target reached: the good colour. Past it, the count goes on.
+        // The target reached: the good color. Past it, the count goes on.
         repeat(8) { run("counter.lua", "add", event = tap("Add 1 glass"), before = luaKeepsShown) }
         assertEquals(
             listOf("good", listOf(counterAdd("8 of 8"), counterUndo)),
@@ -1471,12 +1471,12 @@ class LibraryScriptsTest {
 
         // A word it doesn't know.
         run("counter.lua", "drink")
-        assertEquals(Triple("Usage: counter [add|undo]", null, StyledText.Colour.MUTED), only())
+        assertEquals(Triple("Usage: counter [add|undo]", null, StyledText.ColorRole.MUTED), only())
     }
 
     /**
      * Without a target the first button shows the count with its unit, "1 cup", "3 cups", and the
-     * card is never in the good colour. With no unit it is the number alone. Each placed widget
+     * card is never in the good color. With no unit it is the number alone. Each placed widget
      * keeps its own count: a run for the second widget leaves the first one's alone.
      */
     @Test
@@ -1643,7 +1643,7 @@ class LibraryScriptsTest {
             tap(habit.id, "done", "Done today")
             assertNull(t.stored(habit.name).error)
             assertEquals(
-                listOf("1", "Day in a row", StyledText.Colour.GOOD, 1f),
+                listOf("1", "Day in a row", StyledText.ColorRole.GOOD, 1f),
                 chart().let { listOf(it.value, it.label, it.base.color, it.points.last()) })
             assertEquals(WidgetTap(args = "undo", label = "Undo"), chart().base.tap)
             // The second tap is Undo: the card is as it was placed.
@@ -1660,7 +1660,7 @@ class LibraryScriptsTest {
             val undo = WidgetSpec.Button(
                 "Undo",
                 WidgetTap(args = "undo", label = "Undo"),
-                color = StyledText.Colour.MUTED
+                color = StyledText.ColorRole.MUTED
             )
             assertEquals(
                 listOf(
@@ -1693,7 +1693,7 @@ class LibraryScriptsTest {
             Triple(
                 "No charging session yet: plug in the charger",
                 null,
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), only()
         )
 
@@ -1703,7 +1703,7 @@ class LibraryScriptsTest {
         )
         assertEquals(emptyList<LogEntry>(), lines())
         assertEquals(true, status.get(name)?.startsWith("Charging since "))
-        // Unplugged still below 30%: the warning colour; under it, big numbers (the battery, what it added, how long) and the bar.
+        // Unplugged still below 30%: the warning color; under it, big numbers (the battery, what it added, how long) and the bar.
         run(
             "charge-reminder.lua",
             event = mapOf("name" to "unplug", "level" to 20, "plug" to "usb")
@@ -1712,14 +1712,14 @@ class LibraryScriptsTest {
             Triple(
                 "Unplugged at 20%",
                 "20% Battery · +5% Added · 0m Charging\n15%\t20%",
-                StyledText.Colour.WARN
+                StyledText.ColorRole.WARN
             ), plainOnly()
         )
-        // A bar under it, in the same colour, from where the charge started (15%) to where it is (20%).
+        // A bar under it, in the same color, from where the charge started (15%) to where it is (20%).
         val bar = StyledText.lines(lines().single().ctx.body!!).last().meter!!
         assertEquals(0.15f, bar.from, 0.001f)
         assertEquals(0.2f, bar.to, 0.001f)
-        assertEquals(StyledText.Colour.WARN, bar.colour)
+        assertEquals(StyledText.ColorRole.WARN, bar.color)
         assertNull(status.get(name))
         run(
             "charge-reminder.lua",
@@ -1730,7 +1730,7 @@ class LibraryScriptsTest {
             Triple(
                 "Unplugged at 90%",
                 "90% Battery · +70% Added · 0m Charging\n20%\t90%",
-                StyledText.Colour.GOOD
+                StyledText.ColorRole.GOOD
             ), plainOnly()
         )
 
@@ -1754,7 +1754,7 @@ class LibraryScriptsTest {
             Triple(
                 "Unplugged at 20%",
                 "20% Battery · +5% Added · 0m Charging\n15%\t20%",
-                StyledText.Colour.GOOD
+                StyledText.ColorRole.GOOD
             ), plainOnly()
         )
     }
@@ -1882,7 +1882,7 @@ class LibraryScriptsTest {
             Triple(
                 "Couldn't pause the work profile",
                 "Kolahal must be the default launcher (type home), with Alarms & reminders allowed",
-                StyledText.Colour.BAD
+                StyledText.ColorRole.BAD
             ), only()
         )
         assertNull(store.get("paused"))
@@ -2005,7 +2005,7 @@ class LibraryScriptsTest {
             Triple(
                 "Usage: script run quick-toggles [dnd|work]",
                 null,
-                StyledText.Colour.MUTED
+                StyledText.ColorRole.MUTED
             ), only()
         )
     }

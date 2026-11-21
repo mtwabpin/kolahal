@@ -135,15 +135,15 @@ class RangeBarsTest {
         compose.onAllNodes(hasTestTag("range-bar"), useUnmergedTree = true)[index].captureToImage()
             .asAndroidBitmap()
 
-    /** The colour across [bar] at [fraction] of its length from its left, in the middle of its line. */
-    private fun colourAt(bar: Bitmap, fraction: Float): Int =
+    /** The color across [bar] at [fraction] of its length from its left, in the middle of its line. */
+    private fun colorAt(bar: Bitmap, fraction: Float): Int =
         bar.getPixel((bar.width * fraction).toInt().coerceIn(0, bar.width - 1), bar.height / 2)
 
     private fun near(a: Int, b: Int): Boolean =
         listOf(16, 8, 0).all { shift -> abs((a shr shift and 0xFF) - (b shr shift and 0xFF)) <= 3 }
 
-    /** The card's colour for its bars: its role, the accent, as the theme draws it. */
-    private val role: Int get() = roleColour(null).toArgb()
+    /** The card's color for its bars: its role, the accent, as the theme draws it. */
+    private val role: Int get() = roleColor(null).toArgb()
 
     /** How far [text] starts from the card's left, in dp. */
     private fun startOf(text: String): Float {
@@ -217,13 +217,13 @@ class RangeBarsTest {
     fun theBarsShareOneScale() {
         show(Card(forecast, WidgetLook.PLAIN, wide, square))
         val sat = bar(0)
-        assertFalse("Saturday starts at 22", near(colourAt(sat, 0.08f), role))
-        assertTrue(near(colourAt(sat, 0.6f), role))
-        assertTrue(near(colourAt(sat, 0.97f), role))
+        assertFalse("Saturday starts at 22", near(colorAt(sat, 0.08f), role))
+        assertTrue(near(colorAt(sat, 0.6f), role))
+        assertTrue(near(colorAt(sat, 0.97f), role))
         val mon = bar(2)
-        assertTrue(near(colourAt(mon, 0.05f), role))
-        assertTrue(near(colourAt(mon, 0.5f), role))
-        assertFalse("Monday ends at 27", near(colourAt(mon, 0.85f), role))
+        assertTrue(near(colorAt(mon, 0.05f), role))
+        assertTrue(near(colorAt(mon, 0.5f), role))
+        assertFalse("Monday ends at 27", near(colorAt(mon, 0.85f), role))
     }
 
     /** Right to left, the scale runs from the right: Monday's bar is the right two thirds. */
@@ -231,12 +231,12 @@ class RangeBarsTest {
     fun rightToLeftTheScaleRunsFromTheRight() {
         show(Card(forecast, WidgetLook.PLAIN, wide, square, rtl = true))
         val mon = bar(2)
-        assertFalse(near(colourAt(mon, 0.15f), role))
-        assertTrue(near(colourAt(mon, 0.5f), role))
-        assertTrue(near(colourAt(mon, 0.95f), role))
+        assertFalse(near(colorAt(mon, 0.15f), role))
+        assertTrue(near(colorAt(mon, 0.5f), role))
+        assertTrue(near(colorAt(mon, 0.95f), role))
     }
 
-    /** A value is a dot on its bar, with a ring in the row's colour around it, so it shows on the bar too. */
+    /** A value is a dot on its bar, with a ring in the row's color around it, so it shows on the bar too. */
     @Test
     fun aValueIsADotWithARing() {
         val today = forecast.copy(
@@ -253,9 +253,9 @@ class RangeBarsTest {
         show(Card(today, WidgetLook.PLAIN, wide, square))
         val sat = bar(0)
         val dot = 7f / 11
-        assertTrue("the dot", near(colourAt(sat, dot), role))
+        assertTrue("the dot", near(colorAt(sat, dot), role))
         val ring = 5 * density / sat.width
-        assertFalse("its ring, over the bar", near(colourAt(sat, dot + ring), role))
-        assertTrue("the bar past the ring", near(colourAt(sat, dot + 3 * ring), role))
+        assertFalse("its ring, over the bar", near(colorAt(sat, dot + ring), role))
+        assertTrue("the bar past the ring", near(colorAt(sat, dot + 3 * ring), role))
     }
 }

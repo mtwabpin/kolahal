@@ -77,11 +77,11 @@ import com.mtwabpin.kolahal.widgets.WidgetTap
 
 // ---- pieces the looks share ------------------------------------------------------------------
 
-/** The title of a card without a title line, as a small bold line in [colour]. */
+/** The title of a card without a title line, as a small bold line in [color]. */
 @Composable
 private fun SmallTitle(
     text: String?,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier,
     lines: Int = 1
 ) {
@@ -92,18 +92,18 @@ private fun SmallTitle(
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold
         ),
-        color = colour,
+        color = color,
         maxLines = lines,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
     )
 }
 
-/** A Split tile: [shape] on [colour], with [press] inside its corners, so a ripple keeps to them. */
+/** A Split tile: [shape] on [color], with [press] inside its corners, so a ripple keeps to them. */
 @Composable
 private fun Tile(
     shape: Shape,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier,
     press: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
@@ -111,7 +111,7 @@ private fun Tile(
     Box(
         modifier
             .clip(shape)
-            .background(colour)
+            .background(color)
             .then(press)
     ) {
         CompositionLocalProvider(LocalInTile provides true) { content() }
@@ -140,14 +140,14 @@ private fun ShapedBox(
 
 /**
  * A Material shape [side] across, empty in the theme's highest surface and filled from the bottom
- * up to [fraction] in [colour]: Shape's level. [content] is drawn over the fill.
+ * up to [fraction] in [color]: Shape's level. [content] is drawn over the fill.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapedLevel(
     polygon: RoundedPolygon,
     fraction: Float,
-    colour: Color,
+    color: Color,
     side: Dp,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
@@ -162,7 +162,7 @@ private fun ShapedLevel(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight(fraction)
-                .background(colour)
+                .background(color)
         )
         content()
     }
@@ -177,7 +177,7 @@ private fun shapeValueStyle(side: Dp, share: Float = 0.35f): TextStyle =
     )
 
 /**
- * A few short lines centred in a card that is one shape ([LocalCardShaped]). A shape's points and
+ * A few short lines centered in a card that is one shape ([LocalCardShaped]). A shape's points and
  * bites take about a sixth of each side, so the lines keep inside that.
  */
 @Composable
@@ -221,18 +221,18 @@ private fun BesideShape(
     }
 }
 
-/** A value in Bold's type, [size] at most, in [colour], with its [unit] smaller after it. */
+/** A value in Bold's type, [size] at most, in [color], with its [unit] smaller after it. */
 @Composable
 private fun BoldValue(
     value: String,
     unit: String?,
     size: TextUnit,
-    colour: Color,
-    unitColour: Color = MaterialTheme.colorScheme.onSurface
+    color: Color,
+    unitColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Row {
         BoldText(
-            value, size, colour, Modifier
+            value, size, color, Modifier
                 .weight(1f, fill = false)
                 .alignByBaseline()
         )
@@ -244,7 +244,7 @@ private fun BoldValue(
                     fontSize = unitSize,
                     fontWeight = FontWeight.ExtraBold
                 ),
-                color = unitColour,
+                color = unitColor,
                 maxLines = 1,
                 softWrap = false,
                 modifier = Modifier
@@ -255,14 +255,14 @@ private fun BoldValue(
     }
 }
 
-/** A row of a title in [colour] and the card's [icon] in its [role] colour at the end: the top of a Split tile. */
+/** A row of a title in [color] and the card's [icon] in its [role] color at the end: the top of a Split tile. */
 @Composable
-private fun TitleAndIcon(title: String?, icon: String?, colour: Color, role: Color) {
+private fun TitleAndIcon(title: String?, icon: String?, color: Color, role: Color) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             title.orEmpty(),
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = colour,
+            color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -279,7 +279,7 @@ private fun TitleAndIcon(title: String?, icon: String?, colour: Color, role: Col
     }
 }
 
-/** The card's [icon] in its [role] colour on a cookie of the role's container, [side] across: Bold's badge. */
+/** The card's [icon] in its [role] color on a cookie of the role's container, [side] across: Bold's badge. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun IconCookie(icon: String, role: Color, side: Dp) {
@@ -380,11 +380,11 @@ private fun PillChart(
     }
 }
 
-/** A thin ring from the top, [fraction] of the way round in [colour] over [track], [side] across. It is drawn once per value. */
+/** A thin ring from the top, [fraction] of the way round in [color] over [track], [side] across. It is drawn once per value. */
 @Composable
 private fun ThinRing(
     fraction: Float,
-    colour: Color,
+    color: Color,
     track: Color,
     side: Dp,
     line: Dp,
@@ -396,7 +396,7 @@ private fun ThinRing(
         val arc = Size(size.width - stroke, size.height - stroke)
         drawArc(track, 0f, 360f, false, Offset(inset, inset), arc, style = Stroke(stroke))
         drawArc(
-            colour,
+            color,
             -90f,
             360f * fraction.coerceIn(0f, 1f),
             false,
@@ -422,13 +422,13 @@ internal fun StatLook(spec: WidgetSpec.Stat, box: WidgetSizes.Box, look: WidgetL
 
 /**
  * Bold's stat: the title small at the top with the icon on a cookie at its end, the value as big as
- * it fits in the role's colour, and the label in bold under it, with the change or the smaller
+ * it fits in the role's color, and the label in bold under it, with the change or the smaller
  * values ("28° · 19°") at the end of that line.
  */
 @Composable
 private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
     val hasChange = spec.trend != null || spec.delta != null
@@ -553,7 +553,7 @@ private fun BoldStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
 @Composable
 private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SPLIT, role)
     val title = LocalUntitled.current
     val gap = SplitCorners.GAP
@@ -635,7 +635,7 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     more.forEachIndexed { i, small ->
                         key(i) {
                             Tile(
-                                SplitCorners.tile(false, false, i == more.lastIndex, i == 0),
+                                SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = i == more.lastIndex, bottomStart = i == 0),
                                 c.tile,
                                 Modifier
                                     .weight(1f)
@@ -647,7 +647,7 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                                     Modifier
                                         .align(Alignment.Center)
                                         .padding(horizontal = 4.dp),
-                                    centred = true
+                                    centered = true
                                 )
                             }
                         }
@@ -707,7 +707,7 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                                 Modifier
                                     .align(Alignment.Center)
                                     .padding(horizontal = 4.dp),
-                                centred = true
+                                centered = true
                             )
                         }
                     }
@@ -772,7 +772,7 @@ private fun labelAndTitle(label: String?, title: String?): AnnotatedString? {
 @Composable
 private fun ShapedStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val small = box == WidgetSizes.Box.SMALL
     val line = labelAndTitle(spec.label, LocalUntitled.current.takeIf { !small })
     ShapeLines {
@@ -799,7 +799,7 @@ private fun ShapedStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
 @Composable
 private fun ShapeBesideStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     val head = labelAndTitle(spec.label, LocalUntitled.current)
     val more = spec.more.joinToString(" · ") { WidgetWords.joined(it.value, it.label) }
@@ -857,7 +857,7 @@ private fun FittedText(
     text: AnnotatedString,
     style: TextStyle,
     largest: TextUnit,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier
 ) {
     val auto = remember(largest) {
@@ -870,7 +870,7 @@ private fun FittedText(
     Text(
         text,
         style = style,
-        color = colour,
+        color = color,
         autoSize = auto,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
@@ -881,7 +881,7 @@ private fun FittedText(
 @Composable
 private fun BoldTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
     val largest = when (box) {
         WidgetSizes.Box.LARGE -> 34.sp
@@ -923,7 +923,7 @@ private fun BoldTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     }
 }
 
-/** The first letter of [text] on a cookie of the [role] colour, [side] across: who a quote is by. */
+/** The first letter of [text] on a cookie of the [role] color, [side] across: who a quote is by. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LetterCookie(text: String, role: Color, side: Dp) {
@@ -941,7 +941,7 @@ private fun LetterCookie(text: String, role: Color, side: Dp) {
 @Composable
 private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SPLIT, role)
     val title = LocalUntitled.current
     val who = spec.caption ?: title
@@ -999,7 +999,7 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
                                 .weight(1f)
                         )
                         if (both) Text(
-                            title.orEmpty(),
+                            title,
                             style = type.labelSmall,
                             color = c.muted,
                             maxLines = 1,
@@ -1068,7 +1068,7 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     }
 }
 
-/** The card's icon, or else the first letter of its title, in the [role] colour on a clover of the role's container. */
+/** The card's icon, or else the first letter of its title, in the [role] color on a clover of the role's container. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TextMark(icon: String?, title: String?, role: Color, side: Dp) {
@@ -1091,7 +1091,7 @@ private fun TextMark(icon: String?, title: String?, role: Color, side: Dp) {
 @Composable
 private fun ShapeTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     val title = LocalUntitled.current
     val quote = cardText(spec.text)
@@ -1186,7 +1186,7 @@ internal fun RowsLook(
 private val BOLD_LINE = 42.dp
 
 /**
- * Bold's list: the title small in the role's colour with "+3 more" at its end, the first row (or
+ * Bold's list: the title small in the role's color with "+3 more" at its end, the first row (or
  * the list's lead) large, then as many rows as fit as plain lines. Every row keeps its own tap.
  * Rows with a range have a bar ([boldBars]): a line before its end text, the first row at the end
  * of its second line, all in one column.
@@ -1194,7 +1194,7 @@ private val BOLD_LINE = 42.dp
 @Composable
 private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
     val lead = spec.lead
@@ -1279,7 +1279,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                         first.done?.let {
                             RowCheck(
                                 it,
-                                first.color?.let { k -> colourOf(k) } ?: role,
+                                first.color?.let { k -> colorOf(k) } ?: role,
                                 Modifier.padding(end = 8.dp))
                         }
                         Text(
@@ -1310,7 +1310,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                             RangeSlot(
                                 first.copy(trailing = null),
                                 bars,
-                                first.color?.let { colourOf(it) } ?: role,
+                                first.color?.let { colorOf(it) } ?: role,
                                 c.card,
                                 endStyle,
                                 c.muted)
@@ -1366,7 +1366,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                         row.done?.let {
                             RowCheck(
                                 it,
-                                row.color?.let { k -> colourOf(k) } ?: role,
+                                row.color?.let { k -> colorOf(k) } ?: role,
                                 Modifier.padding(end = 8.dp))
                         }
                         Text(
@@ -1380,7 +1380,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                         if (bars != null) RangeSlot(
                             row,
                             bars,
-                            row.color?.let { colourOf(it) } ?: role,
+                            row.color?.let { colorOf(it) } ?: role,
                             c.card,
                             endStyle,
                             c.muted)
@@ -1433,7 +1433,7 @@ private fun boldBars(
 
 /**
  * What starts a row of Split or Shape: its checkbox, or its icon, or else its rank. The rank is on
- * [shape], [side] across: the first in the role's colour, a row with a colour in that colour, the
+ * [shape], [side] across: the first in the role's color, a row with a color in that color, the
  * others in the role's container ([roleContainer]). With [inShape], an icon sits on that shape too.
  */
 @Composable
@@ -1446,25 +1446,25 @@ private fun RowMark(
     inShape: Boolean
 ) {
     val type = MaterialTheme.typography
-    val colours = lookColors()
-    val colour = row.color?.let { colourOf(it) }
+    val colors = lookColors()
+    val color = row.color?.let { colorOf(it) }
     val done = row.done
     val icon = row.icon
     when {
-        done != null -> RowCheck(done, colour ?: role)
+        done != null -> RowCheck(done, color ?: role)
         icon != null && !inShape -> WidgetIconText(
             icon,
             type.titleMedium,
-            colour ?: colours.muted,
+            color ?: colors.muted,
             size = 18.dp
         )
 
         else -> {
-            val strong = colour != null || index == 0
+            val strong = color != null || index == 0
             // The others are on the role's container: the card's highest surface is too close to the card to see.
             val container = roleContainer(role)
             val fill =
-                if (icon != null) container else colour ?: if (index == 0) role else container
+                if (icon != null) container else color ?: if (index == 0) role else container
             Box(
                 Modifier
                     .size(side)
@@ -1473,13 +1473,13 @@ private fun RowMark(
                 if (icon != null) WidgetIconText(
                     icon,
                     type.titleMedium,
-                    colour ?: role,
+                    color ?: role,
                     size = side / 2
                 )
                 else Text(
                     "${index + 1}",
                     style = type.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
-                    color = if (strong) colours.onAccent else colours.content,
+                    color = if (strong) colors.onAccent else colors.content,
                     maxLines = 1
                 )
             }
@@ -1489,8 +1489,8 @@ private fun RowMark(
 
 /**
  * A row's title, with its second line under it when [details] has room for one, and its end text in [muted].
- * With [bars], the row's range has its bar before the end text ([RangeSlot]): in the row's colour or
- * the card's [role], with [under] the colour beneath it.
+ * With [bars], the row's range has its bar before the end text ([RangeSlot]): in the row's color or
+ * the card's [role], with [under] the color beneath it.
  */
 @Composable
 private fun RowWords(
@@ -1528,7 +1528,7 @@ private fun RowWords(
         if (bars != null) RangeSlot(
             row,
             bars,
-            row.color?.let { colourOf(it) } ?: role,
+            row.color?.let { colorOf(it) } ?: role,
             under,
             end,
             muted)
@@ -1623,7 +1623,7 @@ private fun LeadWords(
 @Composable
 private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SPLIT, role)
     val title = LocalUntitled.current
     val lead = spec.lead
@@ -1916,7 +1916,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
 @Composable
 private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     val title = LocalUntitled.current
     val lead = spec.lead
@@ -2071,19 +2071,19 @@ internal fun ProgressLook(
     spec: WidgetSpec.Progress,
     box: WidgetSizes.Box,
     look: WidgetLook,
-    colour: Color
+    color: Color
 ) {
     when {
         spec.items.isNotEmpty() -> when (look) {
-            WidgetLook.BOLD -> BoldBars(spec, box, colour)
-            WidgetLook.SPLIT -> SplitBars(spec, colour)
-            else -> ShapeBars(spec, colour)
+            WidgetLook.BOLD -> BoldBars(spec, box, color)
+            WidgetLook.SPLIT -> SplitBars(spec, color)
+            else -> ShapeBars(spec, color)
         }
 
         look == WidgetLook.BOLD -> BoldProgress(spec, box)
-        look == WidgetLook.SPLIT -> SplitProgress(spec, box, colour)
-        LocalCardShaped.current -> ShapedProgress(spec, box, colour)
-        else -> ShapeBesideProgress(spec, colour)
+        look == WidgetLook.SPLIT -> SplitProgress(spec, box, color)
+        LocalCardShaped.current -> ShapedProgress(spec, box, color)
+        else -> ShapeBesideProgress(spec, color)
     }
 }
 
@@ -2094,7 +2094,7 @@ internal fun ProgressLook(
 @Composable
 private fun BoldProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.BOLD, roleColour(spec.base))
+    val c = lookColors(WidgetLook.BOLD, roleColor(spec.base))
     val title = LocalUntitled.current
     val (number, unit) = splitPercent(spec.text ?: WidgetWords.percent(spec.value, spec.max))
     when (box) {
@@ -2165,9 +2165,9 @@ private fun BoldProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
 
 /** Bold's bars: the title small, then each bar with its label and its text in Bold's type over it, as many as fit. */
 @Composable
-private fun BoldBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+private fun BoldBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.BOLD, colour)
+    val c = lookColors(WidgetLook.BOLD, color)
     val title = LocalUntitled.current.takeIf { box == WidgetSizes.Box.LARGE }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val count = ((maxHeight - if (title != null) 20.dp else 0.dp) / 30.dp).toInt()
@@ -2176,7 +2176,7 @@ private fun BoldBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
             SmallTitle(title, c.content)
             spec.items.take(count).forEachIndexed { i, bar ->
                 key(i) {
-                    val tint = bar.color?.let { colourOf(it) } ?: colour
+                    val tint = bar.color?.let { colorOf(it) } ?: color
                     Column {
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
@@ -2212,9 +2212,9 @@ private fun BoldBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
  * a tile with the title and the label. A small card has the level tile alone.
  */
 @Composable
-private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SPLIT, colour)
+    val c = lookColors(WidgetLook.SPLIT, color)
     val title = LocalUntitled.current
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
@@ -2225,7 +2225,7 @@ private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colou
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .fillMaxHeight(fraction)
-                    .background(roleContainer(colour))
+                    .background(roleContainer(color))
             )
             BigText(
                 text,
@@ -2287,16 +2287,16 @@ private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colou
 
 /** Split's bars: a tile for each bar, side by side, each filled from the bottom to its level, with its percent at the top and its label at the bottom. */
 @Composable
-private fun SplitBars(spec: WidgetSpec.Progress, colour: Color) {
+private fun SplitBars(spec: WidgetSpec.Progress, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SPLIT, colour)
+    val c = lookColors(WidgetLook.SPLIT, color)
     val gap = SplitCorners.GAP
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val count = ((maxWidth + gap) / (56.dp + gap)).toInt().coerceIn(1, spec.items.size)
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             spec.items.take(count).forEachIndexed { i, bar ->
                 key(i) {
-                    val tint = bar.color?.let { colourOf(it) } ?: colour
+                    val tint = bar.color?.let { colorOf(it) } ?: color
                     Tile(
                         SplitCorners.inRow(i, count),
                         c.tile,
@@ -2337,16 +2337,16 @@ private fun SplitBars(spec: WidgetSpec.Progress, colour: Color) {
     }
 }
 
-/** On a fill that reaches past [fraction] of the way up, text goes in the colour that reads on the fill. */
+/** On a fill that reaches past [fraction] of the way up, text goes in the color that reads on the fill. */
 @Composable
-private fun onLevel(fraction: Float, colours: LookColors): Color =
-    if (fraction >= 0.5f) colours.onAccent else colours.content
+private fun onLevel(fraction: Float, colors: LookColors): Color =
+    if (fraction >= 0.5f) colors.onAccent else colors.content
 
 /** Shape's progress in a card that is a clover: the clover fills from the bottom to the level, with the label above and the value on the fill. */
 @Composable
-private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SHAPE, colour)
+    val c = lookColors(WidgetLook.SHAPE, color)
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
     val small = box == WidgetSizes.Box.SMALL
@@ -2358,7 +2358,7 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight(fraction)
-                .background(colour)
+                .background(color)
         )
         if (!small) line?.let {
             Text(
@@ -2388,16 +2388,16 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
 /** Shape's progress in a wide card: a clover filled to the level with the value on it, and beside it the title over the label. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBesideProgress(spec: WidgetSpec.Progress, colour: Color) {
+private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SHAPE, colour)
+    val c = lookColors(WidgetLook.SHAPE, color)
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
     val title = LocalUntitled.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = minOf(maxHeight, 140.dp, maxWidth / 2)
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            ShapedLevel(MaterialShapes.Clover4Leaf, fraction, colour, side) {
+            ShapedLevel(MaterialShapes.Clover4Leaf, fraction, color, side) {
                 BigText(
                     text,
                     shapeValueStyle(side, 0.25f),
@@ -2430,9 +2430,9 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, colour: Color) {
 /** Shape's bars: a row for each bar, as many as fit, with a small clover filled to its level, its label, and its text. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBars(spec: WidgetSpec.Progress, colour: Color) {
+private fun ShapeBars(spec: WidgetSpec.Progress, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SHAPE, colour)
+    val c = lookColors(WidgetLook.SHAPE, color)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val count = (maxHeight / 30.dp).toInt().coerceIn(1, spec.items.size)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
@@ -2442,7 +2442,7 @@ private fun ShapeBars(spec: WidgetSpec.Progress, colour: Color) {
                         ShapedLevel(
                             MaterialShapes.Clover4Leaf,
                             WidgetWords.fraction(bar.value, bar.max),
-                            bar.color?.let { colourOf(it) } ?: colour,
+                            bar.color?.let { colorOf(it) } ?: color,
                             26.dp)
                         Text(
                             bar.label.orEmpty(),
@@ -2497,11 +2497,11 @@ internal fun CountdownLook(
     }
 }
 
-/** The time left in Bold's type, [size] at most, in [colour], its unit smaller after it. Only this is drawn again at a tick. */
+/** The time left in Bold's type, [size] at most, in [color], its unit smaller after it. Only this is drawn again at a tick. */
 @Composable
-private fun BoldCount(count: State<WidgetWords.Count>, size: TextUnit, colour: Color) {
+private fun BoldCount(count: State<WidgetWords.Count>, size: TextUnit, color: Color) {
     val left = count.value
-    BoldValue(StyledText.capitalised(left.value), left.unit, size, colour)
+    BoldValue(StyledText.capitalized(left.value), left.unit, size, color)
 }
 
 /** The time left as a value in [style], its unit in [unitStyle] after it, or under it when [stacked]. Only this is drawn again at a tick. */
@@ -2510,19 +2510,19 @@ private fun CountWords(
     count: State<WidgetWords.Count>,
     style: TextStyle,
     unitStyle: TextStyle,
-    unitColour: Color,
-    stacked: Boolean = false,
-    modifier: Modifier = Modifier
+    unitColor: Color,
+    modifier: Modifier = Modifier,
+    stacked: Boolean = false
 ) {
     val left = count.value
     if (stacked) {
         Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-            BigText(StyledText.capitalised(left.value), style)
+            BigText(StyledText.capitalized(left.value), style)
             left.unit?.let {
                 Text(
                     it,
                     style = unitStyle,
-                    color = unitColour,
+                    color = unitColor,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -2531,7 +2531,7 @@ private fun CountWords(
     } else {
         Row(modifier) {
             BigText(
-                StyledText.capitalised(left.value),
+                StyledText.capitalized(left.value),
                 style,
                 Modifier
                     .weight(1f, fill = false)
@@ -2541,7 +2541,7 @@ private fun CountWords(
                 Text(
                     it,
                     style = unitStyle,
-                    color = unitColour,
+                    color = unitColor,
                     maxLines = 1,
                     softWrap = false,
                     modifier = Modifier
@@ -2553,7 +2553,7 @@ private fun CountWords(
     }
 }
 
-/** Bold's countdown: the title small with the moment at its end, the number as big as it fits in the role's colour, and the bar or the label under it. */
+/** Bold's countdown: the title small with the moment at its end, the number as big as it fits in the role's color, and the bar or the label under it. */
 @Composable
 private fun BoldCountdown(
     spec: WidgetSpec.Countdown,
@@ -2563,7 +2563,7 @@ private fun BoldCountdown(
     moment: String?
 ) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
     val top: @Composable () -> Unit = {
@@ -2666,7 +2666,7 @@ private fun SplitCountdown(
     now: LongState
 ) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SPLIT, role)
     val title = LocalUntitled.current
     val gap = SplitCorners.GAP
@@ -2728,7 +2728,7 @@ private fun SplitCountdown(
                     parts.forEachIndexed { i, (value, caption) ->
                         key(i) {
                             Tile(
-                                SplitCorners.tile(false, false, i == parts.lastIndex, i == 0),
+                                SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = i == parts.lastIndex, bottomStart = i == 0),
                                 c.tile,
                                 Modifier
                                     .weight(1f)
@@ -2857,7 +2857,7 @@ private fun ShapedCountdown(
     bar: Float?
 ) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     val small = box == WidgetSizes.Box.SMALL
     val line = (spec.label ?: LocalUntitled.current).takeIf { !small }
@@ -2911,7 +2911,7 @@ private fun ShapeBesideCountdown(
     ends: Pair<String, String>?
 ) {
     val type = MaterialTheme.typography
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     BesideShape(MaterialShapes.Sunny, c.shapeFill, inShape = { side ->
         CountWords(
@@ -2965,13 +2965,13 @@ internal fun ChartLook(
     spec: WidgetSpec.Chart,
     box: WidgetSizes.Box,
     look: WidgetLook,
-    colour: Color
+    color: Color
 ) {
     when {
-        look == WidgetLook.BOLD -> BoldChart(spec, box, colour)
-        look == WidgetLook.SPLIT -> SplitChart(spec, box, colour)
-        LocalCardShaped.current -> ShapedChart(spec, box, colour)
-        else -> ShapeBesideChart(spec, box, colour)
+        look == WidgetLook.BOLD -> BoldChart(spec, box, color)
+        look == WidgetLook.SPLIT -> SplitChart(spec, box, color)
+        LocalCardShaped.current -> ShapedChart(spec, box, color)
+        else -> ShapeBesideChart(spec, box, color)
     }
 }
 
@@ -2979,15 +2979,15 @@ internal fun ChartLook(
 internal val CHART_SIDE_FROM = 260.dp
 
 /**
- * Bold's chart: the title small, the value as big as it fits in the role's colour with its label,
- * and the points as round pills, the latest in the role's colour. A wide large card has the pills
+ * Bold's chart: the title small, the value as big as it fits in the role's color with its label,
+ * and the points as round pills, the latest in the role's color. A wide large card has the pills
  * beside the value, with the first and the last label under them. A chart of dots has its dots
  * where the pills go ([Dots]): a calendar in a large card, the last seven days in the others.
  */
 @Composable
-private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
+private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.BOLD, colour)
+    val c = lookColors(WidgetLook.BOLD, color)
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
     val rest = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -2996,7 +2996,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
         { labels, thick, gap, modifier ->
             if (spec.style == "dots") Dots(
                 spec,
-                colour,
+                color,
                 weeks = box == WidgetSizes.Box.LARGE,
                 modifier
             )
@@ -3005,7 +3005,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                 bars,
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 rest,
                 labels,
                 thick,
@@ -3028,7 +3028,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                             .weight(1f)
                             .fillMaxWidth(),
                         contentAlignment = Alignment.BottomStart
-                    ) { spec.value?.let { BoldText(it, 92.sp, colour) } }
+                    ) { spec.value?.let { BoldText(it, 92.sp, color) } }
                     spec.label?.let {
                         Text(
                             it,
@@ -3053,7 +3053,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
 
             box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
                 SmallTitle(title, c.content)
-                spec.value?.let { BoldText(it, 48.sp, colour, Modifier.padding(top = 6.dp)) }
+                spec.value?.let { BoldText(it, 48.sp, color, Modifier.padding(top = 6.dp)) }
                 spec.label?.let {
                     Text(
                         it,
@@ -3090,7 +3090,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                             .weight(1f)
                             .fillMaxWidth(),
                         contentAlignment = Alignment.BottomStart
-                    ) { spec.value?.let { BoldText(it, 56.sp, colour) } }
+                    ) { spec.value?.let { BoldText(it, 56.sp, color) } }
                 }
                 plot(
                     emptyList(),
@@ -3107,7 +3107,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                spec.value?.let { BoldText(it, 32.sp, colour) }
+                spec.value?.let { BoldText(it, 32.sp, color) }
                 plot(
                     emptyList(),
                     8.dp,
@@ -3128,9 +3128,9 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
  * plot's tile ([Dots]): a calendar in a large card, the last seven days in the others.
  */
 @Composable
-private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
+private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SPLIT, colour)
+    val c = lookColors(WidgetLook.SPLIT, color)
     val title = LocalUntitled.current
     val bars = spec.style == "bars"
     val dots = spec.style == "dots"
@@ -3185,7 +3185,7 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Col
             ) {
                 if (dots) Dots(
                     spec,
-                    colour,
+                    color,
                     weeks = box == WidgetSizes.Box.LARGE,
                     Modifier
                         .weight(1f)
@@ -3196,7 +3196,7 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Col
                     bars,
                     spec.min,
                     spec.max,
-                    colour,
+                    color,
                     Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -3308,9 +3308,9 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Col
  * its plot in the cookie, or its dots ([Dots]).
  */
 @Composable
-private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
+private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SHAPE, colour)
+    val c = lookColors(WidgetLook.SHAPE, color)
     val small = box == WidgetSizes.Box.SMALL
     val value = spec.value
     ShapeLines {
@@ -3331,7 +3331,7 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Co
             }
         } else if (spec.style == "dots") {
             Dots(
-                spec, colour, weeks = !small, Modifier
+                spec, color, weeks = !small, Modifier
                     .weight(1f)
                     .fillMaxWidth()
             )
@@ -3341,7 +3341,7 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Co
                 spec.style == "bars",
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -3353,14 +3353,14 @@ private fun ShapedChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Co
 
 /**
  * Shape's chart in a wide card: the value in a cookie (with its label in a large one), and beside
- * it the points: round pills for bars, the latest in the role's colour, or the line, or dots
+ * it the points: round pills for bars, the latest in the role's color, or the line, or dots
  * ([Dots]): a calendar in a large card, the last seven days in a 1-row one.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
+private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SHAPE, colour)
+    val c = lookColors(WidgetLook.SHAPE, color)
     val large = box == WidgetSizes.Box.LARGE
     BesideShape(MaterialShapes.Cookie12Sided, c.shapeFill, inShape = { side ->
         Column(
@@ -3397,7 +3397,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colou
                 true,
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 MaterialTheme.colorScheme.surfaceContainerHighest,
                 if (large) spec.labels else emptyList(),
                 14.dp,
@@ -3408,7 +3408,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colou
             )
         } else if (spec.style == "dots") {
             Dots(
-                spec, colour, weeks = large, Modifier
+                spec, color, weeks = large, Modifier
                     .weight(1f)
                     .fillMaxWidth()
             )
@@ -3418,7 +3418,7 @@ private fun ShapeBesideChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colou
                 false,
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 Modifier
                     .weight(1f)
                     .fillMaxWidth(),

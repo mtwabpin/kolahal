@@ -9,7 +9,7 @@ import org.junit.Test
 class ExpressiveOnlyTest {
     private val root = sourceFile("src/main/java/com/mtwabpin/kolahal")
 
-    /** Part of the terminal, which draws its own look in its own colours. */
+    /** Part of the terminal, which draws its own look in its own colors. */
     private val terminal = setOf("SuggestionList.kt")
 
     /** A Material name called, bare or written out (`androidx.compose.material3.TextField(`). */
@@ -38,7 +38,7 @@ class ExpressiveOnlyTest {
         return text.substring(start, i)
     }
 
-    /** Every older component, button without its Expressive shapes, and text field not shaped and coloured as the others in [text]. */
+    /** Every older component, button without its Expressive shapes, and text field not shaped and colored as the others in [text]. */
     private fun problems(text: String): List<String> =
         older.findAll(text).map { it.groupValues[1] }.toList() +
                 needShapes.findAll(text).mapNotNull { m ->

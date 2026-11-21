@@ -98,7 +98,7 @@ internal fun Prompt(
                 },
             )
             .clickable(onClick = onTapPrompt)
-            // The vertical space comes from [height] (centred), so small values really make the line
+            // The vertical space comes from [height] (centered), so small values really make the line
             // shorter. There is no end padding: the ⌨ target reaches the screen edge and pads its own icon.
             .padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
     ) {

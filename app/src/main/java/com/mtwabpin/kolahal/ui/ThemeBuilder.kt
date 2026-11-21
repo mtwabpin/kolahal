@@ -70,7 +70,7 @@ import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 
-/** For each colour role: its name in the builder, and what it colours. */
+/** For each color role: its name in the builder, and what it colors. */
 private val ROLE_TEXT = mapOf(
     "background" to ("Background" to "Behind everything"),
     "surface" to ("Surface" to "Chips, the key bar and raised panels"),
@@ -90,8 +90,8 @@ private val ROLE_TEXT = mapOf(
 
 /**
  * Settings → Look & feel → Your themes. Creates a new theme, or edits an existing one
- * ([TerminalViewModel.themeBuilderName]). A small home screen at the top shows each colour change
- * at once. Saving also applies the theme. Back, when a colour or the name changed, asks
+ * ([TerminalViewModel.themeBuilderName]). A small home screen at the top shows each color change
+ * at once. Saving also applies the theme. Back, when a color or the name changed, asks
  * "Discard changes?" (Discard, Keep editing) before leaving.
  */
 @Composable
@@ -113,21 +113,21 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             }
         }
     }
-    // Which version (dark or light) the colours below change. The preview shows this version.
+    // Which version (dark or light) the colors below change. The preview shows this version.
     var light by remember { mutableStateOf(false) }
     fun keyOf(role: String) = if (light) CustomThemes.LIGHT + role else role
     // Use remember, not saved state, like the draft. Saved state outlives a visit, and a name left
     // from the last visit would rename the theme being edited.
     var name by remember { mutableStateOf(editing ?: newName()) }
     // Where the draft and the name started, to ask before Back throws changes away.
-    val startColours = remember { draft.toMap() }
+    val startColors = remember { draft.toMap() }
     val startName = remember { name }
     var picking by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     // Back and the bar's back arrow leave at once when nothing changed; otherwise they ask first.
     val leave: () -> Unit = {
-        if (ThemeDraft.changed(startColours, draft, startName, name)) confirmDiscard =
+        if (ThemeDraft.changed(startColors, draft, startName, name)) confirmDiscard =
             true else vm.closeScreen()
     }
     val nameError = when {
@@ -242,7 +242,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                         ) {
                             (Keys.BUILT_IN_THEMES + CustomThemes.names.filter { it != editing }).forEach { other ->
                                 val p = Palettes.named(other, dark = !light)
-                                // Copies both versions, because a theme's dark and light colours belong together.
+                                // Copies both versions, because a theme's dark and light colors belong together.
                                 FilledTonalButton(
                                     shapes = ButtonDefaults.shapes(),
                                     onClick = { draft.putAll(Palettes.themeColors(other)) },
@@ -259,21 +259,21 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                             }
                         }
                     }
-                    item(key = "h:colours") { GroupHeader("Colours") }
+                    item(key = "h:colors") { GroupHeader("Colors") }
                     items(CustomThemes.ROLES, key = { it }) { role ->
                         val (title, help) = ROLE_TEXT.getValue(role)
-                        val colour = draft.getValue(keyOf(role))
+                        val color = draft.getValue(keyOf(role))
                         val index = CustomThemes.ROLES.indexOf(role)
                         Box(Modifier.padding(bottom = androidx.compose.material3.ListItemDefaults.SegmentedGap)) {
                             SegmentedListItem(
                                 onClick = { picking = role },
                                 colors = segColors(),
                                 shapes = segShapes(index, CustomThemes.ROLES.size),
-                                leadingContent = { Swatch(Color(colour), 36.dp) },
+                                leadingContent = { Swatch(Color(color), 36.dp) },
                                 supportingContent = { Text(help) },
                                 trailingContent = {
                                     Text(
-                                        CustomThemes.hex(colour),
+                                        CustomThemes.hex(color),
                                         style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace)
                                     )
                                 },
@@ -288,8 +288,8 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
 
         picking?.let { role ->
             val key = keyOf(role)
-            // Swatches make colours easy to match. First the same role in every built-in theme (the
-            // version being edited first), then the draft's other colours.
+            // Swatches make colors easy to match. First the same role in every built-in theme (the
+            // version being edited first), then the draft's other colors.
             val swatches = remember(key) {
                 (Keys.BUILT_IN_THEMES.map {
                     Palettes.colorsOf(Palettes.named(it, dark = !light)).getValue(role)
@@ -304,7 +304,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
                         } + draft.values).distinct()
             }
             androidx.compose.runtime.key(key) {
-                ColourSheet(
+                ColorSheet(
                     role,
                     draft.getValue(key),
                     swatches,
@@ -345,7 +345,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
 
 /**
  * A [ThemePreview] of the dark or [light] version of [draft]. It reads the draft in its own scope,
- * so each step of a colour slider redraws only the preview, not the whole page.
+ * so each step of a color slider redraws only the preview, not the whole page.
  */
 @Composable
 private fun DraftPreview(draft: Map<String, Int>, light: Boolean, modifier: Modifier) {
@@ -361,18 +361,18 @@ private fun newName(): String =
         .first { CustomThemes.colors(it) == null }
 
 @Composable
-private fun Swatch(colour: Color, size: androidx.compose.ui.unit.Dp) {
+private fun Swatch(color: Color, size: androidx.compose.ui.unit.Dp) {
     Box(
         Modifier
             .size(size)
             .clip(CircleShape)
-            .background(colour)
+            .background(color)
             .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), CircleShape),
     )
 }
 
 /**
- * A small home screen in the colours of [p]. It shows:
+ * A small home screen in the colors of [p]. It shows:
  * - the header line
  * - a command and its output
  * - every kind of log line
@@ -436,10 +436,10 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
                 "Maps" to p.personal,
                 "W Gmail" to p.work,
                 "S Bank" to p.private
-            ).forEach { (label, colour) ->
+            ).forEach { (label, color) ->
                 Text(
                     label,
-                    style = line.copy(color = colour),
+                    style = line.copy(color = color),
                     modifier = Modifier
                         .background(p.surface, RoundedCornerShape(6.dp))
                         .padding(horizontal = 8.dp, vertical = 3.dp)
@@ -463,22 +463,22 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
 }
 
 /**
- * Picks [colour] for [role] with hue, saturation and lightness sliders, a hex code, or a swatch.
+ * Picks [color] for [role] with hue, saturation and lightness sliders, a hex code, or a swatch.
  * Each change is sent at once ([onChange]). The sheet does not dim the screen, so the preview above shows the change.
  */
 @Composable
-private fun ColourSheet(
+private fun ColorSheet(
     role: String,
-    colour: Int,
+    color: Int,
     swatches: List<Int>,
     onChange: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val start = remember(role) { FloatArray(3).also { ColorUtils.colorToHSL(colour, it) } }
+    val start = remember(role) { FloatArray(3).also { ColorUtils.colorToHSL(color, it) } }
     var h by remember(role) { mutableFloatStateOf(start[0]) }
     var s by remember(role) { mutableFloatStateOf(start[1]) }
     var l by remember(role) { mutableFloatStateOf(start[2]) }
-    var hex by remember(role) { mutableStateOf(CustomThemes.hex(colour)) }
+    var hex by remember(role) { mutableStateOf(CustomThemes.hex(color)) }
     fun fromSliders() {
         val c = ColorUtils.HSLToColor(floatArrayOf(h, s, l))
         hex = CustomThemes.hex(c)
@@ -495,7 +495,7 @@ private fun ColourSheet(
 
     GuiSheet(onDismiss, scrimColor = Color.Transparent) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Swatch(Color(colour), 40.dp)
+            Swatch(Color(color), 40.dp)
             Spacer(Modifier.width(16.dp))
             Column {
                 Text(title, style = MaterialTheme.typography.titleLarge)
@@ -566,7 +566,7 @@ private fun ColourSheet(
     }
 }
 
-/** A labelled slider drawn over [brush], so the track shows the effect of moving it. */
+/** A labeled slider drawn over [brush], so the track shows the effect of moving it. */
 @Composable
 private fun GradientSlider(
     label: String,
@@ -599,12 +599,12 @@ private fun GradientSlider(
 
 /** What the theme builder needs to know about its draft, kept apart for tests. */
 internal object ThemeDraft {
-    /** Whether the [colours] or the [name] differ from where they started ([startColours], [startName]). */
+    /** Whether the [colors] or the [name] differ from where they started ([startColors], [startName]). */
     fun changed(
-        startColours: Map<String, Int>,
-        colours: Map<String, Int>,
+        startColors: Map<String, Int>,
+        colors: Map<String, Int>,
         startName: String,
         name: String
     ): Boolean =
-        name != startName || colours.toMap() != startColours
+        name != startName || colors.toMap() != startColors
 }

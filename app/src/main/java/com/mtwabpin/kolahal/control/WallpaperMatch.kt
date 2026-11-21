@@ -10,37 +10,38 @@ import androidx.core.graphics.createBitmap
 import com.mtwabpin.kolahal.data.Stores
 
 /**
- * `wallpaper match`: sets the home screen's wallpaper to the theme's colour. The wallpaper follows
+ * `wallpaper match`: sets the home screen's wallpaper to the theme's color. The wallpaper follows
  * the theme as long as it is still the one Kolahal set.
  * - Android gives a wallpaper a new id each time anything sets one. An app can read the id without
  *   seeing the picture. So if another wallpaper was set since, Kolahal leaves it alone and forgets.
  * - An id is valid only on this phone. The file that holds it is kept out of backups and transfers,
  *   because the same number on another phone may be that person's own wallpaper.
- * - The `material-you` theme takes its colours from the wallpaper. The wallpaper doesn't follow
+ * - The `material-you` theme takes its colors from the wallpaper. The wallpaper doesn't follow
  *   that theme, because each would keep changing the other ([themeFromWallpaper]). It follows
- *   again when a theme with colours of its own is picked.
+ *   again when a theme with colors of its own is picked.
  */
 object WallpaperMatch {
     private const val KEY_ID = "id"
-    private const val KEY_COLOUR = "colour"
+    // The stored key keeps its first spelling, so a saved color is still found.
+    private const val KEY_COLOR = "colour"
 
-    /** The last colour asked for. When themes change faster than the wallpaper can, this is the one to end on. */
+    /** The last color asked for. When themes change faster than the wallpaper can, this is the one to end on. */
     @Volatile
     private var wanted = 0
 
     private fun prefs(context: Context) = Stores.WALLPAPER_MATCH.open(context.applicationContext)
 
     /**
-     * The colour of the theme on screen, fully opaque, as the screen last reported it ([follow]).
+     * The color of the theme on screen, fully opaque, as the screen last reported it ([follow]).
      * Null until home has applied a theme in this process: then `wallpaper match` refuses, rather
-     * than paint over your wallpaper with a colour it doesn't know.
+     * than paint over your wallpaper with a color it doesn't know.
      */
     @Volatile
-    var themeColour: Int? = null
+    var themeColor: Int? = null
         @androidx.annotation.VisibleForTesting internal set
 
     /**
-     * True when the theme on screen takes its colours from the wallpaper, as the screen last
+     * True when the theme on screen takes its colors from the wallpaper, as the screen last
      * reported it ([follow]). Then `wallpaper match` refuses, and the wallpaper stays as it is.
      */
     @Volatile
@@ -54,12 +55,12 @@ object WallpaperMatch {
             .getWallpaperId(WallpaperManager.FLAG_SYSTEM) == id
     }
 
-    /** Sets the home screen's wallpaper to [colour] and saves its id. Returns false if Android doesn't allow it. */
+    /** Sets the home screen's wallpaper to [color] and saves its id. Returns false if Android doesn't allow it. */
     @Synchronized
-    fun set(context: Context, colour: Int): Boolean {
+    fun set(context: Context, color: Int): Boolean {
         val wallpapers = WallpaperManager.getInstance(context)
         if (!wallpapers.isWallpaperSupported || !wallpapers.isSetWallpaperAllowed) return false
-        val solid = createBitmap(64, 64).apply { eraseColor(colour) }
+        val solid = createBitmap(64, 64).apply { eraseColor(color) }
         val id = runCatching {
             wallpapers.setBitmap(
                 solid,
@@ -69,30 +70,30 @@ object WallpaperMatch {
             )
         }.getOrDefault(0)
         if (id == 0) return false
-        prefs(context).edit { putInt(KEY_ID, id); putInt(KEY_COLOUR, colour) }
+        prefs(context).edit { putInt(KEY_ID, id); putInt(KEY_COLOR, color) }
         return true
     }
 
     /**
-     * The theme is now [colour]. The wallpaper follows if it is still Kolahal's.
-     * - With [fromWallpaper], the theme took this colour from the wallpaper. The wallpaper then
+     * The theme is now [color]. The wallpaper follows if it is still Kolahal's.
+     * - With [fromWallpaper], the theme took this color from the wallpaper. The wallpaper then
      *   stays as it is.
      * - This is called each time a theme applies, so the "nothing to do" case returns quickly.
      *   The real work runs off the main thread.
      */
-    fun follow(context: Context, colour: Int, fromWallpaper: Boolean = false) {
+    fun follow(context: Context, color: Int, fromWallpaper: Boolean = false) {
         // Kept first: the usual case below returns at once, as the wallpaper isn't Kolahal's.
-        themeColour = colour
+        themeColor = color
         themeFromWallpaper = fromWallpaper
         if (fromWallpaper) return
         val prefs = prefs(context)
-        if (!prefs.contains(KEY_ID) || prefs.getInt(KEY_COLOUR, colour) == colour) return
-        wanted = colour
+        if (!prefs.contains(KEY_ID) || prefs.getInt(KEY_COLOR, color) == color) return
+        wanted = color
         val app = context.applicationContext
         Thread {
             synchronized(this) {
                 val now = wanted
-                if (!prefs.contains(KEY_ID) || prefs.getInt(KEY_COLOUR, now) == now) return@Thread
+                if (!prefs.contains(KEY_ID) || prefs.getInt(KEY_COLOR, now) == now) return@Thread
                 if (isMatched(app)) set(app, now) else forget(app)
             }
         }.start()

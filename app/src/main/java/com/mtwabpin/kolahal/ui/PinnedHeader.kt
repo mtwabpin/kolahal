@@ -292,13 +292,13 @@ private fun PinLine(
         val progress = line.progress
         if (progress != null) ProgressTrack(
             progress,
-            line.colour?.let(::colourOf) ?: Term.prompt
+            line.color?.let(::colorOf) ?: Term.prompt
         ) else Spacer(Modifier.height(2.dp))
     }
 }
 
 /**
- * Shows which of [count] items is visible: the dot at [index] uses the accent colour. The dots sit
+ * Shows which of [count] items is visible: the dot at [index] uses the accent color. The dots sit
  * in the text row ([row] high, under [PINNED_TOP]), at the end of [modifier]'s touch area. A tap
  * anywhere in that area calls [onNext].
  */

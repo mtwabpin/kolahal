@@ -178,7 +178,7 @@ class WidgetShowTest {
                 )
             )
         }
-        refused("no colour 'red'") { h.widgetShow(mapOf("value" to 24, "color" to "red")) }
+        refused("no color 'red'") { h.widgetShow(mapOf("value" to 24, "color" to "red")) }
         refused("item 2 of more: value is needed") {
             h.widgetShow(
                 mapOf(

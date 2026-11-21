@@ -16,7 +16,7 @@ class WidgetSpecJsonTest {
     private val fullBase = WidgetBase(
         title = "Weather",
         icon = "☀",
-        color = StyledText.Colour.WARN,
+        color = StyledText.ColorRole.WARN,
         tap = WidgetTap(args = "full report", label = "Open the report", toLog = true),
         staleAfter = 7200,
         refresh = 60,
@@ -90,7 +90,7 @@ class WidgetSpecJsonTest {
                         detail = "120 points",
                         trailing = "2h",
                         icon = "1",
-                        color = StyledText.Colour.GOOD,
+                        color = StyledText.ColorRole.GOOD,
                         tap = WidgetTap(url = "https://example.com/a?b=1&c=2")
                     ),
                     WidgetSpec.Row("Another", tap = WidgetTap(args = "open 2", label = "Open")),
@@ -120,10 +120,10 @@ class WidgetSpecJsonTest {
             WidgetSpec.Progress(
                 bare, value = 0f, style = "bar",
                 items = listOf(
-                    WidgetSpec.Bar("Mon", 3.5f, 8f, "3.5 h", StyledText.Colour.ACCENT),
+                    WidgetSpec.Bar("Mon", 3.5f, 8f, "3.5 h", StyledText.ColorRole.ACCENT),
                     WidgetSpec.Bar(null, 0f, 1f, null, null),
-                    WidgetSpec.Bar("Wed", -2f, 0.1f, "", StyledText.Colour.BAD),
-                    WidgetSpec.Bar("Thu", 1e10f, 3.4e38f, null, StyledText.Colour.MUTED),
+                    WidgetSpec.Bar("Wed", -2f, 0.1f, "", StyledText.ColorRole.BAD),
+                    WidgetSpec.Bar("Thu", 1e10f, 3.4e38f, null, StyledText.ColorRole.MUTED),
                 ),
             )
         )
@@ -346,7 +346,7 @@ class WidgetSpecJsonTest {
                         "On",
                         WidgetTap(args = "on", label = "Switch on"),
                         icon = "☀",
-                        color = StyledText.Colour.GOOD
+                        color = StyledText.ColorRole.GOOD
                     ),
                     WidgetSpec.Button("Report", WidgetTap(args = "report", toLog = true)),
                     WidgetSpec.Button("Docs", WidgetTap(url = "https://example.com/docs")),
@@ -437,7 +437,7 @@ class WidgetSpecJsonTest {
                         1_800_000_000L,
                         ends = 1_800_007_200L,
                         where = "Pune",
-                        color = StyledText.Colour.GOOD,
+                        color = StyledText.ColorRole.GOOD,
                         tap = WidgetTap(url = "https://example.com/final")
                     ),
                     WidgetSpec.Event(
@@ -464,7 +464,7 @@ class WidgetSpecJsonTest {
     // ---- styled text ------------------------------------------------------------------------
 
     private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
-    private fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+    private fun good(s: String) = StyledText.color(StyledText.ColorRole.GOOD, s)
     private val styled = "A " + bold("b") + " " + good("c")
 
     /** The fields that may be styled come back with their styles. */
@@ -489,8 +489,8 @@ class WidgetSpecJsonTest {
         roundTrip(stat.copy(label = styled))
         roundTrip(picture.copy(caption = styled))
         // Every style a card draws, on one piece.
-        val all = StyledText.colour(
-            StyledText.Colour.WARN,
+        val all = StyledText.color(
+            StyledText.ColorRole.WARN,
             StyledText.wrap(
                 StyledText.Style.BOLD,
                 StyledText.wrap(
@@ -516,7 +516,7 @@ class WidgetSpecJsonTest {
         val read = WidgetJson.decode(changed(text) {
             put("text", link); put(
             "caption",
-            StyledText.tag(StyledText.Colour.BAD, "LIVE") + StyledText.wrap(
+            StyledText.tag(StyledText.ColorRole.BAD, "LIVE") + StyledText.wrap(
                 StyledText.Style.CODE,
                 "x"
             )
@@ -524,7 +524,7 @@ class WidgetSpecJsonTest {
         }) as WidgetSpec.Text
         assertEquals("see " + bold("here"), read.text)
         assertEquals(emptyList<String>(), StyledText.linkTexts(read.text).map { it.second })
-        assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + "x", read.caption)
+        assertEquals(StyledText.color(StyledText.ColorRole.BAD, "LIVE") + "x", read.caption)
         val table = StyledText.table(
             listOf(listOf("a", "b")),
             header = true
@@ -601,7 +601,7 @@ class WidgetSpecJsonTest {
             good("g"),
             "x" + StyledText.close(StyledText.Style.ITALIC),
             StyledText.link("https://example.com", "l"),
-            StyledText.tag(StyledText.Colour.BAD, "t")
+            StyledText.tag(StyledText.ColorRole.BAD, "t")
         )
 
         fun refused(spec: WidgetSpec, change: MutableMap<String, Any?>.(String) -> Unit) =
@@ -869,8 +869,8 @@ class WidgetSpecJsonTest {
     }
 
     @Test
-    fun everyColourAndTapFormRoundTrips() {
-        StyledText.Colour.entries.forEach { roundTrip(text.copy(base = WidgetBase(color = it))) }
+    fun everyColorAndTapFormRoundTrips() {
+        StyledText.ColorRole.entries.forEach { roundTrip(text.copy(base = WidgetBase(color = it))) }
         roundTrip(text.copy(base = WidgetBase(tap = WidgetTap(args = "add 1"))))
         roundTrip(text.copy(base = WidgetBase(tap = WidgetTap(args = ""))))
         roundTrip(

@@ -37,7 +37,7 @@ private const val SAMPLE_PROMPT = "$ ls ~"
 private const val SAMPLE_GLYPHS = "0Oo1lI {}=>"
 
 /**
- * A horizontal row of font previews in the terminal colours.
+ * A horizontal row of font previews in the terminal colors.
  * - The last card imports a font file.
  * - The custom card shows after a font is imported (or while `font = custom`).
  */

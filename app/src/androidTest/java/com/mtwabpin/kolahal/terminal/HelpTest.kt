@@ -61,11 +61,11 @@ class HelpTest {
             val heading = section.replaceFirstChar { it.uppercase() } + " · $count"
             assertTrue("$heading not in $shown", heading in shown)
         }
-        // The heading is bold, in the accent colour.
+        // The heading is bold, in the accent color.
         val apps = help().first { StyledText.plain(it.text).startsWith("Apps · ") }
         val first = StyledText.lines(apps.text).single().spans.first()
         assertEquals("Apps", first.text)
-        assertEquals(StyledText.Colour.ACCENT, first.colour)
+        assertEquals(StyledText.ColorRole.ACCENT, first.color)
         assertTrue(StyledText.Style.BOLD in first.styles)
     }
 

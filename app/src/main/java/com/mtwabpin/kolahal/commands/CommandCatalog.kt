@@ -9,7 +9,7 @@ package com.mtwabpin.kolahal.commands
  * - its place in `help` ([HELP_SECTIONS]);
  * - which build has it ([FEATURE_COMMANDS]).
  *
- * [CommandProcessor] runs the commands. Each one's other names and whether it is sensitive are in its entry ([CommandSpec]).
+ * `CommandProcessor` (in terminal) runs the commands. Each one's other names and whether it is sensitive are in its entry ([CommandSpec]).
  * Each list has one entry per line, so that two new commands added at once don't conflict.
  */
 object CommandCatalog {
@@ -127,8 +127,8 @@ object CommandCatalog {
         CommandSpec(
             "wallpaper",
             "wallpaper [match]",
-            "match: set the home screen wallpaper to this theme's colour, following the theme, so it doesn't flash when you swipe home",
-            short = "Wallpaper in theme colour",
+            "match: set the home screen wallpaper to this theme's color, following the theme, so it doesn't flash when you swipe home",
+            short = "Wallpaper in theme color",
             args = "match",
             sensitive = true
         ),
@@ -382,7 +382,7 @@ object CommandCatalog {
         if (com.mtwabpin.kolahal.BuildConfig.CONTACTS) CommandSpec(
             "contacts",
             "contacts [<query>|--allow]",
-            "Find contacts (favourites when empty)",
+            "Find contacts (favorites when empty)",
             short = "Find a contact",
             args = "<query> · --allow",
             aka = listOf("contact")
@@ -605,7 +605,7 @@ object CommandCatalog {
             "theme",
             "theme <name>",
             "Themes: ${com.mtwabpin.kolahal.data.Keys.BUILT_IN_THEMES.joinToString(" ")}",
-            short = "Colours",
+            short = "Colors",
             args = "<name>",
             sensitive = true
         ),
@@ -670,7 +670,7 @@ object CommandCatalog {
         CommandSpec(
             "pin",
             "pin <app>",
-            "Favourite: first on an empty prompt (suggestions.idle) and starred in the app selector (pins lists them)",
+            "Favorite: first on an empty prompt (suggestions.idle) and starred in the app selector (pins lists them)",
             short = "Pin an app",
             args = "<app>",
             aka = listOf("fav"),
@@ -679,7 +679,7 @@ object CommandCatalog {
         CommandSpec(
             "unpin",
             "unpin <app>",
-            "Remove a favourite",
+            "Remove a favorite",
             short = "Unpin an app",
             args = "<app>",
             aka = listOf("unfav"),
@@ -852,7 +852,7 @@ object CommandCatalog {
     /** The usage line for each command name, for option completion and instant runs. */
     val COMMAND_USAGES: Map<String, String> = COMMANDS.associate { it.name to it.usage }
 
-    /** Commands handled by [ProductivityCommands]. */
+    /** Commands handled by `ProductivityCommands` (in terminal). */
     val PRODUCTIVITY = setOf(
         "todo",
         "note",

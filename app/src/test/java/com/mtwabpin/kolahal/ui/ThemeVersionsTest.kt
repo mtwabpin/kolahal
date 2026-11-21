@@ -9,13 +9,13 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** How far apart two colours are in brightness, from 1 (the same) to 21 (black on white). Text needs more than its background. */
+/** How far apart two colors are in brightness, from 1 (the same) to 21 (black on white). Text needs more than its background. */
 internal fun contrast(a: Color, b: Color): Float {
     val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
     return (hi + 0.05f) / (lo + 0.05f)
 }
 
-/** A palette's coloured roles by name: every role but the background, the surface, the text and the muted text. */
+/** A palette's colored roles by name: every role but the background, the surface, the text and the muted text. */
 internal fun accents(p: Palette) = listOf(
     "accent" to p.prompt,
     "error" to p.error,

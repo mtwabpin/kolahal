@@ -32,7 +32,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
-import com.mtwabpin.kolahal.data.StyledText.Colour
+import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.productivity.AgendaEvent
 import com.mtwabpin.kolahal.productivity.Note
 import com.mtwabpin.kolahal.productivity.Reminder
@@ -297,7 +297,7 @@ class WidgetGalleryTest {
                             LocalWidgetsShown provides shot.inView,
                             LocalWidgetLook provides shot.look
                         ) {
-                            // The page's colour shows around the card's round corners.
+                            // The page's color shows around the card's round corners.
                             Box(
                                 Modifier
                                     .testTag(SHOT)
@@ -380,8 +380,8 @@ class WidgetGalleryTest {
 
     // ---- what the cards hold ------------------------------------------------------------------
 
-    private fun base(title: String? = null, icon: String? = null, colour: Colour? = null) =
-        WidgetBase(title = title, icon = icon, color = colour)
+    private fun base(title: String? = null, icon: String? = null, color: ColorRole? = null) =
+        WidgetBase(title = title, icon = icon, color = color)
 
     private fun link(n: Int) = WidgetTap(url = "https://example.com/$n")
 
@@ -432,7 +432,7 @@ class WidgetGalleryTest {
 
     /** The habit card as habit.lua fills it, done today: five days in a row. */
     private val habit = WidgetSpec.Chart(
-        base("Exercise", "check", Colour.GOOD).copy(note = "Done today"),
+        base("Exercise", "check", ColorRole.GOOD).copy(note = "Done today"),
         habitDays,
         style = "dots",
         value = "5",
@@ -441,7 +441,7 @@ class WidgetGalleryTest {
 
     /** Three days as forecast.js sends them: each with its sky, its low and high, and a bar from the one to the other. */
     private val forecast = WidgetSpec.Rows(
-        base("Pune", "sun", Colour.INFO),
+        base("Pune", "sun", ColorRole.INFO),
         listOf(
             WidgetSpec.Row(
                 "Sat",
@@ -503,9 +503,9 @@ class WidgetGalleryTest {
             WidgetSpec.Rows(
                 base("Parcels", "parcel"),
                 listOf(
-                    WidgetSpec.Row("Keyboard", "Out for delivery", "Today", color = Colour.GOOD),
-                    WidgetSpec.Row("Books", "In transit · Nagpur", "Mon", color = Colour.INFO),
-                    WidgetSpec.Row("Charger", "Delayed by 2 days", "Wed", color = Colour.WARN),
+                    WidgetSpec.Row("Keyboard", "Out for delivery", "Today", color = ColorRole.GOOD),
+                    WidgetSpec.Row("Books", "In transit · Nagpur", "Mon", color = ColorRole.INFO),
+                    WidgetSpec.Row("Charger", "Delayed by 2 days", "Wed", color = ColorRole.WARN),
                     WidgetSpec.Row("Headphones", "Shipped", "Thu"),
                     WidgetSpec.Row("Desk lamp", "Ordered", "Fri"),
                     WidgetSpec.Row("USB cable", "Ordered", "Sat"),
@@ -524,14 +524,14 @@ class WidgetGalleryTest {
                 base("Usage"), value = 0f,
                 items = listOf(
                     WidgetSpec.Bar("Storage", 41f, 64f, "41 / 64 GB", null),
-                    WidgetSpec.Bar("Mobile data", 4.1f, 5f, "4.1 / 5 GB", Colour.WARN)
+                    WidgetSpec.Bar("Mobile data", 4.1f, 5f, "4.1 / 5 GB", ColorRole.WARN)
                 ),
             ),
         ),
         Shot(
             "kind-chart", WidgetSize.S2X2, "Room",
             WidgetSpec.Chart(
-                base("Room", "temp", Colour.INFO),
+                base("Room", "temp", ColorRole.INFO),
                 room,
                 value = "24.6°",
                 label = "now",
@@ -543,7 +543,7 @@ class WidgetGalleryTest {
             WidgetSize.S2X1,
             "Sensor",
             WidgetSpec.Chart(
-                base("Sensor", colour = Colour.INFO),
+                base("Sensor", color = ColorRole.INFO),
                 room,
                 value = "24.6°",
                 label = "Room"
@@ -568,7 +568,7 @@ class WidgetGalleryTest {
             WidgetSize.S2X2,
             "Unlocks",
             WidgetSpec.Chart(
-                base("Unlocks", "unlock", Colour.INFO).copy(note = "42 today"),
+                base("Unlocks", "unlock", ColorRole.INFO).copy(note = "42 today"),
                 unlockDays,
                 style = "dots"
             )
@@ -577,7 +577,7 @@ class WidgetGalleryTest {
             "kind-countdown", WidgetSize.S2X1, "Match starts",
             // 3:25:10 to go, and 72% of the wait is over.
             WidgetSpec.Countdown(
-                base("Match starts", "bell", Colour.WARN),
+                base("Match starts", "bell", ColorRole.WARN),
                 to = now + 12_310,
                 from = now - 31_654,
                 style = "clock"
@@ -586,7 +586,7 @@ class WidgetGalleryTest {
         Shot(
             "kind-countdown", WidgetSize.S1X1, "Exam",
             WidgetSpec.Countdown(
-                base("Exam", colour = Colour.WARN),
+                base("Exam", color = ColorRole.WARN),
                 to = now + 12 * 86_400 + 3_600,
                 label = "exam",
                 style = "days"
@@ -631,7 +631,7 @@ class WidgetGalleryTest {
         Shot(
             "kind-clock", WidgetSize.S2X1, "Clocks",
             WidgetSpec.Clock(
-                base("Clocks", colour = Colour.LINK),
+                base("Clocks", color = ColorRole.LINK),
                 listOf(
                     WidgetSpec.Zone("Asia/Kolkata", "Pune"),
                     WidgetSpec.Zone("Europe/London", "London")
@@ -642,7 +642,7 @@ class WidgetGalleryTest {
             "kind-agenda", WidgetSize.S2X2, "Matches",
             // No ends: the events stay for the whole day, at whatever hour the test runs.
             WidgetSpec.Agenda(
-                base("Matches", "trophy", Colour.INFO),
+                base("Matches", "trophy", ColorRole.INFO),
                 listOf(
                     WidgetSpec.Event("IND v NZ", at(0, 19, 30)),
                     WidgetSpec.Event("AUS v ENG", at(1, 14, 0)),
@@ -671,7 +671,7 @@ class WidgetGalleryTest {
             more = listOf(WidgetSpec.Small("62%", "humidity"), WidgetSpec.Small("9 km/h", "wind")),
         )
         val aqi = WidgetSpec.Progress(
-            base("US AQI · Pune", "wind", Colour.WARN),
+            base("US AQI · Pune", "wind", ColorRole.WARN),
             value = 118f,
             max = 500f,
             text = "118",
@@ -680,7 +680,7 @@ class WidgetGalleryTest {
         // Its label as countdown.lua writes it: "to 20 December".
         val goaDay = today.plusDays(37)
         val goa = WidgetSpec.Countdown(
-            base("Goa trip", "calendar", Colour.LINK),
+            base("Goa trip", "calendar", ColorRole.LINK),
             to = goaDay.atStartOfDay(zone).toEpochSecond(),
             label = "to ${
                 goaDay.format(
@@ -784,7 +784,7 @@ class WidgetGalleryTest {
             Shot(
                 "hn", WidgetSize.S4X2, "Hacker News",
                 WidgetSpec.Rows(
-                    base("Hacker News", "news", Colour.WARN),
+                    base("Hacker News", "news", ColorRole.WARN),
                     headlines.mapIndexed { i, (title, points) ->
                         WidgetSpec.Row(
                             title,
@@ -798,7 +798,7 @@ class WidgetGalleryTest {
                 WidgetSize.S2X2,
                 "My feed",
                 WidgetSpec.Rows(
-                    base("My feed", "feed", Colour.LINK),
+                    base("My feed", "feed", ColorRole.LINK),
                     feed.mapIndexed { i, title -> WidgetSpec.Row(title, tap = link(i)) })
             ),
             Shot(
@@ -824,7 +824,7 @@ class WidgetGalleryTest {
             Shot(
                 "unlocks", WidgetSize.S2X2, "Unlocks",
                 WidgetSpec.Chart(
-                    base("Unlocks", "unlock", Colour.INFO),
+                    base("Unlocks", "unlock", ColorRole.INFO),
                     week,
                     style = "bars",
                     min = 0f,
@@ -837,7 +837,7 @@ class WidgetGalleryTest {
             Shot(
                 "webnumber", WidgetSize.S2X1, "Living room",
                 WidgetSpec.Stat(
-                    base("Living room", "bolt", Colour.INFO),
+                    base("Living room", "bolt", ColorRole.INFO),
                     value = "21.4",
                     unit = "°C",
                     label = "sensor at home"
@@ -847,16 +847,16 @@ class WidgetGalleryTest {
                 "webnumber",
                 WidgetSize.S1X1,
                 "Stars",
-                WidgetSpec.Stat(base("Stars", "bolt", Colour.INFO), value = "847", label = "stars")
+                WidgetSpec.Stat(base("Stars", "bolt", ColorRole.INFO), value = "847", label = "stars")
             ),
             Shot(
                 "crypto", WidgetSize.S4X2, "Crypto",
                 WidgetSpec.Rows(
                     base("Crypto", "chart"),
                     listOf(
-                        WidgetSpec.Row("Bitcoin", "+1.8% today", "$97,420", color = Colour.GOOD),
-                        WidgetSpec.Row("Ethereum", "−0.6% today", "$3,310", color = Colour.BAD),
-                        WidgetSpec.Row("Solana", "+3.1% today", "$212", color = Colour.GOOD),
+                        WidgetSpec.Row("Bitcoin", "+1.8% today", "$97,420", color = ColorRole.GOOD),
+                        WidgetSpec.Row("Ethereum", "−0.6% today", "$3,310", color = ColorRole.BAD),
+                        WidgetSpec.Row("Solana", "+3.1% today", "$212", color = ColorRole.GOOD),
                     ),
                 ),
             ),
@@ -909,7 +909,7 @@ class WidgetGalleryTest {
             Shot(
                 "worldclocks", WidgetSize.S2X2, "World clocks",
                 WidgetSpec.Clock(
-                    base("World clocks", "globe", Colour.LINK),
+                    base("World clocks", "globe", ColorRole.LINK),
                     listOf(
                         WidgetSpec.Zone("Asia/Kolkata", "Kolkata"),
                         WidgetSpec.Zone("Europe/London", "London"),
@@ -921,7 +921,7 @@ class WidgetGalleryTest {
             Shot(
                 "worldclocks", WidgetSize.S4X2, "World clocks",
                 WidgetSpec.Clock(
-                    base("World clocks", "globe", Colour.LINK),
+                    base("World clocks", "globe", ColorRole.LINK),
                     listOf(
                         WidgetSpec.Zone("Asia/Kolkata", "Kolkata"),
                         WidgetSpec.Zone("Europe/London", "London"),
@@ -953,7 +953,7 @@ class WidgetGalleryTest {
             Shot(
                 "currency", WidgetSize.S2X2, "1 USD",
                 WidgetSpec.Rows(
-                    base("1 USD", "money", Colour.INFO),
+                    base("1 USD", "money", ColorRole.INFO),
                     listOf(
                         "INR" to "84.40",
                         "EUR" to "0.92",
@@ -963,7 +963,7 @@ class WidgetGalleryTest {
             Shot(
                 "releases", WidgetSize.S4X2, "Releases",
                 WidgetSpec.Rows(
-                    base("Releases", "code", Colour.LINK),
+                    base("Releases", "code", ColorRole.LINK),
                     listOf(
                         Triple("neovim/neovim", "3 days ago", "v0.11.4"),
                         Triple("junegunn/fzf", "1 week ago", "v0.65"),
@@ -982,7 +982,7 @@ class WidgetGalleryTest {
             Shot(
                 "livescore", WidgetSize.S4X1, "NZ v IND · live",
                 WidgetSpec.Stat(
-                    base("NZ v IND · live", "cricket", Colour.BAD),
+                    base("NZ v IND · live", "cricket", ColorRole.BAD),
                     value = "NZ 136/8",
                     label = "31.2 of 50 overs",
                     progress = 0.62f,
@@ -1013,7 +1013,7 @@ class WidgetGalleryTest {
         return File(File(context.cacheDir, "log-images").apply { mkdirs() }, name)
     }
 
-    /** Hills at sunrise, in the theme's colours. */
+    /** Hills at sunrise, in the theme's colors. */
     private fun hills(): Bitmap {
         val p = Palettes.gruvboxMaterial
         val picture = Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888)
@@ -1038,7 +1038,7 @@ class WidgetGalleryTest {
         close()
     }
 
-    /** An album's cover, as a player sends it: a disc on a field of colour, at 512 pixels. */
+    /** An album's cover, as a player sends it: a disc on a field of color, at 512 pixels. */
     private fun album(): Bitmap {
         val p = Palettes.gruvboxMaterial
         val picture = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)

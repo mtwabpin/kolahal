@@ -123,21 +123,21 @@ class ScriptFormattingTest {
     }
 
     @Test
-    fun coloursByTheThemesRoles() {
+    fun colorsByTheThemesRoles() {
         lua("""log(fmt.color("good", "▲ 2%") .. " " .. fmt.color("bad", "▼ 1%"))""")
         val spans = StyledText.lines(lines().single().text).single().spans
         assertEquals(
-            listOf(StyledText.Colour.GOOD, null, StyledText.Colour.BAD),
-            spans.map { it.colour })
+            listOf(StyledText.ColorRole.GOOD, null, StyledText.ColorRole.BAD),
+            spans.map { it.color })
         js("""log(fmt.color("warn", "low"))""")
         assertEquals(
-            StyledText.Colour.WARN,
-            StyledText.lines(lines().last().text).single().spans.single().colour
+            StyledText.ColorRole.WARN,
+            StyledText.lines(lines().last().text).single().spans.single().color
         )
-        // No colour by value: the theme picks every colour.
+        // No color by value: the theme picks every color.
         val error =
             runCatching { lua("""fmt.color("#ff0000", "x")""") }.exceptionOrNull()?.message.orEmpty()
-        assertTrue(error, error.contains("no colour"))
+        assertTrue(error, error.contains("no color"))
     }
 
     @Test

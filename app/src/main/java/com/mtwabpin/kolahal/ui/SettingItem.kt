@@ -68,7 +68,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Shows [text] in the page's snackbar with an Undo action, which runs [undo]. Each page that lists
+ * Shows `text` in the page's snackbar with an Undo action, which runs `undo`. Each page that lists
  * settings passes its own ([undoMessage]).
  */
 internal typealias UndoMessage = (text: String, undo: () -> Unit) -> Unit
@@ -399,7 +399,7 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
 
 /**
  * Takes [shown] (square) in the layout, but measures what follows at the 48 dp minimum touch size,
- * centred over it. A small icon button in a line of text then keeps the line's height and still has
+ * centered over it. A small icon button in a line of text then keeps the line's height and still has
  * a 48 dp touch area. The 10 dp or so outside [shown] can overlap what is beside it.
  */
 internal fun Modifier.touchArea(shown: androidx.compose.ui.unit.Dp): Modifier =

@@ -234,7 +234,7 @@ private fun Setting(title: String, detail: String, content: @Composable () -> Un
     }
 }
 
-/** Shows `help` and other code in body text in the terminal's font and the accent colour. */
+/** Shows `help` and other code in body text in the terminal's font and the accent color. */
 private fun withCode(text: String) = buildAnnotatedString {
     text.split('`').forEachIndexed { i, part ->
         if (i % 2 == 1) withStyle(

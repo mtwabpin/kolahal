@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 
-/** The `rose-pine` theme uses Rosé Pine's colours (rosepinetheme.com), and both versions read well. */
+/** The `rose-pine` theme uses Rosé Pine's colors (rosepinetheme.com), and both versions read well. */
 class RosePineThemeTest {
     // Rosé Pine's main palette, by its own numbers.
     private val base = Color(0xFF191724)
@@ -27,7 +27,7 @@ class RosePineThemeTest {
     private val dawnText = Color(0xFF464261)
     private val dawnPine = Color(0xFF286983)
 
-    /** A colour's place on the colour wheel, in degrees. */
+    /** A color's place on the color wheel, in degrees. */
     private fun hue(c: Color): Float {
         val max = maxOf(c.red, c.green, c.blue)
         val range = max - minOf(c.red, c.green, c.blue)
@@ -64,7 +64,7 @@ class RosePineThemeTest {
         assertEquals(pine, p.good)
     }
 
-    /** Dawn behind, Dawn's text, and each role in the hue of its Dawn colour, darker where Dawn's is hard to read. */
+    /** Dawn behind, Dawn's text, and each role in the hue of its Dawn color, darker where Dawn's is hard to read. */
     @Test
     fun theLightVersionIsDawn() {
         val p = Palettes.rosePineLight

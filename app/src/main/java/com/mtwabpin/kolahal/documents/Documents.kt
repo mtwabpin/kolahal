@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import com.mtwabpin.kolahal.data.Singleton
 import com.mtwabpin.kolahal.data.Stores
 import java.io.File
@@ -85,7 +86,7 @@ object Documents {
     private fun release(context: Context, uri: String) {
         runCatching {
             context.contentResolver.releasePersistableUriPermission(
-                Uri.parse(uri),
+                uri.toUri(),
                 PERMISSIONS
             )
         }

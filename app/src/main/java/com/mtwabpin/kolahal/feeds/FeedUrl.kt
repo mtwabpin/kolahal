@@ -10,7 +10,7 @@ import java.net.URI
 /** Pure URL helpers for feeds. They use no Android APIs, so they are unit-tested on the JVM. */
 object FeedUrl {
     /**
-     * Normalises a feed address that the user typed:
+     * Normalizes a feed address that the user typed:
      * - trims spaces
      * - adds https when there is no scheme, and maps `feed://` to https
      * - lowercases the scheme and host

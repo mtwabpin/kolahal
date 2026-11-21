@@ -55,6 +55,7 @@ import com.mtwabpin.kolahal.ui.darkTheme
 import com.mtwabpin.kolahal.widgets.WidgetBinder
 import com.mtwabpin.kolahal.widgets.WidgetHost
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
     private val vm: TerminalViewModel by viewModels()
@@ -228,10 +229,10 @@ class MainActivity : ComponentActivity() {
         widgetBinder.restore(savedInstanceState)
         // Use a translucent surface from the start, so the phone's wallpaper can show behind home
         // (log.wallpaper, widgets.wallpaper). The format can't change after the surface exists. (When
-        // we tried, the window kept an opaque surface, and the pages' faint colour piled up over old
-        // frames.) When no wallpaper shows, the page colour behind everything keeps home looking solid.
+        // we tried, the window kept an opaque surface, and the pages' faint color piled up over old
+        // frames.) When no wallpaper shows, the page color behind everything keeps home looking solid.
         window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
-        applyPhoneColours()
+        applyPhoneColors()
         // The theme follows settings without reading config state in composition. Reading it there
         // would recompose the whole tree on every settings change.
         lifecycleScope.launch { vm.config.version.collect { applyTheme() } }
@@ -271,7 +272,7 @@ class MainActivity : ComponentActivity() {
                     is UiEvent.NewTextFile -> newTextFile.launch(it.name)
                     is UiEvent.OpenTextFile -> TextEditorActivity.open(
                         this@MainActivity,
-                        android.net.Uri.parse(it.uri)
+                        it.uri.toUri()
                     )
                     // The terminal screen handles these: they are about its log, prompt and menu.
                     UiEvent.ScrollToBottom, UiEvent.FocusPrompt, UiEvent.HideKeyboard, UiEvent.ShowQuick -> Unit
@@ -451,11 +452,11 @@ class MainActivity : ComponentActivity() {
     private var shownConfig: android.content.res.Configuration? = null
 
     // uiMode and assetsPaths are in configChanges. So a dark mode change, or a new wallpaper's
-    // colours, calls this instead of restarting the activity.
+    // colors, calls this instead of restarting the activity.
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        applyPhoneColours()
-        // Other apps' widgets took their colours from the configuration their views were made in.
+        applyPhoneColors()
+        // Other apps' widgets took their colors from the configuration their views were made in.
         val changed = shownConfig?.diff(newConfig) ?: 0
         shownConfig = android.content.res.Configuration(newConfig)
         if (changed and (android.content.pm.ActivityInfo.CONFIG_UI_MODE or CONFIG_ASSETS_PATHS) != 0) WidgetHost.get(
@@ -464,11 +465,11 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Applies the theme when the phone's own colours may have changed: at start and on a
-     * configuration change. The material-you theme takes its colours from the wallpaper, and
-     * Android reports new wallpaper colours as a configuration change.
+     * Applies the theme when the phone's own colors may have changed: at start and on a
+     * configuration change. The material-you theme takes its colors from the wallpaper, and
+     * Android reports new wallpaper colors as a configuration change.
      */
-    private fun applyPhoneColours() {
+    private fun applyPhoneColors() {
         MaterialYouPalettes.refresh(this)
         applyTheme()
     }
@@ -488,15 +489,15 @@ class MainActivity : ComponentActivity() {
         )
         if (!loaded) vm.onFontUnavailable(font)
         // Skip this for a preview. The wallpaper changes only after the theme is kept.
-        // - The wallpaper takes the theme's colour fully opaque: a wallpaper can't be see-through.
-        // - A Material You theme took its colours from the wallpaper, so the wallpaper doesn't follow it.
+        // - The wallpaper takes the theme's color fully opaque: a wallpaper can't be see-through.
+        // - A Material You theme took its colors from the wallpaper, so the wallpaper doesn't follow it.
         if (live == null) com.mtwabpin.kolahal.control.WallpaperMatch.follow(
             this,
             Term.bg.copy(alpha = 1f).toArgb(),
             fromWallpaper = MaterialYou.isOne(theme) && MaterialYou.supported,
         )
         // log.wallpaper, widgets.wallpaper: the window shows the phone's wallpaper, and each home page
-        // draws its colour over it, as faintly as its setting says (Modifier.page).
+        // draws its color over it, as faintly as its setting says (Modifier.page).
         val wallpaper = vm.config[Keys.LOG_WALLPAPER] > 0 ||
                 (vm.config[Keys.WIDGETS_PAGE] != "off" && vm.config[Keys.WIDGETS_WALLPAPER] > 0)
         // Change the window only when the look changes. Each flag change lays out the window again,
@@ -515,7 +516,7 @@ class MainActivity : ComponentActivity() {
         applyBars()
     }
 
-    /** The last wallpaper flag and page colour set on the window ([applyTheme]). */
+    /** The last wallpaper flag and page color set on the window ([applyTheme]). */
     private var windowLook: Pair<Boolean, Int>? = null
 
     private fun requestNotifications() {
@@ -578,11 +579,11 @@ private fun HomePager(
     // Each turn runs in its own coroutine, as Back's does. A swipe during the turn cancels it, and
     // that must not end this collector: later taps must still turn the page.
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
-        vm.logTurns.collect { launch { pager.animateScrollToPage(terminalPage) } }
+        vm.logTurns.collect { this@LaunchedEffect.launch { pager.animateScrollToPage(terminalPage) } }
     }
     // `widgets page` and the "Widgets page" quick action turn home to the widgets page.
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
-        vm.widgetsTurns.collect { launch { pager.animateScrollToPage(1 - terminalPage) } }
+        vm.widgetsTurns.collect { this@LaunchedEffect.launch { pager.animateScrollToPage(1 - terminalPage) } }
     }
     // The page actions a screen reader or Switch Access offers: the swipe is the only other way across.
     // Left is the page before, as on the pager's own actions; in a right-to-left layout, the page after.
@@ -604,7 +605,7 @@ private fun HomePager(
         // Then the log page comes in to show it. This turn has its own coroutine too, for the same reason.
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { vm.input.text.isNotEmpty() }.collect { typed ->
-                if (typed && pager.currentPage != terminalPage) launch {
+                if (typed && pager.currentPage != terminalPage) this@LaunchedEffect.launch {
                     pager.animateScrollToPage(
                         terminalPage
                     )
@@ -619,7 +620,7 @@ private fun HomePager(
     // consumed never turns the page.
     // The page turns only when Kolahal turns it. When home is laid out again, Android gives the prompt
     // the focus, and the pager would bring it into view: Back from Arrange widgets ended on the log.
-    // The pages get the usual behaviour back, so the log's own list still scrolls to what has the focus.
+    // The pages get the usual behavior back, so the log's own list still scrolls to what has the focus.
     val pageFocusSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides StayOnPage) {
         androidx.compose.foundation.pager.HorizontalPager(
@@ -674,11 +675,10 @@ private fun HomePager(
 }
 
 /** Home's pager never scrolls to bring something into view: it moves only when Kolahal turns it. */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private object StayOnPage : androidx.compose.foundation.gestures.BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
         0f
 }
 
-/** ActivityInfo.CONFIG_ASSETS_PATHS (hidden): new resource overlays, as a new wallpaper's colours bring. */
+/** ActivityInfo.CONFIG_ASSETS_PATHS (hidden): new resource overlays, as a new wallpaper's colors bring. */
 private const val CONFIG_ASSETS_PATHS = Int.MIN_VALUE // 0x80000000

@@ -73,7 +73,7 @@ internal fun RichText(
     softWrap: Boolean = true,
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
-    // Each tag's range and colour, read once for this text.
+    // Each tag's range and color, read once for this text.
     val chips = remember(text) {
         text.getStringAnnotations(TAG_CHIP, 0, text.length)
             .mapNotNull { a -> a.item.toIntOrNull()?.let { Chip(a.start, a.end, Color(it)) } }
@@ -118,15 +118,15 @@ internal fun RichText(
 
 private fun TextUnit.isSpecified() = this != TextUnit.Unspecified
 
-/** A tag's range in its text and its colour ([TAG_CHIP]). */
-private class Chip(val start: Int, val end: Int, val colour: Color)
+/** A tag's range in its text and its color ([TAG_CHIP]). */
+private class Chip(val start: Int, val end: Int, val color: Color)
 
 /** Holds a text's last layout, outside the snapshot system: see [RichText]. */
 private class LayoutHolder(var value: TextLayoutResult? = null)
 
 /**
  * The chip behind each tag: a rounded box a little wider than its text, shaded in the tag's
- * colour, on each row the tag covers. [em] is the tag's text size in pixels.
+ * color, on each row the tag covers. [em] is the tag's text size in pixels.
  */
 private fun DrawScope.drawChips(
     layout: TextLayoutResult,
@@ -139,8 +139,8 @@ private fun DrawScope.drawChips(
     val length = layout.layoutInput.text.length
     for (chip in chips) {
         if (chip.start >= chip.end || chip.end > length) continue
-        val colour = chip.colour
-        val fill = colour.copy(alpha = if (dark) 0.24f else 0.14f)
+        val color = chip.color
+        val fill = color.copy(alpha = if (dark) 0.24f else 0.14f)
         val first = layout.getLineForOffset(chip.start)
         val last = layout.getLineForOffset(chip.end - 1)
         for (line in first..last) {
@@ -257,7 +257,7 @@ private val COLUMN_GAP = 8.dp
  * Bars on lines that follow each other (`fmt.bar`, `fmt.bars`, `fmt.ranges`), lined up in
  * columns: the labels, the texts before the tracks, the tracks, and the texts after them. Each
  * column is as wide as its widest text, and the tracks take the rest of the width. The label is in
- * the body's colour, the numbers in the text colour, each with its own styles. [meters] is never empty.
+ * the body's color, the numbers in the text color, each with its own styles. [meters] is never empty.
  */
 @Composable
 internal fun Meters(
@@ -350,19 +350,19 @@ private fun MeterText(spans: List<StyledText.Span>, style: TextStyle, palette: P
     RichText(text, style, maxLines = 1, softWrap = false)
 }
 
-/** A bar's track: a light shade of its colour, and the filled part from its start to its end in the colour itself. */
+/** A bar's track: a light shade of its color, and the filled part from its start to its end in the color itself. */
 @Composable
 internal fun Track(m: StyledText.Meter, modifier: Modifier = Modifier) {
-    val colour = colourOf(m.colour ?: StyledText.Colour.ACCENT)
+    val color = colorOf(m.color ?: StyledText.ColorRole.ACCENT)
     Canvas(modifier) {
         val r = CornerRadius(size.height / 2)
-        drawRoundRect(colour.copy(alpha = 0.2f), cornerRadius = r)
+        drawRoundRect(color.copy(alpha = 0.2f), cornerRadius = r)
         if (m.to <= 0f) return@Canvas
         // A range of no width (low and high the same) still shows, as a dot.
         val left = m.from * size.width
         val width = maxOf((m.to - m.from) * size.width, size.height)
         val x = minOf(left, size.width - width).coerceAtLeast(0f)
-        drawRoundRect(colour, Offset(x, 0f), Size(width, size.height), r)
+        drawRoundRect(color, Offset(x, 0f), Size(width, size.height), r)
     }
 }
 
@@ -387,7 +387,7 @@ internal fun lineBar(value: String?): StyledText.Meter? {
     return StyledText.Meter(
         a,
         to.coerceIn(a, 1f),
-        parts.getOrNull(2)?.let(StyledText.Colour::named),
+        parts.getOrNull(2)?.let(StyledText.ColorRole::named),
         emptyList(),
         emptyList(),
         emptyList()
@@ -594,7 +594,7 @@ private const val STAT_BIG = 1.9f
 private const val STAT_SMALL = 1.3f
 
 /**
- * Buttons under a script's line (`ctx.actions`), as tonal pills: the accent colour on a light shade
+ * Buttons under a script's line (`ctx.actions`), as tonal pills: the accent color on a light shade
  * of it, in the phone's font. A tap runs the line's script with the button's arguments
  * ([onAction]). Once one was tapped ([com.mtwabpin.kolahal.data.LogContext.ACTION_DONE]), only it
  * shows, muted, with a ✓, so it can't run twice.
@@ -652,7 +652,7 @@ internal fun ActionPills(
 /**
  * A small column chart (`StyledText.columns`): a column for each value, the oldest first, all on
  * one scale, with the labels spread along its foot. The last column, the newest, is in the accent
- * colour; the others are lighter. It is drawn in one pass, with no text inside. A screen reader
+ * color; the others are lighter. It is drawn in one pass, with no text inside. A screen reader
  * hears its words ([StyledText.Columns.said]).
  */
 @Composable

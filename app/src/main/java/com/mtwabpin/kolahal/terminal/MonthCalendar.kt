@@ -62,7 +62,7 @@ object MonthCalendar {
 
     /**
      * Returns the lines for [month]:
-     * - the month name and year, centred;
+     * - the month name and year, centered;
      * - the day names;
      * - one line per week. Days outside the month are blank.
      *

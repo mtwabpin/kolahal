@@ -112,7 +112,7 @@ class LauncherApp : Application(), Configuration.Provider {
 
         // Set daily script times again, restore schedules after updates, and trim the old log.
         Thread {
-            // Do this first. Otherwise the first log line with a notification icon would list the saved
+            // Do this first. Otherwise, the first log line with a notification icon would list the saved
             // icons on the main thread.
             runCatching { com.mtwabpin.kolahal.notifications.NotifIcons.preload(this) }
             runCatching { CrashReports.announce(this) }

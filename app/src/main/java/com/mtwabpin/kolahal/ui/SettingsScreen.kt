@@ -137,7 +137,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
     // For About → Crash reports. They are read off the main thread, and read again after a delete.
     var crashReads by remember { mutableIntStateOf(0) }
     var openCrash by remember { mutableStateOf<CrashRow?>(null) }
-    val crashes by produceIo<List<CrashRow>?>(
+    val crashes by produceIo(
         null,
         crashReads,
         what = "Reading the crash reports"
@@ -304,7 +304,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                                     } + Action(
                                         R.drawable.ic_add,
                                         "Create a theme",
-                                        "Start from the theme in use and pick any colour",
+                                        "Start from the theme in use and pick any color",
                                         chevron = true
                                     ) {
                                         vm.openThemeBuilder(null)

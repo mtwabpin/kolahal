@@ -82,10 +82,10 @@ import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 // The tour's previews. Each setting gets a small home screen that uses the terminal's current
-// colours, font and text size. Where possible, the previews use the real suggestion list, key bar
+// colors, font and text size. Where possible, the previews use the real suggestion list, key bar
 // and app selector. So the user sees the effect of a choice while making it.
 
-/** A small home screen, in the terminal's colours as set now. */
+/** A small home screen, in the terminal's colors as set now. */
 @Composable
 internal fun HomeFrame(
     height: Dp,
@@ -460,7 +460,7 @@ internal fun LookPreview(vm: TerminalViewModel) {
     }
 }
 
-/** A fake on-screen keyboard: rows of keys in the frame's colours. */
+/** A fake on-screen keyboard: rows of keys in the frame's colors. */
 @Composable
 private fun KeyboardStandIn() {
     Column(
@@ -727,7 +727,7 @@ internal fun LogTryPreview() {
     PreviewCaption(caption)
 }
 
-/** A small example of what a permission adds. It uses the terminal's colours and fits beside its button. */
+/** A small example of what a permission adds. It uses the terminal's colors and fits beside its button. */
 @Composable
 internal fun PermissionExample(fix: String) {
     val dim = SpanStyle(color = Term.dim)

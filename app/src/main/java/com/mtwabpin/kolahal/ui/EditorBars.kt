@@ -67,7 +67,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
 /**
- * A button on the editors' bars: a Material icon button, in the terminal's colours.
+ * A button on the editors' bars: a Material icon button, in the terminal's colors.
  * - [description] is what TalkBack says, and how tests find the button.
  * - Not [enabled]: it is dimmed and does nothing (undo with nothing to undo).
  * - [onLongClick]: a long press does something else (run's Run with). [longClickLabel] names it for TalkBack.
@@ -142,7 +142,7 @@ internal fun EditorTextButton(label: String, onClick: () -> Unit) {
  * - an event to simulate: one of its `@on` events or `@at` times, or none. The event gets
  *   made-up values ([com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent]).
  *
- * The editor shows it in the terminal's colours and font; with [material], the sheet shows it in Material's.
+ * The editor shows it in the terminal's colors and font; with [material], the sheet shows it in Material's.
  */
 @Composable
 internal fun RunWithDialog(
@@ -406,7 +406,7 @@ internal fun GotoLineDialog(lineCount: Int, onDismiss: () -> Unit, onGo: (Int) -
     val line = text.trim().toIntOrNull()?.takeIf { it in 1..lineCount }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    // Use the GUI theme's full colour scheme. The editor's own scheme sets only a few roles, so a
+    // Use the GUI theme's full color scheme. The editor's own scheme sets only a few roles, so a
     // dialog drawn with it is unreadable on a light theme.
     GuiTheme {
         AlertDialog(

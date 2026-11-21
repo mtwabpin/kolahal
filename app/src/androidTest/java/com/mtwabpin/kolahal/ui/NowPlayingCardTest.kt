@@ -279,7 +279,7 @@ class NowPlayingCardTest {
 
     /**
      * The player's art is the face of play or pause, under its icon. Without art the button keeps its
-     * colour. The card has no title line: the track says what it is.
+     * color. The card has no title line: the track says what it is.
      */
     @Test
     fun theArtFillsPlayOrPause() {

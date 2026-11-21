@@ -179,7 +179,7 @@ class NoteStore private constructor(context: Context) {
 }
 
 /**
- * Pending reminders, soonest first. A reminder is deleted when it is cancelled, or when it fires,
+ * Pending reminders, soonest first. A reminder is deleted when it is canceled, or when it fires,
  * unless it repeats.
  */
 class ReminderStore private constructor(context: Context) {
@@ -187,7 +187,7 @@ class ReminderStore private constructor(context: Context) {
     private val written = Changes()
 
     /**
-     * Rises on every write, in this process: a reminder that is set, cancelled or snoozed, and one
+     * Rises on every write, in this process: a reminder that is set, canceled or snoozed, and one
      * that fires. The Reminders widget reads the list again when it does.
      */
     val changes: StateFlow<Int> get() = written.flow

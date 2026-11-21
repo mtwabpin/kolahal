@@ -120,9 +120,9 @@ class UsageSummaryCommandsTest {
         val shown = texts("usage-summary month kolahal")
         assertTrue(
             shown.toString(),
-            shown.first().startsWith("No use of ") || shown.first().contains("of screen time")
+            shown.first().startsWith("No use of ") || shown.first().contains("of screen time", ignoreCase = true)
         )
-        if (shown.first().contains("of screen time")) assertTrue(
+        if (shown.first().contains("of screen time", ignoreCase = true)) assertTrue(
             shown.toString(),
             shown.any { it.startsWith("Month\tTotal\tA day") })
         assertEquals(listOf("No app matches 'zzqqxx'"), texts("usage-summary month zzqqxx"))

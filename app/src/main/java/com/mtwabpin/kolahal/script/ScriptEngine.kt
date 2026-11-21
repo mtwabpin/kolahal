@@ -7,7 +7,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 
 /**
  * A scripting runtime. Both implementations expose the same [HostApi] surface. So a script's
- * behaviour depends only on its language syntax, not on the engine that runs it.
+ * behavior depends only on its language syntax, not on the engine that runs it.
  */
 interface ScriptEngine {
     /**

@@ -137,7 +137,7 @@ class WidgetBinderTest {
 
     /** Backing out of the widget's setup frees its id and says so; nothing is placed. */
     @Test
-    fun aCancelledSetupFreesTheId() {
+    fun aCanceledSetupFreesTheId() {
         val clock = t.clocks().first()
         t.allowBinding(clock)
         val id = t.bound(clock)
@@ -151,7 +151,7 @@ class WidgetBinderTest {
             assertTrue(added.isEmpty())
             assertFalse(id in t.ids())
             assertTrue(widgets.widgets.value.none { it.id == id })
-            assertEquals(listOf("Widget setup cancelled"), widgets.messages.value)
+            assertEquals(listOf("Widget setup canceled"), widgets.messages.value)
         }
     }
 

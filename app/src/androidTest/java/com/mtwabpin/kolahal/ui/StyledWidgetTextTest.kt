@@ -38,7 +38,7 @@ class StyledWidgetTextTest {
 
     private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
     private fun italic(s: String) = StyledText.wrap(StyledText.Style.ITALIC, s)
-    private fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+    private fun good(s: String) = StyledText.color(StyledText.ColorRole.GOOD, s)
 
     /** [spec]'s card, [width] by [height], with the description a script's card has. */
     private fun show(spec: WidgetSpec, width: Dp = 320.dp, height: Dp = 200.dp) {
@@ -95,7 +95,7 @@ class StyledWidgetTextTest {
             )
         )!!
 
-    /** A text widget: bold and a colour in its lines, a slant in its caption. The words are plain for a screen reader. */
+    /** A text widget: bold and a color in its lines, a slant in its caption. The words are plain for a screen reader. */
     @Test
     fun aTextCardDrawsItsStyles() {
         show(
@@ -109,7 +109,7 @@ class StyledWidgetTextTest {
         val lines = text("Be kind to all.")
         assertEquals(listOf(3 to 7, 11 to 14), lines.spanStyles.map { it.start to it.end })
         assertEquals(FontWeight.Bold, lines.spanStyles[0].item.fontWeight)
-        assertEquals(colourOf(StyledText.Colour.GOOD), lines.spanStyles[1].item.color)
+        assertEquals(colorOf(StyledText.ColorRole.GOOD), lines.spanStyles[1].item.color)
         assertEquals(FontStyle.Italic, text("Anon").spanStyles.single().item.fontStyle)
         // The title is plain, and so is what a screen reader hears.
         assertEquals(0, text("Quote").spanStyles.size)
@@ -133,7 +133,7 @@ class StyledWidgetTextTest {
         )
         assertEquals(FontWeight.Bold, text("BTC").spanStyles.single().item.fontWeight)
         assertEquals(
-            colourOf(StyledText.Colour.GOOD),
+            colorOf(StyledText.ColorRole.GOOD),
             text("Up 1.2%").spanStyles.single().item.color
         )
         val end = text("67,000 67,120")
@@ -155,7 +155,7 @@ class StyledWidgetTextTest {
             ), height = 220.dp
         )
         assertEquals(
-            colourOf(StyledText.Colour.GOOD),
+            colorOf(StyledText.ColorRole.GOOD),
             text("Sunny today").spanStyles.single().item.color
         )
         assertEquals(0, text("24").spanStyles.size)
@@ -170,7 +170,7 @@ class StyledWidgetTextTest {
             stored(
                 WidgetKind.TEXT,
                 "title" to "Note",
-                "text" to "see $link " + StyledText.tag(StyledText.Colour.BAD, "LIVE"),
+                "text" to "see $link " + StyledText.tag(StyledText.ColorRole.BAD, "LIVE"),
                 "caption" to StyledText.wrap(StyledText.Style.CODE, "v1.2")
             )
         )

@@ -89,7 +89,7 @@ internal fun widgetIconDrawable(name: String): Int? = when (name) {
 }
 
 /**
- * A widget's [icon]: the drawable of an icon name in [colour], [size] across, or else the text (an
+ * A widget's [icon]: the drawable of an icon name in [color], [size] across, or else the text (an
  * emoji or a letter) in [style]. An icon says nothing to a screen reader: the label beside it, or
  * the card's description, does.
  */
@@ -97,7 +97,7 @@ internal fun widgetIconDrawable(name: String): Int? = when (name) {
 internal fun WidgetIconText(
     icon: String,
     style: TextStyle,
-    colour: Color = LocalContentColor.current,
+    color: Color = LocalContentColor.current,
     size: Dp = 20.dp,
     modifier: Modifier = Modifier
 ) {
@@ -105,13 +105,13 @@ internal fun WidgetIconText(
     if (drawable != null) Icon(
         painterResource(drawable),
         contentDescription = null,
-        tint = colour,
+        tint = color,
         modifier = modifier.size(size)
     )
     else Text(
         icon,
         style = style,
-        color = colour,
+        color = color,
         maxLines = 1,
         softWrap = false,
         modifier = modifier

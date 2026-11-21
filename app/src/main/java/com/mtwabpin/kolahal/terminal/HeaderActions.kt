@@ -105,7 +105,7 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         host.profiles.filter { it.kind == ProfileKind.WORK || it.kind == ProfileKind.PRIVATE }
             .forEach { p ->
                 val cmd = if (p.kind == ProfileKind.PRIVATE) "private" else "work"
-                // As in the header: the profile's colour while it runs, dim while it is paused.
+                // As in the header: the profile's color while it runs, dim while it is paused.
                 val res = if (p.kind == ProfileKind.WORK) R.drawable.ic_work else R.drawable.ic_lock
                 add(
                     LogAction(

@@ -21,10 +21,10 @@ class CustomThemesTest {
     }
 
     @Test
-    fun aFileMissingAColourIsNotATheme() {
+    fun aFileMissingAColorIsNotATheme() {
         val text = CustomThemes.encode(colors).lines().filterNot { it.contains("\"error\"") }
             .joinToString("\n")
-        // The colour really went: a change in how themes are written can't make this a plain round trip.
+        // The color really went: a change in how themes are written can't make this a plain round trip.
         assertTrue(text, "\"error\"" !in text && "\"background\"" in text)
         assertNull(CustomThemes.decode(text))
         assertNull(CustomThemes.decode("not json"))
@@ -78,7 +78,7 @@ class CustomThemesTest {
         assertEquals(colors.keys, CustomThemes.complete(old)!!.keys)
     }
 
-    /** A file to share starts with the theme's name; its colours read the same. */
+    /** A file to share starts with the theme's name; its colors read the same. */
     @Test
     fun aSharedFileCarriesItsName() {
         val text = CustomThemes.encode(colors, "dusk")
@@ -138,7 +138,7 @@ class CustomThemesTest {
         )
     }
 
-    /** At start: the file moves with the name, the theme keeps its colours, and the built-in name is free. */
+    /** At start: the file moves with the name, the theme keeps its colors, and the built-in name is free. */
     @Test
     fun aSavedThemeWithABuiltInNameMovesAtStart() {
         val dir = java.nio.file.Files.createTempDirectory("themes").toFile()

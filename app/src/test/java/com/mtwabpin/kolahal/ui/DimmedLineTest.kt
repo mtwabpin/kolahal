@@ -17,7 +17,7 @@ class DimmedLineTest {
     fun plainLatinTextFadesByPart() {
         assertTrue(fadesByPart(AnnotatedString("$ help · Open Kolahal's source code on GitHub")))
         assertTrue(fadesByPart(AnnotatedString("Café, naïve — “quoted” • 12:30\nsecond line")))
-        // Colours and bold change nothing about overlap.
+        // Colors and bold change nothing about overlap.
         assertTrue(fadesByPart(buildAnnotatedString {
             withStyle(SpanStyle(color = Color.Red)) {
                 append(

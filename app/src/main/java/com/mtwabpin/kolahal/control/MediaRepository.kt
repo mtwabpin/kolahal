@@ -470,7 +470,7 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
 
-    /** The player's name as the app list shows it ([AppNames]): a rename counts, and an update is seen. */
+    /** The player's name as the app list shows it ([com.mtwabpin.kolahal.apps.AppNames]): a rename counts, and an update is seen. */
     private fun appLabel(pkg: String): String =
         com.mtwabpin.kolahal.apps.AppNames.label(context, pkg) ?: pkg
 

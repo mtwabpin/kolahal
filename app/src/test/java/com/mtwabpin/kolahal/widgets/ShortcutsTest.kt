@@ -211,7 +211,7 @@ class ShortcutsTest {
                 .readText()
         val before = backup.indexOf("Shortcuts.read(context)")
         val restore = backup.indexOf("FullBackup.importRaw(context")
-        val review = backup.indexOf("Shortcuts.review(shortcutsBefore")
+        val review = backup.indexOf("Shortcuts.review(")
         assertTrue("the list is read before the file's data is restored", before in 0 until restore)
         assertTrue("and compared after it", review > restore)
         assertTrue(

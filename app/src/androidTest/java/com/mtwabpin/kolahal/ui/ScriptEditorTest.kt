@@ -84,18 +84,18 @@ class ScriptEditorTest {
         return results.single()
     }
 
-    /** The colours the editor drew its code in. */
-    private fun codeColours(): Set<androidx.compose.ui.graphics.Color> =
+    /** The colors the editor drew its code in. */
+    private fun codeColors(): Set<androidx.compose.ui.graphics.Color> =
         codeLayout().layoutInput.text.spanStyles.map { it.item.color }.toSet()
 
-    /** The lines (from 0) of [code] that have a colour. */
-    private fun colouredLines(code: String): Set<Int> {
+    /** The lines (from 0) of [code] that have a color. */
+    private fun coloredLines(code: String): Set<Int> {
         val starts = listOf(0) + code.indices.filter { code[it] == '\n' }.map { it + 1 }
         return codeLayout().layoutInput.text.spanStyles.map { r -> starts.indexOfLast { it <= r.start } }
             .toSet()
     }
 
-    /** The phone turning dark with the editor open: the code changes colour along with everything else. */
+    /** The phone turning dark with the editor open: the code changes color along with everything else. */
     @Test
     fun codeFollowsTheThemeWhileOpen() {
         val before = Term.palette
@@ -103,10 +103,10 @@ class ScriptEditorTest {
             Term.palette = Palettes.green
             show()
             compose.waitForIdle()
-            assertEquals(setOf(Palettes.green.script), codeColours())
+            assertEquals(setOf(Palettes.green.script), codeColors())
             compose.runOnIdle { Term.palette = Palettes.dracula }
             compose.waitForIdle()
-            assertEquals(setOf(Palettes.dracula.script), codeColours())
+            assertEquals(setOf(Palettes.dracula.script), codeColors())
         } finally {
             Term.palette = before
         }
@@ -214,13 +214,13 @@ class ScriptEditorTest {
         assertEquals(code.count { it == '\n' } + 1, codeLayout().lineCount)
     }
 
-    /** A big script is coloured around the view, and the colours follow once it's scrolled elsewhere. */
+    /** A big script is colored around the view, and the colors follow once it's scrolled elsewhere. */
     @Test
-    fun aBigScriptIsColouredAroundTheView() {
+    fun aBigScriptIsColoredAroundTheView() {
         val code = List(1_500) { "local x$it = $it -- line" }.joinToString("\n")
         show(code)
         compose.waitForIdle()
-        val top = colouredLines(code)
+        val top = coloredLines(code)
         assertTrue("top: ${top.min()}..${top.max()}", 0 in top && top.max() < 400)
         // To the end of the script.
         val height = codeLayout().size.height.toFloat()
@@ -235,8 +235,8 @@ class ScriptEditorTest {
                     height
                 )
             }
-        compose.waitUntil(5_000) { 1_499 in colouredLines(code) }
-        val below = colouredLines(code)
+        compose.waitUntil(5_000) { 1_499 in coloredLines(code) }
+        val below = coloredLines(code)
         assertTrue("after scrolling: ${below.min()}..${below.max()}", 0 !in below)
     }
 }

@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
  * What it is opened with: a `content:` address in the intent's data. It comes from Kolahal's `edit`
  * command, from this editor's own menu, or from another app's "Open with".
  *
- * What it does itself: the file pickers, the window's colours and name, and telling the view model
+ * What it does itself: the file pickers, the window's colors and name, and telling the view model
  * when the window is hidden (the draft is written then) and shown. Everything else is in
  * [TextEditorViewModel] and [TextEditorScreen].
  */
@@ -87,7 +87,7 @@ class TextEditorActivity : ComponentActivity() {
         }
         // The editor can be Kolahal's first window in a new process ("Open with", or back from
         // Recents after Android closed it), so it applies the theme itself.
-        applyPhoneColours()
+        applyPhoneColors()
         lifecycleScope.launch { config.version.collect { applyTheme() } }
         lifecycleScope.launch { snapshotFlow { vm.name }.collect(::nameTask) }
         lifecycleScope.launch {
@@ -130,19 +130,19 @@ class TextEditorActivity : ComponentActivity() {
     }
 
     // uiMode and assetsPaths are in configChanges, as for home. So a dark mode change, or a new
-    // wallpaper's colours, calls this instead of building the window again.
+    // wallpaper's colors, calls this instead of building the window again.
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        applyPhoneColours()
+        applyPhoneColors()
     }
 
-    /** The material-you theme takes its colours from the wallpaper, which Android reports as a configuration change. */
-    private fun applyPhoneColours() {
+    /** The material-you theme takes its colors from the wallpaper, which Android reports as a configuration change. */
+    private fun applyPhoneColors() {
         MaterialYouPalettes.refresh(this)
         applyTheme()
     }
 
-    /** The app's theme and font, as home applies them, on this window: its background and the colour of the bars' icons. */
+    /** The app's theme and font, as home applies them, on this window: its background and the color of the bars' icons. */
     private fun applyTheme() {
         applyTermSettings(this, config, darkTheme(config, resources.configuration))
         window.setBackgroundDrawable(Term.bg.toArgb().toDrawable())

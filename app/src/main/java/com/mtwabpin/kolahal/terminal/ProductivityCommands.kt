@@ -242,7 +242,7 @@ class ProductivityCommands(context: Context, private val ui: TerminalUi) : Comma
                     ?: return error("Usage: remind rm <n> — 'reminders' lists them with numbers")
                 ReminderScheduler.cancel(context, r.id)
                 reminders.remove(r.id)
-                return info("Cancelled reminder: ${r.text}")
+                return info("Canceled reminder: ${r.text}")
             }
 
             "exact" -> {

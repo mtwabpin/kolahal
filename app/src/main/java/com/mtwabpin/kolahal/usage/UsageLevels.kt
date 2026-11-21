@@ -6,6 +6,8 @@ package com.mtwabpin.kolahal.usage
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * Android's usage at its four levels, for `usage-summary`. Android keeps each app's time in front in
@@ -18,7 +20,7 @@ import android.content.Context
  *   day, and one that is over but under an hour long: Android ends a bucket at its last event.
  * - These are Android's own totals, rough at the edges. `usage` works days out from events instead.
  */
-class UsageLevels(private val context: Context) {
+class UsageLevels(context: Context) {
     private val usage = context.getSystemService(UsageStatsManager::class.java)
 
     /** A level, its Android interval, and how far back to ask for it: a little more than Android keeps. */
@@ -190,8 +192,7 @@ class UsageLevels(private val context: Context) {
         fun unlocksPerDay(buckets: List<Bucket>): Int? {
             val with = buckets.filter { it.unlocks != null }
             val span = with.sumOf { it.span }
-            return if (span <= 0) null else Math.round(with.sumOf { it.unlocks!!.toLong() } * DAY_MS.toDouble() / span)
-                .toInt()
+            return if (span <= 0) null else (with.sumOf { it.unlocks!!.toLong() } * DAY_MS.toDouble() / span).roundToInt()
         }
 
         /**
@@ -205,7 +206,7 @@ class UsageLevels(private val context: Context) {
             val before = perDay(over.dropLast(1), pkg) ?: return null
             if (before <= 0) return null
             val last = perDay(listOf(over.last()), pkg) ?: return null
-            return Math.round((last - before) * 100.0 / before)
+            return ((last - before) * 100.0 / before).roundToLong()
         }
 
         /** The [n] apps with the most time over [buckets], biggest first. */

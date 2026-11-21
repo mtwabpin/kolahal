@@ -17,10 +17,10 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The Material 3 Expressive theme for the GUI screens (settings, script manager) and the widget cards.
- * The colours come from the terminal palette, so these screens match the chosen theme.
+ * The colors come from the terminal palette, so these screens match the chosen theme.
  * - Inside another GuiTheme it adds nothing: the palette is the same. A screen of cards, or a
  *   card in a sheet, has one theme, not one for each card.
- * - The colour scheme is made once for each palette ([schemeOf]), not once for each card.
+ * - The color scheme is made once for each palette ([schemeOf]), not once for each card.
  */
 @Composable
 fun GuiTheme(content: @Composable () -> Unit) {
@@ -50,7 +50,7 @@ private fun schemeOf(palette: Palette): ColorScheme =
         lastScheme = palette to it
     }
 
-/** Maps a terminal palette to a full Material colour scheme (dark). */
+/** Maps a terminal palette to a full Material color scheme (dark). */
 fun schemeFrom(p: Palette): ColorScheme {
     return darkColorScheme(
         primary = p.prompt,
@@ -92,7 +92,7 @@ fun schemeFrom(p: Palette): ColorScheme {
     )
 }
 
-/** Segmented list rows use a raised container colour, so each group looks like a set of rounded cards. */
+/** Segmented list rows use a raised container color, so each group looks like a set of rounded cards. */
 @Composable
 fun segColors() = androidx.compose.material3.ListItemDefaults.segmentedColors(
     containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh,

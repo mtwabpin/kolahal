@@ -63,8 +63,8 @@ data class TextFormat(
  *
  * Why these limits. The editor is one Compose text field, and it lays out the whole text again at
  * every key.
- * - [MAX_CHARS]: on the emulator, a key in 100 KB of text took about 70 ms without colours, and
- *   about 100 ms with colours around the view (measured for 0.4.12). The time grows with the
+ * - [MAX_CHARS]: on the emulator, a key in 100 KB of text took about 70 ms without colors, and
+ *   about 100 ms with colors around the view (measured for 0.4.12). The time grows with the
  *   length. So typing is smooth up to about [SLOW_FROM] characters, and at half a million a key
  *   takes a third to half of a second: slow, but the editor still follows the keyboard, and you
  *   can read, search and fix the file. Much past that it doesn't. These numbers are worked out
@@ -143,7 +143,7 @@ object TextFiles {
         // The most common ending wins. With equal counts, the simpler one does.
         val ending = when {
             crlf > lf && crlf >= cr -> LineEnding.CRLF
-            cr > lf && cr > crlf -> LineEnding.CR
+            cr > lf -> LineEnding.CR
             else -> LineEnding.LF
         }
         val kinds = listOf(crlf, lf, cr).count { it > 0 }

@@ -22,7 +22,7 @@ class BreaksAtSpacesTest {
 
     @Test
     fun styledTextStaysAsItIs() {
-        val muted = StyledText.colour(StyledText.Colour.MUTED, "a|b")
+        val muted = StyledText.color(StyledText.ColorRole.MUTED, "a|b")
         assertEquals(muted, breaksAtSpaces(muted))
     }
 }

@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 
-/** The `nord` theme uses Nord's colours (nordtheme.com), and both versions read well. */
+/** The `nord` theme uses Nord's colors (nordtheme.com), and both versions read well. */
 class NordThemeTest {
     // Polar Night, Snow Storm, Frost and Aurora, by Nord's own numbers.
     private val nord0 = Color(0xFF2E3440)
@@ -23,7 +23,7 @@ class NordThemeTest {
     private val nord14 = Color(0xFFA3BE8C)
     private val nord15 = Color(0xFFB48EAD)
 
-    /** A colour's place on the colour wheel, in degrees. */
+    /** A color's place on the color wheel, in degrees. */
     private fun hue(c: Color): Float {
         val max = maxOf(c.red, c.green, c.blue)
         val range = max - minOf(c.red, c.green, c.blue)

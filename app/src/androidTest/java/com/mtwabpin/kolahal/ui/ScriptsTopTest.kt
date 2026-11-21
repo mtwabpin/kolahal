@@ -157,7 +157,7 @@ class ScriptsTopTest {
         compose.onNodeWithTag("filter:js").performScrollTo().assert(hasText("JavaScript 1"))
         compose.onNodeWithTag("filter:command").performScrollTo().performClick()
         compose.waitForText("Show 2 scripts")
-        // Another group narrows: Command and JavaScript. Timer counts with JavaScript only: none, greyed but there.
+        // Another group narrows: Command and JavaScript. Timer counts with JavaScript only: none, grayed but there.
         compose.onNodeWithTag("filter:js").performScrollTo().performClick()
         compose.waitForText("Show 1 script")
         compose.onNodeWithTag("filter:lua").performScrollTo().assert(hasText("Lua 1"))

@@ -110,13 +110,13 @@ fun AppIcon(app: AppEntry, size: Dp, modifier: Modifier = Modifier) {
 
 /**
  * Takes the place of an app icon on command and argument suggestions when `suggestions.icons` is on,
- * so every label starts in the same column. It is drawn in the prompt colour, like the `$` it replaces.
+ * so every label starts in the same column. It is drawn in the prompt color, like the `$` it replaces.
  */
 @Composable
 fun CommandIcon(size: Dp, modifier: Modifier = Modifier) =
     KindIcon(com.mtwabpin.kolahal.R.drawable.ic_stat_terminal, size, modifier)
 
-/** An icon for the kind of suggestion (a feed, a script, a contact), in the prompt colour like [CommandIcon]. */
+/** An icon for the kind of suggestion (a feed, a script, a contact), in the prompt color like [CommandIcon]. */
 @Composable
 fun KindIcon(id: Int, size: Dp, modifier: Modifier = Modifier) {
     androidx.compose.material3.Icon(

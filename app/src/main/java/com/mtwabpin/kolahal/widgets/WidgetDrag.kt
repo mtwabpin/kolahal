@@ -9,7 +9,7 @@ import kotlin.math.roundToInt
  * The arithmetic of the widgets page and of dragging on the Widgets screen, in pixels. Pure, so it
  * can be unit tested.
  * - The page is [pagePx] wide. Widgets have [gapPx] between them, side by side and up and down.
- * - A column is a twelfth of the page and the gap ([cellPx]): a widget [span] columns wide is
+ * - A column is a twelfth of the page and the gap ([cellPx]): a widget `span` columns wide is
  *   [widthPx] wide, as on the widgets page since widths were twelfths.
  * - Columns count from the start edge: from the right in a right-to-left language ([rtl]). Pixels
  *   count from the left, as the screen does.
@@ -77,7 +77,7 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
     enum class Handle { END, BOTTOM, CORNER }
 
     /**
-     * The handle of [w] at [x], [y], if any. Each is a square [touchPx] wide, centred on the middle
+     * The handle of [w] at [x], [y], if any. Each is a square [touchPx] wide, centered on the middle
      * of the end edge, the middle of the bottom edge, and the bottom end corner.
      */
     fun handleAt(w: PlacedWidget, x: Float, y: Float, touchPx: Float): Handle? {

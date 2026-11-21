@@ -64,8 +64,8 @@ private fun KeyBarKey.icon(): Int? = when (this) {
     KeyBarKey.ESC, KeyBarKey.TAB -> null
 }
 
-/** Marks a cancelled key press. It is different from the null that the timeout returns. */
-private object CANCELLED
+/** Marks a canceled key press. It is different from the null that the timeout returns. */
+private object CANCELED
 
 /** Keys that repeat while held. */
 private val REPEATING =
@@ -142,9 +142,9 @@ private fun KeyRow(
                         var delayMs = 400L
                         while (true) {
                             val outcome = withTimeoutOrNull(delayMs) {
-                                waitForUpOrCancellation() ?: CANCELLED
+                                waitForUpOrCancellation() ?: CANCELED
                             }
-                            if (outcome != null) break // released or cancelled; null means still held
+                            if (outcome != null) break // released or canceled; null means still held
                             press(named, token)
                             delayMs = 50L
                         }

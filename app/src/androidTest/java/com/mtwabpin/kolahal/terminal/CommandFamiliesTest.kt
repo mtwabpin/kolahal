@@ -187,7 +187,7 @@ class CommandFamiliesTest {
         assertTrue(run("remind 10m cptest tea").first().contains("cptest tea"))
         assertTrue(run("reminders").any { it.contains("cptest tea") })
         assertEquals(
-            "Cancelled reminder: cptest tea",
+            "Canceled reminder: cptest tea",
             run("remind rm ${numberOf(reminderStore.all()) { "cptest tea" in it.text }}").single()
         )
         assertTrue(reminderStore.all().none { "cptest tea" in it.text })
@@ -394,7 +394,7 @@ class CommandFamiliesTest {
             )
             assertEquals(listOf("Automatic backups off"), said("backup every off"))
             assertTrue(
-                "cancelled: ${state()}",
+                "canceled: ${state()}",
                 eventually(5_000) { state() == androidx.work.WorkInfo.State.CANCELLED })
         } finally {
             config.reset(Keys.BACKUP_AUTO)
@@ -441,14 +441,14 @@ class CommandFamiliesTest {
             assertEquals("wallpaper match --yes", logs.recent(1).last().ctx.values[LogContext.RUN])
             assertEquals("only asked so far", before, wallpapers.getWallpaperId(system))
 
-            // Before home has shown a theme, the colour isn't known: it refuses and paints nothing.
-            WallpaperMatch.themeColour = null
+            // Before home has shown a theme, the color isn't known: it refuses and paints nothing.
+            WallpaperMatch.themeColor = null
             assertTrue(
                 run("wallpaper match --yes").single()
-                    .startsWith("Kolahal doesn't know the theme's colour yet")
+                    .startsWith("Kolahal doesn't know the theme's color yet")
             )
             assertEquals("nothing painted", before, wallpapers.getWallpaperId(system))
-            // Home applying a theme tells it the colour, as MainActivity does.
+            // Home applying a theme tells it the color, as MainActivity does.
             WallpaperMatch.follow(context, android.graphics.Color.rgb(0x29, 0x28, 0x28))
             assertTrue(
                 run("wallpaper match --yes").single().startsWith("Home screen wallpaper set")

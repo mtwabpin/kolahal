@@ -125,16 +125,16 @@ object ReminderScheduler {
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
         var moved = false
-        for (r in store.all()) {
-            val rule = r.repeat ?: continue
-            val time = r.time?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: continue
-            if (r.at <= now) continue
+        for ((id, at, _, repeat, repeatTime) in store.all()) {
+            val rule = repeat ?: continue
+            val time = repeatTime?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: continue
+            if (at <= now) continue
             val next = runCatching {
                 Repeat.next(rule, time, LocalDateTime.ofInstant(Instant.ofEpochMilli(now), zone))
                     .atZone(zone).toInstant().toEpochMilli()
             }.getOrNull() ?: continue
-            if (next == r.at) continue
-            store.setAt(r.id, next)
+            if (next == at) continue
+            store.setAt(id, next)
             moved = true
         }
         return moved
@@ -150,7 +150,7 @@ class ReminderReceiver : BroadcastReceiver() {
         Thread {
             try {
                 val store = ReminderStore.get(context)
-                val r = store.byId(id) ?: return@Thread // cancelled meanwhile
+                val r = store.byId(id) ?: return@Thread // canceled meanwhile
                 val rule = r.repeat
                 val zone = ZoneId.systemDefault()
                 val fired = Instant.ofEpochMilli(r.at).atZone(zone).toLocalDateTime()

@@ -164,7 +164,7 @@ class NotifierTest {
         waitUntil("both show") { nm.activeNotifications.count { it.tag == "kn-many" } == 2 }
     }
 
-    /** A reminder shows its text, says it's a reminder and offers Snooze 10 min, Snooze 1 hour and Done; cancelled, it goes. */
+    /** A reminder shows its text, says it's a reminder and offers Snooze 10 min, Snooze 1 hour and Done; canceled, it goes. */
     @Test
     fun aReminderOffersSnoozeAndDone() {
         assertTrue(Notifier.postReminder(context, REMINDER_IDS[0].toLong(), "kn call back"))

@@ -15,7 +15,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** The coloured gutter a line gets. It shows command blocks and timer output as groups. */
+/** The colored gutter a line gets. It shows command blocks and timer output as groups. */
 enum class Gutter { COMMAND, SCRIPT, ERROR }
 
 /** A row that the log list renders: a log entry, or an added day / unread separator. */
@@ -90,6 +90,7 @@ fun buildRows(
     val today = LocalDate.now(zone)
     val isScriptLine = { e: LogEntry -> e.kind == LogKind.SCRIPT }
     // Use two comparisons, not a range. When seenUpTo is Long.MAX_VALUE, seenUpTo + 1 overflows and every line would be unread.
+    @Suppress("ConvertTwoComparisonsToRangeCheck")
     val isUnread = { e: LogEntry -> e.id > seenUpTo && e.id <= unreadUntil }
     val unreadCount = entries.count { isUnread(it) && it.kind == LogKind.SCRIPT }
     val rows = ArrayList<LogRow>(entries.size + 4)

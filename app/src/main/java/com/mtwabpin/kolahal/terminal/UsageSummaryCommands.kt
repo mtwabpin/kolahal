@@ -17,6 +17,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToLong
 
 /**
  * `usage-summary [week | month | year | full] [<app>]`: the long view of screen time, from Android's
@@ -129,11 +130,11 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
 
     /** A thin rule with a label, `── top apps ──`: it parts the output where a heading or a sentence would. */
     private fun rule(label: String) =
-        info(StyledText.colour(StyledText.Colour.MUTED, "── $label ──"))
+        info(StyledText.color(StyledText.ColorRole.MUTED, "── $label ──"))
 
-    /** A change of time a day, coloured: less is good. */
-    private fun coloured(text: String, less: Boolean) =
-        StyledText.colour(if (less) StyledText.Colour.GOOD else StyledText.Colour.WARN, text)
+    /** A change of time a day, colored: less is good. */
+    private fun colored(text: String, less: Boolean) =
+        StyledText.color(if (less) StyledText.ColorRole.GOOD else StyledText.ColorRole.WARN, text)
 
     // ---- the overview ---------------------------------------------------------------------
 
@@ -247,12 +248,12 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
             ?.let { big += "≈${duration(it)}" to "a day" }
         big += hours(total) to "total"
         val all = buckets.sumOf { it.total }
-        if (all > 0) big += "${Math.round(total * 100.0 / all)}%" to "of screen time"
+        if (all > 0) big += "${(total * 100.0 / all).roundToLong()}%" to "of screen time"
         out(StyledText.stats(big), appContext(app))
         table(buckets, level, pkg)
         UsageLevels.change(buckets, pkg)?.let { percent ->
             info(
-                "${coloured(change(percent), percent <= 0)} · ${
+                "${colored(change(percent), percent <= 0)} · ${
                     span(
                         buckets.last { !it.current },
                         level
@@ -291,7 +292,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         // The last one that is over against those before: its change, and which row it is.
         UsageLevels.change(buckets)?.let { percent ->
             info(
-                "${coloured(change(percent), percent <= 0)} · ${
+                "${colored(change(percent), percent <= 0)} · ${
                     span(
                         buckets.last { !it.current },
                         level
@@ -322,8 +323,8 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         if (pair != null) {
             val diff = pair[1].perDay - pair[0].perDay
             when {
-                diff <= -60_000 -> info(coloured("▼ ${duration(-diff)} a day", true))
-                diff >= 60_000 -> info(coloured("▲ ${duration(diff)} a day", false))
+                diff <= -60_000 -> info(colored("▼ ${duration(-diff)} a day", true))
+                diff >= 60_000 -> info(colored("▲ ${duration(diff)} a day", false))
             }
         }
         val byPkg = apps.byPackage()
@@ -347,7 +348,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
                     it.pkg,
                     byPkg,
                     "${duration(it.before)} → ${duration(it.now)}",
-                    prefix = StyledText.tag(StyledText.Colour.WARN, "less") + " "
+                    prefix = StyledText.tag(StyledText.ColorRole.WARN, "less") + " "
                 )
             }
             UsageLevels.newApps(before, now).forEach {
@@ -355,7 +356,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
                     it.pkg,
                     byPkg,
                     duration(it.now),
-                    prefix = StyledText.tag(StyledText.Colour.GOOD, "new") + " "
+                    prefix = StyledText.tag(StyledText.ColorRole.GOOD, "new") + " "
                 )
             }
         }

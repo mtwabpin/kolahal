@@ -28,7 +28,7 @@ import com.mtwabpin.kolahal.terminal.LivePreview
 
 /**
  * Tells the user that home shows a preview of the typed line, not the settings in use.
- * It sits right above the prompt, where the user is looking, in the theme's solid colour.
+ * It sits right above the prompt, where the user is looking, in the theme's solid color.
  * Its text size stays fixed while a font size is being previewed.
  */
 @Composable
@@ -53,7 +53,7 @@ internal fun DefaultHomeBand(visible: Boolean, onClick: () -> Unit) =
         "make Kolahal the home app"
     )
 
-/** A band right above the prompt, in the theme's solid colour, that slides in and out. */
+/** A band right above the prompt, in the theme's solid color, that slides in and out. */
 @Composable
 private fun PromptBand(
     visible: Boolean,

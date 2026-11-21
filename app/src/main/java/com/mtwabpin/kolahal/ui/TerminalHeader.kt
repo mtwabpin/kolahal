@@ -180,19 +180,19 @@ private val HEADER_SPACING = 4.dp
 
 /**
  * Computes where the header's parts go along its line, in pixels. It is separate from Compose so
- * it can be tested. The line starts [pad] in from each end. A camera cutout across the line
- * ([cutouts], as x ranges) splits it.
+ * it can be tested. The line starts `pad` in from each end. A camera cutout across the line
+ * (`cutouts`, as x ranges) splits it.
  */
 internal object HeaderLayout {
     /** The parts of the line that are free for text, left to right. Each cutout keeps [gap] clear on both sides. */
     fun zones(width: Int, pad: Int, cutouts: List<IntRange>, gap: Int): List<IntRange> {
-        var zones = listOf(pad..(width - pad - 1))
+        var zones = listOf(pad..<(width - pad))
         for (c in cutouts) {
             zones = zones.flatMap { z ->
                 val from = c.first - gap
                 val to = c.last + gap
                 if (to < z.first || from > z.last) listOf(z)
-                else listOf(z.first..(from - 1), (to + 1)..z.last).filterNot { it.isEmpty() }
+                else listOf(z.first..<from, (to + 1)..z.last).filterNot { it.isEmpty() }
             }
         }
         return zones
@@ -607,7 +607,7 @@ internal fun BatteryGlyph(pct: Int, charging: Boolean, color: Color, height: Dp)
             Size(fillW, bodyH - inset * 2)
         )
         if (charging) {
-            // When the fill is past the middle, cut the bolt out of it so it stays visible. Otherwise draw the bolt in the colour.
+            // When the fill is past the middle, cut the bolt out of it so it stays visible. Otherwise draw the bolt in the color.
             val cx = stroke / 2 + inset + fullW / 2
             val h = bodyH - inset * 2
             val y0 = top + inset
