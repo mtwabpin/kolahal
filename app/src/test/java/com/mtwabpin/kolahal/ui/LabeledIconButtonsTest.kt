@@ -23,9 +23,9 @@ class LabeledIconButtonsTest {
      * - EditorBars.kt: EditorIconButton, which puts its label on itself, except on a button with a
      *   long-press of its own (Run: Run with…).
      * - WidgetsScreen.kt: a step of a widget's size, which repeats while it is held.
-     * - WidgetBodies.kt: a widget's buttons. A long-press on a card opens Arrange widgets.
+     * - WidgetMedia.kt: a widget's buttons. A long-press on a card opens Arrange widgets.
      */
-    private val unlabeled = mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetBodies.kt" to 3)
+    private val unlabeled = mapOf("EditorBars.kt" to 1, "WidgetsScreen.kt" to 1, "WidgetMedia.kt" to 3)
 
     @Test fun everyIconButtonShowsItsLabel() {
         val bare = HashMap<String, Int>()
