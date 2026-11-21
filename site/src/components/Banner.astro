@@ -1,0 +1,51 @@
+---
+/**
+ * Starlight Banner override. During the alpha test (DIRECT_DOWNLOADS off, release.ts), every page but the alpha
+ * test's own opens with one quiet line about it, like a tagged line in the log. Otherwise, Starlight's banner.
+ */
+import Default from '@astrojs/starlight/components/Banner.astro';
+import { DIRECT_DOWNLOADS } from '../release';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const show = !DIRECT_DOWNLOADS && Astro.locals.starlightRoute.id !== 'getting-started/play-testing';
+---
+
+{
+	show ? (
+		<p class="k-alpha" data-pagefind-ignore>
+			<span class="tag">alpha</span>
+			Kolahal is in alpha testing on Google Play. <a href={`${base}/getting-started/play-testing/`}>Join the test</a>
+		</p>
+	) : (
+		<Default />
+	)
+}
+
+<style>
+	.k-alpha {
+		margin: 0;
+		padding: 0.5rem var(--sl-nav-pad-x);
+		border-bottom: 1px solid var(--k-rule);
+		background: var(--k-surface);
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-sm);
+		line-height: 1.5;
+		text-align: center;
+		text-wrap: balance;
+	}
+	/* A tag chip, as the log draws one. */
+	.tag {
+		font-family: var(--sl-font-mono);
+		font-size: var(--sl-text-xs);
+		font-weight: 700;
+		padding: 0 0.4em;
+		border-radius: 0.25rem;
+		margin-inline-end: 0.5em;
+		color: var(--k-prompt);
+		background: color-mix(in srgb, var(--k-prompt) var(--k-chip), transparent);
+	}
+	a {
+		color: var(--k-link);
+		white-space: nowrap;
+	}
+</style>

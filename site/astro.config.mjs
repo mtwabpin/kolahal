@@ -55,6 +55,7 @@ export default defineConfig({
 				'./src/styles/terminal.css',
 			],
 			components: {
+				Banner: './src/components/Banner.astro',
 				Hero: './src/components/Hero.astro',
 				PageTitle: './src/components/PageTitle.astro',
 			},

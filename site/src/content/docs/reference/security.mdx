@@ -3,6 +3,8 @@ title: Security
 description: What keeps your phone and data safe, how to check a download, and how to report a problem privately.
 ---
 
+import Downloads from '../../../components/Downloads.astro';
+
 Kolahal is young, and its code is still being reviewed. Treat it as beta software:
 
 - Keep a [backup](/guides/backup/).
@@ -42,16 +44,31 @@ Kolahal is young, and its code is still being reviewed. Treat it as beta softwar
 
 ## Checking a download
 
+<Downloads>
+
 GitHub Actions builds each release from the commit that its tag points to. The release notes name that
 commit. Both APKs on GitHub are signed with Kolahal's release key, and so is the version on Google Play.
 The key's certificate has this SHA-256 digest:
+
+</Downloads>
+<Downloads off>
+
+GitHub Actions builds each release from the commit that its tag points to. The release notes name that
+commit. Kolahal on Google Play is signed with Kolahal's release key. The key's certificate has this
+SHA-256 digest:
+
+</Downloads>
 
 ```
 21223ad4312a871e4a1dd16440efccac84f4660c56fa1e80467631062938e210
 ```
 
+<Downloads>
+
 To check an APK before you install it, run `apksigner verify --print-certs kolahal-X.Y.Z.apk` (from
 the Android SDK's build tools). Compare the digest it prints for the signer's certificate with the one above.
+
+</Downloads>
 
 ## Reporting a vulnerability
 

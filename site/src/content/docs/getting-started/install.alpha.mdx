@@ -1,0 +1,124 @@
+---
+title: Install
+description: Join Kolahal's alpha test on Google Play, install it from the Play Store, then make it your home app.
+slug: getting-started/install
+---
+
+import { VERSION } from '../../../release';
+
+{/* While DIRECT_DOWNLOADS is off (src/release.ts), this page replaces install.mdx. */}
+
+Kolahal (package `com.mtwabpin.kolahal`) needs **Android 9 (API 28) or newer**.
+
+Kolahal is in alpha testing on Google Play. To install it, join the test and install it from the Play Store.
+The newest release is Kolahal {VERSION}.
+
+## Install from Google Play
+
+1. **Join the group** [groups.google.com/g/kolahal](https://groups.google.com/g/kolahal). Use the
+   Google account that your phone's Play Store uses. Google Play uses the group to know who the testers
+   are.
+2. **Become a tester**: open
+   [play.google.com/apps/testing/com.mtwabpin.kolahal](https://play.google.com/apps/testing/com.mtwabpin.kolahal)
+   with the same account and tap **Become a tester**.
+3. **Install Kolahal** from its
+   [Play Store page](https://play.google.com/store/apps/details?id=com.mtwabpin.kolahal). After step 2, it can
+   take a few minutes before Kolahal appears there.
+
+Kolahal updates through the Play Store, like any other app.
+
+Please keep it installed for 14 days. Google Play releases Kolahal to everyone only after at least 12 testers
+keep it for 14 days in a row. [Test on Google Play](/getting-started/play-testing/) explains the test, how to
+send feedback and how to leave.
+
+## The Play build
+
+The alpha test installs the Play build, the version of Kolahal for Google Play. Because of Google Play's rules,
+it is different from the full build in these ways:
+
+- **No call log.** Play doesn't let a launcher read the call log. So the Play build has no calls in the log and no `calls`.
+- **No accessibility service.** Play asks for a declaration and a video for an accessibility service. So the Play build has no `lock` and no double-tap to lock.
+- **No contacts permission.** Play requires apps to use Android's contact picker when the picker is enough. So `call`, `sms` and `contacts` open the picker and remember who you pick ([People](/guides/people/#in-the-play-build)).
+- **No `update`.** Apps on Play update only through Play.
+
+Everything else is the same, including notification access. Before Android's Notification access screen opens,
+Kolahal explains what it reads and asks for your permission. Play requires this of apps that read notifications.
+
+Pages on this site mark the features above as full build only. You get the full build when you
+[build Kolahal from source](#build-from-source).
+
+## Make it your home app
+
+Press Home and pick Kolahal. Or run `home` at the prompt to open Android's default home app
+setting. Kolahal should be the default launcher, because only the default launcher can list an app's shortcuts
+(in the app's long-press menu).
+
+The first time Kolahal starts, it opens a short [tour](/getting-started/setup/#the-tour) that sets up a few
+things. Run [`setup`](/getting-started/setup/) at any time to see the rest of the checklist.
+
+## Build from source
+
+You need a JDK and the Android SDK. The project uses AGP 9.5.0, Gradle 9.8.2 (through the
+wrapper), Kotlin 2.4.21, compileSdk 37 and targetSdk 37.
+
+```sh
+git clone https://github.com/mtwabpin/kolahal.git
+cd kolahal
+
+./gradlew :app:assembleRelease            # R8-optimized; signed with keystore.properties or the debug key
+./gradlew :app:bundlePlay                 # the Play build, as a bundle for Google Play
+./gradlew -PplayApk :app:assemblePlay     # the Play build as an APK, signed like the full one
+./gradlew :app:assembleDebug              # debug APK ("Kolahal debug", package suffix .debug)
+./gradlew :app:testDebugUnitTest          # JVM tests
+./gradlew :app:connectedDebugAndroidTest  # on-device tests (run them on an emulator)
+```
+
+You can find the APKs in `app/build/outputs/apk/<variant>/`. To install one over USB, run:
+
+```sh
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+Android doesn't compile an APK installed this way ahead of time. It compiles it later, while the phone is idle.
+Until then, Kolahal can feel slow. To compile it now, run:
+
+```sh
+adb shell cmd package compile -m speed -f com.mtwabpin.kolahal
+```
+
+:::tip[Use the release build day to day]
+Debug builds scroll much more slowly. The debug build installs next to the release
+build (it has a `.debug` package suffix), so you can keep both.
+:::
+
+### Signing
+
+If you don't set up your own keys, your build is signed with your debug key. Then it won't install over
+Kolahal from Google Play, so uninstall that first.
+
+`tools/make-keys.sh` makes two keys and lists both in `keystore.properties` (which git ignores):
+
+- a release key, which signs the APKs
+- an upload key, which signs the Google Play bundle
+
+```properties
+storeFile=/path/to/release.jks
+storePassword=…
+keyAlias=…
+keyPassword=…
+uploadStoreFile=/path/to/upload.jks
+uploadStorePassword=…
+uploadKeyAlias=…
+uploadKeyPassword=…
+```
+
+## Work profile and private space
+
+This section applies only if you use a work profile (apps your employer manages, shown with a briefcase) or Android 15's private space.
+
+Kolahal lists their apps next to your own. As the default launcher, Kolahal can also:
+
+- pause and resume the work profile (Android 10 and newer)
+- see the private space (Android 15 and newer)
+
+See [Work profile & private space](/guides/profiles/).
