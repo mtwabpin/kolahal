@@ -457,15 +457,10 @@ class ScriptWidgetCardTest {
         val before = inAccent(habit)
         assertTrue("no dots in the card's color", before > 0)
 
-        store(
-            habit,
-            open.copy(
-                base = WidgetBase(title = "Exercise", note = "Done today"),
-                points = days.dropLast(1) + 1f,
-                value = "5"
-            )
-        )
-        says(habit, "Exercise, Done today: 5, Days in a row, Done on 28 of the last 35 days")
+        // Only today's point changes. A note ("Done today") would take a line at the card's foot,
+        // and the dots would lose a week's row, so the count could fall whatever today's dot does.
+        store(habit, open.copy(points = days.dropLast(1) + 1f, value = "5"))
+        says(habit, "Exercise: 5, Days in a row, Done on 28 of the last 35 days")
         val after = inAccent(habit)
         assertTrue("today's dot didn't fill: $before pixels, then $after", after > before)
     }
