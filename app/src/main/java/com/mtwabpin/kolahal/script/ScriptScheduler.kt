@@ -132,12 +132,12 @@ object ScriptScheduler {
         }
     }
 
-    /** Syncs every script again. One bad script can't stop the rest. */
+    /** Syncs every script again. One bad script can't stop the rest, and its failure is logged once a day ([com.mtwabpin.kolahal.data.Quietly]). */
     fun syncAll(context: Context) {
         Stores.DAILY_SCHEDULE.open(context).edit { putLong(KEY_SYNCED_AT, System.currentTimeMillis()) }
         val wm = WorkManager.getInstance(context)
         ScriptRepository.get(context).all().forEach { s ->
-            runCatching {
+            com.mtwabpin.kolahal.data.Quietly.run(context, "Scheduling ${s.name}") {
                 syncDaily(context, wm, s)
                 syncInterval(context, wm, s)
             }

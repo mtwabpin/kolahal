@@ -15,7 +15,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
@@ -91,26 +90,36 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val reloadRequests = MutableStateFlow(0L)
     private fun requestReload() = reloadRequests.update { it + 1 }
 
+    /** Home's coming and going, as the log sees it: when the page is read, and what arrived while away ([HomeSession]). */
+    private val session = HomeSession(object : HomeSession.Host {
+        override val newest: Long? get() = pager.newest
+        override var storedSeenUpTo: Long
+            get() = logs.seenUpTo
+            set(value) { logs.seenUpTo = value }
+        override val freshMinutes: Long get() = config[Keys.LOG_FRESH].toLong()
+        override fun hideScreen(seen: Long) = logs.hideScreen(seen)
+        override fun maxId(): Long = logs.maxId()
+        override fun requestReload() { this@TerminalViewModel.requestReload() }
+    })
+
     /**
      * True while home is shown: from [onResume] (once a fresh screen is decided) to MainActivity's onStop.
-     * The log page is read again, and a `/` search runs, only during this time.
+     * The log page is read again, and a `/` search runs, only during this time ([HomeSession.reading]).
      */
-    private val reading = MutableStateFlow(true)
+    private val reading: MutableStateFlow<Boolean> get() = session.reading
 
     /** True when coming back after a stop. Then the single read of the page on return doesn't wait. */
-    @Volatile private var back = false
-
-    /** True from MainActivity's onStart to its onStop. */
-    @Volatile private var activityStarted = true
+    private var back: Boolean
+        get() = session.back
+        set(value) { session.back = value }
 
     /**
      * Called on MainActivity's onStart (true) and onStop (false). While stopped, the log page and a
      * `/` search aren't read, and contacts wait to reload. On return, [onResume] starts them again.
      */
     fun onStarted(on: Boolean) {
-        activityStarted = on
         // On return, [onResume] starts reading again.
-        if (!on) reading.value = false
+        session.onStarted(on)
         com.mtwabpin.kolahal.contacts.ContactsRepository.get(context).setActive(on)
     }
 
@@ -360,18 +369,18 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     fun mediaToggle() = io { mediaRepo.send(com.mtwabpin.kolahal.control.MediaRepository.Action.TOGGLE) }
     fun mediaNext() = io { mediaRepo.send(com.mtwabpin.kolahal.control.MediaRepository.Action.NEXT) }
 
-    var input by mutableStateOf(TextFieldValue(""))
-        private set
+    /** The line in the prompt, with its cursor ([PromptActions.input]). */
+    val input: TextFieldValue get() = prompt.input
 
     /** What the line in the prompt would change ([LivePreview]). */
     val livePreview: LivePreview?
         get() = LivePreview.of(input.text, config) { FontFiles.customFile(getApplication()) != null }
 
     /**
-     * The preview of a line that was just entered. It stays until the command has run; otherwise
-     * the old look would show for a moment.
+     * The preview of a line that was just entered ([PromptActions.entered]). It stays until the
+     * command has run; otherwise the old look would show for a moment.
      */
-    private var entered by mutableStateOf<LivePreview?>(null)
+    private val entered: LivePreview? get() = prompt.entered
 
     /**
      * The look to use now, when it differs from the settings. Only on home: other screens show
@@ -396,10 +405,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<UiEvent> = _events
 
-    /** Written by [reload] outside the main thread. Read on the main thread. */
-    @Volatile private var history: List<String> = emptyList()
-    private var historyIndex = -1
-    private var draft = ""
+    /** The commands for ↑, newest first ([PromptActions.history]). Written by [reload] outside the main thread. Read on the main thread. */
+    private var history: List<String>
+        get() = prompt.history
+        set(value) { prompt.history = value }
 
     /** Receives launcher.run(cmd) from scripts that the user started (see HostApi.runCommand). */
     private val runCommandReceiver = object : android.content.BroadcastReceiver() {
@@ -531,10 +540,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         rowsDay = today
     }
 
-    /** Script lines in (seenUpTo, unreadUntil] arrived while the user was away. Later ones were seen live. */
-    @Volatile private var seenUpTo = Long.MAX_VALUE
-    @Volatile private var unreadUntil = Long.MAX_VALUE
-    @Volatile private var pausedAt = 0L
+    /** Script lines in (seenUpTo, unreadUntil] arrived while the user was away. Later ones were seen live ([HomeSession]). */
+    private val seenUpTo: Long get() = session.seenUpTo
+    private val unreadUntil: Long get() = session.unreadUntil
 
     private val _hiddenLines = MutableStateFlow(0)
     /** Lines hidden by a fresh screen. The log shows a tap-to-restore line for them. */
@@ -588,10 +596,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun onPause() {
         _peek.value = null
-        // Use the newest line, not the last shown line. After `fresh` nothing shows, and under `log only`
-        // the last shown line can be old. The lines before the newest were seen anyway.
-        pager.newest?.let { logs.seenUpTo = it }
-        pausedAt = System.currentTimeMillis()
+        session.onPause()
     }
 
     /** The exact-alarm permission at the last resume. Null before the first resume. */
@@ -616,23 +621,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         // A crash in the script process doesn't restart home. So its report is announced here,
         // outside the command queue, so that a command typed at once doesn't wait for it.
         viewModelScope.launch(Dispatchers.IO) { runCatching { com.mtwabpin.kolahal.CrashReports.announce(context) } }
-        seenUpTo = logs.seenUpTo
-        // log.fresh: after some time away, home starts clean. Only lines you had already seen are
-        // hidden (script lines that arrived meanwhile stay). Nothing is deleted.
-        val freshMin = config[Keys.LOG_FRESH]
-        val seen = seenUpTo
-        val hide = freshMin > 0 && pausedAt > 0 && System.currentTimeMillis() - pausedAt >= freshMin * 60_000L && seen != Long.MAX_VALUE
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                if (hide) runCatching { logs.hideScreen(seen) }
-                unreadUntil = runCatching { logs.maxId() }.getOrDefault(unreadUntil)
-            }
-            // On return after a stop, the page is read here, once, after the fresh screen is applied.
-            when {
-                reading.value -> requestReload()
-                activityStarted -> { back = true; reading.value = true }
-            }
-        }
+        // log.fresh: after some time away, home starts clean. Then the page is read, once.
+        session.onResume(viewModelScope)
         if (screen.value == Screen.SETUP || screen.value == Screen.ONBOARDING) refreshSetup()
         refreshIsHome()
         unlockCounter.refresh()
@@ -679,41 +669,25 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     // ---- prompt ---------------------------------------------------------------------------
 
-    fun onInputChange(value: TextFieldValue) {
-        val old = input.text
-        // Cursor moves and IME composition updates must not abandon history navigation.
-        if (value.text != old) historyIndex = -1
-        // An alias as the first word, then a space, expands. The line then waits for Enter, as an alias does.
-        abbreviated(old, value)?.let { input = it; return }
-        input = value
-        // Instant run fires only while typing forward at the end of the line, so backspacing or
-        // editing in the middle never fires it.
-        // - Typing means one character at a time (or IME composition). Pasting a whole word is not typing.
-        // - A line with arguments may also end in a word that the keyboard commits whole, with its
-        //   space (`torch on `). Then only a line with nothing left to choose runs.
-        val typed = value.text.length - old.length == 1 || value.composition != null
-        if (searchWords(value.text) == null && value.text.length > old.length && value.selection.collapsed && value.selection.end == value.text.length &&
-            (typed || value.text.trim().contains(' '))
-        ) {
-            instantRun(value.text)
-        }
-    }
-
-    /** launch.instant: launches or runs as soon as the input can mean only one thing. */
-    private fun instantRun(text: String) {
-        val target = InstantRun.target(
+    /** The prompt's line, history, touch keys and suggestions ([PromptActions]). */
+    private val prompt = PromptActions(object : PromptActions.Host {
+        override fun io(block: suspend () -> Unit) = this@TerminalViewModel.io(block)
+        override fun emit(event: UiEvent) { _events.tryEmit(event) }
+        override fun instantTarget(text: String): InstantRun.Target<AppEntry>? = InstantRun.target(
             text, config[Keys.LAUNCH_INSTANT], config[Keys.LAUNCH_INSTANT_MIN],
             rankedApps = { appsRepo.searchRanked(it) }, appLabel = { it.label },
             commands = usages(), aliases = appPrefs.aliases(), scriptCommands = _commandNames.value,
             isOn = { !it.profile.quiet },
-        ) ?: return
-        setText("")
-        _events.tryEmit(UiEvent.ScrollToBottom)
-        when (target) {
-            is InstantRun.Target.App -> io { processor.launch(target.app) }
-            is InstantRun.Target.Command -> io { processor.run(target.line) }
-        }
-    }
+        )
+        override fun runsOnTap(line: String) = this@TerminalViewModel.runsOnTap(line)
+        override fun abbreviation(word: String) = processor.abbreviation(word)
+        override fun livePreview(line: String) = LivePreview.of(line, config) { FontFiles.customFile(getApplication()) != null }
+        override fun suggestions(text: String) = this@TerminalViewModel.suggestions(text)
+        override suspend fun run(line: String) { processor.run(line) }
+        override suspend fun launch(app: AppEntry) { processor.launch(app) }
+    })
+
+    fun onInputChange(value: TextFieldValue) = prompt.onInputChange(value)
 
     /**
      * In `launch.instant all` mode, a tapped history line runs at once. It doesn't run if it is
@@ -726,142 +700,31 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             appsRepo.searchRanked(name).firstOrNull()?.second == 0
         } || InstantRun.wholeLine(line, usages(), appPrefs.aliases()))
 
-    fun submit() {
-        val line = input.text
-        // Enter in a log search hides the keyboard to make room for the results. Results are tapped, not run.
-        if (searchWords(line) != null) {
-            _events.tryEmit(UiEvent.HideKeyboard)
-            return
-        }
-        entered = livePreview
-        input = TextFieldValue("")
-        historyIndex = -1
-        if (line.isBlank()) return
-        io {
-            try {
-                processor.run(line)
-            } finally {
-                entered = null
-            }
-        }
-        _events.tryEmit(UiEvent.ScrollToBottom)
-    }
+    fun submit() = prompt.submit()
 
     /** Inserts [text] at the cursor (for touch keys). */
-    fun insert(text: String) {
-        val v = input
-        val newText = v.text.replaceRange(v.selection.min, v.selection.max, text)
-        historyIndex = -1
-        val value = TextFieldValue(newText, TextRange(v.selection.min + text.length))
-        input = abbreviated(v.text, value) ?: value
-    }
+    fun insert(text: String) = prompt.insert(text)
 
-    /** [value] with an alias typed as its first word expanded ([Abbreviations]), or null. */
-    private fun abbreviated(old: String, value: TextFieldValue) = Abbreviations.onSpace(old, value, processor::abbreviation)
+    fun historyUp() = prompt.historyUp()
 
-    fun historyUp() {
-        if (history.isEmpty()) return
-        if (historyIndex == -1) draft = input.text
-        historyIndex = (historyIndex + 1).coerceAtMost(history.lastIndex)
-        recall(history.getOrNull(historyIndex) ?: return)
-    }
-
-    fun historyDown() {
-        if (historyIndex == -1) return
-        historyIndex--
-        recall(if (historyIndex == -1) draft else history.getOrNull(historyIndex) ?: draft)
-    }
+    fun historyDown() = prompt.historyDown()
 
     /** Backspace for the touch key bar. Deletes the selection, or the character before the cursor. */
-    fun deleteBackward() {
-        val v = input
-        val sel = v.selection
-        val (start, end) = if (sel.collapsed) (sel.start - 1).coerceAtLeast(0) to sel.start else sel.min to sel.max
-        if (start == end) return
-        historyIndex = -1
-        input = TextFieldValue(v.text.removeRange(start, end), TextRange(start))
-    }
+    fun deleteBackward() = prompt.deleteBackward()
 
-    fun moveCursor(delta: Int) {
-        val pos = (input.selection.end + delta).coerceIn(0, input.text.length)
-        input = input.copy(selection = TextRange(pos))
-    }
+    fun moveCursor(delta: Int) = prompt.moveCursor(delta)
 
-    fun onKeyBar(key: KeyBarKey) {
-        when (key) {
-            KeyBarKey.ESC -> escape()
-            KeyBarKey.TAB -> complete()
-            KeyBarKey.UP -> historyUp()
-            KeyBarKey.DOWN -> historyDown()
-            KeyBarKey.LEFT -> moveCursor(-1)
-            KeyBarKey.RIGHT -> moveCursor(1)
-            KeyBarKey.HOME -> input = input.copy(selection = TextRange(0))
-            KeyBarKey.END -> input = input.copy(selection = TextRange(input.text.length))
-            KeyBarKey.ENTER -> submit()
-            KeyBarKey.KBD -> _events.tryEmit(UiEvent.FocusPrompt)
-            KeyBarKey.SPACE -> insert(" ")
-            KeyBarKey.BKSP -> deleteBackward()
-        }
-    }
+    fun onKeyBar(key: KeyBarKey) = prompt.onKeyBar(key)
 
-    fun escape() {
-        setText("")
-    }
+    fun escape() = prompt.escape()
 
     /** TAB: accepts the first suggestion. */
-    fun complete() {
-        val first = suggestions(input.text).firstOrNull() ?: return
-        when (first) {
-            is Suggestion.Completion -> pickCompletion(first.replacement, tapped = false)
-            is Suggestion.App -> setText(first.app.label)
-        }
-    }
+    fun complete() = prompt.complete()
 
-    /**
-     * A completion fills the prompt. In `launch.instant all`, if the line then has nothing left to
-     * choose, it runs (`torch on`). [tapped] is true for a tapped suggestion. A suggestion taken
-     * with Tab counts as typing.
-     */
-    private fun pickCompletion(replacement: String, tapped: Boolean) {
-        // An alias picked as the first word (`a `) expands, as it does when typed with a space.
-        abbreviated(replacement.dropLast(1), TextFieldValue(replacement, TextRange(replacement.length)))?.let {
-            historyIndex = -1
-            input = it
-            return
-        }
-        setText(replacement)
-        if (searchWords(replacement) != null || !replacement.trim().contains(' ')) return
-        // A contact tapped for `call` opens the dialer at once, as a tap in the log does. The
-        // dialer still waits for Call. Any other line runs only once it is complete (`torch on`).
-        val line = replacement.trim()
-        if (tapped && InstantRun.canonical(line.substringBefore(' ').lowercase()) == "call" && runsOnTap(line)) {
-            setText("")
-            _events.tryEmit(UiEvent.ScrollToBottom)
-            io { processor.run(line) }
-        } else {
-            instantRun(replacement)
-        }
-    }
-
-    fun onSuggestion(s: Suggestion) {
-        when (s) {
-            is Suggestion.App -> {
-                setText("")
-                io { processor.launch(s.app) }
-            }
-            is Suggestion.Completion -> pickCompletion(s.replacement, tapped = true)
-        }
-    }
+    fun onSuggestion(s: Suggestion) = prompt.onSuggestion(s)
 
     /** Sets a new line in the prompt. ↑ and ↓ start again from it. */
-    private fun setText(text: String) {
-        historyIndex = -1
-        recall(text)
-    }
-
-    private fun recall(text: String) {
-        input = TextFieldValue(text, TextRange(text.length))
-    }
+    private fun setText(text: String) = prompt.setText(text)
 
     /** Goes up when a list the suggestions wait for has arrived (an app's activities or shortcuts): work them out again. */
     val suggestionsLoaded: StateFlow<Int> get() = completer.loaded

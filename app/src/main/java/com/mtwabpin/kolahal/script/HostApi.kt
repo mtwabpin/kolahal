@@ -79,7 +79,22 @@ class HostApi(
     }
 
     /** Stops the run as its timeout would. Lua's guards don't let a script catch this message. */
-    private fun timedOut(): Nothing = throw IllegalStateException("script timed out after ${timeoutS}s")
+    private fun timedOut(): Nothing {
+        stopForTimeout()
+        throw IllegalStateException("script timed out after ${timeoutS}s")
+    }
+
+    /**
+     * What stopped this run, recorded where it happened: its time was up, or a switch was off. Null
+     * while nothing has. The worker reports the run's end from this, not from the error's text.
+     */
+    @Volatile var stoppedBy: RunStop? = null
+        private set
+
+    /** Records that the run's time was up. Lua's hook calls this as it stops the run, and so do host calls that wait. */
+    fun stopForTimeout() {
+        stoppedBy = RunStop.Timeout
+    }
 
     /** The time left in the run, for host calls that wait (sleep, a request). If no time is left, the run stops. */
     private fun remainingMs(): Long = (deadline - System.currentTimeMillis()).takeIf { it > 0 } ?: timedOut()
@@ -145,21 +160,12 @@ class HostApi(
     /** `allowed(what)` for scripts: whether the user lets this script use [what]. */
     fun allowed(what: String): Boolean = grants?.allows(what.trim().lowercase()) ?: true
 
-    /** The access item, switched off by the user, that stopped this run. The worker says how to allow it. */
-    var denied: String? = null
-        private set
-
-    /** The message that [denied] stopped the run with. It tells this apart from an error the script caught and then went on. */
-    var deniedMessage: String? = null
-        private set
-
     /** Items that are declared, not yet decided, and asked for in this run. The worker offers to allow them. */
     val undecided = LinkedHashSet<String>()
 
     /** Stops the run because [item] is switched off. The worker says so, with a tap to allow it. */
     private fun deny(item: String, message: String): Nothing {
-        denied = item
-        deniedMessage = message
+        stoppedBy = RunStop.Denied(item, message)
         throw java.io.IOException(message)
     }
 

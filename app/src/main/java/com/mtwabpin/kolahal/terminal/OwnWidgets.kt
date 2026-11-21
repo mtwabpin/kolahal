@@ -313,11 +313,22 @@ internal class OwnData(context: Context, private val scope: CoroutineScope) {
     /**
      * Stores the Shortcuts widget's list. The cards see it at once. Only the Widgets screen's
      * editor calls this, through the view model: never a command, never a script (ShortcutsWriteTest).
+     * When the list can't be written, the cards show the stored list again, and the log says why.
      */
     fun saveShortcuts(list: List<Shortcut>) {
         val cleaned = Shortcuts.clean(list)
+        val before = shortcuts.value
         shortcuts.value = cleaned
-        scope.launch(taps) { runCatching { Shortcuts.write(context, cleaned) } }
+        scope.launch(taps) {
+            try {
+                Shortcuts.write(context, cleaned)
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                // Only if no later save has changed the list since.
+                shortcuts.compareAndSet(cleaned, before)
+                com.mtwabpin.kolahal.data.Quietly.report(context, "Saving the shortcuts", e)
+            }
+        }
     }
 
     private val editorAsked = MutableStateFlow(false)
