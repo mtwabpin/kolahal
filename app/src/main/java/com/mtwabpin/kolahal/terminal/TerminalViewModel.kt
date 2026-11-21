@@ -150,7 +150,10 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         override val logSources get() = this@TerminalViewModel.logSources
     })
 
-    /** The scripts. Refreshed outside the main thread whenever the log changes (every script action writes to the log). */
+    /**
+     * The scripts. Refreshed outside the main thread whenever the log changes (every script action
+     * writes to the log), and after a change on the script screens. [ScriptActions] is its one writer.
+     */
     val scriptList: StateFlow<List<Script>>
         field = MutableStateFlow<List<Script>>(emptyList())
 
@@ -192,19 +195,28 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         return if (off.isEmpty()) commandUsages else commandUsages - off
     }
 
-    /** What [setCommandScripts] read last: each script's name, whether it is on, and its code. */
+    /**
+     * What [setCommandScripts] read last: each script's name, whether it is on, and its code.
+     * Only the script list's one writer ([ScriptActions]) calls it, one call at a time.
+     */
     private var commandsFrom: List<Triple<String, Boolean, String>>? = null
 
-    /** Reads the command scripts' usage and description again, only when a name, a switch or a code changed: not after each run. */
+    /**
+     * Reads the command scripts' usage and description again, only when a name, a switch or a code
+     * changed: not after each run. All four fields come from [list]: they are made first, then set
+     * together, and [commandsFrom] is set last, so a failed read is tried again with the next list.
+     */
     private fun setCommandScripts(list: List<Script>) {
         val from = list.map { Triple(it.name, it.enabled, it.code) }
         if (from == commandsFrom) return
+        val commands = list.filter { it.enabled }.mapNotNull { s -> ScriptMeta.parse(s.code).takeIf { it.isCommand }?.let { s to it } }
+        val usages = commands.mapNotNull { (s, meta) -> meta.usage(s.name)?.let { s.name to it } }.toMap()
+        val descriptions = commands.mapNotNull { (s, meta) -> meta.description?.let { s.name to it } }.toMap()
+        scriptUsages = usages
+        commandUsages = usages + CommandCatalog.COMMAND_USAGES
+        scriptDescriptions = descriptions
+        _commandNames.value = commands.map { (s, _) -> s.name }
         commandsFrom = from
-        val commands = list.filter { it.enabled && ScriptMeta.parse(it.code).isCommand }
-        scriptUsages = commands.mapNotNull { s -> ScriptMeta.parse(s.code).usage(s.name)?.let { s.name to it } }.toMap()
-        commandUsages = scriptUsages + CommandCatalog.COMMAND_USAGES
-        scriptDescriptions = commands.mapNotNull { s -> ScriptMeta.parse(s.code).description?.let { s.name to it } }.toMap()
-        _commandNames.value = commands.map { it.name }
     }
 
     /** Goes up by one when aliases, hidden apps or labels change. */
@@ -470,9 +482,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Called when the user scrolled back to the page's first lines. Older lines are read, if there are any. */
     fun loadOlder() = pager.loadOlder()
 
-    /** The scripts as [refreshCaches] last read them ([ScriptRepository.fingerprint]). */
-    private var scriptsPrint: String? = null
-
     /**
      * Brings the log up to date: its page ([LogPager.reload]), and what else follows the log
      * ([refreshCaches]).
@@ -492,14 +501,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * reads the same lines again, and refreshes history, todos and the hidden count for them.
      */
     private suspend fun refreshCaches(read: LogPager.Read) {
-        val print = scripts.fingerprint()
-        val scriptsChanged = print != scriptsPrint
-        if (scriptsChanged) {
-            val latest = scripts.all()
-            scriptList.value = latest
-            withContext(Dispatchers.Default) { setCommandScripts(latest) }
-            scriptsPrint = print
-        }
+        // Read and written by the script list's one writer, only when the scripts changed since the last reload.
+        val scriptsChanged = scriptActions.refreshScriptsIfChanged()
         // The status lines are read when one was set or cleared, when a script changed (deleting or
         // switching one clears its line), and when the whole log is read again. Not at each new line.
         val status = logs.statusVersion

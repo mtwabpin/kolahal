@@ -25,7 +25,6 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.DisposableEffect
@@ -46,8 +45,6 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ScriptAccess
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /** A label and its value on a script's sheet. Used for the user's scripts and for shared ones. */
 @Composable
@@ -105,8 +102,8 @@ internal fun ScriptSheet(
     var editingSecret by remember(s.id) { mutableStateOf<ScriptMeta.Secret?>(null) }
     val options = remember(s.code) { ScriptMeta.options(s.code) }
     val optionsVersion by vm.scriptActions.optionsVersion.collectAsStateWithLifecycle()
-    val optionValues by produceState(emptyMap<String, String>() to emptySet<String>(), s.code, s.name, optionsVersion) {
-        value = withContext(Dispatchers.IO) { vm.scriptActions.optionValues(s) }
+    val optionValues by produceIo(emptyMap<String, String>() to emptySet<String>(), s.code, s.name, optionsVersion, what = "Reading a script's options") {
+        vm.scriptActions.optionValues(s)
     }
     var editingOption by remember(s.id) { mutableStateOf<ScriptMeta.Option?>(null) }
     val grants = info.grants

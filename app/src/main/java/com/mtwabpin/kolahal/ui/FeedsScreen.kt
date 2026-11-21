@@ -46,7 +46,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -120,9 +119,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    val feeds by produceState<List<FeedInfo>?>(null, repoVersion) {
-        value = withContext(Dispatchers.IO) { repo.all() }
-    }
+    val feeds by produceIo<List<FeedInfo>?>(null, repoVersion, what = "Reading the feeds") { repo.all() }
     // The feeds settings, shown under the subscriptions. They are read here, not inside the list's content.
     val configVersion = vm.config.version.collectAsStateWithLifecycle()
     val applicable by remember { derivedStateOf { configVersion.value; Keys.ALL.filterTo(HashSet()) { applies(it, vm.config) } } }
@@ -187,7 +184,9 @@ fun FeedsScreen(vm: TerminalViewModel) {
                 onBack = { openFeedId = null },
                 onRefresh = { io("refresh") { FeedScheduler.fetchNow(context, open.id); "Fetching ${open.displayTitle()}…" } },
                 onMarkAllRead = { markFeedRead(open, sheet = false) },
-                onOpenItem = { item -> openItem(context, scope, repo, item, snackbar) },
+                onOpenItem = { item ->
+                    if (openItem(context, scope, item, snackbar) && !item.read) io("mark read") { repo.markRead(item.id); null }
+                },
                 onToggleRead = { item -> io("mark read") { if (item.read) repo.markUnread(item.id) else repo.markRead(item.id); null } },
             )
         } else {
@@ -264,8 +263,11 @@ fun FeedsScreen(vm: TerminalViewModel) {
     }
 }
 
-/** Opens [item] in the browser and marks it read. */
-private fun openItem(context: Context, scope: CoroutineScope, repo: FeedRepository, item: FeedItem, snackbar: SnackbarHostState) {
+/**
+ * Opens [item] in the browser. True if it is to be marked read: it was opened, or it has no link.
+ * False if no app could open its link.
+ */
+private fun openItem(context: Context, scope: CoroutineScope, item: FeedItem, snackbar: SnackbarHostState): Boolean {
     val link = item.link
     if (link.isNullOrBlank()) {
         scope.launch { snackbar.showSnackbar("This item has no link") }
@@ -275,10 +277,10 @@ private fun openItem(context: Context, scope: CoroutineScope, repo: FeedReposito
         } catch (_: Exception) {
             // No app can handle it, the link is malformed, or the target activity threw a SecurityException.
             scope.launch { snackbar.showSnackbar("No app can open $link") }
-            return
+            return false
         }
     }
-    if (!item.read) scope.launch(Dispatchers.IO) { repo.markRead(item.id) }
+    return true
 }
 
 // ---- feed list ----------------------------------------------------------------------------------
@@ -587,8 +589,8 @@ private fun FeedItemsPage(
     onOpenItem: (FeedItem) -> Unit,
     onToggleRead: (FeedItem) -> Unit,
 ) {
-    val items by produceState<List<FeedItem>?>(null, feed.id, version) {
-        value = withContext(Dispatchers.IO) { repo.items(feedId = feed.id, limit = ITEM_LIMIT) }
+    val items by produceIo<List<FeedItem>?>(null, feed.id, version, what = "Reading a feed's items") {
+        repo.items(feedId = feed.id, limit = ITEM_LIMIT)
     }
     val list = items
     GuiListPage(

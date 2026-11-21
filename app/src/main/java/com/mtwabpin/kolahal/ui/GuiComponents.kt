@@ -64,8 +64,10 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -75,6 +77,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -88,7 +91,35 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.commands.CommandParsing
+import com.mtwabpin.kolahal.data.Quietly
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/**
+ * [produceState] for a read that runs on [Dispatchers.IO] and may fail, such as a database query.
+ * - [read] runs again whenever one of [keys] changes.
+ * - A failure is logged through [Quietly] as "[what] failed: …", at most once a day, and the value
+ *   stays as it was: [initial], or the last read that worked.
+ */
+@Composable
+fun <T> produceIo(initial: T, vararg keys: Any?, what: String, read: suspend () -> T): State<T> {
+    val context = LocalContext.current.applicationContext
+    return produceState(initial, *keys) {
+        val result = withContext(Dispatchers.IO) {
+            try {
+                Result.success(read())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Quietly.report(context, what, e)
+                Result.failure(e)
+            }
+        }
+        result.onSuccess { value = it }
+    }
+}
 
 /** Single-select connected button group (Material 3 Expressive). [label] gives the words shown for a choice; the test tag keeps the choice itself. */
 @Composable
