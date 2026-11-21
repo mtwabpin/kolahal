@@ -1,3 +1,6 @@
+/**
+ * Manual Review - Pending
+ */
 package com.mtwabpin.kolahal.widgets
 
 import com.mtwabpin.kolahal.data.Stores

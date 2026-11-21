@@ -1,3 +1,6 @@
+/**
+ * Manual Review - Pending
+ */
 package com.mtwabpin.kolahal
 
 /** Where Kolahal lives outside the app. Settings → About, `help` and `source` open them. */
