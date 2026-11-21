@@ -225,41 +225,6 @@ class NowPlayingCardTest {
     }
 
     /**
-     * On a one-row card the slim bar takes a drag that starts a little under it, in the card's
-     * bottom padding. Over it the texts are the card's: a drag that starts just above it turns the page.
-     */
-    @Test fun theSlimBarReachesDownNotUp() {
-        val asked = Asked()
-        playing.value = track(canSeek = true)
-        lateinit var pager: PagerState
-        compose.setContent {
-            KolahalTheme {
-                GuiTheme {
-                    pager = rememberPagerState { 2 }
-                    HorizontalPager(pager, Modifier.width(395.dp)) { page ->
-                        if (page == 0) OwnWidget(WidgetSource.MEDIA, 92.dp, asked, feed) else Box(Modifier.fillMaxSize())
-                    }
-                }
-            }
-        }
-        compose.waitForNode(seekBar)
-        val band = compose.onNode(hasTestTag("seek-reach"), useUnmergedTree = true)
-        fun seeks() = asked.all.count { it.startsWith("media seek ") }
-        // 8 dp under the band.
-        band.performTouchInput { swipe(Offset(width * 0.2f, height + 8.dp.toPx()), Offset(width * 0.7f, height + 8.dp.toPx()), durationMillis = 300) }
-        compose.runOnIdle {
-            assertEquals(0, pager.currentPage)
-            assertEquals(asked.all.toString(), 1, seeks())
-        }
-        // 3 dp over it, on the artist's line.
-        band.performTouchInput { swipe(Offset(width * 0.8f, -3.dp.toPx()), Offset(width * 0.1f, -3.dp.toPx()), durationMillis = 200) }
-        compose.runOnIdle {
-            assertEquals(1, pager.currentPage)
-            assertEquals(asked.all.toString(), 1, seeks())
-        }
-    }
-
-    /**
      * The player's art is the face of play or pause, under its icon. Without art the button keeps its
      * colour. The card has no title line: the track says what it is.
      */

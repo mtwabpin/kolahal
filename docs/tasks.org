@@ -940,6 +940,9 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
 - Remark:
 
 *** TODO [#B] The slim seek bar is a 20 dp target with no margin
+- Tried on 21 November 2026 and taken out: a box reaching 14 dp under the band, clipped, with the
+  slider in it, took no touch under the band in the device test (NowPlayingCardTest), though the
+  slider's bounds reached there. Find out why (hit-testing of a child over its parent's bounds) first.
 - =ui/WidgetBodies.kt= (=SEEK_SLIM=, =ExactTouches=): on a one-row Now playing card the slider takes
   touches only in its 20 dp band, with a 4×14 dp handle. A drag a little above it opens the player;
   one off it turns the page.

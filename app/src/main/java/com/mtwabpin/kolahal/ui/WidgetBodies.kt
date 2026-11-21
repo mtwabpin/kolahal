@@ -2034,14 +2034,6 @@ private val SEEK_HEIGHT = 48.dp
  */
 private val SEEK_SLIM = 20.dp
 
-/**
- * On a one-row card, how far under its band the slim slider still takes touches: into the card's
- * bottom padding, where nothing else is. With the band, 34 dp. Upwards it ends at the band, where
- * the texts are the card's. The slider itself is 48 dp tall, centred on the band, so it reaches
- * 14 dp under it at most.
- */
-private val SEEK_SLIM_REACH = 14.dp
-
 /** The slim slider's handle, which fits its band. */
 private val SEEK_SLIM_HANDLE = DpSize(4.dp, 14.dp)
 
@@ -2122,7 +2114,7 @@ internal fun MediaBody(spec: WidgetSpec.Media, box: WidgetSizes.Box, onTap: ((Wi
                     if (line.isNotEmpty()) Text(line, style = type.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (seek != null && fraction != null && onTap != null && seeks) SeekBar(spec, fraction, seek, colour, onTap)
                     // The last thing in the texts' column, so the card's bottom padding under it takes its touches too.
-                    else if (fraction != null && tall >= TWO_LINES) MediaBar(spec, fraction, seek, colour, onTap, top = 4.dp, reach = SEEK_SLIM_REACH)
+                    else if (fraction != null && tall >= TWO_LINES) MediaBar(spec, fraction, seek, colour, onTap, top = 4.dp)
                 }
                 Spacer(Modifier.width(WidgetWords.CONTROL_GAP_DP.dp))
                 MediaButtons(count, playDp, spec, onTap, colour)
@@ -2333,8 +2325,6 @@ private fun rememberSeek(spec: WidgetSpec.Media, onTap: ((WidgetTap) -> Unit)?):
  * - [under] is drawn along its foot, under the bar: the times.
  * - [slim]: [SEEK_SLIM] tall with a shorter handle, in the bar's place on a card with no room for
  *   48 dp ([MediaBar]). Only its band takes touches, so the texts over it stay the card's.
- * - [reach]: how far under a slim band it takes touches too ([SEEK_SLIM_REACH]), where nothing is
- *   under it. Its drawing stays in the band.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2347,7 +2337,6 @@ private fun SeekBar(
     modifier: Modifier = Modifier,
     under: (@Composable () -> Unit)? = null,
     slim: Boolean = false,
-    reach: Dp = 0.dp,
 ) {
     val slider = seek.slider
     // Where the player is, or the place chosen, while no finger moves it. Material's own slider sets its value so.
@@ -2363,21 +2352,13 @@ private fun SeekBar(
     // Compose widens the touches of a band under 48 dp to 48: over the texts above a slim one, which are the card's.
     val config = LocalViewConfiguration.current
     val touches = remember(config, slim) { if (slim) ExactTouches(config) else config }
-    // The slider is 48 dp tall whatever its band (Material's minimum), centred on it. A clip cuts its
-    // touches to the band, or to the band and [reach] under it; drawing stays in the band either way.
-    val band = when {
-        !slim -> Modifier.height(SEEK_HEIGHT)
-        reach <= 0.dp -> Modifier.height(SEEK_SLIM).clipToBounds()
-        // With a reach the box is [reach] taller, the slider in its top band, clipped: it takes touches
-        // down to the box's foot and none over the band, where the texts are the card's. Compose gives a
-        // touch only to a part inside its parent, so the reach has to be room the box really takes.
-        else -> Modifier.height(SEEK_SLIM + reach).clipToBounds()
-    }
-    val reaching = slim && reach > 0.dp
+    // The slider is 48 dp tall whatever its band (Material's minimum), centred on it. A slim band's
+    // clip cuts its touches to the band.
+    val band = if (slim) Modifier.height(SEEK_SLIM).clipToBounds() else Modifier.height(SEEK_HEIGHT)
     CompositionLocalProvider(LocalViewConfiguration provides touches) {
         Box(modifier.fillMaxWidth().then(band)) {
             Box(Modifier.fillMaxSize()) {
-                Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(if (slim) SEEK_SLIM else SEEK_HEIGHT).then(if (reaching) Modifier.testTag("seek-reach") else Modifier)) {
+                Box(Modifier.fillMaxSize()) {
                     Slider(
                         state = slider,
                         onValueChange = { if (!press.held) slider.value = it },
@@ -2414,8 +2395,8 @@ private class ExactTouches(config: ViewConfiguration) : ViewConfiguration by con
  * what is over it.
  */
 @Composable
-private fun MediaBar(spec: WidgetSpec.Media, fraction: Float, seek: Seek?, role: Color, onTap: ((WidgetTap) -> Unit)?, top: Dp = 0.dp, reach: Dp = 0.dp) {
-    if (seek != null && onTap != null) SeekBar(spec, fraction, seek, role, onTap, slim = true, reach = reach)
+private fun MediaBar(spec: WidgetSpec.Media, fraction: Float, seek: Seek?, role: Color, onTap: ((WidgetTap) -> Unit)?, top: Dp = 0.dp) {
+    if (seek != null && onTap != null) SeekBar(spec, fraction, seek, role, onTap, slim = true)
     else Box(Modifier.padding(top = top).testTag("media-bar")) { LevelBar(fraction, moving = spec.playing, role) }
 }
 
