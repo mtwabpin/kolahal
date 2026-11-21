@@ -427,16 +427,6 @@ ships (the release notes then say what changed).
 - Fix: drop entries older than the window when one is added.
 - Remark:
 
-** TODO [#C] A choice setting's values say nothing in suggestions  :home:
-- =data/Keys.kt= (=ConfigKey.Choice=), =terminal/Completer.kt= (=config= values).
-- Typing =config set log.time = suggests =off=, =commands= and =groups= with no words beside them,
-  while a setting's name has its description. Only =home.style= has notes so far (=gui=: "Text,
-  chips and cards, with pictures and sizes"; =tty=: "A character grid, like a terminal: one font
-  size, no pictures").
-- Fix: give the other 16 choice settings =notes= (a few words for each value), from what each value
-  does in the code. =Bool= settings (=on=, =off=) need none. Small.
-- Remark:
-
 ** TODO App Functions, so assistants can add and update scripts  :project:
 Android's App Functions (=androidx.appfunctions=, Android 16 and newer) let an assistant on the
 phone call functions an app declares. Kolahal could offer:
