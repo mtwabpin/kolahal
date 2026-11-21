@@ -1,0 +1,82 @@
+#+TITLE: TTY mode
+#+STARTUP: showall
+#+TAGS: seam engine screens log home release extras shaders scripts
+
+The TTY home style: an opt-in home where the log page and its parts are drawn on a strict
+character grid, like a real terminal, and the later shader option on top of it. The design is in
+[[file:tty-architecture.md][tty-architecture.md]]; its first section has the maintainer's decisions of 21 November 2026, which
+override the rest. Internal: nothing here is published.
+
+- One step at a time, in order; each leaves master shippable. Steps 0 and 1 can run in parallel.
+- Sizes: S up to 2 days, M about a week, L about two weeks.
+- Write what to do after =Remark:= (do it, skip it, or change it), and I'll follow that.
+
+* Decided
+- TTY is opt-in and drops what a grid can't do: no images (alt text, initials or names instead), one
+  font size (bold or inverse for emphasis; =font.size= and pinch still size the whole grid).
+- The widgets page always stays GUI.
+- The GUI gets nothing because TTY has it (no scroll thumb, no selection mode in the GUI).
+- =home.style= stays a config key (=config set home.style tty=) until step 4, then goes into Settings.
+
+* Steps
+** TODO Step 0: the seam, with no visible change  :seam:
+- Size M. Design §1, §11.
+- A shared, renderer-agnostic =LineModel= (=terminal/LineModel.kt=): what a log row shows and what can
+  be tapped, decided once instead of while drawing. The GUI's =LogLine= draws from it.
+- =HeaderModel= for the header's parts; the log's scroll effects in =ui/LogScroll.kt=; fold state
+  hoisted; =TerminalScreen= split into =HomeState= and =GuiHome=.
+- Done when: no pixel changes (the gallery and line tests stay green), no new composable takes the
+  whole view model, LayersTest and ExpressiveOnlyTest green.
+- Remark:
+
+** TODO Step 1: the grid engine and the screens  :engine:screens:
+- Size M. Design §2, §5.1, §6.
+- Pure, JVM-tested cell layer in =terminal/tty/=: cells, =CellWidth= (0, 1 or 2 cells per glyph),
+  =CellBuffer=, =TtyScreen=. Painting in =ui/tty/=: =GridMetrics=, =GridPainter=, box, block and
+  sparkline glyphs drawn as geometry, =TtyPalette= from the theme's roles, =TtyScreenHost=.
+- Commands that work in today's home: =matrix=, =clock=, =pipes=, =sl=, =boot=. Any key or tap leaves.
+- What you'd see: =matrix= fills home with cmatrix rain in the theme's colors until you tap.
+- Remark:
+
+** TODO Step 2: the TTY log  :log:
+- Size L. Design §2.5–2.9, §3.1–3.5, §4.
+- Every kind of log row laid out on the grid: groups with =│= and the time column, tables in box
+  drawing, bars and sparklines in blocks, stats bold at the grid size, links underlined, tags in
+  inverse, fold, dim, unread and day dividers, search marks, profile tags; images as alt text,
+  people as initials.
+- Hit-testing, long-press sheet, swipe copy or delete with undo, script buttons, TalkBack per row.
+- =home.style= exists as a config key; the rest of home is still GUI.
+- Remark:
+
+** TODO Step 3: the rest of home on the grid  :home:
+- Size L. Design §3.6–3.9.
+- Prompt (an invisible text field under a drawn row, so keyboards and composition still work),
+  suggestions, key bar, header, pinned line, bands (undo, update, default home), =TtySheet= for
+  menus, the app selector, empty-log tips. The widgets page swipe stays and the page stays GUI.
+- Remark:
+
+** TODO Step 4: release TTY in Settings  :release:
+- Size M. Design §8, §12 (trimmed by the decisions).
+- Right-to-left text, TalkBack and switch access, every theme dark and light, Material You,
+  custom fonts, font scale, process death, rotation and resize, work and private profiles,
+  performance on a long log; a parity test over the shared corpus.
+- Settings gets a TTY section with the style switch. Website: a Guides → TTY page (profiles
+  material last; nothing marked "new").
+- Remark:
+
+** TODO Step 5: extras  :extras:
+- Size M, each part on its own: selection mode on the grid, =top=, an idle screensaver, =tty.crt=
+  (scanlines, vignette and glow drawn without shaders, for every Android version).
+- Remark:
+
+** TODO Step 6: shaders  :shaders:
+- Size M–L. Design §7. Android 13 and newer.
+- AGSL files loaded like scripts, a =RenderEffect= on the TTY layer, uniforms (time, size, theme
+  colors, touch, the grid), a frame-time watchdog, safe mode and an always-reachable off; Settings
+  stays outside the effect. A bundled set: CRT, bloom, rain.
+- Remark:
+
+** TODO Step 7: scripts drawing on the grid  :scripts:
+- Size M. Design §6.3.
+- A =tty.screen= API so a script can run its own full-screen screen, in both home styles.
+- Remark:
