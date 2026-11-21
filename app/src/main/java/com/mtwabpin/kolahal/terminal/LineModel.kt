@@ -13,7 +13,18 @@ import com.mtwabpin.kolahal.script.Json
 import kotlin.math.roundToInt
 
 /** Which lines show their time, from `log.time`. With `groups`, a group's first line shows it, and so does a line where the minute changes. */
-enum class TimeMode { OFF, COMMANDS, GROUPS, ALL }
+enum class TimeMode {
+    OFF, COMMANDS, GROUPS, ALL;
+
+    companion object {
+        /** The mode `log.time`'s [value] names: off, commands or groups (anything else is commands). */
+        fun of(value: String): TimeMode = when (value) {
+            "groups" -> GROUPS
+            "off" -> OFF
+            else -> COMMANDS
+        }
+    }
+}
 
 /**
  * A piece of a row's text with its look. [ink] is null for the paragraph's own ink; bold text
@@ -466,17 +477,32 @@ fun LineModel.targets(): List<Target> = buildList {
 /** The links among [pieces] (text and address): pieces of one link that follow each other are one. */
 private fun linksOf(pieces: List<Pair<String, String?>>): List<Target.Link> {
     val out = ArrayList<Target.Link>()
-    var last: String? = null
-    for ((text, url) in pieces) {
+    for (link in linksPerPiece(pieces)) if (link != null && link !== out.lastOrNull()) out += link
+    return out
+}
+
+/**
+ * The link each of [pieces] (text and address) belongs to, or null: pieces of one link that follow
+ * each other share one [Target.Link], with all their text. [targets] lists the same links, so a
+ * renderer that marks where each piece goes can't tap a link the row doesn't have.
+ */
+internal fun linksPerPiece(pieces: List<Pair<String, String?>>): List<Target.Link?> {
+    val out = arrayOfNulls<Target.Link>(pieces.size)
+    var i = 0
+    while (i < pieces.size) {
+        val url = pieces[i].second
         if (url == null) {
-            last = null
+            i++
             continue
         }
-        if (url == last) out[out.lastIndex] = out.last().let { it.copy(text = it.text + text) }
-        else out += Target.Link(url, text)
-        last = url
+        var j = i
+        val text = StringBuilder()
+        while (j < pieces.size && pieces[j].second == url) text.append(pieces[j++].first)
+        val link = Target.Link(url, text.toString())
+        for (k in i until j) out[k] = link
+        i = j
     }
-    return out
+    return out.asList()
 }
 
 /** The links in [text], a column's text with its [StyledText] marks. */
@@ -484,8 +510,11 @@ private fun linksIn(text: String): List<Target.Link> =
     if (!StyledText.has(text)) emptyList()
     else StyledText.lines(text).flatMap { line -> linksOf(line.spans.map { it.text to it.url }) }
 
-/** The pieces of [block] that can hold a link: text, table cells, the texts of bars and big numbers. */
-private fun spansOf(block: LineModel.Block): List<StyledText.Span> = when (block) {
+/**
+ * The pieces of [block] that can hold a link, in reading order: text, table cells, the texts of
+ * bars and big numbers.
+ */
+internal fun spansOf(block: LineModel.Block): List<StyledText.Span> = when (block) {
     is LineModel.Block.Text -> block.paras.flatMap { p ->
         p.pieces.map { StyledText.Span(it.text, it.styles, null, it.url) }
     }

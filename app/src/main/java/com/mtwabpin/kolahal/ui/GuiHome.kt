@@ -138,16 +138,15 @@ internal fun GuiHome(
     prompt: @Composable (typing: Boolean) -> Unit,
     suggestions: @Composable (always: Boolean) -> Unit,
     selector: @Composable () -> Unit,
+    /**
+     * Draws the log in place of the list here, or null for this one. TTY draws it on the grid
+     * ([LogArea]); the rest of home is still this.
+     */
+    logArea: LogArea? = null,
 ) {
     val density = LocalDensity.current
     val indents = rememberLineIndents()
-    val timeMode = remember(configVersion) {
-        when (config[Keys.SHOW_TIMESTAMPS]) {
-            "groups" -> TimeMode.GROUPS
-            "off" -> TimeMode.OFF
-            else -> TimeMode.COMMANDS
-        }
-    }
+    val timeMode = remember(configVersion) { TimeMode.of(config[Keys.SHOW_TIMESTAMPS]) }
     val lineOptions = remember(timeMode, Term.foldLines) { LineOptions(timeMode, Term.foldLines) }
     val dimOld = remember(configVersion) { config[Keys.LOG_DIM] }
     val commandGap = remember(configVersion) { config[Keys.LOG_SPACING].dp }
@@ -263,7 +262,26 @@ internal fun GuiHome(
                     )
             ) {
                 val results = search?.takeIf { !it.isEmpty && !preview }
-                CompositionLocalProvider(LocalUriHandler provides linkOpener) {
+                // The log's list: it fades out while the app selector is open, and taps on its
+                // empty space bring up the keyboard. Double taps are detected only when a
+                // double-tap gesture is set, because waiting for one delays every tap.
+                val logModifier = Modifier
+                    .fillMaxSize()
+                    // While the app selector is open, the log fades out so the background shows behind the list.
+                    .graphicsLayer { alpha = 1f - selectorFade.floatValue }
+                    .onSizeChanged { calls.onLogWidth(it.width) }
+                    .testTag("log")
+                    .then(pinch)
+                    .pointerInput(doubleTapOn) {
+                        detectTapGestures(
+                            onDoubleTap = if (doubleTapOn) { _ -> calls.onGesture(Keys.GESTURE_DOUBLE_TAP) } else null,
+                        ) { calls.onFocusPrompt() }
+                    }
+                val resultsModifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 1f - selectorFade.floatValue }
+                if (logArea != null) logArea(results, deleteRight, logModifier, resultsModifier)
+                else CompositionLocalProvider(LocalUriHandler provides linkOpener) {
                     if (results != null) LogSearchResults(
                         search = results,
                         timeFormat = timeFormat,
@@ -278,26 +296,12 @@ internal fun GuiHome(
                         onSwipeCopy = calls.onSwipeCopy,
                         onSwipeDelete = calls.onSwipeDelete,
                         deleteRight = deleteRight,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { alpha = 1f - selectorFade.floatValue },
+                        modifier = resultsModifier,
                     ) else LazyColumn(
                         state = state.scroll.list,
                         reverseLayout = true,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            // While the app selector is open, the log fades out so the background shows behind the list.
-                            .graphicsLayer { alpha = 1f - selectorFade.floatValue }
-                            .onSizeChanged { calls.onLogWidth(it.width) }
-                            .testTag("log")
-                            .then(pinch)
-                            // Taps that no log line used (empty space) bring up the keyboard. Double taps are
-                            // detected only when a double-tap gesture is set, because waiting for one delays every tap.
-                            .pointerInput(doubleTapOn) {
-                                detectTapGestures(
-                                    onDoubleTap = if (doubleTapOn) { _ -> calls.onGesture(Keys.GESTURE_DOUBLE_TAP) } else null,
-                                ) { calls.onFocusPrompt() }
-                            },
+                        // Taps that no log line used (empty space) bring up the keyboard.
+                        modifier = logModifier,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         // Not before the first read: a cold start would flash it over a log that isn't empty.

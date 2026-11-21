@@ -31,8 +31,31 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** How home is drawn. Only the GUI for now. */
-internal enum class HomeStyle { GUI }
+/**
+ * How home is drawn (`home.style`): [GUI] as text, chips and cards; [TTY] on a strict character
+ * grid, like a terminal. For now TTY draws only the log; the rest of home is the GUI's.
+ */
+internal enum class HomeStyle {
+    GUI, TTY;
+
+    companion object {
+        /** The style `home.style`'s [value] names; the GUI for anything else. */
+        fun of(value: String): HomeStyle = if (value == "tty") TTY else GUI
+    }
+}
+
+/**
+ * Draws home's log in place of the GUI's list: the log, or a search's [results] in its place when
+ * there are any. The lists' modifiers come from home's body: [log] (the "log" tag, the selector's
+ * fade, pinch to zoom, taps on empty space) and [found] (the fade). [deleteRight]: a swipe right
+ * deletes a line (`widgets.page right`).
+ */
+internal typealias LogArea = @Composable (
+    results: com.mtwabpin.kolahal.terminal.TerminalViewModel.LogSearch?,
+    deleteRight: Boolean,
+    log: androidx.compose.ui.Modifier,
+    found: androidx.compose.ui.Modifier,
+) -> Unit
 
 /**
  * Which long lines are open (`log.fold`), by entry id. It sits above home's body, so a line stays
