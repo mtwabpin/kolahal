@@ -28,10 +28,14 @@ sealed class ConfigKey<T>(val key: String, val default: T, val help: String) {
         override fun parse(raw: String) = raw.toIntOrNull()?.takeIf { it in range }
     }
 
-    /** One of [fixed], or one of [added]: values that come and go while the app runs (custom themes). */
+    /**
+     * One of [fixed], or one of [added]: values that come and go while the app runs (custom themes).
+     * [notes] says what a value does, in a few words; the prompt's suggestions show it beside the value.
+     */
     class Choice(
         key: String, default: String, private val fixed: List<String>, help: String,
         private val added: () -> List<String> = { emptyList() },
+        val notes: Map<String, String> = emptyMap(),
     ) : ConfigKey<String>(key, default, help) {
         val choices: List<String> get() = fixed + added()
         override fun parse(raw: String) = raw.lowercase().takeIf { it in choices }
@@ -338,7 +342,11 @@ object Keys {
         "home.style",
         "gui",
         listOf("gui", "tty"),
-        "How home's log is drawn: gui (text, chips and cards) or tty (a strict character grid, like a terminal)"
+        "How home's log is drawn: gui (text, chips and cards) or tty (a strict character grid, like a terminal)",
+        notes = mapOf(
+            "gui" to "Text, chips and cards, with pictures and sizes",
+            "tty" to "A character grid, like a terminal: one font size, no pictures",
+        ),
     )
     val LOG_SPACING = ConfigKey.Num(
         "log.spacing",
