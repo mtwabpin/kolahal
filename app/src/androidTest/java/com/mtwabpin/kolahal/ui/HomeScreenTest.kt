@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -29,6 +30,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
@@ -326,6 +328,8 @@ class HomeScreenTest {
 
     @Test fun dollarOpensQuickActions() {
         show(360.dp, 700.dp)
+        // A screen reader hears "Quick actions", not "dollar".
+        compose.onNodeWithTag("prompt-quick").assertContentDescriptionEquals("Quick actions")
         compose.onNodeWithTag("prompt-quick").performClick()
         compose.onNodeWithText("Quick actions").assertIsDisplayed()
         compose.onNodeWithText("Unlocks this week").assertIsDisplayed()
@@ -401,6 +405,31 @@ class HomeScreenTest {
         } finally {
             // Failed before the tap: the log stays cleared for every later test unless it's undone.
             compose.runOnIdle { vm.undo() }
+            logs.delete(id)
+        }
+    }
+
+    /**
+     * A line copied by a swipe says "Copied" where Undo shows, with no Undo, for a moment. The row
+     * is a polite live region, so TalkBack reads it.
+     */
+    @Test fun aSwipeCopySaysCopied() {
+        val logs = LogRepository.get(app)
+        val mark = "copy me ${System.nanoTime()}"
+        val id = logs.add(LogKind.OUTPUT, mark)
+        show(360.dp, 700.dp)
+        try {
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("line-$id").fetchSemanticsNodes().isNotEmpty() }
+            // widgets.page is on the left by default: a swipe right copies.
+            compose.onNodeWithTag("line-$id").performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Undo").assertDoesNotExist()
+            assertEquals(
+                androidx.compose.ui.semantics.LiveRegionMode.Polite,
+                compose.onNodeWithTag("undo-row").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.LiveRegion],
+            )
+            compose.waitUntil(COPIED_MS + 3_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isEmpty() }
+        } finally {
             logs.delete(id)
         }
     }

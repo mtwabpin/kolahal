@@ -34,7 +34,8 @@ A thin progress bar under the line fills as the track plays. It updates when you
 For a stream with no length, the bar stays empty.
 
 - **Tap** the line to play or pause.
-- **Long-press** it, or tap **⏭**, to skip to the next track.
+- Tap **⏭** to skip to the next track.
+- **Long-press** it for **Next track**, **Previous track** and **Open** the player's app.
 
 The line disappears 30 minutes after you pause playback. It also hides while you type.
 If the header is off (`header.show off`, the default), the line shows at the top of home.

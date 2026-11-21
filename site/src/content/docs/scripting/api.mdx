@@ -1828,7 +1828,8 @@ What a description keeps, and what it refuses.
 | `refresh` | 10 to 3600 seconds | held between them |
 | A tap's `args` | 200 characters | cut |
 | A tap's `label` | 24 characters | cut |
-| Taps on one card, row, button, switch or event | one run in 2 seconds | the tap is ignored |
+| Taps on one card, row, button or event | one run in 2 seconds | one tap waits and runs when the 2 seconds are over; more are ignored |
+| Taps on one switch | one run in 2 seconds | the tap is ignored |
 | A switch that waits for its run | 10 seconds | it shows the state it had |
 
 ### Capitals in a widget
@@ -1947,7 +1948,9 @@ Rules:
   `label`, when it has one. The arguments are in `args`.
 - A link must be a web link (`http` or `https`), and the script's internet access must be on. A link
   that is refused is an error in the script, so the card never has a tap that does nothing.
-- One card, row, button, switch or event starts at most one run in 2 seconds.
+- One card, row, button, switch or event starts at most one run in 2 seconds. A quick second tap on a
+  card, row, button or event waits and runs when the 2 seconds are over, so two taps on a counter's +
+  add two. A third quick tap is ignored, and so is a quick second tap on a switch.
 - A run that a tap started is a run like any other that you start: what it logs is in the log,
   and so is its error. If it fails, the card also says "Failed 10:42" under its content, as after
   a failed [`"widget"` run](#when-a-widgets-script-runs). The next run that works clears that.

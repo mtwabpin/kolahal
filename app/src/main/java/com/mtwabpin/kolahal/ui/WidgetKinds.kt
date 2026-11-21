@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -35,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -166,11 +168,40 @@ internal fun QuietLine(text: String, small: Boolean = false) {
 /**
  * The card's name ([LocalUntitled]), small, over content that doesn't say what it is: a large
  * list or text, or what a card says in place of its content. Nothing when the card gives no name.
+ * With [LocalListOpen] a tap on it opens the whole list.
  */
 @Composable
 internal fun CardName(modifier: Modifier = Modifier) {
     val name = LocalUntitled.current ?: return
-    Text(cardText(name), style = MaterialTheme.typography.labelMedium, color = lookColors().muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)
+    val open = LocalListOpen.current
+    Text(
+        cardText(name),
+        style = MaterialTheme.typography.labelMedium,
+        color = lookColors().muted,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.then(if (open == null) Modifier else Modifier.fillMaxWidth().opensList()),
+    )
+}
+
+/**
+ * What a tap on a list's "+3 more" line, or on its name over the rows ([CardName]), does: open the
+ * whole list. Null, the default, leaves those to the card's own tap. A card that sets it takes no
+ * tap of its own, so a tap that misses a row does nothing (the Todos card).
+ */
+internal val LocalListOpen = compositionLocalOf<(() -> Unit)?> { null }
+
+/** For a screen reader, what a tap on "+3 more" or the list's name does ([LocalListOpen]). */
+private const val LIST_OPEN_LABEL = "Open the list"
+
+/**
+ * With [LocalListOpen], a tap here opens the whole list: on "+3 more" and on the list's name, in
+ * every look. Its touches reach 48 dp (Compose's minimum), more than such a line is tall.
+ */
+@Composable
+internal fun Modifier.opensList(): Modifier {
+    val open = LocalListOpen.current ?: return this
+    return clickable(onClickLabel = LIST_OPEN_LABEL, onClick = open).testTag("list-open")
 }
 
 /**
@@ -517,12 +548,18 @@ private fun RowList(items: List<WidgetSpec.Row>, onTap: ((WidgetTap) -> Unit)?, 
                 key(i) { ListRow(row, rowHeight, details, segmentShape(i, shown), onTap, bars, ends, role) }
             }
             if (WidgetWords.showsMore(items.size, shown, heightDp, rowDp, MORE_DP, ROW_GAP_DP)) {
+                // With [LocalListOpen], the line's whole width opens the list. Its touches reach 48 dp
+                // (Compose's minimum), more than the line is tall.
+                val open = LocalListOpen.current
                 Text(
                     "+$more more",
                     style = MaterialTheme.typography.labelMedium,
                     color = lookColors().muted,
                     maxLines = 1,
-                    modifier = Modifier.height(MORE_DP.dp).wrapContentHeight(),
+                    modifier = Modifier
+                        .then(if (open == null) Modifier else Modifier.fillMaxWidth().opensList())
+                        .height(MORE_DP.dp)
+                        .wrapContentHeight(),
                 )
             }
         }

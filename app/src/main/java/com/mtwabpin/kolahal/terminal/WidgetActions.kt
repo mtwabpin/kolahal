@@ -142,6 +142,8 @@ internal object WidgetAge {
  * - A tap inside a built-in card ([own]) does one of the few things in [OwnTaps]. None of them runs a script.
  *
  * [taps]: one item starts at most one run in 2 seconds. The header and the log's buttons share this gate.
+ * A widget's button keeps one quick second tap waiting and runs it when the 2 seconds are over
+ * ([TapGate.runOrWait]), so two quick taps on a counter's + add two.
  * [ownData]: Kolahal's own data, which the built-in cards show and their taps change.
  */
 class WidgetActions internal constructor(
@@ -190,16 +192,18 @@ class WidgetActions internal constructor(
             url != null -> host.openUrl(url)
             args != null -> {
                 // The gate is by widget: the same button on two widgets of one script starts a run for each.
-                if (!taps.allow("widget:$widget:$args")) return
-                host.io {
-                    val s = scripts.byName(script)
-                    when {
-                        s == null -> logs.add(LogKind.ERROR, "No script named '$script' — 'script ls'")
-                        !s.enabled -> logs.add(LogKind.INFO, "$script is off: script on $script", ctx = LogContext.of(LogContext.COMMAND to "script on $script"))
-                        else -> ScriptScheduler.runNow(context, s, words(args), event(tap.label, ref.id))
+                // A quick second tap waits for the first one's 2 seconds, then runs: it is meant (a counter's +).
+                taps.runOrWait("widget:$widget:$args") {
+                    host.io {
+                        val s = scripts.byName(script)
+                        when {
+                            s == null -> logs.add(LogKind.ERROR, "No script named '$script' — 'script ls'")
+                            !s.enabled -> logs.add(LogKind.INFO, "$script is off: script on $script", ctx = LogContext.of(LogContext.COMMAND to "script on $script"))
+                            else -> ScriptScheduler.runNow(context, s, words(args), event(tap.label, ref.id))
+                        }
                     }
+                    if (tap.toLog) host.showLog()
                 }
-                if (tap.toLog) host.showLog()
             }
             // No action on the card: a tap refreshes it.
             else -> if (taps.allow("widget:$widget")) refresh(widget)

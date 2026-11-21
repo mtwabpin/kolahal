@@ -4,6 +4,7 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.Config
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -379,6 +380,9 @@ internal fun OwnWidget(id: String, height: Dp, actions: WidgetCardActions?, own:
  * a moment: its data is not read yet.
  * - A tap on the card sends [cardTap] to [WidgetCardActions.own], and a tap on a row sends the row's
  *   own words. [onRowTap] sees a row's words first.
+ * - [cardTaps] false: the card takes no tap of its own, so a tap that misses a row or a button does
+ *   nothing and the page stays. With [listOpens], "+3 more" and the list's name send [cardTap]
+ *   instead ([LocalListOpen]). The long-press still arranges the widgets.
  * - While the page is in view, and each time home comes back to it, the card says so
  *   ([WidgetCardActions.ownShown]), so that old data is read again. With [againMs] it says so
  *   again that often while the card can be seen ([cardSeen]): for data that changes with no sign, as a calendar does.
@@ -394,6 +398,8 @@ private fun OwnCard(
     cardTapLabel: String,
     onRowTap: ((String) -> Unit)? = null,
     againMs: Long? = null,
+    cardTaps: Boolean = true,
+    listOpens: Boolean = false,
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Filled when the page comes into view; read again every [againMs] only while the card can be seen.
@@ -421,32 +427,37 @@ private fun OwnCard(
             }
         }
     }
-    WidgetCard(
-        title = spec?.base?.title ?: WidgetSource.builtinTitle(id) ?: id,
-        height = height,
-        spec = spec,
-        note = if (spec == null) CardNote.WAITING else null,
-        description = description,
-        modifier = Modifier.testTag("widget:${WidgetSource.builtin(id)}"),
-        onClick = onClick,
-        onClickLabel = cardTapLabel,
-        onLongClick = onLongClick,
-        onTap = onTap,
-    )
+    CompositionLocalProvider(LocalListOpen provides onClick?.takeIf { listOpens }) {
+        WidgetCard(
+            title = spec?.base?.title ?: WidgetSource.builtinTitle(id) ?: id,
+            height = height,
+            spec = spec,
+            note = if (spec == null) CardNote.WAITING else null,
+            description = description,
+            modifier = Modifier.testTag("widget:${WidgetSource.builtin(id)}"),
+            onClick = onClick?.takeIf { cardTaps },
+            onClickLabel = cardTapLabel,
+            onLongClick = onLongClick,
+            onTap = onTap,
+        )
+    }
 }
 
 /**
  * The built-in Shortcuts card: a button for each command you picked in the Widgets screen.
  * - A button runs its command as if you had typed it, as a gesture runs the command you set for it.
- * - A tap beside the buttons, and a tap on the card while the list is empty, opens the editor.
+ * - A tap on the card while the list is empty opens the editor. With buttons, a tap beside them
+ *   does nothing: a near miss doesn't leave the page. The long-press opens Arrange widgets, where
+ *   Edit shortcuts is.
  * - It has no data to read again, and nothing to run.
  */
 @Composable
 private fun ShortcutsWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
     val list by (own?.shortcuts ?: NOT_READ).collectAsStateWithLifecycle()
-    val spec: WidgetSpec? = remember(list) { list?.let { OwnCards.shortcuts(it) ?: OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS) } }
+    val buttons = remember(list) { list?.let { OwnCards.shortcuts(it) } }
+    val spec: WidgetSpec? = remember(list, buttons) { list?.let { buttons ?: OwnCards.quiet(WidgetSource.SHORTCUTS, OwnCards.NO_SHORTCUTS) } }
     val description = remember(spec) { spec?.let { OwnCards.said(it) } ?: "Shortcuts" }
-    OwnCard(WidgetSource.SHORTCUTS, height, spec, description, actions, cardTap = OwnTaps.EDIT, cardTapLabel = "edit shortcuts")
+    OwnCard(WidgetSource.SHORTCUTS, height, spec, description, actions, cardTap = OwnTaps.EDIT, cardTapLabel = "edit shortcuts", cardTaps = buttons == null)
 }
 
 /** For a card with no feed: nothing plays, nothing played before, and nothing says that access is missing. */
@@ -543,7 +554,8 @@ private fun AgendaWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?)
  * The built-in Todos card: the open todos, each with a checkbox.
  * - A tap on a row marks its todo done. The row stays, ticked, until the page is turned away, and
  *   a tap on it opens the todo again.
- * - A tap on the card runs `todo` and turns home to the log.
+ * - A tap on "+3 more", or on the name over a large card's rows, runs `todo` and turns home to
+ *   the log. The rest of the card takes no tap: a near miss between rows leaves the page as it is.
  */
 @Composable
 private fun TodosWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) {
@@ -559,7 +571,7 @@ private fun TodosWidget(height: Dp, actions: WidgetCardActions?, own: OwnFeed?) 
             (OwnTaps.parse(WidgetSource.TODOS, words) as? OwnTap.SetTodo)?.let { kept = if (it.done) kept + it.id else kept - it.id }
         }
     }
-    OwnCard(WidgetSource.TODOS, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open todos", onRowTap = onRowTap)
+    OwnCard(WidgetSource.TODOS, height, spec, description, actions, cardTap = OwnTaps.OPEN, cardTapLabel = "open todos", onRowTap = onRowTap, cardTaps = false, listOpens = true)
 }
 
 /**

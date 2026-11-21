@@ -98,12 +98,12 @@ class LogLineTest {
         LogRow.Entry(e, dimmed, gutter, showSource = showSource, showTime = showTime)
 
     @Composable
-    private fun Line(row: LogRow.Entry, timeMode: TimeMode = TimeMode.OFF, dim: Boolean = false, gutter: Boolean = true, apps: List<AppEntry> = emptyList(), itemGap: Dp = 0.dp) =
+    private fun Line(row: LogRow.Entry, timeMode: TimeMode = TimeMode.OFF, dim: Boolean = false, gutter: Boolean = true, apps: List<AppEntry> = emptyList(), itemGap: Dp = 0.dp, deleteRight: Boolean = false) =
         LogLine(
             row, timeMode, TIMES, dim, topGap = 0.dp, itemGap = itemGap, gutter = gutter, indents = INDENTS, highlighted = false, apps = { apps },
             onTap = { tapped += it }, onLongPress = { longPressed += it },
             onAppTap = { appTaps += it }, onAppLongPress = { appLongPresses += it },
-            onSwipeCopy = { copied += it }, onSwipeDelete = { deleted += it },
+            onSwipeCopy = { copied += it }, onSwipeDelete = { deleted += it }, deleteRight = deleteRight,
         )
 
     private fun show(content: @Composable () -> Unit) = compose.setContent { KolahalTheme { Column(Modifier.width(360.dp)) { content() } } }
@@ -204,6 +204,39 @@ class LogLineTest {
         assertEquals(listOf(e), deleted.toList())
         assertTrue(copied.isEmpty())
         compose.waitUntil(5_000) { bounds(e).right <= 1.dp }
+    }
+
+    /**
+     * With the widgets page on the right (deleteRight), the swipes trade places: a swipe left, toward
+     * the page, copies; a swipe right deletes, and the line slides out to the right.
+     */
+    @Test fun withThePageOnTheRightTheSwipesTradePlaces() {
+        val e = entry("swipe me")
+        show { Line(row(e), deleteRight = true) }
+        line(e).performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
+        compose.waitUntil(5_000) { copied.isNotEmpty() }
+        assertEquals(listOf(e), copied.toList())
+        assertTrue(deleted.isEmpty())
+        compose.waitUntil(5_000) { bounds(e).left == 0.dp }
+        line(e).performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+        compose.waitUntil(5_000) { deleted.isNotEmpty() }
+        assertEquals(listOf(e), deleted.toList())
+        assertEquals(1, copied.size)
+        compose.waitUntil(5_000) { bounds(e).left >= 359.dp }
+    }
+
+    /** Swapped, the drag's label says so: Copy on a drag left, Delete on a drag right. */
+    @Test fun aSwappedDragSaysWhatItWillDo() {
+        val e = entry("drag me")
+        show { Line(row(e), deleteRight = true) }
+        line(e).performTouchInput { down(center); moveBy(Offset(-width * 0.4f, 0f)) }
+        compose.onNodeWithText("Copy ⧉").assertExists()
+        line(e).performTouchInput { moveBy(Offset(width * 0.8f, 0f)) }
+        compose.onNodeWithText("✕ Delete").assertExists()
+        compose.onAllNodesWithText("Copy ⧉").assertCountEquals(0)
+        line(e).performTouchInput { moveBy(Offset(-width * 0.4f, 0f)); up() }
+        compose.waitUntil(5_000) { bounds(e).left == 0.dp && compose.onAllNodesWithText("✕ Delete").fetchSemanticsNodes().isEmpty() }
+        staysPut()
     }
 
     /** A dimmed line swipes as a bright one does: the press it watches gives way to the swipe. */

@@ -25,7 +25,7 @@ playing, and [widgets that scripts fill](#widgets-from-scripts).
 ## The widgets page
 
 To open the widgets page, swipe sideways on the home screen. Start the swipe on the header, on empty space or on the prompt.
-A swipe that starts on a log line copies or deletes that line instead.
+A swipe that starts on a log line copies or deletes that line instead. A swipe toward the page always copies: with the page on the right, a swipe left copies a line and a swipe right deletes it.
 
 - **+** (add a widget) and **✎** (edit your widgets) are at the top of the page.
 - Back or Home takes you back to the terminal.
@@ -89,7 +89,7 @@ reminders, what is playing. Kolahal draws them as cards, in the theme's colours.
 | **Battery and network** | the battery's level in a ring, and the network | opens Android's battery screen |
 | **Shortcuts** | up to 8 buttons, for commands you pick | on a button: runs its command |
 | **Now playing** | the track with its cover, the artist and the app, with previous, play or pause, and next | on a button: does that. On the bar: moves in the track. On the card: opens the player |
-| **Todos** | your open todos, each with a checkbox | on a row: marks the todo done. On the card: runs `todo` |
+| **Todos** | your open todos, each with a checkbox | on a row: marks the todo done. On "+2 more": runs `todo` |
 | **Agenda** | your calendar's events for today and the next days | on an event: opens it in your calendar app. On the card: runs `agenda` |
 | **Reminders** | the time to the next reminder, with its text, and the reminders after it | runs `reminders` |
 | **Notes** | your newest note, or the newest three in a taller card | runs `notes` |
@@ -114,7 +114,8 @@ The card lists your open [todos](/guides/productivity/#todos), the oldest first.
 - Tap a row to mark its todo done. The row stays where it is, ticked, until you leave the widgets
   page. So a tap by mistake is easy to undo: tap the row again.
 - A todo that you add with `todo buy milk` shows on the card at once.
-- A card with more todos than fit says how many more there are. Tap the card for the whole list.
+- A card with more todos than fit says how many more there are ("+2 more"). Tap that line, or the
+  name over a large card's rows, for the whole list. A tap between rows does nothing.
 
 ### Reminders and Notes
 
@@ -134,9 +135,10 @@ A new Shortcuts card has no buttons. It says "No shortcuts yet. Tap to add comma
 To edit your shortcuts:
 
 1. Open the **Shortcuts** sheet in one of two ways:
-   - Tap the card beside its buttons. While the card has no buttons, tap it anywhere.
-   - Or open **Settings → Widgets → Arrange widgets**, select the Shortcuts widget, and tap
-     **Edit shortcuts** in the toolbar at the bottom.
+   - While the card has no buttons, tap it anywhere. A tap beside its buttons does nothing.
+   - Or open **Arrange widgets** (long-press the card, or **Settings → Widgets → Arrange
+     widgets**), select the Shortcuts widget, and tap **Edit shortcuts** in the toolbar at the
+     bottom.
 2. Tap **Add shortcut**, and fill in the boxes:
    - **Command**: what you would type in the terminal, such as `torch`. While you type its first
      word, the commands that start so are offered under the box. Tap one to take it.

@@ -375,7 +375,9 @@ class MainActivity : ComponentActivity() {
  * `widgets.page`: the terminal with a widgets page beside it (left or right).
  * - Swipe sideways on home to reach it. Back or Home returns to the terminal.
  * - A swipe that starts on a log line still belongs to the line (copy / delete). So the page swipe
- *   works from the header, empty space or the prompt.
+ *   works from the header, empty space or the prompt. With the page on the right, the line's swipes
+ *   are swapped: a swipe toward the page copies, never deletes ([com.mtwabpin.kolahal.ui.LogLine]'s
+ *   deleteRight).
  * - With `widgets.start`, the widgets page is home's first page instead. Home opens on it, and Back
  *   and Home return to it. A key typed there brings up the log and shows the key in it.
  */

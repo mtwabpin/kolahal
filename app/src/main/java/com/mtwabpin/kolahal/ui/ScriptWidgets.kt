@@ -41,7 +41,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -173,7 +176,8 @@ internal fun scriptNote(read: Boolean, script: WidgetScript?): CardNote? = when 
  *   no room for it.
  * - [description] is the whole card for a screen reader, in one item. Rows with their own tap are
  *   items of their own inside it.
- * - [onClick] is a tap on the card and [onLongClick] a long-press. [onTap] gets the own action of a
+ * - [onClick] is a tap on the card and [onLongClick] a long-press. With a long-press and no tap, a
+ *   tap that misses the card's own items does nothing. [onTap] gets the own action of a
  *   row, a button, a switch or an event. With all three null the card takes no touches (the Widgets screen).
  * - [stamp] is a number that changes when the content was filled again, also with the same
  *   description: a script's card gives the time of its last run. A switch that waits for its script
@@ -207,6 +211,21 @@ internal fun WidgetCard(
                 onLongClick = onLongClick,
                 onClick = onClick,
             )
+        } else if (onLongClick != null) {
+            // No tap of its own (Todos, Shortcuts with buttons): a tap that misses a row or a button
+            // does nothing, and the long-press still arranges the widgets.
+            val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+            val longPress: () -> Unit = onLongClick
+            Modifier
+                .semantics(mergeDescendants = true) {
+                    this.onLongClick(label = "arrange widgets") { longPress(); true }
+                }
+                .pointerInput(longPress) {
+                    detectTapGestures(onLongPress = {
+                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                        longPress()
+                    })
+                }
         } else {
             Modifier.semantics(mergeDescendants = true) {}
         }
