@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -55,6 +56,7 @@ import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.apps.AppEntry
@@ -74,8 +76,10 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.terminal.lineModel
 import com.mtwabpin.kolahal.terminal.spoken
+import com.mtwabpin.kolahal.terminal.tty.BlockCache
 import com.mtwabpin.kolahal.terminal.tty.CellBlock
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
+import com.mtwabpin.kolahal.terminal.tty.CellRect
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
 import com.mtwabpin.kolahal.terminal.tty.CellWidth
 import com.mtwabpin.kolahal.terminal.tty.GridApp
@@ -246,7 +250,9 @@ private fun TtyList(
     val context = LocalContext.current
     // An apps grid finds its apps again when apps are installed or removed, as the GUI's chips do.
     val installed by AppRepository.get(context).apps.collectAsStateWithLifecycle()
-    val cache = remember { LineCache() }
+    // Lines laid out, the most recently shown kept ([KEPT_LINES]): bounded, so hours of scrolling stay
+    // flat, and let go with the screen's other caches when home is away or memory is short.
+    val cache = remember { TtyCaches.add(BlockCache<LineKey, TtyLine>(KEPT_LINES)) }
     val labels = remember { SwipeLabels() }
     val timeMode = remember(configVersion) { TimeMode.of(config[Keys.SHOW_TIMESTAMPS]) }
     val gutter = remember(configVersion) { config[Keys.LOG_GUTTER] }
@@ -257,6 +263,8 @@ private fun TtyList(
         LineOptions(if (search != null) TimeMode.ALL else timeMode, Term.foldLines)
     }
     val marks = search.orEmpty()
+    // In a right-to-left layout the grid turns: the gutter on the right, the time on the left.
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth else m.cellW * 40
         val margin = with(density) { GRID_MARGIN.roundToPx() }
@@ -273,6 +281,7 @@ private fun TtyList(
             boxedTables = Term.boxedTables,
             foldLines = if (search != null) 0 else Term.foldLines,
             itemGapRows = 0,
+            rtl = rtl,
         )
         LazyColumn(
             state = list,
@@ -282,7 +291,7 @@ private fun TtyList(
         ) {
             // Not before the first read: a cold start would flash it over a log that isn't empty.
             if (search == null && rows.isEmpty() && hiddenLines == 0 && rowsLoaded) item(key = "empty-hint") {
-                val block = remember(cols) { LineLayout.lines(cols, EMPTY_HINT) }
+                val block = remember(cols, rtl) { LineLayout.lines(cols, EMPTY_HINT, rtl) }
                 TtyText(block, grid, originX, Modifier
                     .testTag("empty-hint")
                     .semantics { text = AnnotatedString(EMPTY_HINT.joinToString("\n") { it.first }.trim()) })
@@ -293,7 +302,7 @@ private fun TtyList(
                         // Built on each composition, not remembered, so the dividers follow a change of language.
                         val label = if (row.day == today.minusDays(1)) "Yesterday"
                         else row.day.format(TimeFormats.dayFormat(LocalConfiguration.current.locales[0]))
-                        val block = remember(label, cols) { LineLayout.day(label, cols) }
+                        val block = remember(label, cols, rtl) { LineLayout.day(label, cols, rtl) }
                         TtyText(block, grid, originX, Modifier.semantics {
                             heading()
                             text = AnnotatedString(label)
@@ -301,7 +310,7 @@ private fun TtyList(
                     }
 
                     is LogRow.Unread -> if (search == null) {
-                        val block = remember(row.count, cols) { LineLayout.unread(row.count, cols) }
+                        val block = remember(row.count, cols, rtl) { LineLayout.unread(row.count, cols, rtl) }
                         TtyText(block, grid, originX, Modifier.semantics {
                             text = AnnotatedString("${row.count} new since you left")
                         })
@@ -339,7 +348,7 @@ private fun TtyList(
             // log.fresh: older output is hidden, not deleted. The last item is the top of the reversed list.
             if (search == null && hiddenLines > 0) item(key = "hidden-lines") {
                 val text = "▴ $hiddenLines earlier lines · tap to show"
-                val block = remember(text, cols) { LineLayout.lines(cols, listOf("" to CellStyle.PLAIN, text to MUTED)) }
+                val block = remember(text, cols, rtl) { LineLayout.lines(cols, listOf("" to CellStyle.PLAIN, text to MUTED), rtl) }
                 TtyText(
                     block, grid, originX, Modifier
                         .clickable(onClickLabel = "show earlier output") { onShowHidden() }
@@ -420,13 +429,19 @@ private class Same<T : Any>(val value: T) {
     override fun hashCode() = System.identityHashCode(value)
 }
 
-/** Lines laid out, the most recently shown kept ([KEPT_LINES]). Used on the main thread only. */
-private class LineCache {
-    private val lines = object : LinkedHashMap<LineKey, TtyLine>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LineKey, TtyLine>?) = size > KEPT_LINES
+/**
+ * The logs' caches of laid-out lines, let go with the screen's other caches
+ * ([com.mtwabpin.kolahal.LauncherApp.keepsInMemory]): when home is away a while, or memory is short.
+ * Held weakly, so a log that is gone takes its cache with it. Main thread only, as the trim is.
+ */
+private object TtyCaches {
+    private val live = java.util.WeakHashMap<BlockCache<*, *>, Unit>()
+
+    init {
+        com.mtwabpin.kolahal.LauncherApp.keepsInMemory { live.keys.toList().forEach { it.clear() } }
     }
 
-    fun get(key: LineKey, make: () -> TtyLine): TtyLine = lines[key] ?: make().also { lines[key] = it }
+    fun <C : BlockCache<*, *>> add(cache: C): C = cache.also { live[it] = Unit }
 }
 
 /**
@@ -513,7 +528,9 @@ private fun TtyLineRow(
             .drawBehind {
                 // Before the padding, so it reaches into the gap: the same line BoxGlyphs draws for │.
                 if (gapGutter != 0 && gapPx > 0) {
-                    val left = originX + shift() + m.cellW / 2 - m.line / 2
+                    // The gutter's column: the first, or the last in a right-to-left layout.
+                    val col = if (layoutDirection == LayoutDirection.Rtl) block.cols - 1 else 0
+                    val left = originX + shift() + col * m.cellW + m.cellW / 2 - m.line / 2
                     drawRect(Color(gapGutter), Offset(left.toFloat(), 0f), Size(m.line.toFloat(), gapPx.toFloat()))
                 }
             }
@@ -588,11 +605,21 @@ private fun TtyLineRow(
                 if (highlighted || p == Target.Line) {
                     drawRect(surface, Offset(shift.toFloat(), 0f), size)
                 } else if (p != null) {
-                    for (r in block.targets.firstOrNull { it.target == p }?.rects.orEmpty()) drawRect(
-                        surface,
-                        Offset(x + r.col * m.cellW, (r.row * m.cellH).toFloat()),
-                        Size((r.cols * m.cellW).toFloat(), (r.rows * m.cellH).toFloat()),
-                    )
+                    // By index: drawing allocates nothing, not even an iterator.
+                    val targets = block.targets
+                    var rects: List<CellRect>? = null
+                    for (t in 0 until targets.size) if (targets[t].target == p) {
+                        rects = targets[t].rects
+                        break
+                    }
+                    if (rects != null) for (i in 0 until rects.size) {
+                        val r = rects[i]
+                        drawRect(
+                            surface,
+                            Offset(x + r.col * m.cellW, (r.row * m.cellH).toFloat()),
+                            Size((r.cols * m.cellW).toFloat(), (r.rows * m.cellH).toFloat()),
+                        )
+                    }
                 }
                 paint(grid, block.grid, x, clip)
             },
@@ -610,7 +637,8 @@ private fun TtyLineRow(
             }
             Spacer(
                 Modifier
-                    .offset { IntOffset(originX + shift() + r.col * m.cellW, r.row * m.cellH) }
+                    // Absolute: the cells are already where a right-to-left layout has them.
+                    .absoluteOffset { IntOffset(originX + shift() + r.col * m.cellW, r.row * m.cellH) }
                     .cellSize(r.cols * m.cellW, r.rows * m.cellH)
                     .testTag(
                         when (target) {
@@ -622,11 +650,24 @@ private fun TtyLineRow(
                     .semantics {
                         role = Role.Button
                         text = AnnotatedString(label)
-                        onClick { calls.tap(line, target); true }
+                        // What TalkBack says it does, as the GUI's pill, chip and fold link say it.
+                        onClick(label = nodeClickLabel(target, block)) { calls.tap(line, target); true }
+                        // An app's chip has its menu, as in the GUI.
+                        if (target is Target.App) onLongClick(label = "actions") { calls.longPress(line, target); true }
                     },
             )
         }
     }
+}
+
+/**
+ * What a tap on a line's button, app or fold does, in TalkBack's words: the GUI's click labels (a
+ * button's label, the fold link's "show the whole line" or "fold the line"), so both read alike.
+ */
+internal fun nodeClickLabel(target: Target, block: CellBlock): String? = when (target) {
+    is Target.Button -> target.label
+    Target.Fold -> if (block.foldedRows > 0) "show the whole line" else "fold the line"
+    else -> null
 }
 
 /** What the fold's row says: how many rows are hidden, or that the line folds again. */
@@ -635,20 +676,21 @@ private fun foldLabel(block: CellBlock): String {
     return if (n > 0) "▾ $n more ${if (n == 1) "line" else "lines"}" else "▴ Show less"
 }
 
-/** TalkBack's actions on a line: open each link, each button, open or fold it, Copy and Delete (a swipe's two). */
-private fun accessibilityActions(line: TtyLine, calls: TtyLineCalls): List<CustomAccessibilityAction> = buildList {
-    for (t in line.block.targets) when (val target = t.target) {
-        is Target.Link -> add(CustomAccessibilityAction("Open ${target.text}") { calls.tap(line, target); true })
-        is Target.Button -> add(CustomAccessibilityAction(target.label) { calls.tap(line, target); true })
-        Target.Fold -> add(
-            CustomAccessibilityAction(if (line.block.foldedRows > 0) "Show more" else "Fold") { calls.tap(line, target); true }
-        )
-
-        else -> Unit
+/**
+ * TalkBack's actions on a line ([LineLayout.actions]): open each link, each button, open or fold
+ * it, Copy and Delete (a swipe's two).
+ */
+private fun accessibilityActions(line: TtyLine, calls: TtyLineCalls): List<CustomAccessibilityAction> =
+    LineLayout.actions(line.block).map { (target, label) ->
+        CustomAccessibilityAction(label) {
+            when {
+                target != null -> calls.tap(line, target)
+                label == "Copy" -> calls.onSwipeCopy(line.model.entry)
+                else -> calls.onSwipeDelete(line.model.entry)
+            }
+            true
+        }
     }
-    add(CustomAccessibilityAction("Copy") { calls.onSwipeCopy(line.model.entry); true })
-    add(CustomAccessibilityAction("Delete") { calls.onSwipeDelete(line.model.entry); true })
-}
 
 /** The label a swiped line uncovers, in the cells it left: the sign on the outer edge, where the line moved from. */
 private fun DrawScope.swipeLabel(grid: TtyGrid, labels: SwipeLabels, s: Float, shift: Int, copySide: Float, block: CellBlock, originX: Int) {

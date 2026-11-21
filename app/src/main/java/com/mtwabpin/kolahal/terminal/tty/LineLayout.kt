@@ -16,6 +16,8 @@ import com.mtwabpin.kolahal.terminal.linksPerPiece
  * The settings a log row's layout reads, besides its model: the grid's width in [cols], the
  * gutter (`log.gutter`), dimmed old lines (`log.dim`), boxed tables (`log.tables`), folding
  * (`log.fold`), and the rows of an item's gap (`log.item-spacing` in whole rows).
+ * [rtl]: the frame runs right to left (an Arabic, Hebrew or Persian layout): the gutter is on the
+ * right, the time on the left, a table's first column on the right, bars fill from the right.
  */
 data class LogLook(
     val cols: Int,
@@ -24,6 +26,7 @@ data class LogLook(
     val boxedTables: Boolean = true,
     val foldLines: Int = 8,
     val itemGapRows: Int = 0,
+    val rtl: Boolean = false,
 )
 
 /**
@@ -41,6 +44,11 @@ data class GridApp(val label: String, val tag: String? = null, val tagInk: Ink =
  * text, and the time at the right edge of its first row. Under the words come the blocks
  * (tables, bars, big numbers, charts), then a picture's name, the buttons, and a search's
  * "found in" line. One font size: emphasis is bold, inverse or a color, never a bigger size.
+ *
+ * Right-to-left text: each row of a paragraph shows its letters in the order the Unicode bidi
+ * algorithm gives ([BidiText]), and words of joining scripts are whole pieces the painter shapes.
+ * Rows start at the frame's start, as the GUI's short lines do. In a right-to-left frame
+ * ([LogLook.rtl]) all of it is mirrored, from the gutter to the bars, while words read as they are.
  */
 object LineLayout {
     /** Narrower than this, a row is laid out this wide anyway; the screen shows its left part. */
@@ -128,30 +136,47 @@ object LineLayout {
         if (showTime) w.put(cols - timeWidth, top, time!!, DIM)
         // The gutter runs down the whole row, through an item's gap above it.
         if (look.gutter) for (r in 0 until w.rows) w.put(0, r, "│", gutterStyle(model.gutter))
-        return w.build(if (look.dim && model.dimmed) CellStyle.FAINT else 0, folded)
+        return w.build(if (look.dim && model.dimmed) CellStyle.FAINT else 0, folded, mirrored = look.rtl)
+    }
+
+    /**
+     * The actions a screen reader offers on a laid-out row besides its tap and long press, in
+     * reading order: "Open …" for each link, each button by its label, "Show more" or "Fold" for
+     * the fold, then Copy and Delete (a swipe's two). Each with the target it acts on; null for
+     * the line itself. Built from [block]'s targets, so it can't offer what a finger can't hit.
+     */
+    fun actions(block: CellBlock): List<Pair<Target?, String>> = buildList {
+        for (t in block.targets) when (val target = t.target) {
+            is Target.Link -> add(target to "Open ${target.text}")
+            is Target.Button -> add(target to target.label)
+            Target.Fold -> add(target to if (block.foldedRows > 0) "Show more" else "Fold")
+            is Target.App, Target.Line -> Unit
+        }
+        add(null to "Copy")
+        add(null to "Delete")
     }
 
     /** `── Tue 17 Nov ──────`, muted, under a blank row. [label] is the day as the log names it. */
-    fun day(label: String, cols: Int): CellBlock = divider("── $label ", DIM, cols)
+    fun day(label: String, cols: Int, rtl: Boolean = false): CellBlock = divider("── $label ", DIM, cols, rtl)
 
     /** `── 3 new since you left ──────`, in the accent color, under a blank row. */
-    fun unread(count: Int, cols: Int): CellBlock =
-        divider("── $count new since you left ", CellStyle.of(Ink.PROMPT, flags = CellStyle.BOLD), cols)
+    fun unread(count: Int, cols: Int, rtl: Boolean = false): CellBlock =
+        divider("── $count new since you left ", CellStyle.of(Ink.PROMPT, flags = CellStyle.BOLD), cols, rtl)
 
     /** Lines of text, each in its look, wrapped to [cols]: the empty log's hints, "▴ 12 earlier lines". */
-    fun lines(cols: Int, lines: List<Pair<String, CellStyle>>): CellBlock {
+    fun lines(cols: Int, lines: List<Pair<String, CellStyle>>, rtl: Boolean = false): CellBlock {
         val w = BlockWriter(cols.coerceAtLeast(MIN_COLS))
         var row = 0
         for ((text, style) in lines) row = w.wrap(listOf(Seg(text, style)), row, 0, 0, w.cols)
-        return w.build()
+        return w.build(mirrored = rtl)
     }
 
-    private fun divider(text: String, style: CellStyle, cols: Int): CellBlock {
+    private fun divider(text: String, style: CellStyle, cols: Int, rtl: Boolean): CellBlock {
         val w = BlockWriter(cols.coerceAtLeast(MIN_COLS))
         w.reach(0)
         val end = w.line(listOf(Seg(text, style)), 1, 0, w.cols)
         w.repeat(end, 1, '─', w.cols - end, style)
-        return w.build()
+        return w.build(mirrored = rtl)
     }
 
     /**

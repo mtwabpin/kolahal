@@ -21,6 +21,16 @@ class HomeCells(val grid: CellBuffer, val spots: List<Spot> = emptyList()) {
     val cols: Int get() = grid.cols
     val rows: Int get() = grid.rows
 
+    /** The writer it was built with, so it can be built again turned around ([mirrored]) or copied whole. */
+    internal var source: HomeWriter? = null
+
+    /**
+     * The same part for a right-to-left frame: what is at the start goes to the right edge, and
+     * its spots with it (a row of keys in reverse order, the prompt's `$` on the right). Text keeps
+     * the order it reads in. Built once, when first asked for.
+     */
+    val mirrored: HomeCells by lazy { source?.build(mirrored = true) ?: this }
+
     /** The spot named [id], or null when it isn't shown. */
     fun spot(id: Int): Spot? = spots.firstOrNull { it.id == id }
 
@@ -39,14 +49,16 @@ class HomeCells(val grid: CellBuffer, val spots: List<Spot> = emptyList()) {
 /**
  * Writes one of home's parts: the text through a [BlockWriter] (so it wraps and cuts as the log
  * does), and the spots beside it. [rows] is the least height; writing further down adds rows.
+ * Columns count from the frame's start; [HomeCells.mirrored] turns the part for a right-to-left frame.
  */
 internal class HomeWriter(cols: Int, rows: Int = 1) {
     val w = BlockWriter(cols.coerceAtLeast(1)).also { it.reach(rows.coerceAtLeast(1) - 1) }
     val cols: Int get() = w.cols
     private val spots = ArrayList<Spot>()
 
-    /** Writes [text] from [col] on [row]; returns the column after it. */
-    fun put(col: Int, row: Int, text: String, style: CellStyle): Int = w.put(col, row, text, style)
+    /** Writes [text] from [col] on [row]; returns the column after it. [unit]: the unit it keeps its order with ([newUnit]). */
+    fun put(col: Int, row: Int, text: String, style: CellStyle, unit: Int = BlockWriter.NO_UNIT): Int =
+        w.put(col, row, text, style, unit)
 
     /** Writes [segs] from [col] on [row], cut with "…" at [right]. */
     fun line(segs: List<Seg>, row: Int, col: Int, right: Int = cols): Int = w.line(segs, row, col, right)
@@ -63,8 +75,23 @@ internal class HomeWriter(cols: Int, rows: Int = 1) {
         if (n > 0) w.repeat(col, row, ' ', n, style)
     }
 
-    /** Copies [from]'s cells (and its spots, moved with them) to [col], [row] on. Blank cells with no background stay as they are. */
+    /** A new unit: writes with it keep their order when the frame turns ([BlockWriter.newUnit]). */
+    fun newUnit(): Int = w.newUnit()
+
+    /** [unit] takes the columns from [from] to [to], written or not ([BlockWriter.span]). */
+    fun span(unit: Int, from: Int, to: Int) = w.span(unit, from, to)
+
+    /**
+     * Copies [from]'s cells (and its spots, moved with them) to [col], [row] on. Blank cells with no
+     * background stay as they are. What [from] was written with is copied, so it turns as a whole.
+     */
     fun copy(from: HomeCells, col: Int, row: Int) {
+        val source = from.source
+        if (source != null) {
+            source.w.copyInto(w, col, row)
+            for (s in source.spots) spot(s.id, s.rect.col + col, s.rect.row + row, s.rect.cols, s.rect.rows)
+            return
+        }
         val g = from.grid
         for (r in 0 until g.rows) for (c in 0 until g.cols) {
             val glyph = g.glyphAt(c, r)
@@ -86,7 +113,14 @@ internal class HomeWriter(cols: Int, rows: Int = 1) {
         if (n > 0 && rows > 0) spots += Spot(id, CellRect(c, row, n, rows))
     }
 
-    fun build(): HomeCells = HomeCells(w.build().grid, spots.toList())
+    /** The part; [mirrored] for a right-to-left frame, where its spots move with their cells. */
+    fun build(mirrored: Boolean = false): HomeCells {
+        val grid = w.build(mirrored = mirrored).grid
+        val placed = if (!mirrored) spots.toList() else spots.map { s ->
+            Spot(s.id, s.rect.copy(col = w.place(s.rect.col, s.rect.cols)))
+        }
+        return HomeCells(grid, placed).also { if (!mirrored) it.source = this }
+    }
 }
 
 /** The left eighths of a cell: none, ▏ (one eighth) to ▉ (seven), █. */
