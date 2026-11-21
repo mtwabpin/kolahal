@@ -281,7 +281,8 @@ object LineLayout {
         return row + 1
     }
 
-    private fun gutterStyle(g: Gutter) = CellStyle.of(
+    /** The gutter's ink for [g], faint: ui/tty also draws it through an item's gap above a line. */
+    internal fun gutterStyle(g: Gutter) = CellStyle.of(
         when (g) {
             Gutter.COMMAND -> Ink.PROMPT
             Gutter.SCRIPT -> Ink.SCRIPT

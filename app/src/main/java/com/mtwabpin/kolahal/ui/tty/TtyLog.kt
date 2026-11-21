@@ -92,7 +92,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Date
-import kotlin.math.roundToInt
 import kotlin.math.sign
 
 /** Room at the log's sides, as the GUI's log has. The pixels left over from whole cells go to both sides. */
@@ -266,16 +265,17 @@ private fun TtyList(
         val margin = with(density) { MARGIN.roundToPx() }
         val cols = m.cols((width - 2 * margin).coerceAtLeast(m.cellW))
         val originX = ((width - cols * m.cellW) / 2).coerceAtLeast(0)
-        // log.spacing and log.item-spacing in whole rows: a group's gap is at least a row when it is on.
-        val rowsOf = { dp: Int -> with(density) { dp.dp.toPx() } / m.cellH }
-        val groupGapRows = if (search != null || groupGap == 0) 0 else rowsOf(groupGap).roundToInt().coerceAtLeast(1)
+        // log.spacing and log.item-spacing in dp, as the GUI has them: only the space between lines
+        // follows them; each line's cells stay on the grid. Search results have no gaps.
+        val groupGapPx = if (search != null) 0 else with(density) { groupGap.dp.roundToPx() }
+        val itemGapPx = if (search != null) 0 else with(density) { itemGap.dp.roundToPx() }
         val look = LogLook(
             cols = cols,
             gutter = gutter,
             dim = dim && search == null,
             boxedTables = Term.boxedTables,
             foldLines = if (search != null) 0 else Term.foldLines,
-            itemGapRows = if (search != null) 0 else rowsOf(itemGap).roundToInt(),
+            itemGapRows = 0,
         )
         LazyColumn(
             state = list,
@@ -322,7 +322,15 @@ private fun TtyList(
                             line = line,
                             grid = grid,
                             originX = originX,
-                            gapPx = if (line.model.gapAbove == LineModel.Gap.GROUP) groupGapRows * m.cellH else 0,
+                            gapPx = when (line.model.gapAbove) {
+                                LineModel.Gap.GROUP -> groupGapPx
+                                LineModel.Gap.ITEM -> itemGapPx
+                                else -> 0
+                            },
+                            // The gutter runs through an item's gap, as the GUI's color bar does.
+                            gapGutter = if (gutter && line.model.gapAbove == LineModel.Gap.ITEM) {
+                                grid.palette.text(LineLayout.gutterStyle(line.model.gutter))
+                            } else 0,
                             highlighted = highlight.first == id || highlight.second == id,
                             deleteRight = deleteRight,
                             calls = calls,
@@ -461,7 +469,9 @@ internal class TtyLineCalls(
 }
 
 /**
- * One log line on the grid: its block of cells, [gapPx] below the line above it (a group's gap).
+ * One log line on the grid: its block of cells, [gapPx] below the line above it (a group's or an
+ * item's gap, in dp as `log.spacing` and `log.item-spacing` say). [gapGutter], when not 0, is the
+ * color of the gutter, drawn down through an item's gap where the `│` cells would be.
  * - A tap goes to the target under the finger, or the nearest one within reach, else the line.
  *   While pressed, the target (or the whole line) is on the surface color.
  * - A swipe slides it by whole cells and uncovers "⧉ Copy" or "✕ Delete"; past a third of the
@@ -476,6 +486,7 @@ private fun TtyLineRow(
     grid: TtyGrid,
     originX: Int,
     gapPx: Int,
+    gapGutter: Int,
     highlighted: Boolean,
     deleteRight: Boolean,
     calls: TtyLineCalls,
@@ -502,6 +513,13 @@ private fun TtyLineRow(
 
     Box(
         Modifier
+            .drawBehind {
+                // Before the padding, so it reaches into the gap: the same line BoxGlyphs draws for │.
+                if (gapGutter != 0 && gapPx > 0) {
+                    val left = originX + shift() + m.cellW / 2 - m.line / 2
+                    drawRect(Color(gapGutter), Offset(left.toFloat(), 0f), Size(m.line.toFloat(), gapPx.toFloat()))
+                }
+            }
             .padding(top = with(density) { gapPx.toDp() })
             .fillMaxWidth()
             .cellHeight(block.rows * m.cellH)

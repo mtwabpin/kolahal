@@ -699,8 +699,10 @@ class Completer(private val context: Context, private val data: Data) {
 
                             else -> emptyList()
                         }
+                        // A choice's value says what it does beside it, where its setting has notes.
+                        val notes = (key as? ConfigKey.Choice)?.notes.orEmpty()
                         values.filter { it.starts(last) }
-                            .map { Suggestion.Completion(it, "$prefix $it") }
+                            .map { Suggestion.Completion(it, "$prefix $it", help = notes[it]) }
                     }
 
                     else -> emptyList()
