@@ -154,6 +154,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        shownConfig = android.content.res.Configuration(resources.configuration)
         // A widget was being added when Android stopped the launcher. Its result is still coming.
         widgetBinder.restore(savedInstanceState)
         // Use a translucent surface from the start, so the phone's wallpaper can show behind home
@@ -317,11 +318,18 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) vm.onWindowFocused()
     }
 
+    /** The configuration home last had, so [onConfigurationChanged] can tell what changed. */
+    private var shownConfig: android.content.res.Configuration? = null
+
     // uiMode and assetsPaths are in configChanges. So a dark mode change, or a new wallpaper's
     // colours, calls this instead of restarting the activity.
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         applyPhoneColours()
+        // Other apps' widgets took their colours from the configuration their views were made in.
+        val changed = shownConfig?.diff(newConfig) ?: 0
+        shownConfig = android.content.res.Configuration(newConfig)
+        if (changed and (android.content.pm.ActivityInfo.CONFIG_UI_MODE or CONFIG_ASSETS_PATHS) != 0) WidgetHost.get(this).redraw()
     }
 
     /**
@@ -514,3 +522,6 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
 private object StayOnPage : androidx.compose.foundation.gestures.BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
 }
+
+/** ActivityInfo.CONFIG_ASSETS_PATHS (hidden): new resource overlays, as a new wallpaper's colours bring. */
+private const val CONFIG_ASSETS_PATHS = Int.MIN_VALUE // 0x80000000

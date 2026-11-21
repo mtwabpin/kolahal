@@ -723,6 +723,10 @@ class WidgetParserTest {
         assertEquals("widget: tap: page goes with args, not with url", tap("url" to "https://example.com", "page" to "log"))
         assertEquals("widget: tap: page must be 'log', not 'widgets'", tap("args" to "", "page" to "widgets"))
         assertEquals("widget: tap: url must be a web link, not 7", tap("url" to 7))
+        // A link is never cut, as a cut one opens another page: one too long is an error, as for a picture.
+        val longest = "https://example.com/" + "x".repeat(WidgetJson.MAX_LINK - 20)
+        assertEquals(WidgetTap(url = longest), stat("tap" to mapOf("url" to longest)).base.tap)
+        assertEquals("widget: tap: url is over 2000 characters", tap("url" to longest + "x"))
         assertEquals("widget: tap must be { args } or { url }, not 'weather'", refused(mapOf("value" to 1, "tap" to "weather")))
         assertEquals("widget: item 1 of items: tap: give args or url", refused(mapOf("items" to listOf(mapOf("title" to "a", "tap" to mapOf("label" to "x")))), WidgetKind.LIST))
     }

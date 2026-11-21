@@ -464,14 +464,14 @@ private fun NoteLine(text: String, small: Boolean) {
  * title line says which card is loading or failed. A small card has the content alone.
  */
 @Composable
-private fun Named(small: Boolean, content: @Composable () -> Unit) {
+private fun Named(small: Boolean, content: @Composable () -> Unit) = SplitWhole {
     if (small || LocalUntitled.current == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
-        return
-    }
-    Column(Modifier.fillMaxSize()) {
-        CardName()
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { content() }
+    } else {
+        Column(Modifier.fillMaxSize()) {
+            CardName()
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { content() }
+        }
     }
 }
 
@@ -683,7 +683,7 @@ private fun ScriptWidget(ref: WidgetRef, height: Dp, actions: WidgetCardActions?
     val zone = remember(zoneChanges) { ZoneId.systemDefault() }
     val clock24 = rememberClock24()
     val footer = remember(s, minute, zone, clock24) {
-        s?.let { WidgetWords.footer(it.hasContent, WidgetAge.old(it.setAt, it.spec?.base?.staleAfter, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone, clock24) }
+        s?.let { WidgetWords.footer(it.hasContent, WidgetAge.saysAge(it.setAt, it.spec?.base?.staleAfter, it.spec is WidgetSpec.Toggles, minute.time), it.setAt, it.triedAt, it.error != null, minute.time, zone, clock24) }
     }
     // Only the words of a kind that tells the time change with it: a countdown, a clock, an agenda.
     val now = if (WidgetWords.timed(spec)) minute.time / 1000 else 0L

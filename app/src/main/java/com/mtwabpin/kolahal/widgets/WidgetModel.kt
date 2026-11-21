@@ -443,4 +443,10 @@ object WidgetCodec {
         val seen = existing.filter { it.pending || it.source != null }.map { it.key }.toMutableSet()
         return existing + imported.filter { seen.add(it.key) }
     }
+
+    /**
+     * A list another install wrote (a restore to a new phone): app widgets' ids belong to the old
+     * phone, so each app widget becomes [PlacedWidget.pending], keeping its place, for Add again.
+     */
+    fun fromElsewhere(list: List<PlacedWidget>): List<PlacedWidget> = list.map { if (it.source == null) it.copy(id = null) else it }
 }

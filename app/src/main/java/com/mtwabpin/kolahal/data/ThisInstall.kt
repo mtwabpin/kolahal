@@ -31,16 +31,28 @@ object ThisInstall {
         checked = false
     }
 
+    @Volatile private var known: String? = null
+
+    /**
+     * This install's random id, from noBackupFilesDir, made at the first call. No backup or transfer
+     * copies it, so a store that keeps a copy can tell whether it came from elsewhere.
+     */
+    fun id(context: Context): String = known ?: synchronized(this) {
+        known ?: run {
+            val file = File(context.noBackupFilesDir, FILE)
+            runCatching { file.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() }
+                ?: UUID.randomUUID().toString().also { file.writeText(it) }
+        }.also { known = it }
+    }
+
     /** Clears the old phone's scopes when the database came from another install. Cheap after the first call. */
     fun check(context: Context) {
         if (checked) return
         synchronized(this) {
             if (checked) return
-            val file = File(context.noBackupFilesDir, FILE)
-            val mine = runCatching { file.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() }
             val store = KvStore(context, Stores.INSTALL)
             val stored = store.get(KEY)
-            val id = mine ?: UUID.randomUUID().toString().also { file.writeText(it) }
+            val id = id(context)
             // Neither one: a new install, or the first start of a version with this check. Nothing came from elsewhere.
             if (stored != null && stored != id) clearOldPhone(context)
             if (stored != id) store.set(KEY, id)

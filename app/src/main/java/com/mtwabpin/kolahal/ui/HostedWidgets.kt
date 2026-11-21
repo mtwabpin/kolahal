@@ -95,12 +95,14 @@ internal fun HostedWidget(
         return
     }
     val info = remember(id, providersVersion) { widgets.cachedInfo(id) }
+    // Dark mode or the wallpaper's colours changed: the view is made again, in the new colours.
+    val redrawn by widgets.redrawn.collectAsStateWithLifecycle()
     if (info == null) {
         placeholder(WidgetWords.UNAVAILABLE)
         return
     }
     val longPress by rememberUpdatedState(onLongPress)
-    key(id) {
+    key(id, redrawn) {
         AndroidView(
             factory = { ctx ->
                 // Home is rebuilt after Settings or the Widgets page, but the widget's view is reused.

@@ -61,7 +61,7 @@ class WidgetBinderTest {
             assertEquals(clock.flat, w.provider)
             assertEquals(widgets.defaultHeightDp(clock.info), w.heightDp)
             assertEquals(WidgetLayout.COLUMNS, w.span)
-            assertEquals(clock.info.provider, widgets.manager.getAppWidgetInfo(w.id!!).provider)
+            assertEquals(clock.info.provider, widgets.manager!!.getAppWidgetInfo(w.id!!).provider)
             assertEquals(w, widgets.widgets.value.single { it.id == w.id })
             assertEquals(listOf("Added ${t.label(clock)}"), widgets.messages.value)
         }

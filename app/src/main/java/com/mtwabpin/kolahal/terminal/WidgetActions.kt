@@ -118,6 +118,15 @@ internal object WidgetAge {
     fun old(setAt: Long, staleAfter: Int?, now: Long): Boolean = now - setAt >= limit(staleAfter)
 
     /**
+     * True when the card says the age of content set at [setAt] ("3 min ago"). That is when it is
+     * [old], except for switches ([toggles]): they count as old after a minute, so the page asks for a
+     * run each visit, but they say their age only after an hour. Else the line would come and go
+     * on most visits, until the run lands a moment later.
+     */
+    fun saysAge(setAt: Long, staleAfter: Int?, toggles: Boolean, now: Long): Boolean =
+        old(setAt, if (toggles) maxOf(staleAfter ?: DEFAULT_STALE_S, DEFAULT_STALE_S) else staleAfter, now)
+
+    /**
      * True when the page should ask for one run at [now].
      * - A widget that nothing has filled or tried yet is due at once.
      * - After that, the last content or the last try must be [staleAfter] seconds old. So a run that

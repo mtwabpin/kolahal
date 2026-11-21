@@ -328,7 +328,13 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
                 shown == null -> Unit
                 // With a search that found one of Kolahal's own, the apps have nothing to add.
                 shown.isEmpty() -> if (query.isBlank() || !anyOwn) item(key = "empty") {
-                    EmptyNote(if (query.isBlank()) "No apps offer widgets." else "Nothing matches “$query”.")
+                    EmptyNote(
+                        when {
+                            query.isNotBlank() -> "Nothing matches “$query”."
+                            !widgets.supported -> "This phone doesn't support other apps' widgets."
+                            else -> "No apps offer widgets."
+                        },
+                    )
                 }
                 else -> shown.forEach { g ->
                     item(key = "g:${g.key}") { AppHeader(g) }

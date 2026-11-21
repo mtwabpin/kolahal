@@ -42,6 +42,17 @@ class WidgetAgeTest {
         assertTrue(WidgetAge.due(setAt = 0, triedAt = now - 2 * hour, staleAfter = null, now = now))
     }
 
+    /** Switches count as old after a minute, so the page asks for a run, but say their age only after an hour. */
+    @Test fun switchesSayTheirAgeAfterAnHour() {
+        val minutes = now - 5 * 60_000L
+        assertTrue(WidgetAge.old(minutes, staleAfter = 60, now = now))
+        assertFalse(WidgetAge.saysAge(minutes, staleAfter = 60, toggles = true, now = now))
+        assertTrue(WidgetAge.saysAge(now - 2 * hour, staleAfter = 60, toggles = true, now = now))
+        // A longer staleAfter holds for switches too, and other kinds say their age once old.
+        assertFalse(WidgetAge.saysAge(now - 2 * hour, staleAfter = 86_400, toggles = true, now = now))
+        assertTrue(WidgetAge.saysAge(minutes, staleAfter = 60, toggles = false, now = now))
+    }
+
     @Test fun aTimeInTheFutureCountsAsOld() {
         assertTrue("the clock was set back", WidgetAge.due(setAt = now + hour, triedAt = 0, staleAfter = null, now = now))
     }

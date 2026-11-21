@@ -1,13 +1,20 @@
 package com.mtwabpin.kolahal.ui
 
 import android.graphics.Typeface
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
@@ -37,6 +44,23 @@ val LocalWidgetLook = staticCompositionLocalOf { WidgetLook.PLAIN }
  * card frame draws the shape; the body draws a few short lines centred in it.
  */
 val LocalCardShaped = staticCompositionLocalOf { false }
+
+/** True inside a Split tile, so what is drawn there adds no tile of its own ([SplitWhole]). */
+val LocalInTile = staticCompositionLocalOf { false }
+
+/**
+ * [content] on one tile that fills the card, in the Split look outside any tile; else [content] as
+ * it is. Split's card draws nothing itself, so "Nothing playing", a list with no rows or "Loading"
+ * would otherwise sit straight on the page or the wallpaper, with no card around it.
+ */
+@Composable
+internal fun SplitWhole(content: @Composable () -> Unit) {
+    if (LocalWidgetLook.current != WidgetLook.SPLIT || LocalInTile.current) return content()
+    // Split's card has no room around its body: the words keep some from the tile's edges.
+    Box(Modifier.fillMaxSize().clip(SplitCorners.inColumn(0, 1)).background(lookColors(WidgetLook.SPLIT).tile).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        CompositionLocalProvider(LocalInTile provides true) { content() }
+    }
+}
 
 /** Whether a box is square enough for the card to be one shape: a 1×1 or a 2×2. */
 fun squareBox(widthDp: Int, heightDp: Int): Boolean = heightDp > 0 && widthDp.toFloat() / heightDp in 0.75f..1.34f

@@ -31,7 +31,7 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
     /** [info] is null for a request restored from saved state. Then [infoOf] looks it up by the bound id. */
     private data class Request(val id: Int, val info: AppWidgetProviderInfo?, val replacing: String?)
 
-    private fun infoOf(req: Request): AppWidgetProviderInfo? = req.info ?: runCatching { widgets.manager.getAppWidgetInfo(req.id) }.getOrNull()
+    private fun infoOf(req: Request): AppWidgetProviderInfo? = req.info ?: runCatching { widgets.manager?.getAppWidgetInfo(req.id) }.getOrNull()
 
     /** Saves a request that still waits for the bind dialog or the widget's setup. */
     fun save(out: Bundle) {
@@ -66,7 +66,7 @@ class WidgetBinder(private val activity: ComponentActivity, private val onAdded:
         val req = Request(id, entry.info, replacing)
         pending = req
         val options = widgets.options(widgets.defaultHeightDp(entry.info))
-        val bound = runCatching { widgets.manager.bindAppWidgetIdIfAllowed(id, entry.user, entry.info.provider, options) }.getOrDefault(false)
+        val bound = runCatching { widgets.manager?.bindAppWidgetIdIfAllowed(id, entry.user, entry.info.provider, options) == true }.getOrDefault(false)
         if (bound) return configure(req)
         val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)

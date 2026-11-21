@@ -90,7 +90,7 @@ data class WidgetTap(val args: String? = null, val url: String? = null, val labe
 
 /**
  * The fields every kind has. All are optional. [staleAfter] and [refresh] are in seconds.
- * [note] is a short text at the end of the title line, in the card's colour: "Done today".
+ * [note] is a short text on a large card's last line, in the card's colour: "Done today".
  */
 data class WidgetBase(
     val title: String? = null,
@@ -307,8 +307,9 @@ sealed interface WidgetSpec {
  *   the wrong type, a needed field that is missing, a number that isn't finite, a colour that isn't
  *   a role, a style that isn't one of its words, a tap without exactly one of `args` and `url`, a
  *   link that isn't a web link, a text or a description far longer than `widget.show` allows.
- * - A picture's link must start with `https://` and have at most [MAX_PICTURE_LINK] characters, and
- *   its `alt` text must not be blank. `widget.show` refuses the same ([isHttps]).
+ * - A picture's link must start with `https://` and have at most [MAX_LINK] characters, and
+ *   its `alt` text must not be blank. `widget.show` refuses the same ([isHttps]). A tap's link has
+ *   the same limit.
  * - A text with a style marker in it is refused, except in the few fields that may have styles
  *   ([WidgetParser.STYLED]). Such a field passes through [StyledText.inline] again, so no stored
  *   text can make a card draw a link, a tag or a table.
@@ -342,8 +343,11 @@ object WidgetJson {
     const val MAX_TOGGLES = WidgetParser.MAX_TOGGLES
     const val MAX_ZONES = WidgetParser.MAX_ZONES
     const val MAX_EVENTS = WidgetParser.MAX_EVENTS
-    /** The longest link of a picture, in characters. A longer one is refused, never cut. */
-    const val MAX_PICTURE_LINK = 2_000
+    /**
+     * The longest link of a picture or a tap, in characters. `widget.show` refuses a longer one, and
+     * never cuts it: a cut link opens another page.
+     */
+    const val MAX_LINK = 2_000
     const val MIN_DAYS = WidgetParser.MIN_DAYS
     const val MAX_DAYS = WidgetParser.MAX_DAYS
     const val DEFAULT_DAYS = WidgetParser.DEFAULT_DAYS
@@ -575,15 +579,15 @@ object WidgetJson {
      */
     fun isHttps(url: String): Boolean = url.startsWith("https://", ignoreCase = true)
 
-    /** A picture's link: needed, https, and not longer than [MAX_PICTURE_LINK]. */
-    private fun Map<*, *>.picture(key: String): String = needText(key).also { if (!isHttps(it) || it.length > MAX_PICTURE_LINK) odd() }
+    /** A picture's link: needed, https, and not longer than [MAX_LINK]. */
+    private fun Map<*, *>.picture(key: String): String = needText(key).also { if (!isHttps(it) || it.length > MAX_LINK) odd() }
 
     private fun Map<*, *>.tap(key: String): WidgetTap? {
         val m = obj(this[key] ?: return null)
         val args = m.text("args")
         val url = m.text("url")
         if ((args == null) == (url == null)) odd()
-        if (url != null && !isWebLink(url)) odd()
+        if (url != null && (!isWebLink(url) || url.length > MAX_LINK)) odd()
         return WidgetTap(args, url, m.text("label"), toLog = m.oneOf("page", LOG) != null)
     }
 
