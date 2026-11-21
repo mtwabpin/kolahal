@@ -49,6 +49,29 @@ class GridPainter(private val m: GridMetrics, private val palette: TtyPalette) {
         buffer.dirty.clear()
     }
 
+    /**
+     * Paints [buffer] at [x0], [y0] as [draw] does, inside a band from [bandTop] to [bandBottom]
+     * that is taller than its cells: the box lines that leave its first row upward go on up to
+     * [bandTop], and those that leave its last row downward go on down to [bandBottom]. So a box
+     * whose rows are finger-sized still closes, and a `│` between two keys spans the key's height.
+     */
+    fun drawBand(canvas: Canvas, buffer: CellBuffer, x0: Float, y0: Float, bandTop: Float, bandBottom: Float) {
+        draw(canvas, buffer, x0, y0)
+        val last = buffer.rows - 1
+        val bottom = y0 + buffer.rows * m.cellH
+        for (col in 0 until buffer.cols) {
+            val x = x0 + col * m.cellW
+            if (y0 > bandTop) {
+                val g = buffer.glyphAt(col, 0)
+                if (g > 0) box.arm(canvas, g, true, x, bandTop, y0, palette.text(buffer.styleAt(col, 0)))
+            }
+            if (bandBottom > bottom) {
+                val g = buffer.glyphAt(col, last)
+                if (g > 0) box.arm(canvas, g, false, x, bottom, bandBottom, palette.text(buffer.styleAt(col, last)))
+            }
+        }
+    }
+
     /** Runs of cells with the same painted background, as one rectangle each. */
     private fun backgrounds(canvas: Canvas, buffer: CellBuffer, row: Int, x0: Float, top: Float) {
         var start = -1

@@ -52,6 +52,24 @@ internal class BoxGlyphs(private val m: GridMetrics) {
         }
     }
 
+    /**
+     * Carries [cp]'s arm up (or down) on from [y1] to [y2], in the column of the cell at [x]: a
+     * box's side through the room a row has above or below its cells. Nothing when [cp] has no
+     * such arm.
+     */
+    fun arm(canvas: Canvas, cp: Int, up: Boolean, x: Float, y1: Float, y2: Float, color: Int) {
+        if (cp !in 0x2500..0x257F || y2 <= y1) return
+        val arms = BoxShapes.arms(cp)
+        val weight = if (up) BoxShapes.up(arms) else BoxShapes.down(arms)
+        if (weight == NONE) return
+        fill.color = color
+        val cx = x + m.cellW / 2
+        if (weight == DOUBLE) {
+            vLine(canvas, y1, y2, cx - d, light)
+            vLine(canvas, y1, y2, cx + d, light)
+        } else vLine(canvas, y1, y2, cx, thickness(weight))
+    }
+
     private fun thickness(weight: Int) = if (weight == HEAVY) light * 2 else light
 
     /** A horizontal line from [x1] to [x2] centered on [cy] (whole pixels). */

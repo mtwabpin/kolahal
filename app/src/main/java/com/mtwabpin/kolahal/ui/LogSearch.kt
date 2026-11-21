@@ -166,13 +166,15 @@ internal fun foundIn(entry: LogEntry, words: List<String>): String? {
         .joinToString(" · ").ifEmpty { null }
 }
 
-/** Shown under the log while searching: how many lines match, or how to search if nothing is typed yet. */
-@Composable
-fun LogSearchSummary(search: TerminalViewModel.LogSearch, modifier: Modifier = Modifier) {
-    val shown = remember(search.rows) { search.rows.count { it is LogRow.Entry } }
+/**
+ * What the search's summary says: how many lines match, or how to search if nothing is typed yet.
+ * Both home styles show it.
+ */
+internal fun searchSummary(search: TerminalViewModel.LogSearch): String {
+    val shown = search.rows.count { it is LogRow.Entry }
     val from =
         if (search.sources.isEmpty()) "" else " from " + search.sources.joinToString(" or ") { it.label }
-    val text = when {
+    return when {
         search.isEmpty -> "Search the log: type words after / to find lines, commands, sources and links · @ and a name searches one source's lines"
         search.total == 0 -> "No line$from" + (if (search.words.isEmpty()) "" else " has “${
             search.words.joinToString(
@@ -184,6 +186,12 @@ fun LogSearchSummary(search: TerminalViewModel.LogSearch, modifier: Modifier = M
                 (if (shown < search.total) " · showing the newest $shown" else "") +
                 " · tap one to see it in the log"
     }
+}
+
+/** Shown under the log while searching: how many lines match, or how to search if nothing is typed yet. */
+@Composable
+fun LogSearchSummary(search: TerminalViewModel.LogSearch, modifier: Modifier = Modifier) {
+    val text = remember(search) { searchSummary(search) }
     Text(
         text,
         style = Term.small,

@@ -139,8 +139,8 @@ internal fun GuiHome(
     suggestions: @Composable (always: Boolean) -> Unit,
     selector: @Composable () -> Unit,
     /**
-     * Draws the log in place of the list here, or null for this one. TTY draws it on the grid
-     * ([LogArea]); the rest of home is still this.
+     * Draws the log in place of the list here, or null for this one. Home on the grid has a body
+     * of its own ([com.mtwabpin.kolahal.ui.tty.TtyHome]), so none passes one now.
      */
     logArea: LogArea? = null,
 ) {
@@ -526,7 +526,7 @@ internal fun GuiHome(
 
 /** Shows a pinch's new font size in a toast. A new pinch replaces the toast instead of queueing another. */
 @Composable
-private fun rememberFontSizeToast(): (from: Int, to: Int) -> Unit {
+internal fun rememberFontSizeToast(): (from: Int, to: Int) -> Unit {
     val context = LocalContext.current
     val shown = remember { arrayOfNulls<Toast>(1) }
     return remember(context) {
@@ -543,7 +543,7 @@ private fun rememberFontSizeToast(): (from: Int, to: Int) -> Unit {
  * multi-touch events, so one-finger scrolls and taps still reach the list. When the fingers lift,
  * [onEnd] gets the size before and after, unless the size ended where it started.
  */
-private fun Modifier.pinchToZoomFont(onChange: (Int) -> Unit, onEnd: (from: Int, to: Int) -> Unit) =
+internal fun Modifier.pinchToZoomFont(onChange: (Int) -> Unit, onEnd: (from: Int, to: Int) -> Unit) =
     pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
