@@ -737,7 +737,8 @@ or run. It leaves out what the November scans above already have.
 - Remark:
 
 ** Correctness
-*** TODO [#B] A script's failure is told by its message text /(checked)/
+*** DONE [#B] A script's failure is told by its message text /(checked)/
+- Fixed in d69bc327, 6be5812c (21 November 2026).
 - =script/ScriptWorker.kt:165=: =timedOut = … || e.message.orEmpty().contains("script timed out")=.
   The access-off case matches the denied message inside the text the same way (163).
 - What you'd see: a script that calls =error("script timed out")= is reported as "timed out after
@@ -749,7 +750,8 @@ or run. It leaves out what the November scans above already have.
   =runOutcome(error, host state, repl)= with JVM tests.
 - Remark:
 
-*** TODO [#B] Failures are swallowed after the screen has shown success /(checked)/
+*** DONE [#B] Failures are swallowed after the screen has shown success /(checked)/
+- Fixed in d69bc327 (shortcuts and timers; other bare runCatching stay) (21 November 2026).
 - =terminal/OwnWidgets.kt:318-320=: =saveShortcuts= sets =shortcuts.value=, then
   =runCatching { Shortcuts.write(...) }=. A failed write leaves the card showing the new list until
   a restart.
@@ -761,7 +763,8 @@ or run. It leaves out what the November scans above already have.
   write fails. Keep bare =runCatching= for unregistering and cleanup.
 - Remark:
 
-*** TODO [#B] A database error on the Feeds screen crashes home
+*** DONE [#B] A database error on the Feeds screen crashes home
+- Fixed in bdc7fe69 (21 November 2026).
 - =ui/FeedsScreen.kt:258=: =scope.launch(Dispatchers.IO) { repo.markRead(item.id) }= has no catch.
   Nor have =produceState { repo.all() }= (120-122) and =repo.items(...)= (566). The same error
   from a command becomes a log line (TerminalViewModel.kt:931-937).
@@ -773,7 +776,8 @@ or run. It leaves out what the November scans above already have.
   - for the rest, one =produceIo(default) { }= helper that catches, in =ui/GuiComponents.kt=.
 - Remark:
 
-*** TODO [#B] The script list has three writers on three threads
+*** DONE [#B] The script list has three writers on three threads
+- Fixed in bdc7fe69 (21 November 2026).
 - =scriptList.value= is set:
   - by the reload collector (=terminal/TerminalViewModel.kt:489-490=);
   - by =refreshScripts= on the serial queue (=terminal/ScriptActions.kt:79=);
@@ -816,7 +820,8 @@ or run. It leaves out what the November scans above already have.
 - Remark:
 
 ** Structure
-*** TODO [#B] One view model serves every screen /(checked)/
+*** DONE [#B] One view model serves every screen /(checked)/
+- Fixed in d69bc327 (PromptActions and HomeSession; screens still take the whole view model) (21 November 2026).
 - =terminal/TerminalViewModel.kt= is 1488 lines, with about 130 public functions, and 43
   composables in 29 ui files take the whole of it (FeedsScreen, OnboardingScreen, ThemeBuilder,
   SettingsScreen…).
@@ -847,7 +852,8 @@ or run. It leaves out what the November scans above already have.
   - then add the order data < script < widgets to LayersTest.
 - Remark:
 
-*** TODO [#B] WidgetBodies.kt holds five widgets and two shared toolkits /(checked)/
+*** DONE [#B] WidgetBodies.kt holds five widgets and two shared toolkits /(checked)/
+- Fixed in c163a96e (21 November 2026).
 - =ui/WidgetBodies.kt= is 2655 lines:
   - shared controls and grids (168-515);
   - buttons and switches (516-895);
@@ -890,7 +896,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
 
 - Remark:
 
-*** TODO [#A] A page swipe that starts on a log line copies or deletes it /(checked)/
+*** DONE [#A] A page swipe that starts on a log line copies or deletes it /(checked)/
+- Fixed in e785380f, 6be5812c (21 November 2026).
 - =ui/LogView.kt:266-289=: a line takes a sideways drag past a third of its width (=rowWidth / 3f=):
   right copies it, left deletes it. The swipe to the widgets page (=MainActivity.kt:440-466=) starts
   the same way, and with a full log almost the whole screen is lines.
@@ -900,7 +907,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   on the right), and show "Copied" in the Undo row's place after a swipe copy.
 - Remark:
 
-*** TODO [#B] A fast second tap on a widget's button is dropped without a sign /(checked)/
+*** DONE [#B] A fast second tap on a widget's button is dropped without a sign /(checked)/
+- Fixed in e785380f (21 November 2026).
 - =terminal/TapGate.kt=: a button takes one tap in 2 seconds (=terminal/WidgetActions.kt:193,
   231-235=). The second tap shows the press and does nothing. The docs say so (library.mdx); the
   card doesn't.
@@ -910,7 +918,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   when the 2 seconds are over. For the counter, the second is what people expect.
 - Remark:
 
-*** TODO [#B] Nothing but a swipe turns to the widgets page /(checked)/
+*** DONE [#B] Nothing but a swipe turns to the widgets page /(checked)/
+- Fixed in ed0d1321 (21 November 2026).
 - =MainActivity.kt:449=: the pager has =userScrollEnabled = false= and a bare =pointerInput=, so it
   has no scroll semantics. TalkBack and Switch Access get no page action. The =widgets= command and
   the "Widgets" quick action (=terminal/HeaderActions.kt:85=) open Arrange widgets, not the page.
@@ -921,7 +930,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   action) that turns home to the widgets page.
 - Remark:
 
-*** TODO [#B] A long-press on the pinned line does two different things
+*** DONE [#B] A long-press on the pinned line does two different things
+- Fixed in e785380f (21 November 2026).
 - =ui/NowPlayingLine.kt:116-119=, =ui/PinnedHeader.kt:197=: the pinned line takes turns every 5
   seconds. On a script's turn a long-press opens its actions; on the music's turn it skips the
   track, with no buzz and no label. Everywhere else on home a long-press opens actions.
@@ -931,7 +941,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   script line's does. ⏭ already skips.
 - Remark:
 
-*** TODO [#B] The pinned line can't be turned by hand
+*** DONE [#B] The pinned line can't be turned by hand
+- Fixed in ed0d1321 (21 November 2026).
 - =ui/PinnedHeader.kt:142-150, 160-167, 218-229=: with three items you wait up to 10 seconds for the
   one you want. A finger only holds the current item. With TalkBack, the item under focus is
   replaced every 5 seconds.
@@ -950,7 +961,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   card's bottom padding, to 32 dp or more.
 - Remark:
 
-*** TODO [#B] A near miss on Todos or Shortcuts leaves the widgets page
+*** DONE [#B] A near miss on Todos or Shortcuts leaves the widgets page
+- Fixed in e785380f (21 November 2026).
 - =ui/OwnWidgets.kt:449, 565=; =terminal/OwnWidgets.kt:169, 175=: a tap between two todo rows (2 dp
   apart), on "+2 more" or on the card's edge runs =todo=, turns home to the log and adds the list
   there. A tap beside a shortcut button opens Arrange widgets with the editor.
@@ -959,7 +971,8 @@ above already have. The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =
   buttons, the space between them does nothing; Edit shortcuts stays in Arrange widgets.
 - Remark:
 
-*** TODO [#B] The music line's tap has no TalkBack label, and other things go unsaid
+*** DONE [#B] The music line's tap has no TalkBack label, and other things go unsaid
+- Fixed in e785380f (21 November 2026).
 - =ui/NowPlayingLine.kt:116-136=: TalkBack says "Playing, <title>, double-tap to activate", with no
   "pause", and the long-press isn't offered. While paused the line shows the pause icon, which on
   players means "tap to pause".
@@ -1020,7 +1033,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
 
 - Remark:
 
-*** TODO [#B] The reference starts over after every insert
+*** DONE [#B] The reference starts over after every insert
+- Fixed in 05d93482 (21 November 2026).
 - =ReferencePage.kt:92-98=: the search, the tab, the group and the list positions are held in
   =remember=, and the page is composed only while it is open (=ScriptEditor.kt:307=); every pick
   closes it.
@@ -1030,7 +1044,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
   reopens where it was.
 - Remark:
 
-*** TODO [#B] Back in the theme builder throws the theme away without asking
+*** DONE [#B] Back in the theme builder throws the theme away without asking
+- Fixed in 05d93482 (21 November 2026).
 - =ThemeBuilder.kt:99, 120, 134=: the draft is in =remember=, and =BackHandler { vm.closeScreen() }=.
   Only "Save and apply" keeps the work.
 - What you'd see: twelve colours picked for dark and light, a Back swipe by mistake at the screen's
@@ -1039,7 +1054,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
   editing).
 - Remark:
 
-*** TODO [#B] Typed values are lost unless Done or the check mark is pressed
+*** DONE [#B] Typed values are lost unless Done or the check mark is pressed
+- Fixed in 05d93482, 6be5812c (21 November 2026).
 - =SettingItem.kt:181-208= (text settings, state in =remember= inside a lazy list) and
   =ScriptSheet.kt:77, 206-227= ("Daily at").
 - What you'd see: type =07:30, 19:00= in Daily at and swipe the sheet down: the script keeps its old
@@ -1048,14 +1064,16 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
   and keep an invalid one marked red.
 - Remark:
 
-*** TODO [#B] Mark all read on a feed's page has no Undo and no message
+*** DONE [#B] Mark all read on a feed's page has no Undo and no message
+- Fixed in 05d93482 (21 November 2026).
 - =FeedsScreen.kt:166, 576=: one tap, beside Refresh, marks up to 300 items read, and nothing says
   so or brings them back.
 - Fix: a snackbar "Marked N read" with Undo, which restores the ids that were unread. Give the
   sheet's button (=:201=), which already has a message, the same Undo.
 - Remark:
 
-*** TODO [#B] Settings and the widget picker search for the exact phrase
+*** DONE [#B] Settings and the widget picker search for the exact phrase
+- Fixed in 05d93482 (pages and actions aren't listed as results yet) (21 November 2026).
 - =SettingsCatalog.kt:261-264=, =SettingsScreen.kt:269=, =WidgetPickerScreen.kt:250-264=. Scripts,
   the library, Get more scripts, Commands and the reference use =SearchWords= (words in any order).
 - What you'd see: "size font" finds nothing where "font size" does. Settings search finds only
@@ -1064,7 +1082,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
   pages and actions (Backup, About, Setup checklist, Arrange widgets) as rows.
 - Remark:
 
-*** TODO [#B] Run with… is hidden behind a long-press, and Run shows no name
+*** DONE [#B] Run with… is hidden behind a long-press, and Run shows no name
+- Fixed in ed0d1321 (21 November 2026).
 - =ScriptEditor.kt:248=, =EditorBars.kt:119=: a button with a long-press of its own gets no tooltip,
   so Run is the one bar icon whose long-press shows no name. Only =scripting/editor.md= mentions
   Run with….
@@ -1074,7 +1093,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
   arguments or an event" to the message line, and offer Run with… on the script's sheet too.
 - Remark:
 
-*** TODO [#B] Reset to default is a 28 dp button with no Undo /(checked)/
+*** DONE [#B] Reset to default is a 28 dp button with no Undo /(checked)/
+- Fixed in 05d93482 (21 November 2026).
 - =SettingItem.kt:92=: =LabeledIconButton(… "Reset to default", onClick = { vm.resetConfig(key) },
   modifier = Modifier.size(28.dp))=. One touch resets the value at once.
 - What you'd see: a typed value replaced by the default after a slip of the thumb while scrolling.
@@ -1110,7 +1130,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
 - Fix: "2 scripts differ from their source", and a "Version" filter group, not "Library version".
 - Remark:
 
-*** TODO [#C] Feeds messages say "1 new feeds" /(checked)/
+*** DONE [#C] Feeds messages say "1 new feeds" /(checked)/
+- Fixed in 05d93482 (21 November 2026).
 - =FeedsScreen.kt:146, 152=: "Imported 1 new feeds — fetching…", "Exported 1 feeds".
 - Fix: the singular for 1, as the page's subtitle already has it (=:285=).
 - Remark:
@@ -1123,7 +1144,8 @@ The same notes apply: =[#A]= to =[#C]=, /(checked)/, and a =Remark:= each. Paths
   for Delete all.
 - Remark:
 
-*** TODO [#C] A source's row looks tappable and does nothing /(checked)/
+*** DONE [#C] A source's row looks tappable and does nothing /(checked)/
+- Fixed in 05d93482 (21 November 2026).
 - =ScriptSourcesScreen.kt:105=: =onClick = {}=. The row ripples, and TalkBack says "double-tap to
   activate".
 - Fix: make the tap useful (Get more scripts searched to that source, or read it again), or use a
