@@ -66,6 +66,31 @@ private sealed interface Opened {
 }
 
 /**
+ * Where the reference page was: its search, tab, Functions group and each list's scroll position.
+ * The editor holds one for each script ([ScriptEditor]), so after an insert, which closes the page,
+ * it reopens where it was. An example's view is not kept: an insert from it ends with the list.
+ */
+@androidx.compose.runtime.Stable
+internal class ReferenceState {
+    var query by mutableStateOf("")
+        private set
+    var tab by mutableStateOf(ReferenceSearch.Tab.FUNCTIONS)
+    /** The Functions group the chips show; null for All. */
+    var namespace by mutableStateOf<String?>(null)
+    /** Each tab's list, kept while an example's view is open over it and while the page is closed. */
+    val lists: Map<ReferenceSearch.Tab, LazyListState> = ReferenceSearch.Tab.entries.associateWith { LazyListState() }
+    /** The search's results. A new search starts them at the top. */
+    var resultsList by mutableStateOf(LazyListState())
+        private set
+
+    /** Sets the search to [text]; results for a changed search start at the top. */
+    fun search(text: String) {
+        if (text != query) resultsList = LazyListState()
+        query = text
+    }
+}
+
+/**
  * The script editor's reference, a page over the editor: the API for the script's language, its `@`
  * lines, the widget and log examples, and the widget icons, in tabs ([ReferenceSearch.Tab]), with one
  * search for all of them.
@@ -79,6 +104,9 @@ private sealed interface Opened {
  * - The search looks in every tab at once ([ReferenceSearch.find]) and lists what it finds by tab.
  *   A tap does what it does in the tab. Back from an example opened there returns to the results.
  * Back closes an example's view, then the page ([onBack]).
+ *
+ * The search, tab, group and scroll positions are in [ref], which outlives the page, so it reopens
+ * where it was.
  */
 @Composable
 internal fun ReferencePage(
@@ -88,14 +116,14 @@ internal fun ReferencePage(
     onDirective: (String) -> Unit,
     onIcon: (String) -> Unit,
     onExample: (String) -> Unit,
+    ref: ReferenceState = remember { ReferenceState() },
 ) = GuiTheme {
-    var query by remember { mutableStateOf("") }
-    var tab by remember { mutableStateOf(RefTab.FUNCTIONS) }
-    var namespace by remember { mutableStateOf<String?>(null) }
+    val query = ref.query
+    val tab = ref.tab
+    val namespace = ref.namespace
     var opened by remember { mutableStateOf<Opened?>(null) }
-    // Each list keeps its place while an example's view is open over it.
-    val lists = remember { RefTab.entries.associateWith { LazyListState() } }
-    val resultsList = remember(query) { LazyListState() }
+    val lists = ref.lists
+    val resultsList = ref.resultsList
     BackHandler { if (opened != null) opened = null else onBack() }
 
     Box(Modifier.fillMaxSize().testTag("reference")) {
@@ -110,7 +138,7 @@ internal fun ReferencePage(
                 val bottom = padding.calculateBottomPadding() + 16.dp
                 Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
                     SearchField(
-                        query, { query = it }, "Search functions, widgets, icons",
+                        query, { ref.search(it) }, "Search functions, widgets, icons",
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("reference-search"),
                         clear = "Clear the search",
                     )
@@ -130,7 +158,7 @@ internal fun ReferencePage(
                             RefTab.entries.forEach { t ->
                                 Tab(
                                     selected = t == tab,
-                                    onClick = { tab = t },
+                                    onClick = { ref.tab = t },
                                     text = { Text(t.label, maxLines = 1) },
                                     selectedContentColor = MaterialTheme.colorScheme.primary,
                                     unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -140,7 +168,7 @@ internal fun ReferencePage(
                         }
                         val state = lists.getValue(tab)
                         when (tab) {
-                            RefTab.FUNCTIONS -> FunctionsTab(lang, namespace, { namespace = it }, state, bottom, onPick)
+                            RefTab.FUNCTIONS -> FunctionsTab(lang, namespace, { ref.namespace = it }, state, bottom, onPick)
                             RefTab.DIRECTIVES -> RefList(state, bottom) {
                                 item { TabHint("Comment lines at the top of a script. A tap puts one above the cursor's line.") }
                                 items(ApiDocs.directives) { DirectiveRow(it, lang, words, onDirective) }

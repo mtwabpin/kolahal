@@ -29,7 +29,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SmallExtendedFloatingActionButton
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -103,6 +105,7 @@ private fun FeedInfo.displayTitle(): String = title?.takeIf { it.isNotBlank() } 
  * - per-feed settings in a bottom sheet;
  * - an item list per feed;
  * - OPML import and export.
+ * Mark all read, on a feed's page or its sheet, says what it marked, with Undo.
  *
  * Reads and writes go to [FeedRepository] on [Dispatchers.IO]. Lists query again whenever
  * [FeedRepository.version] changes. The fetch worker runs in this process, so new items show up live.
@@ -140,16 +143,36 @@ fun FeedsScreen(vm: TerminalViewModel) {
         }
     }
 
+    /**
+     * Marks [feed]'s unread items read and says so, "Marked 12 read" from the feed's page ([sheet]
+     * false) or "Marked <feed> read" from its sheet, with Undo, which marks those same items unread
+     * again. Items read in another way since stay read.
+     */
+    fun markFeedRead(feed: FeedInfo, sheet: Boolean) {
+        scope.launch {
+            val ids = withContext(Dispatchers.IO) { runCatching { repo.markFeedRead(feed.id) } }.getOrElse {
+                snackbar.showSnackbar("Mark all read failed: ${it.message ?: it.javaClass.simpleName}")
+                return@launch
+            }
+            snackbar.currentSnackbarData?.dismiss()
+            if (ids.isEmpty()) { snackbar.showSnackbar("No unread items"); return@launch }
+            val text = if (sheet) "Marked ${feed.displayTitle()} read" else "Marked ${ids.size} read"
+            val r = snackbar.showSnackbar(text, actionLabel = "Undo", duration = SnackbarDuration.Long)
+            if (r == SnackbarResult.ActionPerformed) withContext(Dispatchers.IO) { runCatching { repo.markUnread(ids) } }
+        }
+    }
+
     val importOpml = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) io("import") {
             val added = subscriptions.importOpml(Files.readText(context, uri))
-            if (added == 0) "No new feeds in that file" else "Imported $added new feeds — fetching…"
+            if (added == 0) "No new feeds in that file" else "Imported $added new feed${if (added == 1) "" else "s"} — fetching…"
         }
     }
     val exportOpml = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
         if (uri != null) io("export") {
             Files.writeText(context, uri, repo.exportOpml())
-            "Exported ${repo.feeds().size} feeds"
+            val n = repo.feeds().size
+            "Exported $n feed${if (n == 1) "" else "s"}"
         }
     }
 
@@ -163,7 +186,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
                 snackbar = snackbar,
                 onBack = { openFeedId = null },
                 onRefresh = { io("refresh") { FeedScheduler.fetchNow(context, open.id); "Fetching ${open.displayTitle()}…" } },
-                onMarkAllRead = { io("mark read") { repo.markAllRead(open.id); null } },
+                onMarkAllRead = { markFeedRead(open, sheet = false) },
                 onOpenItem = { item -> openItem(context, scope, repo, item, snackbar) },
                 onToggleRead = { item -> io("mark read") { if (item.read) repo.markUnread(item.id) else repo.markRead(item.id); null } },
             )
@@ -198,7 +221,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
                     io("update") { subscriptions.setEnabled(sheetFeed.id, on); null }
                 },
                 onInterval = { minutes -> io("update") { subscriptions.setInterval(sheetFeed.id, minutes); null } },
-                onMarkAllRead = { io("mark read") { repo.markAllRead(sheetFeed.id); "Marked ${sheetFeed.displayTitle()} read" } },
+                onMarkAllRead = { markFeedRead(sheetFeed, sheet = true) },
                 onEditAddress = { editingFeedId = sheetFeed.id },
                 onRemove = {
                     sheetFeedId = null
@@ -276,6 +299,8 @@ private fun FeedListPage(
     onFeedMenu: (FeedInfo) -> Unit,
 ) {
     val unread = feeds?.filter { it.enabled }?.sumOf { it.unread } ?: 0
+    // "Reset …" with Undo, after a feed setting is reset to its default.
+    val undo = undoMessage(rememberCoroutineScope(), snackbar)
     GuiListPage(
         title = { Text("Feeds") },
         subtitle = {
@@ -330,7 +355,7 @@ private fun FeedListPage(
         }
         // The feed settings are here, next to the feeds. Settings search finds them too.
         item(key = "h:settings") { GroupHeader("Settings") }
-        categorySettings(vm, FEEDS_CATEGORY, configVersion, applicable)
+        categorySettings(vm, FEEDS_CATEGORY, configVersion, applicable, undo)
     }
 }
 

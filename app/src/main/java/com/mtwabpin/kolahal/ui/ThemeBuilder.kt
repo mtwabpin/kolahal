@@ -88,7 +88,8 @@ private val ROLE_TEXT = mapOf(
 /**
  * Settings → Look & feel → Your themes. Creates a new theme, or edits an existing one
  * ([TerminalViewModel.themeBuilderName]). A small home screen at the top shows each colour change
- * at once. Saving also applies the theme.
+ * at once. Saving also applies the theme. Back, when a colour or the name changed, asks
+ * "Discard changes?" (Discard, Keep editing) before leaving.
  */
 @Composable
 fun ThemeBuilderScreen(vm: TerminalViewModel) {
@@ -109,15 +110,23 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
     // Use remember, not saved state, like the draft. Saved state outlives a visit, and a name left
     // from the last visit would rename the theme being edited.
     var name by remember { mutableStateOf(editing ?: newName()) }
+    // Where the draft and the name started, to ask before Back throws changes away.
+    val startColours = remember { draft.toMap() }
+    val startName = remember { name }
     var picking by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    // Back and the bar's back arrow leave at once when nothing changed; otherwise they ask first.
+    val leave: () -> Unit = {
+        if (ThemeDraft.changed(startColours, draft, startName, name)) confirmDiscard = true else vm.closeScreen()
+    }
     val nameError = when {
         !CustomThemes.NAME.matches(name) -> "Lowercase letters, digits and hyphens, up to 24"
         name in Keys.BUILT_IN_THEMES -> "A built-in theme has this name"
         name != editing && CustomThemes.colors(name) != null -> "You already have a theme with this name"
         else -> null
     }
-    BackHandler { vm.closeScreen() }
+    BackHandler { leave() }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         editing?.let { vm.exportTheme(it, uri) }
     }
@@ -131,7 +140,7 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             topBar = {
                 MediumFlexibleTopAppBar(
                     title = { Text(if (editing == null) "New theme" else "Edit theme") },
-                    navigationIcon = { BackButton(vm::closeScreen) },
+                    navigationIcon = { BackButton(leave) },
                     actions = {
                         if (editing != null) {
                             // Exports the saved theme. Unsaved changes are not in the file.
@@ -229,6 +238,19 @@ fun ThemeBuilderScreen(vm: TerminalViewModel) {
             }
             androidx.compose.runtime.key(key) {
                 ColourSheet(role, draft.getValue(key), swatches, onChange = { draft[key] = it }, onDismiss = { picking = null })
+            }
+        }
+
+        if (confirmDiscard) {
+            ConfirmDialog(
+                "Discard changes?",
+                "The theme's changes are not saved.",
+                "Discard",
+                dismiss = "Keep editing",
+                onDismiss = { confirmDiscard = false },
+            ) {
+                confirmDiscard = false
+                vm.closeScreen()
             }
         }
 
@@ -401,4 +423,11 @@ private fun GradientSlider(label: String, value: Float, range: ClosedFloatingPoi
         onValueChange = onChange,
         track = { Box(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape).background(brush)) },
     )
+}
+
+/** What the theme builder needs to know about its draft, kept apart for tests. */
+internal object ThemeDraft {
+    /** Whether the [colours] or the [name] differ from where they started ([startColours], [startName]). */
+    fun changed(startColours: Map<String, Int>, colours: Map<String, Int>, startName: String, name: String): Boolean =
+        name != startName || colours.toMap() != startColours
 }

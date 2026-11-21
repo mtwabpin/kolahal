@@ -45,6 +45,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -60,6 +64,29 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import kotlin.math.roundToInt
 
+/**
+ * Shows [text] in the page's snackbar with an Undo action, which runs [undo]. Each page that lists
+ * settings passes its own ([undoMessage]).
+ */
+internal typealias UndoMessage = (text: String, undo: () -> Unit) -> Unit
+
+/** An [UndoMessage] on [snackbar]: Undo stays for a long snackbar's time. */
+internal fun undoMessage(scope: kotlinx.coroutines.CoroutineScope, snackbar: androidx.compose.material3.SnackbarHostState): UndoMessage = { text, undo ->
+    scope.launch {
+        snackbar.currentSnackbarData?.dismiss()
+        val r = snackbar.showSnackbar(text, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
+        if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) undo()
+    }
+}
+
+/**
+ * One setting's row in Settings (and in the Feeds tab's settings).
+ * - Reset to default, once the value is changed: a 20 dp icon with a 48 dp touch area. It shows
+ *   "Reset “<name>”" with Undo through [onUndoMessage], which puts the old value back.
+ * - A text setting applies its typed value when the field loses focus or the row leaves the screen
+ *   (Settings closed, the row scrolled off), as Done and the check mark do. A value that isn't valid
+ *   stays marked red and is not applied.
+ */
 @Composable
 internal fun SettingItem(
     vm: TerminalViewModel,
@@ -67,6 +94,7 @@ internal fun SettingItem(
     version: State<Int>,
     index: Int,
     count: Int,
+    onUndoMessage: UndoMessage? = null,
 ) {
     val config = vm.config
     // Only this row recomposes when its own value changes.
@@ -89,7 +117,20 @@ internal fun SettingItem(
                 )
                 if (changed && key !is ConfigKey.Bool) {
                     Spacer(Modifier.width(4.dp))
-                    LabeledIconButton(R.drawable.ic_restart, "Reset to default", onClick = { vm.resetConfig(key) }, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary, iconModifier = Modifier.size(20.dp))
+                    // The icon takes 28 dp in the line, as before, but its touch area is the 48 dp
+                    // minimum ([touchArea]); the line keeps its height.
+                    LabeledIconButton(
+                        R.drawable.ic_restart,
+                        "Reset to default",
+                        onClick = {
+                            val before = value
+                            vm.resetConfig(key)
+                            onUndoMessage?.invoke("Reset “$title”") { vm.setConfig(key, before) }
+                        },
+                        modifier = Modifier.touchArea(28.dp).testTag("reset ${key.key}"),
+                        tint = MaterialTheme.colorScheme.primary,
+                        iconModifier = Modifier.size(20.dp),
+                    )
                 }
             }
         }
@@ -179,6 +220,12 @@ internal fun SettingItem(
 
             is ConfigKey.Text -> {
                 var text by remember(key, value) { mutableStateOf(value) }
+                // A valid typed value is applied when the field loses focus, and when the row leaves
+                // the screen (scrolled off, Settings closed), so typing is never lost without a word.
+                val applyTyped = rememberUpdatedState {
+                    if (text != value && key.parse(text) != null) vm.setConfig(key, text)
+                }
+                DisposableEffect(key) { onDispose { applyTyped.value() } }
                 SegmentedListItem(
                     colors = segColors(),
                     shapes = shapes,
@@ -206,7 +253,10 @@ internal fun SettingItem(
                                 trailingIcon = if (text != value && valid) {
                                     { LabeledIconButton(R.drawable.ic_check, "Apply", onClick = { vm.setConfig(key, text) }) }
                                 } else null,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { if (!it.isFocused) applyTyped.value() }
+                                    .testTag("field ${key.key}"),
                             )
                         }
                     },
@@ -267,4 +317,16 @@ internal fun ThemeSwatches(selected: String, dark: Boolean, onPick: (String) -> 
             }
         }
     }
+}
+
+/**
+ * Takes [shown] (square) in the layout, but measures what follows at the 48 dp minimum touch size,
+ * centred over it. A small icon button in a line of text then keeps the line's height and still has
+ * a 48 dp touch area. The 10 dp or so outside [shown] can overlap what is beside it.
+ */
+internal fun Modifier.touchArea(shown: androidx.compose.ui.unit.Dp): Modifier = layout { measurable, _ ->
+    val touch = 48.dp.roundToPx()
+    val size = shown.roundToPx()
+    val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(touch, touch))
+    layout(size, size) { placeable.place((size - touch) / 2, (size - touch) / 2) }
 }

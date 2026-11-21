@@ -60,6 +60,8 @@ import kotlin.time.Duration.Companion.milliseconds
  *   line) and what [com.mtwabpin.kolahal.script.ScriptCheck] finds.
  * - A run's lines show under the code ([runLines]). A long press on run runs the script with
  *   args or as an event ([RunWithDialog]).
+ * - The reference ([ReferencePage]) reopens where it was after an insert: its search, tab, group
+ *   and scroll are kept for the script while the editor is open ([ReferenceState]).
  * - When opened from an error, [jumpToLine] is selected and briefly highlighted.
  * - A message line above the symbol bar says what the last button did: saved, the run's result
  *   (from [lastRun] / [lastStatus]; tap it to go to a failing line), or how many replacements were made.
@@ -92,6 +94,8 @@ fun ScriptEditor(
     val scope = rememberCoroutineScope()
 
     var referenceOpen by remember { mutableStateOf(false) }
+    // The reference reopens where it was: its search, tab, group and scroll, for this script.
+    val reference = remember(script.id) { ReferenceState() }
     var runWithOpen by remember { mutableStateOf(false) }
     // The last run's lines. They stay under the code until closed or until the next run.
     var output by remember(script.id) { mutableStateOf<List<com.mtwabpin.kolahal.data.LogEntry>?>(null) }
@@ -328,6 +332,7 @@ fun ScriptEditor(
                     state.edit(TextFieldValue(done.text, TextRange(done.cursor)))
                     closeReference(inserted = true)
                 },
+                ref = reference,
             )
         }
     }

@@ -220,6 +220,35 @@ class FeedRepository private constructor(private val context: Context) {
         if (n > 0) changed()
     }
 
+    /**
+     * Marks the unread items of [feedId] read, as [markAllRead] does, and returns their ids, so
+     * [markUnread] with them can undo it.
+     */
+    fun markFeedRead(feedId: Long): List<Long> {
+        val w = db.writableDatabase
+        val ids = ArrayList<Long>()
+        w.transaction {
+            w.rawQuery("SELECT id FROM items WHERE feed_id = ? AND read = 0", arrayOf(feedId.toString())).use { c ->
+                while (c.moveToNext()) ids += c.getLong(0)
+            }
+            if (ids.isNotEmpty()) w.update("items", ContentValues().apply { put("read", 1) }, "feed_id = ? AND read = 0", arrayOf(feedId.toString()))
+        }
+        if (ids.isNotEmpty()) changed()
+        return ids
+    }
+
+    /** Marks exactly [itemIds] unread again, in one transaction: the Undo of [markFeedRead]. */
+    fun markUnread(itemIds: List<Long>) {
+        if (itemIds.isEmpty()) return
+        val values = ContentValues().apply { put("read", 0) }
+        val w = db.writableDatabase
+        var n = 0
+        w.transaction {
+            for (id in itemIds.distinct()) n += w.update("items", values, "id = ? AND read = 1", arrayOf(id.toString()))
+        }
+        if (n > 0) changed()
+    }
+
     /** Counts the stored items of [feedId], read or not. 0 means no fetch has succeeded yet. */
     fun itemCount(feedId: Long): Int = db.readableDatabase.number("SELECT COUNT(*) FROM items WHERE feed_id = ?", feedId.toString()).toInt()
 

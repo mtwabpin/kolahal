@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -287,6 +288,24 @@ class EditorBarsTest {
         }
         tab("Directives")
         compose.onNodeWithText("-- @command").assertExists()
+    }
+
+    /** After an insert closes the reference, it reopens on the tab it was on, and keeps its search. */
+    @Test fun theReferenceReopensWhereItWas() {
+        show()
+        openReference()
+        tab("Icons")
+        compose.onNodeWithTag("icon sun").performClick()
+        referenceClosed()
+        openReference()
+        compose.onNodeWithTag("tab Icons").assertIsSelected()
+        compose.onNodeWithTag("icon sun").assertExists()
+
+        compose.onNodeWithTag("reference-search").performTextInput("sun")
+        compose.onNodeWithTag("icon sun").performClick()
+        referenceClosed()
+        openReference()
+        compose.onNodeWithTag("reference-search").assert(hasText("sun"))
     }
 
     /** A namespace's chip shows only that group, from its top; All shows them all again. */

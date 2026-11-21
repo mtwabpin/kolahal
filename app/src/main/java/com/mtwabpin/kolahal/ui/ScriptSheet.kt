@@ -27,9 +27,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -77,6 +81,12 @@ internal fun ScriptSheet(
     var times by remember(s.id, s.atTimes) { mutableStateOf(s.atTimes.joinToString(", ")) }
     var pickingTime by remember(s.id) { mutableStateOf(false) }
     var timesError by remember(s.id) { mutableStateOf(false) }
+    // Typed times are set when the field loses focus or the sheet closes, as Done and the check mark
+    // do. Times that do not read stay in the field, marked red, and are not set.
+    val applyTimes = rememberUpdatedState {
+        if (times != s.atTimes.joinToString(", ")) timesError = !vm.scriptActions.setScriptTimes(s, times)
+    }
+    DisposableEffect(s.id) { onDispose { applyTimes.value() } }
     val isCommand = info.isCommand
     val desc = info.desc
     val title = info.title
@@ -225,7 +235,10 @@ internal fun ScriptSheet(
                     LabeledIconButton(R.drawable.ic_check, "Set times", onClick = { timesError = !vm.scriptActions.setScriptTimes(s, times) })
                 }
             } else null,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { if (!it.isFocused) applyTimes.value() }
+                .testTag("daily-at"),
         )
 
         if (pickingTime) {

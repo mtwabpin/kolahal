@@ -32,6 +32,7 @@ import com.mtwabpin.kolahal.ConfigReset
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -234,5 +235,36 @@ class ThemeBuilderTest {
         CustomThemes.load(app)
         assertEquals(colours, CustomThemes.colors("tb-test"))
         assertNull(CustomThemes.colors("tb-renamed"))
+    }
+
+    /** Back leaves at once when nothing changed. */
+    @Test fun backLeavesAnUnchangedTheme() {
+        open(null)
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Discard changes?").assertDoesNotExist()
+        assertTrue(vm.screen.value != Screen.THEME_BUILDER)
+    }
+
+    /** After a change, Back asks; Keep editing stays, Discard leaves without saving. */
+    @Test fun backAsksBeforeDiscardingChanges() {
+        open(null)
+        compose.onNodeWithText("Gruvbox").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Discard changes?").assertExists()
+        compose.onNodeWithText("Keep editing").performClick()
+        compose.onNodeWithText("Discard changes?").assertDoesNotExist()
+        assertEquals(Screen.THEME_BUILDER, vm.screen.value)
+
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Discard").performClick()
+        assertTrue(vm.screen.value != Screen.THEME_BUILDER)
+        assertNull(CustomThemes.colors("my-theme"))
+    }
+
+    @Test fun aChangedNameOrColourIsAChange() {
+        val start = mapOf("background" to 1)
+        assertFalse(ThemeDraft.changed(start, mapOf("background" to 1), "a", "a"))
+        assertTrue(ThemeDraft.changed(start, mapOf("background" to 2), "a", "a"))
+        assertTrue(ThemeDraft.changed(start, start, "a", "b"))
     }
 }
