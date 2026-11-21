@@ -2368,20 +2368,16 @@ private fun SeekBar(
     val band = when {
         !slim -> Modifier.height(SEEK_HEIGHT)
         reach <= 0.dp -> Modifier.height(SEEK_SLIM).clipToBounds()
-        else -> Modifier.height(SEEK_SLIM).testTag("seek-reach")
+        // With a reach the box is [reach] taller, the slider in its top band, clipped: it takes touches
+        // down to the box's foot and none over the band, where the texts are the card's. Compose gives a
+        // touch only to a part inside its parent, so the reach has to be room the box really takes.
+        else -> Modifier.height(SEEK_SLIM + reach).clipToBounds()
     }
-    // With a reach, the slider sits in a box from the band's top to [reach] under it, clipped: it takes
-    // touches there, and none over the band, where the texts are the card's.
     val reaching = slim && reach > 0.dp
-    val reachBox = if (reaching) {
-        Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true).height(SEEK_SLIM + reach).clipToBounds()
-    } else {
-        Modifier.fillMaxSize()
-    }
     CompositionLocalProvider(LocalViewConfiguration provides touches) {
         Box(modifier.fillMaxWidth().then(band)) {
-            Box(reachBox) {
-                Box(Modifier.fillMaxWidth().height(if (slim) SEEK_SLIM else SEEK_HEIGHT)) {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(if (slim) SEEK_SLIM else SEEK_HEIGHT).then(if (reaching) Modifier.testTag("seek-reach") else Modifier)) {
                     Slider(
                         state = slider,
                         onValueChange = { if (!press.held) slider.value = it },
