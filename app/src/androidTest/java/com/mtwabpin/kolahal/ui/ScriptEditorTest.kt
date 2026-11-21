@@ -142,6 +142,21 @@ class ScriptEditorTest {
         assertEquals(listOf("one", "two three"), ran!!.first)
         assertEquals("charger", ran!!.second?.get("name"))
         assertEquals(64, ran!!.second?.get("level"))
+        // Run with… was used: its result doesn't point to it.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Ran in 12ms · 2 lines below").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /**
+     * A plain run of a command, or of a script with @on or @at, points to Run with… on the message
+     * line. A script that takes neither isn't told (aRunsLinesShowUnderTheCode).
+     */
+    @Test fun aPlainRunOfACommandPointsToRunWith() {
+        show(code = "-- @command\nlog(argline)")
+        compose.onNodeWithContentDescription("Run").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Ran in 12ms · 2 lines below · Long-press Run for arguments or an event").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(emptyList<String>() to null, ran)
     }
 
     /**

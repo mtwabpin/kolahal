@@ -144,6 +144,8 @@ edited asks first, and offers **Compare first** and **Export your copy first**. 
 a reset, **Undo** (for 10 seconds) puts your copy back.
 
 - Tap a card for **Run**, **Edit**, **Export**, access, notifications, timers and **Delete**.
+  A command, or a script with `@on` or `@at`, also has **Run with…**: words for its arguments, or
+  an event to simulate, as in the [editor](/scripting/editor/).
 - **Add script** creates a new script. It can also add one from the library, from
   [the scripts people share](#getting-scripts-from-others), or from a file.
 

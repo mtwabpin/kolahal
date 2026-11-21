@@ -20,6 +20,12 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.pageLeft
+import androidx.compose.ui.semantics.pageRight
+import androidx.compose.ui.semantics.semantics
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -423,6 +429,20 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
         vm.logTurns.collect { launch { pager.animateScrollToPage(terminalPage) } }
     }
+    // `widgets page` and the "Widgets page" quick action turn home to the widgets page.
+    androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
+        vm.widgetsTurns.collect { launch { pager.animateScrollToPage(1 - terminalPage) } }
+    }
+    // The page actions a screen reader or Switch Access offers: the swipe is the only other way across.
+    // Left is the page before, as on the pager's own actions; in a right-to-left layout, the page after.
+    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+    val onWidgets = pager.currentPage != terminalPage
+    val otherPage = if (onWidgets) "Log" else "Widgets"
+    val leftward = (pager.currentPage == 1) != rtl
+    val turn = {
+        scope.launch { pager.animateScrollToPage(1 - pager.currentPage) }
+        true
+    }
     if (widgetsFirst) {
         androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
             androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { page -> vm.onHomePageShown(log = page == terminalPage) }
@@ -450,7 +470,10 @@ private fun HomePager(vm: TerminalViewModel, terminal: @androidx.compose.runtime
         beyondViewportPageCount = 1,
         userScrollEnabled = false,
         key = { it },
-        modifier = androidx.compose.ui.Modifier.pointerInput(pager) {
+        modifier = androidx.compose.ui.Modifier.testTag("home-pager").semantics {
+            customActions = listOf(CustomAccessibilityAction(otherPage, turn))
+            if (leftward) pageLeft(otherPage, turn) else pageRight(otherPage, turn)
+        }.pointerInput(pager) {
             val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
             detectHorizontalDragGestures(
                 onDragStart = { tracker.resetTracking() },

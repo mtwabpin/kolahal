@@ -20,9 +20,13 @@ it, numbered.
   script gets them in [`args`](/scripting/api/#args-and-argline), as when it runs as a command. If
   the script has [`@on`](/scripting/overview/#event-triggers) or `@at` lines, you can also pick an
   event under **Simulate event**, with sample values (a charger at 64%, a message from Alice).
+  A command, or a script with `@on` or `@at`, also has **Run with…** on its sheet (Scripts → tap
+  the script).
 - A message line above the symbol bar shows what a button did:
   - **Saved** (or **No changes to save**),
-  - **Saved · running…**, then the run's result (`Ran in 812ms · 3 lines below`),
+  - **Saved · running…**, then the run's result (`Ran in 812ms · 3 lines below`). After a plain
+    run of a command, or of a script with `@on` or `@at`, it adds **Long-press Run for arguments or
+    an event**,
   - how many replacements **Replace all** made.
 
   A failed run stays there in red, as `Line 13: attempt to …`. Tap it to go to that line. Tap any

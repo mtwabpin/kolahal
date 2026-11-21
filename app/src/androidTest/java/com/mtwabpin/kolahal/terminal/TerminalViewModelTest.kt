@@ -186,7 +186,7 @@ class TerminalViewModelTest {
         val actions = vm.quickActions()
         val labels = actions.map { it.label }
         assertEquals(
-            listOf("Settings", "Notifications", "Alarms & clock", "Battery", "Network", "Unlocks this week", "Apps", "Widgets", "Feeds", "Scripts"),
+            listOf("Settings", "Notifications", "Alarms & clock", "Battery", "Network", "Unlocks this week", "Apps", "Widgets", "Widgets page", "Feeds", "Scripts"),
             labels.filter { !it.endsWith(" profile") && it != "Lock screen" },
         )
         fun tap(label: String) = main { actions.single { it.label == label }.run() }
@@ -195,6 +195,18 @@ class TerminalViewModelTest {
         tap("Widgets")
         assertEquals(Screen.WIDGETS, vm.screen.value)
         main { vm.openScreen(Screen.TERMINAL) }
+        // Widgets page turns home to it, and hides the keyboard; it opens no screen and logs no command.
+        val turned = CompletableFuture<Unit>()
+        collectors.launch(start = CoroutineStart.UNDISPATCHED) { vm.widgetsTurns.collect { turned.complete(Unit) } }
+        val seen = events(vm)
+        tap("Widgets page")
+        turned.get(5, TimeUnit.SECONDS)
+        waitUntil("the keyboard hidden") { UiEvent.HideKeyboard in seen }
+        assertEquals(Screen.TERMINAL, vm.screen.value)
+        assertTrue(added().none { it.kind == LogKind.COMMAND && it.text.startsWith("widgets") })
+        // With the page off, the quick actions don't offer it.
+        config.set(Keys.WIDGETS_PAGE, "off")
+        assertFalse("Widgets page" in vm.quickActions().map { it.label })
         tap("Unlocks this week")
         tap("Apps")
         waitUntil("both commands run") {

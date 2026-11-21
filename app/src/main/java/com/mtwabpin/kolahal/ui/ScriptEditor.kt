@@ -59,7 +59,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * - On save, it reports what changed beyond the code (for example, a timer set by an `@every`
  *   line) and what [com.mtwabpin.kolahal.script.ScriptCheck] finds.
  * - A run's lines show under the code ([runLines]). A long press on run runs the script with
- *   args or as an event ([RunWithDialog]).
+ *   args or as an event ([RunWithDialog]). After a plain run of a script that takes them (a
+ *   command, or `@on` / `@at`), the message line says so ([EditorLogic.RUN_WITH_HINT]).
  * - The reference ([ReferencePage]) reopens where it was after an insert: its search, tab, group
  *   and scroll are kept for the script while the editor is open ([ReferenceState]).
  * - When opened from an error, [jumpToLine] is selected and briefly highlighted.
@@ -104,6 +105,8 @@ fun ScriptEditor(
     var saves by remember(script.id) { mutableIntStateOf(0) }
     // For a run, the message waits for the recorded result.
     var runSince by remember(script.id) { mutableStateOf<Long?>(null) }
+    // A plain Run (no arguments, no event) of a script that takes them: its result points to Run with….
+    var runWithHint by remember(script.id) { mutableStateOf(false) }
     LaunchedEffect(state.message) {
         val m = state.message ?: return@LaunchedEffect
         // If a run never reports (the worker didn't start), stop waiting after the time limit.
@@ -120,7 +123,8 @@ fun ScriptEditor(
         // The lines are written when the run ends, and its result just after, so they are ready here.
         val lines = runLines(since)
         output = lines
-        val text = if (lines.isEmpty() || r.failed) r.text else r.text.replace("its output is in the log", "${lines.size} line${if (lines.size == 1) "" else "s"} below")
+        val ran = if (lines.isEmpty() || r.failed) r.text else r.text.replace("its output is in the log", "${lines.size} line${if (lines.size == 1) "" else "s"} below")
+        val text = if (runWithHint) "$ran · ${EditorLogic.RUN_WITH_HINT}" else ran
         state.message = EditorMessage(text, if (r.failed) EditorMessage.Kind.ERROR else EditorMessage.Kind.OK, r.line)
     }
 
@@ -164,6 +168,7 @@ fun ScriptEditor(
         // Running saves the text first. It counts as saved only after the save succeeds, so a failed save keeps the edits.
         val text = state.value.text
         runSince = System.currentTimeMillis()
+        runWithHint = args.isEmpty() && event == null && EditorLogic.offersRunWith(text)
         output = null
         state.message = EditorMessage("Saving…", EditorMessage.Kind.BUSY)
         onRun(text, args, event) { failure, changed ->

@@ -84,11 +84,13 @@ class BuiltInCommandsTest {
     private val screens = CopyOnWriteArrayList<Screen>()
     private val backupFolderAsked = CopyOnWriteArrayList<Boolean>()
     private var notificationsAsked = 0
+    private var widgetsPageTurns = 0
 
     private val ui = object : TerminalUiStub() {
         override fun openScreen(screen: Screen) { screens += screen }
         override fun requestNotificationPermission() { notificationsAsked++ }
         override fun askBackupFolder(thenBackUp: Boolean) { backupFolderAsked += thenBackUp }
+        override fun showWidgetsPage() { widgetsPageTurns++ }
     }
     private val commands = CommandRunner(context, ui)
     private val processor = commands.processor
@@ -385,7 +387,7 @@ class BuiltInCommandsTest {
         assertEquals(listOf("Usage: backup [now|every <daily|weekly|off>|dir]"), run("backup bogus"))
         assertEquals(listOf("Usage: restart [scripts]"), run("restart bogus"))
         assertEquals(listOf("Usage: clear [history|all]"), run("clear bogus"))
-        assertEquals(listOf("Usage: widgets [ls] · widget add"), run("widget bogus"))
+        assertEquals(listOf("Usage: widgets [ls|page] · widget add"), run("widget bogus"))
         if (BuildConfig.SELF_UPDATE) assertEquals(listOf("Usage: update [install]"), run("update bogus"))
         assertEquals(emptyList<Screen>(), screens.toList())
     }
@@ -426,6 +428,28 @@ class BuiltInCommandsTest {
         assumeTrue("widgets are placed", WidgetHost.get(context).listing(context).isEmpty())
         assertEquals(listOf("No widgets yet — widget add opens the picker"), run("widgets ls"))
         assertEquals("widget add", logs.recent(1).single().ctx.values[LogContext.RUN])
+    }
+
+    /**
+     * `widgets page` turns home to the widgets page and opens no screen. With the page off, it says
+     * so, and a tap on the line puts the page on the left.
+     */
+    @Test fun widgetsPageTurnsHomeToIt() {
+        try {
+            config.set(Keys.WIDGETS_PAGE, "right")
+            assertEquals(emptyList<String>(), run("widgets page"))
+            assertEquals(1, widgetsPageTurns)
+            config.set(Keys.WIDGETS_PAGE, "off")
+            assertEquals(listOf("The widgets page is off — tap to turn it on"), run("widgets page"))
+            with(logs.recent(1).single()) {
+                assertEquals(LogKind.ERROR, kind)
+                assertEquals("config set widgets.page left", ctx.values[LogContext.RUN])
+            }
+            assertEquals(1, widgetsPageTurns)
+            assertEquals(emptyList<Screen>(), screens.toList())
+        } finally {
+            config.reset(Keys.WIDGETS_PAGE)
+        }
     }
 
     /** `widgets ls` numbers each widget, with its state, size and app beside it; a tap opens the widgets page. */

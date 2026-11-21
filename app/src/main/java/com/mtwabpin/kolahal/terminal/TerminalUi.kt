@@ -55,4 +55,6 @@ interface TerminalUi {
      * asks whether to resume it and open [app]. A typed `open` writes a line in the log instead.
      */
     fun askResume(app: com.mtwabpin.kolahal.apps.AppEntry)
+    /** For `widgets page`: turns home to the widgets page beside the log, and hides the keyboard. */
+    fun showWidgetsPage()
 }

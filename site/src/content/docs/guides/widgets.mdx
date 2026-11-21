@@ -27,6 +27,11 @@ playing, and [widgets that scripts fill](#widgets-from-scripts).
 To open the widgets page, swipe sideways on the home screen. Start the swipe on the header, on empty space or on the prompt.
 A swipe that starts on a log line copies or deletes that line instead. A swipe toward the page always copies: with the page on the right, a swipe left copies a line and a swipe right deletes it.
 
+Other ways to open it:
+
+- Run `widgets page`, or tap **Widgets page** in the quick actions (tap `$` on the prompt). You can also set a [gesture](/guides/gestures/) to `widgets page`.
+- With TalkBack or Switch Access, use the **Widgets** action on home. On the widgets page, the **Log** action goes back.
+
 - **+** (add a widget) and **✎** (edit your widgets) are at the top of the page.
 - Back or Home takes you back to the terminal.
 - `widgets.page` sets the side of the page: `left` (the default) or `right`. `off` turns the page off.
@@ -364,6 +369,7 @@ how many widgets you need to add again. Tap it to open that page.
 
 ```sh
 widgets        # open Settings → Widgets → Arrange widgets
+widgets page   # turn home to the widgets page
 widgets ls     # list placed widgets (tap a line to open them)
 widget add     # open the picker
 ```

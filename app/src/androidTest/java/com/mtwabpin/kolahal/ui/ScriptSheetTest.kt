@@ -377,14 +377,32 @@ class ScriptSheetTest {
         compose.onNodeWithText("Runs every").assertDoesNotExist()
     }
 
-    /** Run starts the script at once and says so; the sheet then says when it last ran. */
+    /**
+     * Run starts the script at once and says so; the sheet then says when it last ran. A script that
+     * takes no arguments and runs on no event has no Run with….
+     */
     @Test fun runStartsItAndTheSheetSaysWhen() {
         create("local x = 1")
         openSheet()
+        compose.onNodeWithText("Run with…").assertDoesNotExist()
         compose.onNodeWithText("Run").performClick()
         compose.waitForText("Running sstest…")
         compose.waitFor("a run", ms = 30_000) { script().lastRun != null }
         compose.waitForText("Last run just now · ok", substring = true)
+    }
+
+    /**
+     * A command's sheet has Run with…, the editor's dialog: the words typed reach the script as its
+     * arguments. A script that takes no arguments and runs on no event has none.
+     */
+    @Test fun runWithPassesArguments() {
+        create("-- @command\nlog('got ' .. argline)")
+        openSheet()
+        compose.onNodeWithText("Run with…").performClick()
+        compose.onNodeWithTag("run-args").performTextInput("one two")
+        compose.onNodeWithTag("run-with-run").performClick()
+        compose.waitFor("the run's line", ms = 30_000) { logs.recent(50).any { it.id > logStart && it.text.contains("got one two") } }
+        compose.onNodeWithTag("run-args").assertDoesNotExist()
     }
 
     /** New script checks the name as it is typed, and creates the script in the language and kind chosen. */

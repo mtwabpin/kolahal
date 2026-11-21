@@ -247,6 +247,16 @@ class EditorLogicTest {
         assertEquals(t.length, EditorLogic.lineStart(t, 9))
     }
 
+    /** Run with… is pointed to for a script that takes arguments (a command) or runs on an event or a time. */
+    @Test fun runWithIsOfferedToCommandsAndEventScripts() {
+        assertTrue(EditorLogic.offersRunWith("-- @command\nlog(argline)"))
+        assertTrue(EditorLogic.offersRunWith("// @command\nlog(args)"))
+        assertTrue(EditorLogic.offersRunWith("-- @on charger\nlog('x')"))
+        assertTrue(EditorLogic.offersRunWith("-- @at 08:00\nlog('x')"))
+        assertFalse(EditorLogic.offersRunWith("-- @every 1h\nlog('x')"))
+        assertFalse(EditorLogic.offersRunWith("log('hi')"))
+    }
+
     @Test fun runResultReadsTheRecordedStatus() {
         assertEquals(EditorLogic.RunResult("Ran in 812ms · its output is in the log", failed = false), EditorLogic.runResult("ok in 812ms", 60))
         assertEquals(EditorLogic.RunResult("Stopped after 60s (the time limit)", failed = true), EditorLogic.runResult("timeout", 60))

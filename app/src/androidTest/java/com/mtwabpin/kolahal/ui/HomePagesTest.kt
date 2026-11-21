@@ -1,5 +1,10 @@
+@file:OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+
 package com.mtwabpin.kolahal.ui
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -7,6 +12,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
@@ -84,6 +91,42 @@ class HomePagesTest {
             config.reset(Keys.WIDGETS_START)
             waitFor(shown = false)
             compose.onNodeWithContentDescription("Add a widget").assertExists()
+        }
+    }
+
+    /**
+     * Without a swipe: a screen reader's and Switch Access's actions on the pager, named after the
+     * page they turn to, and `widgets page`, turn home across. Left is the page before: with the page on
+     * the left, left leads to it.
+     */
+    @Test fun pageActionsAndTheCommandTurnHomeWithoutASwipe() {
+        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("intro_shown", true).commit()
+        config.set(Keys.WIDGETS_PAGE, "left")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var vm: TerminalViewModel
+            scenario.onActivity {
+                vm = ViewModelProvider(it)[TerminalViewModel::class.java]
+                vm.onHomePressed()
+            }
+            waitFor(shown = false)
+            val pager = compose.onNodeWithTag("home-pager")
+            pager.performCustomAccessibilityActionWithLabel("Widgets")
+            waitFor(shown = true)
+            pager.performCustomAccessibilityActionWithLabel("Log")
+            waitFor(shown = false)
+            pager.assert(SemanticsMatcher.keyNotDefined(SemanticsActions.PageRight))
+            pager.performSemanticsAction(SemanticsActions.PageLeft)
+            waitFor(shown = true)
+            pager.assert(SemanticsMatcher.keyNotDefined(SemanticsActions.PageLeft))
+            pager.performSemanticsAction(SemanticsActions.PageRight)
+            waitFor(shown = false)
+            // The command, as typed: home turns to the page, and stays on it.
+            instrumentation.runOnMainSync { vm.runCommand("widgets page") }
+            waitFor(shown = true)
+            Thread.sleep(1_000)
+            compose.waitForIdle()
+            widgetsPage().assertIsDisplayed()
         }
     }
 

@@ -34,6 +34,10 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         fun logInfo(text: String, ctx: LogContext)
         val status: Status
         val profiles: List<Profile>
+        /** Whether home has a widgets page (`widgets.page` isn't off). */
+        val widgetsPage: Boolean
+        /** Turns home to the widgets page. */
+        fun showWidgetsPage()
     }
 
     fun onHeaderTap(target: HeaderTarget) {
@@ -83,6 +87,8 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         }
         add(LogAction("Apps", icon = icon(R.drawable.ic_apps)) { host.runCommand("apps") })
         add(LogAction("Widgets", icon = icon(R.drawable.ic_widgets)) { host.openScreen(Screen.WIDGETS) })
+        // Arrange widgets above; this one turns home to the page itself, as `widgets page` does.
+        if (host.widgetsPage) add(LogAction("Widgets page", icon = icon(R.drawable.ic_widgets)) { host.showWidgetsPage() })
         add(LogAction("Feeds", icon = icon(R.drawable.ic_rss)) { host.openScreen(Screen.FEEDS) })
         add(LogAction("Scripts", icon = icon(R.drawable.ic_code)) { host.openScreen(Screen.SCRIPTS) })
         if (com.mtwabpin.kolahal.BuildConfig.LOCK_SERVICE) {

@@ -16,10 +16,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -128,23 +130,29 @@ internal fun EditorTextButton(label: String, onClick: () -> Unit) {
 }
 
 /**
- * The editor's Run with dialog (a long press on run). The user can set:
+ * The Run with dialog: a long press on the editor's run, or Run with… on a script's sheet. The user can set:
  * - the words to pass as `args`, as when the script runs as a command;
  * - an event to simulate: one of its `@on` events or `@at` times, or none. The event gets
  *   made-up values ([com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent]).
+ *
+ * The editor shows it in the terminal's colours and font; with [material], the sheet shows it in Material's.
  */
 @Composable
-internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<String>, Map<String, Any?>?) -> Unit) {
+internal fun RunWithDialog(code: String, onDismiss: () -> Unit, material: Boolean = false, onRun: (List<String>, Map<String, Any?>?) -> Unit) {
     var words by remember { mutableStateOf(TextFieldValue("")) }
     val events = remember(code) {
         com.mtwabpin.kolahal.script.ScriptMeta.events(code).map { it to null } +
             com.mtwabpin.kolahal.script.ScriptMeta.at(code).map { "at" to it }
     }
     var chosen by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    val accent = if (material) MaterialTheme.colorScheme.primary else Term.prompt
+    val fg = if (material) MaterialTheme.colorScheme.onSurface else Term.fg
+    val dim = if (material) MaterialTheme.colorScheme.onSurfaceVariant else Term.dim
+    val body = if (material) MaterialTheme.typography.bodyLarge else Term.phoneText
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Run with", style = Term.phoneText.copy(color = Term.prompt, fontWeight = FontWeight.Bold)) },
-        containerColor = Term.surface,
+        title = { Text("Run with", style = if (material) MaterialTheme.typography.headlineSmall else body.copy(color = accent, fontWeight = FontWeight.Bold)) },
+        containerColor = if (material) AlertDialogDefaults.containerColor else Term.surface,
         text = {
             Column {
                 TextField(
@@ -154,13 +162,13 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
                     onValueChange = { words = it },
                     singleLine = true,
                     label = { Text("Arguments") },
-                    placeholder = { Text("Words after its name", style = Term.phoneText.copy(color = Term.dim)) },
-                    textStyle = Term.phoneText.copy(color = Term.fg),
+                    placeholder = { Text("Words after its name", style = body.copy(color = dim)) },
+                    textStyle = body.copy(color = fg),
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
                     modifier = Modifier.fillMaxWidth().testTag("run-args"),
                 )
                 if (events.isNotEmpty()) {
-                    Text("Simulate event", style = Term.phoneText.copy(color = Term.dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                    Text("Simulate event", style = body.copy(color = dim), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                     (listOf<Pair<String, String?>?>(null) + events).forEach { e ->
                         Text(
                             (if (e == chosen) "● " else "○ ") + when {
@@ -168,7 +176,7 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
                                 e.second != null -> "at ${e.second}"
                                 else -> e.first
                             },
-                            style = Term.phoneText.copy(color = if (e == chosen) Term.prompt else Term.fg),
+                            style = body.copy(color = if (e == chosen) accent else fg),
                             modifier = Modifier.fillMaxWidth().clickable { chosen = e }.heightIn(min = 40.dp).padding(vertical = 8.dp),
                         )
                     }
@@ -179,9 +187,9 @@ internal fun RunWithDialog(code: String, onDismiss: () -> Unit, onRun: (List<Str
             TextButton(shapes = ButtonDefaults.shapes(), onClick = {
                 val args = com.mtwabpin.kolahal.commands.CommandParsing.tokenize(words.text)
                 onRun(args, chosen?.let { com.mtwabpin.kolahal.script.ScriptMeta.sampleEvent(it.first, it.second) })
-            }) { Text("Run", style = Term.phoneText.copy(color = Term.prompt)) }
+            }, modifier = Modifier.testTag("run-with-run")) { if (material) Text("Run") else Text("Run", style = Term.phoneText.copy(color = Term.prompt)) }
         },
-        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text("Cancel", style = Term.phoneText.copy(color = Term.fg)) } },
+        dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { if (material) Text("Cancel") else Text("Cancel", style = Term.phoneText.copy(color = Term.fg)) } },
     )
 }
 

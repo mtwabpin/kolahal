@@ -157,7 +157,9 @@ class ScriptActions(
         return true
     }
 
-    fun runScriptNow(s: Script) = io { notice(runNowWithText(context, s)) }
+    /** Runs [s] now, with [args] and as [event] when given (Run with… on its sheet). */
+    fun runScriptNow(s: Script, args: List<String> = emptyList(), event: Map<String, Any?>? = null) =
+        io { notice(runNowWithText(context, s, args, event)) }
 
     /** Renames [s] ([ScriptRepository.rename]). The sheet checks the name while the user types it. */
     fun renameScript(s: Script, to: String) = io {

@@ -212,6 +212,7 @@ See [Widgets](/guides/widgets/).
 | Usage | Aliases | Description |
 | --- | --- | --- |
 | `widgets` | | open Settings → Widgets → Arrange widgets: your placed widgets; add, resize and arrange them |
+| `widgets page` | `widget page` | turn home to the widgets page. If `widgets.page` is `off`, it says so; tap the line to turn the page on |
 | `widgets ls` | `widget ls` | list placed widgets as text lines (tap one to open the page) |
 | `widget add` | | open the widget picker; the widget goes on the widgets page |
 
