@@ -62,6 +62,30 @@ override the rest. Internal: nothing here is published.
   performance on a long log; a parity test over the shared corpus.
 - Settings gets a TTY section with the style switch. Website: a Guides → TTY page (profiles
   material last; nothing marked "new").
+- Groundwork done (22 November), still behind =config set home.style tty=:
+  - [X] Right-to-left: in an Arabic, Hebrew or Persian layout the grid turns around as the GUI
+    does: the gutter on the right, the time on the left, tables' first column on the right, bars
+    filling from the right, the header's sides, the pinned line and its dots, the prompt (=$= on
+    the right, the typed text in its order), the suggestions, the key bar in reverse, the sheets.
+    The app selector keeps its side, as the GUI's. Each row's letters follow the Unicode bidi
+    algorithm (=java.text.Bidi=), brackets mirrored; Arabic, Hebrew, the Indic scripts and Thai are
+    drawn a word at a time, shaped and fitted to their cells. Rows start at the frame's start, as
+    the GUI's short lines do. =BidiLayoutTest= (JVM); =TtyParityTest.rightToLeftLinesShow= (device).
+  - [X] Parity test over the corpus (JVM, =ParityTest=): every row shows every word TalkBack reads
+    (both directions), has every target the model lists where its words are, and offers the same
+    TalkBack actions; a new body or block kind fails it until it is laid out.
+  - [X] TalkBack pass: the line's buttons and fold say what they do (the GUI's click labels), an
+    app in an apps line has its long press; the rest already matched (tags, descriptions, live
+    regions, headings). =TtyParityTest= compares the two styles' semantics (device).
+  - [X] Performance: =LayoutPerformanceTest= lays out 5,000 rows (some right to left) within a
+    budget, keeps the line cache to 400 blocks under 2 MB, and checks a frame's reads allocate
+    nothing; the press highlight no longer allocates an iterator per frame.
+  - [X] Process death: TTY keeps its state where the GUI does (the list state and the open folds
+    are saveable in =HomeState=; the typed text is in the view model for both).
+    =TtyParityTest.stateSurvivesRecreation= (device).
+  - [ ] Left: the Settings switch, the website page, a device run of the new tests, and a look on
+    the phone with real Arabic and Hebrew text. The prompt shows typed right-to-left text in the
+    order it is typed, letter by letter (no shaping while editing).
 - Remark:
 
 ** TODO Step 5: extras  :extras:

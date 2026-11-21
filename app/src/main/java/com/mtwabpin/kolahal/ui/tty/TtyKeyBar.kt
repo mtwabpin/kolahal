@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.KeyBarKey
@@ -129,7 +130,9 @@ private fun TtyKeyRow(spec: String, rowHeight: Dp, onKey: (KeyBarKey) -> Unit, o
             Modifier
                 .exactSize(width, height)
                 .drawBehind {
-                    frame.grid.painter.drawBand(drawContext.canvas.nativeCanvas, row.grid, frame.originX.toFloat(), top.toFloat(), 0f, size.height)
+                    // In a right-to-left layout the keys are drawn in reverse order; their nodes' offsets turn with the layout.
+                    val shown = if (layoutDirection == LayoutDirection.Rtl) row.mirrored else row
+                    frame.grid.painter.drawBand(drawContext.canvas.nativeCanvas, shown.grid, frame.originX.toFloat(), top.toFloat(), 0f, size.height)
                 },
         ) {
             for (spot in row.spots) key(spot.id) {

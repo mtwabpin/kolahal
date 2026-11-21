@@ -31,6 +31,14 @@ class CellBuffer(cols: Int, rows: Int) {
     /** Rows changed since the last paint. The painter clears it. */
     val dirty = BitSet()
 
+    /**
+     * Words of a script whose letters join (Arabic, Hebrew, the Indic scripts…), sorted by row and
+     * column. Their cells hold the letters one by one, in the order they show, for tests and
+     * search; the painter draws each word in one piece over them instead ([ShapedRun]).
+     */
+    var shaped: List<ShapedRun> = emptyList()
+        internal set
+
     private val clusters = ArrayList<String>()
     private val clusterIds = HashMap<String, Int>()
 
@@ -203,4 +211,13 @@ class CellBuffer(cols: Int, rows: Int) {
         const val EMPTY = 0
         const val WIDE_TAIL = -1
     }
+}
+
+/**
+ * A word drawn in one piece over [cells] cells from [col] on [row]: [text] in the order it is
+ * written (not the order it shows), and its direction ([rtl]). The painter shapes it as a whole
+ * and fits it to its cells, so its letters join as they should and the grid still holds.
+ */
+class ShapedRun(val row: Int, val col: Int, val cells: Int, val text: String, val rtl: Boolean) {
+    override fun toString() = "$text at $col,$row ($cells cells${if (rtl) ", right to left" else ""})"
 }

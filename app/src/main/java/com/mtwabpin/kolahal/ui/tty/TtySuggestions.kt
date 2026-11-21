@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.terminal.Suggestion
@@ -125,7 +126,8 @@ internal fun TtySuggestionStrip(items: List<Suggestion>, rows: Int, onPick: (Sug
                 Box(
                     Modifier
                         .exactSize(width, height + if (r < lines.lastIndex) gap else 0)
-                        .drawBehind { paintCells(frame.grid, line.grid, frame.originX.toFloat(), top.toFloat()) },
+                        // The best match at the start: on the right in a right-to-left layout.
+                        .drawBehind { paintCells(frame.grid, (if (layoutDirection == LayoutDirection.Rtl) line.mirrored else line).grid, frame.originX.toFloat(), top.toFloat()) },
                 ) {
                     for (spot in line.spots) key(spot.id) {
                         val s = items[spot.id]

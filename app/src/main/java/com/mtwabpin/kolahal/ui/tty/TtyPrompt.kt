@@ -45,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.terminal.Ink
@@ -172,7 +174,8 @@ internal fun TtyPrompt(
             )
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onTapPrompt)
             .drawBehind {
-                val cells: HomeCells = if (focused && blink) on else off
+                // Turned around in a right-to-left layout: the `$` on the right, the buttons on the left.
+                val cells: HomeCells = (if (focused && blink) on else off).let { if (layoutDirection == LayoutDirection.Rtl) it.mirrored else it }
                 cells.spot(pressed)?.let { s ->
                     drawRect(
                         surface,
@@ -247,7 +250,8 @@ private fun PromptField(
             .exactSize(width * m.cellW, height)
             .clipToBounds(),
     ) {
-        CompositionLocalProvider(LocalTextSelectionColors provides handles) {
+        // Left to right inside, as the drawn text area keeps its order in either layout.
+        CompositionLocalProvider(LocalTextSelectionColors provides handles, LocalLayoutDirection provides LayoutDirection.Ltr) {
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -351,7 +355,10 @@ internal fun TtyField(
         Modifier
             .fillMaxWidth()
             .exactHeight(height)
-            .drawBehind { paintCells(frame.grid, (if (focused) on else off).grid, x.toFloat(), top.toFloat()) },
+            .drawBehind {
+                val cells = (if (focused) on else off).let { if (layoutDirection == LayoutDirection.Rtl) it.mirrored else it }
+                paintCells(frame.grid, cells.grid, x.toFloat(), top.toFloat())
+            },
     ) {
         val keys = remember(onSubmit, onEscape) { PromptKeys(onSubmit, {}, {}, {}, onEscape, {}, {}) }
         PromptField(

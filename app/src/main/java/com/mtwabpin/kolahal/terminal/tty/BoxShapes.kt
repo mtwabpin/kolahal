@@ -76,6 +76,55 @@ object BoxShapes {
     /** ░ ▒ ▓: how much of the ink shows, in quarters (1, 2, 3). 0 for others. */
     fun shade(cp: Int): Int = if (cp in 0x2591..0x2593) cp - 0x2590 else 0
 
+    /**
+     * [cp] as seen in a mirror, for a frame laid out right to left: `┐` for `┌`, `▐` for `▌`,
+     * `▏` for `▕`. [cp] itself when it looks the same both ways, and 0 for a block with no mirror
+     * character (`▎`, `▋`…): the painter flips that one ([CellStyle.MIRROR]).
+     */
+    fun mirror(cp: Int): Int {
+        if (!isDrawn(cp)) return cp
+        if (cp <= 0x257F) return LINE_MIRRORS[cp - 0x2500]
+        return when (cp) {
+            0x258C -> 0x2590
+            0x2590 -> 0x258C
+            0x258F -> 0x2595
+            0x2595 -> 0x258F
+            0x2589, 0x258A, 0x258B, 0x258D, 0x258E -> 0
+            0x2596 -> 0x2597
+            0x2597 -> 0x2596
+            0x2598 -> 0x259D
+            0x259D -> 0x2598
+            0x2599 -> 0x259F
+            0x259F -> 0x2599
+            0x259A -> 0x259E
+            0x259E -> 0x259A
+            0x259B -> 0x259C
+            0x259C -> 0x259B
+            else -> cp
+        }
+    }
+
+    /** The line characters' mirrors: the same arms with left and right swapped, the same dashes; arcs and diagonals by hand. */
+    private val LINE_MIRRORS: IntArray by lazy {
+        IntArray(0x80) { i ->
+            val cp = 0x2500 + i
+            when {
+                isArc(cp) -> intArrayOf(0x256E, 0x256D, 0x2570, 0x256F)[cp - 0x256D]
+                diagonal(cp) == 1 -> 0x2572
+                diagonal(cp) == 2 -> 0x2571
+                diagonal(cp) == 3 -> cp
+                else -> {
+                    val a = arms(cp)
+                    val swapped = up(a) or (left(a) shl 2) or (down(a) shl 4) or (right(a) shl 6)
+                    if (swapped == a) cp
+                    else (0x2500..0x257F).firstOrNull {
+                        arms(it) == swapped && dashes(it) == dashes(cp) && !isArc(it) && diagonal(it) == 0
+                    } ?: 0
+                }
+            }
+        }
+    }
+
     private fun rect(left: Int, top: Int, right: Int, bottom: Int) =
         left or (top shl 4) or (right shl 8) or (bottom shl 12)
 

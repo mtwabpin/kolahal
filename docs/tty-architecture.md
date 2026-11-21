@@ -428,6 +428,12 @@ Macrobenchmark is not in the project; measure with a `FrameMetrics` device test 
   scroll thumb at the left. Implemented once: layout produces logical columns and
   `CellBlock.mirrored` flips `col → cols − col − cells` when runs are emitted; box corners swap.
 - The swipe directions follow `deleteRight` exactly as now (TerminalScreen.kt:452).
+- As built (step 4): a row of a paragraph starts at the frame's start, whatever its direction,
+  as the GUI's one-line text does; only the order inside the row follows bidi. `BlockWriter`
+  keeps each wrapped row as a *unit* that moves to the other side whole, and turns runs of box
+  drawing and blocks around cell by cell (`┌` ↔ `┐`; eighths with no mirror character get
+  `CellStyle.MIRROR`). Home's parts are mirrored after layout (`HomeCells.mirrored`); their nodes
+  keep `Modifier.offset`, which Compose already turns around in a right-to-left layout.
 
 ## 3. Interaction
 

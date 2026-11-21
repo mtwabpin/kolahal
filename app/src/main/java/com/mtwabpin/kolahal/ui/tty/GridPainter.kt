@@ -10,6 +10,7 @@ import android.util.SparseIntArray
 import com.mtwabpin.kolahal.terminal.tty.BoxShapes
 import com.mtwabpin.kolahal.terminal.tty.CellBuffer
 import com.mtwabpin.kolahal.terminal.tty.CellStyle
+import com.mtwabpin.kolahal.terminal.tty.ShapedRun
 
 /**
  * Paints a [CellBuffer] on an Android canvas, cell by cell on the grid of [GridMetrics].
@@ -22,11 +23,19 @@ import com.mtwabpin.kolahal.terminal.tty.CellStyle
  * - Any other character is drawn alone and made to fit its cells: squeezed when the font Android
  *   picks for it (an emoji or CJK font) is wider, centered when it is narrower. So no glyph can
  *   push its neighbours.
+ * - A word of a joining script (Arabic, Hebrew, the Indic scripts) is drawn in one piece, shaped,
+ *   in its direction, and fitted to the cells its letters take ([ShapedRun]).
+ * - A box or block shape marked [CellStyle.MIRROR] is drawn flipped (a bar in a right-to-left frame).
  *
  * Nothing in [draw] allocates once the paints have seen each character: widths are kept per
  * character.
  */
 class GridPainter(private val m: GridMetrics, private val palette: TtyPalette) {
+    private companion object {
+        /** The most a word of a joining script is stretched to fill its cells; past that it is centered. */
+        const val MAX_STRETCH = 1.5f
+    }
+
     private val fill = Paint()
     private val box = BoxGlyphs(m)
     private var chars = CharArray(128)
@@ -88,44 +97,92 @@ class GridPainter(private val m: GridMetrics, private val palette: TtyPalette) {
         }
     }
 
+    // The run of ASCII characters being collected on a row: its first column, its length (in
+    // [chars]) and its style. Fields, so a frame allocates nothing.
+    private var runStart = 0
+    private var runLength = 0
+    private var runStyle = 0
+
     private fun glyphs(canvas: Canvas, buffer: CellBuffer, row: Int, x0: Float, top: Float) {
-        var runStart = 0
-        var runLength = 0
-        var runStyle = 0
-        for (col in 0 until buffer.cols) {
-            val g = buffer.glyphAt(col, row)
-            val style = buffer.styleAt(col, row)
-            // In a monospace font a space advances one cell too, so words in one style are one
-            // call, not one per word: a screen of log rows is far fewer calls.
-            if (g == 0x20 && runLength > 0 && m.monospace && style.bits == runStyle) {
-                chars[runLength++] = ' '
+        runLength = 0
+        // The words of joining scripts on this row, drawn whole in place of their cells.
+        val shaped = buffer.shaped
+        var s = 0
+        while (s < shaped.size && shaped[s].row < row) s++
+        var col = 0
+        while (col < buffer.cols) {
+            while (s < shaped.size && shaped[s].row == row && shaped[s].col < col) s++
+            if (s < shaped.size && shaped[s].row == row && shaped[s].col == col) {
+                val run = shaped[s++]
+                endRun(canvas, x0, top)
+                shapedRun(canvas, run, buffer.styleAt(col, row), x0, top)
+                col += run.cells.coerceAtLeast(1)
                 continue
             }
-            if (g in 0x21..0x7E) {
-                if (runLength > 0 && style.bits != runStyle) {
-                    text(canvas, runStart, runLength, CellStyle(runStyle), x0, top)
-                    runLength = 0
-                }
-                if (runLength == 0) {
-                    runStart = col
-                    runStyle = style.bits
-                }
-                chars[runLength++] = g.toChar()
-                continue
-            }
-            if (runLength > 0) {
-                text(canvas, runStart, runLength, CellStyle(runStyle), x0, top)
-                runLength = 0
-            }
-            if (g == CellBuffer.EMPTY || g == CellBuffer.WIDE_TAIL || g == 0x20) continue
-            val x = x0 + col * m.cellW
-            if (g > 0 && BoxShapes.isDrawn(g)) {
-                box.draw(canvas, g, x, top, palette.text(style), palette.behind(style))
-            } else {
-                single(canvas, buffer, g, x, top, style)
-            }
+            glyph(canvas, buffer, row, col, x0, top)
+            col++
         }
+        endRun(canvas, x0, top)
+    }
+
+    /** Draws the run of ASCII characters collected, if any. */
+    private fun endRun(canvas: Canvas, x0: Float, top: Float) {
         if (runLength > 0) text(canvas, runStart, runLength, CellStyle(runStyle), x0, top)
+        runLength = 0
+    }
+
+    /** One cell: an ASCII character joins the run being collected; anything else ends it and is drawn alone. */
+    private fun glyph(canvas: Canvas, buffer: CellBuffer, row: Int, col: Int, x0: Float, top: Float) {
+        val g = buffer.glyphAt(col, row)
+        val style = buffer.styleAt(col, row)
+        // In a monospace font a space advances one cell too, so words in one style are one
+        // call, not one per word: a screen of log rows is far fewer calls.
+        if (g == 0x20 && runLength > 0 && m.monospace && style.bits == runStyle) {
+            chars[runLength++] = ' '
+            return
+        }
+        if (g in 0x21..0x7E) {
+            if (runLength > 0 && style.bits != runStyle) endRun(canvas, x0, top)
+            if (runLength == 0) {
+                runStart = col
+                runStyle = style.bits
+            }
+            chars[runLength++] = g.toChar()
+            return
+        }
+        endRun(canvas, x0, top)
+        if (g == CellBuffer.EMPTY || g == CellBuffer.WIDE_TAIL || g == 0x20) return
+        val x = x0 + col * m.cellW
+        if (g > 0 && BoxShapes.isDrawn(g)) {
+            if (style.has(CellStyle.MIRROR)) {
+                // A shape with no mirror character, in a right-to-left frame: drawn flipped in its cell.
+                canvas.save()
+                canvas.scale(-1f, 1f, x + m.cellW / 2f, 0f)
+                box.draw(canvas, g, x, top, palette.text(style), palette.behind(style))
+                canvas.restore()
+            } else box.draw(canvas, g, x, top, palette.text(style), palette.behind(style))
+        } else {
+            single(canvas, buffer, g, x, top, style)
+        }
+    }
+
+    /**
+     * A word of a joining script ([ShapedRun]): shaped as a whole, in its direction, and fitted to
+     * its cells: squeezed when wider, stretched up to [MAX_STRETCH] and centered when narrower.
+     * Its cells' backgrounds and lines are drawn as any cell's.
+     */
+    private fun shapedRun(canvas: Canvas, run: ShapedRun, style: CellStyle, x0: Float, top: Float) {
+        val paint = paintFor(style)
+        val x = x0 + run.col * m.cellW
+        val target = (run.cells * m.cellW).toFloat()
+        val w = paint.measureText(run.text)
+        if (w <= 0f) return
+        val scale = if (w > target) target / w else minOf(target / w, MAX_STRETCH)
+        val left = x + (target - w * scale) / 2f
+        canvas.save()
+        canvas.scale(scale, 1f, left, 0f)
+        canvas.drawTextRun(run.text, 0, run.text.length, 0, run.text.length, left, top + m.baseline, run.rtl, paint)
+        canvas.restore()
     }
 
     private fun paintFor(style: CellStyle): TextPaint {

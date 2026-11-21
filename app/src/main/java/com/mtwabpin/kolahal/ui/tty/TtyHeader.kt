@@ -36,8 +36,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -111,7 +113,12 @@ internal fun TtyHeader(
     val zones = remember(cutouts, shift, frame) {
         HeaderCells.zones(frame.cols, frame.originX, frame.cellW, cutouts.map { (it.first - shift)..(it.last - shift) }, gap)
     }
-    val cells = remember(parts, frame, zones) { HeaderCells.row(parts, frame.cols, zones) }
+    // The zones are columns on the screen; the row is laid out from its start, which in a
+    // right-to-left layout is the right edge, so they are turned around for it.
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val cells = remember(parts, frame, zones, rtl) {
+        HeaderCells.row(parts, frame.cols, if (rtl) zones.map { (frame.cols - 1 - it.last)..(frame.cols - 1 - it.first) }.reversed() else zones)
+    }
     val all = remember(parts) { parts.left + parts.right }
     val swipeDown by rememberUpdatedState(onSwipeDown)
     TtyBand(
@@ -249,12 +256,14 @@ internal fun TtyPinned(
         }
         if (dots) {
             val cells = remember(items.size, index) { PinnedCells.dots(items.size, index) }
-            val x = frame.originX + (frame.cols - cells.cols) * frame.cellW
+            // At the end of the row: on the left in a right-to-left layout.
+            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+            val x = if (rtl) frame.originX else frame.originX + (frame.cols - cells.cols) * frame.cellW
             Box(
                 Modifier
                     .fillMaxWidth()
                     .exactHeight(itemHeight)
-                    .drawBehind { paintCells(frame.grid, cells.grid, x.toFloat(), topGap.toFloat()) },
+                    .drawBehind { paintCells(frame.grid, (if (rtl) cells.mirrored else cells).grid, x.toFloat(), topGap.toFloat()) },
             ) {
                 val left = frame.originX + (frame.cols - dotsCells) * frame.cellW
                 SpotNode(
@@ -331,6 +340,8 @@ private fun PinnedRows(
             .exactHeight(height)
             .drawBehind {
                 val x = frame.originX.toFloat()
+                // Turned around in a right-to-left layout; the nodes' offsets turn with the layout.
+                val cells = if (layoutDirection == LayoutDirection.Rtl) cells.mirrored else cells
                 paintCells(frame.grid, cells.grid, x, topGap.toFloat(), 0, 1)
                 // Row 1 drawn [barAbove] lower than it would be under row 0.
                 paintCells(frame.grid, cells.grid, x, (topGap + barAbove).toFloat(), 1, 2)
