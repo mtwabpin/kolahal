@@ -69,7 +69,7 @@ class SelectorMathTest {
             { it.profile })
 
     @Test
-    fun buildFavouritesFirstThenAlphabeticalSections() {
+    fun buildFavoritesFirstThenAlphabeticalSections() {
         val list = build(
             listOf(
                 A("chrome", profile = 1),
@@ -90,8 +90,8 @@ class SelectorMathTest {
             listOf(true, true, true, false, false, false, true),
             list.map { it.sectionStart })
         assertEquals(listOf(0, 1, 2, 2, 2, 2, 3), list.map { it.sectionIndex })
-        assertTrue(list[0].favourite && !list[3].favourite)
-        // A favourite is listed twice, so keys must still be unique.
+        assertTrue(list[0].favorite && !list[3].favorite)
+        // A favorite is listed twice, so keys must still be unique.
         assertEquals(list.size, list.map { it.key }.toSet().size)
         // Personal before work for the same label.
         assertEquals(
@@ -100,24 +100,24 @@ class SelectorMathTest {
     }
 
     @Test
-    fun buildWithoutFavouritesStartsAtFirstLetter() {
+    fun buildWithoutFavoritesStartsAtFirstLetter() {
         val list = build(listOf(A("b"), A("a")))
         assertEquals(listOf('A', 'B'), list.map { it.section })
         assertEquals(listOf(0, 1), list.map { it.sectionIndex })
         assertTrue(build(emptyList()).isEmpty())
     }
 
-    /** Plan F: with the strip at the bottom of the edge, the favourites come last, under the thumb. */
+    /** Plan F: with the strip at the bottom of the edge, the favorites come last, under the thumb. */
     @Test
-    fun favouritesCanComeLast() {
+    fun favoritesCanComeLast() {
         val list = SelectorMath.build(
             listOf(A("Maps"), A("Camera", pinned = true), A("2048")),
-            { it.label }, { it.label }, { it.pinned }, { it.profile }, favouritesLast = true,
+            { it.label }, { it.label }, { it.pinned }, { it.profile }, favoritesLast = true,
         )
         assertEquals(listOf("2048", "Camera", "Maps", "Camera"), list.map { it.item.label })
         assertEquals(listOf('#', 'C', 'M', '★'), list.map { it.section })
         assertEquals(listOf(0, 1, 2, 3), list.map { it.sectionIndex })
-        assertTrue(list.last().favourite && list.last().sectionStart)
+        assertTrue(list.last().favorite && list.last().sectionStart)
         assertEquals(list.size, list.map { it.key }.toSet().size)
     }
 
@@ -348,7 +348,7 @@ class SelectorMathTest {
     }
 
     @Test
-    fun fisheyeShiftPushesNeighboursApartWithoutOverlap() {
+    fun fisheyeShiftPushesNeighborsApartWithoutOverlap() {
         assertEquals(0f, SelectorMath.fisheyeShift(0f))
         assertEquals(-SelectorMath.fisheyeShift(1.7f), SelectorMath.fisheyeShift(-1.7f), 1e-6f)
         val far = SelectorMath.PEAK * SelectorMath.REACH / 2

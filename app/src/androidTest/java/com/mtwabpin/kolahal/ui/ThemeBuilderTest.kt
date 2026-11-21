@@ -111,7 +111,7 @@ class ThemeBuilderTest {
         assertEquals(Palettes.themeColors("gruvbox"), CustomThemes.colors("tb-test"))
     }
 
-    /** Dark and Light switch which version the colours change; each is saved. */
+    /** Dark and Light switch which version the colors change; each is saved. */
     @Test
     fun theLightVersionIsChangedOnItsOwn() {
         open(null)
@@ -131,9 +131,9 @@ class ThemeBuilderTest {
         )
     }
 
-    /** A colour typed in the picker shows at once, in its row and in the preview, and is saved. */
+    /** A color typed in the picker shows at once, in its row and in the preview, and is saved. */
     @Test
-    fun aColourIsPickedByHex() {
+    fun aColorIsPickedByHex() {
         open(null)
         name("tb-test")
         compose.onNode(hasScrollToKeyAction()).performScrollToKey("background")
@@ -261,8 +261,8 @@ class ThemeBuilderTest {
     /** A saved theme is a theme like the built-in ones, and comes back from its file at start. */
     @Test
     fun aSavedThemeIsATheme() {
-        val colours = Palettes.colorsOf(Palettes.solarized)
-        CustomThemes.save(app, "tb-test", colours)
+        val colors = Palettes.colorsOf(Palettes.solarized)
+        CustomThemes.save(app, "tb-test", colors)
         assertTrue("tb-test" in Keys.THEME.choices)
         assertTrue(config.set(Keys.THEME, "tb-test"))
         assertEquals(Palettes.solarized, Palettes.named("tb-test"))
@@ -271,7 +271,7 @@ class ThemeBuilderTest {
         // At start: every complete file is read, a broken one skipped.
         File(app.filesDir, "themes/tb-renamed.json").writeText("{ \"background\": \"#000000\" }")
         CustomThemes.load(app)
-        assertEquals(colours, CustomThemes.colors("tb-test"))
+        assertEquals(colors, CustomThemes.colors("tb-test"))
         assertNull(CustomThemes.colors("tb-renamed"))
     }
 
@@ -302,7 +302,7 @@ class ThemeBuilderTest {
     }
 
     @Test
-    fun aChangedNameOrColourIsAChange() {
+    fun aChangedNameOrColorIsAChange() {
         val start = mapOf("background" to 1)
         assertFalse(ThemeDraft.changed(start, mapOf("background" to 1), "a", "a"))
         assertTrue(ThemeDraft.changed(start, mapOf("background" to 2), "a", "a"))

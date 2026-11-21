@@ -156,11 +156,8 @@ internal fun LazyListScope.aboutItems(
                     ) say("No app on this phone can send email")
                 },
                 Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
-                    context.getSystemService(android.content.ClipboardManager::class.java)?.primaryClip =
-                        android.content.ClipData.newPlainText(
-                            "Kolahal version",
-                            VERSION_TEXT
-                        )
+                    context.getSystemService(android.content.ClipboardManager::class.java)
+                        ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
                     // Android 13 and later show their own "copied" confirmation.
                     if (Build.VERSION.SDK_INT < 33) say("Copied")
                 },

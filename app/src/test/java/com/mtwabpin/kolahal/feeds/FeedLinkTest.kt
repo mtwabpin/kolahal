@@ -57,7 +57,7 @@ class FeedLinkTest {
     }
 
     @Test
-    fun schedulerPeriodHonoursTheMinimumInterval() {
+    fun schedulerPeriodHonorsTheMinimumInterval() {
         assertEquals(FeedScheduler.MIN_INTERVAL_MIN.toLong(), FeedScheduler.PERIOD_MIN)
     }
 }

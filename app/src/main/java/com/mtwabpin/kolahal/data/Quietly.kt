@@ -10,8 +10,8 @@ import android.content.Context
  * scripts and feeds), but must not go unseen either. Before, such a failure left no trace: reminders
  * that weren't set again after a reboot just didn't fire.
  *
- * [run] does the work. On failure, it logs one error line naming [what] failed and why, at most once
- * a day for each [what], so a step that fails at every start doesn't fill the log.
+ * [run] does the work. On failure, it logs one error line naming `what` failed and why, at most once
+ * a day for each `what`, so a step that fails at every start doesn't fill the log.
  */
 object Quietly {
 

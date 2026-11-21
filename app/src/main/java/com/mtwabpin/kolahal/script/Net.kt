@@ -36,7 +36,7 @@ object Net {
         chain.proceed(chain.request())
     }
 
-    /** [link], normalised, if it is an http(s) link. Null for any other scheme (tel:, upi:, intent:, file: …). */
+    /** [link], normalized, if it is an http(s) link. Null for any other scheme (tel:, upi:, intent:, file: …). */
     fun webUrl(link: String?): String? = link?.trim()?.toHttpUrlOrNull()?.toString()
 
     /** A simple blocking GET. Returns the body, or throws with the HTTP status. */

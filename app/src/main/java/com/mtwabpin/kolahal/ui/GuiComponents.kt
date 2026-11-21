@@ -36,7 +36,6 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalToggleButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -259,7 +258,7 @@ internal fun GuiListPage(
         modifier = (if (imePadding) Modifier.imePadding() else Modifier)
             .then(if (fade != null) Modifier.drawBehind { drawRect(surface.copy(alpha = fade())) } else Modifier)
             .nestedScroll(scroll.nestedScrollConnection),
-        // When fading, the page draws its own background. A transparent container has no content colour, so set it here.
+        // When fading, the page draws its own background. A transparent container has no content color, so set it here.
         containerColor = if (fade != null) Color.Transparent else surface,
         contentColor = if (fade != null) MaterialTheme.colorScheme.onSurface else contentColorFor(
             surface
@@ -335,7 +334,7 @@ internal fun rememberExpandedSheetState(): SheetState =
 
 /**
  * A bottom sheet over a GUI page. It is fully open or closed ([rememberExpandedSheetState]), in
- * the sheets' colour, and its content is a column with 24 dp at each side.
+ * the sheets' color, and its content is a column with 24 dp at each side.
  * - [scroll]: the column scrolls. For a sheet that can be taller than the screen.
  * - [scrimColor]: what dims the page behind it. Transparent leaves the page as it is.
  */
@@ -364,7 +363,7 @@ internal fun GuiSheet(
 
 /**
  * Asks for confirmation before an action that cannot be undone.
- * - [confirm] uses the error colour and runs [onConfirm].
+ * - [confirm] uses the error color and runs [onConfirm].
  * - [dismiss] (Cancel unless given), Back and a tap outside run [onDismiss].
  * - [icon], if given, shows above the [title].
  */
@@ -396,7 +395,7 @@ internal fun ConfirmDialog(
     )
 }
 
-/** A text button in the error colour, for an action that removes or replaces something. */
+/** A text button in the error color, for an action that removes or replaces something. */
 @Composable
 internal fun ErrorTextButton(
     onClick: () -> Unit,
@@ -412,7 +411,7 @@ internal fun ErrorTextButton(
     )
 }
 
-/** The text a page shows when it has nothing to list. It is centred, with [top] and [bottom] space from the rows around it. */
+/** The text a page shows when it has nothing to list. It is centered, with [top] and [bottom] space from the rows around it. */
 @Composable
 internal fun EmptyNote(
     text: String,
@@ -567,7 +566,7 @@ internal fun ValueRow(
 }
 
 /**
- * Material's Expressive text field colours, but with the container colour of the tonal buttons
+ * Material's Expressive text field colors, but with the container color of the tonal buttons
  * beside it. The default container (`surfaceContainer`) is barely visible on a sheet in these themes.
  */
 @Composable
@@ -609,7 +608,7 @@ internal fun SearchField(
 /**
  * A filter chip with the number of rows it keeps after its name: "Widget 18".
  * - [on]: the chip is chosen. It is then filled. It has no check mark: the fill already shows it.
- * - A chip that keeps no row (0) is greyed while it is off. A tap on it still works.
+ * - A chip that keeps no row (0) is grayed while it is off. A tap on it still works.
  */
 @Composable
 internal fun CountChip(
@@ -649,7 +648,6 @@ internal fun CountChip(
  * Picks how often something runs. It is a row like [SwitchRow]. Its button shows the interval and
  * opens a menu of presets. An interval set from the terminal (not a preset) shows as it is.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun IntervalSelector(
     label: String,
@@ -690,7 +688,7 @@ internal fun IntervalSelector(
                 }
                 DropdownMenuPopup(expanded = open, onDismissRequest = { open = false }) {
                     DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1)) {
-                        // Use the theme's accent, like switches and tabs. Material's default is tertiaryContainer, which is the work profile's colour here.
+                        // Use the theme's accent, like switches and tabs. Material's default is tertiaryContainer, which is the work profile's color here.
                         val colors = MenuDefaults.selectableItemColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.onPrimary,

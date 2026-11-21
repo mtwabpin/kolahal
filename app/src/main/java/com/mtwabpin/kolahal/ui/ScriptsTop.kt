@@ -26,7 +26,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -65,7 +64,6 @@ import com.mtwabpin.kolahal.R
  * - Filters opens the filter sheet. Its badge counts the chips that are on.
  * - Sort opens a menu: Name, Last run, Recently changed.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SearchRow(
     query: String,
@@ -279,7 +277,7 @@ internal fun CountLine(shown: Int, total: Int, sort: ScriptSort) {
 
 /**
  * The filter sheet: the chips by group, each with the number of scripts it would show
- * ([ScriptFilters.counts]). A chip with 0 is greyed, but a tap still works. Show N scripts, a tap
+ * ([ScriptFilters.counts]). A chip with 0 is grayed, but a tap still works. Show N scripts, a tap
  * outside or Back closes it, and the chips stay as chosen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -358,7 +356,7 @@ private fun ColumnScope.FilterGroups(
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (chip in chips) {
-                    // A chip at 0 is greyed, as nothing more would show. It still works: in a group it may add nothing yet keep the others.
+                    // A chip at 0 is grayed, as nothing more would show. It still works: in a group it may add nothing yet keep the others.
                     CountChip(
                         chip.label,
                         counts[chip.id] ?: 0,

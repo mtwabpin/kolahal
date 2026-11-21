@@ -546,7 +546,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                     ) {
                         // Not before the first read: a cold start would flash it over a log that isn't empty.
                         if (reversedRows.isEmpty() && hiddenLines == 0 && rowsLoaded) {
-                            // An empty log: what to do, in the text colour, then the other tips dim, one per line.
+                            // An empty log: what to do, in the text color, then the other tips dim, one per line.
                             item(key = "empty-hint") {
                                 Column(
                                     Modifier
@@ -641,8 +641,8 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                             }
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                     ) {
-                        // The chip: a soft pill, no border, lifted off the log by a shadow. Its colour is the
-                        // surface's, a touch toward the text colour, so it stands out on a dark theme too, where
+                        // The chip: a soft pill, no border, lifted off the log by a shadow. Its color is the
+                        // surface's, a touch toward the text color, so it stands out on a dark theme too, where
                         // the surface is close to the background. About 40 dp tall at font size 14.
                         Box(
                             Modifier

@@ -14,7 +14,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
  * - the text,
  * - how far along the script is, if it gives that ([progress], 0 to 1),
  * - how often it asks to run again while it shows at the top of home ([refresh], seconds),
- * - its bar's colour, by role ([colour]; null: the theme's accent).
+ * - its bar's color, by role ([color]; null: the theme's accent).
  * It shows at the top of home only after you pin the script.
  */
 data class StatusLine(
@@ -22,7 +22,7 @@ data class StatusLine(
     val text: String,
     val progress: Float? = null,
     val refresh: Int? = null,
-    val colour: StyledText.Colour? = null
+    val color: StyledText.ColorRole? = null
 )
 
 /**
@@ -37,23 +37,23 @@ object StatusLines {
     const val MAX_REFRESH = 3600
 
     /** What `opts` adds, as stored. Null when there is none of it. */
-    fun encodeExtras(progress: Float?, refresh: Int?, colour: StyledText.Colour? = null): String? =
-        if (progress == null && refresh == null && colour == null) null
+    fun encodeExtras(progress: Float?, refresh: Int?, color: StyledText.ColorRole? = null): String? =
+        if (progress == null && refresh == null && color == null) null
         else Json.stringify(buildMap {
             progress?.let { put("progress", it.toDouble()) }
             refresh?.let { put("refresh", it) }
-            colour?.let { put("color", it.role) }
+            color?.let { put("color", it.role) }
         })
 
     /** What `opts` added, read back. */
     data class Extras(
         val progress: Float? = null,
         val refresh: Int? = null,
-        val colour: StyledText.Colour? = null
+        val color: StyledText.ColorRole? = null
     )
 
     /**
-     * Reads [raw] back. A value that isn't a valid progress, refresh or colour role is left out,
+     * Reads [raw] back. A value that isn't a valid progress, refresh or color role is left out,
      * so it isn't shown wrong.
      */
     fun decodeExtras(raw: String?): Extras {
@@ -64,7 +64,7 @@ object StatusLines {
                 ?.coerceIn(0f, 1f),
             refresh = (map["refresh"] as? Number)?.toInt()?.takeIf { it > 0 }
                 ?.coerceIn(MIN_REFRESH, MAX_REFRESH),
-            colour = (map["color"] as? String)?.let(StyledText.Colour::named),
+            color = (map["color"] as? String)?.let(StyledText.ColorRole::named),
         )
     }
 
@@ -72,8 +72,8 @@ object StatusLines {
     fun all(context: Context): List<StatusLine> {
         val extras = KvStore(context, Stores.STATUS_EXTRAS).all()
         return KvStore(context, Stores.STATUS).all().map { (name, text) ->
-            val (progress, refresh, colour) = decodeExtras(extras[name])
-            StatusLine(name, text, progress, refresh, colour)
+            val (progress, refresh, color) = decodeExtras(extras[name])
+            StatusLine(name, text, progress, refresh, color)
         }.sortedBy { it.name }
     }
 

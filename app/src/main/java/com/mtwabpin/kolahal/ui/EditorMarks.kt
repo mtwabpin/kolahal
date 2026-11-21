@@ -32,7 +32,7 @@ internal class MatchHighlights(val starts: IntArray, val length: Int, val curren
 
 /**
  * The find matches and the flashed line (after a jump to a line or an error), drawn behind the
- * editor's text from its [layout]. They are not part of the text's colours, so a jump to the next
+ * editor's text from its [layout]. They are not part of the text's colors, so a jump to the next
  * match, or the flash going out, draws again and does not lay the whole text out again.
  * - Each match has a light wash. The current one is stronger, with an outline.
  * - Offsets can be briefly out of date while matches are found again after an edit: those past the

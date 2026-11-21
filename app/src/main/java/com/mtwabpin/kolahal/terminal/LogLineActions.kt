@@ -393,7 +393,7 @@ class LogLineActions(
         add(LogAction("App info") { host.io { appsRepo.openAppInfo(app) } })
         add(LogAction("Copy package name") { copy(app.pkg) })
         val pinned = appPrefs.isPinned(app.key)
-        add(LogAction(if (pinned) "Unpin from favourites" else "Pin to favourites") {
+        add(LogAction(if (pinned) "Unpin from favorites" else "Pin to favorites") {
             appPrefs.setPinned(
                 app.key,
                 !pinned
@@ -506,7 +506,7 @@ class LogLineActions(
         if (sensitive) clip.description.extras = android.os.PersistableBundle().apply {
             putBoolean("android.content.extra.IS_SENSITIVE", true)
         }
-        context.getSystemService(ClipboardManager::class.java).primaryClip = clip
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
     }
 
     /** Adds the long-press entries for todo, note, reminder and event lines. Destructive ones go to [danger]. */

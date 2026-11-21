@@ -88,7 +88,7 @@ class AppPrefs private constructor(context: Context) {
         if (k.startsWith("label:") && v is String) k.removePrefix("label:") to v else null
     }.toMap()
 
-    // ---- favourites ------------------------------------------------------------------------
+    // ---- favorites ------------------------------------------------------------------------
 
     /** Pinned app keys in the user's order. They show first in the idle suggestion strip. */
     fun pinned(): List<String> = parsePinned(apps.getString(PINNED, null))

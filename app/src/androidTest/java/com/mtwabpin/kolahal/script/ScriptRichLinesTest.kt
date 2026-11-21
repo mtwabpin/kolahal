@@ -50,15 +50,15 @@ class ScriptRichLinesTest {
         assertEquals(listOf("LIVE", "v1.2", "pre-release"), tags.map { it.text })
         assertEquals(
             listOf(
-                StyledText.Colour.BAD,
-                StyledText.Colour.ACCENT,
-                StyledText.Colour.WARN
-            ), tags.map { it.colour })
+                StyledText.ColorRole.BAD,
+                StyledText.ColorRole.ACCENT,
+                StyledText.ColorRole.WARN
+            ), tags.map { it.color })
         assertTrue(tags.all { StyledText.Style.TAG in it.styles })
         assertEquals("LIVE IND v NZ", lines().first().shownText)
         val error =
             runCatching { lua("""fmt.tag("purple", "x")""") }.exceptionOrNull()?.message.orEmpty()
-        assertTrue(error, error.contains("no colour"))
+        assertTrue(error, error.contains("no color"))
     }
 
     /** Links in a title and a body; only web links stay, and none with the script's internet off. */
@@ -97,7 +97,7 @@ class ScriptRichLinesTest {
         lua("""log("Pune", fmt.ranges({ { "Sat", 23, 31 }, { "Sun", 22, 30 } }, { unit = "°" }))""")
         val (aqi, unlocks, forecast) = lines().map { meters(it.ctx.body!!) }
         assertEquals(0.56f, aqi.single().to, 0.01f)
-        assertEquals(StyledText.Colour.BAD, aqi.single().colour)
+        assertEquals(StyledText.ColorRole.BAD, aqi.single().color)
         assertEquals(listOf(1f, 0.5f), unlocks.map { it.to })
         assertEquals("Unlocks\nMon\t42\nTue\t21 unlocks", lines()[1].shownText)
         assertEquals(1f / 9, forecast[0].from, 0.001f)

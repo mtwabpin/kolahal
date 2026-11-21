@@ -82,7 +82,7 @@ class FeedsScreenTest {
         val wm = WorkManager.getInstance(app)
         val mine = repo.all().filter { MARK in it.url }.map { it.id }
         // A fetch Add feed started and still to run doesn't run after the test. (The test that
-        // starts one waits for it to end: a cancelled fetch already running can't be waited for.)
+        // starts one waits for it to end: a canceled fetch already running can't be waited for.)
         mine.forEach { wm.cancelUniqueWork("feeds-now-$it").result.get() }
         mine.forEach(repo::remove)
         FeedScheduler.sync(app)
@@ -346,7 +346,7 @@ class FeedsScreenTest {
 
     /**
      * An address already subscribed to says so, and nothing is added twice: also when it is typed
-     * another way (the scheme in capitals, a #part), as the stored address is the normalised one.
+     * another way (the scheme in capitals, a #part), as the stored address is the normalized one.
      */
     @Test
     fun aFeedIsNotAddedTwice() {

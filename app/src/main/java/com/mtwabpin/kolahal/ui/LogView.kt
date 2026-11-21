@@ -108,7 +108,7 @@ fun UnreadDivider(row: LogRow.Unread) {
     )
 }
 
-/** A fixed colour for each script name, so mixed feeds are easy to tell apart. */
+/** A fixed color for each script name, so mixed feeds are easy to tell apart. */
 fun scriptColor(name: String): Color {
     val p = Term.palette
     val choices = listOf(p.script, p.link, p.info, p.work, p.private, p.prompt)
@@ -117,7 +117,7 @@ fun scriptColor(name: String): Color {
 
 /**
  * One log entry.
- * - A thin gutter bar marks command blocks (prompt colour), timer output (script colour) and errors.
+ * - A thin gutter bar marks command blocks (prompt color), timer output (script color) and errors.
  * - Old output is dimmed.
  * - The time is right-aligned, so it never shifts the text.
  */
@@ -212,7 +212,7 @@ fun LogLine(
     }
     // A dimmed line whose parts can't overlap fades part by part; this draws the same pixels as
     // fading it whole. A picture is a single draw placed below its text, not behind it, so it is
-    // fine. The apps grid is excluded because its chips put text on a coloured background.
+    // fine. The apps grid is excluded because its chips put text on a colored background.
     // A script's tables and bars and what follows them, drawn under the line's text (RichBody).
     // A built-in command's big numbers, tables and bars are in its text, after any words.
     val richRest = remember(entry.ctx, entry.text) {
@@ -302,7 +302,7 @@ fun LogLine(
                 textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Left else androidx.compose.ui.text.style.TextAlign.Right,
             )
         }
-        // When a line is taller than its text (log.taller-taps), the text stays centred vertically.
+        // When a line is taller than its text (log.taller-taps), the text stays centered vertically.
         Box(
             contentAlignment = Alignment.CenterStart,
             modifier = Modifier
@@ -414,17 +414,16 @@ fun LogLine(
                         desc != null -> TwoColumns(entry, desc, marks, dense, bar)
                         else -> {
                             val text = lineText!!
-                            val style = lineStyle
                             val words: @Composable (AnnotatedString) -> Unit =
                                 { t ->
                                     if (bar != null) WithBar(bar) {
                                         RichText(
                                             t,
-                                            style = style,
+                                            style = lineStyle,
                                             inlineContent = inline
                                         )
                                     }
-                                    else RichText(t, style = style, inlineContent = inline)
+                                    else RichText(t, style = lineStyle, inlineContent = inline)
                                 }
                             // A long line folds (log.fold). Only a line long enough to need it is measured
                             // for it, and never a typed command or a search result (its words must show).
@@ -474,7 +473,7 @@ fun LogLine(
                             else Column {
                                 Foldable(
                                     entry.id,
-                                    style,
+                                    lineStyle,
                                     enabled = mayFold,
                                     cutLines = cutLines
                                 ) { open ->
@@ -489,7 +488,7 @@ fun LogLine(
                                                 with(density) { (if (row.unread) indents.bullet else 0.sp).toDp() }
                                             RichBody(
                                                 rest,
-                                                style.copy(color = Term.dim),
+                                                lineStyle.copy(color = Term.dim),
                                                 start,
                                                 indents.bullet
                                             )
@@ -517,7 +516,7 @@ fun LogLine(
     }
 }
 
-/** The colour of the bar beside a line: prompt colour for commands, script colour for timer output, error colour (red) for errors. */
+/** The color of the bar beside a line: prompt color for commands, script color for timer output, error color (red) for errors. */
 fun gutterColor(gutter: Gutter): Color = when (gutter) {
     Gutter.COMMAND -> Term.prompt
     Gutter.SCRIPT -> Term.script
@@ -813,7 +812,7 @@ internal fun NotifIcon(key: String) {
  * the two styles, measured on a "0", apart.
  * - Kept for each pair of styles, so a scroll measures nothing. A measurer is made only for a pair
  *   not seen yet.
- * - Colours don't move a baseline, so they are left out of the key: a new theme measures nothing.
+ * - Colors don't move a baseline, so they are left out of the key: a new theme measures nothing.
  */
 internal object TimeShift {
     private data class Key(

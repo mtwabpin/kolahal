@@ -188,7 +188,7 @@ private fun EditorNotice(title: String, why: String?, buttons: @Composable () ->
 }
 
 /**
- * A question with two answers and Cancel. It uses the GUI theme's full colour scheme, like the
+ * A question with two answers and Cancel. It uses the GUI theme's full color scheme, like the
  * editor's other dialogs.
  */
 @Composable

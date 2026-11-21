@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.usage
 
 import java.time.LocalDate
+import kotlin.math.roundToLong
 
 /**
  * What a run of days' counts say (the unlocks of each day, oldest first): their average, how the
@@ -40,7 +41,7 @@ object DayCounts {
     fun trend(days: List<Pair<LocalDate, Int>>, today: LocalDate): Long? {
         val last = average(days, today, 1, 7) ?: return null
         val before = average(days, today, 8, 14)?.takeIf { it > 0 } ?: return null
-        return Math.round((last - before) / before * 100)
+        return ((last - before) / before * 100).roundToLong()
     }
 
     /** A week, Monday to Sunday: its Monday, its average over its finished days, and how many there are. */

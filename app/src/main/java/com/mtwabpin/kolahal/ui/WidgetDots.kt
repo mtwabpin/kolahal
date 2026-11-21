@@ -52,6 +52,7 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
 import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.math.sqrt
+import androidx.compose.ui.platform.LocalLocale
 
 /*
  * A chart with `style = "dots"`: a dot for each day, the last one today, laid out by [DotCalendar].
@@ -81,7 +82,7 @@ private val TODAY_MORPH: Morph by lazy { Morph(MaterialShapes.Circle, MaterialSh
  * The card's description says the days for a screen reader ([WidgetWords.dotsSummary]).
  */
 @Composable
-internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Color) {
+internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val muted = lookColors().muted
     val value = spec.value
@@ -108,7 +109,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                     }
                     Dots(
                         spec,
-                        colour,
+                        color,
                         weeks = true,
                         Modifier
                             .padding(start = 16.dp)
@@ -121,7 +122,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                     if (words) ValueLine(value, label, type.titleLarge, type.bodyMedium, muted)
                     // The days' letters keep the weeks clear of the value line: a 2×2 card has room for four weeks.
                     Dots(
-                        spec, colour, weeks = true, Modifier
+                        spec, color, weeks = true, Modifier
                             .weight(1f)
                             .fillMaxWidth()
                     )
@@ -140,7 +141,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                 Column(Modifier.fillMaxSize()) {
                     if (words) ValueLine(value, label, type.titleLarge, type.bodySmall, muted)
                     Dots(
-                        spec, colour, weeks = false, Modifier
+                        spec, color, weeks = false, Modifier
                             .weight(1f)
                             .fillMaxWidth()
                     )
@@ -162,7 +163,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
                         )
                     }
                     Dots(
-                        spec, colour, weeks = false, Modifier
+                        spec, color, weeks = false, Modifier
                             .width(dotsWidth)
                             .fillMaxHeight()
                     )
@@ -176,7 +177,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, colour: Colo
         ) {
             if (value != null) BigText(value, type.titleMedium)
             Dots(
-                spec, colour, weeks = false, Modifier
+                spec, color, weeks = false, Modifier
                     .weight(1f)
                     .fillMaxWidth()
             )
@@ -212,7 +213,7 @@ private fun ValueLine(
 }
 
 /**
- * The colours of the dots: [on] for a day done or a value, [off] for a day missed, [check] for
+ * The colors of the dots: [on] for a day done or a value, [off] for a day missed, [check] for
  * the check on today's cookie, [later] for the days to come, [ring] for the ring around today.
  */
 @Immutable
@@ -225,27 +226,26 @@ private data class DotPaint(
 )
 
 /**
- * The points of [spec] as dots in [colour], a dot for each day, the last one today ([DotCalendar]).
+ * The points of [spec] as dots in [color], a dot for each day, the last one today ([DotCalendar]).
  * - With [weeks], a calendar: a row for each week, as many as fit at [WEEK_MIN] a row, under the
  *   first letters of the days where there is room. Without: the last seven days in one row, today
  *   at the end.
  * - Points that are all 0 or 1 ([DotCalendar.yesNo]): a day that is 1 is a filled dot, a day that
- *   is 0 a ring in the card's quiet colour. So no day rests on colour alone.
+ *   is 0 a ring in the card's quiet color. So no day rests on color alone.
  * - Any other points: every dot is filled, and its area grows with its value, on the chart's scale:
  *   `min` and `max`, or else the lowest and the highest point shown.
- * - Today's dot is larger. For yes-or-no days it is a ring in [colour] while it is 0, and a filled
+ * - Today's dot is larger. For yes-or-no days it is a ring in [color] while it is 0, and a filled
  *   cookie with a check once it is 1. When it turns 1 while the card can be seen, it grows into the
  *   cookie on a short spring; otherwise it is simply there. With the phone's animations off,
- *   Compose ends the spring at once. For other points it has a ring around it, in the text colour.
- * - The days after today in this week are small dots in the outline colour.
+ *   Compose ends the spring at once. For other points it has a ring around it, in the text color.
+ * - The days after today in this week are small dots in the outline color.
  * - Right to left, the days go from the right.
  * - It says nothing to a screen reader: the card's description has the days in words.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun Dots(
     spec: WidgetSpec.Chart,
-    colour: Color,
+    color: Color,
     weeks: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -265,18 +265,18 @@ internal fun Dots(
         ) else today
     }
     val lastIsToday = last == today
-    val locale = Locale.getDefault()
+    val locale = LocalLocale.current.platformLocale
     val first = remember(locale) { DotCalendar.firstDay(locale) }
     val column = DotCalendar.column(last.dayOfWeek, first)
     val yesNo = remember(points) { DotCalendar.yesNo(points) }
     val grown = animateFloatAsState(
         if (yesNo && lastIsToday && points.last() == 1f) 1f else 0f,
-        if (cardSeen()) MaterialTheme.motionScheme.fastSpatialSpec<Float>() else snap<Float>(),
+        if (cardSeen()) MaterialTheme.motionScheme.fastSpatialSpec() else snap(),
         label = "today",
     )
     val looks = lookColors()
     val paint = DotPaint(
-        colour,
+        color,
         looks.muted,
         looks.onAccent,
         MaterialTheme.colorScheme.outlineVariant,
@@ -417,19 +417,19 @@ private fun DotsCanvas(
         val tall = size.height / rows
         val dot = minOf(minOf(wide, tall) * 0.62f, DOT_MAX.toPx())
         val rtl = layoutDirection == LayoutDirection.Rtl
-        fun centre(row: Int, column: Int): Offset {
+        fun center(row: Int, column: Int): Offset {
             val x = (column + 0.5f) * wide
             return Offset(if (rtl) size.width - x else x, (row + 0.5f) * tall)
         }
         for (c in later) drawCircle(
             paint.later,
             maxOf(1.5.dp.toPx(), dot * 0.15f),
-            centre(rows - 1, c)
+            center(rows - 1, c)
         )
         val (low, high) = scale
         for (cell in cells) {
             val v = points[cell.index]
-            val at = centre(cell.row, cell.column)
+            val at = center(cell.row, cell.column)
             val today = lastIsToday && cell.index == points.lastIndex
             when {
                 yesNo && today -> todayMark(at, dot, grown.value, paint, path, matrix)

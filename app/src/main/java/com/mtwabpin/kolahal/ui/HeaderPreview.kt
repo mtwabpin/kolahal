@@ -27,7 +27,7 @@ import com.mtwabpin.kolahal.terminal.TerminalViewModel
 /**
  * A preview of the top of home with the Header page's settings. It shows while the header is on.
  * - It draws the header and the pinned header with the same code and live status as home,
- *   in the terminal's colours.
+ *   in the terminal's colors.
  * - It updates when a setting changes.
  * - It only shows. Taps and swipes on it do nothing.
  */

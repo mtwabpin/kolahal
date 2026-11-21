@@ -99,7 +99,7 @@ class ScriptReviewTest {
         assertFalse(second.text, "9223372036854775807" in second.text)
     }
 
-    /** A copy equal to the line's link stays, though the link was normalised (a / added). */
+    /** A copy equal to the line's link stays, though the link was normalized (a / added). */
     @Test
     fun copyEqualToTheLinkStays() {
         lua("""log("Open", { url = "https://example.com", copy = "https://example.com" })""")

@@ -230,7 +230,7 @@ private fun ControlGrid(
  * With [working], a sign that something is going on takes the icon's place ([WorkingSign]). A
  * switch shows it while it waits for its script.
  *
- * The icon is in [iconColour] where a look gives it one (Tonal and Split: the accent), else in the text's colour.
+ * The icon is in [iconColor] where a look gives it one (Tonal and Split: the accent), else in the text's color.
  */
 @Composable
 private fun ControlContent(
@@ -240,7 +240,7 @@ private fun ControlContent(
     height: Dp,
     state: String? = null,
     working: Boolean = false,
-    iconColour: Color? = null
+    iconColor: Color? = null
 ) {
     val lead: (@Composable () -> Unit)? = when {
         working -> {
@@ -252,7 +252,7 @@ private fun ControlContent(
                 WidgetIconText(
                     icon,
                     MaterialTheme.typography.titleMedium,
-                    colour = iconColour ?: LocalContentColor.current
+                    color = iconColor ?: LocalContentColor.current
                 )
             }
         }
@@ -286,7 +286,7 @@ private fun ControlContent(
 
         tall -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
             lead()
-            if (iconColour != null) Spacer(Modifier.height(4.dp))
+            if (iconColor != null) Spacer(Modifier.height(4.dp))
             ControlLabel(label, lines = 1)
         }
 
@@ -349,7 +349,7 @@ private fun ControlLabel(
     )
 }
 
-/** How much of the text colour an off switch has as its fill: a little lighter than the card. */
+/** How much of the text color an off switch has as its fill: a little lighter than the card. */
 private const val OFF_TINT = 0.10f
 
 /** Less padding than a Material button has: a cell can be as narrow as 48 dp. */
@@ -415,11 +415,11 @@ private val TOGGLE_MORPH: Morph by lazy {
 internal val PLAY_MORPH: Morph by lazy { Morph(MaterialShapes.Cookie9Sided, MaterialShapes.Square) }
 
 /**
- * Fills the space behind with [morph] at [progress] (0 its first shape, 1 its second), centred and
- * stretched to the size, as `toShape` draws a Material shape. The colour goes from [from] to [to]
+ * Fills the space behind with [morph] at [progress] (0 its first shape, 1 its second), centered and
+ * stretched to the size, as `toShape` draws a Material shape. The color goes from [from] to [to]
  * with it. The progress is read while drawing: a morph that runs draws again and composes nothing,
  * and the path is made again only when the progress or the size has changed. With an [image], the
- * shape is the square picture stretched to the size and darkened ([ART_SCRIM]), not the colour.
+ * shape is the square picture stretched to the size and darkened ([ART_SCRIM]), not the color.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun Modifier.morphFill(
@@ -574,9 +574,9 @@ private fun ShapeGrid(
  * `buttons`: a grid of buttons, each with a label and an icon.
  * - 2 fit in a card of 2×1, 4 in 2×2 and in 4×1, 8 in 4×2. A button is never under 48 dp, so a
  *   smaller card shows the first ones only.
- * - A button's own colour wins over the card's. With neither, it is tinted with the accent.
+ * - A button's own color wins over the card's. With neither, it is tinted with the accent.
  * - A tap hands the button's action to [onTap]. A long-press is the card's long-press.
- * - Tonal: the buttons are a light tint of the text colour on the card's colour, the icon in the accent.
+ * - Tonal: the buttons are a light tint of the text color on the card's color, the icon in the accent.
  * - Split: the buttons are the card's tiles ([SplitGrid]).
  * - Shape: each button is a Material shape with its label under it ([ShapeButton]).
  */
@@ -590,7 +590,7 @@ internal fun ButtonsBody(spec: WidgetSpec.Buttons, onTap: ((WidgetTap) -> Unit)?
             val button = spec.items[index]
             CardButton(
                 button,
-                (button.color ?: spec.base.color)?.let { colourOf(it) },
+                (button.color ?: spec.base.color)?.let { colorOf(it) },
                 width,
                 height,
                 onTap,
@@ -600,8 +600,8 @@ internal fun ButtonsBody(spec: WidgetSpec.Buttons, onTap: ((WidgetTap) -> Unit)?
 
         WidgetLook.SHAPE -> ShapeGrid(spec.items.size, maxColumns = 4) { index, width, height ->
             val button = spec.items[index]
-            // With no colour of their own, the shapes take the theme's three colours in turn, as the mockup has them.
-            val role = (button.color ?: spec.base.color)?.let { colourOf(it) } ?: shapeRole(index)
+            // With no color of their own, the shapes take the theme's three colors in turn, as the mockup has them.
+            val role = (button.color ?: spec.base.color)?.let { colorOf(it) } ?: shapeRole(index)
             ShapeButton(button, role, index, width, height, onTap)
         }
 
@@ -609,7 +609,7 @@ internal fun ButtonsBody(spec: WidgetSpec.Buttons, onTap: ((WidgetTap) -> Unit)?
             val button = spec.items[index]
             CardButton(
                 button,
-                (button.color ?: spec.base.color)?.let { colourOf(it) },
+                (button.color ?: spec.base.color)?.let { colorOf(it) },
                 width,
                 height,
                 onTap
@@ -625,11 +625,10 @@ private val TONAL_BUTTON = RoundedCornerShape(20.dp)
  * One button. With a null [onTap] it takes no tap, and looks as it does on the page: the Widgets
  * screen shows the card as it is. With a [tile] shape it is one of Split's tiles.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CardButton(
     button: WidgetSpec.Button,
-    colour: Color?,
+    color: Color?,
     width: Dp,
     height: Dp,
     onTap: ((WidgetTap) -> Unit)?,
@@ -641,10 +640,10 @@ private fun CardButton(
     val look = LocalWidgetLook.current
     val looks = lookColors(look)
     val plain = tile == null && look != WidgetLook.TONAL
-    // With no colour of its own, a button is tinted with the accent, and its text keeps the text colour.
-    // Tonal and Split put it on the look's tile, with the icon in the button's colour or the accent.
-    val container = if (plain) (colour ?: roleColour(null)).copy(alpha = 0.2f) else looks.tile
-    val content = if (plain) colour ?: MaterialTheme.colorScheme.onSurface else looks.content
+    // With no color of its own, a button is tinted with the accent, and its text keeps the text color.
+    // Tonal and Split put it on the look's tile, with the icon in the button's color or the accent.
+    val container = if (plain) (color ?: roleColor(null)).copy(alpha = 0.2f) else looks.tile
+    val content = if (plain) color ?: MaterialTheme.colorScheme.onSurface else looks.content
     val shapes = when {
         tile != null -> ButtonDefaults.shapes(shape = tile, pressedShape = SPLIT_PRESSED)
         look == WidgetLook.TONAL -> ButtonDefaults.shapes(shape = TONAL_BUTTON)
@@ -671,12 +670,12 @@ private fun CardButton(
             button.label,
             width,
             height,
-            iconColour = if (plain) null else colour ?: roleColour(null)
+            iconColor = if (plain) null else color ?: roleColor(null)
         )
     }
 }
 
-/** The theme's colours that Shape's buttons take in turn: primary, tertiary, secondary. */
+/** The theme's colors that Shape's buttons take in turn: primary, tertiary, secondary. */
 @Composable
 private fun shapeRole(index: Int): Color {
     val scheme = MaterialTheme.colorScheme
@@ -692,12 +691,11 @@ private val LABEL_UNDER = 18.dp
 
 /**
  * One button of the Shape look: a Material shape ([BUTTON_SHAPES], one after the other) in its
- * [role]'s container, with the icon in the role's colour and the label under it where the cell has
+ * [role]'s container, with the icon in the role's color and the label under it where the cell has
  * room. Without an icon the label is inside the shape.
  * - The whole of it, label too, is one Material button, so a tap on the label is a tap on the button.
  * - A press morphs the shape into another one, and back on release. Only the drawing runs again.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapeButton(
     button: WidgetSpec.Button,
@@ -717,13 +715,13 @@ private fun ShapeButton(
     )
     val morph = remember(index) { pressMorph(BUTTON_SHAPES[index % BUTTON_SHAPES.size]) }
     val fill = roleContainer(role)
-    val labelled = button.icon != null && height >= CONTROL_MIN + LABEL_UNDER
+    val labeled = button.icon != null && height >= CONTROL_MIN + LABEL_UNDER
     // A label inside the shape needs a bigger one: as big as the cell, up to 80 dp.
     val most = if (button.icon == null) SHAPE_TEXT_CONTROL else SHAPE_CONTROL
     val side = minOf(
         most,
         width,
-        if (labelled) height - LABEL_UNDER else height
+        if (labeled) height - LABEL_UNDER else height
     ).coerceAtLeast(CONTROL_MIN)
     val colors = ButtonDefaults.buttonColors(
         containerColor = Color.Transparent,
@@ -752,13 +750,13 @@ private fun ShapeButton(
                 val icon = button.icon
                 if (icon != null) {
                     // Without its label under it, the shape says the label to a screen reader.
-                    val said = if (labelled) Modifier else Modifier.semantics {
+                    val said = if (labeled) Modifier else Modifier.semantics {
                         contentDescription = button.label
                     }
                     WidgetIconText(
                         icon,
                         MaterialTheme.typography.titleMedium,
-                        colour = role,
+                        color = role,
                         size = 22.dp,
                         modifier = said
                     )
@@ -770,7 +768,7 @@ private fun ShapeButton(
                     )
                 }
             }
-            if (labelled) {
+            if (labeled) {
                 Text(
                     button.label,
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -834,7 +832,7 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
         }
     }
 
-    val role = roleColour(spec.base)
+    val role = roleColor(spec.base)
     when (LocalWidgetLook.current) {
         WidgetLook.SPLIT -> SplitGrid(
             spec.items.size,
@@ -862,15 +860,14 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
 }
 
 /**
- * One switch: a Material toggle button, filled while on. Off, it is a light tint of the text colour.
+ * One switch: a Material toggle button, filled while on. Off, it is a light tint of the text color.
  * A tall one says "On" or "Off" under its label ([ControlContent]).
  * - With [working] the loading shape takes its icon's place, and a screen reader hears "working".
  * - With a null [onClick] it takes no tap, and looks as it does on the page.
  * - A long-press is the card's long-press.
- * - Tonal: off is the look's tile on the card's colour, and on is the card's [cardRole] colour.
- * - With a [tile] shape it is one of Split's tiles: on in the [cardRole] colour, and it says "On" or "Off".
+ * - Tonal: off is the look's tile on the card's color, and on is the card's [cardRole] color.
+ * - With a [tile] shape it is one of Split's tiles: on in the [cardRole] color, and it says "On" or "Off".
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CardToggle(
     toggle: WidgetSpec.Toggle,
@@ -888,7 +885,7 @@ private fun CardToggle(
     val plain = tile == null && look != WidgetLook.TONAL
     val off = MaterialTheme.colorScheme.onSurface
     val colors = ToggleButtonDefaults.colors().let {
-        // Off is a light tint of the text colour: Material's own is darker than the card.
+        // Off is a light tint of the text color: Material's own is darker than the card.
         val offContainer = if (plain) off.copy(alpha = OFF_TINT) else looks.tile
         val onContainer = if (plain) it.checkedContainerColor else looks.accent
         val onContent = if (plain) it.checkedContentColor else looks.onAccent
@@ -897,7 +894,7 @@ private fun CardToggle(
             contentColor = off,
             checkedContainerColor = onContainer,
             checkedContentColor = onContent,
-            // A switch that takes no tap keeps the colours of its state.
+            // A switch that takes no tap keeps the colors of its state.
             disabledContainerColor = if (toggle.on) onContainer else offContainer,
             disabledContentColor = if (toggle.on) onContent else off,
         )
@@ -991,12 +988,11 @@ private val SPLIT_TOGGLE_TALL = 76.dp
 /**
  * One switch of the Shape look: a 48 dp shape with the icon, its label and "On" or "Off" beside it
  * where the cell is wide enough, or its label under it where the cell is tall enough.
- * - On, the shape is a cookie in the card's [cardRole] colour; off, a circle a little lighter than the
+ * - On, the shape is a cookie in the card's [cardRole] color; off, a circle a little lighter than the
  *   card. A change of state morphs one into the other. Only the drawing runs again while it does.
  * - The whole of it is one Material toggle button, so a tap on the label is a tap on the switch.
  * - Without an icon, the shape has the label's first letter.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapeToggle(
     toggle: WidgetSpec.Toggle,
@@ -1063,7 +1059,7 @@ private fun ShapeToggle(
                     icon != null -> WidgetIconText(
                         icon,
                         MaterialTheme.typography.titleMedium,
-                        colour = tint
+                        color = tint
                     )
 
                     else -> Text(

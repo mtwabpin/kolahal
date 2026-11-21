@@ -94,7 +94,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 StyledText.bar(
                     mobile.toDouble(),
                     plan.toDouble(),
-                    if (pace > plan) StyledText.Colour.BAD else null
+                    if (pace > plan) StyledText.ColorRole.BAD else null
                 )
             )
             info("${(mobile * 100 / plan)}% of ${bytes(plan)} · on pace for ${bytes(pace)} · $left ${if (left == 1L) "day" else "days"} left")
@@ -476,7 +476,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 if (w.days < 7) "${w.days} ${if (w.days == 1) "day" else "days"}" else ""
             )
         }
-        info(StyledText.colour(StyledText.Colour.MUTED, "── by week ──"))
+        info(StyledText.color(StyledText.ColorRole.MUTED, "── by week ──"))
         val width = rows.maxOf { it.first.length }
         val countWidth = rows.maxOf { it.second.toString().length }
         val noteWidth = rows.maxOf { it.third.length }

@@ -66,7 +66,7 @@ import com.mtwabpin.kolahal.script.ScriptWorker
 
 /*
  * Card measures. Everything lines up on three edges:
- * - the gutter: the first 24 dp. The status dot and the icons of the detail lines are centred in it.
+ * - the gutter: the first 24 dp. The status dot and the icons of the detail lines are centered in it.
  * - the content edge, right after the gutter: the title, the summary and every line's text start here.
  * - the right edge: the switch, the lines and the buttons end here.
  */
@@ -75,7 +75,7 @@ private val GUTTER = 24.dp
 private val LINE_ICON = 14.dp
 
 /**
- * The card for one script. The card uses the theme colour when the script is on, and is faded when
+ * The card for one script. The card uses the theme color when the script is on, and is faded when
  * it is off.
  * - Compact: a dot (on, failed, off), the title, the file name and where it came from (shared, a
  *   source you added, or yours), Run for a command, the details arrow, the switch, and one line
@@ -152,7 +152,7 @@ internal fun ScriptCard(
             else Pill("Edited", "Reset", R.drawable.ic_refresh, onRestore)
         },
     )
-    // Show on or off at a glance: an on script's card uses the theme colour, an off script's card fades into the page.
+    // Show on or off at a glance: an on script's card uses the theme color, an off script's card fades into the page.
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -502,7 +502,7 @@ private fun TextStyle.lineHeightDp(): Dp = with(LocalDensity.current) { lineHeig
 private val PILL_HEIGHT = 32.dp
 
 /**
- * A line of the details with an [icon] in the gutter. The icon is centred on the first
+ * A line of the details with an [icon] in the gutter. The icon is centered on the first
  * [anchor] dp of the line: the first line of text, or the first row of pills.
  */
 @Composable
@@ -559,7 +559,7 @@ private fun ProblemLine(
 }
 
 /**
- * A small button that looks like text, in the theme colour. Its text lines up with the text beside
+ * A small button that looks like text, in the theme color. Its text lines up with the text beside
  * it. Its touch area is larger (40 dp tall, 6 dp more on each side) and spills over the space
  * around it.
  */
@@ -608,7 +608,7 @@ private fun Pills(content: @Composable FlowRowScope.() -> Unit) {
  * A button that brings the source's version of a library or shared [copy].
  * - Edited, nothing newer: Reset to library version (or shared version).
  * - A newer version: Update from library, or Update to its version for a shared copy.
- * The icon uses the error colour when the copy is edited, because the edits are lost. Then it asks first.
+ * The icon uses the error color when the copy is edited, because the edits are lost. Then it asks first.
  */
 @Composable
 internal fun CopyButton(copy: ScriptCopy, onClick: () -> Unit) {
@@ -637,7 +637,7 @@ internal fun CompareButton(onClick: () -> Unit) =
 
 /**
  * The button for Compare and Reset, of the usual button height. It is outlined, in the theme's text and outline
- * colours, so it looks right both on an on script's tinted card and on the page, in every theme.
+ * colors, so it looks right both on an on script's tinted card and on the page, in every theme.
  * [iconTint] applies only to the icon.
  */
 @Composable
@@ -664,7 +664,7 @@ private fun OutlinedAction(label: String, icon: Int, iconTint: Color? = null, on
 }
 
 /**
- * One thing a script may do. Its colour shows on or off: filled with the theme colour when on, faded
+ * One thing a script may do. Its color shows on or off: filled with the theme color when on, faded
  * when off. A tap switches it. It takes the space of its visible 32 dp; its 48 dp touch area spills
  * over the space around it, so rows of pills sit close.
  */

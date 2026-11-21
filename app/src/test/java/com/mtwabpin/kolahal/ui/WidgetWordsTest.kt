@@ -563,7 +563,7 @@ class WidgetWordsTest {
     fun aScreenReaderHearsStyledTextPlain() {
         val now = at(day = 20, hour = 0)
         fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
-        fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+        fun good(s: String) = StyledText.color(StyledText.ColorRole.GOOD, s)
         val quote = WidgetSpec.Text(base, text = "Be " + bold("kind") + ".", caption = good("Anon"))
         assertEquals("Quote: Be kind., Anon", WidgetWords.description("Quote", quote, now, utc))
         val rows = WidgetSpec.Rows(
@@ -610,12 +610,12 @@ class WidgetWordsTest {
         val rows = WidgetSpec.Rows(
             base,
             items = listOf(
-                WidgetSpec.Row("Milk", detail = "2 litres", trailing = "today"),
+                WidgetSpec.Row("Milk", detail = "2 liters", trailing = "today"),
                 WidgetSpec.Row("Bread")
             )
         )
         assertEquals(
-            "Shopping: Milk, 2 litres, today, Bread",
+            "Shopping: Milk, 2 liters, today, Bread",
             WidgetWords.description("Shopping", rows, now, utc)
         )
         assertEquals(

@@ -48,7 +48,7 @@ internal object WidgetOptionWords {
  * - The script's first widget has the script's own options: the sheet edits those, as the script's
  *   sheet on the Scripts screen does.
  * - A further widget follows the script's options until you set one for that widget. A value set
- *   here is kept for that widget only, and shows in the primary colour. Reset makes the option
+ *   here is kept for that widget only, and shows in the primary color. Reset makes the option
  *   follow the script again.
  * - A saved value asks for one run of this widget, so its card shows what the new value gives
  *   ([com.mtwabpin.kolahal.terminal.ScriptActions.setWidgetOption]). A value of the script's own

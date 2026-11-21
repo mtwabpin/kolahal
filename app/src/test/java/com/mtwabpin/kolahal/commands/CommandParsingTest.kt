@@ -8,7 +8,7 @@ import org.junit.Test
 
 class CommandParsingTest {
     @Test
-    fun tokenizeHonoursQuotes() {
+    fun tokenizeHonorsQuotes() {
         assertEquals(
             listOf("open", "Google Maps", "-w"),
             CommandParsing.tokenize("open \"Google Maps\" -w")

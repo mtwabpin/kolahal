@@ -44,7 +44,7 @@ val LocalWidgetLook = staticCompositionLocalOf { WidgetLook.PLAIN }
 
 /**
  * True inside a card that is one Material shape: the Shape look in a square box ([squareBox]). The
- * card frame draws the shape; the body draws a few short lines centred in it.
+ * card frame draws the shape; the body draws a few short lines centered in it.
  */
 val LocalCardShaped = staticCompositionLocalOf { false }
 
@@ -83,12 +83,12 @@ fun WidgetLook.untitled(): Boolean =
     this == WidgetLook.BOLD || this == WidgetLook.SPLIT || this == WidgetLook.SHAPE
 
 /**
- * The colours a card draws with, for its look and its colour [role] ([roleColour]).
+ * The colors a card draws with, for its look and its color `role` ([roleColor]).
  * - [card]: the card's surface. Transparent for Split, whose tiles each have [tile], and for Shape
  *   in a square box, where the shape is the card ([shapeFill]).
  * - [content]: text and icons on the card. [muted]: secondary text that keeps its contrast on [card].
  * - [tile]: the surface of Split's tiles; a row's or a chip's container on the other looks.
- * - [accent]: the role's own colour: a ring, a bar, the Bold value. [onAccent]: text on it.
+ * - [accent]: the role's own color: a ring, a bar, the Bold value. [onAccent]: text on it.
  * - [shapeFill]: the fill of Shape's shape: the role's container.
  */
 @Immutable
@@ -103,13 +103,13 @@ data class LookColors(
 )
 
 /**
- * The container of a colour [role]: the role over the page's surface, as the theme's own
+ * The container of a color [role]: the role over the page's surface, as the theme's own
  * primary container is built from its primary ([schemeFrom]).
  */
 @Composable
 fun roleContainer(role: Color): Color = lerp(MaterialTheme.colorScheme.surface, role, 0.30f)
 
-/** The colours for [look] and the card's colour [role]. */
+/** The colors for [look] and the card's color [role]. */
 @Composable
 fun lookColors(
     look: WidgetLook = LocalWidgetLook.current,
@@ -121,7 +121,7 @@ fun lookColors(
         WidgetLook.TONAL -> LookColors(
             card = container,
             content = scheme.onSurface,
-            // onSurfaceVariant is too dim on a tinted card: the text colour, a little lighter.
+            // onSurfaceVariant is too dim on a tinted card: the text color, a little lighter.
             muted = scheme.onSurface.copy(alpha = 0.78f),
             tile = scheme.onSurface.copy(alpha = 0.12f),
             accent = role,
@@ -151,10 +151,10 @@ fun lookColors(
     }
 }
 
-/** The colours of the parts of a clock's day strip ([WidgetWords.DayPart]). */
+/** The colors of the parts of a clock's day strip ([WidgetWords.DayPart]). */
 @Immutable
 internal data class StripShades(val night: Color, val day: Color, val work: Color) {
-    /** The colour of [part]. */
+    /** The color of [part]. */
     fun of(part: WidgetWords.DayPart): Color = when (part) {
         WidgetWords.DayPart.NIGHT -> night
         WidgetWords.DayPart.DAY -> day
@@ -163,9 +163,9 @@ internal data class StripShades(val night: Color, val day: Color, val work: Colo
 }
 
 /**
- * The shades of a clock's day strips on a card of colour [card], on a page of colour [surface]:
- * tones of the card's [role] colour that differ in lightness.
- * - Working hours are the role colour itself.
+ * The shades of a clock's day strips on a card of color [card], on a page of color [surface]:
+ * tones of the card's [role] color that differ in lightness.
+ * - Working hours are the role color itself.
  * - In a dark theme, night is the darkest: darker than the page, with a trace of the role.
  * - In a light theme, day is the lightest, lighter than the card, and night is the darker, tinted part.
  * - The part between is the card tinted with the role, as far in contrast from the part on each

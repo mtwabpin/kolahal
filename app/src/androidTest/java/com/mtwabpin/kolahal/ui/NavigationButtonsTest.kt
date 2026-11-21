@@ -151,7 +151,7 @@ class NavigationButtonsTest {
         )
     }
 
-    /** Settings' rows run on under the buttons, and only the page's colour shows between them. */
+    /** Settings' rows run on under the buttons, and only the page's color shows between them. */
     @Test
     fun aListShowsNothingBetweenTheButtons() {
         show(Screen.SETTINGS) { SettingsOverHome(vm) }
@@ -164,6 +164,6 @@ class NavigationButtonsTest {
         val page = Term.palette.bg.toArgb()
         val other =
             (top until image.height).sumOf { y -> (0 until image.width).count { x -> image[x, y].toArgb() != page } }
-        assertEquals("pixels not the page's colour between the buttons", 0, other)
+        assertEquals("pixels not the page's color between the buttons", 0, other)
     }
 }

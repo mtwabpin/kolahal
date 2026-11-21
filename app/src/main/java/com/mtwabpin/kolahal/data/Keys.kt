@@ -173,8 +173,8 @@ object Keys {
     ) + MaterialYou.VARIANTS
     val THEME = ConfigKey.Choice(
         "theme.name", "green", BUILT_IN_THEMES,
-        "Colour theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode; " +
-                "${MaterialYou.NAME} takes its colours from your wallpaper (Android 12 and newer), and ${MaterialYou.SOFT}, ${MaterialYou.TINTED} and ${MaterialYou.BLACK} put them on a lighter, a tinted or a black background",
+        "Color theme: a built-in one or one you made; each has a dark and a light version, chosen by the phone's dark mode; " +
+                "${MaterialYou.NAME} takes its colors from your wallpaper (Android 12 and newer), and ${MaterialYou.SOFT}, ${MaterialYou.TINTED} and ${MaterialYou.BLACK} put them on a lighter, a tinted or a black background",
         added = { CustomThemes.names },
     )
     val THEME_ALWAYS_DARK = ConfigKey.Bool(
@@ -342,12 +342,12 @@ object Keys {
         "log.item-spacing",
         5,
         0..40,
-        "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the colour bar runs through it"
+        "Gap (dp) between the items of a list in one output group, such as stories, contacts or feed items; the color bar runs through it"
     )
     val LOG_GUTTER = ConfigKey.Bool(
         "log.gutter",
         true,
-        "Thin colour bar at the left of each log line: green for commands, script colour for background output, red for errors"
+        "Thin color bar at the left of each log line: green for commands, script color for background output, red for errors"
     )
     val DATA_PLAN = ConfigKey.Num(
         "data.plan",
@@ -371,7 +371,7 @@ object Keys {
         "log.wallpaper",
         0,
         0..100,
-        "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's colour"
+        "How much of the phone's wallpaper shows behind the log (%): 0 is none; higher shows less of the theme's color"
     )
     val LOG_TALLER_TAPS = ConfigKey.Bool(
         "log.taller-taps",
@@ -512,7 +512,7 @@ object Keys {
         "widgets.wallpaper",
         0,
         0..100,
-        "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's colour"
+        "How much of the phone's wallpaper shows behind the widgets page (%): 0 is none; higher shows less of the theme's color"
     )
     val AGENDA_WIDGET_DAYS = ConfigKey.Choice(
         "widgets.agenda-days",
@@ -688,11 +688,11 @@ object Keys {
      */
     val REMOVED: Map<String, String> = mapOf(
         OLD_SWIPE_UP_ON to "set gesture.swipe-up to an action to turn swiping up on, or none to turn it off",
-        "theme.settings-colors" to "Settings always use the theme's colours",
-        "gui.colors" to "Settings always use the theme's colours",
+        "theme.settings-colors" to "Settings always use the theme's colors",
+        "gui.colors" to "Settings always use the theme's colors",
         "widgets.home" to "widgets are on the widgets page (widgets.page)",
         "widgets.height" to "widgets are on the widgets page (widgets.page)",
-        "theme.paper" to "the home screen's background is the theme's colour; the phone's wallpaper can show behind it (log.wallpaper)",
+        "theme.paper" to "the home screen's background is the theme's color; the phone's wallpaper can show behind it (log.wallpaper)",
         "header.media-always" to "what's playing always shows in the pinned header, under the header",
         // 0.4.16: always on.
         "header.media" to "what's playing always shows in the pinned header, with notification access",

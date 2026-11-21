@@ -3,6 +3,7 @@
  */
 package com.mtwabpin.kolahal.usage
 
+import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageEventsQuery
 import android.app.usage.UsageStatsManager
@@ -83,6 +84,7 @@ class AppUsage(private val context: Context) {
     }
 
     /** Android's usage events in [from, until), only of the kinds [AppSessions] reads. */
+    @SuppressLint("WrongConstant")
     private fun events(from: Long, until: Long): List<AppSessions.Companion.Event> {
         val kinds = intArrayOf(
             AppSessions.RESUMED,

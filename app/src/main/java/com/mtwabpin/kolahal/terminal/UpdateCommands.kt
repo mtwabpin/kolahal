@@ -83,13 +83,13 @@ internal class UpdateCommands(
             val asset = assets.filterIsInstance<Map<*, *>>()
                 .firstOrNull { it["name"] == "kolahal-$version.apk" }
                 ?: throw IllegalStateException("Release APK not found.")
-            // Normalise the URL first. OkHttp resolves a ../ when it sends the request, which could lead outside Kolahal's releases.
+            // Normalize the URL first. OkHttp resolves a ../ when it sends the request, which could lead outside Kolahal's releases.
             val url = (asset["browser_download_url"] as? String)?.let(Net::webUrl)
                 ?: throw IllegalStateException("Release APK has no download URL.")
             if (!url.startsWith(DOWNLOAD_PREFIX)) throw IllegalStateException("Unexpected APK download address.")
             val size = (asset["size"] as? Number)?.toLong()
                 ?: throw IllegalStateException("Release APK has no valid size.")
-            if (size <= 0 || size > MAX_APK_SIZE) throw IllegalStateException("Release APK has an invalid size.")
+            if (size !in 1..MAX_APK_SIZE) throw IllegalStateException("Release APK has an invalid size.")
             val digest = (asset["digest"] as? String)?.takeIf { it.startsWith("sha256:") }
                 ?.substringAfter("sha256:")
             return Release(version, url, size, digest)

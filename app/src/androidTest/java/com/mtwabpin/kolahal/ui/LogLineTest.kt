@@ -524,9 +524,9 @@ class LogLineTest {
         assertEquals(listOf("zq alarm three"), texts(later))
     }
 
-    /** The bar at a line's left is its kind's colour, command, script or error; with log.gutter off there is none. */
+    /** The bar at a line's left is its kind's color, command, script or error; with log.gutter off there is none. */
     @Test
-    fun theBarIsTheColourOfItsKind() {
+    fun theBarIsTheColorOfItsKind() {
         val lines = Gutter.entries.map { it to entry("bar ${it.name.lowercase()}") }
         var gutter by mutableStateOf(true)
         compose.setContent {
@@ -745,7 +745,7 @@ class LogLineTest {
             "412 " + st.link(
                 "https://example.org/s",
                 "A story"
-            ) + " " + st.tag(com.mtwabpin.kolahal.data.StyledText.Colour.BAD, "LIVE"),
+            ) + " " + st.tag(com.mtwabpin.kolahal.data.StyledText.ColorRole.BAD, "LIVE"),
             LogKind.SCRIPT,
             ctx = mapOf(LogContext.TITLE to "1")
         )

@@ -70,7 +70,7 @@ class KolahalNotificationListener : NotificationListenerService() {
     private var mirrorCleared = false
 
     /**
-     * Runs the copy's writes and clears one at a time. A write that has started can't be cancelled.
+     * Runs the copy's writes and clears one at a time. A write that has started can't be canceled.
      * A clear started during it would end first, and leave a copy on disk that is marked cleared.
      */
     private val mirrorWork = Dispatchers.IO.limitedParallelism(1)
@@ -112,9 +112,9 @@ class KolahalNotificationListener : NotificationListenerService() {
         // Access was removed or the listener was unbound. Don't leave a copy of other apps'
         // notifications on disk.
         mirrorJob?.cancel()
-        // Run it synchronously (it is one small delete), so onDestroy can't skip it by cancelling the scope.
+        // Run it synchronously (it is one small delete), so onDestroy can't skip it by canceling the scope.
         clearMirror(this)
-        // A write that has started can't be cancelled, and it may finish after that clear. So clear
+        // A write that has started can't be canceled, and it may finish after that clear. So clear
         // again after it, on the same queue, outside the scope that onDestroy cancels.
         val app = applicationContext
         afterDestroy.launch(mirrorWork) { clearMirror(app) }

@@ -146,7 +146,7 @@ class Completer(private val context: Context, private val data: Data) {
         return FirstWords(off, commandNames, aliases, names).also { firstWords = it }
     }
 
-    /** Each command's place in [history] (newest first), as [recentRanks] made it last. */
+    /** Each command's place in `history` (newest first), as [recentRanks] made it last. */
     @Volatile
     private var recent: Pair<List<String>, Map<String, Int>>? = null
 
@@ -981,7 +981,7 @@ class Completer(private val context: Context, private val data: Data) {
 
     /**
      * Contact suggestions:
-     * - `call ` lists favourites first, then everyone. Typing narrows the list by name or number.
+     * - `call ` lists favorites first, then everyone. Typing narrows the list by name or number.
      * - A name with several numbers gets one row per number, and completes to the number. So each
      *   row is different and dials the number it shows.
      * - `sms` always completes to the number, because its first word is the recipient.
@@ -1180,7 +1180,7 @@ class Completer(private val context: Context, private val data: Data) {
             "bt" to "bluetooth headphones",
             "=" to "math sum",
             "date" to "clock",
-            "theme" to "colours colors dark light",
+            "theme" to "colors colors dark light",
             "battery" to "power",
             "toggles" to "quick",
         )

@@ -57,7 +57,7 @@ object Tips {
         ),
         Tip(
             "theme",
-            "theme dracula changes the colours; settings has all of them",
+            "theme dracula changes the colors; settings has all of them",
             "theme dracula",
             setOf("theme")
         ),

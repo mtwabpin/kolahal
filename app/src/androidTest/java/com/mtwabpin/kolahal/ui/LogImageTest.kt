@@ -48,7 +48,7 @@ class LogImageTest {
 
     /**
      * Dark lines with nothing behind them, on the dark theme: the picture is on a light backdrop.
-     * A picture with a background of its own (here, all grey) has none.
+     * A picture with a background of its own (here, all gray) has none.
      */
     @Test
     fun aDarkDrawingOnADarkLogGetsABackdrop() {
@@ -70,7 +70,7 @@ class LogImageTest {
                 compose.onAllNodesWithTag("picture-backdrop").fetchSemanticsNodes().isNotEmpty()
             }
 
-            // A picture with a background of its own: all grey.
+            // A picture with a background of its own: all gray.
             val photo = "https://example.com/log-photo-${System.nanoTime()}.png"
             val photoFile = File(
                 download().parentFile,

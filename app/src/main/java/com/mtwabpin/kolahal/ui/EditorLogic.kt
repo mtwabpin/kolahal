@@ -319,9 +319,9 @@ object EditorLogic {
                 start = i + 1
                 guess = 0f
             } else {
-                guess += when {
-                    c == '\t' -> tabPx
-                    c in ' '..'~' -> cellPx
+                guess += when (c) {
+                    '\t' -> tabPx
+                    in ' '..'~' -> cellPx
                     else -> 2 * cellPx
                 }
             }
@@ -367,7 +367,7 @@ object EditorLogic {
         if (cursor > 0 && text.getOrNull(cursor - 1) in setOf('"', '\'')) name else "\"$name\""
 
     /**
-     * The language whose colours a file gets, from the ending of its [name]. Null: plain text.
+     * The language whose colors a file gets, from the ending of its [name]. Null: plain text.
      */
     fun syntaxFor(name: String): Syntax? = when (name.substringAfterLast('.', "").lowercase()) {
         "lua" -> Syntax.LUA

@@ -239,13 +239,13 @@ class AppCommandsTest {
         run("unpin Settings")
         config.set(Keys.SELECTOR_RAIL, "on")
         assertEquals(
-            listOf("Pinned Settings — it comes first in suggestions on an empty prompt, and it is a ★ favourite in the app selector"),
+            listOf("Pinned Settings — it comes first in suggestions on an empty prompt, and it is a ★ favorite in the app selector"),
             run("pin Settings"),
         )
         config.reset(Keys.SUGGEST_IDLE)
         run("unpin Settings")
         assertEquals(
-            listOf("Pinned Settings — it is a ★ favourite in the app selector"),
+            listOf("Pinned Settings — it is a ★ favorite in the app selector"),
             run("pin Settings")
         )
         assertEquals(listOf(s.key), prefs.pinned())

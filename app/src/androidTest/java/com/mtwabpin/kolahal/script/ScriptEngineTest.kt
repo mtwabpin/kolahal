@@ -379,7 +379,7 @@ class ScriptEngineTest {
         h.flush() // the worker flushes buffered lines at the end of a run
         // Its own line, not whatever came last.
         val last = logs.recent(20).last { it.kind == LogKind.SCRIPT && it.text == "hello from lua" }
-        assertEquals("https://example.com/", last.ctx.url)  // links are normalised
+        assertEquals("https://example.com/", last.ctx.url)  // links are normalized
     }
 
     @Test

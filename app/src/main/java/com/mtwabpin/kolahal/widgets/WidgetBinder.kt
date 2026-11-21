@@ -19,7 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
  * - Run the provider's configure activity, if it has one.
  * - Record the widget.
  *
- * Cancelling at any step frees the id.
+ * Canceling at any step frees the id.
  *
  * Create it before the activity starts, because it registers an activity-result launcher.
  * The configure step uses [android.appwidget.AppWidgetHost.startAppWidgetConfigureActivityForResult].
@@ -129,7 +129,7 @@ class WidgetBinder(
         if (requestCode != REQUEST_CONFIGURE) return
         val req = pending ?: return
         // Some configure activities return a different id in the result. We use the id we bound.
-        if (resultCode == Activity.RESULT_OK) finish(req) else cancel(req, "Widget setup cancelled")
+        if (resultCode == Activity.RESULT_OK) finish(req) else cancel(req, "Widget setup canceled")
     }
 
     private fun finish(req: Request) {

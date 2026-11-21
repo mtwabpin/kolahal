@@ -314,8 +314,8 @@ class HostDataTest {
     /** Text from your lists and from the web may hold style marks. A row never does: it is plain text. */
     @Test
     fun everyTextLosesItsStyles() {
-        val styled = "a " + bold("bold") + " and " + StyledText.colour(
-            StyledText.Colour.entries.first(),
+        val styled = "a " + bold("bold") + " and " + StyledText.color(
+            StyledText.ColorRole.entries.first(),
             "red"
         ) + " b"
         assertTrue(StyledText.has(styled))

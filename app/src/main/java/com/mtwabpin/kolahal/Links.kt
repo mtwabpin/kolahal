@@ -1,5 +1,5 @@
 /**
- * Manual Review - Pending
+ * Manual Review - Reviewed
  */
 package com.mtwabpin.kolahal
 

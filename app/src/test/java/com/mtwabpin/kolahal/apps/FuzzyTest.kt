@@ -71,9 +71,9 @@ class FuzzyTest {
     fun oldLaunchesFade() {
         val week = 7 * 86_400_000L
         assertEquals(25.0, AppPrefs.decayed(50.0, week), 1e-9)
-        val oldFavourite = AppPrefs.decayed(50.0, 8 * week) + 1
+        val oldFavorite = AppPrefs.decayed(50.0, 8 * week) + 1
         val daily = (0 until 30).sumOf { AppPrefs.decayed(1.0, it * 86_400_000L) }
-        assertTrue("$oldFavourite vs $daily", daily > oldFavourite * 5)
+        assertTrue("$oldFavorite vs $daily", daily > oldFavorite * 5)
     }
 
     /** The distance as a full table, as it was worked out before: [Fuzzy.slip]'s three-row version must agree. */

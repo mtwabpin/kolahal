@@ -17,6 +17,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * The words of a widget: what a card says, and what a screen reader hears. Pure, so it is unit
@@ -38,7 +39,7 @@ internal object WidgetWords {
     /** A number without a needless ".0": 9, 2.5, 3.14. At most two decimals. */
     fun num(v: Float): String {
         if (v.isNaN() || v.isInfinite()) return "–"
-        val r = Math.round(v * 100.0) / 100.0
+        val r = (v * 100.0).roundToLong() / 100.0
         return if (r == floor(r) && abs(r) < 1e15) r.toLong().toString() else r.toString()
     }
 
@@ -312,7 +313,7 @@ internal object WidgetWords {
         locale: Locale = Locale.getDefault()
     ): String {
         fun words(vararg parts: String?) = parts.filterNot { it.isNullOrBlank() }.joinToString(" ")
-        val parts = buildList<String?> {
+        val parts = buildList {
             when (spec) {
                 is WidgetSpec.Stat -> {
                     add(joined(spec.value, spec.unit))
@@ -775,7 +776,7 @@ internal object WidgetWords {
      * its time at the smallest size, and at least 48 dp. The first places are kept.
      */
     fun clockColumns(count: Int, widthDp: Int, chars: Int): Int {
-        val cell = maxOf(CONTROL_DP, Math.round(chars * DIGIT_WIDTH * CLOCK_MIN_DP + 0.5f))
+        val cell = maxOf(CONTROL_DP, (chars * DIGIT_WIDTH * CLOCK_MIN_DP + 0.5f).roundToInt())
         return ((widthDp + CONTROL_GAP_DP) / (cell + CONTROL_GAP_DP)).coerceIn(1, maxOf(1, count))
     }
 
@@ -900,7 +901,7 @@ internal object WidgetWords {
     fun seekTarget(fraction: Float, duration: Long): Long {
         if (duration <= 0) return 0
         val f = if (fraction.isNaN()) 0f else fraction.coerceIn(0f, 1f)
-        return Math.round(f.toDouble() * duration).coerceIn(0, duration)
+        return (f.toDouble() * duration).roundToLong().coerceIn(0, duration)
     }
 
     /** A bar at [fraction] of a track [duration] long, as a screen reader hears it: "1:12 of 3:05". */

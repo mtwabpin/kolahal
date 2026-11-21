@@ -14,17 +14,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
 /**
- * The built-in theme `material-you`. It takes its colours from the phone's wallpaper.
- * - Android has wallpaper colours from version 12 ([supported]). There the theme changes when
+ * The built-in theme `material-you`. It takes its colors from the phone's wallpaper.
+ * - Android has wallpaper colors from version 12 ([supported]). There the theme changes when
  *   the wallpaper does.
- * - Android 9 to 11 has none. There the theme shows Material's standard colours. The theme's card
- *   in Settings says so, and so does the `theme` command ([NOTE]).
- * The screen's code reads the colours ([com.mtwabpin.kolahal.ui.MaterialYouPalettes]).
+ * - Android 9 to 11 has none. There the theme shows Material's standard colors. The theme's card
+ *   in Settings says so, and so does the `theme` command ([note]).
+ * The screen's code reads the colors ([com.mtwabpin.kolahal.ui.MaterialYouPalettes]).
  */
 object MaterialYou {
     const val NAME = "material-you"
 
-    /** The variations: the same wallpaper colours, with a lighter, a tinted or a black background (`MaterialYouPalettes`). */
+    /** The variations: the same wallpaper colors, with a lighter, a tinted or a black background (`MaterialYouPalettes`). */
     const val SOFT = "$NAME-soft"
     const val TINTED = "$NAME-tinted"
     const val BLACK = "$NAME-black"
@@ -32,16 +32,16 @@ object MaterialYou {
     /** Every Material You theme, the plain one first. */
     val VARIANTS = listOf(NAME, SOFT, TINTED, BLACK)
 
-    /** Whether the theme [name] takes its colours from the wallpaper. */
+    /** Whether the theme [name] takes its colors from the wallpaper. */
     fun isOne(name: String?): Boolean = name in VARIANTS
 
-    /** True where the phone has wallpaper colours: Android 12 and newer. */
+    /** True where the phone has wallpaper colors: Android 12 and newer. */
     @get:ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
     val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     /** What the `theme` command says after it sets the Material You theme [name] on a phone that isn't [supported]. */
     fun note(name: String) =
-        "$name takes its colours from the wallpaper on Android 12 and newer. This phone has an older Android, so it shows Material's standard colours"
+        "$name takes its colors from the wallpaper on Android 12 and newer. This phone has an older Android, so it shows Material's standard colors"
 }
 
 /**
@@ -53,7 +53,7 @@ object MaterialYou {
  * Themes are loaded once at start ([load]). `theme.name` accepts their names next to the built-in ones.
  */
 object CustomThemes {
-    /** Colour roles, in the builder's order. */
+    /** Color roles, in the builder's order. */
     val ROLES = listOf(
         "background",
         "surface",
@@ -81,7 +81,7 @@ object CustomThemes {
     const val LIGHT = "light-"
 
     private const val DIR = "themes"
-    private val ROLE_COLOUR = Regex("\"([a-z-]+)\"\\s*:\\s*\"#([0-9a-fA-F]{6})\"")
+    private val ROLE_COLOR = Regex("\"([a-z-]+)\"\\s*:\\s*\"#([0-9a-fA-F]{6})\"")
 
     /** The light version of [colors] by role, or null when it has none (or only part of one). */
     fun light(colors: Map<String, Int>): Map<String, Int>? =
@@ -111,7 +111,7 @@ object CustomThemes {
 
     private val _themes = MutableStateFlow<Map<String, Map<String, Int>>>(emptyMap())
 
-    /** Every custom theme: name to colours (ARGB, by role). */
+    /** Every custom theme: name to colors (ARGB, by role). */
     val themes: StateFlow<Map<String, Map<String, Int>>> = _themes.asStateFlow()
 
     val names: List<String> get() = _themes.value.keys.sorted()
@@ -199,7 +199,7 @@ object CustomThemes {
      * Saves a shared theme's file ([text], named [fileName]) as one of your themes. It uses the name
      * inside the file, or else the file's name. It adds -2, -3 … when a built-in theme or one of yours
      * already has that name. Returns the name, and false when you already have the theme (the same
-     * name and colours).
+     * name and colors).
      */
     fun import(context: Context, text: String, fileName: String?): Pair<String, Boolean> {
         val colors = decode(text) ?: throw IllegalArgumentException("not a Kolahal theme")
@@ -222,9 +222,9 @@ object CustomThemes {
         .map { if (it == 1) wanted else wanted.take(24 - "-$it".length).trimEnd('-') + "-$it" }
         .first { it !in taken }
 
-    /** The colours in [text] (in [encode]'s form). Null unless every role of the dark version is there. */
+    /** The colors in [text] (in [encode]'s form). Null unless every role of the dark version is there. */
     fun decode(text: String): Map<String, Int>? {
-        val found = ROLE_COLOUR.findAll(text)
+        val found = ROLE_COLOR.findAll(text)
             .associate { it.groupValues[1] to (0xFF000000 or it.groupValues[2].toLong(16)).toInt() }
         return complete(found)
     }
@@ -232,7 +232,7 @@ object CustomThemes {
     /** "#0B0D0B", with no alpha, because themes are opaque. */
     fun hex(argb: Int): String = "#%06X".format(argb and 0xFFFFFF)
 
-    /** An opaque colour from "#0B0D0B" or "0b0d0b". Null for anything else. */
+    /** An opaque color from "#0B0D0B" or "0b0d0b". Null for anything else. */
     fun parseHex(text: String): Int? = text.trim().removePrefix("#")
         .takeIf { s -> s.length == 6 && s.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' } }
         ?.let { (0xFF000000 or it.toLong(16)).toInt() }

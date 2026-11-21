@@ -469,9 +469,9 @@ class EditorLogicTest {
         assertEquals(2, EditorLogic.lineOf(text, 99))
     }
 
-    /** A file's colours come from the ending of its name; any other file is plain text. */
+    /** A file's colors come from the ending of its name; any other file is plain text. */
     @Test
-    fun aFilesColoursComeFromItsName() {
+    fun aFilesColorsComeFromItsName() {
         assertEquals(Syntax.LUA, EditorLogic.syntaxFor("weather.lua"))
         assertEquals(Syntax.JS, EditorLogic.syntaxFor("Feeds.JS"))
         assertEquals(Syntax.JSON, EditorLogic.syntaxFor("kolahal-backup.json"))

@@ -113,7 +113,7 @@ class FeedFetcher(context: Context) {
 
     /**
      * Runs [call] asynchronously and reads the body, up to a size limit, on OkHttp's thread.
-     * Returns (body, ETag, Last-Modified), or null on 304. Cancelling the coroutine cancels the call,
+     * Returns (body, ETag, Last-Modified), or null on 304. Canceling the coroutine cancels the call,
      * which also stops a body read in progress.
      */
     private suspend fun download(call: Call): Triple<String, String?, String?>? =
@@ -121,7 +121,7 @@ class FeedFetcher(context: Context) {
             cont.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    // If the continuation was already cancelled, it ignores this.
+                    // If the continuation was already canceled, it ignores this.
                     cont.resumeWithException(e)
                 }
 

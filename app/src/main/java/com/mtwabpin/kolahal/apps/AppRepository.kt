@@ -28,9 +28,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/** The profile an app belongs to. [tag] is the short marker printed in the terminal. */
+/** The profile an app belongs to. `tag` is the short marker printed in the terminal. */
 /**
- * A kind of profile, with its tag in a list ("[W]") and the flags that pick it in a command
+ * A kind of profile, with its tag in a list (`[W]`) and the flags that pick it in a command
  * ("-w", "--work"): the same table for every command and for completion.
  */
 enum class ProfileKind(val tag: String, val label: String, val flag: String, val longFlag: String) {
@@ -461,7 +461,7 @@ class AppRepository private constructor(private val context: Context) {
      * profile. Null when Kolahal may not read shortcuts: only the default launcher can.
      */
     fun appsWithShortcuts(): Set<Pair<String, Long>>? {
-        if (runCatching { launcherApps.hasShortcutHostPermission() }.getOrDefault(false) != true) return null
+        if (!runCatching { launcherApps.hasShortcutHostPermission() }.getOrDefault(false)) return null
         val query = LauncherApps.ShortcutQuery().setQueryFlags(
             LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
                     LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
@@ -554,7 +554,7 @@ class AppRepository private constructor(private val context: Context) {
                     UserManager.USER_TYPE_PROFILE_PRIVATE -> return ProfileKind.PRIVATE
                     USER_TYPE_PROFILE_CLONE -> return ProfileKind.CLONE
                 }
-            } else if (labelledAsClone(context, user)) {
+            } else if (labeledAsClone(context, user)) {
                 return ProfileKind.CLONE
             }
             return ProfileKind.WORK
@@ -566,7 +566,7 @@ class AppRepository private constructor(private val context: Context) {
          * Android 14). Only that wording counts. A profile with any other label stays work, as before.
          */
         @SuppressLint("DiscouragedApi") // the badge's string isn't public: only its name finds it
-        private fun labelledAsClone(context: Context, user: UserHandle): Boolean = runCatching {
+        private fun labeledAsClone(context: Context, user: UserHandle): Boolean = runCatching {
             val res = android.content.res.Resources.getSystem()
             val clone = res.getIdentifier("clone_profile_label_badge", "string", "android")
             clone != 0 && context.packageManager.getUserBadgedLabel(PROBE_LABEL, user)

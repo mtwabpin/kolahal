@@ -338,9 +338,9 @@ class FeedFetcherTest {
         assertEquals("ok · 1 item", status())
     }
 
-    /** Cancelled while it waits for the server (the worker stopped): the download is dropped, and the feed's status isn't set to an error. */
+    /** Canceled while it waits for the server (the worker stopped): the download is dropped, and the feed's status isn't set to an error. */
     @Test
-    fun aCancelledFetchIsntRecordedAsAFailure() {
+    fun aCanceledFetchIsntRecordedAsAFailure() {
         val asked = CountDownLatch(1)
         val hungUp = CountDownLatch(1)
         server.answer = { c ->

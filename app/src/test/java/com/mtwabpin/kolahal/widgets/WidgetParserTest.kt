@@ -52,7 +52,7 @@ class WidgetParserTest {
                 WidgetBase(
                     title = "Pune",
                     icon = "☀️",
-                    color = StyledText.Colour.GOOD,
+                    color = StyledText.ColorRole.GOOD,
                     staleAfter = 7200,
                     refresh = 30
                 ),
@@ -129,7 +129,7 @@ class WidgetParserTest {
                         detail = "By pg",
                         trailing = "120",
                         icon = "Y",
-                        color = StyledText.Colour.WARN,
+                        color = StyledText.ColorRole.WARN,
                         tap = WidgetTap(url = "https://example.com/1")
                     ),
                     WidgetSpec.Row("Another"),
@@ -231,13 +231,13 @@ class WidgetParserTest {
         )
         assertEquals(
             WidgetSpec.Buttons(
-                WidgetBase(title = "Lights", icon = "💡", color = StyledText.Colour.WARN),
+                WidgetBase(title = "Lights", icon = "💡", color = StyledText.ColorRole.WARN),
                 items = listOf(
                     WidgetSpec.Button(
                         "On",
                         WidgetTap(args = "on", label = "Switch on"),
                         icon = "☀",
-                        color = StyledText.Colour.GOOD
+                        color = StyledText.ColorRole.GOOD
                     ),
                     WidgetSpec.Button("Docs", WidgetTap(url = "https://example.com")),
                     WidgetSpec.Button("7", WidgetTap(args = "")),
@@ -552,7 +552,7 @@ class WidgetParserTest {
                         starts = 1_800_000_000,
                         ends = 1_800_007_200,
                         where = "Pune",
-                        color = StyledText.Colour.GOOD,
+                        color = StyledText.ColorRole.GOOD,
                         tap = WidgetTap(url = "https://example.com/final")
                     ),
                     WidgetSpec.Event("Holiday", starts = 1_800_050_000, allDay = true),
@@ -923,7 +923,7 @@ class WidgetParserTest {
     fun aProgressRingOrBar() {
         assertEquals(
             WidgetSpec.Progress(
-                WidgetBase(color = StyledText.Colour.WARN),
+                WidgetBase(color = StyledText.ColorRole.WARN),
                 value = 68f,
                 max = 100f,
                 text = "68%",
@@ -1001,7 +1001,7 @@ class WidgetParserTest {
         )
         assertEquals(
             listOf(
-                WidgetSpec.Bar("Steps", 6000f, 6000f, "6k", StyledText.Colour.GOOD),
+                WidgetSpec.Bar("Steps", 6000f, 6000f, "6k", StyledText.ColorRole.GOOD),
                 WidgetSpec.Bar("Water", 3f, 6000f, null, null),
                 WidgetSpec.Bar(null, 2f, 4f, null, null),
             ),
@@ -1297,20 +1297,20 @@ class WidgetParserTest {
     }
 
     @Test
-    fun aColourIsARole() {
-        assertEquals(StyledText.Colour.BAD, stat("color" to "bad").base.color)
+    fun aColorIsARole() {
+        assertEquals(StyledText.ColorRole.BAD, stat("color" to "bad").base.color)
         assertEquals(
-            StyledText.Colour.GOOD,
+            StyledText.ColorRole.GOOD,
             list(mapOf("title" to "a", "color" to "good")).items.single().color
         )
         val roles = "accent, link, info, muted, text, good, warn, bad"
         assertEquals(
-            "widget: no colour '#ff0000'; use $roles",
+            "widget: no color '#ff0000'; use $roles",
             refused(mapOf("value" to 1, "color" to "#ff0000"))
         )
-        assertEquals("widget: no colour 7; use $roles", refused(mapOf("value" to 1, "color" to 7)))
+        assertEquals("widget: no color 7; use $roles", refused(mapOf("value" to 1, "color" to 7)))
         assertEquals(
-            "widget: item 1 of items: no colour 'pink'; use $roles",
+            "widget: item 1 of items: no color 'pink'; use $roles",
             refused(
                 mapOf("items" to listOf(mapOf("title" to "a", "color" to "pink"))),
                 WidgetKind.LIST
@@ -1747,14 +1747,14 @@ class WidgetParserTest {
         val mask = { s: String -> s.replace("SECRET", "•••") }
         val split =
             "key SEC" + StyledText.open(StyledText.Style.BOLD) + "RET" + StyledText.close(StyledText.Style.BOLD)
-        val coloured = StyledText.colour(StyledText.Colour.BAD, "SEC") + "RET"
+        val colored = StyledText.color(StyledText.ColorRole.BAD, "SEC") + "RET"
         val stat = WidgetParser.parse(
             mapOf(
                 "value" to split,
-                "title" to coloured,
+                "title" to colored,
                 "label" to split,
-                "more" to listOf(mapOf("value" to coloured, "label" to split)),
-                "tap" to mapOf("args" to split, "label" to coloured)
+                "more" to listOf(mapOf("value" to colored, "label" to split)),
+                "tap" to mapOf("args" to split, "label" to colored)
             ),
             WidgetKind.STAT, text = mask, link = { it },
         ) as WidgetSpec.Stat
@@ -1764,7 +1764,7 @@ class WidgetParserTest {
         assertEquals(listOf(WidgetSpec.Small("•••", "key •••")), stat.more)
         assertEquals(WidgetTap(args = "key •••", label = "•••"), stat.base.tap)
         val text = WidgetParser.parse(
-            mapOf("text" to "a\n$split", "caption" to coloured),
+            mapOf("text" to "a\n$split", "caption" to colored),
             WidgetKind.TEXT,
             text = mask,
             link = { it })
@@ -1773,7 +1773,7 @@ class WidgetParserTest {
             mapOf(
                 "image" to "https://example.com/a.png",
                 "alt" to split,
-                "caption" to coloured
+                "caption" to colored
             ), WidgetKind.IMAGE, text = mask, link = { it })
         assertEquals(
             WidgetSpec.Image(
@@ -1786,7 +1786,7 @@ class WidgetParserTest {
         // A zone's name too: the mask sees it without its styles, so the secret is not looked up or quoted.
         val zone = assertThrows(IllegalArgumentException::class.java) {
             WidgetParser.parse(
-                mapOf("zones" to listOf(mapOf("zone" to coloured))),
+                mapOf("zones" to listOf(mapOf("zone" to colored))),
                 WidgetKind.CLOCK,
                 text = mask,
                 link = { it })
@@ -1800,7 +1800,7 @@ class WidgetParserTest {
         WidgetParser.parse(
             mapOf(
                 "value" to StyledText.wrap(StyledText.Style.ITALIC, "v"),
-                "unit" to StyledText.tag(StyledText.Colour.GOOD, "u")
+                "unit" to StyledText.tag(StyledText.ColorRole.GOOD, "u")
             ), WidgetKind.STAT, text = { seen += it; it }, link = { it })
         assertEquals(setOf("v", "u"), seen.toSet())
         assertTrue(seen.none(StyledText::has))
@@ -1810,9 +1810,9 @@ class WidgetParserTest {
 
     private fun bold(s: String) = StyledText.wrap(StyledText.Style.BOLD, s)
     private fun italic(s: String) = StyledText.wrap(StyledText.Style.ITALIC, s)
-    private fun good(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+    private fun good(s: String) = StyledText.color(StyledText.ColorRole.GOOD, s)
 
-    /** Seven fields keep bold, italic, underline, strike and colours. They are the ones [WidgetParser.STYLED] lists. */
+    /** Seven fields keep bold, italic, underline, strike and colors. They are the ones [WidgetParser.STYLED] lists. */
     @Test
     fun aFewFieldsKeepTheirStyles() {
         val styled = "a " + bold("b") + " " + good("c")
@@ -1857,16 +1857,16 @@ class WidgetParserTest {
             ),
             WidgetParser.STYLED,
         )
-        // Underline and strike stay, and every colour role.
+        // Underline and strike stay, and every color role.
         val lines = StyledText.wrap(
             StyledText.Style.UNDERLINE,
             "U"
         ) + StyledText.wrap(StyledText.Style.STRIKE, "s")
         assertEquals(lines, stat("label" to lines).label)
-        StyledText.Colour.entries.forEach {
+        StyledText.ColorRole.entries.forEach {
             assertEquals(
-                StyledText.colour(it, "X"),
-                stat("label" to StyledText.colour(it, "X")).label
+                StyledText.color(it, "X"),
+                stat("label" to StyledText.color(it, "X")).label
             )
         }
     }
@@ -1945,7 +1945,7 @@ class WidgetParserTest {
         val text = parse(
             mapOf(
                 "text" to "see $link",
-                "caption" to StyledText.tag(StyledText.Colour.BAD, "LIVE") + " " + StyledText.wrap(
+                "caption" to StyledText.tag(StyledText.ColorRole.BAD, "LIVE") + " " + StyledText.wrap(
                     StyledText.Style.CODE,
                     "v1"
                 )
@@ -1953,7 +1953,7 @@ class WidgetParserTest {
         ) as WidgetSpec.Text
         assertEquals("see " + bold("the page"), text.text)
         assertEquals(emptyList<String>(), StyledText.linkTexts(text.text).map { it.second })
-        assertEquals(StyledText.colour(StyledText.Colour.BAD, "LIVE") + " v1", text.caption)
+        assertEquals(StyledText.color(StyledText.ColorRole.BAD, "LIVE") + " v1", text.caption)
         val table = StyledText.table(
             listOf(listOf("a", "b")),
             header = false
@@ -2080,7 +2080,7 @@ class WidgetParserTest {
         val styled = "a " + bold("b") + " " + good("c") + " " + StyledText.link(
             "https://example.com",
             "d"
-        ) + StyledText.tag(StyledText.Colour.BAD, "e")
+        ) + StyledText.tag(StyledText.ColorRole.BAD, "e")
         val specs = listOf(
             parse(
                 mapOf("text" to styled + "\n" + italic("second"), "caption" to styled),

@@ -81,7 +81,7 @@ internal fun rememberLibraryRows(
     scripts: List<Script>
 ): State<List<LibRow>?> {
     val codes = codesOf(scripts)
-    return produceState<List<LibRow>?>(null, vm.scriptActions.library, codes) {
+    return produceState(null, vm.scriptActions.library, codes) {
         value = withContext(Dispatchers.IO) {
             val library = vm.scriptActions.library
             runCatching {

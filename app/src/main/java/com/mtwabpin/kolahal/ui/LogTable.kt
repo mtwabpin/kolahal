@@ -37,9 +37,9 @@ import com.mtwabpin.kolahal.data.StyledText
 
 /**
  * A table in a script line (`fmt.table`), in the terminal font so its columns line up.
- * - `log.tables boxed` (the default): on the theme's surface colour, with lines between rows.
+ * - `log.tables boxed` (the default): on the theme's surface color, with lines between rows.
  * - `log.tables plain`: columns only.
- * The header row is muted, the cells are in the text colour with their own styles. A table wider
+ * The header row is muted, the cells are in the text color with their own styles. A table wider
  * than the line scrolls sideways, and its edge fades while there is more to see.
  */
 @Composable
@@ -100,13 +100,13 @@ internal fun LogTable(rows: List<StyledText.Row>, style: TextStyle, modifier: Mo
             remember(rows) { BooleanArray(columns) { c -> rows.any { it.cells.getOrNull(c)?.right == true } } }
         Layout(
             content = {
-                for (row in rows) for (c in 0 until columns) {
-                    val cell = row.cells.getOrNull(c)
-                    val base = SpanStyle(color = if (row.header) Term.dim else Term.fg)
+                for ((header, cells) in rows) for (c in 0 until columns) {
+                    val cell = cells.getOrNull(c)
+                    val base = SpanStyle(color = if (header) Term.dim else Term.fg)
                     RichText(
                         remember(
                             cell,
-                            row.header,
+                            header,
                             Term.palette
                         ) {
                             buildAnnotatedString {
@@ -147,7 +147,7 @@ internal fun LogTable(rows: List<StyledText.Row>, style: TextStyle, modifier: Mo
                 },
         ) { measurables, _ ->
             // A grid: each column as wide as its widest cell, each row as tall as its tallest one.
-            // Cells can differ in height (a symbol from a fallback font is taller), so each is centred in its row.
+            // Cells can differ in height (a symbol from a fallback font is taller), so each is centered in its row.
             val cells = measurables.map { it.measure(Constraints()) }
             val widths =
                 IntArray(columns) { c -> rows.indices.maxOf { r -> cells[r * columns + c].width } }

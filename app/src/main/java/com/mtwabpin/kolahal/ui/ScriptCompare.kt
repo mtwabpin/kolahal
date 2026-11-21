@@ -40,7 +40,7 @@ import kotlinx.coroutines.withContext
  * Compare: the user's copy of a library script against the library version.
  * - It shows the changed lines, each with three unchanged lines around it.
  * - Lines only in the library version are red.
- * - Lines only in the user's copy use the theme's colour.
+ * - Lines only in the user's copy use the theme's color.
  * - Other unchanged lines are only counted.
  * - Reset (or Update) is available from here.
  */
@@ -89,7 +89,7 @@ internal fun CompareDialog(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // A legend: what each colour means and how many lines have it.
+                // A legend: what each color means and how many lines have it.
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -132,7 +132,7 @@ internal fun CompareDialog(
     }
 }
 
-/** One legend entry: what a colour in Compare means. */
+/** One legend entry: what a color in Compare means. */
 @Composable
 private fun DiffKey(label: String, color: Color) {
     Surface(shape = MaterialTheme.shapes.small, color = color) {
@@ -147,7 +147,7 @@ private fun DiffKey(label: String, color: Color) {
 /**
  * One line in Compare.
  * - `-` in red: only in the library version.
- * - `+` in the theme's colour: only in the user's copy.
+ * - `+` in the theme's color: only in the user's copy.
  * - A long line wraps and stays aligned under its text.
  */
 @Composable

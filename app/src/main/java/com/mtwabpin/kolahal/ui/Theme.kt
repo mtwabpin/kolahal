@@ -50,7 +50,7 @@ data class Palette(
     val work: Color,
     val private: Color,
     /**
-     * Colours for scripts' `fmt.color`:
+     * Colors for scripts' `fmt.color`:
      * - [good]: up, done, passing.
      * - [warn]: a warning that is not an error.
      */
@@ -157,7 +157,7 @@ object Palettes {
         warn = Color(0xFFFABD2F),
     )
 
-    /** Light version of green: the same greens, but darker, on a pale green-grey background. */
+    /** Light version of green: the same greens, but darker, on a pale green-gray background. */
     val greenLight = Palette(
         bg = Color(0xFFF3F7F1),
         surface = Color(0xFFE3EBE0),
@@ -175,7 +175,7 @@ object Palettes {
         warn = Color(0xFF9A5B00),
     )
 
-    /** Light version of amber: brown and amber text on a paper-coloured background. */
+    /** Light version of amber: brown and amber text on a paper-colored background. */
     val amberLight = Palette(
         bg = Color(0xFFFFF7E8),
         surface = Color(0xFFF6E8CC),
@@ -303,7 +303,7 @@ object Palettes {
 
     /**
      * Nord (nordtheme.com): Snow Storm text on Polar Night, with Frost and Aurora accents.
-     * Nord has no muted text colour that is easy to read here. So [Palette.dim] is halfway between nord3 and nord4.
+     * Nord has no muted text color that is easy to read here. So [Palette.dim] is halfway between nord3 and nord4.
      */
     val nord = Palette(
         bg = Color(0xFF2E3440),
@@ -345,7 +345,7 @@ object Palettes {
     )
 
     /**
-     * Rosé Pine (rosepinetheme.com), its main palette, with each colour in the role Rosé Pine gives it.
+     * Rosé Pine (rosepinetheme.com), its main palette, with each color in the role Rosé Pine gives it.
      * - Text is text, and [Palette.dim] is subtle, as its terminal ports have them.
      * - Rose is the accent. Love is errors, gold is warnings and yellow, foam is info and blue (links),
      *   iris is purple, and pine is green ("affirmative signals").
@@ -394,7 +394,7 @@ object Palettes {
 
     /**
      * Built-in themes by name. Each pair is the dark version, then the light version.
-     * `material-you` is not here: its colours come from the phone ([MaterialYouPalettes]).
+     * `material-you` is not here: its colors come from the phone ([MaterialYouPalettes]).
      */
     private val BUILT_IN: Map<String, Pair<Palette, Palette>> by lazy {
         mapOf(
@@ -413,8 +413,8 @@ object Palettes {
     /**
      * Returns the [dark] or light version of a theme.
      * - The theme can be built-in or made by the user ([CustomThemes]).
-     * - `material-you` and its variations return the colours of the phone's wallpaper ([MaterialYouPalettes]).
-     * - A custom theme without a light version uses the same colours for both.
+     * - `material-you` and its variations return the colors of the phone's wallpaper ([MaterialYouPalettes]).
+     * - A custom theme without a light version uses the same colors for both.
      * - An unknown name returns green.
      */
     fun named(name: String, dark: Boolean = true): Palette {
@@ -424,14 +424,14 @@ object Palettes {
         return fromColors(if (dark) colors else CustomThemes.light(colors) ?: colors)
     }
 
-    /** Returns both versions of a theme as colours by role, in the [CustomThemes] format. The theme builder starts from this. */
+    /** Returns both versions of a theme as colors by role, in the [CustomThemes] format. The theme builder starts from this. */
     fun themeColors(name: String): Map<String, Int> {
         val dark = colorsOf(named(name, dark = true))
         val light = colorsOf(named(name, dark = false))
         return dark + light.mapKeys { CustomThemes.LIGHT + it.key }
     }
 
-    /** Turns a custom theme's colours by role ([CustomThemes.ROLES]) into a palette. */
+    /** Turns a custom theme's colors by role ([CustomThemes.ROLES]) into a palette. */
     fun fromColors(c: Map<String, Int>): Palette {
         fun role(name: String) = Color(c.getValue(name))
         return Palette(
@@ -452,7 +452,7 @@ object Palettes {
         )
     }
 
-    /** Returns a palette's colours by role. The theme builder starts from this. */
+    /** Returns a palette's colors by role. The theme builder starts from this. */
     fun colorsOf(p: Palette): Map<String, Int> = mapOf(
         "background" to p.bg,
         "surface" to p.surface,
@@ -472,7 +472,7 @@ object Palettes {
 }
 
 /**
- * The current terminal colours and text style. The values are Compose state, so a change of
+ * The current terminal colors and text style. The values are Compose state, so a change of
  * theme or font size recomposes everything that reads them.
  */
 object Term {
@@ -591,7 +591,7 @@ object Term {
 }
 
 /**
- * Copies the settings that decide how text looks into [Term]: the theme's colours, the font and
+ * Copies the settings that decide how text looks into [Term]: the theme's colors, the font and
  * its size, and how log lines are laid out.
  *
  * [Term] is one for the whole app. So each of Kolahal's windows (home, the text editor) calls this
@@ -658,7 +658,7 @@ fun androidx.compose.ui.Modifier.cutoutSafePadding(): androidx.compose.ui.Modifi
     )
 
 /**
- * Draws the page colour behind three-button navigation, over a list that scrolls under it.
+ * Draws the page color behind three-button navigation, over a list that scrolls under it.
  * Without it, the list text would show between the buttons.
  * - The gesture handle and a hidden bar (`screen.bars immersive`) take no taps, so their inset is
  *   0 here. In those cases the list still runs to the screen edge.
@@ -682,7 +682,7 @@ fun androidx.compose.ui.Modifier.navigationBarScrim(alpha: () -> Float = { 1f })
 }
 
 /**
- * The home screen background in the theme colour. When [wallpaper] is above 0 (`log.wallpaper`,
+ * The home screen background in the theme color. When [wallpaper] is above 0 (`log.wallpaper`,
  * `widgets.wallpaper`), the window lets the phone's wallpaper through. The background is then
  * drawn fainter, so the wallpaper shows through by that many percent.
  */

@@ -121,7 +121,7 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
         }
         if (conf.set(key, value)) {
             info("${key.key} = ${conf.display(key)}")
-            // Android 9 to 11 has no wallpaper colours for material-you to take. Say what it shows instead.
+            // Android 9 to 11 has no wallpaper colors for material-you to take. Say what it shows instead.
             if (key == Keys.THEME && MaterialYou.isOne(conf[Keys.THEME]) && !MaterialYou.supported) info(
                 MaterialYou.note(conf[Keys.THEME])
             )

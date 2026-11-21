@@ -92,7 +92,7 @@ class AppSessions(
             // The time of the last event read: a session ends there after a long silence, or a start-up.
             var lastEvent = from
             for (e in events) {
-                if (e.time < from || e.time >= until) continue
+                if (e.time !in from..<until) continue
                 if (front != null && e.time - lastEvent > SILENT_MS) close(awayAt ?: lastEvent)
                 val before = lastEvent
                 lastEvent = e.time

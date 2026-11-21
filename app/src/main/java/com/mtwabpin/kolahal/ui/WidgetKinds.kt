@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -98,9 +97,9 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 
-/** The colour of a widget's badge, bar and chart: its role's colour in this theme, or the accent. */
-internal fun roleColour(base: WidgetBase?): Color =
-    colourOf(base?.color ?: StyledText.Colour.ACCENT)
+/** The color of a widget's badge, bar and chart: its role's color in this theme, or the accent. */
+internal fun roleColor(base: WidgetBase?): Color =
+    colorOf(base?.color ?: StyledText.ColorRole.ACCENT)
 
 /** Height of the "+3 more" line under a list, in dp. */
 private const val MORE_DP = 20
@@ -153,7 +152,7 @@ internal fun KindBody(
 /**
  * [text] as a card draws it, with its styles ([widgetText]). Only a few fields may have styles
  * ([com.mtwabpin.kolahal.widgets.WidgetParser.STYLED]). It is made again only when the text or the
- * theme's colours change.
+ * theme's colors change.
  */
 @Composable
 internal fun cardText(text: String): AnnotatedString =
@@ -218,7 +217,7 @@ internal fun Modifier.opensList(): Modifier {
 }
 
 /**
- * A bar from 0 to 1 in [colour]. It moves to a new value on the theme's spring.
+ * A bar from 0 to 1 in [color]. It moves to a new value on the theme's spring.
  * - With [moving], and while the widgets page is in view, it is a wave that moves: something is
  *   in progress.
  * - With [wavy] it is a wave that stands still, as the mockup draws a countdown. Its wave speed is
@@ -230,12 +229,11 @@ internal fun Modifier.opensList(): Modifier {
  *   4 dp, so it has room to wave in the 10 dp container.
  * - It is not an item for a screen reader: the card's description says the value.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun LevelBar(
     fraction: Float,
     moving: Boolean,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier,
     wavy: Boolean = false
 ) {
@@ -245,19 +243,18 @@ internal fun LevelBar(
         MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "level"
     )
-    LevelBar({ shown }, moving, colour, modifier, wavy)
+    LevelBar({ shown }, moving, color, modifier, wavy)
 }
 
 /**
  * [LevelBar] at the level [level] gives while drawing, with no spring: a media slider's track,
  * which follows a finger. A level that moves draws the bar again and composes nothing.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun LevelBar(
     level: () -> Float,
     moving: Boolean,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier,
     wavy: Boolean = false
 ) {
@@ -270,8 +267,8 @@ internal fun LevelBar(
         modifier = modifier
             .fillMaxWidth()
             .clearAndSetSemantics {},
-        color = colour,
-        trackColor = colour.copy(alpha = 0.24f),
+        color = color,
+        trackColor = color.copy(alpha = 0.24f),
         stroke = stroke,
         trackStroke = stroke,
         // No dot at the track's end: the bar's end says where it stops.
@@ -342,7 +339,7 @@ internal fun BigText(
  * digits change.
  */
 @Composable
-internal fun BoldText(text: String, size: TextUnit, colour: Color, modifier: Modifier = Modifier) {
+internal fun BoldText(text: String, size: TextUnit, color: Color, modifier: Modifier = Modifier) {
     val auto = remember(size) {
         SteadyAutoSize(
             TextAutoSize.StepBased(
@@ -357,7 +354,7 @@ internal fun BoldText(text: String, size: TextUnit, colour: Color, modifier: Mod
     Text(
         text,
         modifier = modifier,
-        color = colour,
+        color = color,
         autoSize = auto,
         style = style,
         maxLines = 1,
@@ -368,7 +365,7 @@ internal fun BoldText(text: String, size: TextUnit, colour: Color, modifier: Mod
 
 /**
  * `stat`: one big value with its label.
- * - Small: the value and the label, centred.
+ * - Small: the value and the label, centered.
  * - Wide: the value with its change at the start, and a column at the end: the label over the
  *   first smaller value. The others go between them, as many as fit. A box under 150 dp has no
  *   room for that column: the label goes under the value, and a bar takes the label's place.
@@ -383,7 +380,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
         return
     }
     val type = MaterialTheme.typography
-    // Plain, or Tonal: the same layout, with chips and quiet text in the Tonal card's colours.
+    // Plain, or Tonal: the same layout, with chips and quiet text in the Tonal card's colors.
     val muted = lookColors(look).muted
     val label = spec.label ?: LocalUntitled.current
     if (box == WidgetSizes.Box.SMALL) {
@@ -405,7 +402,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
         }
         return
     }
-    val colour = roleColour(spec.base)
+    val color = roleColor(spec.base)
     val large = box == WidgetSizes.Box.LARGE
     val hasChange = spec.trend != null || spec.delta != null
     val value: @Composable (Modifier) -> Unit = { modifier ->
@@ -432,7 +429,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
             if (hasChange && !large) ChangeText(
                 spec.trend,
                 spec.delta,
-                colour,
+                color,
                 type.labelLarge,
                 Modifier
                     .padding(start = 8.dp)
@@ -457,7 +454,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                 if (hasChange) ChangeText(
                     spec.trend,
                     spec.delta,
-                    colour,
+                    color,
                     type.titleSmall,
                     Modifier.padding(start = if (label != null) 8.dp else 0.dp)
                 )
@@ -480,7 +477,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(tile)
                                     .padding(vertical = 6.dp),
-                                centred = true
+                                centered = true
                             )
                         }
                     }
@@ -499,7 +496,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     }
                 }
             }
-            spec.progress?.let { LevelBar(it, spec.moving, colour, Modifier.padding(top = 8.dp)) }
+            spec.progress?.let { LevelBar(it, spec.moving, color, Modifier.padding(top = 8.dp)) }
         }
         return
     }
@@ -572,7 +569,7 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
                     }
                 }
             }
-            spec.progress?.let { LevelBar(it, spec.moving, colour, Modifier.padding(top = 4.dp)) }
+            spec.progress?.let { LevelBar(it, spec.moving, color, Modifier.padding(top = 4.dp)) }
         }
     }
 }
@@ -581,14 +578,14 @@ private fun StatBody(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
 private val STAT_SIDE_FROM = 150.dp
 
 /**
- * A stat's change in [colour]: a drawn arrow for up or down (a text arrow for flat), then the
+ * A stat's change in [color]: a drawn arrow for up or down (a text arrow for flat), then the
  * delta in bold. The arrow is as tall as the text.
  */
 @Composable
 internal fun ChangeText(
     trend: String?,
     delta: String?,
-    colour: Color,
+    color: Color,
     style: TextStyle,
     modifier: Modifier = Modifier
 ) {
@@ -601,15 +598,15 @@ internal fun ChangeText(
         if (drawn != null) Icon(
             painterResource(drawn),
             null,
-            tint = colour,
+            tint = color,
             modifier = Modifier.size(with(LocalDensity.current) { style.fontSize.toDp() })
         )
-        else WidgetWords.arrow(trend)?.let { Text(it, style = style, color = colour, maxLines = 1) }
+        else WidgetWords.arrow(trend)?.let { Text(it, style = style, color = color, maxLines = 1) }
         delta?.let {
             Text(
                 it,
                 style = style.copy(fontWeight = FontWeight.Bold),
-                color = colour,
+                color = color,
                 maxLines = 1,
                 modifier = Modifier.padding(start = 2.dp)
             )
@@ -618,7 +615,7 @@ internal fun ChangeText(
 }
 
 /**
- * One of a stat's smaller values, over its label in [muted]. With [centred], both are centred.
+ * One of a stat's smaller values, over its label in [muted]. With [centered], both are centered.
  * - The label starts with a capital here, on a line of its own. Where a look writes it after the
  *   value on one line ("62% humidity"), it keeps the script's case.
  */
@@ -627,11 +624,11 @@ internal fun SmallValue(
     small: WidgetSpec.Small,
     muted: Color,
     modifier: Modifier = Modifier,
-    centred: Boolean = false
+    centered: Boolean = false
 ) {
     Column(
         modifier,
-        horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start
+        horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start
     ) {
         Text(
             small.value,
@@ -642,7 +639,7 @@ internal fun SmallValue(
         )
         small.label?.let {
             Text(
-                StyledText.capitalised(it),
+                StyledText.capitalized(it),
                 style = MaterialTheme.typography.labelSmall,
                 color = muted,
                 maxLines = 1,
@@ -744,23 +741,23 @@ private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                 RowList(
                     spec.items,
                     onTap,
-                    roleColour(spec.base)
+                    roleColor(spec.base)
                 )
             }
         }
 
-        lead == null -> RowList(spec.items, onTap, roleColour(spec.base))
+        lead == null -> RowList(spec.items, onTap, roleColor(spec.base))
         box != WidgetSizes.Box.LARGE -> {
             Box(
                 Modifier.fillMaxSize(),
                 contentAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.Center else Alignment.CenterStart
             ) {
-                LeadLine(lead, valueStyle(box), centred = box == WidgetSizes.Box.SMALL)
+                LeadLine(lead, valueStyle(box), centered = box == WidgetSizes.Box.SMALL)
             }
         }
 
         else -> Column(Modifier.fillMaxSize()) {
-            LeadLine(lead, MaterialTheme.typography.headlineMedium, centred = false)
+            LeadLine(lead, MaterialTheme.typography.headlineMedium, centered = false)
             if (spec.items.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 // Under a lead the rows keep their height, as the mockup's Reminders card has them.
@@ -772,7 +769,7 @@ private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
                     RowList(
                         spec.items,
                         onTap,
-                        roleColour(spec.base),
+                        roleColor(spec.base),
                         fill = false
                     )
                 }
@@ -783,10 +780,10 @@ private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
 
 /** A list's lead: the value big, its unit small, and the label under them. */
 @Composable
-private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) {
+private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centered: Boolean) {
     val type = MaterialTheme.typography
     val muted = lookColors().muted
-    Column(horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start) {
+    Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
         Row {
             BigText(
                 lead.value, style, Modifier
@@ -820,7 +817,7 @@ private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centred: Boolean) 
 
 /**
  * A list's rows, as many as fit the box, then "+3 more" ([RowsBody]). With [fill], rows that all fit
- * share the box's height. [role] is the card's colour, for the bars of rows with a range.
+ * share the box's height. [role] is the card's color, for the bars of rows with a range.
  */
 @Composable
 private fun RowList(
@@ -910,23 +907,23 @@ internal fun segmentShape(index: Int, count: Int): Shape {
 
 /** The tint of a segmented row ([segmentShape]): a little lighter than the card. */
 @Composable
-internal fun segmentColour(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+internal fun segmentColor(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
 
 /**
- * One row of a list, in its container of [shape]. Its colour is on its icon, or else on a dot at
- * its start. The text at its end is dim: the colour says what the row is, not what its number is.
+ * One row of a list, in its container of [shape]. Its color is on its icon, or else on a dot at
+ * its start. The text at its end is dim: the color says what the row is, not what its number is.
  * A row with a tap takes the press before the card does, so it hands a long-press on to the card
  * ([LocalCardLongPress]).
  *
- * A row with `done` has a checkbox at its start, in the row's colour.
+ * A row with `done` has a checkbox at its start, in the row's color.
  * - The box takes no tap of its own. A tap anywhere on the row is the row's tap, and the row is
  *   the checkbox for a screen reader.
  * - The box shows what the description says. Kolahal does not tick it on a tap: the script (or the
  *   built-in widget) shows the new state.
  *
  * With [bars], the row has its range's bar before its trailing text ([RangeSlot]). Without
- * [RangeBars.marks], its icon or its colour's dot gives way to the bar. [ends] is the room at the
- * row's ends ([listBars]). [role] is the card's colour: the bar's, when the row has none of its own.
+ * [RangeBars.marks], its icon or its color's dot gives way to the bar. [ends] is the room at the
+ * row's ends ([listBars]). [role] is the card's color: the bar's, when the row has none of its own.
  */
 @Composable
 private fun ListRow(
@@ -942,12 +939,12 @@ private fun ListRow(
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val done = row.done
-    val colour = row.color?.let { colourOf(it) }
+    val color = row.color?.let { colorOf(it) }
     val look = LocalWidgetLook.current
     // Tonal has its rows in a lighter tint of its card, and its quiet text a little brighter.
-    val colours = lookColors(look, role)
-    val muted = colours.muted
-    val tint = if (look == WidgetLook.TONAL) colours.tile else segmentColour()
+    val colors = lookColors(look, role)
+    val muted = colors.muted
+    val tint = if (look == WidgetLook.TONAL) colors.tile else segmentColor()
     val press = rowPress(row, onTap)
     val marks = bars?.marks ?: true
     Row(
@@ -963,7 +960,7 @@ private fun ListRow(
         val icon = row.icon.takeIf { marks }
         if (done != null) RowCheck(
             done,
-            colour ?: scheme.primary,
+            color ?: scheme.primary,
             Modifier.padding(start = 8.dp, end = 8.dp)
         )
         if (icon != null) {
@@ -971,17 +968,17 @@ private fun ListRow(
             WidgetIconText(
                 icon,
                 type.titleMedium,
-                colour ?: muted,
+                color ?: muted,
                 size = 18.dp,
                 modifier = Modifier.padding(end = 10.dp)
             )
-        } else if (done == null && colour != null && marks) {
+        } else if (done == null && color != null && marks) {
             Box(
                 Modifier
                     .padding(end = 10.dp)
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(colour)
+                    .background(color)
             )
         }
         Column(Modifier.weight(1f)) {
@@ -1007,8 +1004,8 @@ private fun ListRow(
             RangeSlot(
                 row,
                 bars,
-                colour ?: role,
-                tint.compositeOver(colours.card),
+                color ?: role,
+                tint.compositeOver(colors.card),
                 type.labelLarge,
                 muted
             )
@@ -1035,7 +1032,7 @@ private val RANGE_ROW_PAD = 8.dp
 /**
  * The bars of a Plain or Tonal list's [rows], in rows [width] wide ([RangeBars]), and the room at a
  * row's ends with them.
- * - A checkbox takes 34 dp from a row's start, and stays. An icon takes 28 dp more and a colour's
+ * - A checkbox takes 34 dp from a row's start, and stays. An icon takes 28 dp more and a color's
  *   dot 18: those give way to the bars.
  * - Less room at the ends ([RANGE_ROW_PAD]) comes before the icons give way.
  * - Without bars, the rows keep [ROW_PAD].
@@ -1147,13 +1144,13 @@ internal fun iconWidth(rows: List<WidgetSpec.Row>, style: TextStyle): Dp {
 /**
  * A row's place for its range ([RangeBars]): its bar, or the room for one when the row has none, then
  * its trailing text in [style] and [muted], at the end of the column the rows share for those.
- * [colour] is the bar's, and [under] the colour beneath it, for the ring around a value's dot.
+ * [color] is the bar's, and [under] the color beneath it, for the ring around a value's dot.
  */
 @Composable
 internal fun RangeSlot(
     row: WidgetSpec.Row,
     bars: RangeBars,
-    colour: Color,
+    color: Color,
     under: Color,
     style: TextStyle,
     muted: Color
@@ -1164,7 +1161,7 @@ internal fun RangeSlot(
             .padding(start = gap)
             .width(bars.bar)
     ) {
-        row.range?.let { RangeBar(it, bars.scale, colour, under, Modifier.fillMaxWidth()) }
+        row.range?.let { RangeBar(it, bars.scale, color, under, Modifier.fillMaxWidth()) }
     }
     if (bars.trailing > 0.dp) {
         Box(
@@ -1195,9 +1192,9 @@ private val RANGE_RING = 2.dp
 
 /**
  * One row's [range] on its list's [scale] ([WidgetWords.rangePlace]): a capsule from its low to its
- * high, on a track as long as the scale. Both are [RANGE_LINE] thick with round ends, in [colour]
+ * high, on a track as long as the scale. Both are [RANGE_LINE] thick with round ends, in [color]
  * on a lighter tone of it.
- * - A value is a dot in [colour], with a ring in [under] (the colour beneath the bar), so it stays
+ * - A value is a dot in [color], with a ring in [under] (the color beneath the bar), so it stays
  *   clear of the capsule, as a chart's last point does ([Plot]).
  * - A range of one number is as long as the line is thick, so it still shows.
  * - Right to left, the scale runs from the right.
@@ -1207,7 +1204,7 @@ private val RANGE_RING = 2.dp
 internal fun RangeBar(
     range: WidgetSpec.Range,
     scale: Pair<Float, Float>,
-    colour: Color,
+    color: Color,
     under: Color,
     modifier: Modifier = Modifier
 ) {
@@ -1223,7 +1220,7 @@ internal fun RangeBar(
         val round = CornerRadius(line / 2)
         fun x(f: Float) = size.width * (if (rtl) 1f - f else f)
         drawRoundRect(
-            colour.copy(alpha = 0.24f),
+            color.copy(alpha = 0.24f),
             Offset(0f, y - line / 2),
             Size(size.width, line),
             round
@@ -1232,11 +1229,11 @@ internal fun RangeBar(
         val b = maxOf(x(place.start), x(place.end))
         val length = maxOf(b - a, line).coerceAtMost(size.width)
         val from = ((a + b - length) / 2).coerceIn(0f, size.width - length)
-        drawRoundRect(colour, Offset(from, y - line / 2), Size(length, line), round)
+        drawRoundRect(color, Offset(from, y - line / 2), Size(length, line), round)
         place.value?.let { v ->
             val dot = Offset(x(v), y)
             drawCircle(under, radius = RANGE_DOT.toPx() / 2 + RANGE_RING.toPx(), center = dot)
-            drawCircle(colour, radius = RANGE_DOT.toPx() / 2, center = dot)
+            drawCircle(color, radius = RANGE_DOT.toPx() / 2, center = dot)
         }
     }
 }
@@ -1286,10 +1283,10 @@ internal fun rowPress(row: WidgetSpec.Row, onTap: ((WidgetTap) -> Unit)?): Modif
  */
 @Composable
 private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
-    val colour = roleColour(spec.base)
+    val color = roleColor(spec.base)
     val look = LocalWidgetLook.current
     when {
-        look.untitled() -> ProgressLook(spec, box, look, colour)
+        look.untitled() -> ProgressLook(spec, box, look, color)
         spec.items.isNotEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // Each bar says what it is: a large card says what they are together over them, as a list does ("Disk").
             CardName(Modifier.padding(bottom = 8.dp))
@@ -1297,27 +1294,26 @@ private fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-            ) { BarsBody(spec, colour) }
+            ) { BarsBody(spec, color) }
         }
 
-        spec.items.isNotEmpty() -> BarsBody(spec, colour)
+        spec.items.isNotEmpty() -> BarsBody(spec, color)
         spec.style == "ring" || (spec.style != "bar" && box != WidgetSizes.Box.WIDE) -> RingBody(
             spec,
             box,
-            colour
+            color
         )
 
-        else -> BarBody(spec, box, colour)
+        else -> BarBody(spec, box, color)
     }
 }
 
 /**
- * A ring from 0 to 1 in [colour], [side] across. It moves to a new value on the theme's spring.
+ * A ring from 0 to 1 in [color], [side] across. It moves to a new value on the theme's spring.
  * Like [LevelBar], it is a wave only with [moving] and in view, and it is no item for a screen reader.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
+internal fun Ring(fraction: Float, moving: Boolean, color: Color, side: Dp) {
     val shown by animateFloatAsState(
         fraction,
         MaterialTheme.motionScheme.defaultSpatialSpec(),
@@ -1336,8 +1332,8 @@ internal fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
         modifier = Modifier
             .size(side)
             .clearAndSetSemantics {},
-        color = colour,
-        trackColor = colour.copy(alpha = 0.24f),
+        color = color,
+        trackColor = color.copy(alpha = 0.24f),
         stroke = stroke,
         trackStroke = stroke,
         amplitude = if (wave) WavyProgressIndicatorDefaults.indicatorAmplitude else STILL,
@@ -1349,13 +1345,13 @@ internal fun Ring(fraction: Float, moving: Boolean, colour: Color, side: Dp) {
 /**
  * The ring.
  * - Small and large: as big as the box allows, with its text inside. Large has the label under it,
- *   in bold and in the card's colour.
+ *   in bold and in the card's color.
  * - Wide: the ring at the start. With no title line ([LocalUntitled]), as the mockup has it: the
  *   text inside the ring, and the title in bold beside it over the label. With a title line: the
  *   text and the label beside the ring.
  */
 @Composable
-private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val tonal = LocalWidgetLook.current == WidgetLook.TONAL
     val muted = lookColors().muted
@@ -1372,7 +1368,7 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 if (untitled != null) {
                     Box(Modifier.size(side), contentAlignment = Alignment.Center) {
-                        Ring(fraction, spec.moving, colour, side)
+                        Ring(fraction, spec.moving, color, side)
                         BigText(
                             text,
                             if (side >= 96.dp) type.titleLarge else type.titleSmall,
@@ -1394,7 +1390,7 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
                         spec.label?.let { RingLabel(it, spec.labelIcon, type.bodyMedium, muted) }
                     }
                 } else {
-                    Ring(fraction, spec.moving, colour, side)
+                    Ring(fraction, spec.moving, color, side)
                     Column(
                         Modifier
                             .padding(start = 12.dp)
@@ -1412,7 +1408,7 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
             val side = min(maxWidth, maxHeight - labelRoom).coerceAtLeast(24.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(side), contentAlignment = Alignment.Center) {
-                    Ring(fraction, spec.moving, colour, side)
+                    Ring(fraction, spec.moving, color, side)
                     // The text stays clear of the ring's line, which is an eighth of the side.
                     BigText(
                         text,
@@ -1420,14 +1416,14 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
                         Modifier.padding(horizontal = side / 5)
                     )
                 }
-                // The label in bold and in the card's colour, as the mockup has it: it says what the number means.
-                // On Tonal's card of that colour it is in the text colour.
+                // The label in bold and in the card's color, as the mockup has it: it says what the number means.
+                // On Tonal's card of that color it is in the text color.
                 if (label != null) {
                     RingLabel(
                         label,
                         spec.labelIcon,
                         type.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        if (tonal) MaterialTheme.colorScheme.onSurface else colour,
+                        if (tonal) MaterialTheme.colorScheme.onSurface else color,
                         Modifier
                             .height(labelRoom)
                             .wrapContentHeight()
@@ -1438,29 +1434,29 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Co
     }
 }
 
-/** A ring's label in [style] and [colour], after its [icon] (a drawable) when it has one: the Battery card's network. */
+/** A ring's label in [style] and [color], after its [icon] (a drawable) when it has one: the Battery card's network. */
 @Composable
 internal fun RingLabel(
     label: String,
     icon: Int?,
     style: TextStyle,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) {
-            // As tall as the text's font size, in the text's colour.
+            // As tall as the text's font size, in the text's color.
             val side = with(LocalDensity.current) { style.fontSize.toDp() }
             Icon(
                 painterResource(icon),
                 contentDescription = null,
-                tint = colour,
+                tint = color,
                 modifier = Modifier
                     .padding(end = 6.dp)
                     .size(side)
             )
         }
-        Text(label, style = style, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1469,7 +1465,7 @@ internal fun RingLabel(
  * the bar at its bottom; the others have both in the middle.
  */
 @Composable
-private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Color) {
+private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val large = box == WidgetSizes.Box.LARGE
     Column(
         Modifier.fillMaxSize(),
@@ -1500,7 +1496,7 @@ private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colour: Col
         LevelBar(
             WidgetWords.fraction(spec.value, spec.max),
             spec.moving,
-            colour,
+            color,
             Modifier.padding(top = 4.dp)
         )
     }
@@ -1514,10 +1510,10 @@ private const val BAR_DP = 14
 
 /**
  * Several bars. Each has its label and its text over it when the box is tall enough for all of
- * them. A lower box draws the bars alone, as many as fit. A bar's own colour wins over the card's.
+ * them. A lower box draws the bars alone, as many as fit. A bar's own color wins over the card's.
  */
 @Composable
-private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
+private fun BarsBody(spec: WidgetSpec.Progress, color: Color) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val muted = lookColors().muted
@@ -1548,7 +1544,7 @@ private fun BarsBody(spec: WidgetSpec.Progress, colour: Color) {
                         LevelBar(
                             WidgetWords.fraction(bar.value, bar.max),
                             spec.moving,
-                            bar.color?.let { colourOf(it) } ?: colour)
+                            bar.color?.let { colorOf(it) } ?: color)
                     }
                 }
             }
@@ -1637,7 +1633,7 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
         if (!small && !large && bar != null && label != null) {
             // A wide card's bar takes the line under the number: the label goes at the end of the number's line.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { CountdownValue(count, large, box) }
+                Box(Modifier.weight(1f)) { CountdownValue(count, large = false, box) }
                 Text(
                     label,
                     style = type.bodySmall,
@@ -1670,7 +1666,7 @@ private fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
             LevelBar(
                 fraction,
                 moving = false,
-                roleColour(spec.base),
+                roleColor(spec.base),
                 Modifier.padding(top = 4.dp),
                 wavy = true
             )
@@ -1702,7 +1698,7 @@ private fun CountdownValue(count: State<WidgetWords.Count>, large: Boolean, box:
     val now = count.value
     Row {
         BigText(
-            StyledText.capitalised(now.value),
+            StyledText.capitalized(now.value),
             if (large) type.displayMedium else valueStyle(box),
             Modifier
                 .weight(1f, fill = false)
@@ -1737,24 +1733,24 @@ private fun CountdownValue(count: State<WidgetWords.Count>, large: Boolean, box:
 @Composable
 private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val colour = roleColour(spec.base)
+    val color = roleColor(spec.base)
     val look = LocalWidgetLook.current
     if (look.untitled()) {
-        ChartLook(spec, box, look, colour)
+        ChartLook(spec, box, look, color)
         return
     }
     if (spec.style == "dots") {
-        DotsBody(spec, box, colour)
+        DotsBody(spec, box, color)
         return
     }
-    val colours = lookColors(look, colour)
-    val muted = colours.muted
+    val colors = lookColors(look, color)
+    val muted = colors.muted
     val bars = spec.style == "bars"
     val value = spec.value
     // With no label, the card's name says what the chart is.
     val label = spec.label ?: LocalUntitled.current
-    // The ring around the line's last dot is in the card's colour.
-    val surface = colours.card
+    // The ring around the line's last dot is in the card's color.
+    val surface = colors.card
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // The value on its own line with its label under it, as a stat has them.
@@ -1771,7 +1767,7 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
                 bars,
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -1817,7 +1813,7 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
                 bars,
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -1835,7 +1831,7 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
                 bars,
                 spec.min,
                 spec.max,
-                colour,
+                color,
                 Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -1846,15 +1842,15 @@ private fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
 }
 
 /**
- * The plot of a chart, on a Canvas, in [colour]. There is no chart library.
+ * The plot of a chart, on a Canvas, in [color]. There is no chart library.
  * - A line is 2 dp, with a wash under it. A dot marks the latest point. The dot has a ring in
- *   the card's colour, so it stays clear of the line.
+ *   the card's color, so it stays clear of the line.
  * - A bar is at most 24 dp thick, with 4 dp between bars (less when there are many). The latest
- *   bar is in full colour, the others lighter. A bar is round at its top and square at the
+ *   bar is in full color, the others lighter. A bar is round at its top and square at the
  *   baseline, which is a hairline.
  * - The scale is [min] to [max], or what the data gives ([WidgetWords.scale]). A value outside the
  *   scale is drawn at its edge.
- * - [surface] is the colour under the plot, for the dot's ring.
+ * - [surface] is the color under the plot, for the dot's ring.
  */
 @Composable
 internal fun Plot(
@@ -1862,7 +1858,7 @@ internal fun Plot(
     bars: Boolean,
     min: Float?,
     max: Float?,
-    colour: Color,
+    color: Color,
     modifier: Modifier = Modifier,
     surface: Color = MaterialTheme.colorScheme.surfaceContainerHigh
 ) {
@@ -1881,7 +1877,7 @@ internal fun Plot(
             val gap = minOf(4.dp.toPx(), slot / 3)
             val thick = (slot - gap).coerceIn(1f, 24.dp.toPx())
             val round = CornerRadius(minOf(5.dp.toPx(), thick / 2))
-            // The latest bar is in full colour, the others lighter: the latest value is the news.
+            // The latest bar is in full color, the others lighter: the latest value is the news.
             val before = Path()
             val latest = Path()
             points.forEachIndexed { i, v ->
@@ -1899,8 +1895,8 @@ internal fun Plot(
                     )
                 )
             }
-            drawPath(before, colour.copy(alpha = 0.4f))
-            drawPath(latest, colour)
+            drawPath(before, color.copy(alpha = 0.4f))
+            drawPath(latest, color)
             drawLine(
                 hairline,
                 Offset(0f, size.height),
@@ -1928,26 +1924,26 @@ internal fun Plot(
                 }
                 wash.lineTo(right, size.height)
                 wash.close()
-                drawPath(wash, colour.copy(alpha = 0.2f))
+                drawPath(wash, color.copy(alpha = 0.2f))
                 drawPath(
                     path,
-                    colour,
+                    color,
                     style = Stroke(width = line, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
             }
             val end = Offset(x(points.lastIndex), y(points.last()))
             drawCircle(surface, radius = dot + line, center = end)
-            drawCircle(colour, radius = dot, center = end)
+            drawCircle(color, radius = dot, center = end)
         }
     }
 }
 
 /**
  * A row's checkbox, as the mockup draws it: a rounded square, 18 dp. Open: an outline in the
- * quiet text colour. Done: filled with [colour], with a check. The row says its state to a screen reader.
+ * quiet text color. Done: filled with [color], with a check. The row says its state to a screen reader.
  */
 @Composable
-internal fun RowCheck(done: Boolean, colour: Color, modifier: Modifier = Modifier) {
+internal fun RowCheck(done: Boolean, color: Color, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(5.dp)
     val scheme = MaterialTheme.colorScheme
     Box(
@@ -1955,7 +1951,7 @@ internal fun RowCheck(done: Boolean, colour: Color, modifier: Modifier = Modifie
             .size(18.dp)
             .clip(shape)
             .then(
-                if (done) Modifier.background(colour) else Modifier.border(
+                if (done) Modifier.background(color) else Modifier.border(
                     2.dp,
                     scheme.onSurfaceVariant,
                     shape

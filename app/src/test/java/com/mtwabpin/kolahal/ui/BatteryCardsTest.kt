@@ -54,18 +54,18 @@ class BatteryCardsTest {
     }
 
     @Test
-    fun theColourSaysChargingAndLow() {
+    fun theColorSaysChargingAndLow() {
         assertNull("the theme's accent", BatteryCards.spec(status(82)).base.color)
         assertNull(BatteryCards.spec(status(16)).base.color)
-        assertEquals(StyledText.Colour.BAD, BatteryCards.spec(status(15)).base.color)
-        assertEquals(StyledText.Colour.BAD, BatteryCards.spec(status(0)).base.color)
+        assertEquals(StyledText.ColorRole.BAD, BatteryCards.spec(status(15)).base.color)
+        assertEquals(StyledText.ColorRole.BAD, BatteryCards.spec(status(0)).base.color)
         // On power wins over low, as in the header.
         assertEquals(
-            StyledText.Colour.GOOD,
+            StyledText.ColorRole.GOOD,
             BatteryCards.spec(status(5, charging = true)).base.color
         )
         assertEquals(
-            StyledText.Colour.GOOD,
+            StyledText.ColorRole.GOOD,
             BatteryCards.spec(status(100, charging = true)).base.color
         )
     }
@@ -86,7 +86,7 @@ class BatteryCardsTest {
         assertEquals(0f, spec.value, 0f)
         assertEquals("–", spec.text)
         assertEquals("Offline", spec.label)
-        assertEquals(StyledText.Colour.MUTED, spec.base.color)
+        assertEquals(StyledText.ColorRole.MUTED, spec.base.color)
         assertEquals(
             "Battery: level unknown, Offline",
             BatteryCards.said(status(null, network = "offline"))

@@ -15,7 +15,7 @@ import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.script.ApiDocs
 
 /**
- * The colours a text gets in the editor: a script language's, or JSON's.
+ * The colors a text gets in the editor: a script language's, or JSON's.
  * - [script]: the script language whose keywords it uses. JSON has none.
  */
 enum class Syntax(val script: ScriptLang?) {
@@ -35,7 +35,7 @@ enum class Syntax(val script: ScriptLang?) {
  * A cache of tokens per line, keyed by the line's text. When the user types, only the edited line
  * is matched again, not the whole script.
  * - Each token is (start, end, kind), with offsets inside its line.
- * - The editor keeps one per language, so a new [SyntaxHighlighter] (for a new coloured window)
+ * - The editor keeps one per language, so a new [SyntaxHighlighter] (for a new colored window)
  *   starts with the tokens already found.
  */
 internal class LineTokens(val syntax: Syntax) {
@@ -55,7 +55,7 @@ internal class LineTokens(val syntax: Syntax) {
      * The cache limit is the number of characters, not the number of lines. Why:
      * - Typing on a line stores a new copy of it at every key. The oldest copies are removed first,
      *   and the script's own lines are used at every key, so they stay.
-     * - With a line count limit, a script with more lines than the limit had every line tokenised
+     * - With a line count limit, a script with more lines than the limit had every line tokenized
      *   again at each key.
      */
     private val lineTokens = Kept(KEPT_CHARS)
@@ -69,7 +69,7 @@ internal class LineTokens(val syntax: Syntax) {
     /** Total characters of the cached lines. Used by tests. */
     internal val keptChars: Long get() = lineTokens.chars + longLines.chars
 
-    /** Returns the tokens of [line], from the cache or tokenised now. */
+    /** Returns the tokens of [line], from the cache or tokenized now. */
     fun of(line: String): IntArray =
         (if (line.length > LONG_LINE) longLines else lineTokens).getOrPut(line) { tokenize(line) }
 
@@ -79,6 +79,8 @@ internal class LineTokens(val syntax: Syntax) {
         var chars = 0L
             private set
 
+        // `e.key === line` is deliberate: it is the very line just added, which must not be evicted.
+        @Suppress("StringReferentialEquality")
         fun getOrPut(line: String, make: () -> IntArray): IntArray {
             map[line]?.let { return it }
             val tokens = make()
@@ -100,10 +102,10 @@ internal class LineTokens(val syntax: Syntax) {
 
     /**
      * JSON has no keywords or comments, so its kinds mean other things:
-     * - a key takes the keyword colour, so the shape of the data stands out;
-     * - a string value takes the string colour;
-     * - a number, true, false and null take the number colour: they are all plain values.
-     * The colon after a key is not coloured.
+     * - a key takes the keyword color, so the shape of the data stands out;
+     * - a string value takes the string color;
+     * - a number, true, false and null take the number color: they are all plain values.
+     * The colon after a key is not colored.
      */
     private fun tokenizeJson(line: String): IntArray {
         val out = ArrayList<Int>()
@@ -154,15 +156,15 @@ internal class LineTokens(val syntax: Syntax) {
 }
 
 /**
- * Colours code in the editor: comments, strings, numbers and keywords.
- * - Find matches and a flashed line are not colours: the editor draws them behind the text
+ * Colors code in the editor: comments, strings, numbers and keywords.
+ * - Find matches and a flashed line are not colors: the editor draws them behind the text
  *   (EditorMarks), so a jump to the next match does not lay the whole text out again.
- * - A line longer than [MAX_COLOURED_LINE] (minified JSON or code) is not coloured. It would be
- *   tokenised again at every key, and its thousands of colours make its layout slow.
+ * - A line longer than [MAX_COLORED_LINE] (minified JSON or code) is not colored. It would be
+ *   tokenized again at every key, and its thousands of colors make its layout slow.
  * - Plain text has no language and gets no highlighter: the editor uses no transformation then.
  *
- * If [window] is set, only those lines (counted from 0) are coloured. It is used for the lines
- * around the visible part of a big script, because the colours cost several times the text itself
+ * If [window] is set, only those lines (counted from 0) are colored. It is used for the lines
+ * around the visible part of a big script, because the colors cost several times the text itself
  * to lay out at every key.
  */
 internal class SyntaxHighlighter(
@@ -170,7 +172,7 @@ internal class SyntaxHighlighter(
     private val tokens: LineTokens = LineTokens(lang),
     private val window: IntRange? = null,
 ) : VisualTransformation {
-    // The theme this was made for. A text field colours again only when the new highlighter is not equal to the last one.
+    // The theme this was made for. A text field colors again only when the new highlighter is not equal to the last one.
     private val palette = Term.palette
     private val js = lang == Syntax.JS
 
@@ -182,16 +184,16 @@ internal class SyntaxHighlighter(
 
     override fun filter(text: AnnotatedString): TransformedText {
         last?.let { if (text == lastText && Term.palette == lastPalette) return it }
-        return colour(text).also {
+        return color(text).also {
             lastText = text
             lastPalette = Term.palette
             last = it
         }
     }
 
-    private fun colour(text: AnnotatedString): TransformedText {
+    private fun color(text: AnnotatedString): TransformedText {
         val src = text.text
-        // A big script is coloured without italic comments and bold keywords. Their layout cost grows
+        // A big script is colored without italic comments and bold keywords. Their layout cost grows
         // with their number. On the emulator, per key: 8 KB took 48 ms with them and 13 ms without;
         // 20 KB took 162 ms and 32 ms.
         val plain = src.length > PLAIN_FROM
@@ -212,7 +214,7 @@ internal class SyntaxHighlighter(
                 val lineEnd = src.indexOf('\n', lineStart).let { if (it < 0) src.length else it }
                 if (window == null || line in window) {
                     if (from < 0) from = lineStart
-                    if (lineEnd - lineStart <= MAX_COLOURED_LINE) {
+                    if (lineEnd - lineStart <= MAX_COLORED_LINE) {
                         val t = tokens.of(src.substring(lineStart, lineEnd))
                         for (i in t.indices step 3) addStyle(
                             styles[t[i + 2]],
@@ -242,11 +244,11 @@ internal class SyntaxHighlighter(
     }
 
     companion object {
-        /** Above this length (about 200 lines), code gets colours only, with no italic or bold. */
+        /** Above this length (about 200 lines), code gets colors only, with no italic or bold. */
         private const val PLAIN_FROM = 8_000
 
-        /** A line longer than this gets no colours. */
-        const val MAX_COLOURED_LINE = 5_000
+        /** A line longer than this gets no colors. */
+        const val MAX_COLORED_LINE = 5_000
     }
 
     override fun equals(other: Any?) =

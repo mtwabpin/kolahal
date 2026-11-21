@@ -236,7 +236,7 @@ internal fun WidgetCard(
             Modifier.semantics(mergeDescendants = true) {}
         }
         val look = drawnLook(LocalWidgetLook.current, spec, note, footer)
-        val colours = lookColors(look, roleColour(spec?.base))
+        val colors = lookColors(look, roleColor(spec?.base))
         // The Shape look in a square box: the card is one Material shape, and the body sits in it.
         val polygon = if (look == WidgetLook.SHAPE && squareBox(
                 widthDp,
@@ -247,8 +247,8 @@ internal fun WidgetCard(
         val bare = look == WidgetLook.SPLIT || polygon != null
         val side = min(maxWidth, maxHeight)
         Surface(
-            color = if (bare) Color.Transparent else colours.card,
-            contentColor = colours.content,
+            color = if (bare) Color.Transparent else colors.card,
+            contentColor = colors.content,
             shape = if (bare) RectangleShape else RoundedCornerShape(if (box == WidgetSizes.Box.SMALL) 24.dp else 28.dp),
             modifier = Modifier
                 .fillMaxSize()
@@ -278,7 +278,7 @@ internal fun WidgetCard(
                             onTap,
                             stamp,
                             look,
-                            colours
+                            colors
                         )
                     }
                 }
@@ -307,7 +307,7 @@ private fun drawnLook(
 }
 
 /**
- * A card that is one Material shape ([cardPolygon]), [side] across, centred in its box. The shape
+ * A card that is one Material shape ([cardPolygon]), [side] across, centered in its box. The shape
  * is filled with the role's container; a single progress has an empty clover, which its body fills
  * up to the level. The body draws a few short lines in it ([LocalCardShaped]), with the title from
  * [LocalUntitled]. The shape clips the body, so a fill keeps to it.
@@ -327,7 +327,7 @@ private fun ShapedCard(
     val fill =
         if (spec is WidgetSpec.Progress) MaterialTheme.colorScheme.surfaceContainerHighest else lookColors(
             WidgetLook.SHAPE,
-            roleColour(spec.base)
+            roleColor(spec.base)
         ).shapeFill
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // A little smaller than the box: the shape's points stay clear of the next card.
@@ -364,7 +364,7 @@ private fun CardLayout(
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
     look: WidgetLook,
-    colours: LookColors,
+    colors: LookColors,
 ) {
     // A cropped picture covers the card. With a note (loading, failed) the card has its usual frame.
     if (spec is WidgetSpec.Image && spec.fit != "fit" && note == null && box != WidgetSizes.Box.SMALL) {
@@ -397,7 +397,7 @@ private fun CardLayout(
                     )
                 }
             }
-            FootLine(spec?.base?.takeIf { note == null }, footer, colours.muted)
+            FootLine(spec?.base?.takeIf { note == null }, footer, colors.muted)
         }
 
         WidgetSizes.Box.WIDE -> Box(
@@ -436,7 +436,7 @@ private fun CardLayout(
 
 /**
  * A large card's last line: the script's note ([WidgetBase.note], "Done today", in the card's
- * colour), then the content's age or "Failed 10:42" ([FooterLine]) in [muted]. Nothing without either.
+ * color), then the content's age or "Failed 10:42" ([FooterLine]) in [muted]. Nothing without either.
  */
 @Composable
 private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Color) {
@@ -452,7 +452,7 @@ private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Colo
             Text(
                 note,
                 style = MaterialTheme.typography.labelMedium,
-                color = roleColour(base),
+                color = roleColor(base),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
@@ -460,8 +460,8 @@ private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Colo
         }
         if (footer != null) FooterLine(
             footer,
-            muted,
-            Modifier.padding(start = if (note != null) 8.dp else 0.dp)
+            Modifier.padding(start = if (note != null) 8.dp else 0.dp),
+            muted
         )
     }
 }
@@ -506,7 +506,7 @@ private fun UntitledLayout(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .fillMaxHeight(level)
-                    .background(roleContainer(roleColour(spec.base)))
+                    .background(roleContainer(roleColor(spec.base)))
             )
         }
         Box(
@@ -580,18 +580,18 @@ private fun BleedImageCard(
 
 /**
  * The card's small line: the age of its content, or "Failed 10:42". A failure is in the error
- * colour, and its words say it too. An age is in the card's quiet text [colour].
+ * color, and its words say it too. An age is in the card's quiet text [color].
  */
 @Composable
 private fun FooterLine(
     footer: WidgetWords.Footer,
-    colour: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     Text(
         footer.text,
         style = MaterialTheme.typography.labelSmall,
-        color = if (footer.failed) MaterialTheme.colorScheme.error else colour,
+        color = if (footer.failed) MaterialTheme.colorScheme.error else color,
         maxLines = 1,
         modifier = modifier,
     )
@@ -609,8 +609,8 @@ private fun CardBody(
     stamp: Long
 ) {
     val small = box == WidgetSizes.Box.SMALL
-    when {
-        note == CardNote.LOADING -> Named(small) {
+    when (note) {
+        CardNote.LOADING -> Named(small) {
             // The shape changes form for as long as it is drawn. So it is drawn only while the card can be seen.
             // The card's description says "loading", so the shape itself is no item for a screen reader.
             if (cardSeen()) LoadingIndicator(
@@ -619,13 +619,15 @@ private fun CardBody(
                     .clearAndSetSemantics {})
         }
 
-        note == CardNote.FAILED -> NoteLine(failure ?: WidgetWords.NOTHING, small)
-        note == CardNote.NOTHING -> NoteLine(WidgetWords.NOTHING, small)
-        note == CardNote.UNAVAILABLE -> NoteLine(WidgetWords.UNAVAILABLE, small)
-        note == CardNote.REMOVED -> NoteLine(WidgetWords.REMOVED, small)
-        note == CardNote.OFF -> NoteLine(WidgetWords.OFF, small)
-        note == CardNote.NO_WIDGET -> NoteLine(WidgetWords.NO_WIDGET, small)
-        note == null && spec != null -> KindBody(spec, box, onTap, stamp)
+        CardNote.FAILED -> NoteLine(failure ?: WidgetWords.NOTHING, small)
+        CardNote.NOTHING -> NoteLine(WidgetWords.NOTHING, small)
+        CardNote.UNAVAILABLE -> NoteLine(WidgetWords.UNAVAILABLE, small)
+        CardNote.REMOVED -> NoteLine(WidgetWords.REMOVED, small)
+        CardNote.OFF -> NoteLine(WidgetWords.OFF, small)
+        CardNote.NO_WIDGET -> NoteLine(WidgetWords.NO_WIDGET, small)
+        null -> if (spec != null) KindBody(spec, box, onTap, stamp)
+
+        else -> {}
     }
 }
 
@@ -974,7 +976,7 @@ private fun ScriptWidget(
 
 /** The Battery and network card's pure parts: what it draws and says for the device's [Status]. */
 internal object BatteryCards {
-    /** At this level and under it, the ring is in the "bad" colour, as the header's battery is. */
+    /** At this level and under it, the ring is in the "bad" color, as the header's battery is. */
     const val LOW = 15
 
     /**
@@ -1015,18 +1017,18 @@ internal object BatteryCards {
     /**
      * The card: the level as a ring with the percent, and the network as its label, with its icon.
      * - The ring stands still, also while charging. A wave would say "working".
-     * - The colour says what a 1×1 card has no words for: good while on power, bad when low.
+     * - The color says what a 1×1 card has no words for: good while on power, bad when low.
      */
     fun spec(status: Status): WidgetSpec.Progress {
         val level = level(status)
-        val colour = when {
-            level == null -> StyledText.Colour.MUTED
-            status.charging -> StyledText.Colour.GOOD
-            level <= LOW -> StyledText.Colour.BAD
+        val color = when {
+            level == null -> StyledText.ColorRole.MUTED
+            status.charging -> StyledText.ColorRole.GOOD
+            level <= LOW -> StyledText.ColorRole.BAD
             else -> null
         }
         return WidgetSpec.Progress(
-            base = WidgetBase(title = title(status), color = colour),
+            base = WidgetBase(title = title(status), color = color),
             value = (level ?: 0).toFloat(),
             max = 100f,
             text = level?.let { "$it%" } ?: "–",

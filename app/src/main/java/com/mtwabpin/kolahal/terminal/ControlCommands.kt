@@ -473,14 +473,14 @@ class ControlCommands(context: Context) : CommandGroup(context) {
         null -> "?"
     }
 
-    /** "on" and "off" as tags, in the good and muted colours, so a state reads at a glance. Anything else stays as it is. */
+    /** "on" and "off" as tags, in the good and muted colors, so a state reads at a glance. Anything else stays as it is. */
     private fun shown(value: String) = when {
         value == "on" || value.startsWith("on ") -> StyledText.tag(
-            StyledText.Colour.GOOD,
+            StyledText.ColorRole.GOOD,
             "on"
         ) + value.removePrefix("on")
 
-        value == "off" -> StyledText.tag(StyledText.Colour.MUTED, "off")
+        value == "off" -> StyledText.tag(StyledText.ColorRole.MUTED, "off")
         else -> value
     }
 

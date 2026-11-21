@@ -134,12 +134,12 @@ class WidgetHost private constructor(context: Context) {
     private val _redrawn = MutableStateFlow(0)
 
     /**
-     * Increases when the phone's dark mode or colours change ([redraw]). Each app's widget is drawn
-     * again then: it took its colours from the configuration its view was made in.
+     * Increases when the phone's dark mode or colors change ([redraw]). Each app's widget is drawn
+     * again then: it took its colors from the configuration its view was made in.
      */
     val redrawn: StateFlow<Int> = _redrawn.asStateFlow()
 
-    /** Dark mode or the wallpaper's colours changed: every app's widget is made again once. */
+    /** Dark mode or the wallpaper's colors changed: every app's widget is made again once. */
     fun redraw() {
         _redrawn.update { it + 1 }
     }
@@ -571,7 +571,7 @@ class WidgetHost private constructor(context: Context) {
     }
 
     /**
-     * The size in [WidgetSize] that the widget [key] has now, if it is one of them on this page.
+     * The size in [WidgetSize] that the widget [w] has now, if it is one of them on this page.
      * Null for any other size.
      */
     fun sizeOf(w: PlacedWidget): WidgetSize? {
@@ -667,7 +667,7 @@ class WidgetHost private constructor(context: Context) {
     fun label(id: Int?, provider: String): String {
         id ?: return provider.substringAfterLast('.')
         synchronized(infos) { labels[id] }?.let { return it }
-        val label = cachedInfo(id)?.loadLabel(app.packageManager)?.toString()
+        val label = cachedInfo(id)?.loadLabel(app.packageManager)
             ?: return provider.substringAfterLast('.')
         synchronized(infos) { labels[id] = label }
         return label

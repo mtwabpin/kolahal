@@ -243,9 +243,11 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
         }
     }
 
-    /** Writes [text] as the draft, after the Model's earlier calls. The write is not cancelled with the view model. */
+    /** Writes [text] as the draft, after the Model's earlier calls. The write is not canceled with the view model. */
+    @Suppress("StringReferentialEquality")
     private fun keepDraft(text: String) = background.launch(io) {
         val doc = document ?: return@launch
+        // Identity on purpose: a cheap check for the very string already written. An equal copy only costs one more write.
         if (done || text === drafted) return@launch
         runCatching { doc.keepDraft(text) }.onSuccess { drafted = text }
     }
@@ -483,7 +485,7 @@ class TextEditorViewModel(app: Application, private val saved: SavedStateHandle)
                     EditorMessage.Kind.ERROR
                 )
 
-                moved.getOrThrow() == false -> state.message = EditorMessage(
+                !moved.getOrThrow() -> state.message = EditorMessage(
                     "That file has unsaved changes of its own. Save or discard them there first",
                     EditorMessage.Kind.ERROR,
                 )

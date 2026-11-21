@@ -32,7 +32,7 @@ class ScriptFixesTest {
     @After
     fun tearDown() {
         config.reset(Keys.LOG_KEEP_LINES)
-        // Its daily times are alarms: cancelled with it.
+        // Its daily times are alarms: canceled with it.
         scripts.byName("sftimes")?.let {
             com.mtwabpin.kolahal.script.ScriptScheduler.cancel(app, it.id); scripts.delete(it.id)
         }

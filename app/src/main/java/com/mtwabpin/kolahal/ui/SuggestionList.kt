@@ -47,7 +47,7 @@ import com.mtwabpin.kolahal.terminal.Suggestion
 /** Matches a profile tag at the end of a completion's label (`Maps [W]`), the same tag app rows show. */
 private val LABEL_TAG = Regex(" \\[([PWSC])]$")
 
-/** Returns [label] with its trailing profile tag drawn small, bold and in the profile's colour, like app rows draw it. */
+/** Returns [label] with its trailing profile tag drawn small, bold and in the profile's color, like app rows draw it. */
 @Composable
 private fun taggedLabel(label: String): androidx.compose.ui.text.AnnotatedString {
     val tag = androidx.compose.runtime.remember(label) { LABEL_TAG.find(label) }

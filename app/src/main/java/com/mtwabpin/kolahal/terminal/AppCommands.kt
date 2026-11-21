@@ -40,7 +40,7 @@ class AppCommands(
         val conf = com.mtwabpin.kolahal.data.Config.get(context)
         return listOfNotNull(
             "it comes first in suggestions on an empty prompt".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SUGGEST_IDLE] },
-            "it is a ★ favourite in the app selector".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SELECTOR_RAIL] },
+            "it is a ★ favorite in the app selector".takeIf { conf[com.mtwabpin.kolahal.data.Keys.SELECTOR_RAIL] },
         ).joinToString(", and ")
             .ifEmpty { "pinned apps come first on an empty prompt with config set suggestions.idle on" }
     }
@@ -322,10 +322,10 @@ class AppCommands(
             // On or paused as a tag, as toggles shows on and off.
             null, "status" -> info(
                 "${kind.title} profile: " + if (profile.quiet) com.mtwabpin.kolahal.data.StyledText.tag(
-                    com.mtwabpin.kolahal.data.StyledText.Colour.MUTED,
+                    com.mtwabpin.kolahal.data.StyledText.ColorRole.MUTED,
                     "paused"
                 ) else com.mtwabpin.kolahal.data.StyledText.tag(
-                    com.mtwabpin.kolahal.data.StyledText.Colour.GOOD,
+                    com.mtwabpin.kolahal.data.StyledText.ColorRole.GOOD,
                     "on"
                 )
             )
@@ -366,8 +366,6 @@ class AppCommands(
 
     /** The profile's name with a capital first letter, for the start of a sentence. */
     private val ProfileKind.title get() = label.replaceFirstChar { it.uppercase() }
-
-    private fun duration(ms: Long) = com.mtwabpin.kolahal.data.TimeFormats.duration(ms)
 
     companion object {
         /** Commands handled by [run]. */

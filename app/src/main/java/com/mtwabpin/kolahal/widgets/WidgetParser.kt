@@ -11,14 +11,14 @@ import com.mtwabpin.kolahal.script.Json
  * a checked [WidgetSpec]. The rules are in docs/widgets-design.org:
  * - Typed. Each field has one type. A number where text is expected becomes text. Anything else
  *   is an error that names the field and says what to pass.
- * - Closed. An unknown field is an error that lists the known ones, so a typo (`colour`) doesn't
+ * - Closed. An unknown field is an error that lists the known ones, so a typo (`color`) doesn't
  *   pass unseen.
  * - Bounded. Text is cut with "…" at its limit. A list keeps its first items. Buttons and switches
  *   are the exception: more than their limit is an error, because one that is cut is a tap the
  *   user can't make.
  * - A field with no value (`nil`, `null`, `undefined`) counts as left out.
  * - Plain, with a few exceptions. A text loses its styles (`fmt.bold`, `fmt.color`, …). Only the
- *   fields of [STYLED] keep them, and only bold, italic, underline, strike and the colour roles.
+ *   fields of [STYLED] keep them, and only bold, italic, underline, strike and the color roles.
  *
  * Every error is an IllegalArgumentException that starts with "widget: ". The script gets it as
  * its own error, with the line number.
@@ -144,7 +144,7 @@ object WidgetParser {
 
     /**
      * The fields whose text keeps its styles, as `<kind>.<field>`: bold, italic, underline, strike
-     * and the colour roles ([StyledText.inline]).
+     * and the color roles ([StyledText.inline]).
      * - A link, a tag, a code chip, a table and a bar are for the log. In these fields too they lose
      *   their marks and keep their words.
      * - A limit counts the characters that show, not the marks.
@@ -204,7 +204,7 @@ object WidgetParser {
         val base = WidgetBase(
             title = t.text("title", MAX_TITLE),
             icon = t.icon(),
-            color = t.colour(),
+            color = t.color(),
             tap = t.tap(),
             staleAfter = t.seconds("staleAfter", MIN_STALE, MAX_STALE),
             refresh = t.seconds("refresh", MIN_REFRESH, MAX_REFRESH),
@@ -273,7 +273,7 @@ object WidgetParser {
                     detail = r.label("detail", MAX_DETAIL, styled = true),
                     trailing = r.text("trailing", MAX_SHORT, styled = true),
                     icon = r.icon(),
-                    color = r.colour(),
+                    color = r.color(),
                     tap = r.tap(),
                     done = r.flagOrNull("done"),
                     range = r.table("range", "{ ${RANGE.joinToString()} }", RANGE)?.let(::range),
@@ -326,11 +326,11 @@ object WidgetParser {
             base,
             items = t.items("items", MAX_BUTTONS, shape, BUTTON).map { b ->
                 WidgetSpec.Button(
-                    label = StyledText.capitalised(b.need("label", MAX_SHORT, "the button's text")),
+                    label = StyledText.capitalized(b.need("label", MAX_SHORT, "the button's text")),
                     tap = b.tap()
                         ?: b.fail("tap is needed: what the button does, { args } or { url }"),
                     icon = b.icon(),
-                    color = b.colour(),
+                    color = b.color(),
                 )
             },
         )
@@ -347,7 +347,7 @@ object WidgetParser {
         return WidgetSpec.Toggles(
             base.copy(staleAfter = base.staleAfter ?: TOGGLES_STALE),
             items = t.items("items", MAX_TOGGLES, shape, TOGGLE).map { s ->
-                val label = StyledText.capitalised(s.need("label", MAX_SHORT, "the switch's text"))
+                val label = StyledText.capitalized(s.need("label", MAX_SHORT, "the switch's text"))
                 val on = s.flagOrNull("on") ?: s.fail("on is needed: true or false, the state now")
                 val tap = s.tap() ?: s.fail("tap is needed: { args }, the arguments that switch it")
                 if (tap.args == null) s.fail("tap must be { args }, not { url }: a switch runs this script again")
@@ -383,7 +383,7 @@ object WidgetParser {
                     ends,
                     allDay = e.flag("allDay"),
                     where = e.text("where", MAX_LABEL),
-                    color = e.colour(),
+                    color = e.color(),
                     tap = e.tap()
                 )
             },
@@ -425,7 +425,7 @@ object WidgetParser {
                     float(value.coerceIn(0.0, barTop)),
                     float(barTop),
                     b.text("text", MAX_SHORT),
-                    b.colour()
+                    b.color()
                 )
             },
             moving = t.flag("moving"),
@@ -451,7 +451,7 @@ object WidgetParser {
             max = max,
             value = t.text("value", MAX_VALUE),
             label = t.label("label", MAX_LABEL),
-            labels = t.texts("labels", 2, MAX_POINT_LABEL).map(StyledText::capitalised),
+            labels = t.texts("labels", 2, MAX_POINT_LABEL).map(StyledText::capitalized),
             summary = t.text("summary", MAX_SUMMARY),
         )
     }
@@ -490,7 +490,7 @@ object WidgetParser {
             raw.entries.associate { (k, v) -> k.toString() to v }
 
         init {
-            // A name with no value is still checked: `colour = nil` in JavaScript's form is a typo too.
+            // A name with no value is still checked: `color = nil` in JavaScript's form is a typo too.
             val unknown = values.keys.filter { it !in known }
             if (unknown.isNotEmpty()) fail("$noField ${unknown.joinToString { "'${it.take(MAX_SHORT)}'" }}; use ${known.joinToString()}")
         }
@@ -511,10 +511,10 @@ object WidgetParser {
 
         /**
          * A text that stands on its own on the card: a label, a caption, a row's second line. It starts
-         * with a capital, as all of Kolahal's text does ([StyledText.capitalised]), whatever the script wrote.
+         * with a capital, as all of Kolahal's text does ([StyledText.capitalized]), whatever the script wrote.
          */
         fun label(key: String, max: Int, styled: Boolean = false): String? =
-            text(key, max, styled = styled)?.let(StyledText::capitalised)
+            text(key, max, styled = styled)?.let(StyledText::capitalized)
 
         /**
          * The `icon` field: a name from [WidgetIcons] ("sun"), or a text cut to [MAX_ICON]
@@ -655,15 +655,15 @@ object WidgetParser {
                 )
         }
 
-        /** `color`: a colour by its role. A script never gives a colour value. */
-        fun colour(): StyledText.Colour? {
+        /** `color`: a color by its role. A script never gives a color value. */
+        fun color(): StyledText.ColorRole? {
             val v = values["color"] ?: return null
-            return (v as? String)?.let(StyledText.Colour::named)
-                ?: fail("no colour ${shown(v)}; use ${StyledText.Colour.entries.joinToString { it.role }}")
+            return (v as? String)?.let(StyledText.ColorRole::named)
+                ?: fail("no color ${shown(v)}; use ${StyledText.ColorRole.entries.joinToString { it.role }}")
         }
 
         /**
-         * A list of tables: its first [keep] items, each with the fields [known]. [shape] shows one
+         * A list of tables: its first `keep` items, each with the fields `known`. `shape` shows one
          * item, in an error. An empty Lua table is an empty list: it has no keys to tell.
          */
 

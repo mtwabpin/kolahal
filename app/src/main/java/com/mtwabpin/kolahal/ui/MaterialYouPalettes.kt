@@ -19,15 +19,15 @@ import com.mtwabpin.kolahal.data.MaterialYou
 
 /**
  * The palettes of the Material You themes ([MaterialYou.VARIANTS]): a dark one and a light one each.
- * - On Android 12 and newer they come from the wallpaper's colours. [refresh] reads them.
- * - On Android 9 to 11, and before the first [refresh], they are Material's standard colours.
+ * - On Android 12 and newer they come from the wallpaper's colors. [refresh] reads them.
+ * - On Android 9 to 11, and before the first [refresh], they are Material's standard colors.
  */
 object MaterialYouPalettes {
-    /** Material's standard colours: the dark scheme, then the light one. */
+    /** Material's standard colors: the dark scheme, then the light one. */
     private val standard by lazy { darkColorScheme() to lightColorScheme() }
 
     /**
-     * The wallpaper's colours: the dark scheme, then the light one. Null until [refresh] reads them.
+     * The wallpaper's colors: the dark scheme, then the light one. Null until [refresh] reads them.
      * This is Compose state, so the theme cards in Settings redraw when the wallpaper changes.
      */
     private var fromWallpaper by mutableStateOf<Pair<ColorScheme, ColorScheme>?>(null)
@@ -51,8 +51,8 @@ object MaterialYouPalettes {
     }
 
     /**
-     * Reads the wallpaper's colours again. Does nothing on Android 9 to 11.
-     * Android changes these colours when the wallpaper changes, and tells the screen with a
+     * Reads the wallpaper's colors again. Does nothing on Android 9 to 11.
+     * Android changes these colors when the wallpaper changes, and tells the screen with a
      * configuration change. So the screen calls this at start and on every configuration change.
      */
     fun refresh(context: Context) {
@@ -68,31 +68,31 @@ private val GOOD = Color(0xFF78DC77) to Color(0xFF006E1C)
 private val WARN = Color(0xFFFFB951) to Color(0xFF825500)
 
 /**
- * Maps a Material colour scheme to a terminal palette, for the `material-you` theme.
+ * Maps a Material color scheme to a terminal palette, for the `material-you` theme.
  *
  * Material has three accents. Each gets two jobs here:
  * - primary: the prompt, and personal apps (as in the other themes);
  * - secondary: Kolahal's messages, and the private space;
  * - tertiary: links, and work apps.
  *
- * The text colours are the ones Material itself puts on a surface, so they are easy to read:
+ * The text colors are the ones Material itself puts on a surface, so they are easy to read:
  * - onSurface for text;
  * - onSurfaceVariant for script output;
  * - outline for muted text.
  *
  * Good and warn are fixed: green and amber, in a tone for a dark scheme or for a light one.
- * A wallpaper's colour can't mean "good" or "warning". Material keeps its error colour fixed
+ * A wallpaper's color can't mean "good" or "warning". Material keeps its error color fixed
  * for the same reason.
  *
  * [schemeFrom] goes the other way, and the two agree: the GUI screens get back the scheme's own
  * primary, secondary, tertiary, error and surface.
  *
  * The [variant]s ([MaterialYou.VARIANTS]) differ only in the page's background and the shade under
- * cards, the prompt and the key bar. Text, accents and the good and warn colours are the same.
+ * cards, the prompt and the key bar. Text, accents and the good and warn colors are the same.
  * - `material-you`: the darkest surface, and the container over it.
  * - `material-you-soft`: one step lighter: the container, and the high container over it. It is
  *   near Gboard's keyboard in its Material You theme.
- * - `material-you-tinted`: the surface with some of the primary colour in it: 18% dark, 12% light.
+ * - `material-you-tinted`: the surface with some of the primary color in it: 18% dark, 12% light.
  * - `material-you-black`: black, and the lowest container over it. For an OLED screen. Its light
  *   version is the plain one: a light theme can't be black.
  */
@@ -130,21 +130,21 @@ fun paletteFrom(scheme: ColorScheme, variant: String = MaterialYou.NAME): Palett
 }
 
 /**
- * [colour], moved toward [toward] in small steps until it reads on [on]: a contrast of at least 4,
+ * [color], moved toward [toward] in small steps until it reads on [on]: a contrast of at least 4,
  * as every theme's muted text has (ThemeVersionsTest). Material's outline reads on its surface, but not
  * always on the lighter background of `material-you-soft` or `material-you-tinted`.
  */
-internal fun legible(colour: Color, toward: Color, on: Color): Color {
+internal fun legible(color: Color, toward: Color, on: Color): Color {
     fun contrast(a: Color, b: Color): Float {
         val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
         return (hi + 0.05f) / (lo + 0.05f)
     }
 
-    var c = colour
+    var c = color
     var t = 0f
     while (contrast(c, on) < 4f && t < 1f) {
         t += 0.1f
-        c = lerp(colour, toward, t)
+        c = lerp(color, toward, t)
     }
     return c
 }

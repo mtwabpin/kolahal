@@ -69,7 +69,7 @@ class TerminalViewModelTest {
     private val launcher = app.getSharedPreferences("launcher", Context.MODE_PRIVATE)
     private val toured = launcher.contains("intro_shown")
 
-    /** Collects a view model's events; cancelled after the test. */
+    /** Collects a view model's events; canceled after the test. */
     private val collectors = CoroutineScope(Dispatchers.Default + Job())
 
     @Before

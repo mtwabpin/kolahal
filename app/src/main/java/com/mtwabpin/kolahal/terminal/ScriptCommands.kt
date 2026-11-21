@@ -70,12 +70,12 @@ class ScriptCommands(
                 if (lines.isEmpty()) return info("No status lines — scripts set them with status(text)")
                 lines.forEach { l ->
                     val pinned = on.getValue(l.name).grants.allows(ScriptAccess.HEADER)
-                    // Pinned ones get a tag, and a line with a bar (status(text, { progress })) shows it, in its colour.
+                    // Pinned ones get a tag, and a line with a bar (status(text, { progress })) shows it, in its color.
                     val bar =
-                        l.progress?.let { LogContext.bar(it.toDouble(), l.colour?.role) }.orEmpty()
+                        l.progress?.let { LogContext.bar(it.toDouble(), l.color?.role) }.orEmpty()
                     out(
                         "${l.name} ▸ ${l.text}" + if (pinned) " " + StyledText.tag(
-                            StyledText.Colour.ACCENT,
+                            StyledText.ColorRole.ACCENT,
                             "pinned"
                         ) else "", LogContext.of(LogContext.SCRIPT to l.name) + bar
                     )
@@ -118,17 +118,17 @@ class ScriptCommands(
                     val state = when (lib.state(e, installed)) {
                         ScriptLibrary.State.NOT_INSTALLED -> ""
                         ScriptLibrary.State.INSTALLED -> " " + StyledText.tag(
-                            StyledText.Colour.GOOD,
+                            StyledText.ColorRole.GOOD,
                             "installed"
                         )
 
                         ScriptLibrary.State.MODIFIED -> " " + StyledText.tag(
-                            StyledText.Colour.MUTED,
+                            StyledText.ColorRole.MUTED,
                             "edited"
                         )
 
                         ScriptLibrary.State.UPDATE_AVAILABLE -> " " + StyledText.tag(
-                            StyledText.Colour.WARN,
+                            StyledText.ColorRole.WARN,
                             "update"
                         )
                     }
@@ -354,28 +354,28 @@ class ScriptCommands(
                 val state = when (catalog.state(e, installed)) {
                     ScriptCatalog.State.NOT_INSTALLED -> ""
                     ScriptCatalog.State.INSTALLED -> " " + StyledText.tag(
-                        StyledText.Colour.GOOD,
+                        StyledText.ColorRole.GOOD,
                         "installed"
                     )
 
                     ScriptCatalog.State.UPDATE_AVAILABLE -> " " + StyledText.tag(
-                        StyledText.Colour.WARN,
+                        StyledText.ColorRole.WARN,
                         "update"
                     )
 
                     ScriptCatalog.State.MODIFIED -> " " + StyledText.tag(
-                        StyledText.Colour.MUTED,
+                        StyledText.ColorRole.MUTED,
                         "edited"
                     )
 
                     ScriptCatalog.State.NAME_TAKEN -> " " + StyledText.tag(
-                        StyledText.Colour.BAD,
+                        StyledText.ColorRole.BAD,
                         catalog.installedFrom(e.name)?.takeIf { it != e.source }
                             ?.let { "installed from $it" } ?: "name taken",
                     )
 
                     ScriptCatalog.State.NEEDS_NEWER -> " " + StyledText.tag(
-                        StyledText.Colour.BAD,
+                        StyledText.ColorRole.BAD,
                         "needs Kolahal ${e.requires}"
                     )
                 }
@@ -469,7 +469,7 @@ class ScriptCommands(
                 l.error?.let { "can't read it: $it" },
             )
             val tag =
-                if (l.error != null) " " + StyledText.tag(StyledText.Colour.BAD, "error") else ""
+                if (l.error != null) " " + StyledText.tag(StyledText.ColorRole.BAD, "error") else ""
             out(
                 "${l.source.name}$tag",
                 LogContext.of(LogContext.DESC to facts.joinToString(" · ")) + LogContext.ITEM
@@ -496,7 +496,7 @@ class ScriptCommands(
                 info("Added ${source.name} — reads ${source.index}")
                 info(
                     StyledText.tag(
-                        StyledText.Colour.WARN,
+                        StyledText.ColorRole.WARN,
                         "warning"
                     ) + " Kolahal doesn't check scripts from ${source.name}. Only add repositories you trust."
                 )
@@ -542,18 +542,18 @@ class ScriptCommands(
             declared.forEach { d ->
                 out(
                     d.name.padEnd(16) + when {
-                        store.isSet(s.name, d) -> StyledText.tag(StyledText.Colour.GOOD, "set")
+                        store.isSet(s.name, d) -> StyledText.tag(StyledText.ColorRole.GOOD, "set")
                         store.withoutSites(s.name, d) -> StyledText.tag(
-                            StyledText.Colour.WARN,
+                            StyledText.ColorRole.WARN,
                             "set it again"
                         )
 
                         store.hostsChanged(s.name, d) -> StyledText.tag(
-                            StyledText.Colour.WARN,
+                            StyledText.ColorRole.WARN,
                             "set for other sites"
                         )
 
-                        else -> StyledText.tag(StyledText.Colour.MUTED, "not set")
+                        else -> StyledText.tag(StyledText.ColorRole.MUTED, "not set")
                     },
                     LogContext.of(
                         LogContext.DESC to listOf(
@@ -676,12 +676,12 @@ class ScriptCommands(
             val on = grants.allows(item)
             // On and off as tags, as in toggles. A permission not decided yet says so.
             val state = if (on) StyledText.tag(
-                StyledText.Colour.GOOD,
+                StyledText.ColorRole.GOOD,
                 "on"
             ) else if (item in grants.undecided) StyledText.tag(
-                StyledText.Colour.WARN,
+                StyledText.ColorRole.WARN,
                 "not allowed yet"
-            ) else StyledText.tag(StyledText.Colour.MUTED, "off")
+            ) else StyledText.tag(StyledText.ColorRole.MUTED, "off")
             out(
                 "${item.padEnd(14)}$state",
                 LogContext.of(
@@ -697,9 +697,9 @@ class ScriptCommands(
         base.forEach(::row)
         if (ScriptMeta.postsNotifications(s.code)) out(
             "notify".padEnd(14) + if (s.notify) StyledText.tag(
-                StyledText.Colour.GOOD,
+                StyledText.ColorRole.GOOD,
                 "on"
-            ) else StyledText.tag(StyledText.Colour.MUTED, "off"),
+            ) else StyledText.tag(StyledText.ColorRole.MUTED, "off"),
             LogContext.of(
                 LogContext.DESC to "Posting notifications",
                 LogContext.COMMAND to "script notify ${s.name} ${if (s.notify) "off" else "on"}"
@@ -763,7 +763,7 @@ class ScriptCommands(
                 add(last)
             }
             // A script that is switched off says so in a tag after its name. An item each: the details beside it wrap.
-            val off = if (s.enabled) "" else " " + StyledText.tag(StyledText.Colour.MUTED, "off")
+            val off = if (s.enabled) "" else " " + StyledText.tag(StyledText.ColorRole.MUTED, "off")
             out(
                 "${s.name}.${s.lang.ext}$off",
                 scriptCtx(s) + mapOf(LogContext.DESC to parts.joinToString(" · ")) + LogContext.ITEM
@@ -807,7 +807,7 @@ class ScriptCommands(
      * `script diff <name>`: compares a library script with the library version, like Compare in the
      * script manager.
      * - It shows the changed lines, with three unchanged lines around each.
-     * - Lines only in the library version are red (-). Lines only in yours use the accent colour (+).
+     * - Lines only in the library version are red (-). Lines only in yours use the accent color (+).
      * - Other unchanged lines are only counted.
      * - "Copy text" on the first line copies it as a plain diff.
      * - The last line says how to get the library version.
@@ -845,17 +845,17 @@ class ScriptCommands(
             out += LogRepository.Pending(LogKind.OUTPUT, text, null, ctx, at)
         }
         add(
-            "$file against the library version: " + StyledText.colour(
-                StyledText.Colour.BAD,
+            "$file against the library version: " + StyledText.color(
+                StyledText.ColorRole.BAD,
                 "- $removed only in the library"
             ) +
-                    ", " + StyledText.colour(StyledText.Colour.ACCENT, "+ $added only in yours"),
+                    ", " + StyledText.color(StyledText.ColorRole.ACCENT, "+ $added only in yours"),
             LogContext.of(LogContext.COPY to plain) + scriptCtx(s).values,
         )
         for ((skipped, hunkLines) in hunks) {
             if (skipped > 0) add(
-                StyledText.colour(
-                    StyledText.Colour.MUTED,
+                StyledText.color(
+                    StyledText.ColorRole.MUTED,
                     "⋯ ${lines(skipped)} unchanged"
                 )
             )
@@ -863,9 +863,9 @@ class ScriptCommands(
                 val text = "${sign.getValue(kind)} ${line.replace("\t", "    ")}"
                 add(
                     when (kind) {
-                        LineDiff.Kind.REMOVED -> StyledText.colour(StyledText.Colour.BAD, text)
-                        LineDiff.Kind.ADDED -> StyledText.colour(StyledText.Colour.ACCENT, text)
-                        LineDiff.Kind.SAME -> StyledText.colour(StyledText.Colour.MUTED, text)
+                        LineDiff.Kind.REMOVED -> StyledText.color(StyledText.ColorRole.BAD, text)
+                        LineDiff.Kind.ADDED -> StyledText.color(StyledText.ColorRole.ACCENT, text)
+                        LineDiff.Kind.SAME -> StyledText.color(StyledText.ColorRole.MUTED, text)
                     }
                 )
             }

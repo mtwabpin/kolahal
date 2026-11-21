@@ -1,11 +1,11 @@
 /**
- * Manual Review - Pending
+ * Manual Review - Reviewed
  */
 package com.mtwabpin.kolahal.widgets
 
 /**
- * The icons a widget can name: `icon = "sun"` draws a line icon in the card's colour, where an
- * emoji keeps its own colours. Pure: the drawables are in the ui layer (`widgetIconDrawable`).
+ * The icons a widget can name: `icon = "sun"` draws a line icon in the card's color, where an
+ * emoji keeps its own colors. Pure: the drawables are in the ui layer (`widgetIconDrawable`).
  * - A name is lower case. An `icon` that is a name from [NAMES] is that icon. Any other text of up
  *   to 4 characters is drawn as it is: an emoji or a letter.
  * - The icons are Material Symbols Rounded (Apache License 2.0), in `res/drawable/wi_<name>.xml`.

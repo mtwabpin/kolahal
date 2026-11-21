@@ -105,7 +105,7 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
         /**
          * A two-column row whose left column fits this text, not a fixed share of the width: the
          * longest name in `help`, or the longest use in `help <command>`. [DESC] is then in the text
-         * colour; its own [StyledText] colours still apply.
+         * color; its own [StyledText] colors still apply.
          */
         const val NAME_COL = "namecol"
 
@@ -131,14 +131,14 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
 
         /**
          * A bar after a built-in command's line, as `from,to,role` (fractions from 0 to 1, and a
-         * colour role, which may be empty): `unlocks`, `usage`, `volume`. Scripts can't set it;
+         * color role, which may be empty): `unlocks`, `usage`, `volume`. Scripts can't set it;
          * they put bars in a body with `fmt.bar`.
          */
         const val BAR = "bar"
 
         /**
          * An item of a list starts at this line ("1"): a story, a contact, a feed item. It gets the
-         * `log.item-spacing` gap above it, and the colour bar runs through the gap, so the items stand
+         * `log.item-spacing` gap above it, and the color bar runs through the gap, so the items stand
          * apart but stay one group. Not on a group's first line, nor right under the command that ran it.
          * Scripts set it with `ctx.gap`.
          */
@@ -178,7 +178,7 @@ data class LogContext(val values: Map<String, String> = emptyMap()) {
             }
         }
 
-        /** [BAR] filled to [fraction] (0 to 1), in [role] (null: the accent colour). */
+        /** [BAR] filled to [fraction] (0 to 1), in [role] (null: the accent color). */
         fun bar(fraction: Double, role: String? = null): Map<String, String> =
             mapOf(
                 BAR to "0,${

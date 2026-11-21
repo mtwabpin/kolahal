@@ -17,7 +17,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** How each kind of log line is drawn: its prefix, colours and weight, its details and body under it. */
+/** How each kind of log line is drawn: its prefix, colors and weight, its details and body under it. */
 class LogLineTextTest {
     private val indents = LineIndents(text = 10.sp, code = 12.sp, bullet = 8.sp)
 
@@ -44,9 +44,9 @@ class LogLineTextTest {
         assertEquals(FontWeight.Bold, text.at("torch on").fontWeight)
     }
 
-    /** An error shows in the error colour, its styles taken off. */
+    /** An error shows in the error color, its styles taken off. */
     @Test
-    fun anErrorIsPlainInItsColour() {
+    fun anErrorIsPlainInItsColor() {
         val text = render(
             logEntry(
                 LogKind.ERROR,
@@ -58,7 +58,7 @@ class LogLineTextTest {
         assertTrue(text.spanStyles.none { it.item.fontWeight == FontWeight.Bold })
     }
 
-    /** An info line's first line in its colour, and the lines after it dimmed, as details under it. */
+    /** An info line's first line in its color, and the lines after it dimmed, as details under it. */
     @Test
     fun anInfoLinesDetailsAreDimmed() {
         val text = render(logEntry(LogKind.INFO, "Installed Clock\ncom.example.clock"))
@@ -72,9 +72,9 @@ class LogLineTextTest {
         assertEquals(2, text.paragraphStyles.size)
     }
 
-    /** A trailing profile tag takes its profile's colour, in bold. */
+    /** A trailing profile tag takes its profile's color, in bold. */
     @Test
-    fun aProfileTagIsInItsColour() {
+    fun aProfileTagIsInItsColor() {
         val text = render(logEntry(LogKind.OUTPUT, "Chrome [W]"))
         assertEquals(Term.profileColor(ProfileKind.WORK), text.at("[W]").color)
         assertEquals(FontWeight.Bold, text.at("[W]").fontWeight)
@@ -93,7 +93,7 @@ class LogLineTextTest {
 
     /**
      * A script's line: unread gets a bullet, a title with a body is bold (a title alone isn't), a link
-     * takes the link colour, and its source ends it.
+     * takes the link color, and its source ends it.
      */
     @Test
     fun aScriptLine() {
@@ -141,9 +141,9 @@ class LogLineTextTest {
         assertTrue(text.getStringAnnotations(0, text.length).any { it.item == "notif-icon" })
     }
 
-    /** A script's styles: bold in the text colour, italic, underline, code on a chip, and colours by role. */
+    /** A script's styles: bold in the text color, italic, underline, code on a chip, and colors by role. */
     @Test
-    fun stylesAndColours() {
+    fun stylesAndColors() {
         val styled = StyledText.wrap(
             StyledText.Style.BOLD,
             "big"
@@ -152,7 +152,7 @@ class LogLineTextTest {
             StyledText.Style.CODE,
             "code"
         ) + " " +
-                StyledText.colour(StyledText.Colour.BAD, "red")
+                StyledText.color(StyledText.ColorRole.BAD, "red")
         val text =
             render(logEntry(LogKind.SCRIPT, styled, ctx = LogContext.of(LogContext.TITLE to "1")))
         assertEquals("big aside under code red", text.text)
@@ -163,7 +163,7 @@ class LogLineTextTest {
         assertEquals(Term.error, text.at("red").color)
     }
 
-    /** A body is muted under its title; its list items get their bullet or number in the accent colour. */
+    /** A body is muted under its title; its list items get their bullet or number in the accent color. */
     @Test
     fun aBodyWithAList() {
         val body = "Top stories\n" + StyledText.list(
@@ -207,9 +207,9 @@ class LogLineTextTest {
 
     // ---- a widget's text --------------------------------------------------------------------
 
-    /** A card draws weight, slant, lines and colour, and leaves plain pieces to the Text's own style. */
+    /** A card draws weight, slant, lines and color, and leaves plain pieces to the Text's own style. */
     @Test
-    fun aWidgetsTextHasWeightSlantLinesAndColour() {
+    fun aWidgetsTextHasWeightSlantLinesAndColor() {
         val text = widgetText(
             "a " + StyledText.wrap(
                 StyledText.Style.BOLD,
@@ -219,9 +219,9 @@ class LogLineTextTest {
                 StyledText.Style.STRIKE,
                 "struck"
             ) + " " +
-                    StyledText.colour(StyledText.Colour.GOOD, "green") + " " +
-                    StyledText.colour(
-                        StyledText.Colour.BAD,
+                    StyledText.color(StyledText.ColorRole.GOOD, "green") + " " +
+                    StyledText.color(
+                        StyledText.ColorRole.BAD,
                         StyledText.wrap(
                             StyledText.Style.BOLD,
                             StyledText.wrap(
@@ -247,7 +247,7 @@ class LogLineTextTest {
                 )
             ), text.at("all").textDecoration
         )
-        // Six styled pieces, and nothing over the plain ones: they keep the colour of their Text.
+        // Six styled pieces, and nothing over the plain ones: they keep the color of their Text.
         assertEquals(6, text.spanStyles.size)
         assertTrue(text.spanStyles.none { it.start == 0 })
         // Plain text comes back plain, and lines stay lines.
@@ -266,7 +266,7 @@ class LogLineTextTest {
                 StyledText.wrap(StyledText.Style.BOLD, "the page")
             ) + " " +
                     StyledText.tag(
-                        StyledText.Colour.BAD,
+                        StyledText.ColorRole.BAD,
                         "LIVE"
                     ) + " " + StyledText.wrap(StyledText.Style.CODE, "v1.2"),
         )
@@ -274,10 +274,10 @@ class LogLineTextTest {
         assertEquals(0, text.getLinkAnnotations(0, text.length).size)
         assertEquals(0, text.getStringAnnotations(0, text.length).size)
         assertEquals(FontWeight.Bold, text.at("the page").fontWeight)
-        // The link's own look is not there either: no underline, and no link colour.
+        // The link's own look is not there either: no underline, and no link color.
         assertEquals(null, text.at("the page").textDecoration)
         assertNotEquals(Term.link, text.at("the page").color)
-        // A tag keeps its colour, and has no chip. Code has no shade and no font of its own.
+        // A tag keeps its color, and has no chip. Code has no shade and no font of its own.
         assertEquals(Term.error, text.at("LIVE").color)
         assertEquals(null, text.at("LIVE").fontWeight)
         assertTrue(text.spanStyles.none { it.item.background != androidx.compose.ui.graphics.Color.Unspecified || it.item.fontFamily != null })

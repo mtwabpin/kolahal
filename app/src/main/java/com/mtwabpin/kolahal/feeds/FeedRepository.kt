@@ -67,7 +67,7 @@ class FeedRepository private constructor(private val context: Context) {
     val version: StateFlow<Int> = _version.asStateFlow()
 
     /**
-     * Subscribes to [url], after normalising it. Adding an existing URL returns the existing feed.
+     * Subscribes to [url], after normalizing it. Adding an existing URL returns the existing feed.
      * @throws IllegalArgumentException when the address isn't an http(s) URL.
      */
     fun add(url: String, title: String? = null): Feed {
@@ -91,7 +91,7 @@ class FeedRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Moves feed [id] to [url], after normalising it. This is for a feed subscribed with a typo.
+     * Moves feed [id] to [url], after normalizing it. This is for a feed subscribed with a typo.
      * - Removed: what fetches learnt from the old address (its validators, the last fetch time and status).
      * - Kept: its items, title and settings.
      * @throws IllegalArgumentException when the address isn't an http(s) URL, another feed has it,

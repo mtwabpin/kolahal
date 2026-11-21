@@ -227,16 +227,16 @@ internal object OwnCards {
     private const val MAX_EVENT_WHERE = 60
 
     /**
-     * The colours of calendars on the Agenda card, by calendar id. A card's colours are roles of
-     * the theme, so a calendar's own colour can't be sent. These three say nothing good or bad:
+     * The colors of calendars on the Agenda card, by calendar id. A card's colors are roles of
+     * the theme, so a calendar's own color can't be sent. These three say nothing good or bad:
      * "good", "warn" and "bad" on a birthday would read as a status.
      */
-    private val CALENDAR_COLOURS =
-        listOf(StyledText.Colour.ACCENT, StyledText.Colour.INFO, StyledText.Colour.LINK)
+    private val CALENDAR_COLORS =
+        listOf(StyledText.ColorRole.ACCENT, StyledText.ColorRole.INFO, StyledText.ColorRole.LINK)
 
-    /** The colour of the calendar [id] on the Agenda card: the same for every event of that calendar. */
-    fun calendarColour(id: Long): StyledText.Colour =
-        CALENDAR_COLOURS[Math.floorMod(id, CALENDAR_COLOURS.size.toLong()).toInt()]
+    /** The color of the calendar [id] on the Agenda card: the same for every event of that calendar. */
+    fun calendarColor(id: Long): StyledText.ColorRole =
+        CALENDAR_COLORS[Math.floorMod(id, CALENDAR_COLORS.size.toLong()).toInt()]
 
     /**
      * The Agenda card for the calendar's [events], as [Agenda.query] gave them at [now] (in
@@ -247,7 +247,7 @@ internal object OwnCards {
      *   has come ([WidgetWords.agenda]). So an all-day event starts and ends at midnights on the
      *   phone, and every event has its end, also one with no length. Without an end it would stay
      *   all day on the card, and go at the next read of the calendar.
-     * - An event has its place, and a colour for its calendar ([calendarColour]).
+     * - An event has its place, and a color for its calendar ([calendarColor]).
      * - An event's tap holds its id and its start (`event 41 1800000000000`), so the right time of
      *   a repeating event opens.
      */
@@ -262,7 +262,7 @@ internal object OwnCards {
                     allDay = e.allDay,
                     where = e.where?.let { cut(it.trim(), MAX_EVENT_WHERE) }
                         ?.takeIf { it.isNotEmpty() },
-                    color = calendarColour(e.calendar),
+                    color = calendarColor(e.calendar),
                     tap = WidgetTap(args = OwnTaps.event(e.id, e.begin), label = "open event"),
                 )
             },
@@ -341,7 +341,7 @@ internal object OwnCards {
         return when {
             minutes < 60 -> "$minutes" to "min"
             minutes < 48 * 60 -> "${minutes / 60}" to "h"
-            else -> (minutes / (24 * 60)).let { "$it" to if (it == 1L) "day" else "days" }
+            else -> "${minutes / (24 * 60)}" to "days"
         }
     }
 
@@ -365,7 +365,7 @@ internal object OwnCards {
             // Orange, as the mockup has it: a reminder is something due.
             base = WidgetBase(
                 title = WidgetSource.builtinTitle(WidgetSource.REMINDERS),
-                color = StyledText.Colour.WARN
+                color = StyledText.ColorRole.WARN
             ),
             items = list.drop(1).take(MAX_REMINDERS).map { r ->
                 WidgetSpec.Row(

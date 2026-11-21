@@ -4,7 +4,7 @@
 package com.mtwabpin.kolahal.widgets
 
 /**
- * Pure widget bookkeeping. It uses no Android types, so ordering, resizing and serialisation can be
+ * Pure widget bookkeeping. It uses no Android types, so ordering, resizing and serialization can be
  * unit tested. [WidgetHost] owns the Android side.
  */
 object WidgetLocation {

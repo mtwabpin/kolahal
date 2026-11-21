@@ -128,7 +128,7 @@ private class SelectorState {
     /** List position (rows) under the finger while it is down; NaN when there is no touch. */
     var contact by mutableFloatStateOf(Float.NaN)
 
-    /** Where the fisheye was last centred (rows, like [contact]). When the finger leaves the list, the fisheye shrinks back at this place. */
+    /** Where the fisheye was last centered (rows, like [contact]). When the finger leaves the list, the fisheye shrinks back at this place. */
     var lensAt by mutableFloatStateOf(Float.NaN)
 
     /** Scroll offset (px) set by scrubbing. */
@@ -193,12 +193,14 @@ private val SelectorEdge.alignTop get() = if (left) AbsoluteAlignment.TopLeft el
 private val SelectorEdge.alignCenter get() = if (left) AbsoluteAlignment.CenterLeft else AbsoluteAlignment.CenterRight
 
 /** [padding] on the edge's side only: what keeps the letters and the handle off the screen's edge. */
-private fun SelectorEdge.fromEdgePadding(padding: Dp): Modifier =
-    if (left) Modifier.absolutePadding(left = padding) else Modifier.absolutePadding(right = padding)
+private fun Modifier.fromEdgePadding(edge: SelectorEdge, padding: Dp): Modifier = then(
+    if (edge.left) Modifier.absolutePadding(left = padding) else Modifier.absolutePadding(right = padding)
+)
 
 /** [padding] on the other side only (a row's outer end, at the other edge of the screen). */
-private fun SelectorEdge.awayPadding(padding: Dp): Modifier =
-    if (left) Modifier.absolutePadding(right = padding) else Modifier.absolutePadding(left = padding)
+private fun Modifier.awayPadding(edge: SelectorEdge, padding: Dp): Modifier = then(
+    if (edge.left) Modifier.absolutePadding(right = padding) else Modifier.absolutePadding(left = padding)
+)
 
 private val TOP_GAP = 8.dp
 
@@ -228,8 +230,8 @@ private fun LazyListState.scrollToPx(px: Float, rowPx: Int) {
  * at the bottom, middle or top of the edge (`selector.position`).
  *
  * When you touch the strip, a panel slides in on the other side, away from the thumb. It uses the
- * whole height and lists every app: favourites first, then A–Z. When the strip is at the bottom of
- * the edge, favourites go last, under the thumb.
+ * whole height and lists every app: favorites first, then A–Z. When the strip is at the bottom of
+ * the edge, favorites go last, under the thumb.
  *
  * Sliding along the edge depends on `selector.browse`:
  * - `letters`: every letter gets the same stretch of the strip. Sliding moves one letter at a time,
@@ -246,7 +248,7 @@ private fun LazyListState.scrollToPx(px: Float, rowPx: Int) {
  *   in a wave.
  * - Past the ends of the list, the panel itself moves to keep the letter's apps (or the focused
  *   row) level with the thumb.
- * - Slide off the edge toward the panel to pick a row. The row and its neighbours are magnified
+ * - Slide off the edge toward the panel to pick a row. The row and its neighbors are magnified
  *   (fisheye), and the list auto-scrolls at the panel's ends. Lift to launch, or hold still until
  *   the row fills.
  * - Lift on the edge to leave the panel open as a normal list (fling, tap, long-press). A tapped
@@ -313,16 +315,16 @@ fun AppSelector(
     stripArea: ClosedFloatingPointRange<Float>? = null,
 ) {
     val text = if (systemFont) Term.phoneText else Term.text
-    // Plan F: when the strip is at the bottom of the edge, favourites go last, where the thumb rests.
-    val favouritesLast = position == "bottom"
-    val entries = remember(apps, pinned, favouritesLast) {
+    // Plan F: when the strip is at the bottom of the edge, favorites go last, where the thumb rests.
+    val favoritesLast = position == "bottom"
+    val entries = remember(apps, pinned, favoritesLast) {
         SelectorMath.build(
             apps.filter { !it.hidden },
             label = { it.label },
             key = { it.key },
             pinned = { it.key in pinned },
             profileRank = { it.profile.kind.ordinal },
-            favouritesLast = favouritesLast,
+            favoritesLast = favoritesLast,
         )
     }
     val byLetter = browse == "letters"
@@ -375,7 +377,7 @@ fun AppSelector(
     // Whether the wave shows at all. The built content changes only when this changes, not on every frame of the growth.
     val waveShown by remember { derivedStateOf { wave.value > 0f } }
 
-    /** Where the wave is centred along the strip (0 top … 1 bottom): the letter's middle. It glides to the next letter's middle. */
+    /** Where the wave is centered along the strip (0 top … 1 bottom): the letter's middle. It glides to the next letter's middle. */
     val waveAt = remember { Animatable(0f) }
     LaunchedEffect(letter, sliding, edgeMiddles) {
         val to = edgeMiddles.getOrNull(letter) ?: return@LaunchedEffect
@@ -667,7 +669,7 @@ fun AppSelector(
                                 modifier = Modifier
                                     .align(edge.alignTop)
                                     .offset { IntOffset(0, (p - linePx / 2).roundToInt()) }
-                                    .then(edge.fromEdgePadding(3.dp))
+                                    .fromEdgePadding(edge, 3.dp)
                                     .testTag("app-selector-letter"),
                             )
                         }
@@ -680,7 +682,7 @@ fun AppSelector(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .align(edge.alignCenter)
-                            .then(edge.fromEdgePadding(3.dp))
+                            .fromEdgePadding(edge, 3.dp)
                             .graphicsLayer { alpha = if (open) 0.35f else 1f },
                     ) {
                         val small = text.copy(
@@ -1225,7 +1227,7 @@ fun AppSelector(
 }
 
 /**
- * One list row: the section letter in the gutter, the profile tag in its colour, ★, and the label.
+ * One list row: the section letter in the gutter, the profile tag in its color, ★, and the label.
  * - It starts at the screen's other edge, away from the strip: on the right edge from the left, on
  *   the left edge from the right ([SelectorEdge.rowStart]). There it has its letter and icon, and
  *   from there a magnified row grows and the hold fills it. On the left edge the name is aligned
@@ -1245,7 +1247,7 @@ private fun SelectorRow(
     /** If not null, the app's icon at this size at the start of the row (Plan E). */
     icon: Dp?,
     enabled: Boolean,
-    /** Magnify the row at the thumb and its neighbours while picking. */
+    /** Magnify the row at the thumb and its neighbors while picking. */
     fisheye: Boolean,
     /** How far the fisheye is out (0 to 1), easing in and out. Read while drawing. */
     lens: () -> Float,
@@ -1350,17 +1352,17 @@ private fun SelectorRow(
             }
             .combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
             // Room on the strip's side, between the row's end and the bubble.
-            .then(edge.fromEdgePadding(12.dp)),
+            .fromEdgePadding(edge, 12.dp),
     ) {
         // On the left edge the parts come in the other order, and the name is aligned toward the strip.
         val mirrored = edge.left
-        // The section letter, in the accent colour, where a section starts and on the focused row.
+        // The section letter, in the accent color, where a section starts and on the focused row.
         // So the current letter is where you look.
         val letter: @Composable RowScope.() -> Unit = {
             Text(
                 if (entry.sectionStart || focused) entry.section.toString() else "",
                 style = text.copy(
-                    color = if (focused) Term.prompt else if (entry.favourite) Term.prompt.copy(
+                    color = if (focused) Term.prompt else if (entry.favorite) Term.prompt.copy(
                         alpha = 0.7f
                     ) else Term.dim.copy(alpha = 0.7f),
                     fontWeight = if (focused) FontWeight.Bold else null,
@@ -1369,7 +1371,7 @@ private fun SelectorRow(
                 ),
                 modifier = Modifier
                     .width(26.dp)
-                    .then(edge.awayPadding(10.dp)),
+                    .awayPadding(edge, 10.dp),
                 maxLines = 1,
             )
         }
@@ -1379,7 +1381,7 @@ private fun SelectorRow(
                 app,
                 icon,
                 Modifier
-                    .then(edge.fromEdgePadding(8.dp))
+                    .fromEdgePadding(edge, 8.dp)
                     .testTag("app-selector-icon")
             )
         }
@@ -1395,7 +1397,7 @@ private fun SelectorRow(
                     ),
                 )
             }
-            if (pinned && !entry.favourite) Text(
+            if (pinned && !entry.favorite) Text(
                 if (mirrored) " ★" else "★ ",
                 style = text.copy(color = Term.prompt.copy(alpha = 0.7f))
             )

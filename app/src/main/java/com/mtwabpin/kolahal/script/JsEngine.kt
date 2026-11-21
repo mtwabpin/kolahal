@@ -266,8 +266,8 @@ class JsEngine : ScriptEngine {
                 )
             }
             function("color") { args ->
-                StyledText.colour(
-                    Fmt.colour("fmt.color", args.str(0)),
+                StyledText.color(
+                    Fmt.color("fmt.color", args.str(0)),
                     args.str(1) ?: "undefined"
                 )
             }

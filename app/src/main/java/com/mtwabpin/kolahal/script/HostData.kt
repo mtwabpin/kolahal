@@ -22,6 +22,7 @@ import com.mtwabpin.kolahal.productivity.TodoStore
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.time.Instant
 import java.time.ZoneId
+import kotlin.math.floor
 
 /**
  * What a script reads of your own lists: `todos`, `notes`, `reminders`, `calendar` and `feeds`.
@@ -177,8 +178,8 @@ internal class HostData(
         day.atStartOfDay(zone).toInstant().toEpochMilli()
 
     /**
-     * `usage.today(n?)`: `{ total, apps }`. [total] is today's screen time in minutes since midnight
-     * (every app, Kolahal too); [apps] the [n] apps used a minute or more, most first (10 by default,
+     * `usage.today(n?)`: `{ total, apps }`. `total` is today's screen time in minutes since midnight
+     * (every app, Kolahal too); `apps` the [n] apps used a minute or more, most first (10 by default,
      * up to [MAX_USAGE_APPS]), each `{ app, pkg, minutes }`: what `usage` shows. Nil: see above.
      */
     fun usageToday(n: Any?): Map<String, Any?>? {
@@ -214,9 +215,9 @@ internal class HostData(
      * `usage.data(since?)`: the mobile and Wi-Fi bytes used since [since].
      * - [since] is a time in seconds since 1970, by default midnight: `{ mobile, wifi }`.
      * - "month": the month of your data plan (`data.plan`, `data.start-day`), as `data month`
-     *   counts it: `{ mobile, wifi, since, plan, pace, daysLeft }`. [plan] is in bytes, nil with no
-     *   plan; [pace] is the mobile data the month comes to at the rate so far.
-     * - [mobile] is nil on Android 9, which doesn't tell it. Nil for the whole: see above.
+     *   counts it: `{ mobile, wifi, since, plan, pace, daysLeft }`. `plan` is in bytes, nil with no
+     *   plan; `pace` is the mobile data the month comes to at the rate so far.
+     * - `mobile` is nil on Android 9, which doesn't tell it. Nil for the whole: see above.
      */
     fun usageData(since: Any?): Map<String, Any?>? {
         val now = System.currentTimeMillis()
@@ -263,7 +264,7 @@ internal class HostData(
     /**
      * `usage.unused(days?)`: the apps not opened for [days] days or more (30 by default, 7 to 365),
      * each `{ app, pkg, days, bytes }`: what `storage` lists. [days] is nil for an app Android has no
-     * use recorded for; [bytes] its size, nil when Android doesn't tell. Up to [MAX_UNUSED]; only
+     * use recorded for; `bytes` its size, nil when Android doesn't tell. Up to [MAX_UNUSED]; only
      * those are measured. Nil: see above.
      */
     fun usageUnused(days: Any?): List<Map<String, Any?>>? {
@@ -294,10 +295,10 @@ internal class HostData(
      * `usage-summary` shows it ([com.mtwabpin.kolahal.usage.UsageLevels]). A year counts at least
      * what its months hold.
      * - [period]: "week", "month" or "year". [app]: a package, for that app alone; without it, all apps.
-     * - `{ perDay, rows, top }`: [perDay] the minutes a day over the rows that count (as the `≈`
-     *   number); [rows] oldest first, each `{ from, to, minutes, perDay, unlocks, current }`, with
-     *   [from] and [to] in seconds, its real dates, [unlocks] a day (nil for one app, or when Android
-     *   has none); [top] the 5 apps with the most time, `{ app, pkg, minutes }`, without [app] only.
+     * - `{ perDay, rows, top }`: `perDay` the minutes a day over the rows that count (as the `≈`
+     *   number); `rows` oldest first, each `{ from, to, minutes, perDay, unlocks, current }`, with
+     *   `from` and `to` in seconds, its real dates, `unlocks` a day (nil for one app, or when Android
+     *   has none); `top` the 5 apps with the most time, `{ app, pkg, minutes }`, without [app] only.
      * - Nil: see above.
      */
     fun usageSummary(period: Any?, app: Any?): Map<String, Any?>? {
@@ -422,7 +423,7 @@ internal fun listCount(call: String, name: String, value: Any?, max: Int, defaul
  */
 internal fun todoId(id: Any?): Long {
     val n = when (id) {
-        is Number -> id.toDouble().takeIf { it >= 1 && it <= MAX_ID && it == Math.floor(it) }
+        is Number -> id.toDouble().takeIf { it in 1.0..MAX_ID && it == floor(it) }
             ?.toLong()
 
         is String -> id.trim().takeIf { it.length in 1..15 && it.all { c -> c in '0'..'9' } }

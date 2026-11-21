@@ -99,7 +99,7 @@ internal fun HostedWidget(
         return
     }
     val info = remember(id, providersVersion) { widgets.cachedInfo(id) }
-    // Dark mode or the wallpaper's colours changed: the view is made again, in the new colours.
+    // Dark mode or the wallpaper's colors changed: the view is made again, in the new colors.
     val redrawn by widgets.redrawn.collectAsStateWithLifecycle()
     if (info == null) {
         placeholder(WidgetWords.UNAVAILABLE)
@@ -189,7 +189,7 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
 /**
  * The widgets page beside the terminal (`widgets.page`). It shows every widget placed on the
  * "Widgets page" where it was put, at its width and height ([WidgetGrid]), on a page that scrolls,
- * in the terminal's colours. Add and Edit open the GUI pages. A long-press on a widget opens the
+ * in the terminal's colors. Add and Edit open the GUI pages. A long-press on a widget opens the
  * Widgets screen with that widget chosen.
  */
 @Composable

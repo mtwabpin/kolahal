@@ -13,6 +13,7 @@ import android.os.Process
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import androidx.core.net.toUri
 import java.io.ByteArrayOutputStream
 import java.io.FileNotFoundException
 import java.util.Locale
@@ -32,7 +33,7 @@ class ContentDocuments(context: Context) : DocumentSource {
      * - The media store gives `date_modified`, in seconds.
      */
     override fun info(uri: String): DocumentInfo {
-        val address = Uri.parse(uri)
+        val address = uri.toUri()
         var name: String? = null
         var size: Long? = null
         var modified: Long? = null
@@ -79,7 +80,7 @@ class ContentDocuments(context: Context) : DocumentSource {
     }
 
     override fun read(uri: String, max: Int): ByteArray {
-        val stream = reaching("read") { resolver.openInputStream(Uri.parse(uri)) }
+        val stream = reaching("read") { resolver.openInputStream(uri.toUri()) }
         val out = ByteArrayOutputStream()
         stream.use { input ->
             val buffer = ByteArray(16 * 1024)
@@ -104,7 +105,7 @@ class ContentDocuments(context: Context) : DocumentSource {
      * write and never kept: the permission to it ends when the phone restarts, and asking renews it.
      */
     override fun write(uri: String, bytes: ByteArray) {
-        val address = Uri.parse(uri)
+        val address = uri.toUri()
         val file = try {
             firstOpen(sequence<() -> ParcelFileDescriptor> {
                 yield { reaching("write") { openToWrite(address) } }

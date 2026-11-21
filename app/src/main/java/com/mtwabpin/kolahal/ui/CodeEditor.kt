@@ -90,10 +90,10 @@ import kotlin.math.floor
 import kotlin.math.round
 import kotlin.time.Duration.Companion.milliseconds
 
-/** When a text is longer than this (about 550 lines), only the lines around the view are coloured. */
+/** When a text is longer than this (about 550 lines), only the lines around the view are colored. */
 private const val WINDOW_FROM = 20_000
 
-/** How many lines are coloured above and below the view, and how close the view can come to the edge of that range before it moves. */
+/** How many lines are colored above and below the view, and how close the view can come to the edge of that range before it moves. */
 private const val WINDOW_SPAN = 150
 private const val WINDOW_MARGIN = 50
 
@@ -142,12 +142,12 @@ private const val LONG_LINE = 10_000
 
 /**
  * The editor that the script editor and the text editor share: a monospace text field with line
- * numbers, light syntax colouring, undo/redo, find/replace, Go to line and a symbol bar. It draws
+ * numbers, light syntax coloring, undo/redo, find/replace, Go to line and a symbol bar. It draws
  * [state] and changes it.
  *
  * What the screen around it adds:
  * - [title]: the name at the top. A `*` after it marks unsaved changes.
- * - [lang]: the language whose colours the text gets. Null: plain text.
+ * - [lang]: the language whose colors the text gets. Null: plain text.
  * - [buttons]: the buttons after Find, at the top right (save, close, …).
  * - [belowCode]: what shows under the code, at most as tall as it is told (a run's lines).
  * - [hint]: one line above the symbol bar, shown while there is no message (inline docs).
@@ -303,6 +303,8 @@ internal fun CodeEditor(
     }
 
     // The text is searched off the main thread: a big file takes a while. A text changed meanwhile is left as it is.
+    // The text is compared by identity on purpose: a quick check that it is still the very string that was searched.
+    @Suppress("StringReferentialEquality")
     fun replaceAll() {
         val q = state.query.text
         if (q.isEmpty()) return
@@ -424,8 +426,8 @@ internal fun CodeEditor(
         with(density) { minOf(maxOf(600.dp, (textWidth + cellPx).toDp() + 12.dp), widest) }
     // Whether a line of the text can take more than one line on screen.
     val wraps by androidx.compose.runtime.rememberUpdatedState(wrap || fieldWidth >= widest)
-    // In a big text, only the lines around the view are coloured: colouring costs several times
-    // the plain text's layout at every key. The coloured range follows the view after scrolling
+    // In a big text, only the lines around the view are colored: coloring costs several times
+    // the plain text's layout at every key. The colored range follows the view after scrolling
     // stops, so a fling doesn't cause new layouts along the way.
     val big = value.text.length > WINDOW_FROM
     var window by remember(state) {
@@ -459,21 +461,21 @@ internal fun CodeEditor(
                 (first - WINDOW_SPAN).coerceAtLeast(0)..(last + WINDOW_SPAN)
         }
     }
-    // The tokens of each line are kept across highlighters, because the coloured window creates new ones.
+    // The tokens of each line are kept across highlighters, because the colored window creates new ones.
     val lineTokens = remember(lang) { lang?.let(::LineTokens) }
-    // Plain text has no colours to leave out.
-    val coloured = if (big && lang != null) window else null
-    // Plain text has no colours: no transformation, so it is not copied at every key. Find matches
-    // and the flashed line are drawn behind the text ([EditorMarks]), not coloured.
+    // Plain text has no colors to leave out.
+    val colored = if (big && lang != null) window else null
+    // Plain text has no colors: no transformation, so it is not copied at every key. Find matches
+    // and the flashed line are drawn behind the text ([EditorMarks]), not colored.
     val highlighter = remember(
         lang,
         Term.palette,
-        coloured
+        colored
     ) {
         if (lineTokens == null) VisualTransformation.None else SyntaxHighlighter(
             lineTokens.syntax,
             lineTokens,
-            coloured
+            colored
         )
     }
     // Where lines wrap there are no line numbers: a number would stand beside the wrong line.

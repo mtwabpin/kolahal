@@ -56,18 +56,18 @@ class StyledTextTest {
     }
 
     @Test
-    fun coloursByRoleNest() {
-        val text = StyledText.colour(
-            StyledText.Colour.BAD,
-            "down " + StyledText.colour(StyledText.Colour.MUTED, "(2m)") + " now"
+    fun colorsByRoleNest() {
+        val text = StyledText.color(
+            StyledText.ColorRole.BAD,
+            "down " + StyledText.color(StyledText.ColorRole.MUTED, "(2m)") + " now"
         )
         val spans = StyledText.lines(text).single().spans
         assertEquals(
-            listOf(StyledText.Colour.BAD, StyledText.Colour.MUTED, StyledText.Colour.BAD),
-            spans.map { it.colour })
+            listOf(StyledText.ColorRole.BAD, StyledText.ColorRole.MUTED, StyledText.ColorRole.BAD),
+            spans.map { it.color })
         assertEquals("down (2m) now", StyledText.plain(text))
-        assertEquals(StyledText.Colour.GOOD, StyledText.Colour.named(" Good "))
-        assertEquals(null, StyledText.Colour.named("#ff0000"))
+        assertEquals(StyledText.ColorRole.GOOD, StyledText.ColorRole.named(" Good "))
+        assertEquals(null, StyledText.ColorRole.named("#ff0000"))
     }
 
     /** fmt.table: one line per row; each cell keeps its pieces and its side; the header is marked. */
@@ -76,7 +76,7 @@ class StyledTextTest {
         val t = StyledText.table(
             listOf(
                 listOf("Coin", "Price"),
-                listOf("BTC", StyledText.colour(StyledText.Colour.GOOD, "64,210")),
+                listOf("BTC", StyledText.color(StyledText.ColorRole.GOOD, "64,210")),
                 listOf("ETH")
             ),
             header = true, align = "lr",
@@ -87,7 +87,7 @@ class StyledTextTest {
             listOf("Coin", "Price"),
             rows[0].cells.map { c -> c.spans.joinToString("") { it.text } })
         assertEquals(listOf(false, true), rows[1].cells.map { it.right })
-        assertEquals(StyledText.Colour.GOOD, rows[1].cells[1].spans.single().colour)
+        assertEquals(StyledText.ColorRole.GOOD, rows[1].cells[1].spans.single().color)
         // A short row gets empty cells, so every row has as many as the widest.
         assertEquals(2, rows[2].cells.size)
         assertEquals("Coin\tPrice\nBTC\t64,210\nETH\t", StyledText.plain(t))
@@ -154,8 +154,8 @@ class StyledTextTest {
     /** Text from outside loses every marker, and nothing else: no bullet for an item mark, emoji kept. */
     @Test
     fun stripTakesOutTheMarkersOnly() {
-        val styled = StyledText.wrap(Style.BOLD, "Win") + " a " + StyledText.colour(
-            StyledText.Colour.BAD,
+        val styled = StyledText.wrap(Style.BOLD, "Win") + " a " + StyledText.color(
+            StyledText.ColorRole.BAD,
             "prize"
         ) + " 😀"
         assertEquals("Win a prize 😀", StyledText.strip(styled))
@@ -171,15 +171,15 @@ class StyledTextTest {
 
 /** fmt.tag, fmt.link, fmt.bar, fmt.bars and fmt.ranges: what the log draws, and the plain text everything else sees. */
 class StyledTextBlocksTest {
-    private val good = StyledText.Colour.GOOD
+    private val good = StyledText.ColorRole.GOOD
 
     @Test
-    fun aTagIsAStyleWithAColour() {
-        val text = StyledText.tag(StyledText.Colour.BAD, "LIVE\nnow") + " IND v NZ"
+    fun aTagIsAStyleWithAColor() {
+        val text = StyledText.tag(StyledText.ColorRole.BAD, "LIVE\nnow") + " IND v NZ"
         val (tag, rest) = StyledText.lines(text).single().spans
         assertEquals("LIVE now", tag.text)
         assertEquals(setOf(Style.TAG), tag.styles)
-        assertEquals(StyledText.Colour.BAD, tag.colour)
+        assertEquals(StyledText.ColorRole.BAD, tag.color)
         assertEquals(" IND v NZ", rest.text)
         assertEquals("LIVE now IND v NZ", StyledText.plain(text))
     }
@@ -236,16 +236,16 @@ class StyledTextBlocksTest {
 
     @Test
     fun aBarIsALineWithNoText() {
-        val body = "Unhealthy\n" + StyledText.bar(168.0, 300.0, StyledText.Colour.BAD)
+        val body = "Unhealthy\n" + StyledText.bar(168.0, 300.0, StyledText.ColorRole.BAD)
         val (text, bar) = StyledText.lines(body)
         assertEquals("Unhealthy", text.spans.single().text)
         val m = bar.meter!!
         assertEquals(0f, m.from)
         assertEquals(0.56f, m.to, 0.001f)
-        assertEquals(StyledText.Colour.BAD, m.colour)
+        assertEquals(StyledText.ColorRole.BAD, m.color)
         assertEquals("Unhealthy", StyledText.plain(body))
         assertEquals(
-            "Unhealthy" to StyledText.bar(168.0, 300.0, StyledText.Colour.BAD),
+            "Unhealthy" to StyledText.bar(168.0, 300.0, StyledText.ColorRole.BAD),
             StyledText.splitAtBlocks(body)
         )
         assertTrue(StyledText.hasBlock(body))
@@ -269,7 +269,7 @@ class StyledTextBlocksTest {
             listOf(
                 StyledText.BarRow("Mon", 42.0),
                 StyledText.BarRow("Tue", 21.0, "21 unlocks")
-            ), colour = good
+            ), color = good
         )
         val meters = StyledText.lines(body).map { it.meter!! }
         assertEquals(listOf(1f, 0.5f), meters.map { it.to })
@@ -277,7 +277,7 @@ class StyledTextBlocksTest {
         assertEquals(
             listOf("42", "21 unlocks"),
             meters.map { m -> m.end.joinToString("") { it.text } })
-        assertEquals(setOf(good), meters.map { it.colour }.toSet())
+        assertEquals(setOf(good), meters.map { it.color }.toSet())
         assertEquals("Mon\t42\nTue\t21 unlocks", StyledText.plain(body))
         // A set top.
         assertEquals(
@@ -376,7 +376,7 @@ class StyledTextBlocksTest {
         val body = "Now\n" + StyledText.stats(
             listOf(
                 "24°" to "Pune, clear",
-                StyledText.colour(StyledText.Colour.GOOD, "60%") to "humidity",
+                StyledText.color(StyledText.ColorRole.GOOD, "60%") to "humidity",
                 "12" to ""
             )
         ) + "\nlater"
@@ -388,14 +388,14 @@ class StyledTextBlocksTest {
         assertEquals(
             listOf("Pune, clear", "Humidity", ""),
             stats.map { s -> s.label.joinToString("") { it.text } })
-        assertEquals(StyledText.Colour.GOOD, stats[1].value.single().colour)
+        assertEquals(StyledText.ColorRole.GOOD, stats[1].value.single().color)
         assertEquals("Now\n24° Pune, clear · 60% Humidity · 12\nlater", StyledText.plain(body))
         assertTrue(StyledText.hasBlock(body))
         assertEquals(
             "Now" to StyledText.stats(
                 listOf(
                     "24°" to "Pune, clear",
-                    StyledText.colour(StyledText.Colour.GOOD, "60%") to "humidity",
+                    StyledText.color(StyledText.ColorRole.GOOD, "60%") to "humidity",
                     "12" to ""
                 )
             ) + "\nlater", StyledText.splitAtBlocks(body)
@@ -417,19 +417,19 @@ class StyledTextBlocksTest {
 
     private fun bold(s: String) = StyledText.wrap(Style.BOLD, s)
     private fun italic(s: String) = StyledText.wrap(Style.ITALIC, s)
-    private fun green(s: String) = StyledText.colour(StyledText.Colour.GOOD, s)
+    private fun green(s: String) = StyledText.color(StyledText.ColorRole.GOOD, s)
 
-    /** Each piece of [text] as (words, styles, colour). */
+    /** Each piece of [text] as (words, styles, color). */
     private fun pieces(text: String) =
-        StyledText.lines(text).flatMap { it.spans }.map { Triple(it.text, it.styles, it.colour) }
+        StyledText.lines(text).flatMap { it.spans }.map { Triple(it.text, it.styles, it.color) }
 
     /** The styles of each piece of [text], by its words. */
     private fun stylesIn(text: String) =
         StyledText.lines(text).flatMap { it.spans }.associate { it.text to it.styles }
 
-    /** inline keeps bold, italic, underline, strike and colours, and what the text shows stays the same. */
+    /** inline keeps bold, italic, underline, strike and colors, and what the text shows stays the same. */
     @Test
-    fun inlineKeepsWeightSlantLinesAndColour() {
+    fun inlineKeepsWeightSlantLinesAndColor() {
         val text = "a " + bold("b") + " " + italic("c") + " " + StyledText.wrap(
             Style.UNDERLINE,
             "d"
@@ -447,18 +447,18 @@ class StyledTextBlocksTest {
                 Triple(" ", emptySet(), null),
                 Triple("e", setOf(Style.STRIKE), null),
                 Triple(" ", emptySet(), null),
-                Triple("f", emptySet<Style>(), StyledText.Colour.GOOD),
+                Triple("f", emptySet<Style>(), StyledText.ColorRole.GOOD),
                 Triple(" g", emptySet(), null),
             ),
             pieces(kept),
         )
         // Plain text is left alone: the same object comes back.
         assertSame("no styles", StyledText.inline("no styles"))
-        // Every colour role stays.
-        StyledText.Colour.entries.forEach {
+        // Every color role stays.
+        StyledText.ColorRole.entries.forEach {
             assertEquals(
                 it,
-                pieces(StyledText.inline(StyledText.colour(it, "x"))).single().third
+                pieces(StyledText.inline(StyledText.color(it, "x"))).single().third
             )
         }
     }
@@ -478,16 +478,16 @@ class StyledTextBlocksTest {
         assertEquals(setOf(Style.BOLD), stylesIn(link)["the page"])
 
         val tag = StyledText.inline(
-            StyledText.tag(StyledText.Colour.BAD, "LIVE") + " " + StyledText.wrap(
+            StyledText.tag(StyledText.ColorRole.BAD, "LIVE") + " " + StyledText.wrap(
                 Style.CODE,
                 "v1.2"
             )
         )
         assertEquals("LIVE v1.2", StyledText.plain(tag))
-        // The tag's colour stays. Its chip and the code's shade go.
+        // The tag's color stays. Its chip and the code's shade go.
         assertEquals(
             listOf(
-                Triple("LIVE", emptySet<Style>(), StyledText.Colour.BAD),
+                Triple("LIVE", emptySet<Style>(), StyledText.ColorRole.BAD),
                 Triple(" v1.2", emptySet(), null)
             ), pieces(tag)
         )
@@ -499,7 +499,7 @@ class StyledTextBlocksTest {
                 StyledText.meter(
                     0.0,
                     0.5,
-                    StyledText.Colour.GOOD,
+                    StyledText.ColorRole.GOOD,
                     "Overs",
                     "",
                     "40/50"
@@ -529,8 +529,8 @@ class StyledTextBlocksTest {
     @Test
     fun inlineGivesTheSameTextWhenRunTwice() {
         val nested = bold("a " + italic("b " + green("c") + " d") + " e") + green(
-            "f " + StyledText.colour(
-                StyledText.Colour.BAD,
+            "f " + StyledText.color(
+                StyledText.ColorRole.BAD,
                 "g"
             ) + " h"
         )
@@ -543,7 +543,7 @@ class StyledTextBlocksTest {
                 "https://example.com",
                 ""
             ) + bold("")
-        val mixed = StyledText.tag(StyledText.Colour.INFO, "NEW") + StyledText.link(
+        val mixed = StyledText.tag(StyledText.ColorRole.INFO, "NEW") + StyledText.link(
             "https://example.com",
             green("go")
         ) + "\n" + StyledText.list(listOf(bold("x")), numbered = false, level = 2)
@@ -576,7 +576,7 @@ class StyledTextBlocksTest {
                 StyledText.wrap(Style.ITALIC, "second line")
             ), StyledText.inline(open)
         )
-        // Styles are written in one order, the colour outside.
+        // Styles are written in one order, the color outside.
         assertEquals(
             StyledText.inline(bold(italic(green("x")))),
             StyledText.inline(green(italic(bold("x"))))
@@ -603,8 +603,8 @@ class StyledTextBlocksTest {
         assertEquals("a b", StyledText.inline(bold("a") + " " + italic("b"), maxRuns = 0))
         // 500 characters in the most styled pieces stay far under the 4000 units a stored text may have.
         val worst = (1..32).joinToString("") {
-            StyledText.colour(
-                StyledText.Colour.WARN,
+            StyledText.color(
+                StyledText.ColorRole.WARN,
                 bold(italic(StyledText.wrap(Style.UNDERLINE, StyledText.wrap(Style.STRIKE, "x"))))
             ) + "y"
         } + "z".repeat(436)
@@ -643,7 +643,7 @@ class StyledTextBlocksTest {
         assertEquals("go", StyledText.take(StyledText.link("https://example.com", "go"), 10))
         assertEquals(
             "LIV…",
-            StyledText.plain(StyledText.take(StyledText.tag(StyledText.Colour.BAD, "LIVE NOW"), 4))
+            StyledText.plain(StyledText.take(StyledText.tag(StyledText.ColorRole.BAD, "LIVE NOW"), 4))
         )
     }
 
@@ -666,31 +666,31 @@ class StyledTextBlocksTest {
     /** A label that stands on its own starts with a capital: its first visible letter, past styles and a link's address. */
     @Test
     fun aLabelStartsWithACapital() {
-        assertEquals("Unlocks today", StyledText.capitalised("unlocks today"))
-        assertEquals("Unlocks today", StyledText.capitalised("Unlocks today"))
-        assertEquals("3 days ago", StyledText.capitalised("3 days ago"))
-        assertEquals("iOS 18", StyledText.capitalised("iOS 18"))
+        assertEquals("Unlocks today", StyledText.capitalized("unlocks today"))
+        assertEquals("Unlocks today", StyledText.capitalized("Unlocks today"))
+        assertEquals("3 days ago", StyledText.capitalized("3 days ago"))
+        assertEquals("iOS 18", StyledText.capitalized("iOS 18"))
         assertEquals(
             "macOS and eBay keep their capitals inside",
             "macOS update",
-            StyledText.capitalised("macOS update")
+            StyledText.capitalized("macOS update")
         )
-        assertEquals("eBay orders", StyledText.capitalised("eBay orders"))
-        assertEquals("km/h", StyledText.capitalised("km/h"))
-        assertEquals("kg", StyledText.capitalised("kg"))
-        assertEquals("Été", StyledText.capitalised("été"))
-        assertEquals("Bg", StyledText.capitalised("bg"))
-        assertEquals("v1.2", StyledText.capitalised("v1.2"))
-        assertEquals("x86 build", StyledText.capitalised("x86 build"))
-        assertEquals("In 3 days", StyledText.capitalised("in 3 days"))
-        assertEquals("Min left", StyledText.capitalised("min left"))
-        assertEquals("min", StyledText.capitalised("min"))
-        assertEquals(" mph ", StyledText.capitalised(" mph "))
-        assertEquals("", StyledText.capitalised(""))
-        assertEquals(" É", StyledText.capitalised(" é"))
+        assertEquals("eBay orders", StyledText.capitalized("eBay orders"))
+        assertEquals("km/h", StyledText.capitalized("km/h"))
+        assertEquals("kg", StyledText.capitalized("kg"))
+        assertEquals("Été", StyledText.capitalized("été"))
+        assertEquals("Bg", StyledText.capitalized("bg"))
+        assertEquals("v1.2", StyledText.capitalized("v1.2"))
+        assertEquals("x86 build", StyledText.capitalized("x86 build"))
+        assertEquals("In 3 days", StyledText.capitalized("in 3 days"))
+        assertEquals("Min left", StyledText.capitalized("min left"))
+        assertEquals("min", StyledText.capitalized("min"))
+        assertEquals(" mph ", StyledText.capitalized(" mph "))
+        assertEquals("", StyledText.capitalized(""))
+        assertEquals(" É", StyledText.capitalized(" é"))
         assertEquals(
             StyledText.plain(
-                StyledText.capitalised(
+                StyledText.capitalized(
                     StyledText.link(
                         "https://x.org",
                         "read more"
@@ -700,7 +700,7 @@ class StyledTextBlocksTest {
         )
         assertEquals(
             StyledText.linkTexts(
-                StyledText.capitalised(
+                StyledText.capitalized(
                     StyledText.link(
                         "https://x.org",
                         "read more"

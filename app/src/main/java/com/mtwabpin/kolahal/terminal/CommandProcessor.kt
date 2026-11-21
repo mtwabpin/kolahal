@@ -595,10 +595,10 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
     /**
      * - `wallpaper` says whether the home screen wallpaper is Kolahal's.
      * - `wallpaper match` sets Kolahal's wallpaper ([com.mtwabpin.kolahal.control.WallpaperMatch]), in
-     *   the theme's colour as home last showed it.
+     *   the theme's color as home last showed it.
      *   It asks first, because Android doesn't let an app read the wallpaper it replaces, so the
      *   old one can't be restored.
-     * - The Material You themes take their colours from the wallpaper. So the wallpaper can't follow
+     * - The Material You themes take their colors from the wallpaper. So the wallpaper can't follow
      *   one, and both forms say so.
      */
     private fun wallpaper(args: List<String>) {
@@ -609,30 +609,30 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         when (args.firstOrNull()?.lowercase()) {
             null -> info(
                 when {
-                    !match.isMatched(context) -> "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's colour)"
-                    match.themeFromWallpaper -> "Your home screen wallpaper is Kolahal's, but it doesn't follow the $theme theme, which takes its colours from the wallpaper. It follows again when you pick another theme"
-                    else -> "Your home screen wallpaper is in the theme's colour, and follows the theme"
+                    !match.isMatched(context) -> "Your home screen wallpaper is your own; Kolahal doesn't change it (wallpaper match sets it to the theme's color)"
+                    match.themeFromWallpaper -> "Your home screen wallpaper is Kolahal's, but it doesn't follow the $theme theme, which takes its colors from the wallpaper. It follows again when you pick another theme"
+                    else -> "Your home screen wallpaper is in the theme's color, and follows the theme"
                 },
             )
 
             "match" -> {
-                val colour = match.themeColour
+                val color = match.themeColor
                 when {
-                    match.themeFromWallpaper -> error("The $theme theme takes its colours from the wallpaper, so the wallpaper can't follow it: pick another theme, then try again")
+                    match.themeFromWallpaper -> error("The $theme theme takes its colors from the wallpaper, so the wallpaper can't follow it: pick another theme, then try again")
                     match.isMatched(context) -> info("Your home screen wallpaper already follows the theme")
                     args.getOrNull(1) != "--yes" -> {
-                        info("This replaces your home screen wallpaper with this theme's colour, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this colour.")
+                        info("This replaces your home screen wallpaper with this theme's color, so it doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal can't restore the old one, and log.wallpaper and widgets.wallpaper will show only this color.")
                         info(
                             "Tap to replace it",
                             LogContext.of(LogContext.RUN to "wallpaper match --yes")
                         )
                     }
 
-                    colour == null -> error("Kolahal doesn't know the theme's colour yet: go home, then try again")
+                    color == null -> error("Kolahal doesn't know the theme's color yet: go home, then try again")
                     match.set(
                         context,
-                        colour
-                    ) -> info("Home screen wallpaper set to this theme's colour. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
+                        color
+                    ) -> info("Home screen wallpaper set to this theme's color. It follows the theme until you set another wallpaper; the lock screen wallpaper isn't changed")
 
                     else -> error("Couldn't change the wallpaper on this phone")
                 }
@@ -848,12 +848,12 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         )
     }
 
-    /** A section's heading in `help`: its name, bold in the accent colour, and how many commands it has. */
+    /** A section's heading in `help`: its name, bold in the accent color, and how many commands it has. */
     private fun helpHeading(name: String, count: Int) = info(
-        StyledText.colour(
-            StyledText.Colour.ACCENT,
+        StyledText.color(
+            StyledText.ColorRole.ACCENT,
             StyledText.wrap(StyledText.Style.BOLD, name)
-        ) + StyledText.colour(StyledText.Colour.MUTED, " · $count"),
+        ) + StyledText.color(StyledText.ColorRole.MUTED, " · $count"),
         LogContext(LogContext.ITEM),
     )
 
@@ -882,8 +882,8 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
         offered.filter { it.name !in placed }.forEach { helpLine(it, column) }
         if (commandScripts.isNotEmpty()) helpHeading("Your script commands", commandScripts.size)
         commandScripts.forEach { helpLine(it, column) }
-        val muted = { text: String -> StyledText.colour(StyledText.Colour.MUTED, text) }
-        val key = { text: String -> StyledText.tag(StyledText.Colour.TEXT, text) }
+        val muted = { text: String -> StyledText.color(StyledText.ColorRole.MUTED, text) }
+        val key = { text: String -> StyledText.tag(StyledText.ColorRole.TEXT, text) }
         info(muted("Anything else opens the app it matches"), LogContext(LogContext.ITEM))
         if (off.isNotEmpty()) info(muted("Turned off: ") + CommandsOff.CHOICES.filter { it in off }
             .joinToString(", ") + muted(" · Settings → Commands"), LogContext(LogContext.ITEM))
@@ -911,7 +911,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 LogContext.of(LogContext.COMMAND to spec.name + " ")
             )
             out(spec.help)
-            info(StyledText.colour(StyledText.Colour.MUTED, "Use"), LogContext(LogContext.ITEM))
+            info(StyledText.color(StyledText.ColorRole.MUTED, "Use"), LogContext(LogContext.ITEM))
             if (spec.uses.isEmpty()) {
                 out(
                     StyledText.wrap(StyledText.Style.BOLD, spec.usage),
@@ -924,7 +924,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                         use,
                         LogContext.of(
                             LogContext.COMMAND to useCommand(use),
-                            LogContext.DESC to StyledText.colour(StyledText.Colour.MUTED, does),
+                            LogContext.DESC to StyledText.color(StyledText.ColorRole.MUTED, does),
                             LogContext.NAME_COL to column,
                         ),
                     )

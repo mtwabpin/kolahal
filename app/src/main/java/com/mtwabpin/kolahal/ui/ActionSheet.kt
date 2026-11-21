@@ -54,7 +54,7 @@ data class ActionMenu(
 )
 
 /**
- * A bottom sheet in the terminal's style: its surface colour, rounded only at the top, and no drag
+ * A bottom sheet in the terminal's style: its surface color, rounded only at the top, and no drag
  * handle. It opens fully.
  */
 @OptIn(ExperimentalMaterial3Api::class)

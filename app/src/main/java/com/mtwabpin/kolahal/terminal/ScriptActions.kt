@@ -84,7 +84,7 @@ class ScriptActions(
      * The only writer of [scriptList] and of the command scripts ([Host.setCommandScripts]): every
      * read runs on its one thread, so an older read can't be written after a newer one.
      */
-    private val listReads = ScriptListReads<List<Script>>(
+    private val listReads = ScriptListReads(
         fingerprint = { scripts.fingerprint() },
         all = { scripts.all() },
         write = { list ->

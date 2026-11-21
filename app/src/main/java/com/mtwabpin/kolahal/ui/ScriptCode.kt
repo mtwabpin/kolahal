@@ -24,7 +24,7 @@ import com.mtwabpin.kolahal.script.ScriptMeta
 
 /**
  * A script's code to read before installing it, not to edit: in the terminal font on the log's
- * background, coloured as the script editor colours it, each line whole. The text can be
+ * background, colored as the script editor colors it, each line whole. The text can be
  * selected, to copy a part.
  */
 @Composable

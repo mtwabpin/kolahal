@@ -58,7 +58,7 @@ class ConfigNamesTest {
     }
 
     /**
-     * Settings that are gone (0.3.1: settings colours, home widgets; 0.4.14: now playing with the
+     * Settings that are gone (0.3.1: settings colors, home widgets; 0.4.14: now playing with the
      * header off, which the pinned header always shows) leave saved values and backups.
      */
     @Test

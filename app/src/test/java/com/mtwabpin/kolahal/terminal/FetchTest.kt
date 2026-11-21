@@ -17,7 +17,7 @@ class FetchTest {
     @Test
     fun theIconSitsBesideTheFactsWhenTheyFit() {
         val lines = plain(Fetch.layout("Pixel 9", rows, cols = 40))
-        // Title, rule, a row per fact, a gap, the colours.
+        // Title, rule, a row per fact, a gap, the colors.
         assertEquals(2 + rows.size + 2, lines.size)
         assertTrue(lines[0], lines[0].startsWith("▍ ███ ▄▄  kolahal@Pixel 9"))
         assertTrue(lines[2], lines[2].startsWith("› ▆       OS      Android 16"))
@@ -59,11 +59,11 @@ class FetchTest {
     }
 
     @Test
-    fun theColoursAreTheThemesByRole() {
+    fun theColorsAreTheThemesByRole() {
         val last = Fetch.layout("x", rows, cols = 40).last()
         assertEquals(
             8,
-            StyledText.lines(last).single().spans.mapNotNull { it.colour }.distinct().size
+            StyledText.lines(last).single().spans.mapNotNull { it.color }.distinct().size
         )
     }
 

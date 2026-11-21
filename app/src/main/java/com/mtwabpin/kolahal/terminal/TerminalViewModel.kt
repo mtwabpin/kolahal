@@ -360,7 +360,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * When each pinned line last ran again for its `refresh`, by script name, in [SystemClock.elapsedRealtime]
+     * When each pinned line last ran again for its `refresh`, by script name, in [android.os.SystemClock.elapsedRealtime]
      * time ([PinnedTurns]). Only the main thread uses it.
      */
     private val pinRuns = HashMap<String, Long>()
@@ -580,7 +580,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
      * Scripts, the hidden count, history, the todo and feed caches and the log's sources are read
      * only when something they show could have changed.
      *
-     * If the reload is cancelled before the page shows (a newer change came in), the next reload
+     * If the reload is canceled before the page shows (a newer change came in), the next reload
      * reads the same lines again, and refreshes history, todos and the hidden count for them.
      */
     private suspend fun refreshCaches(read: LogPager.Read) {
@@ -865,8 +865,6 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Backspace for the touch key bar. Deletes the selection, or the character before the cursor. */
     fun deleteBackward() = prompt.deleteBackward()
 
-    fun moveCursor(delta: Int) = prompt.moveCursor(delta)
-
     fun onKeyBar(key: KeyBarKey) = prompt.onKeyBar(key)
 
     fun escape() = prompt.escape()
@@ -966,7 +964,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     fun launchApp(app: AppEntry) = io { processor.launch(app) }
 
-    /** Keys of favourite apps. The app selector lists them first, with ★. */
+    /** Keys of favorite apps. The app selector lists them first, with ★. */
     fun pinnedKeys(): Set<String> = appPrefs.pinned().toSet()
 
     /** One serial worker. Commands and actions run in order. Failures are logged and never crash home. */

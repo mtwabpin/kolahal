@@ -110,8 +110,8 @@ data class LogAction(
 /** A menu icon in the header's style and size. */
 sealed interface ActionIcon {
     /**
-     * A drawable [id]. It is dim like the header's icons, or coloured the way the header colours it:
-     * - [profile]: that profile's colour;
+     * A drawable [id]. It is dim like the header's icons, or colored the way the header colors it:
+     * - [profile]: that profile's color;
      * - [alert]: red.
      */
     data class Drawable(val id: Int, val profile: ProfileKind? = null, val alert: Boolean = false) :

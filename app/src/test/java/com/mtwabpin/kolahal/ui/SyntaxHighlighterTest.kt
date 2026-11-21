@@ -9,7 +9,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The editor's colours: kept tokens and a kept answer give what colouring afresh gives. */
+/** The editor's colors: kept tokens and a kept answer give what coloring afresh gives. */
 class SyntaxHighlighterTest {
     private val lua = """
         -- @every 1h
@@ -23,7 +23,7 @@ class SyntaxHighlighterTest {
         "// @every 1h\nconst x = `a\nb`;\nif (x) { http.get(\"https://example.com\"); }\nreturn 42.5;"
 
     @Test
-    fun keptTokensColourAsAFreshHighlighter() {
+    fun keptTokensColorAsAFreshHighlighter() {
         for ((lang, code) in listOf(Syntax.LUA to lua, Syntax.JS to js)) {
             val tokens = LineTokens(lang)
             // Warm the shared tokens with other text first, as typing does.
@@ -35,11 +35,11 @@ class SyntaxHighlighterTest {
     }
 
     @Test
-    fun theSameTextIsntColouredAgain() {
+    fun theSameTextIsntColoredAgain() {
         val h = SyntaxHighlighter(Syntax.LUA)
         val first = h.filter(AnnotatedString(lua))
         assertSame(first, h.filter(AnnotatedString(lua)))
-        // A changed text is coloured for what it now says.
+        // A changed text is colored for what it now says.
         val changed = h.filter(AnnotatedString("$lua\nprint(1)"))
         assertEquals(
             SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString("$lua\nprint(1)")).text,
@@ -47,9 +47,9 @@ class SyntaxHighlighterTest {
         )
     }
 
-    /** The last answer stands only for the theme it was coloured in. */
+    /** The last answer stands only for the theme it was colored in. */
     @Test
-    fun aNewThemeColoursAgain() {
+    fun aNewThemeColorsAgain() {
         withValue(Term::palette, Palettes.green) {
             val h = SyntaxHighlighter(Syntax.LUA)
             val green = h.filter(AnnotatedString(lua))
@@ -64,16 +64,16 @@ class SyntaxHighlighterTest {
         }
     }
 
-    /** A big script is coloured without bold and italic, which make its layout far slower; a usual one keeps them. */
+    /** A big script is colored without bold and italic, which make its layout far slower; a usual one keeps them. */
     @Test
-    fun aBigScriptIsColouredOnly() {
+    fun aBigScriptIsColoredOnly() {
         fun fonts(code: String) =
             SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(code)).text.spanStyles
                 .count { it.item.fontWeight != null || it.item.fontStyle != null }
         assertTrue(fonts(lua) > 0)
         val big = buildString { while (length <= 8_000) append(lua).append('\n') }
         assertEquals(0, fonts(big))
-        // The colours stay.
+        // The colors stay.
         assertTrue(SyntaxHighlighter(Syntax.LUA).filter(AnnotatedString(big)).text.spanStyles.size > 100)
     }
 
@@ -89,13 +89,13 @@ class SyntaxHighlighterTest {
         repeat(3_000) { tokens.of("local s = '" + "a".repeat(1_500) + it + "'") }
         repeat(500) { tokens.of("-- " + "b".repeat(5_000) + it) }
         assertTrue(tokens.keptChars <= LineTokens.KEPT_CHARS + LineTokens.KEPT_LONG_CHARS)
-        // A line let go is tokenised again alike.
+        // A line let go is tokenized again alike.
         assertTrue(LineTokens(Syntax.LUA).of(short[0]).contentEquals(tokens.of(short[0])))
     }
 
-    /** A window colours its lines as the whole script would, and no others. */
+    /** A window colors its lines as the whole script would, and no others. */
     @Test
-    fun aWindowColoursOnlyItsLines() {
+    fun aWindowColorsOnlyItsLines() {
         for ((lang, code) in listOf(
             Syntax.LUA to lua,
             Syntax.JS to "$js\nconst y = `x\ny`;\n// end"
@@ -108,7 +108,7 @@ class SyntaxHighlighterTest {
                     lang,
                     window = window
                 ).filter(AnnotatedString(code)).text.spanStyles
-                // Every colour in the window, as coloured whole; none outside it.
+                // Every color in the window, as colored whole; none outside it.
                 val expected =
                     whole.filter { r -> (lineOf(r.start)..lineOf((r.end - 1).coerceAtLeast(r.start))).any { it in window } }
                 assertEquals(
@@ -143,23 +143,23 @@ class SyntaxHighlighterTest {
         assertEquals(SyntaxHighlighter(Syntax.LUA), SyntaxHighlighter(Syntax.LUA))
     }
 
-    /** A very long line (minified JSON) has no colours; the lines around it keep theirs. */
+    /** A very long line (minified JSON) has no colors; the lines around it keep theirs. */
     @Test
-    fun aVeryLongLineIsNotColoured() {
+    fun aVeryLongLineIsNotColored() {
         val long = "\"b\": [" + (1..2_000).joinToString(",") { "\"k$it\"" } + "],"
-        assertTrue(long.length > SyntaxHighlighter.MAX_COLOURED_LINE)
+        assertTrue(long.length > SyntaxHighlighter.MAX_COLORED_LINE)
         val code = "{\"a\": 1,\n$long\n\"c\": 2}"
         val spans = SyntaxHighlighter(Syntax.JSON).filter(AnnotatedString(code)).text.spanStyles
         val from = code.indexOf(long)
         val to = from + long.length
-        assertTrue("the first line is coloured", spans.any { it.end <= from })
-        assertTrue("the last line is coloured", spans.any { it.start > to })
+        assertTrue("the first line is colored", spans.any { it.end <= from })
+        assertTrue("the last line is colored", spans.any { it.start > to })
         assertTrue("the long line is not", spans.none { it.start in from until to })
     }
 
-    /** JSON: keys in the keyword colour, string values in the string colour, other values in the number colour. */
+    /** JSON: keys in the keyword color, string values in the string color, other values in the number color. */
     @Test
-    fun jsonColoursKeysAndValues() {
+    fun jsonColorsKeysAndValues() {
         val line =
             """  "name" : "Tea \"hot\"", "n": -1.5e3, "ok": true, "none": null, "list": ["a", 2]"""
         val t = LineTokens(Syntax.JSON).of(line)
@@ -180,7 +180,7 @@ class SyntaxHighlighterTest {
             ),
             got,
         )
-        // Backticks mean nothing in JSON: no template string is coloured across lines.
+        // Backticks mean nothing in JSON: no template string is colored across lines.
         val code = "{\n  \"a\": \"`x\",\n  \"b\": 1,\n  \"c\": \"y`\"\n}"
         val spans = SyntaxHighlighter(Syntax.JSON).filter(AnnotatedString(code)).text.spanStyles
         assertTrue(spans.none { it.end - it.start > 6 })

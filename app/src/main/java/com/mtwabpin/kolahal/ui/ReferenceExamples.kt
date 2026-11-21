@@ -8,7 +8,7 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.ScriptLang
 import com.mtwabpin.kolahal.data.StyledText
-import com.mtwabpin.kolahal.data.StyledText.Colour
+import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import com.mtwabpin.kolahal.script.Fmt
 import com.mtwabpin.kolahal.script.Json
 import com.mtwabpin.kolahal.script.Markdown
@@ -49,7 +49,7 @@ internal object ReferenceExamples {
          */
         val of: String? = null,
         val variant: String? = null,
-        /** The card that the code makes at [now] (seconds) in [zone]. */
+        /** The card that the code makes at `now` (seconds) in `zone`. */
         val spec: (now: Long, zone: ZoneId) -> WidgetSpec,
     ) {
         /** What the reference calls it: the kind, as `kind` names it in the code. */
@@ -61,7 +61,7 @@ internal object ReferenceExamples {
          */
         val line: String
             get() = when (name) {
-                "styles" -> "Rows with styles: bold, a colour, struck-through text"
+                "styles" -> "Rows with styles: bold, a color, struck-through text"
                 "water" -> "A tap that adds a glass, kept in the store"
                 else -> ReferenceSearch.kindLine(kind)
             }
@@ -213,7 +213,7 @@ internal object ReferenceExamples {
             """,
         ) { _, _ ->
             WidgetSpec.Progress(
-                WidgetBase(title = "Pune air", color = Colour.WARN),
+                WidgetBase(title = "Pune air", color = ColorRole.WARN),
                 value = 168f,
                 max = 300f,
                 text = "168",
@@ -344,7 +344,7 @@ internal object ReferenceExamples {
                         "Stop",
                         WidgetTap(args = "stop"),
                         icon = "pause",
-                        color = Colour.BAD
+                        color = ColorRole.BAD
                     ),
                     WidgetSpec.Button("Help", WidgetTap(url = "https://example.com/help")),
                 ),
@@ -530,7 +530,7 @@ internal object ReferenceExamples {
                         ends = lunch + 3600,
                         where = "Cafe Goodluck"
                     ),
-                    WidgetSpec.Event("Goa trip", trip, allDay = true, color = Colour.GOOD),
+                    WidgetSpec.Event("Goa trip", trip, allDay = true, color = ColorRole.GOOD),
                 ),
                 days = 3,
                 empty = "Nothing planned",
@@ -576,7 +576,7 @@ internal object ReferenceExamples {
                 listOf(
                     WidgetSpec.Row(
                         StyledText.wrap(StyledText.Style.BOLD, "Rent") + " to Asha",
-                        detail = "Due in " + StyledText.colour(Colour.WARN, "2 days"),
+                        detail = "Due in " + StyledText.color(ColorRole.WARN, "2 days"),
                         trailing = StyledText.wrap(StyledText.Style.STRIKE, "520") + " 480",
                     ),
                 ),
@@ -636,7 +636,7 @@ internal object ReferenceExamples {
             // Five glasses of eight so far today.
             WidgetSpec.Progress(
                 WidgetBase(
-                    color = Colour.ACCENT,
+                    color = ColorRole.ACCENT,
                     tap = WidgetTap(args = "add", label = "add a glass")
                 ), value = 5f, max = 8f, text = "5 / 8"
             )
@@ -1021,8 +1021,8 @@ internal object ReferenceExamples {
             WidgetSpec.Progress(
                 WidgetBase(title = "Phone"), value = 0f, max = 1f,
                 items = listOf(
-                    WidgetSpec.Bar("Battery", 72f, 100f, "72%", Colour.GOOD),
-                    WidgetSpec.Bar("Storage", 96f, 128f, "96 / 128 GB", Colour.WARN),
+                    WidgetSpec.Bar("Battery", 72f, 100f, "72%", ColorRole.GOOD),
+                    WidgetSpec.Bar("Storage", 96f, 128f, "96 / 128 GB", ColorRole.WARN),
                     WidgetSpec.Bar("Data", 1.4f, 2f, "1.4 / 2 GB", null),
                 ),
             )
@@ -1608,19 +1608,19 @@ internal object ReferenceExamples {
                         where = "Main Street"
                     ),
                     WidgetSpec.Event("Team lunch", at(1, 13), ends = at(1, 14)),
-                    WidgetSpec.Event("Gym", at(2, 7), ends = at(2, 8), color = Colour.GOOD),
+                    WidgetSpec.Event("Gym", at(2, 7), ends = at(2, 8), color = ColorRole.GOOD),
                     WidgetSpec.Event("Call with Ravi", at(2, 18)),
                     WidgetSpec.Event(
                         "Mira's birthday",
                         at(3, 0),
                         allDay = true,
-                        color = Colour.ACCENT
+                        color = ColorRole.ACCENT
                     ),
                     WidgetSpec.Event(
                         "Flight to Delhi",
                         at(3, 21, 15),
                         where = "Terminal 2",
-                        color = Colour.WARN
+                        color = ColorRole.WARN
                     ),
                 ),
                 days = 4,
@@ -1674,7 +1674,7 @@ internal object ReferenceExamples {
 
     private fun bold(text: String) = StyledText.wrap(StyledText.Style.BOLD, text)
     private fun code(text: String) = StyledText.wrap(StyledText.Style.CODE, text)
-    private fun colour(colour: Colour, text: String) = StyledText.colour(colour, text)
+    private fun color(color: ColorRole, text: String) = StyledText.color(color, text)
 
     /** The engines' `fmt` helpers, with numbers written as the scripts write them. */
     private val styles =
@@ -1859,7 +1859,7 @@ internal object ReferenceExamples {
             ),
         ),
         Log(
-            "styles", "fmt: styles and colours",
+            "styles", "fmt: styles and colors",
             lua = """
             local item = {
               score = 128,
@@ -1924,7 +1924,7 @@ internal object ReferenceExamples {
                     "Today",
                     StyledText.list(listOf("standup " + code("10:00"), "review"), numbered = true)
                 ),
-                Line("BTC 67,120 USD " + colour(Colour.GOOD, "▲ 1.2%")),
+                Line("BTC 67,120 USD " + color(ColorRole.GOOD, "▲ 1.2%")),
             ),
         ),
         Log(
@@ -1977,8 +1977,8 @@ internal object ReferenceExamples {
                     StyledText.table(
                         listOf(
                             listOf("Coin", "Price", "24h"),
-                            listOf("BTC", "64,210", colour(Colour.GOOD, "▲ 2.1%")),
-                            listOf("ETH", "3,118", colour(Colour.BAD, "▼ 0.8%")),
+                            listOf("BTC", "64,210", color(ColorRole.GOOD, "▲ 2.1%")),
+                            listOf("ETH", "3,118", color(ColorRole.BAD, "▼ 0.8%")),
                         ),
                         header = true, align = "lrr",
                     ),
@@ -2054,12 +2054,12 @@ internal object ReferenceExamples {
             );
             """,
             lines = listOf(
-                Line(StyledText.tag(Colour.BAD, "LIVE") + " IND v NZ"),
+                Line(StyledText.tag(ColorRole.BAD, "LIVE") + " IND v NZ"),
                 Line(
                     "neovim/neovim " + StyledText.tag(
-                        Colour.ACCENT,
+                        ColorRole.ACCENT,
                         "v0.12.0"
-                    ) + " " + StyledText.tag(Colour.WARN, "pre-release")
+                    ) + " " + StyledText.tag(ColorRole.WARN, "pre-release")
                 ),
             ),
         ),
@@ -2235,7 +2235,7 @@ internal object ReferenceExamples {
 
     /**
      * A sample for each `fmt` function: one short `log` call, and the line it makes. The reference
-     * draws it under the function's entry ([ApiDoc] of the same name), and the website shows it in
+     * draws it under the function's entry ([com.mtwabpin.kolahal.script.ApiDoc] of the same name), and the website shows it in
      * the guide's table of `fmt` functions. `fmt.plain` has none: its text has no styles to show.
      */
     val fmt: List<Log> = listOf(
@@ -2359,7 +2359,7 @@ internal object ReferenceExamples {
               ).join(" "),
             );
             """,
-            lines = listOf(Line(ROLES.joinToString(" ") { colour(Colour.named(it)!!, it) })),
+            lines = listOf(Line(ROLES.joinToString(" ") { color(ColorRole.named(it)!!, it) })),
         ),
         Log(
             "fmt.tag", "fmt.tag",
@@ -2380,10 +2380,10 @@ internal object ReferenceExamples {
             lines = listOf(
                 Line(
                     StyledText.tag(
-                        Colour.BAD,
+                        ColorRole.BAD,
                         "LIVE"
-                    ) + " " + StyledText.tag(Colour.ACCENT, "NEW") + " " + StyledText.tag(
-                        Colour.GOOD,
+                    ) + " " + StyledText.tag(ColorRole.ACCENT, "NEW") + " " + StyledText.tag(
+                        ColorRole.GOOD,
                         "v1.2"
                     )
                 )

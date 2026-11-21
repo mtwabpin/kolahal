@@ -26,7 +26,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The `material-you` theme on a phone: the wallpaper's colours, in the phone's mode, changing with the wallpaper. */
+/** The `material-you` theme on a phone: the wallpaper's colors, in the phone's mode, changing with the wallpaper. */
 @RunWith(AndroidJUnit4::class)
 class MaterialYouTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -50,7 +50,7 @@ class MaterialYouTest {
         shell("cmd uimode night $night")
     }
 
-    /** The theme's palette as the phone's colours give it now: read again here, not taken from the app. */
+    /** The theme's palette as the phone's colors give it now: read again here, not taken from the app. */
     private fun fromPhone(dark: Boolean): Palette = when {
         Build.VERSION.SDK_INT < 31 -> paletteFrom(if (dark) darkColorScheme() else lightColorScheme())
         dark -> paletteFrom(dynamicDarkColorScheme(context))
@@ -58,27 +58,27 @@ class MaterialYouTest {
     }
 
     @Test
-    fun itShowsThePhonesColoursInThePhonesMode() {
+    fun itShowsThePhonesColorsInThePhonesMode() {
         shell("cmd uimode night no")
         ActivityScenario.launch(MainActivity::class.java).use {
-            waitUntil("the light colours") { Term.palette == fromPhone(dark = false) }
-            // Dark mode turning on while home shows: the dark colours, with no restart.
+            waitUntil("the light colors") { Term.palette == fromPhone(dark = false) }
+            // Dark mode turning on while home shows: the dark colors, with no restart.
             shell("cmd uimode night yes")
-            waitUntil("the dark colours") { Term.palette == fromPhone(dark = true) }
+            waitUntil("the dark colors") { Term.palette == fromPhone(dark = true) }
             assertEquals(Palettes.named(MaterialYou.NAME), Term.palette)
             assertNotEquals(fromPhone(dark = false), Term.palette)
         }
     }
 
-    /** A new wallpaper: Android works out its colours, and home takes them without restarting. */
+    /** A new wallpaper: Android works out its colors, and home takes them without restarting. */
     @Test
     fun itFollowsANewWallpaper() {
-        assumeTrue("Android 12 and newer have wallpaper colours", MaterialYou.supported)
+        assumeTrue("Android 12 and newer have wallpaper colors", MaterialYou.supported)
         shell("cmd uimode night yes")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             lateinit var home: MainActivity
             scenario.onActivity { home = it }
-            waitUntil("the wallpaper's colours") { Term.palette == fromPhone(dark = true) }
+            waitUntil("the wallpaper's colors") { Term.palette == fromPhone(dark = true) }
             val before = Term.palette
 
             wallpaperSet = true
@@ -86,17 +86,17 @@ class MaterialYouTest {
                 Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
                     .apply { eraseColor(Color.RED) }, null, true, WallpaperManager.FLAG_SYSTEM
             )
-            // Android holds back the colours of a wallpaper that a background app set (as this test
+            // Android holds back the colors of a wallpaper that a background app set (as this test
             // does) until the screen goes off: "keep deferring color events". One you pick yourself
-            // applies at once. So the screen goes off and on, and Android works the colours out.
+            // applies at once. So the screen goes off and on, and Android works the colors out.
             shell("input keyevent KEYCODE_SLEEP")
             Thread.sleep(2_000)
             shell("input keyevent KEYCODE_WAKEUP")
             shell("wm dismiss-keyguard")
-            waitUntil("new colours on home", 30_000) { Term.palette != before }
-            waitUntil("the new wallpaper's colours") { Term.palette == fromPhone(dark = true) }
+            waitUntil("new colors on home", 30_000) { Term.palette != before }
+            waitUntil("the new wallpaper's colors") { Term.palette == fromPhone(dark = true) }
             assertEquals(
-                "a wallpaper's colour never changes what good means",
+                "a wallpaper's color never changes what good means",
                 before.good,
                 Term.palette.good
             )

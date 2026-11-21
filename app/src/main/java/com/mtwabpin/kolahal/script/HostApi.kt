@@ -358,7 +358,7 @@ class HostApi(
      * short with "…", or its link. Otherwise a line could show one address and copy another.
      */
     private fun honestCopy(copy: String, text: String, url: String?): Boolean {
-        // The link as given, or as it was normalised (with a trailing / added). webUrl is null for
+        // The link as given, or as it was normalized (with a trailing / added). webUrl is null for
         // anything that isn't a link, so on a line with no link it must not count as a match.
         if (url != null && (copy == url || Net.webUrl(copy) == url)) return true
         // Compare the texts as they read, ignoring styles and list marks.
@@ -591,16 +591,16 @@ class HostApi(
                 StatusLines.MAX_REFRESH.toDouble()
             ).toInt()
         }
-        // The bar's colour, by role, as fmt.color takes it: the theme picks the colour itself.
-        val colour = opts?.get("color")?.let {
-            StyledText.Colour.named(it.toString())
-                ?: throw IllegalArgumentException("status: color is one of ${StyledText.Colour.entries.joinToString { c -> c.role }}")
+        // The bar's color, by role, as fmt.color takes it: the theme picks the color itself.
+        val color = opts?.get("color")?.let {
+            StyledText.ColorRole.named(it.toString())
+                ?: throw IllegalArgumentException("status: color is one of ${StyledText.ColorRole.entries.joinToString { c -> c.role }}")
         }
         // A status line is plain text. Styles only show in the log.
         val value =
             text?.let(::redact)?.let(StyledText::plain)?.lines()?.firstOrNull()?.take(STATUS_MAX)
                 ?.takeIf { it.isNotBlank() }
-        val extras = value?.let { StatusLines.encodeExtras(progress, refresh, colour) }
+        val extras = value?.let { StatusLines.encodeExtras(progress, refresh, color) }
         // Each write tells home to redraw. So unchanged writes are skipped, and a loop stops after a few.
         if (StatusLines.isSet(
                 context,
@@ -759,10 +759,7 @@ class HostApi(
         val cm = context.getSystemService(android.content.ClipboardManager::class.java)
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             runCatching {
-                cm.primaryClip = android.content.ClipData.newPlainText(
-                    scriptName,
-                    text
-                )
+                cm.setPrimaryClip(android.content.ClipData.newPlainText(scriptName, text))
             }
         }
     }

@@ -52,7 +52,7 @@ fun markMatches(text: AnnotatedString, words: List<String>): AnnotatedString {
 /** A profile tag at the end of a line's first row, as in `Launched Maps [W]` or `Updated Maps [W] ↑`. */
 private val profileTag = Regex(" \\[([PWSC])](?= \\S*$|$)")
 
-/** Appends [text] in [color]. A profile tag at the end gets its profile colour. */
+/** Appends [text] in [color]. A profile tag at the end gets its profile color. */
 private fun AnnotatedString.Builder.appendTagged(text: String, color: Color) {
     val tag = profileTag.find(text)
     if (tag == null) {
@@ -197,7 +197,7 @@ internal fun renderLine(
                     entry.ctx.values.containsKey(LogContext.TITLE) && entry.ctx.values.containsKey(
                         LogContext.BODY
                     )
-                // A heading is already bold, so its bold parts stand out in the text colour instead.
+                // A heading is already bold, so its bold parts stand out in the text color instead.
                 appendStyled(
                     entry.text,
                     SpanStyle(
@@ -252,10 +252,10 @@ internal fun renderLine(
 
 /**
  * Appends [text] with its [StyledText] styles on top of [base].
- * - Bold text also uses the colour [strong], if given. So bold in a muted body or a bold title
- *   uses the text colour.
+ * - Bold text also uses the color [strong], if given. So bold in a muted body or a bold title
+ *   uses the text color.
  * - Code shows on a shaded background.
- * - A list item shows its bullet or number in the accent colour.
+ * - A list item shows its bullet or number in the accent color.
  */
 private fun AnnotatedString.Builder.appendStyled(
     text: String,
@@ -284,17 +284,17 @@ internal fun AnnotatedString.Builder.appendSpans(
     base: SpanStyle,
     strong: Color?
 ) {
-    for ((text, styles, colour, url) in spans) {
+    for ((text, styles, color, url) in spans) {
         val style =
-            if (styles.isEmpty() && colour == null) base else base.merge(styleOf(styles, strong))
-                .merge(SpanStyle(color = colourOf(colour)))
-        // A tag: in its colour (the accent colour without one), bold and a little smaller, on a
+            if (styles.isEmpty() && color == null) base else base.merge(styleOf(styles, strong))
+                .merge(SpanStyle(color = colorOf(color)))
+        // A tag: in its color (the accent color without one), bold and a little smaller, on a
         // rounded chip that RichText draws behind it.
         val tag = StyledText.Style.TAG in styles
         val shown = if (!tag) style else style.merge(
             SpanStyle(
-                color = colourOf(
-                    colour ?: StyledText.Colour.ACCENT
+                color = colorOf(
+                    color ?: StyledText.ColorRole.ACCENT
                 ), fontWeight = FontWeight.Bold, fontSize = TAG_SIZE.em
             )
         )
@@ -322,17 +322,17 @@ internal fun AnnotatedString.Builder.appendSpans(
     }
 }
 
-/** Maps a script colour role to a colour of the current theme (its dark or light version). */
-internal fun colourOf(colour: StyledText.Colour?): Color = when (colour) {
+/** Maps a script color role to a color of the current theme (its dark or light version). */
+internal fun colorOf(color: StyledText.ColorRole?): Color = when (color) {
     null -> Color.Unspecified
-    StyledText.Colour.ACCENT -> Term.prompt
-    StyledText.Colour.LINK -> Term.link
-    StyledText.Colour.INFO -> Term.info
-    StyledText.Colour.MUTED -> Term.dim
-    StyledText.Colour.TEXT -> Term.fg
-    StyledText.Colour.GOOD -> Term.palette.good
-    StyledText.Colour.WARN -> Term.palette.warn
-    StyledText.Colour.BAD -> Term.error
+    StyledText.ColorRole.ACCENT -> Term.prompt
+    StyledText.ColorRole.LINK -> Term.link
+    StyledText.ColorRole.INFO -> Term.info
+    StyledText.ColorRole.MUTED -> Term.dim
+    StyledText.ColorRole.TEXT -> Term.fg
+    StyledText.ColorRole.GOOD -> Term.palette.good
+    StyledText.ColorRole.WARN -> Term.palette.warn
+    StyledText.ColorRole.BAD -> Term.error
 }
 
 private fun styleOf(styles: Set<StyledText.Style>, strong: Color?): SpanStyle {
@@ -414,10 +414,10 @@ internal fun AnnotatedString.Builder.appendBody(body: String, indent: TextUnit, 
 /** A tag's text size, against the line's ([StyledText.Style.TAG]). */
 internal const val TAG_SIZE = 0.82f
 
-/** Marks a tag's text with its colour (ARGB), so [RichText] can draw its chip. */
+/** Marks a tag's text with its color (ARGB), so [RichText] can draw its chip. */
 internal const val TAG_CHIP = "tag-chip"
 
-/** [text] with its [StyledText] styles (tags, colours, links), in the style its [Text] gives; plain text as it is. */
+/** [text] with its [StyledText] styles (tags, colors, links), in the style its `Text` gives; plain text as it is. */
 internal fun styledText(text: String): AnnotatedString =
     if (!StyledText.has(text)) AnnotatedString(text) else buildAnnotatedString {
         appendStyled(
@@ -429,39 +429,39 @@ internal fun styledText(text: String): AnnotatedString =
 
 /**
  * A widget's text, with the styles a card draws: weight (bold), slant (italic), lines (underline,
- * strike) and colour. Plain text comes back as it is.
+ * strike) and color. Plain text comes back as it is.
  * - It is never a link. A tap on a card's text is the card's own tap, and a card opens a link only
  *   through its `tap`. So this does not use the log's span code, which makes links that open.
  * - Anything else the log draws (a tag, a code chip, a table, a bar, a list) shows as its plain
  *   words ([StyledText.inline]). A stored text is in that form already. This runs it again, so a
  *   text from anywhere else is safe too.
- * - A colour is a role of the theme, as in the log ([colourOf]). A piece without one keeps the
- *   colour its [Text] gives.
+ * - A color is a role of the theme, as in the log ([colorOf]). A piece without one keeps the
+ *   color its `Text` gives.
  */
 internal fun widgetText(text: String): AnnotatedString {
     if (!StyledText.has(text)) return AnnotatedString(text)
     return buildAnnotatedString {
         StyledText.lines(StyledText.inline(text)).forEachIndexed { i, line ->
             if (i > 0) append('\n')
-            for (span in line.spans) {
-                val style = widgetStyle(span.styles, span.colour)
-                if (style == null) append(span.text) else withStyle(style) { append(span.text) }
+            for ((spanText, styles, color) in line.spans) {
+                val style = widgetStyle(styles, color)
+                if (style == null) append(spanText) else withStyle(style) { append(spanText) }
             }
         }
     }
 }
 
 /** The style of one piece of a widget's text. Null for a piece with nothing to draw differently. */
-private fun widgetStyle(styles: Set<StyledText.Style>, colour: StyledText.Colour?): SpanStyle? {
+private fun widgetStyle(styles: Set<StyledText.Style>, color: StyledText.ColorRole?): SpanStyle? {
     val bold = StyledText.Style.BOLD in styles
     val italic = StyledText.Style.ITALIC in styles
     val lines = listOfNotNull(
         TextDecoration.Underline.takeIf { StyledText.Style.UNDERLINE in styles },
         TextDecoration.LineThrough.takeIf { StyledText.Style.STRIKE in styles },
     )
-    if (!bold && !italic && lines.isEmpty() && colour == null) return null
+    if (!bold && !italic && lines.isEmpty() && color == null) return null
     return SpanStyle(
-        color = colourOf(colour),
+        color = colorOf(color),
         fontWeight = if (bold) FontWeight.Bold else null,
         fontStyle = if (italic) FontStyle.Italic else null,
         textDecoration = if (lines.isEmpty()) null else TextDecoration.combine(lines),

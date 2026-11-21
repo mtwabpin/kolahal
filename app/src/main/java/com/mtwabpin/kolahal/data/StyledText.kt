@@ -15,30 +15,30 @@ import kotlin.math.roundToLong
  *   removed ([plain]).
  */
 object StyledText {
-    /** [TAG]: a short label on a shaded chip, in its colour (`fmt.tag`). New styles go at the end: stored lines keep their markers. */
+    /** [TAG]: a short label on a shaded chip, in its color (`fmt.tag`). New styles go at the end: stored lines keep their markers. */
     enum class Style { BOLD, ITALIC, UNDERLINE, STRIKE, CODE, TAG }
 
     /**
-     * Colours by role, never by value. The theme picks each one, in its dark and light version,
-     * so a script's colours are readable on every theme.
+     * Colors by role, never by value. The theme picks each one, in its dark and light version,
+     * so a script's colors are readable on every theme.
      */
-    enum class Colour(val role: String) {
+    enum class ColorRole(val role: String) {
         ACCENT("accent"), LINK("link"), INFO("info"), MUTED("muted"), TEXT("text"), GOOD("good"), WARN(
             "warn"
         ),
         BAD("bad");
 
         companion object {
-            fun named(role: String): Colour? =
+            fun named(role: String): ColorRole? =
                 entries.firstOrNull { it.role == role.trim().lowercase() }
         }
     }
 
-    /** A piece of a line, with its styles, its colour (null means the line's own colour) and the link it opens ([link]). */
+    /** A piece of a line, with its styles, its color (null means the line's own color) and the link it opens ([link]). */
     data class Span(
         val text: String,
         val styles: Set<Style>,
-        val colour: Colour? = null,
+        val color: ColorRole? = null,
         val url: String? = null
     )
 
@@ -79,14 +79,14 @@ object StyledText {
     data class Row(val header: Boolean, val cells: List<Cell>)
 
     /**
-     * A bar ([bar], [bars], [ranges]). It fills its track from [from] to [to] (0 to 1), in [colour]
-     * (null: the accent colour). Bars on lines that follow each other line up in columns: [label]
+     * A bar ([bar], [bars], [ranges]). It fills its track from [from] to [to] (0 to 1), in [color]
+     * (null: the accent color). Bars on lines that follow each other line up in columns: [label]
      * on the left, then [start], the track, and [end].
      */
     data class Meter(
         val from: Float,
         val to: Float,
-        val colour: Colour?,
+        val color: ColorRole?,
         val label: List<Span>,
         val start: List<Span>,
         val end: List<Span>
@@ -117,9 +117,9 @@ object StyledText {
     // A column chart: a marker at the start of a line, then its heights, then a CELL marker before
     // its words for a screen reader and before each label.
     private const val COLUMNS = BASE + 0x1B
-    private const val COLOUR = BASE + 0x20
-    private const val COLOUR_END = BASE + 0x2F
-    private const val LAST = COLOUR_END
+    private const val COLOR = BASE + 0x20
+    private const val COLOR_END = BASE + 0x2F
+    private const val LAST = COLOR_END
 
     /** Opens [style]. [close] ends it. */
     fun open(style: Style): String = char(BASE + style.ordinal * 2)
@@ -130,15 +130,15 @@ object StyledText {
 
     fun wrap(style: Style, text: String): String = open(style) + text + close(style)
 
-    fun colour(colour: Colour, text: String): String =
-        char(COLOUR + colour.ordinal) + text + char(COLOUR_END)
+    fun color(color: ColorRole, text: String): String =
+        char(COLOR + color.ordinal) + text + char(COLOR_END)
 
-    /** A tag (`fmt.tag`): [text] on one line, on a chip shaded in [colour]. */
-    fun tag(colour: Colour, text: String): String =
-        colour(colour, wrap(Style.TAG, text.replace('\n', ' ')))
+    /** A tag (`fmt.tag`): [text] on one line, on a chip shaded in [color]. */
+    fun tag(color: ColorRole, text: String): String =
+        color(color, wrap(Style.TAG, text.replace('\n', ' ')))
 
     /**
-     * [text] as a link to [url] (`fmt.link`). The log draws it in the link colour, underlined, and a
+     * [text] as a link to [url] (`fmt.link`). The log draws it in the link color, underlined, and a
      * tap on it opens [url]. Everywhere else only [text] shows. The text is one line, and a link
      * inside it is dropped: links don't nest. [url] is checked when the line is logged ([mapLinks]).
      */
@@ -284,20 +284,20 @@ object StyledText {
     fun meter(
         from: Double,
         to: Double,
-        colour: Colour?,
+        color: ColorRole?,
         label: String = "",
         start: String = "",
         end: String = ""
     ): String {
         val a = from.fraction()
         val b = maxOf(a, to.fraction())
-        return char(METER) + "${number(a)},${number(b)},${colour?.role.orEmpty()}" +
+        return char(METER) + "${number(a)},${number(b)},${color?.role.orEmpty()}" +
                 listOf(label, start, end).joinToString("") { char(CELL) + part(it) }
     }
 
     /** `fmt.bar(value, { max, color })`: one bar, [value] out of [max], as wide as the line. */
-    fun bar(value: Double, max: Double = 1.0, colour: Colour? = null): String =
-        meter(0.0, share(value, 0.0, max), colour)
+    fun bar(value: Double, max: Double = 1.0, color: ColorRole? = null): String =
+        meter(0.0, share(value, 0.0, max), color)
 
     /** The most numbers a line of big numbers keeps ([stats]). */
     const val STATS_MAX = 5
@@ -310,7 +310,7 @@ object StyledText {
     fun stats(items: List<Pair<String, String>>): String {
         if (items.isEmpty()) return ""
         return char(STATS) + items.take(STATS_MAX).joinToString("") { (value, label) ->
-            char(CELL) + part(value) + char(CELL) + part(capitalised(label))
+            char(CELL) + part(value) + char(CELL) + part(capitalized(label))
         }
     }
 
@@ -320,7 +320,7 @@ object StyledText {
      * character is no small letter stays as it is ("3 days ago", "(beta)"), and so does a first word
      * with a capital or a digit inside ("iOS", "macOS", "eSIM", "v1.2"), or a unit symbol ("km/h", "kg").
      */
-    fun capitalised(text: String): String {
+    fun capitalized(text: String): String {
         var i = 0
         var address = false
         while (i < text.length) {
@@ -468,7 +468,7 @@ object StyledText {
     fun bars(
         rows: List<BarRow>,
         max: Double? = null,
-        colour: Colour? = null,
+        color: ColorRole? = null,
         unit: String = ""
     ): String {
         if (rows.isEmpty()) return ""
@@ -478,7 +478,7 @@ object StyledText {
             meter(
                 0.0,
                 share(r.value, 0.0, top),
-                colour,
+                color,
                 r.label,
                 end = r.text ?: (number(r.value) + unit)
             )
@@ -503,7 +503,7 @@ object StyledText {
         rows: List<RangeRow>,
         min: Double? = null,
         max: Double? = null,
-        colour: Colour? = null,
+        color: ColorRole? = null,
         unit: String = ""
     ): String {
         if (rows.isEmpty()) return ""
@@ -517,7 +517,7 @@ object StyledText {
             meter(
                 share(lo, bottom, top),
                 share(hi, bottom, top),
-                colour,
+                color,
                 r.label,
                 loText ?: (number(lo) + unit),
                 hiText ?: (number(hi) + unit)
@@ -535,7 +535,7 @@ object StyledText {
     fun number(d: Double): String {
         if (!d.isFinite()) return d.toString()
         if (kotlin.math.abs(d) >= 1e12) return "%.0f".format(java.util.Locale.ROOT, d)
-        val rounded = Math.round(d * 1000) / 1000.0
+        val rounded = (d * 1000).roundToLong() / 1000.0
         return if (rounded % 1.0 == 0.0 && kotlin.math.abs(rounded) < 9e15) rounded.toLong()
             .toString() else rounded.toString()
     }
@@ -588,8 +588,8 @@ object StyledText {
     fun lines(text: String): List<Line> {
         val out = ArrayList<Line>()
         val on = LinkedHashSet<Style>()
-        // Colours nest: the innermost one shows, and closing it brings back the one around it.
-        val colours = ArrayDeque<Colour>()
+        // Colors nest: the innermost one shows, and closing it brings back the one around it.
+        val colors = ArrayDeque<ColorRole>()
         for (raw in text.split('\n')) {
             if (isStats(raw)) {
                 out += Line(0, "", emptyList(), stats = statsOf(raw))
@@ -613,7 +613,7 @@ object StyledText {
                 if (run.isNotEmpty()) spans += Span(
                     run.toString(),
                     on.toSet(),
-                    colours.lastOrNull(),
+                    colors.lastOrNull(),
                     url
                 )
                 run.clear()
@@ -626,9 +626,9 @@ object StyledText {
                 flush()
                 right?.let { cells?.add(Cell(spans, it)) }
                 spans = ArrayList()
-                // A style, colour or link doesn't carry from one cell into the next.
+                // A style, color or link doesn't carry from one cell into the next.
                 on.clear()
-                colours.clear()
+                colors.clear()
                 url = null
             }
 
@@ -666,12 +666,12 @@ object StyledText {
                                 flush(); url = null
                             }
 
-                            cp == COLOUR_END -> {
-                                flush(); colours.removeLastOrNull()
+                            cp == COLOR_END -> {
+                                flush(); colors.removeLastOrNull()
                             }
 
-                            cp >= COLOUR && cp < COLOUR + Colour.entries.size -> {
-                                flush(); colours.addLast(Colour.entries[cp - COLOUR])
+                            cp >= COLOR && cp < COLOR + ColorRole.entries.size -> {
+                                flush(); colors.addLast(ColorRole.entries[cp - COLOR])
                             }
                         }
                     }
@@ -747,11 +747,11 @@ object StyledText {
             numbers.getOrNull(0)?.toFloatOrNull()?.takeIf { !it.isNaN() }?.coerceIn(0f, 1f) ?: 0f
         val to = numbers.getOrNull(1)?.toFloatOrNull()?.takeIf { !it.isNaN() }?.coerceIn(from, 1f)
             ?: from
-        val colour = numbers.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let(Colour::named)
+        val color = numbers.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let(ColorRole::named)
         fun spans(i: Int) =
             parts.getOrNull(i)?.takeIf { it.isNotEmpty() }?.let { lines(it).firstOrNull()?.spans }
                 ?: emptyList()
-        return Meter(from, to, colour, spans(1), spans(2), spans(3))
+        return Meter(from, to, color, spans(1), spans(2), spans(3))
     }
 
     /** [text] with every marker removed and nothing put in its place, and links without their addresses. Used for text from outside. */
@@ -824,12 +824,12 @@ object StyledText {
 
     // ---- styled text outside the log ---------------------------------------------------------
 
-    /** The styles [inline] keeps, in the order it writes them. A colour is kept too. */
+    /** The styles [inline] keeps, in the order it writes them. A color is kept too. */
     private val INLINE = listOf(Style.BOLD, Style.ITALIC, Style.UNDERLINE, Style.STRIKE)
 
-    /** A piece of [inline] text: its words, the styles it keeps and its colour. */
-    private data class Run(val text: String, val styles: List<Style>, val colour: Colour?) {
-        val styled get() = styles.isNotEmpty() || colour != null
+    /** A piece of [inline] text: its words, the styles it keeps and its color. */
+    private data class Run(val text: String, val styles: List<Style>, val color: ColorRole?) {
+        val styled get() = styles.isNotEmpty() || color != null
     }
 
     /**
@@ -840,12 +840,12 @@ object StyledText {
      */
     private fun runs(text: String): List<Run> {
         val out = ArrayList<Run>()
-        fun add(words: String, styles: List<Style> = emptyList(), colour: Colour? = null) {
+        fun add(words: String, styles: List<Style> = emptyList(), color: ColorRole? = null) {
             if (words.isEmpty()) return
             val last = out.lastOrNull()
-            if (last != null && last.styles == styles && last.colour == colour) out[out.lastIndex] =
+            if (last != null && last.styles == styles && last.color == color) out[out.lastIndex] =
                 last.copy(text = last.text + words)
-            else out += Run(words, styles, colour)
+            else out += Run(words, styles, color)
         }
 
         var first = true
@@ -861,7 +861,7 @@ object StyledText {
             for (span in line.spans) add(
                 span.text,
                 INLINE.filter { it in span.styles },
-                span.colour
+                span.color
             )
         }
         return out
@@ -878,18 +878,18 @@ object StyledText {
                 continue
             }
             styled++
-            run.colour?.let { out.append(char(COLOUR + it.ordinal)) }
+            run.color?.let { out.append(char(COLOR + it.ordinal)) }
             run.styles.forEach { out.append(open(it)) }
             out.append(run.text)
             run.styles.asReversed().forEach { out.append(close(it)) }
-            if (run.colour != null) out.append(char(COLOUR_END))
+            if (run.color != null) out.append(char(COLOR_END))
         }
         return out.toString()
     }
 
     /**
      * [text] with only the styles that text outside the log may have: bold, italic, underline,
-     * strike and the colour roles. A widget's text is kept so.
+     * strike and the color roles. A widget's text is kept so.
      * - A link, a tag, a code chip, a table, a bar and a line of big numbers lose their marks and
      *   keep their words. A link's address goes. What the text shows is what [plain] gives.
      * - The first [maxRuns] styled pieces keep their styles. Later ones keep their words only, so

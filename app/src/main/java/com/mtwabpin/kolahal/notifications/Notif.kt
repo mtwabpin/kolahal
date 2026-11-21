@@ -19,7 +19,7 @@ data class Notif(
     val title: String?,
     val text: String?,
     val postTime: Long,
-    /** True when the user dismissed it or the app cancelled it. It stays in the feed until it ages out. */
+    /** True when the user dismissed it or the app canceled it. It stays in the feed until it ages out. */
     val removed: Boolean = false,
     /** The [NotifIcons] key of its status-bar icon, or null. The icon is saved in the background. */
     val icon: String? = null,

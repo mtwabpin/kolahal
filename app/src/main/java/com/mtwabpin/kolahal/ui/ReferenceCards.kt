@@ -33,8 +33,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -119,7 +117,6 @@ internal fun codeStyle(): TextStyle = MaterialTheme.typography.bodyMedium.copy(
  * It is a [MediumFlexibleTopAppBar] kept collapsed, at the height of a small bar: the search and
  * the tabs under it need the room.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ReferenceBar(
     title: String,
@@ -525,8 +522,8 @@ private fun CopyInsertBar(code: String, clipLabel: String, onInsert: () -> Unit)
             FilledTonalButton(
                 shapes = ButtonDefaults.shapes(),
                 onClick = {
-                    context.getSystemService(ClipboardManager::class.java)?.primaryClip =
-                        ClipData.newPlainText(clipLabel, code)
+                    context.getSystemService(ClipboardManager::class.java)
+                        ?.setPrimaryClip(ClipData.newPlainText(clipLabel, code))
                     // Android 13 and later show their own "copied" confirmation.
                     if (Build.VERSION.SDK_INT < 33) Toast.makeText(
                         context,

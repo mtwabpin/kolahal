@@ -546,7 +546,7 @@ class LogLineActionsTest {
                 "Launch Settings [P]",
                 "App info",
                 "Copy package name",
-                "Pin to favourites",
+                "Pin to favorites",
                 "Hide from lists",
                 "Show only commands",
                 "Star line",
@@ -560,9 +560,9 @@ class LogLineActionsTest {
             listOf("Uninstall", "Delete line"),
             actions.actionsFor(launched).filter { it.destructive }.map { it.label })
 
-        action(launched, "Pin to favourites").run()
+        action(launched, "Pin to favorites").run()
         assertTrue(prefs.isPinned(s.key))
-        action(launched, "Unpin from favourites").run()
+        action(launched, "Unpin from favorites").run()
         assertFalse(prefs.isPinned(s.key))
 
         action(launched, "Hide from lists").run()
@@ -602,7 +602,7 @@ class LogLineActionsTest {
                 "Launch Settings [P]",
                 "App info",
                 "Copy package name",
-                "Pin to favourites",
+                "Pin to favorites",
                 "Hide from lists",
                 "Open notification",
                 "Mute this app's notifications",
