@@ -113,8 +113,12 @@ class TtyParityTest {
         )
     }
 
+    /**
+     * What TalkBack reads for [tag]: the merged node, as a screen reader gets it. The GUI's buttons
+     * take their words from the icon inside them (`Clear`, `Key bar`); the grid's carry them themselves.
+     */
     private fun readingOf(tag: String): Reading =
-        compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().reading()
+        compose.onNodeWithTag(tag).fetchSemanticsNode().reading()
 
     /** The readings of [tags] in one style. */
     private fun readings(style: String, tags: List<String>): Map<String, Reading> {
@@ -163,6 +167,9 @@ class TtyParityTest {
     /** The prompt's buttons, the key bar and the header read alike in both styles. */
     @Test
     fun homesPartsReadAlike() {
+        // The header and the key bar are off by default; they are among the parts compared.
+        config.set(Keys.HEADER_SHOW, "on")
+        config.set(Keys.KEYBAR_SHOW, "on")
         config.set(Keys.KEYBAR_AUTO, "off")
         val vm = show()
         compose.runOnIdle { vm.onInputChange(androidx.compose.ui.text.input.TextFieldValue("echo")) }
