@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
@@ -53,7 +54,15 @@ data class ProviderEntry(val info: AppWidgetProviderInfo, val user: UserHandle, 
  */
 class WidgetHost private constructor(context: Context) {
     private val app = context.applicationContext
-    val manager: AppWidgetManager = AppWidgetManager.getInstance(app)
+    /**
+     * Null on a phone without app widgets: Android Go leaves the feature out, and then there is no
+     * manager. Kolahal's own widgets still work there; the picker offers no apps' widgets ([supported]).
+     */
+    val manager: AppWidgetManager? =
+        if (app.packageManager.hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS)) runCatching { AppWidgetManager.getInstance(app) }.getOrNull() else null
+
+    /** Whether this phone can show other apps' widgets ([manager]). */
+    val supported: Boolean get() = manager != null
     private val userManager = app.getSystemService(UserManager::class.java)
     private val launcherApps = app.getSystemService(LauncherApps::class.java)
     private val prefs: SharedPreferences = Stores.WIDGETS.open(app)
@@ -102,7 +111,19 @@ class WidgetHost private constructor(context: Context) {
     private class Kept(val view: AppWidgetHostView, val info: AppWidgetProviderInfo, val config: String)
 
     private fun configOf(context: Context) = context.resources.configuration.let {
-        "${it.uiMode}:${it.densityDpi}:${it.orientation}:${it.fontScale}:${it.locales.toLanguageTags()}"
+        "${it.uiMode}:${it.densityDpi}:${it.orientation}:${it.fontScale}:${it.locales.toLanguageTags()}:${_redrawn.value}"
+    }
+
+    private val _redrawn = MutableStateFlow(0)
+    /**
+     * Increases when the phone's dark mode or colours change ([redraw]). Each app's widget is drawn
+     * again then: it took its colours from the configuration its view was made in.
+     */
+    val redrawn: StateFlow<Int> = _redrawn.asStateFlow()
+
+    /** Dark mode or the wallpaper's colours changed: every app's widget is made again once. */
+    fun redraw() {
+        _redrawn.update { it + 1 }
     }
 
     private fun forgetInfos() = synchronized(infos) { infos.clear(); labels.clear() }
@@ -120,11 +141,24 @@ class WidgetHost private constructor(context: Context) {
 
     private val _widgets = MutableStateFlow(
         WidgetCodec.start(prefs.getString(KEY, null)).let { start ->
+            // A list another install wrote came with a restore to a new phone, where app widgets' ids
+            // mean nothing. Each one waits for Add again, so none counts as uninstalled ([prune]).
+            val mine = ThisInstall.id(app)
+            val writer = prefs.getString(KEY_INSTALL, null)
+            val moved = writer != null && writer != mine
+            val widgets = if (moved) WidgetCodec.fromElsewhere(start.widgets) else start.widgets
             // The changes for older versions are saved at once, so they happen once ([WidgetCodec.start]).
-            if (start.changed) prefs.edit { putString(KEY, WidgetCodec.encode(start.widgets)) }
+            if (start.changed || moved) prefs.edit { putString(KEY, WidgetCodec.encode(widgets)) }
+            if (writer != mine) prefs.edit { putString(KEY_INSTALL, mine) }
             // The log is written on [checks]' thread: this may be the main thread.
-            start.note?.let { note -> checks.execute { runCatching { LogRepository.get(app).add(LogKind.INFO, note) } } }
-            start.widgets
+            val again = if (moved) widgets.count { it.pending } else 0
+            if (start.note != null || again > 0) checks.execute {
+                runCatching {
+                    start.note?.let { LogRepository.get(app).add(LogKind.INFO, it) }
+                    if (again > 0) logAddAgain(again)
+                }
+            }
+            widgets
         },
     )
     /** Every placed widget, including pending re-adds. */
@@ -190,7 +224,7 @@ class WidgetHost private constructor(context: Context) {
     /** Main thread. Listens if home shows and a widget is placed; the first widget added starts it. */
     private fun listenIfNeeded() {
         // Only an app's widget needs the host. A widget Kolahal draws itself gets no updates from it.
-        if (listening || !shown || _widgets.value.none { it.source == null }) return
+        if (listening || !shown || !supported || _widgets.value.none { it.source == null }) return
         listening = runCatching { host.startListening() }.isSuccess
     }
 
@@ -504,10 +538,33 @@ class WidgetHost private constructor(context: Context) {
      * columns, [heightDp] in dp. Both are kept within the widget's limits. Widgets in the way move down.
      */
     fun resizeTo(key: String, span: Int, heightDp: Int) {
-        val w = _widgets.value.firstOrNull { it.key == key } ?: return
-        val s = span.coerceIn(WidgetLayout.minSpan(w.source != null), WidgetLayout.COLUMNS)
-        val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
-        if (s != w.span || h != w.heightDp) update { WidgetPlacement.resize(it, key, s, h) }
+        synchronized(this) {
+            val base = resizing ?: _widgets.value
+            val w = base.firstOrNull { it.key == key } ?: return
+            val s = span.coerceIn(WidgetLayout.minSpan(w.source != null), WidgetLayout.COLUMNS)
+            val h = WidgetLayout.clampHeight(heightDp, minHeightOf(w))
+            when {
+                // A handle drag works each step out from the list as it was when the handle went down. So
+                // widgets pushed by an overshoot come back when the finger does. It is saved on release.
+                resizing != null -> _widgets.value = WidgetPlacement.resize(base, key, s, h)
+                s != w.span || h != w.heightDp -> save(WidgetPlacement.resize(base, key, s, h))
+            }
+        }
+    }
+
+    /** The list as it was when a handle went down ([startResize]); null when no handle is held. */
+    private var resizing: List<PlacedWidget>? = null
+
+    /** A drag on a widget's handles starts: [resizeTo] works from the list as it is now, until [endResize]. */
+    fun startResize() = synchronized(this) { resizing = _widgets.value }
+
+    /** The handle drag ends: the size it left is saved. */
+    fun endResize() {
+        synchronized(this) {
+            val start = resizing ?: return
+            resizing = null
+            if (_widgets.value != start) save(_widgets.value)
+        }
     }
 
     /** Makes the widget as tall as it is wide on the widgets page, or as close as the widget allows. */
@@ -530,7 +587,7 @@ class WidgetHost private constructor(context: Context) {
 
     // ---- providers ------------------------------------------------------------------------
 
-    fun info(id: Int): AppWidgetProviderInfo? = runCatching { manager.getAppWidgetInfo(id) }.getOrNull()
+    fun info(id: Int): AppWidgetProviderInfo? = runCatching { manager?.getAppWidgetInfo(id) }.getOrNull()
 
     /**
      * A placed widget's name: its provider's label, or the last part of the provider's name. The
@@ -588,6 +645,7 @@ class WidgetHost private constructor(context: Context) {
 
     /** Home-screen providers in every profile the launcher can see. */
     fun providers(): List<ProviderEntry> = launcherApps.profiles.flatMap { user ->
+        val manager = manager ?: return emptyList()
         val serial = serialOf(user)
         runCatching { manager.getInstalledProvidersForProfile(user) }.getOrDefault(emptyList())
             .filter { it.widgetCategory == 0 || it.widgetCategory and AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN != 0 }
@@ -644,7 +702,7 @@ class WidgetHost private constructor(context: Context) {
 
     /** Tells the provider the size before a view exists. The view reports its real size after layout. */
     private fun applySize(id: Int, heightDp: Int, span: Int) {
-        runCatching { manager.updateAppWidgetOptions(id, options(heightDp, span)) }
+        runCatching { manager?.updateAppWidgetOptions(id, options(heightDp, span)) }
     }
 
     // ---- housekeeping ---------------------------------------------------------------------
@@ -659,6 +717,8 @@ class WidgetHost private constructor(context: Context) {
      * In that case, a view made for the saved details is used again.
      */
     fun prune() {
+        // Without app widgets nothing can be checked: every one would look uninstalled. They stay.
+        if (!supported) return
         val dead = _widgets.value.filter { w ->
             val id = w.id ?: return@filter false
             val fresh = info(id)
@@ -686,13 +746,7 @@ class WidgetHost private constructor(context: Context) {
             // home, where no widget screen would show it.
             val logs = LogRepository.get(app)
             if (gone.isNotEmpty()) logs.add(LogKind.INFO, "Removed ${gone.size} widget${if (gone.size == 1) "" else "s"} whose app was uninstalled")
-            if (lost.isNotEmpty()) {
-                logs.add(
-                    LogKind.INFO,
-                    "${lost.size} widget${if (lost.size == 1) " needs" else "s need"} adding again — tap to open Settings → Widgets → Arrange widgets",
-                    ctx = LogContext.of(LogContext.RUN to "widgets"),
-                )
-            }
+            if (lost.isNotEmpty()) logAddAgain(lost.size)
         }
         // Free ids that nothing uses. Read them and the used ids under one lock, because [allocate]
         // and [place] change them.
@@ -701,6 +755,13 @@ class WidgetHost private constructor(context: Context) {
             runCatching { host.appWidgetIds }.getOrNull()?.filter { it !in used }?.forEach { runCatching { host.deleteAppWidgetId(it) } }
         }
     }
+
+    /** Says in the log that [count] app widgets wait for Add again; a tap opens Arrange widgets. */
+    private fun logAddAgain(count: Int) = LogRepository.get(app).add(
+        LogKind.INFO,
+        "$count widget${if (count == 1) " needs" else "s need"} adding again — tap to open Settings → Widgets → Arrange widgets",
+        ctx = LogContext.of(LogContext.RUN to "widgets"),
+    )
 
     // ---- backup ---------------------------------------------------------------------------
 
@@ -722,6 +783,8 @@ class WidgetHost private constructor(context: Context) {
         /** "KO" in ASCII. */
         const val HOST_ID = 0x4B4F
         private const val KEY = "placed"
+        /** The install ([ThisInstall.id]) that wrote [KEY]. */
+        private const val KEY_INSTALL = "install"
     }
 }
 

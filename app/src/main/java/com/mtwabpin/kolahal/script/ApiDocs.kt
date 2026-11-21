@@ -45,7 +45,7 @@ object ApiDocs {
         "kind is the card to draw; without it, the kind on the @widget line. " +
         WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
         "Every kind: title, icon, color, tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
-        "page = \"log\" turns home to the log after the run), staleAfter, refresh (seconds), note (a few words at the end of the title line). " +
+        "page = \"log\" turns home to the log after the run), staleAfter, refresh (seconds), note (a few words on a large card's last line). " +
         "An unknown field is an error"
 
     /** The fields of a [kind] widget, as the reference lists them. Only the kinds a script can use are asked for. */

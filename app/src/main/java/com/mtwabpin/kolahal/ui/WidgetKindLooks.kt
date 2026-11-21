@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LongState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -83,7 +84,9 @@ private fun SmallTitle(text: String?, colour: Color, modifier: Modifier = Modifi
 /** A Split tile: [shape] on [colour], with [press] inside its corners, so a ripple keeps to them. */
 @Composable
 private fun Tile(shape: Shape, colour: Color, modifier: Modifier = Modifier, press: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(modifier.clip(shape).background(colour).then(press), content = content)
+    Box(modifier.clip(shape).background(colour).then(press)) {
+        CompositionLocalProvider(LocalInTile provides true) { content() }
+    }
 }
 
 /** A Material shape [side] across, filled with [fill], with [content] in its middle. */

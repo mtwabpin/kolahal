@@ -49,6 +49,15 @@ class WidgetModelTest {
         assertEquals(WidgetLocation.OLD_HOME, p.location)
     }
 
+    /** A list another install wrote (a restore to a new phone): every app widget waits for Add again, in its place. */
+    @Test fun aListFromElsewhereHasEveryAppWidgetPending() {
+        val kolahal = PlacedWidget(null, WidgetSource.builtin("clock"), 0L, 120, 2)
+        val moved = WidgetCodec.fromElsewhere(listOf(w(7, 0), w(8, 1).copy(column = 6, topDp = 40), kolahal))
+        assertTrue(moved[0].pending)
+        assertEquals(w(8, 1).copy(id = null, column = 6, topDp = 40), moved[1])
+        assertEquals(kolahal, moved[2])
+    }
+
     @Test fun importTwiceDoesNotDuplicate() {
         val list = listOf(mapOf<String, Any?>("provider" to "com.a/.W", "order" to 0))
         val once = WidgetCodec.mergePending(emptyList(), WidgetCodec.fromExport(list))

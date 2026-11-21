@@ -1460,7 +1460,7 @@ How a switch works:
 - A second tap on the same switch within 2 seconds does nothing. No run starts for it.
 - The thing can change outside Kolahal. So without `staleAfter`, the content of a `toggles`
   widget counts as old after one minute, not one hour. The widgets page then runs the script when
-  it shows the widget.
+  it shows the widget. The card says its age only after an hour, so the line doesn't come and go.
 
 **`clock`**: the time in up to 4 places. The script gives the places once, and Kolahal moves the
 clocks. No run is needed as time passes.
@@ -1827,6 +1827,7 @@ What a description keeps, and what it refuses.
 | `staleAfter` | 60 to 604800 seconds | held between them |
 | `refresh` | 10 to 3600 seconds | held between them |
 | A tap's `args` | 200 characters | cut |
+| A tap's `url` | 2000 characters | an error: a link is never cut |
 | A tap's `label` | 24 characters | cut |
 | Taps on one card, row, button or event | one run in 2 seconds | one tap waits and runs when the 2 seconds are over; more are ignored |
 | Taps on one switch | one run in 2 seconds | the tap is ignored |
@@ -1927,7 +1928,7 @@ widget.show({
 | Action | What a tap does |
 | --- | --- |
 | `{ args = "add 1" }` | This script runs again with these arguments. They are up to 200 characters, split at spaces. `args` can be empty: the script then runs with no arguments. |
-| `{ url = "https://…" }` | The web link opens. |
+| `{ url = "https://…" }` | The web link opens. It is up to 2000 characters, and never cut: a longer one is an error. |
 
 An action can also have:
 
@@ -2053,7 +2054,8 @@ Rules for a `"widget"` run:
 - The next `widget.show` clears the failure.
 - A script that is switched off isn't run.
 
-Content older than `staleAfter` stays on the card. The card says its age under it: "2 h ago".
+Content older than `staleAfter` stays on the card. A large card says its age under it: "2 h ago".
+Switches (`toggles`) say it only after an hour, whatever `staleAfter` is.
 
 ### Several widgets from one script
 

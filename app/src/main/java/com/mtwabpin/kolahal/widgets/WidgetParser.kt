@@ -25,7 +25,7 @@ import com.mtwabpin.kolahal.script.Json
 object WidgetParser {
     const val MAX_TITLE = 40
 
-    /** A note at the end of the title line ([WidgetBase.note]): a few words, such as "Done today". */
+    /** A note on a large card's last line ([WidgetBase.note]): a few words, such as "Done today". */
     const val MAX_NOTE = 16
     const val MAX_ICON = 4
 
@@ -602,7 +602,7 @@ object WidgetParser {
          * A picture's link. It is needed.
          * - It must pass [link], as a tap's link does.
          * - It must start with `https://`. Home fetches a picture without a tap, so never over plain http.
-         * - It is never cut. One over [WidgetJson.MAX_PICTURE_LINK] characters is an error.
+         * - It is never cut. One over [WidgetJson.MAX_LINK] characters is an error, as for a tap's link.
          * An error never quotes the link: it could hold a secret.
          */
         fun picture(key: String): String {
@@ -611,7 +611,7 @@ object WidgetParser {
             val given = (v as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: fail("$key must be $what, not ${if (v is String) "an empty text" else shown(v)}")
             val checked = link(given)
             if (!WidgetJson.isHttps(checked)) fail("$key must start with https://: a widget's picture is not fetched over plain http")
-            if (checked.length > WidgetJson.MAX_PICTURE_LINK) fail("$key is over ${WidgetJson.MAX_PICTURE_LINK} characters")
+            if (checked.length > WidgetJson.MAX_LINK) fail("$key is over ${WidgetJson.MAX_LINK} characters")
             return checked
         }
 
@@ -619,7 +619,8 @@ object WidgetParser {
          * `tap`: what a tap does. Exactly one of:
          * - `args`: the script runs again with these arguments. They may be empty. With `page = "log"`,
          *   home turns to the log after the tap.
-         * - `url`: a web link opens. It must pass [link].
+         * - `url`: a web link opens. It must pass [link], and have at most [WidgetJson.MAX_LINK]
+         *   characters: it is never cut, as a cut link opens another page.
          * `label` is what a screen reader says for it.
          */
         fun tap(): WidgetTap? {
@@ -634,7 +635,9 @@ object WidgetParser {
                 t.has("url") -> {
                     if (toLog) t.fail("page goes with args, not with url")
                     val given = t.values["url"]
-                    WidgetTap(url = link((given as? String ?: t.fail("url must be a web link, not ${shown(given)}")).trim()), label = label)
+                    val url = link((given as? String ?: t.fail("url must be a web link, not ${shown(given)}")).trim())
+                    if (url.length > WidgetJson.MAX_LINK) t.fail("url is over ${WidgetJson.MAX_LINK} characters")
+                    WidgetTap(url = url, label = label)
                 }
                 else -> t.fail("give args or url")
             }

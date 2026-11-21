@@ -61,7 +61,7 @@ class TestWidgets {
     private fun mayBind(p: ProviderEntry): Boolean {
         val id = host.host.allocateAppWidgetId()
         return try {
-            runCatching { host.manager.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null) }.getOrDefault(false)
+            runCatching { host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null) }.getOrDefault(false)
         } finally {
             host.host.deleteAppWidgetId(id)
         }
@@ -71,7 +71,7 @@ class TestWidgets {
     fun place(p: ProviderEntry): PlacedWidget {
         val id = host.allocate()
         val options = host.options(host.defaultHeightDp(p.info))
-        assertTrue("couldn't bind ${p.flat}", host.manager.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, options))
+        assertTrue("couldn't bind ${p.flat}", host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, options))
         host.place(id, p.info)
         return host.widgets.value.single { it.id == id }
     }
@@ -82,7 +82,7 @@ class TestWidgets {
      */
     fun bound(p: ProviderEntry): Int {
         val id = host.host.allocateAppWidgetId()
-        assertTrue("couldn't bind ${p.flat}", host.manager.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null))
+        assertTrue("couldn't bind ${p.flat}", host.manager!!.bindAppWidgetIdIfAllowed(id, p.user, p.info.provider, null))
         return id
     }
 

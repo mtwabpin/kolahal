@@ -343,7 +343,7 @@ internal object WidgetWords {
         }
         // A few fields may be styled ([WidgetParser.STYLED]). A screen reader hears their plain words.
         val said = StyledText.plain(parts.filterNot { it.isNullOrBlank() }.joinToString(", "))
-        // The note at the end of the title line ("Done today") is said after the title.
+        // The note on a large card's last line ("Done today") is said after the title.
         val heading = listOfNotNull(title?.takeIf { it.isNotBlank() }, spec.base.note).joinToString(", ")
         return if (heading.isEmpty()) said else "$heading: $said"
     }

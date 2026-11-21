@@ -152,7 +152,7 @@ internal fun cardText(text: String): AnnotatedString = remember(text, Term.palet
 
 /** One line in the middle of the body, for "Nothing to show" and the like. */
 @Composable
-internal fun QuietLine(text: String, small: Boolean = false) {
+internal fun QuietLine(text: String, small: Boolean = false) = SplitWhole {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text,
@@ -481,10 +481,12 @@ private fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
     val lead = spec.lead
     val look = LocalWidgetLook.current
     when {
-        lead == null && spec.items.isEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            // An empty large list says which list it is over its words ("All read"), as it does over its rows.
-            CardName()
-            Box(Modifier.weight(1f).fillMaxWidth()) { QuietLine(spec.empty ?: WidgetWords.NOTHING) }
+        lead == null && spec.items.isEmpty() && box == WidgetSizes.Box.LARGE -> SplitWhole {
+            Column(Modifier.fillMaxSize()) {
+                // An empty large list says which list it is over its words ("All read"), as it does over its rows.
+                CardName()
+                Box(Modifier.weight(1f).fillMaxWidth()) { QuietLine(spec.empty ?: WidgetWords.NOTHING) }
+            }
         }
         lead == null && spec.items.isEmpty() -> QuietLine(spec.empty ?: WidgetWords.NOTHING)
         look.untitled() -> RowsLook(spec, box, onTap, look)

@@ -569,6 +569,7 @@ private fun ArrangedPage(
                     if (chosenNow != null && handle != null) {
                         down.consume()
                         onResize(chosenNow.key)
+                        widgets.startResize()
                         try {
                             val minSpan = WidgetLayout.minSpan(chosenNow.source != null)
                             var last = chosenNow.span to chosenNow.heightDp
@@ -586,6 +587,7 @@ private fun ArrangedPage(
                                 }
                             }
                         } finally {
+                            widgets.endResize()
                             onResize(null)
                         }
                         return@awaitEachGesture
