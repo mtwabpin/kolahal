@@ -146,7 +146,7 @@ fun FeedsScreen(vm: TerminalViewModel) {
     /**
      * Marks [feed]'s unread items read and says so, "Marked 12 read" from the feed's page ([sheet]
      * false) or "Marked <feed> read" from its sheet, with Undo, which marks those same items unread
-     * again. Items read in another way since stay read.
+     * again, also any of them opened since.
      */
     fun markFeedRead(feed: FeedInfo, sheet: Boolean) {
         scope.launch {

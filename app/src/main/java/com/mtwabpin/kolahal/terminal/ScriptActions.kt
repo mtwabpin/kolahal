@@ -125,15 +125,16 @@ class ScriptActions(
 
     /**
      * Sets daily times from text like "08:00, 18:30", read the same way as `script at`.
-     * "off" or empty text clears the times. Returns false if a word is not a time.
+     * "off" or empty text clears the times. Returns false if a word is not a time. Without
+     * [switchOn] the times don't switch the script on.
      */
-    fun setScriptTimes(s: Script, raw: String): Boolean {
+    fun setScriptTimes(s: Script, raw: String, switchOn: Boolean = true): Boolean {
         val times = when (val read = CommandParsing.dailyTimes(CommandParsing.clockWords(listOf(raw)))) {
             null -> emptyList()
             is CommandParsing.DailyTimes.Bad -> return false
             is CommandParsing.DailyTimes.Times -> read.times
         }
-        change { changes.times(s, times) }
+        change { changes.times(s, times, switchOn) }
         return true
     }
 

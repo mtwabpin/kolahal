@@ -193,6 +193,8 @@ class WidgetActions internal constructor(
             args != null -> {
                 // The gate is by widget: the same button on two widgets of one script starts a run for each.
                 // A quick second tap waits for the first one's 2 seconds, then runs: it is meant (a counter's +).
+                // The log shows at the tap itself: a tap that waits must not turn home after you left the page.
+                if (tap.toLog) host.showLog()
                 taps.runOrWait("widget:$widget:$args") {
                     host.io {
                         val s = scripts.byName(script)
@@ -202,7 +204,6 @@ class WidgetActions internal constructor(
                             else -> ScriptScheduler.runNow(context, s, words(args), event(tap.label, ref.id))
                         }
                     }
-                    if (tap.toLog) host.showLog()
                 }
             }
             // No action on the card: a tap refreshes it.

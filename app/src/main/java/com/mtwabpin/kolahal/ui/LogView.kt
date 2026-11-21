@@ -268,7 +268,7 @@ fun LogLine(
                 }
                 .wrapContentHeight()
                 .padding(horizontal = 16.dp),
-            textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End,
+            textAlign = if (swiped > 0) androidx.compose.ui.text.style.TextAlign.Left else androidx.compose.ui.text.style.TextAlign.Right,
         )
     }
     // When a line is taller than its text (log.taller-taps), the text stays centred vertically.

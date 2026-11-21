@@ -161,7 +161,10 @@ internal object ScriptRun {
             host.flush()
             // What stopped the run is recorded where it happened: Lua's hook or a host call that waits
             // ([HostApi.stoppedBy]), or QuickJS's interrupt. The error's text is the script's own.
-            val stop = if (e is com.dokar.quickjs.QuickJsInterruptedException) RunStop.Timeout else host.stoppedBy
+            // A host call's timeout counts only when the error is still that one: a script that caught it
+            // and then failed otherwise ends in its own error.
+            val stop = if (e is com.dokar.quickjs.QuickJsInterruptedException) RunStop.Timeout
+            else host.stoppedBy?.takeUnless { it == RunStop.Timeout && !e.message.orEmpty().contains("script timed out") }
             val outcome = runOutcome(name, e, stop, repl, host::redact, errorLine = { errorLine(it, lang, name) })
             fail(outcome.line, if (outcome.extra.isEmpty()) errorCtx else errorCtx + outcome.extra)
             outcome.status

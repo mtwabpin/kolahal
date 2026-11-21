@@ -35,10 +35,13 @@ internal class ScriptChanges(private val context: Context) {
         return every
     }
 
-    /** Sets the script's daily times ("HH:mm", as [CommandParsing.dailyTimes] reads them). Like a timer, times switch the script on. */
-    fun times(s: Script, times: List<String>) {
+    /**
+     * Sets the script's daily times ("HH:mm", as [CommandParsing.dailyTimes] reads them). Like a timer,
+     * times switch the script on, unless [on] is false.
+     */
+    fun times(s: Script, times: List<String>, on: Boolean = true) {
         scripts.setAtTimes(s.id, times)
-        if (times.isNotEmpty()) switchOn(s)
+        if (on && times.isNotEmpty()) switchOn(s)
         sync(s)
     }
 
